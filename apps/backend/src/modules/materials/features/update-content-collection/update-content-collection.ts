@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
@@ -96,8 +100,16 @@ export function assembleUpdateContentCollection(
             where: { id: command.collectionId },
             select: { sourceId: true },
           });
-          if (currentSource !== null && currentSource.sourceId !== sourceId)
-            return rollback({ code: "forbidden" });
+          if (currentSource !== null) {
+            const sourceError = checkContentWrite(contentWriter(sourceId), [
+              {
+                kind: "product",
+                sourceId: currentSource.sourceId,
+                path: "/collectionId",
+              },
+            ]);
+            if (sourceError !== null) return rollback(sourceError);
+          }
         }
         if (command.source !== undefined && sourceId === null)
           return rollback({ code: "forbidden" });
@@ -106,7 +118,7 @@ export function assembleUpdateContentCollection(
           command.kind,
         );
         // An omitted introduction preserves the stored one, so renaming a Product
-        // from the collection list never clears text the editor owns.
+        // from the collection list never clears the stored text.
         const introduction = command.introduction ?? null;
         const updated = await persistence.updateMetadata({
           expectedVersion: command.expectedVersion,

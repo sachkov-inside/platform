@@ -345,6 +345,16 @@ export function productDetails(product, current) {
     slug: product.slug ?? current?.slug ?? product.sourceId,
     presentation: product.presentation ?? current?.presentation ?? "default",
     page,
+    ...(product.introduction === undefined
+      ? {}
+      : {
+          introduction: {
+            audience: product.introduction.audience.trim(),
+            outcome: product.introduction.outcome.trim(),
+            prerequisites: product.introduction.prerequisites.trim(),
+            scope: product.introduction.scope.trim(),
+          },
+        }),
   };
 }
 /**
@@ -356,6 +366,8 @@ export function productDetails(product, current) {
 export function productDetailsMatch(current, details) {
   // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
   return (
+    (details.introduction === undefined ||
+      canonical(current.introduction) === canonical(details.introduction)) &&
     current.pageRejected !== true &&
     current.name === details.name &&
     current.summary === details.summary &&
@@ -389,6 +401,9 @@ export async function validateProductPages(manifest, send) {
         path,
         await send(path, {
           sourceId: sourceKey(manifest, product.sourceId),
+          ...(details.introduction === undefined
+            ? {}
+            : { introduction: details.introduction }),
           source,
         }),
       );
@@ -1034,6 +1049,9 @@ export async function syncLocal(
             sourceId: key,
             collectionId: current.id,
             expectedVersion: current.version,
+            ...(details.introduction === undefined
+              ? {}
+              : { introduction: details.introduction }),
             name: details.name,
             summary: details.summary,
             source: {

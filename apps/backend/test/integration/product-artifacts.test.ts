@@ -575,18 +575,25 @@ describe("Product Artifacts", () => {
     const artifactId = created.ok ? created.value.outcomes[0]?.artifactId : "";
     expect(artifactId).toBeTruthy();
 
-    // A hand-edited title carries no new content version, so divergence has to
-    // follow the Platform revision instead.
-    const edited = await artifacts.update({
-      actor: owner,
-      artifactId: artifactId ?? "",
-      metadata: {
-        access: "free",
-        purpose: "Первая версия",
+    // Legacy manual changes can predate source ownership enforcement.
+    expect(
+      await artifacts.update({
+        actor: owner,
+        artifactId: artifactId ?? "",
+        metadata: {
+          access: "free",
+          purpose: "Первая версия",
+          title: "Новая правка",
+        },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    await db.prisma.productArtifact.update({
+      where: { id: artifactId ?? "" },
+      data: {
         title: "Название, поправленное вручную",
+        revision: { increment: 1 },
       },
     });
-    expect(edited).toMatchObject({ ok: true, value: { version: 1 } });
 
     const diverged = await artifacts.applyAuthoringImport({
       actor: owner,
@@ -602,16 +609,14 @@ describe("Product Artifacts", () => {
     });
     expect(untouched.title).toBe("Название, поправленное вручную");
 
-    // Archiving is an explicit Platform action, so a later import reports the
-    // record instead of resurrecting it or placing it in another product.
+    // An archived legacy artifact is reported instead of being resurrected.
     const otherProduct = randomUUID();
     await db.prisma.product.create({
       data: { id: otherProduct, name: "Archive product", slug: otherProduct },
     });
-    await artifacts.setArchived({
-      actor: owner,
-      archived: true,
-      artifactId: artifactId ?? "",
+    await db.prisma.productArtifact.update({
+      where: { id: artifactId ?? "" },
+      data: { state: "archived", archivedAt: new Date("2026-01-01T00:00:00Z") },
     });
     expect(
       await artifacts.applyAuthoringImport({
@@ -628,10 +633,9 @@ describe("Product Artifacts", () => {
         where: { productId: otherProduct },
       }),
     ).toBe(0);
-    await artifacts.setArchived({
-      actor: owner,
-      archived: false,
-      artifactId: artifactId ?? "",
+    await db.prisma.productArtifact.update({
+      where: { id: artifactId ?? "" },
+      data: { state: "active", archivedAt: null },
     });
 
     // An artifact absent from the package is reported, never archived.

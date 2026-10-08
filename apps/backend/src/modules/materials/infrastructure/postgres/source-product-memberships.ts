@@ -1,14 +1,14 @@
+import type { ContentWriteTarget } from "../../domain/content-write-policy.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
 import { lockMaterialSeries } from "./series-order.js";
 
 /** Call before relation replacement; unchanged placements retain their existing owner. */
-export async function canChangeProductMemberships(
+export async function loadChangedProductMemberships(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   selectedIds: readonly string[],
-  sourceId: string | null,
-): Promise<boolean> {
+): Promise<readonly ContentWriteTarget[]> {
   await lockMaterialSeries(transaction, materialId, selectedIds);
   const current = await transaction.productMembership.findMany({
     where: { materialId },
@@ -19,12 +19,16 @@ export async function canChangeProductMemberships(
   const changed = [...new Set([...before, ...after])].filter(
     (id) => before.has(id) !== after.has(id),
   );
-  if (changed.length === 0) return true;
+  if (changed.length === 0) return [];
   const products = await transaction.product.findMany({
     where: { id: { in: changed } },
-    select: { sourceId: true },
+    select: { id: true, sourceId: true },
   });
-  return products.every(
-    (product) => (product.sourceId === null) === (sourceId === null),
-  );
+  return products.map((product) => ({
+    kind: "membership",
+    sourceId: product.sourceId,
+    path: selectedIds.includes(product.id)
+      ? `/metadata/seriesIds/${String(selectedIds.indexOf(product.id))}`
+      : "/metadata/seriesIds",
+  }));
 }

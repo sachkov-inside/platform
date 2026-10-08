@@ -20,7 +20,7 @@ export const reserveSourceProductBodySchema = contentCollectionInputSchema
 // Адрес, оформление и страница приходят вместе с названием: пакет описывает Product целиком (ADR 0026).
 export const updateSourceProductBodySchema = z
   .object(updateContentCollectionCommandSchema.shape)
-  .omit({ actor: true, kind: true, introduction: true, source: true })
+  .omit({ actor: true, kind: true, source: true })
   .extend({
     sourceId,
     source: updateContentCollectionCommandSchema.shape.source.unwrap(),
@@ -34,6 +34,7 @@ export const reorderSourceProductBodySchema = z
 export const validateSourceProductBodySchema = z
   .object({
     sourceId,
+    introduction: updateContentCollectionCommandSchema.shape.introduction,
     source: updateContentCollectionCommandSchema.shape.source
       .unwrap()
       .partial({ slug: true }),

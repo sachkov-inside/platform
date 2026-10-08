@@ -1,3 +1,4 @@
+import { checkArtifactWrite } from "./artifact-write-ownership.js";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -69,7 +70,11 @@ export async function createProductArtifact(
     stored = file.value;
   }
   try {
-    await prisma.$transaction(async (transaction) => {
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(transaction, null, [
+        parsed.data.productId,
+      ]);
+      if (refusal !== null) return refusal;
       await transaction.productArtifact.create({
         data: {
           access: parsed.data.metadata.access,
@@ -96,7 +101,12 @@ export async function createProductArtifact(
       await transaction.productArtifactPlacement.create({
         data: { artifactId, productId: parsed.data.productId },
       });
+      return null;
     });
+    if (sourceError !== null) {
+      await context.files.discard(stored);
+      return failure(sourceError);
+    }
   } catch (error) {
     reportDependencyFailure(
       { module: "materials", operation: "create" },
@@ -123,7 +133,12 @@ export async function updateProductArtifact(
       where: { id: parsed.data.artifactId },
     });
     if (current === null) return failure({ code: "artifact_not_found" });
-    await prisma.$transaction(async (transaction) => {
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+      );
+      if (refusal !== null) return refusal;
       const nextVersion = await reopenVersionOnAccessChange(transaction, {
         actor: parsed.data.actor,
         artifactId: current.id,
@@ -136,15 +151,18 @@ export async function updateProductArtifact(
           access: parsed.data.metadata.access,
           currentVersion: nextVersion,
           purpose: parsed.data.metadata.purpose,
-          // Any editor change advances the revision, so a later import
-          // reports a hand-edited artifact instead of overwriting it.
+          // Revision records the accepted Platform metadata change.
           revision: { increment: 1 },
           title: parsed.data.metadata.title,
           updatedAt: new Date(),
         },
         where: { id: current.id },
       });
+      return null;
     });
+    if (sourceError !== null) {
+      return failure(sourceError);
+    }
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "update" },
@@ -191,7 +209,12 @@ export async function replaceProductArtifactContent(
   }
   const nextVersion = currentVersion + 1;
   try {
-    await prisma.$transaction(async (transaction) => {
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+      );
+      if (refusal !== null) return refusal;
       await transaction.productArtifactVersion.create({
         data: versionRow({
           actor: parsed.data.actor,
@@ -216,7 +239,12 @@ export async function replaceProductArtifactContent(
         },
         where: { id: parsed.data.artifactId },
       });
+      return null;
     });
+    if (sourceError !== null) {
+      await context.files.discard(stored);
+      return failure(sourceError);
+    }
   } catch (error) {
     reportDependencyFailure(
       { module: "materials", operation: "replaceContent" },
@@ -239,16 +267,26 @@ export async function setProductArtifactArchived(
   const forbidden = await context.authorize(parsed.data.actor);
   if (forbidden !== null) return failure(forbidden);
   try {
-    const changed = await prisma.productArtifact.updateMany({
-      data: {
-        archivedAt: parsed.data.archived ? new Date() : null,
-        revision: { increment: 1 },
-        state: parsed.data.archived ? "archived" : "active",
-        updatedAt: new Date(),
-      },
-      where: { id: parsed.data.artifactId },
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+      );
+      if (refusal !== null) return refusal;
+      const changed = await transaction.productArtifact.updateMany({
+        data: {
+          archivedAt: parsed.data.archived ? new Date() : null,
+          revision: { increment: 1 },
+          state: parsed.data.archived ? "archived" : "active",
+          updatedAt: new Date(),
+        },
+        where: { id: parsed.data.artifactId },
+      });
+      return changed.count === 0
+        ? { code: "artifact_not_found" as const }
+        : null;
     });
-    if (changed.count === 0) return failure({ code: "artifact_not_found" });
+    if (sourceError !== null) return failure(sourceError);
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "setArchived" },
@@ -282,7 +320,13 @@ export async function setProductArtifactProducts(
     if (known.length !== productIds.length) {
       return failure({ code: "product_not_found" });
     }
-    await prisma.$transaction(async (transaction) => {
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+        productIds,
+      );
+      if (refusal !== null) return refusal;
       await transaction.productArtifactPlacement.deleteMany({
         where:
           productIds.length === 0
@@ -303,7 +347,11 @@ export async function setProductArtifactProducts(
         data: { updatedAt: new Date() },
         where: { id: parsed.data.artifactId },
       });
+      return null;
     });
+    if (sourceError !== null) {
+      return failure(sourceError);
+    }
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "setProducts" },
@@ -337,7 +385,12 @@ export async function setProductArtifactMaterials(
     if (known.length !== materialIds.length) {
       return failure({ code: "material_not_found" });
     }
-    await prisma.$transaction(async (transaction) => {
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+      );
+      if (refusal !== null) return refusal;
       await transaction.productArtifactMaterialLink.deleteMany({
         where:
           materialIds.length === 0
@@ -358,7 +411,11 @@ export async function setProductArtifactMaterials(
         data: { updatedAt: new Date() },
         where: { id: parsed.data.artifactId },
       });
+      return null;
     });
+    if (sourceError !== null) {
+      return failure(sourceError);
+    }
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "setMaterials" },
@@ -379,20 +436,29 @@ export async function removeProductArtifact(
   const forbidden = await context.authorize(parsed.data.actor);
   if (forbidden !== null) return failure(forbidden);
   try {
-    const artifact = await prisma.productArtifact.findUnique({
-      include: { materialLinks: true, placements: true },
-      where: { id: parsed.data.artifactId },
-    });
-    if (artifact === null) return failure({ code: "artifact_not_found" });
-    if (artifact.placements.length > 0 || artifact.materialLinks.length > 0) {
-      return failure({
-        code: "artifact_referenced",
-        productIds: artifact.placements.map(({ productId }) => productId),
+    const sourceError = await prisma.$transaction(async (transaction) => {
+      const refusal = await checkArtifactWrite(
+        transaction,
+        parsed.data.artifactId,
+      );
+      if (refusal !== null) return refusal;
+      const artifact = await transaction.productArtifact.findUnique({
+        include: { materialLinks: true, placements: true },
+        where: { id: parsed.data.artifactId },
       });
-    }
-    await prisma.productArtifact.delete({
-      where: { id: parsed.data.artifactId },
+      if (artifact === null) return { code: "artifact_not_found" as const };
+      if (artifact.placements.length > 0 || artifact.materialLinks.length > 0) {
+        return {
+          code: "artifact_referenced" as const,
+          productIds: artifact.placements.map(({ productId }) => productId),
+        };
+      }
+      await transaction.productArtifact.delete({
+        where: { id: parsed.data.artifactId },
+      });
+      return null;
     });
+    if (sourceError !== null) return failure(sourceError);
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "remove" },

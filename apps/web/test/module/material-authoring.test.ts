@@ -441,6 +441,40 @@ describe("Material Authoring action workflow", () => {
     expect(formData.get("document")).toContain("Local full state");
   });
 
+  it("explains source ownership mismatches in Save", async () => {
+    const refused = {
+      ...successfulSaveDependencies(),
+      save: vi
+        .fn()
+        .mockResolvedValue({
+          ok: false,
+          problem: {
+            code: "invalid_reference",
+            issues: [
+              {
+                code: "material_source_mismatch",
+                path: "/metadata/seriesIds/0",
+              },
+            ],
+            status: 422,
+          },
+          response: Response.json({}, { status: 422 }),
+        }),
+    } satisfies SaveMaterialDependencies;
+    await expect(
+      executeSaveMaterial(validSaveFormData(), "access-token", refused),
+    ).resolves.toEqual({
+      kind: "invalid_input",
+      issues: [
+        {
+          path: "/metadata/seriesIds/0",
+          message:
+            "Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются в одном продукте. Уберите несовместимый материал или продукт из состава и сохраните изменения.",
+        },
+      ],
+    });
+  });
+
   it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
     const products = [
       { productId: seriesId, holders: 2, name: "Купленный продукт" },

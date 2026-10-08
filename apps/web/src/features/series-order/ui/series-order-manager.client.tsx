@@ -1,4 +1,6 @@
 "use client";
+
+import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 import type { ReactNode } from "react";
 
 import {
@@ -802,7 +804,7 @@ function actionMessage(
     const names = result.materialIds
       .map((materialId) => `«${titles.get(materialId) ?? "Без названия"}»`)
       .join(", ");
-    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются. Уберите материал из состава, и изменения сохранятся.`;
+    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. ${CONTENT_SOURCE_MISMATCH_MESSAGE}`;
   }
   if (result?.kind === "removal_confirmation_required") {
     return "Снятие материала из купленного продукта ждёт подтверждения.";

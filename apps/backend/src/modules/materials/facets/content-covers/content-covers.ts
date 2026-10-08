@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { materialId } from "../../domain/material-identifiers.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -299,8 +303,9 @@ async function changeCurrentCover(
     const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
     if (
       ownerSourceId !== undefined &&
-      ownerSourceId !== sourceId &&
-      (command.owner.kind === "material" || sourceId !== null)
+      checkContentWrite(contentWriter(sourceId), [
+        { kind: "cover", sourceId: ownerSourceId, path: "/owner" },
+      ]) !== null
     ) {
       if (nextCoverId !== null)
         await abandonCover(transaction, nextCoverId, "forbidden");

@@ -51,6 +51,16 @@ const productSchema = topicSchema.extend({
   archived: z.boolean().optional(),
   presentation: z.string().nullable().optional(),
   page: z.json().nullable().optional(),
+  introduction: z
+    .object({
+      audience: z.string(),
+      outcome: z.string(),
+      prerequisites: z.string(),
+      scope: z.string(),
+    })
+    .strict()
+    .nullable()
+    .optional(),
   pageRejected: z.boolean().optional(),
   sourceId: z.string().nullable().optional(),
 });

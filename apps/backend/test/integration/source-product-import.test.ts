@@ -106,7 +106,7 @@ describe("authoring source Product completion", () => {
     return product.value;
   }
 
-  test("keeps an imported Product out of ordinary archive and renames it through its source", async () => {
+  test("archives an imported Product through Platform and renames it through its source", async () => {
     const product = await reserveProduct(productSource, "product-import");
     const updated = await authoring.updateSourceProduct({
       actor,
@@ -140,6 +140,50 @@ describe("authoring source Product completion", () => {
         collectionId: product.id,
         expectedVersion: updated.value.version,
         archived: true,
+      }),
+    ).toMatchObject({ ok: true, value: { archived: true } });
+  });
+
+  test("imports introduction, preserves omitted fields and rejects editor replacements", async () => {
+    const sourceId = "inside-content:introduction";
+    const product = await reserveProduct(sourceId, "introduction");
+    const introduction = {
+      audience: "Инженерам",
+      outcome: "Проект",
+      prerequisites: "TypeScript",
+      scope: "Практика",
+    };
+    const request = {
+      actor,
+      sourceId,
+      collectionId: product.id,
+      expectedVersion: product.version,
+      name: product.name,
+      summary: product.summary,
+      source: { slug: product.slug, presentation: "default" as const, page: null },
+    };
+    const imported = await authoring.updateSourceProduct({
+      ...request,
+      introduction,
+    });
+    expect(imported).toMatchObject({ ok: true, value: { introduction } });
+    if (!imported.ok) throw new Error(imported.error.code);
+    expect(
+      await authoring.updateSourceProduct({
+        ...request,
+        expectedVersion: imported.value.version,
+        name: "Новое название",
+      }),
+    ).toMatchObject({ ok: true, value: { introduction } });
+    expect(
+      await authoring.updateContentCollection({
+        actor,
+        kind: "product",
+        collectionId: product.id,
+        expectedVersion: imported.value.version,
+        introduction,
+        name: product.name,
+        summary: product.summary,
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
@@ -494,6 +538,14 @@ describe("authoring source Product completion", () => {
       "cover-product",
     );
     expect(
+      await covers.change({
+        actor,
+        expectedCoverId: null,
+        kind: "remove",
+        owner: { id: product.id, kind: "series" },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
       await covers.changeImported(
         {
           actor,
@@ -528,6 +580,15 @@ describe("authoring source Product completion", () => {
       "inside-content:artifact-product",
       "artifact-product",
     );
+    expect(
+      await artifacts.create({
+        actor,
+        productId: product.id,
+        kind: "link",
+        externalUrl: "https://example.test/editor",
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     const body = Buffer.from("# Чек-лист\n");
     const file = {
       body,
@@ -543,6 +604,13 @@ describe("authoring source Product completion", () => {
       sourceId: "inside-content:checklist",
       title: "Чек-лист",
     };
+    expect(
+      await artifacts.applyAuthoringImport({
+        actor,
+        artifacts: [artifact],
+        productId: product.id,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
       await artifacts.applyAuthoringImport({
         actor,
@@ -566,6 +634,35 @@ describe("authoring source Product completion", () => {
         ],
       },
     });
+    const listed = await artifacts.listForProduct({
+      actor,
+      productId: product.id,
+    });
+    if (!listed.ok) throw new Error(listed.error.code);
+    const artifactId = listed.value[0]?.artifactId;
+    if (artifactId === undefined) throw new Error("Imported artifact missing");
+    const mutations = [
+      artifacts.update({
+        actor,
+        artifactId,
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+      artifacts.replaceContent({
+        actor,
+        artifactId,
+        kind: "link",
+        externalUrl: "https://example.test/editor",
+      }),
+      artifacts.setArchived({ actor, artifactId, archived: true }),
+      artifacts.setProducts({ actor, artifactId, productIds: [] }),
+      artifacts.setMaterials({ actor, artifactId, materialIds: [] }),
+      artifacts.remove({ actor, artifactId }),
+    ];
+    for (const mutation of mutations)
+      expect(await mutation).toMatchObject({
+        ok: false,
+        error: { code: "forbidden" },
+      });
     expect(
       await artifacts.applyAuthoringImport({
         actor,

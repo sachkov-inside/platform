@@ -1,4 +1,5 @@
 import "server-only";
+import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 
 import {
   MATERIAL_OUTCOMES,
@@ -250,6 +251,9 @@ function mapBackendIssue(issue: {
   readonly code: string;
   readonly path: string;
 }) {
+  if (issue.code === "material_source_mismatch") {
+    return { message: CONTENT_SOURCE_MISMATCH_MESSAGE, path: issue.path };
+  }
   if (issue.code === "outcomes_too_few") {
     return {
       message: `Оставьте «Чему научишься» пустым или напишите ${String(MATERIAL_OUTCOMES.minPublishedCount)}–${String(MATERIAL_OUTCOMES.maxCount)} пункта.`,

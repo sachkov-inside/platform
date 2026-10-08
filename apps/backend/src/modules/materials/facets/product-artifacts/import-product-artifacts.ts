@@ -1,3 +1,9 @@
+import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
+import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -86,17 +92,10 @@ async function loadImportCandidates(
   let placed: readonly ArtifactRow[];
   let namedBySource: readonly ArtifactRow[];
   try {
-    const product = await prisma.product.findUnique({
-      select: { id: true, sourceId: true },
-      where: { id: command.productId },
-    });
-    if (product === null) return failure({ code: "product_not_found" });
-    if (
-      command.productSourceId !== undefined &&
-      product.sourceId !== command.productSourceId
-    ) {
-      return failure({ code: "forbidden" });
-    }
+    const sourceError = await prisma.$transaction((transaction) =>
+      checkImportProductWrite(transaction, command),
+    );
+    if (sourceError !== null) return failure(sourceError);
     placed = await loadPlacedArtifacts(prisma, command.productId, {
       take: IMPORT_ARTIFACT_LIMIT,
     });
@@ -145,10 +144,18 @@ async function importSource(
       },
     };
   }
-  await context.prisma.productArtifactPlacement.createMany({
-    data: [{ artifactId: existing.id, productId: command.productId }],
-    skipDuplicates: true,
-  });
+  const placementError = await context.prisma.$transaction(
+    async (transaction) => {
+      const refusal = await checkImportProductWrite(transaction, command);
+      if (refusal !== null) return refusal;
+      await transaction.productArtifactPlacement.createMany({
+        data: [{ artifactId: existing.id, productId: command.productId }],
+        skipDuplicates: true,
+      });
+      return null;
+    },
+  );
+  if (placementError !== null) return failure(placementError);
   const current = readyVersion(existing);
   const sameContent =
     current !== null &&
@@ -189,37 +196,46 @@ async function createFromSource(
     stored = file.value;
   }
   try {
-    await context.prisma.$transaction(async (transaction) => {
-      await transaction.productArtifact.create({
-        data: {
-          access: source.access,
-          createdBy: command.actor,
-          currentVersion: 1,
-          id: artifactId,
-          importedAt: new Date(),
-          importedRevision: 1,
-          origin: "authoring",
-          purpose: source.purpose,
-          sourceId: source.sourceId,
-          state: "active",
-          title: source.title,
-        },
-      });
-      await transaction.productArtifactVersion.create({
-        data: versionRow({
-          actor: command.actor,
-          artifactId,
-          stored,
-          version: 1,
-          ...(source.externalUrl === undefined
-            ? {}
-            : { externalUrl: source.externalUrl }),
-        }),
-      });
-      await transaction.productArtifactPlacement.create({
-        data: { artifactId, productId: command.productId },
-      });
-    });
+    const sourceError = await context.prisma.$transaction(
+      async (transaction) => {
+        const refusal = await checkImportProductWrite(transaction, command);
+        if (refusal !== null) return refusal;
+        await transaction.productArtifact.create({
+          data: {
+            access: source.access,
+            createdBy: command.actor,
+            currentVersion: 1,
+            id: artifactId,
+            importedAt: new Date(),
+            importedRevision: 1,
+            origin: "authoring",
+            purpose: source.purpose,
+            sourceId: source.sourceId,
+            state: "active",
+            title: source.title,
+          },
+        });
+        await transaction.productArtifactVersion.create({
+          data: versionRow({
+            actor: command.actor,
+            artifactId,
+            stored,
+            version: 1,
+            ...(source.externalUrl === undefined
+              ? {}
+              : { externalUrl: source.externalUrl }),
+          }),
+        });
+        await transaction.productArtifactPlacement.create({
+          data: { artifactId, productId: command.productId },
+        });
+        return null;
+      },
+    );
+    if (sourceError !== null) {
+      await context.files.discard(stored);
+      return failure(sourceError);
+    }
   } catch (error) {
     reportDependencyFailure(
       { module: "materials", operation: "createFromSource" },
@@ -254,54 +270,63 @@ async function updateFromSource(
     stored = file.value;
   }
   try {
-    await context.prisma.$transaction(async (transaction) => {
-      let nextVersion: number;
-      if (sameContent) {
-        nextVersion = await reopenVersionOnAccessChange(transaction, {
-          actor: command.actor,
-          artifactId: existing.id,
-          currentAccess: existing.access,
-          currentVersion: existing.currentVersion,
-          nextAccess: source.access,
-        });
-      } else {
-        nextVersion = existing.currentVersion + 1;
-        await transaction.productArtifactVersion.create({
-          data: versionRow({
+    const sourceError = await context.prisma.$transaction(
+      async (transaction) => {
+        const refusal = await checkImportProductWrite(transaction, command);
+        if (refusal !== null) return refusal;
+        let nextVersion: number;
+        if (sameContent) {
+          nextVersion = await reopenVersionOnAccessChange(transaction, {
             actor: command.actor,
             artifactId: existing.id,
-            stored,
-            version: nextVersion,
-            ...(source.externalUrl === undefined
-              ? {}
-              : { externalUrl: source.externalUrl }),
-          }),
+            currentAccess: existing.access,
+            currentVersion: existing.currentVersion,
+            nextAccess: source.access,
+          });
+        } else {
+          nextVersion = existing.currentVersion + 1;
+          await transaction.productArtifactVersion.create({
+            data: versionRow({
+              actor: command.actor,
+              artifactId: existing.id,
+              stored,
+              version: nextVersion,
+              ...(source.externalUrl === undefined
+                ? {}
+                : { externalUrl: source.externalUrl }),
+            }),
+          });
+          await supersedeVersion(
+            transaction,
+            existing.id,
+            existing.currentVersion,
+          );
+        }
+        // The write only lands on the revision the import decided against.
+        // An editor change that arrives in between makes this a no-op, and
+        // the artifact is reported as diverged instead of overwritten.
+        const revision = existing.revision + 1;
+        const applied = await transaction.productArtifact.updateMany({
+          data: {
+            access: source.access,
+            currentVersion: nextVersion,
+            importedAt: new Date(),
+            importedRevision: revision,
+            purpose: source.purpose,
+            revision,
+            title: source.title,
+            updatedAt: new Date(),
+          },
+          where: { id: existing.id, revision: existing.revision },
         });
-        await supersedeVersion(
-          transaction,
-          existing.id,
-          existing.currentVersion,
-        );
-      }
-      // The write only lands on the revision the import decided against.
-      // An editor change that arrives in between makes this a no-op, and
-      // the artifact is reported as diverged instead of overwritten.
-      const revision = existing.revision + 1;
-      const applied = await transaction.productArtifact.updateMany({
-        data: {
-          access: source.access,
-          currentVersion: nextVersion,
-          importedAt: new Date(),
-          importedRevision: revision,
-          purpose: source.purpose,
-          revision,
-          title: source.title,
-          updatedAt: new Date(),
-        },
-        where: { id: existing.id, revision: existing.revision },
-      });
-      if (applied.count !== 1) throw new ConcurrentArtifactChange();
-    });
+        if (applied.count !== 1) throw new ConcurrentArtifactChange();
+        return null;
+      },
+    );
+    if (sourceError !== null) {
+      await context.files.discard(stored);
+      return failure(sourceError);
+    }
   } catch (error) {
     await context.files.discard(stored);
     if (error instanceof ConcurrentArtifactChange) {
@@ -346,4 +371,22 @@ function missingArtifacts(
       sourceId: existing.sourceId,
       title: existing.title,
     }));
+}
+
+async function checkImportProductWrite(
+  transaction: MaterialsPrismaTransaction,
+  command: AuthoringImportCommand,
+): Promise<{ readonly code: "forbidden" | "product_not_found" } | null> {
+  await lockSeries(transaction, [command.productId]);
+  const product = await transaction.product.findUnique({
+    where: { id: command.productId },
+    select: { sourceId: true },
+  });
+  if (product === null) return { code: "product_not_found" };
+  // Source-less legacy artifact imports remain compatible for Platform-owned Products only.
+  return checkContentWrite(contentWriter(command.productSourceId ?? null), [
+    { kind: "product", sourceId: product.sourceId, path: "/productId" },
+  ]) === null
+    ? null
+    : { code: "forbidden" };
 }
