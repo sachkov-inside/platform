@@ -1,2 +1,2 @@
-// Queue initial membership evidence atomically with linking; linking also consumes sign-in state.
+// Queue initial membership evidence atomically with identity recovery.
 export const referencedTables = ["membership_checks"];
