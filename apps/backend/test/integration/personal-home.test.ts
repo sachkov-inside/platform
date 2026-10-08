@@ -3,7 +3,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleMaterials,
   assembleMaterialResourceFacts,
@@ -104,7 +104,10 @@ describe("Personal Home on PostgreSQL", () => {
   afterAll(async () => {
     await database.dispose();
   });
-  function makeHome(videoPort = videos) {
+  function makeHome(
+    videoPort = videos,
+    overrides: Partial<ConstructorParameters<typeof PersonalHome>[0]> = {},
+  ) {
     return new PersonalHome({
       composition: new PublishedSeriesComposition(database.prisma),
       reader: materials.publishedMaterialReader,
@@ -113,6 +116,7 @@ describe("Personal Home on PostgreSQL", () => {
       selection: new PublishedMaterialSelection(database.prisma),
       contentAccess,
       videos: videoPort,
+      ...overrides,
     });
   }
   async function material(
@@ -679,6 +683,173 @@ describe("Personal Home on PostgreSQL", () => {
     expect(await home.getLearning(accountId)).toEqual({
       ok: true,
       value: { video: null, series: null },
+    });
+  });
+  test("series durations stay bounded as the corpus grows and include next beyond previews", async () => {
+    const accountId = randomUUID();
+    const collection = await series();
+    const entries = [];
+    const loadReadyDurations = vi.fn((ids: readonly string[]) =>
+      videos.loadReadyDurations(ids),
+    );
+    const observedHome = makeHome({ ...videos, loadReadyDurations });
+    for (const size of [6, 30]) {
+      while (entries.length < size)
+        entries.push(await material("free", true, [collection.id]));
+      loadReadyDurations.mockClear();
+      const result = await observedHome.getSeries(accountId, collection.slug);
+      expect(result).toMatchObject({
+        ok: true,
+        value: { total: size, read: 0, continuation: null },
+      });
+      expect(loadReadyDurations).toHaveBeenCalledExactlyOnceWith(
+        entries.slice(0, 3).map((entry) => entry.videoId),
+      );
+    }
+    const next = entries[4];
+    if (next?.videoId === undefined || next.videoId === null)
+      throw new Error("Missing next video");
+    await open(accountId, next);
+    await videos.saveProgress({
+      accountId,
+      videoId: next.videoId,
+      positionSeconds: 123,
+      durationSeconds: 600,
+    });
+    loadReadyDurations.mockClear();
+    const result = await observedHome.getSeries(accountId, collection.slug);
+    expect(loadReadyDurations).toHaveBeenCalledExactlyOnceWith([
+      ...entries.slice(0, 3).map((entry) => entry.videoId),
+      next.videoId,
+    ]);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        total: 30,
+        read: 0,
+        collection: {
+          previewItems: entries.slice(0, 3).map((entry) => ({
+            materialId: entry.materialId,
+            primaryVideoDurationSeconds: 600,
+          })),
+        },
+        continuation: { resume: { kind: "position", positionSeconds: 123 } },
+      },
+    });
+    await videos.saveProgress({
+      accountId,
+      videoId: next.videoId,
+      positionSeconds: 600,
+      durationSeconds: 600,
+    });
+    expect(
+      await observedHome.getSeries(accountId, collection.slug),
+    ).toMatchObject({
+      ok: true,
+      value: { continuation: { resume: { kind: "reached-end" } } },
+    });
+    for (const loadReadyDurations of [
+      () =>
+        Promise.resolve({
+          ok: false as const,
+          error: {
+            code: "dependency_unavailable" as const,
+            retryable: true as const,
+          },
+        }),
+      () => Promise.reject(new Error("durations offline")),
+    ]) {
+      const degraded = await makeHome({
+        ...videos,
+        loadReadyDurations,
+      }).getSeries(accountId, collection.slug);
+      expect(degraded).toMatchObject({
+        ok: true,
+        value: { total: 30, continuation: { resume: { kind: "start" } } },
+      });
+      if (!degraded.ok) throw new Error(degraded.error.code);
+      expect(
+        degraded.value.collection.previewItems.every(
+          (item) => item.primaryVideoDurationSeconds === undefined,
+        ),
+      ).toBe(true);
+    }
+  });
+  test("series keeps the discovery limit and rejects incomplete or failed mandatory dependencies", async () => {
+    const accountId = randomUUID();
+    const collection = await series();
+    await material("free", false, [collection.id]);
+    const discoverProjections = vi.fn(
+      async (
+        query: Parameters<
+          typeof materials.publishedMaterialReader.discoverProjections
+        >[0],
+      ) => {
+        const result =
+          await materials.publishedMaterialReader.discoverProjections(query);
+        return result.ok
+          ? { ...result, value: { ...result.value, hasNext: true } }
+          : result;
+      },
+    );
+    expect(
+      await makeHome(videos, { reader: { discoverProjections } }).getSeries(
+        accountId,
+        collection.slug,
+      ),
+    ).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
+    expect(discoverProjections).toHaveBeenCalledExactlyOnceWith({
+      kind: "series",
+      slug: collection.slug,
+      first: 10_000,
+      subject: { kind: "account", accountId },
+    });
+    for (const overrides of [
+      {
+        reader: {
+          discoverProjections: () =>
+            Promise.resolve({
+              ok: false as const,
+              error: {
+                code: "dependency_unavailable" as const,
+                retryable: true as const,
+              },
+            }),
+        },
+      },
+      {
+        composition: {
+          read: () =>
+            Promise.resolve({
+              ok: false as const,
+              error: {
+                code: "dependency_unavailable" as const,
+                retryable: true as const,
+              },
+            }),
+        },
+      },
+      {
+        contentAccess: {
+          ...contentAccess,
+          checkAvailabilityMany: () =>
+            Promise.resolve({
+              ok: false as const,
+              error: {
+                code: "batch_too_large" as const,
+                retryable: true as const,
+              },
+            }),
+        },
+      },
+    ]) {
+      expect(
+        await makeHome(videos, overrides).getSeries(accountId, collection.slug),
+      ).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
+    }
+    expect(await home.getSeries(accountId, "absent-series")).toEqual({
+      ok: false,
+      error: { code: "series_not_found" },
     });
   });
   test("series continuation follows reorder and publication while counting all published manual marks", async () => {
