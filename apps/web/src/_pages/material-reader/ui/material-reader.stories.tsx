@@ -675,6 +675,43 @@ export const Mobile: Story = {
   },
 };
 
+/** Replays an initial visible entry queued together with the first scroll-out entry. */
+export const MobileBatchedIntersection: Story = {
+  ...Mobile,
+  name: "Mobile · batched intersections",
+  beforeEach: () => {
+    const NativeObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class extends NativeObserver {
+      constructor(
+        callback: IntersectionObserverCallback,
+        options?: IntersectionObserverInit,
+      ) {
+        let delivered = false;
+        let pending: IntersectionObserverEntry[] = [];
+        super((entries, observer) => {
+          if (
+            delivered ||
+            !entries.some((entry) =>
+              entry.target.hasAttribute("data-reader-return"),
+            )
+          ) {
+            callback(entries, observer);
+            return;
+          }
+          pending.push(...entries);
+          if (!entries.some((entry) => !entry.isIntersecting)) return;
+          delivered = true;
+          callback(pending, observer);
+          pending = [];
+        }, options);
+      }
+    };
+    return () => {
+      window.IntersectionObserver = NativeObserver;
+    };
+  },
+};
+
 export const Desktop: Story = {
   args: { primaryVideo: readyVideo },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
