@@ -157,7 +157,7 @@ export class BackgroundWorkers
         BACKGROUND,
         async (signal) =>
           (await this.funnels.processAvailable(25, signal)) > 0 ||
-          (await this.turnPending("general")),
+          (!signal.aborted && (await this.turnPending("general"))),
       );
     }
 
