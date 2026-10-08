@@ -21,7 +21,7 @@ names its seam and the stages run in parallel:
 | Job | Repository command or proof |
 |---|---|
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
-| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests |
+| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
@@ -54,6 +54,28 @@ smoke; production deployment commands and access-pass requests keep their existi
 `CI Gate` depends on every job and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name; individual job names may evolve without changing the
 branch-protection interface.
+
+### Local contract tests
+
+`pnpm check:contracts` owns local process and adapter contracts, separately from unit/module
+selection. The existing `unit` CI job runs this command after its unit checks; `pnpm check`
+therefore retains all migrated checks. The contracts call owned loopback responders, local
+subprocesses and temporary filesystems, without live providers or production credentials.
+
+| Selection | Contract |
+|---|---|
+| Root `pnpm test:contracts` | Release/deploy shell and CLI contracts in `scripts/contracts/*.test.mjs` |
+| Backend `pnpm --filter @inside/backend test:contracts` | Worker startup, bank-double ledger/process/HTTP and SMTP in `test/contracts`; the command builds once before Vitest and launches compiled entrypoints |
+| Web `pnpm --filter @inside/web test:contracts` | Run-scoped Vite cache lifecycle in the `contracts` project |
+| Telegram `pnpm --filter @inside/telegram test:contracts` | Delivery, release workflows, deploy gateway and production smoke shell contracts in `test/contracts` |
+
+These commands use the shared heavy-check slots. Backend unit selection excludes `test/contracts`.
+Telegram unit selection includes only `test/unit` and `test/architecture`; Web module selection
+includes only `test/module`. Telegram `check:full` also retains its contract selection.
+The timer-only process-failure checks and
+in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands run through the external owned CLI with a 30-second default deadline;
+the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
+Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
 ## Merge queue
 
@@ -275,8 +297,8 @@ after a failed sample; Playwright and Vitest retries are explicitly zero. A fail
 the matrix job red even when the next four pass. This is detection, not recovery of a failed gate.
 
 The matrix covers Web E2E and navigation on one production build, Storybook, browser-engines,
-both backend integration projects, and the unit commands from `check:unit`: backend, Web module,
-Telegram, legal, access-capabilities, Node tooling, authoring and practice-review. It does not repeat
+both backend integration projects, and the unit and local contract commands from `check:unit`: backend, Web module,
+Telegram, legal, access-capabilities, Node tooling, authoring, practice-review, backend/Web contracts and release/deploy shell contracts. It does not repeat
 build/static checks, live production probes, or the separate nightly full-stack smoke.
 
 Each matrix job uploads `flake-<suite>-<run_attempt>` for seven days, including successful samples.
@@ -293,7 +315,8 @@ When parameterized cases have identical full names, the report keeps the full na
 case index within that file/name group. Vitest JSON retains declaration order; Node observations
 are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
 or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
-The unit inventory comes from the workspace package manifests and root Node test scripts,
+The unit-job inventory comes from the workspace package manifests, root Node test scripts and
+the `check:contracts` aggregate,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.
 
 Only the reporting job has `issues: write`. It runs exclusively for schedule/manual runs on `main`,
@@ -400,9 +423,9 @@ mapping, job dependencies and artifact retention from configuration drift, for b
 workflow and the nightly full-stack workflow.
 
 The release, deployment and manifest policies have executable contracts in
-`scripts/release-workflow-contract.test.mjs`, `scripts/deployment-workflow-contract.test.mjs`,
-`scripts/release-image-contract.test.mjs`, `scripts/release-contract.test.mjs`,
-`scripts/release-rollback-proof.test.mjs` and the production deployment tests. Fixtures cover
+`scripts/release-workflow-contract.test.mjs`, `scripts/contracts/deployment-workflow-contract.test.mjs`,
+`scripts/contracts/release-image-contract.test.mjs`, `scripts/contracts/release-contract.test.mjs`,
+`scripts/contracts/release-rollback-proof.test.mjs` and the production deployment tests. Fixtures cover
 next/duplicate/stale ordinals,
 bare/mutable/discontinuous retained history and mismatched image results. The workflow contract
 checks the least-privilege boundary against both the release workflow and one over-privileged

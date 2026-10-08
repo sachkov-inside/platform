@@ -7,7 +7,10 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 describe("release contract CLI", () => {
   it("returns the exact backend image reference only for the captured source", () => {
@@ -196,6 +199,7 @@ function runReleaseContract(command, inputPath) {
     ["scripts/release-contract.mjs", command, "--input", inputPath],
     {
       cwd: repositoryRoot,
+      timeout: 30_000,
       encoding: "utf8",
     },
   );
@@ -211,6 +215,7 @@ function runReleaseContractWithInput(command, input) {
     ["scripts/release-contract.mjs", command, "--input", "-"],
     {
       cwd: repositoryRoot,
+      timeout: 30_000,
       encoding: "utf8",
       input: JSON.stringify(input),
     },
@@ -233,6 +238,7 @@ function runImageReference(input) {
     ],
     {
       cwd: repositoryRoot,
+      timeout: 30_000,
       encoding: "utf8",
       input: JSON.stringify(input),
     },

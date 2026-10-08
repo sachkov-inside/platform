@@ -1,7 +1,8 @@
 // @ts-check
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец входит по коду из письма и покупает, не переключая окружения.
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -115,6 +116,7 @@ try {
     throw error;
   }
 } finally {
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
   await releaseStandLock();
 }
 
@@ -144,7 +146,7 @@ async function isComposeRunning() {
 }
 
 /**
- * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string> }} RunOptions
+ * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string>; cleanup?: boolean }} RunOptions
  */
 
 /**
@@ -175,24 +177,18 @@ function runPnpm(arguments_, extraEnvironment = {}) {
 async function run(
   command,
   arguments_,
-  { capture = false, extraEnvironment = {} } = {},
+  { capture = false, extraEnvironment = {}, cleanup = false } = {},
 ) {
   const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  const child = spawn(command, arguments_, {
+  if (interruptedSignal !== undefined && !cleanup)
+    throw new Error("Local session interrupted");
+  const child = spawnOwned(command, arguments_, {
     cwd: repositoryRoot,
     env: { ...environment, ...extraEnvironment },
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    ...(cleanup ? { timeout: 60_000 } : {}),
   });
   activeProcesses.add(child);
-  // Несостоявшийся запуск процесса — такая же неудача команды, как ненулевой код возврата, и
-  // сообщать о нём надо тем же текстом.
-  /** @type {Promise<never>} */
-  const failedToStart = new Promise((_, rejectStart) => {
-    child.once("error", (error) => {
-      rejectStart(new Error(`${label} failed to start`, { cause: error }));
-    });
-  });
   let output = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
@@ -203,15 +199,12 @@ async function run(
     });
   }
   try {
-    /** @type {Promise<number | null>} */
-    const exited = new Promise((resolveExit) => {
-      child.once("exit", (code) => resolveExit(code));
-    });
-    const exitCode = await Promise.race([exited, failedToStart]);
+    const exitCode = await commandExit(child);
     if (exitCode !== 0) {
       throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
     }
   } finally {
+    await stopOwned(child);
     activeProcesses.delete(child);
   }
   return { output };
@@ -219,33 +212,19 @@ async function run(
 
 function shutdown() {
   shutdownPromise ??= (async () => {
-    await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
+    await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
     if (shouldCleanupCompose) {
       shouldCleanupCompose = false;
       // Недоведённый стенд не оставляем поднятым: следующий запуск должен начинать с чистого места.
-      await compose(["down"]).catch(() => undefined);
+      await compose(["down"], { cleanup: true }).catch(() => undefined);
     }
   })();
   return shutdownPromise;
 }
 
-/** @param {import("node:child_process").ChildProcess} child */
-async function stopProcess(child) {
-  if (child.pid === undefined || child.exitCode !== null) {
-    return;
-  }
-  child.kill("SIGTERM");
-  await Promise.race([
-    new Promise((resolveExit) => child.once("exit", resolveExit)),
-    new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    child.kill("SIGKILL");
-  }
-}
-
 /** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
   await shutdown();
 }

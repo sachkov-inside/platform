@@ -1,15 +1,21 @@
 import { once } from "node:events";
-// deterministic-test-allow unit-io: SMTP adapter contract uses an owned ephemeral loopback responder; suite separation is tracked in #1154.
-import { createServer, type Server } from "node:net";
+import { createServer, type Server, type Socket } from "node:net";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, onTestFinished, test } from "vitest";
 
 import { assembleSmtpTransport } from "../../src/infrastructure/smtp/smtp-transport.js";
 
 // A minimal plain SMTP responder on loopback: it accepts one message and keeps its raw data.
-function smtpResponder(): { server: Server; messages: string[] } {
+function smtpResponder(): {
+  server: Server;
+  messages: string[];
+  sockets: Set<Socket>;
+} {
   const messages: string[] = [];
+  const sockets = new Set<Socket>();
   const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
     let data: string | undefined;
     let buffer = "";
     socket.write("220 localhost ESMTP\r\n");
@@ -37,18 +43,23 @@ function smtpResponder(): { server: Server; messages: string[] } {
       }
     });
   });
-  return { messages, server };
+  return { messages, server, sockets };
 }
 
 describe("SMTP transport", () => {
-  let server: Server | undefined;
-  afterEach(() => {
-    server?.close();
-  });
-
   test("sends one message with a Message-ID in the sender's domain", async () => {
     const responder = smtpResponder();
-    server = responder.server;
+    const { server, sockets } = responder;
+    onTestFinished(async () => {
+      for (const socket of sockets) socket.destroy();
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) =>
+            error === undefined ? resolve() : reject(error),
+          );
+        });
+      }
+    });
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address();

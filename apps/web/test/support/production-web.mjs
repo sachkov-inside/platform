@@ -8,8 +8,7 @@
  * прогона и убирается при выходе; чужой файл не заменяется. `PRODUCTION_WEB_SKIP_BUILD=1`
  * запускает уже готовую сборку: так проверки одного прогона делят одну сборку.
  */
-import { signalProcessGroup } from "../../../../scripts/process-group-signal.mjs";
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -61,16 +60,17 @@ function required(name) {
 /** @type {import("node:child_process").ChildProcess | undefined} */
 let child;
 function cleanup() {
-  if (child?.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
   rmSync(identityPath, { force: true });
 }
+/** @type {NodeJS.Signals | undefined} */
+let interrupted;
 /** @type {NodeJS.Signals[]} */
 const signals = ["SIGINT", "SIGTERM"];
 for (const signal of signals) {
   process.once(signal, () => {
-    if (child?.pid !== undefined) signalProcessGroup(child.pid, signal);
-    cleanup();
-    process.exit(signal === "SIGINT" ? 130 : 143);
+    interrupted = signal;
+    process.exitCode = signal === "SIGINT" ? 130 : 143;
+    if (child !== undefined) void stopOwned(child);
   });
 }
 process.once("exit", cleanup);
@@ -81,23 +81,24 @@ process.once("exit", cleanup);
  */
 function run(args) {
   return new Promise((resolveRun, reject) => {
-    // Signal/exit handlers cannot run after launcher SIGKILL; standalone supervision is tracked in #1154.
-    // pnpm 11 exec starts another process group; own Next directly so group cleanup reaches it.
-    // deterministic-test-allow process-cleanup: cleanup kills the owned detached group on exit, SIGINT and SIGTERM.
-    child = spawn(process.execPath, [nextCli, ...args], {
-      detached: true,
+    child = spawnOwned(process.execPath, [nextCli, ...args], {
       cwd: applicationDirectory,
       env: environment,
       stdio: "inherit",
     });
     child.once("error", reject);
     child.once("exit", (code) => {
-      if (child?.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
-      if (code === 0) resolveRun();
+      if (code === 0 || interrupted !== undefined) resolveRun();
       else reject(new Error(`next ${args[0]} exited with ${String(code)}`));
     });
   });
 }
 
-if (process.env["PRODUCTION_WEB_SKIP_BUILD"] !== "1") await run(["build"]);
-await run(["start", "--hostname", "127.0.0.1", "--port", port]);
+try {
+  if (process.env["PRODUCTION_WEB_SKIP_BUILD"] !== "1") await run(["build"]);
+  if (interrupted === undefined)
+    await run(["start", "--hostname", "127.0.0.1", "--port", port]);
+} finally {
+  if (child !== undefined) await stopOwned(child);
+  cleanup();
+}

@@ -45,7 +45,7 @@ PostgreSQL, а потребители простаивают. Quorum-очере�
 
 Owning module: Notifications (транспорт) и production runtime. Fitness —
 `scripts/production-runtime-contract.test.mjs` (брокер закреплён по digest, без портов, только AMQPS,
-с отрицательными случаями), `scripts/production-deployment.test.mjs` (брокер скачивается и поднимается
+с отрицательными случаями), `scripts/contracts/production-deployment.test.mjs` (брокер скачивается и поднимается
 до потребителей, воркеры дренируются без него), `apps/backend/test/unit/notification-broker-definitions.test.ts` и
 `pnpm compose:production:smoke` (импорт principals и очередей, проверенный TLS, закрытый AMQP).
 Процедура — [production release](../runbooks/production-release.md#broker).

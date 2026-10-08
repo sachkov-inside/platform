@@ -404,12 +404,12 @@ readiness. A before/after database digest
 proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash
-node --test \
-  scripts/deployment-workflow-contract.test.mjs \
-  scripts/inside-deploy-gateway.test.mjs \
-  scripts/production-deployment.test.mjs \
-  scripts/production-runtime-bundle.test.mjs \
-  scripts/release-rollback-proof.test.mjs
+bash scripts/heavy-check.sh node --test \
+  scripts/contracts/deployment-workflow-contract.test.mjs \
+  scripts/contracts/inside-deploy-gateway.test.mjs \
+  scripts/contracts/production-deployment.test.mjs \
+  scripts/contracts/production-runtime-bundle.test.mjs \
+  scripts/contracts/release-rollback-proof.test.mjs
 pnpm compose:production:smoke
 ```
 
