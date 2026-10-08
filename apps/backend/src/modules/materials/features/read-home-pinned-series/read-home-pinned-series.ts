@@ -27,29 +27,7 @@ export async function readHomePinnedSeries(
   prisma: MaterialsPrisma,
 ): ReturnType<ReadHomePinnedSeriesOperation> {
   try {
-    const pin = await prisma.homeSeriesPin.findUniqueOrThrow({
-      where: { id: 1 },
-      select: { seriesId: true },
-    });
-    if (pin.seriesId === null) return { ok: true, value: null };
-    const product = await prisma.product.findUnique({
-      where: { id: pin.seriesId },
-      select: { page: true, presentation: true, slug: true },
-    });
-    if (product === null) return { ok: true, value: null };
-    const page = readProductPage(
-      product.page,
-      `Home pinned Product ${product.slug}`,
-    );
-    return {
-      ok: true,
-      value: {
-        id: pin.seriesId,
-        presentation: product.presentation,
-        card: page?.card ?? null,
-        hero: productPageHero(page),
-      },
-    };
+    return { ok: true, value: await loadHomePinnedSeries(prisma) };
   } catch (error) {
     return {
       ok: false,
@@ -60,4 +38,30 @@ export async function readHomePinnedSeries(
       ),
     };
   }
+}
+
+/** Shared persistence read; each public operation records its own dependency failure. */
+export async function loadHomePinnedSeries(
+  prisma: MaterialsPrisma,
+): Promise<HomePinnedSeries | null> {
+  const pin = await prisma.homeSeriesPin.findUniqueOrThrow({
+    where: { id: 1 },
+    select: { seriesId: true },
+  });
+  if (pin.seriesId === null) return null;
+  const product = await prisma.product.findUnique({
+    where: { id: pin.seriesId },
+    select: { page: true, presentation: true, slug: true },
+  });
+  if (product === null) return null;
+  const page = readProductPage(
+    product.page,
+    `Home pinned Product ${product.slug}`,
+  );
+  return {
+    id: pin.seriesId,
+    presentation: product.presentation,
+    card: page?.card ?? null,
+    hero: productPageHero(page),
+  };
 }
