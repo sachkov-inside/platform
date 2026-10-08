@@ -279,10 +279,10 @@ test("EXIT cleanup leaves no background load on success, failure or SIGTERM", as
       stdout += chunk;
     });
     try {
-      const [status] = await once(child, "close", {
+      await once(child, "close", {
         signal: AbortSignal.timeout(5_000),
       });
-      assert.equal(status, code);
+      assert.equal(child.exitCode, code);
       const pid = Number(stdout.trim());
       assert.ok(Number.isInteger(pid) && pid > 0, stdout);
       assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
