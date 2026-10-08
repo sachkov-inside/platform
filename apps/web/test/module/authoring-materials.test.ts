@@ -10,6 +10,10 @@ import {
   executeTransitionMaterialPublication,
 } from "@/features/material-lifecycle.operations.server";
 import {
+  authoringMaterialPreviewHref,
+  authoringProductEditorHref,
+  authoringReturnActionLabel,
+  authoringReturnLabel,
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
@@ -59,6 +63,47 @@ describe("Authoring Materials server adapter", () => {
       ),
     ).toBe(
       `/authoring/materials/${materialId}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Dunpublished%26page%3D2`,
+    );
+  });
+
+  it("returns from a Preview to the product editor that opened it", () => {
+    const productId = "96000000-0000-4000-8000-000000000010";
+    const editorHref = authoringProductEditorHref(productId);
+    expect(editorHref).toBe(`/authoring/products/${productId}`);
+    expect(parseAuthoringReturnHref(editorHref)).toBe(editorHref);
+    expect(authoringReturnLabel(editorHref)).toBe("К продукту");
+    expect(authoringReturnLabel("/authoring/materials?page=2")).toBe(
+      "К материалам",
+    );
+    for (const rejected of [
+      "/authoring/products",
+      "/authoring/products/not-a-product",
+      `/authoring/products/${productId}/preview`,
+      `/authoring/products/${productId}?tab=order`,
+      `https://attacker.example/authoring/products/${productId}`,
+    ]) {
+      expect(parseAuthoringReturnHref(rejected)).toBe("/authoring/materials");
+    }
+    const previewHref = authoringMaterialPreviewHref(
+      materialId,
+      editorHref,
+      productId,
+    );
+    const preview = new URL(previewHref, "https://inside.local");
+    expect(parseAuthoringReturnHref(preview.searchParams.get("from"))).toBe(
+      editorHref,
+    );
+    expect(preview.searchParams.get("product")).toBe(productId);
+    // Предпросмотр → редактор → предпросмотр не теряет продукт: он записан в адресе возврата.
+    expect(
+      new URL(
+        authoringMaterialPreviewHref(materialId, editorHref),
+        "https://inside.local",
+      ).searchParams.get("product"),
+    ).toBe(productId);
+    expect(authoringReturnActionLabel(editorHref)).toBe("Вернуться к продукту");
+    expect(authoringReturnActionLabel("/authoring/materials")).toBe(
+      "Вернуться к материалам",
     );
   });
 

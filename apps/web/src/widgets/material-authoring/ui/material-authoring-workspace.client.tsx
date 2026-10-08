@@ -34,7 +34,12 @@ function MaterialAuthoringWorkspaceView({
   if (presentation.authorization.kind === "unauthorized") {
     return (
       <MaterialAuthoringUnauthorizedState
-        action={<MaterialAuthoringSignInActions onBack={actions.onBack} />}
+        action={
+          <MaterialAuthoringSignInActions
+            backLabel={presentation.backLabel}
+            onBack={actions.onBack}
+          />
+        }
         context="editor"
       />
     );

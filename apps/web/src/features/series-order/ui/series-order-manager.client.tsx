@@ -24,6 +24,7 @@ import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-co
 import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -49,6 +50,7 @@ import {
 } from "../model/presentation";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
 import { presentText } from "@/shared/lib/text";
+import { MaterialPreviewLink } from "./material-preview-link";
 
 const STEP_GROUP_LIMIT = 120;
 const UNASSIGNED = "unassigned";
@@ -505,6 +507,7 @@ export function SeriesOrderManager({
                       ? null
                       : chapters.indexOf(section.chapter) + 1
                   }
+                  productId={presentation.seriesId}
                   total={items.length}
                 />
               ))}
@@ -562,7 +565,7 @@ function OrderFeedback({
           <input
             name="returnTo"
             type="hidden"
-            value={`/authoring/products/${seriesId}`}
+            value={authoringProductEditorHref(seriesId)}
           />
           <Button size="sm" type="submit">
             Войти
@@ -842,6 +845,7 @@ interface ChapterSectionProps {
   }[];
   readonly grouped: boolean;
   readonly number: number | null;
+  readonly productId: string;
   readonly total: number;
 }
 
@@ -855,6 +859,7 @@ function ChapterSection({
   entries,
   grouped,
   number,
+  productId,
   total,
 }: ChapterSectionProps) {
   const index = (number ?? 1) - 1;
@@ -867,6 +872,7 @@ function ChapterSection({
         dragState={dragState}
         entries={entries}
         label="Материалы продукта"
+        productId={productId}
         total={total}
       />
     );
@@ -907,6 +913,13 @@ function ChapterSection({
               />
             </label>
             <div className="flex shrink-0 gap-0.5">
+              {entries[0] === undefined ? null : (
+                <MaterialPreviewLink
+                  label={`Предпросмотр главы «${chapter.name}»`}
+                  materialId={entries[0].item.materialId}
+                  productId={productId}
+                />
+              )}
               <Button
                 aria-label={`Поднять главу «${chapter.name}»`}
                 className="size-10"
@@ -991,6 +1004,7 @@ function ChapterSection({
               ? "Материалы вне глав"
               : `Материалы главы «${chapter.name}»`
           }
+          productId={productId}
           total={total}
         />
       )}
@@ -1005,6 +1019,7 @@ function MaterialList({
   dragState,
   entries,
   label,
+  productId,
   total,
 }: {
   readonly actions: CompositionActions;
@@ -1016,6 +1031,7 @@ function MaterialList({
     readonly position: number;
   }[];
   readonly label: string;
+  readonly productId: string;
   readonly total: number;
 }) {
   return (
@@ -1031,6 +1047,7 @@ function MaterialList({
           key={item.materialId}
           last={index === entries.length - 1}
           position={position}
+          productId={productId}
           total={total}
         />
       ))}
@@ -1047,6 +1064,7 @@ function MaterialRow({
   item,
   last,
   position,
+  productId,
   total,
 }: {
   readonly actions: CompositionActions;
@@ -1057,6 +1075,7 @@ function MaterialRow({
   readonly item: SeriesOrderItemPresentation;
   readonly last: boolean;
   readonly position: number;
+  readonly productId: string;
   readonly total: number;
 }) {
   const { draggedId, dropId, setDraggedId, setDropId } = dragState;
@@ -1180,6 +1199,11 @@ function MaterialRow({
           </details>
         </div>
         <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
+          <MaterialPreviewLink
+            label={`Предпросмотр «${item.title}»`}
+            materialId={item.materialId}
+            productId={productId}
+          />
           <Button
             aria-label={`Поднять «${item.title}»`}
             className="size-10"

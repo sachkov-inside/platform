@@ -196,6 +196,18 @@ export const Imported: Story = {
         canvas.getByRole("navigation", { name: "Навигация продукта" }),
       ).queryByRole("button", { name: "В архив" }),
     ).toBeNull();
+    // Предпросмотр только читает сохранённое, поэтому он есть и у продукта из источника (#837).
+    await expect(
+      canvas.getByRole("link", { name: "Предпросмотр главы «Сборка»" }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining(
+        `from=${encodeURIComponent(`/authoring/products/${importedCollection.id}`)}`,
+      ),
+    );
+    await expect(
+      canvas.getByRole("link", { name: "Предпросмотр «Проверка релиза»" }),
+    ).toBeVisible();
     for (const name of [
       "Добавить главу",
       "Добавить материал",
