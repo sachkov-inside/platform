@@ -453,6 +453,17 @@ The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` 
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
 
+Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
+the run. Storybook loads two large modules lazily: the React renderer imports
+`@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`
+imports `axe-core` (4 MB) on the first accessibility check. The setup file
+`apps/web/test/support/storybook-preload.ts` loads both before the tests of each file, so the
+15-second budget of a story measures the story itself. Without it, the first story of a file paid
+for that load. When parallel heavy checks slowed the Vite server, the load alone took several
+seconds, and first stories exceeded the budget (#1095, #1128). The pinned versions of `axe-core` and
+`@storybook/react-dom-shim` in `apps/web/package.json` must match the versions that `addon-a11y` and
+Storybook use; update them together.
+
 The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
 process disables `ipcOutput` buffering: live listeners already consume every message, while the
 buffer kept all successive full test-state snapshots until Vitest exited. A full MCP `test-run`
