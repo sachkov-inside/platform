@@ -239,7 +239,13 @@ describe("community entitlement inbox", () => {
       access: { kind: "finite", validUntil: "2030-02-01t00:00:00z" },
     });
     expect(parseCommunityRequest(grant).kind).toBe("set");
-    await seedCommunityBinding(db, grant.binding, clock.now(), who.user, who.bot);
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
     const app = provider(who);
     expect(resultOf(await app.handle(grant)).access).toEqual(grant.access);
     await app.processDueEffects();
