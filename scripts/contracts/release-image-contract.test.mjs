@@ -55,12 +55,17 @@ describe("release image contract", () => {
       /--filter @inside\/telegram deploy --prod --ignore-scripts/u,
     );
     assert.match(dockerfile, /pnpm --config\.inject-workspace-packages=true/u);
-    assert.match(dockerfile, /deploy.*--offline --frozen-lockfile/u);
+    assert.match(dockerfile, /deploy.*--frozen-lockfile/u);
+    assert.doesNotMatch(dockerfile, /deploy.*--offline/u);
     assert.match(
       dockerfile,
       /COPY --from=build.*\/workspace\/apps\/telegram\/dist \.\/dist/u,
     );
     assert.doesNotMatch(dockerfile, /pnpm prune/u);
+    assert.match(
+      read(".github/workflows/ci.yml"),
+      /docker build --no-cache --file apps\/telegram\/infra\/production\/Dockerfile/u,
+    );
     const telegram = read(".github/workflows/telegram-release.yml");
     assert.match(telegram, /context: \.$/mu);
     assert.match(

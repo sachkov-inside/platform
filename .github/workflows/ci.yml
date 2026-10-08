@@ -297,7 +297,7 @@ jobs:
         run: pnpm --filter @inside/telegram check:full
       - name: Build and inspect Telegram production image
         run: |
-          docker build --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .
+          docker build --no-cache --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .
           test "$(docker run --rm --network none --entrypoint node inside-telegram-ci:check --version)" = "v$(cat .node-version)"
           docker run --rm --network none --entrypoint sh inside-telegram-ci:check -ec '
             test "$(id -u)" = "1000"
