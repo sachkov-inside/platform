@@ -62,6 +62,7 @@ export default defineConfig({
         ],
         test: {
           name: "storybook",
+          setupFiles: ["./test/support/storybook-preload.ts"],
           browser: {
             enabled: true,
             headless: true,
