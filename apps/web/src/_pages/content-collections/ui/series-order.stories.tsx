@@ -200,6 +200,25 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("button", { name: "Поднять главу «Проект и CI»" }),
     ).toBeDisabled();
+    // Глава и материал открывают предпросмотр по маршруту продукта и возвращают в его редактор.
+    const productId = chaptered.seriesId;
+    const firstMaterialId = chaptered.items[0]?.materialId ?? "";
+    const chapterPreview = new URL(
+      canvas
+        .getByRole("link", { name: "Предпросмотр главы «Проект и CI»" })
+        .getAttribute("href") ?? "",
+      "https://inside.local",
+    );
+    await expect(chapterPreview.pathname).toBe(
+      `/authoring/materials/${firstMaterialId}/preview`,
+    );
+    await expect(chapterPreview.searchParams.get("product")).toBe(productId);
+    await expect(chapterPreview.searchParams.get("from")).toBe(
+      `/authoring/products/${productId}`,
+    );
+    await expect(
+      canvas.getAllByRole("link", { name: /^Предпросмотр «/u }),
+    ).toHaveLength(chaptered.items.length);
   },
 };
 

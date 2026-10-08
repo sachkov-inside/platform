@@ -1761,6 +1761,25 @@ test("trusted author walks a product chapter through Previews that stay closed t
     await expect(
       page.getByRole("heading", { name: inChapter.title, level: 1 }),
     ).toBeVisible();
+
+    // Из редактора продукта глава открывается одним нажатием, и возврат ведёт обратно в него (#837).
+    const editorPath = `/authoring/products/${productId}`;
+    await page.goto(editorPath);
+    await page
+      .getByRole("link", { name: `Предпросмотр главы «${chapterName}»` })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname ===
+          `/authoring/materials/${inChapter.materialId}/preview` &&
+        url.searchParams.get("product") === productId &&
+        url.searchParams.get("from") === editorPath,
+    );
+    await expect(route).toContainText(
+      `${chapterName} · материал 1 из ${String(total)}`,
+    );
+    await page.getByRole("link", { name: "К продукту" }).click();
+    await expect(page).toHaveURL((url) => url.pathname === editorPath);
   } finally {
     // Руководство общее для прогона: глава снимается, чтобы остальные сценарии видели прежний состав.
     const current = await readProductOrder(page, productId);
