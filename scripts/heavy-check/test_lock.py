@@ -29,7 +29,16 @@ def cpu_seconds(pid):
         usage = Usage()
         if libproc.proc_pid_rusage(pid, 2, ctypes.byref(usage)) != 0:
             raise OSError(ctypes.get_errno(), 'proc_pid_rusage')
-        return sum(usage.values[index] for index in (0, 1, 10, 11)) / 1_000_000_000
+        # ri_*_time uses Mach absolute-time units, not nanoseconds.
+        class Timebase(ctypes.Structure):
+            _fields_ = [('numer', ctypes.c_uint32), ('denom', ctypes.c_uint32)]
+        system = ctypes.CDLL('/usr/lib/libSystem.B.dylib')
+        system.mach_timebase_info.argtypes = [ctypes.c_void_p]
+        timebase = Timebase()
+        if system.mach_timebase_info(ctypes.byref(timebase)) != 0:
+            raise RuntimeError('mach_timebase_info failed')
+        ticks = sum(usage.values[index] for index in (0, 1, 10, 11))
+        return ticks * timebase.numer / timebase.denom / 1_000_000_000
     fields = (Path('/proc') / str(pid) / 'stat').read_text().rsplit(')', 1)[1].split()
     return sum(int(fields[index]) for index in (11, 12, 13, 14)) / os.sysconf('SC_CLK_TCK')
 

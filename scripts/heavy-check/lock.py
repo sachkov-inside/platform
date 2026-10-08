@@ -203,6 +203,9 @@ def supervise(read_fd, command, parents):
                 )
                 known_groups.add(process.pid)
                 events.watch(process.pid, forks=True)
+                track_descendants(process, tracked, known_groups)
+                for pid in tracked:
+                    events.watch(pid, forks=True)
                 while process.poll() is None:
                     if events.wait():
                         return 143
@@ -211,7 +214,11 @@ def supervise(read_fd, command, parents):
                         track_descendants(process, tracked, known_groups)
                         for pid in tracked:
                             events.watch(pid, forks=True)
-                returncode = process.returncode
+                    if process.pid in events.dead:
+                        # NOTE_EXIT precedes waitpid readiness on macOS. Never wait
+                        # for a second exit event after consuming the first one.
+                        break
+                returncode = process.wait()
                 return returncode if returncode >= 0 else 128 - returncode
             if not waiting:
                 print('heavy-check: waiting for one of two local slots', file=sys.stderr, flush=True)
