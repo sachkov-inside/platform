@@ -413,6 +413,9 @@ when a nested owner supplies a replacement environment. Commands that construct 
 environment must preserve these entries too. A detached descendant that loses both its ancestry
 and its marker cannot be recovered from a later process-table snapshot. Discovery binds the marker
 to the process birth identity before adding its group to cleanup.
+macOS can hide environment entries for restricted processes; discovery then relies on retained
+ancestry and known groups. On Linux, the supervisor becomes a subreaper before launching the
+command, so orphaned detached descendants are adopted and cleaned up even after intermediary exit.
 
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a

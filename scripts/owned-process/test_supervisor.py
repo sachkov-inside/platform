@@ -5,11 +5,15 @@ from pathlib import Path
 import selectors
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'scripts/heavy-check'))
+from processes import process_row
+
 API = (ROOT / 'scripts/owned-process.mjs').as_uri()
 LOAD = """
 const {spawn} = require('node:child_process');
@@ -73,13 +77,12 @@ def read_ready(process):
 def stopped(pid):
     deadline = time.monotonic() + 2
     while True:
-        state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)],
-                               capture_output=True, text=True, timeout=2).stdout.strip()
-        if not state or 'Z' in state:
+        row = process_row(pid)
+        if row is None or row[2] == 'Z':
             return True
         if time.monotonic() >= deadline:
             return False
-        time.sleep(0.01)
+        time.sleep(0.05)
 
 
 class Ownership(unittest.TestCase):
