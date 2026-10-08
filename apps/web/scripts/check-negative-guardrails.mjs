@@ -137,6 +137,7 @@ const fixtures = [
   {
     root: "test/guardrails/fixtures/architecture/error-boundary",
     diagnostics: [
+      "authoring/materials/error.tsx: an authoring error boundary uses MaterialAuthoringRouteError instead of declaring its own shell",
       "topics/[slug]/error.tsx: an error boundary reports the error through useRenderErrorReport",
       "topics/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
       "products/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
