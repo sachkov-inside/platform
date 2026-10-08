@@ -1,3 +1,4 @@
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
@@ -87,7 +88,10 @@ async function stand(
         ? {
             tributeBotTelegramUserId: options.tributeBotTelegramUserId,
             readmission: {
-              replies: new StartResponseDeliveryQueue(db),
+              replies: new StartResponseDeliveryQueue(
+                db,
+                settleBlockedDelivery,
+              ),
               text: "Synthetic readmission",
             },
           }
@@ -95,7 +99,10 @@ async function stand(
       ...(isTruthy(options.welcome)
         ? {
             welcome: {
-              replies: new StartResponseDeliveryQueue(db),
+              replies: new StartResponseDeliveryQueue(
+                db,
+                settleBlockedDelivery,
+              ),
               text: "Synthetic welcome",
             },
           }
