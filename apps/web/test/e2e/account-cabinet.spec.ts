@@ -549,7 +549,10 @@ function contactState() {
 async function confirmContactOn(
   page: Page,
   state: ReturnType<typeof contactState>,
-  { stallOwnReread = false }: { stallOwnReread?: boolean } = {},
+  {
+    stallOwnReread = false,
+    checkNativeScroll = false,
+  }: { stallOwnReread?: boolean; checkNativeScroll?: boolean } = {},
 ) {
   if (stallOwnReread)
     // Своё перечитывание не отвечает: соседние поверхности не должны его дожидаться.
@@ -577,13 +580,52 @@ async function confirmContactOn(
   await page.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
   await page.getByRole("button", { name: "Получить код", exact: true }).click();
   await page.getByLabel("Код из письма").fill("123456");
-  await page
-    .getByRole("button", { name: "Подтвердить email", exact: true })
-    .click();
+  const confirm = page.getByRole("button", {
+    name: "Подтвердить email",
+    exact: true,
+  });
+  if (checkNativeScroll) {
+    const notice = page.getByRole("region", { name: "Хранение в браузере" });
+    await expect(notice).toBeVisible();
+    // Нативная прокрутка учитывает плашки оболочки, прежде чем Playwright поправит положение кнопки.
+    await confirm.evaluate((button) => {
+      button.scrollIntoView({ block: "nearest" });
+    });
+    await expect
+      .poll(() =>
+        confirm.evaluate((button) => {
+          const rect = button.getBoundingClientRect();
+          const notice = document.querySelector(
+            'section[aria-label="Хранение в браузере"]',
+          );
+          return (
+            notice !== null &&
+            rect.top >= 0 &&
+            rect.bottom <= notice.getBoundingClientRect().top &&
+            button.contains(
+              document.elementFromPoint(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2,
+              ),
+            )
+          );
+        }),
+      )
+      .toBe(true);
+  }
+  await confirm.click();
   await expect(
     page.getByText("Email подтверждён.", { exact: true }),
   ).toBeVisible();
 }
+
+test("прокрутка к подтверждению оставляет кнопку выше баннера хранения", async ({
+  page,
+}) => {
+  const state = contactState();
+  await stubAccount(page, { contact: state.read });
+  await confirmContactOn(page, state, { checkNativeScroll: true });
+});
 
 test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
   page,
