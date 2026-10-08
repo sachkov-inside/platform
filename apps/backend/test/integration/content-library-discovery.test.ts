@@ -1,6 +1,9 @@
-import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import {
@@ -22,7 +25,25 @@ describe("Content Library discovery", () => {
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.prisma);
+    const instant = fixedTestInstant();
+    // Background projections precede the representative pair in this paginated fixture.
+    vi.setSystemTime(instant - 1);
+    try {
+      await seedLocalDevelopment(testDatabase.prisma);
+    } finally {
+      vi.setSystemTime(instant);
+    }
+    await testDatabase.prisma.publishedMaterial.updateMany({
+      where: {
+        slug: {
+          in: [
+            "kak-ustroen-inside-platform",
+            "developer-pipeline-bez-poteri-konteksta",
+          ],
+        },
+      },
+      data: { publishedAt: new Date(instant) },
+    });
     await testDatabase.prisma.topic.update({
       where: { slug: "platform" },
       data: { summary: "Platform boundaries, delivery and operations." },
