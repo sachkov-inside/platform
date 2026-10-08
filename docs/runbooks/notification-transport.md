@@ -16,8 +16,7 @@ No AMQP or management port is published to the host. Local broker passwords are 
 values, never production credentials. `docker compose down` preserves both broker data and CA.
 
 Topology is generated from `src/infrastructure/notification-transport/topology.ts` and the wire
-route map. `pnpm --filter @inside/backend notifications:generate` regenerates the schema snapshot
-and local definitions; `notifications:check` rejects drift. There are six topic exchanges and eight
+route map. `pnpm --filter @inside/backend notifications:generate` regenerates local definitions; `notifications:check` rejects drift. There are six topic exchanges and eight
 quorum queues, with independent capacity and manual-ack prefetch per lane. Default capacity is
 1,000 messages / 16,384,000 bytes (1,000 × 16 KiB) per queue; overshoot at the broker's rejection
 boundary is possible.

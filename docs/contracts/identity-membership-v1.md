@@ -1,12 +1,12 @@
 # Inside Identity and Membership contract v1
 
-Статус: cross-repository contract для
+Статус: общий контракт приложений, принятый для
 [Workspace Specification #65](https://github.com/sachkov-inside/workspace/issues/65).
 
 Этот документ задаёт общую authority boundary, wire envelope и conformance corpus между Platform
 и отдельной Telegram application. Он не задаёт application schema, HTTP framework, database tables,
-deployment или secret distribution. Каждый repository хранит собственную implementation и
-проверяет её против versioned snapshot этого контракта без runtime import соседнего checkout.
+deployment или secret distribution. Каждое приложение хранит собственную implementation и
+проверяет её против общего corpus в `@inside/contracts`.
 
 ## Authority matrix
 
@@ -30,16 +30,16 @@ Contract identifier v1 — `inside.membership-evidence.v1`. Consumer прини�
 поддерживаемый major version; unknown/missing major version fails closed как
 `unsupported_contract`. V1 schema закрыта для неизвестных fields: добавление field, изменение
 meaning/required field или reason code требует нового major contract и одновременного bounded
-migration plan в обоих owning repositories.
+migration plan в обоих приложениях.
 
 Platform хранит нормативный контракт и сценарии в этом каталоге.
-До импорта Telegram его репозиторий сохраняет совместимый versioned snapshot/schema/fixtures
-в собственной test authority. Build, test и runtime не читают соседний checkout Workspace.
+Оба приложения импортируют schema/fixtures из `@inside/contracts`.
+[Обновление и поставка](README.md) сохраняют независимость их процессов.
 
 Normative machine-readable artifacts:
 
-- [`identity-membership-v1.schema.json`](identity-membership-v1.schema.json) — JSON Schema envelope;
-- [`identity-membership-v1.fixtures.json`](identity-membership-v1.fixtures.json) — deterministic
+- [`schema.json`](inside-membership-evidence-v1/schema.json) — JSON Schema envelope;
+- [`fixtures.json`](inside-membership-evidence-v1/fixtures.json) — deterministic
   named consumer/provider corpus. Поле `expected` задаёт contract outcome, а fixture `clock` —
   время consumer validation.
 

@@ -9,7 +9,7 @@ import {
   validOwnAccessResponse,
 } from "../../src/modules/subscription-activation/activation-contract.js";
 import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { conforming, requestUrl } from "../support/json.js";
 import { required } from "../support/required.js";
 

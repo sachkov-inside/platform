@@ -48,7 +48,8 @@
     "kysely": "0.29.6",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@inside/contracts": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

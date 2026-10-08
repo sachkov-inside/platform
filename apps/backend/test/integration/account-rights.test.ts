@@ -42,7 +42,7 @@ const columnRowsSchema = z.array(
 );
 
 const snapshotRoot = new URL(
-  "../../src/modules/account-rights/contracts/inside-membership-evidence-v1/",
+  "../../../../docs/contracts/inside-membership-evidence-v1/",
   import.meta.url,
 );
 const corpus = fixtureCorpusSchema.parse(
@@ -75,7 +75,7 @@ describe("AccountRights", () => {
   });
 
   test.each(corpus.fixtures)(
-    "converges the vendored $name contract fixture",
+    "converges the shared $name contract fixture",
     async (fixture) => {
       const fixtureIndex = corpus.fixtures.findIndex(
         ({ name }) => name === fixture.name,

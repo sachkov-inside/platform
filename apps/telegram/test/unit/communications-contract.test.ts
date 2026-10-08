@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
 import {
   contractValidator,
   validateContent,
@@ -17,7 +17,7 @@ const text = {
   entities: [{ type: "bold", offset: 3, length: 5 }],
   buttons: [],
 };
-describe("vendored communications contract", () => {
+describe("shared communications contract", () => {
   for (const fixture of fixtures)
     it(fixture.name, () => {
       const validate = contractValidator(fixture.definition);

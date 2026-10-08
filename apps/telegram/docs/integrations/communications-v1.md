@@ -1,7 +1,7 @@
 # Communications integration v1
 
-This application owns the physical `inside-communications-v1` schema and fixtures under
-[`src/modules/communications/contracts/inside-communications-v1/`](../../src/modules/communications/contracts/inside-communications-v1/).
+The shared `inside-communications-v1` schema and fixtures live under
+[`docs/contracts/inside-communications-v1/`](../../../../docs/contracts/inside-communications-v1/).
 The product authority remains the accepted
 [Workspace contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
 This document describes the transport implemented by [Telegram #27](https://github.com/sachkov-inside/inside-telegram/issues/27)

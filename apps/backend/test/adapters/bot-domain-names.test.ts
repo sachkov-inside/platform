@@ -1,7 +1,7 @@
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { expect, test } from "vitest";
-import previousContract from "./fixtures/subscription-activation-before-domain-names.json" with { type: "json" };
+import previousContract from "../../../../docs/history/contracts/subscription-activation-before-domain-names.json" with { type: "json" };
 import {
   botDomainResponse,
   BOT_DOMAIN_NAMES_VERSION,

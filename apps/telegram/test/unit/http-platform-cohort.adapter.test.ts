@@ -6,9 +6,9 @@ import addFormats from "ajv-formats";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HttpPlatformCohortAdapter } from "../../src/adapters/platform/http-platform-cohort.adapter.js";
-import fixtures from "../../src/contracts/platform-billing-cohorts/fixtures.json" with { type: "json" };
-import provenance from "../../src/contracts/platform-billing-cohorts/provenance.json" with { type: "json" };
-import schema from "../../src/contracts/platform-billing-cohorts/schema.json" with { type: "json" };
+import fixtures from "@inside/contracts/platform-billing-cohorts/fixtures.json" with { type: "json" };
+import provenance from "@inside/contracts/platform-billing-cohorts/provenance.json" with { type: "json" };
+import schema from "@inside/contracts/platform-billing-cohorts/schema.json" with { type: "json" };
 
 const endpoint = "https://platform.test/billing/cohorts";
 const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
@@ -52,12 +52,14 @@ const validResponse = ajv.compile(
 );
 
 describe("Platform GET /billing/cohorts contract", () => {
-  it("keeps the vendored files as recorded in their provenance", () => {
+  it("keeps the shared corpus at its recorded historical digests", () => {
     for (const [file, sha256] of Object.entries(provenance.files))
       expect(
         createHash("sha256")
           .update(
-            readFileSync(`src/contracts/platform-billing-cohorts/${file}`),
+            readFileSync(
+              `../../docs/contracts/platform-billing-cohorts/${file}`,
+            ),
           )
           .digest("hex"),
       ).toBe(sha256);

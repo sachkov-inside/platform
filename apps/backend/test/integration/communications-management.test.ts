@@ -57,8 +57,8 @@ import {
   managementSchemas,
   type ProviderRequest,
 } from "../../src/modules/communications/communications-contract.js";
-import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
-import scenarios from "../../src/modules/communications/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import scenarios from "@inside/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -574,7 +574,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   for (const scenario of scenarios) {
-    test(`vendored consumer scenario: ${scenario.name}`, async () => {
+    test(`shared consumer scenario: ${scenario.name}`, async () => {
       for (const step of scenario.steps) {
         const request = requestSchema.parse(step.request);
         if (!("accountRef" in request.actor))

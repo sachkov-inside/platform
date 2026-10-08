@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   COMMUNITY_V2,
@@ -7,19 +6,9 @@ import {
   validDispatchResponse,
   type CommunityResult,
 } from "../../src/modules/community/community-contract.js";
-import fixtures from "../../docs/contracts/community-v2/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/community-v2/fixtures.json" with { type: "json" };
 
 describe("portable v2 runtime corpus", () => {
-  it("ships both schemas inside dist and prevents drift from their portable copies", () => {
-    expect(
-      readFileSync("src/modules/community/contracts/schema-v2.json"),
-    ).toEqual(readFileSync("docs/contracts/community-v2/schema.json"));
-    expect(
-      readFileSync("src/modules/subscription-activation/contracts/schema.json"),
-    ).toEqual(
-      readFileSync("docs/contracts/subscription-activation-v1/schema.json"),
-    );
-  });
   for (const fixture of fixtures) {
     if (fixture.definition === "communityRequest")
       it(fixture.name, () => {

@@ -92,10 +92,11 @@ separate owner gate for external messaging.
   [`docs/operations/owner-identity-recovery.md`](docs/operations/owner-identity-recovery.md).
 
 The executable wire schema and named fixtures live in
-[`src/modules/identity-linking/contracts/inside-identity-linking-v1/`](src/modules/identity-linking/contracts/inside-identity-linking-v1/).
-The Workspace-owned Membership Evidence schema and fixtures are vendored with a reviewed source
-commit and SHA-256 snapshot in
-[`src/contracts/inside-membership-evidence-v1/`](src/contracts/inside-membership-evidence-v1/).
+[`docs/contracts/inside-identity-linking-v1/`](../../docs/contracts/inside-identity-linking-v1/).
+Membership Evidence shares the repository-local schema and fixtures in
+[`docs/contracts/inside-membership-evidence-v1/`](../../docs/contracts/inside-membership-evidence-v1/).
+Both applications import `@inside/contracts`; [the shared contract boundary](../../docs/contracts/README.md)
+owns updates and independent delivery.
 
 ## Bot sign-in provider (disabled; website integration pending)
 

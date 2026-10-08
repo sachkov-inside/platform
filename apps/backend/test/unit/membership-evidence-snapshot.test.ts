@@ -27,11 +27,11 @@ const snapshotSchema = z
   .strict();
 
 const snapshotRoot = new URL(
-  "../../src/modules/account-rights/contracts/inside-membership-evidence-v1/",
+  "../../../../docs/contracts/inside-membership-evidence-v1/",
   import.meta.url,
 );
 
-describe("vendored MembershipEvidence snapshot", () => {
+describe("shared MembershipEvidence snapshot", () => {
   test("pins provenance and exact artifact digests without a Workspace dependency", async () => {
     const snapshot = snapshotSchema.parse(
       JSON.parse(

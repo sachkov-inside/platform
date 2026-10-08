@@ -11,7 +11,7 @@ import {
 } from "../../src/modules/subscription-activation/activation-contract.js";
 import { activationMessage } from "../../src/modules/subscription-activation/activation-view.js";
 import { invitationAnswer } from "../../src/modules/subscription-activation/invitation-view.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { requestBody } from "../support/json.js";
 

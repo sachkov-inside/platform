@@ -4,8 +4,8 @@ Platform owns the contract `inside.sales-funnel-events.v1` and the Sales Funnel 
 ([platform#816](https://github.com/sachkov-inside/platform/issues/816), Platform document
 `docs/integrations/sales-funnel-events-v1.md`). This document describes the Telegram side delivered
 by [Telegram #118](https://github.com/sachkov-inside/inside-telegram/issues/118). The request and
-receipt schemas are vendored verbatim from Platform's OpenAPI operation `recordSalesFunnelBotEvents`
-in [`src/contracts/inside-sales-funnel-events-v1/`](../../src/contracts/inside-sales-funnel-events-v1/);
+receipt schemas describe Platform's OpenAPI operation `recordSalesFunnelBotEvents`
+in [`docs/contracts/inside-sales-funnel-events-v1/`](../../../../docs/contracts/inside-sales-funnel-events-v1/);
 replace them only from a newer Platform OpenAPI.
 
 ## Events
@@ -67,5 +67,5 @@ keeps a `409` from rejecting unrelated events.
   Events in any other state, `rejected` included, stay.
 
 The behaviour is exercised by `test/integration/sales-funnel-events.integration.test.ts` against a
-local double that validates the vendored schema and applies Platform's duplicate and conflict rules,
+local double that validates the shared schema and applies Platform's duplicate and conflict rules,
 and by `test/unit/sales-funnel.test.ts`.

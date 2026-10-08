@@ -6,11 +6,11 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
 import { list, record } from "./json.js";
-import schema from "../../src/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
+import schema from "@inside/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
 
 /**
  * A local stand-in for Platform's `inside.sales-funnel-events.v1` ingress. It validates the
- * body against the vendored Platform OpenAPI schema and applies Platform's documented rules:
+ * body against the shared Platform OpenAPI schema and applies Platform's documented rules:
  * a repeated `eventId` with the same content is a duplicate, with other content a `409`.
  */
 export interface SalesFunnelPlatform {

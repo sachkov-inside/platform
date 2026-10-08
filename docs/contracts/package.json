@@ -1,0 +1,12 @@
+{
+  "name": "@inside/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  },
+  "files": [
+    "**/*.json"
+  ]
+}

@@ -50,7 +50,7 @@ import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-upd
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.js";
-import scenarios from "../../src/modules/communications/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import scenarios from "@inside/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
 import type { CommunicationsBody } from "../support/communications-body.js";
 import { required } from "../support/required.js";
 const databaseUrl = process.env["DATABASE_URL"];

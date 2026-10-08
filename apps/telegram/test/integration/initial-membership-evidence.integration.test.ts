@@ -5,7 +5,7 @@ import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { ApplicationConfig } from "../../src/config/application-config.js";
-import evidenceSchema from "../../src/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
+import evidenceSchema from "@inside/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
 import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";

@@ -181,9 +181,10 @@ command/replay даже при недоступном Platform preflight, но e
 Новые notification versions заменяют only notification.send/status и notice.send часть старого
 billing bundle. Community entitlement и community dispatch сохраняют byte-identical v1 corpus
 из Platform #403. No dual-send: runtime rollout включает одну notification path на бизнес-ключ.
-Existing marketing API сохраняет отдельные audience/consent/state. Нет runtime source imports
-другого repository; одинаковые schema/fixtures/scenarios/protocol/manifest/sources копируются
-byte-for-byte, consumer provenance фиксирует source SHA и candidate/merged status.
+Existing marketing API сохраняет отдельные audience/consent/state. После Platform #1054 оба
+приложения используют общий corpus `docs/contracts` и импортируют schema/fixtures из
+`@inside/contracts`. Межприложенческие копии и consumer provenance больше не создаются.
+Историческое происхождение corpus сохраняет manifest; поставка приложений остаётся самостоятельной.
 
 Schema/fixture/hash проверки не симулируют worker. Все scenarios.json исполняются следующими
 real-facet/PostgreSQL/RabbitMQ implementation tests; broker ACL, crash boundaries и actual Bot API

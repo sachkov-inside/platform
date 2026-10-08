@@ -28,6 +28,7 @@ COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
+COPY --chown=node:node docs/contracts ./docs/contracts
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 

@@ -5,7 +5,7 @@ import {
   activationValidator,
   type ActivationEvidence,
 } from "../../src/modules/subscription-activation/activation-contract.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming, requestBody } from "../support/json.js";
 

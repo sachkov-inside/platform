@@ -1,7 +1,0 @@
-{
-  "sourceRepository": "sachkov-inside/platform",
-  "sourceCommit": "bc23611e581c4905d0faf904e7cd3fb3c26acee3",
-  "sourceStatus": "merged",
-  "sourceIssue": "https://github.com/sachkov-inside/platform/issues/909",
-  "acceptance": "Platform #913 merged access_ending into inside.notification-delivery.v1; artifacts copied byte-for-byte from that commit (Telegram #135)."
-}

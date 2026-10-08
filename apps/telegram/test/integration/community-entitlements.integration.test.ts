@@ -22,7 +22,7 @@ import {
   type DispatchAuthorizationResponse,
   type DispatchDenialReason,
 } from "../../src/modules/community/community-contract.js";
-import fixtures from "../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/billing-v1/fixtures.json" with { type: "json" };
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
