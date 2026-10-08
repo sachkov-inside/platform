@@ -351,6 +351,26 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     where: { materialId: id(52) },
     data: { publishedAt: new Date("2026-01-03") },
   });
+  // Hidden earlier placements make a later note a feed preview, while the full preview stays unchanged.
+  await prisma.material.updateMany({
+    where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
+    data: { showInFeed: false },
+  });
+  await prisma.materialSearchDocument.create({
+    data: {
+      materialId: id(34),
+      contentVersion: 1n,
+      plainText: "Later feed preview note",
+    },
+  });
+  await prisma.material.update({
+    where: { id: id(34) },
+    data: { publishedAt: new Date("2026-01-04") },
+  });
+  await prisma.publishedMaterial.update({
+    where: { materialId: id(34) },
+    data: { publishedAt: new Date("2026-01-04") },
+  });
   const videos = catalogVideos(prisma);
   for (const kind of [
     "active",
