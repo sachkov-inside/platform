@@ -269,16 +269,19 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       TELEGRAM_BOT_TOKEN: "synthetic-never-passed-to-real-adapter",
     });
     const sent: string[] = [];
+    let releaseLastSend!: () => void;
+    const lastSend = new Promise<void>((resolve) => {
+      releaseLastSend = resolve;
+    });
     const worker = new NotificationWorker(
       config,
       db,
       {
-        sendText: (message) => {
+        sendText: async (message) => {
           sent.push(message.text);
-          return Promise.resolve({
-            kind: "delivered",
-            providerMessageId: String(sent.length),
-          });
+          const providerMessageId = String(sent.length);
+          if (sent.length === commands.length) await lastSend;
+          return { kind: "delivered", providerMessageId };
         },
         editText: () => {
           return Promise.reject(new Error("unused"));
@@ -334,25 +337,43 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       await expect
         .poll(() => sent.length, { timeout: 15000 })
         .toBe(commands.length);
+      const unpublishedResults = async () =>
+        (
+          await db
+            .selectFrom("notification_result_outbox")
+            .selectAll()
+            .where("published_at", "is", null)
+            .execute()
+        ).length;
+      // Transport calls and a drained outbox can precede the final settlement.
+      await expect.poll(unpublishedResults).toBe(0);
       await expect
         .poll(
           async () =>
             (
               await db
-                .selectFrom("notification_result_outbox")
-                .selectAll()
-                .where("published_at", "is", null)
+                .selectFrom("notification_commands")
+                .select("state")
+                .where("state", "=", "unknown")
                 .execute()
             ).length,
         )
-        .toBe(0);
+        .toBe(1);
+      releaseLastSend();
+      await expect
+        .poll(async () =>
+          (
+            await db
+              .selectFrom("notification_commands")
+              .select("state")
+              .execute()
+          ).map((c) => c.state),
+        )
+        .toEqual(Array.from({ length: commands.length }, () => "sent"));
+      await expect.poll(unpublishedResults).toBe(0);
       expect(authorizations.length).toBeGreaterThanOrEqual(2);
-      expect(
-        (
-          await db.selectFrom("notification_commands").selectAll().execute()
-        ).map((c) => c.state),
-      ).toEqual(Array.from({ length: commands.length }, () => "sent"));
     } finally {
+      releaseLastSend();
       await worker.onModuleDestroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
