@@ -81,3 +81,5 @@ export {
   attachmentDisposition,
   signedDeliveryTtlSeconds,
 } from "./shared/protected-delivery.js";
+
+export { hydrateMaterialAssets } from "./domain/material-body/hydrate-material-assets.js";

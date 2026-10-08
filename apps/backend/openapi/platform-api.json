@@ -1464,134 +1464,6 @@
         ]
       },
       "RecursiveSchema2schema0": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "enum": [
-              null
-            ],
-            "nullable": true,
-            "type": "string"
-          },
-          {
-            "items": {
-              "$ref": "#/components/schemas/RecursiveSchema2schema0"
-            },
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RecursiveSchema2schema0"
-            },
-            "type": "object"
-          }
-        ]
-      },
-      "RecursiveSchema2schema1": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "enum": [
-              null
-            ],
-            "nullable": true,
-            "type": "string"
-          },
-          {
-            "items": {
-              "$ref": "#/components/schemas/RecursiveSchema2schema1"
-            },
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RecursiveSchema2schema1"
-            },
-            "type": "object"
-          }
-        ]
-      },
-      "RecursiveSchema3schema0": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "enum": [
-              null
-            ],
-            "nullable": true,
-            "type": "string"
-          },
-          {
-            "items": {
-              "$ref": "#/components/schemas/RecursiveSchema3schema0"
-            },
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RecursiveSchema3schema0"
-            },
-            "type": "object"
-          }
-        ]
-      },
-      "RecursiveSchema3schema1": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "enum": [
-              null
-            ],
-            "nullable": true,
-            "type": "string"
-          },
-          {
-            "items": {
-              "$ref": "#/components/schemas/RecursiveSchema3schema1"
-            },
-            "type": "array"
-          },
-          {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/RecursiveSchema3schema1"
-            },
-            "type": "object"
-          }
-        ]
-      },
-      "RecursiveSchema4schema0": {
         "oneOf": [
           {
             "additionalProperties": false,
@@ -1788,7 +1660,7 @@
               "items": {
                 "items": {
                   "items": {
-                    "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                    "$ref": "#/components/schemas/RecursiveSchema2schema0"
                   },
                   "type": "array"
                 },
@@ -1813,7 +1685,7 @@
               "items": {
                 "items": {
                   "items": {
-                    "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                    "$ref": "#/components/schemas/RecursiveSchema2schema0"
                   },
                   "type": "array"
                 },
@@ -1837,7 +1709,7 @@
             "properties": {
               "content": {
                 "items": {
-                  "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                  "$ref": "#/components/schemas/RecursiveSchema2schema0"
                 },
                 "type": "array"
               },
@@ -1907,7 +1779,7 @@
                         "properties": {
                           "content": {
                             "items": {
-                              "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                              "$ref": "#/components/schemas/RecursiveSchema2schema0"
                             },
                             "type": "array"
                           },
@@ -1943,7 +1815,7 @@
             "properties": {
               "content": {
                 "items": {
-                  "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                  "$ref": "#/components/schemas/RecursiveSchema2schema0"
                 },
                 "type": "array"
               },
@@ -2030,7 +1902,7 @@
             "properties": {
               "content": {
                 "items": {
-                  "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                  "$ref": "#/components/schemas/RecursiveSchema2schema0"
                 },
                 "type": "array"
               },
@@ -2187,7 +2059,7 @@
                   "properties": {
                     "content": {
                       "items": {
-                        "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                        "$ref": "#/components/schemas/RecursiveSchema2schema0"
                       },
                       "type": "array"
                     },
@@ -46395,9 +46267,7 @@
                     "type": "integer"
                   },
                   "page": {
-                    "additionalProperties": {
-                      "$ref": "#/components/schemas/RecursiveSchema3schema0"
-                    },
+                    "additionalProperties": {},
                     "properties": {
                       "artifacts": {
                         "items": {
@@ -46469,9 +46339,7 @@
                     "additionalProperties": false,
                     "properties": {
                       "doc": {
-                        "additionalProperties": {
-                          "$ref": "#/components/schemas/RecursiveSchema3schema1"
-                        },
+                        "additionalProperties": {},
                         "type": "object"
                       },
                       "schemaVersion": {
@@ -47222,9 +47090,7 @@
                     ]
                   },
                   "page": {
-                    "additionalProperties": {
-                      "$ref": "#/components/schemas/RecursiveSchema2schema0"
-                    },
+                    "additionalProperties": {},
                     "properties": {
                       "artifacts": {
                         "items": {
@@ -47296,9 +47162,7 @@
                     "additionalProperties": false,
                     "properties": {
                       "doc": {
-                        "additionalProperties": {
-                          "$ref": "#/components/schemas/RecursiveSchema2schema1"
-                        },
+                        "additionalProperties": {},
                         "type": "object"
                       },
                       "schemaVersion": {
@@ -124612,7 +124476,7 @@
                                   "properties": {
                                     "blocks": {
                                       "items": {
-                                        "$ref": "#/components/schemas/RecursiveSchema4schema0"
+                                        "$ref": "#/components/schemas/RecursiveSchema2schema0"
                                       },
                                       "type": "array"
                                     },

@@ -1,3 +1,6 @@
+import { hydrateMaterialAssets } from "../../materials/index.js";
+import type { MaterialAssetPresentation } from "../../assets/index.js";
+import type { Result } from "./result.js";
 import type { RenderedMaterialBody } from "@inside/material-blocks";
 import {
   taskPageBodySchema,
@@ -35,9 +38,15 @@ export async function taskPageView(
   dependencies: LearningTaskDependencies,
   task: CurrentTask,
   productSlug: string,
-): Promise<{ definition: TaskDefinition; page?: TaskPageView }> {
+): Promise<
+  Result<
+    { definition: TaskDefinition; page?: TaskPageView },
+    { readonly code: "dependency_unavailable"; readonly retryable: true }
+  >
+> {
   const page = task.page;
-  if (page === null) return { definition: task.definition };
+  if (page === null)
+    return { ok: true, value: { definition: task.definition } };
   const urls = await resolveTaskLinks(dependencies, page);
   const destinations = new Map(urls);
   for (const [address, image] of Object.entries(page.resolvedImages))
@@ -80,30 +89,53 @@ export async function taskPageView(
       ? (page.resolvedImages[`cover:${page.source.coverAssetId}`] ??
         page.resolvedImages[page.source.coverAssetId])
       : undefined;
+  const groups = new Map<string, Set<string>>();
+  for (const reference of Object.values(page.resolvedImages)) {
+    const ids = groups.get(reference.materialId) ?? new Set<string>();
+    ids.add(reference.assetId);
+    groups.set(reference.materialId, ids);
+  }
+  const presentations: MaterialAssetPresentation[] = [];
+  for (const [materialId, assetIds] of groups) {
+    if (dependencies.materialAssets === undefined)
+      return {
+        ok: false,
+        error: { code: "dependency_unavailable", retryable: true },
+      };
+    const loaded = await dependencies.materialAssets.loadPresentations(
+      materialId,
+      [...assetIds],
+    );
+    if (!loaded.ok) return loaded;
+    presentations.push(...loaded.value);
+  }
   return {
-    definition,
-    page: {
-      title: page.source.title,
-      summary: page.source.summary,
-      body: rendered,
-      cover:
-        cover === undefined
-          ? null
-          : { assetId: cover.assetId, alt: page.source.coverAlt ?? "" },
-      artifacts: (page.source.artifacts ?? []).flatMap((artifact) => {
-        const asset =
-          page.resolvedImages[`artifact:${artifact.sourceId}`] ??
-          page.resolvedImages[artifact.assetId];
-        return asset === undefined
-          ? []
-          : [
-              {
-                sourceId: artifact.sourceId,
-                title: artifact.title,
-                assetId: asset.assetId,
-              },
-            ];
-      }),
+    ok: true,
+    value: {
+      definition,
+      page: {
+        title: page.source.title,
+        summary: page.source.summary,
+        body: hydrateMaterialAssets(rendered, presentations),
+        cover:
+          cover === undefined
+            ? null
+            : { assetId: cover.assetId, alt: page.source.coverAlt ?? "" },
+        artifacts: (page.source.artifacts ?? []).flatMap((artifact) => {
+          const asset =
+            page.resolvedImages[`artifact:${artifact.sourceId}`] ??
+            page.resolvedImages[artifact.assetId];
+          return asset === undefined
+            ? []
+            : [
+                {
+                  sourceId: artifact.sourceId,
+                  title: artifact.title,
+                  assetId: asset.assetId,
+                },
+              ];
+        }),
+      },
     },
   };
 }

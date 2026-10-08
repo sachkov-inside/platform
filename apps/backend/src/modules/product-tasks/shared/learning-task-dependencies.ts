@@ -1,3 +1,4 @@
+import type { MaterialAssets } from "../../assets/index.js";
 import {
   storedTaskPageSchema,
   type StoredTaskPage,
@@ -28,6 +29,7 @@ export interface LearningTaskDependencies {
   /** Off in production until the owner publishes data policy v4 (#946). */
   readonly submissionsEnabled: boolean;
   readonly clock?: () => Date;
+  readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
 }
 
 export interface CurrentTask {

@@ -1423,6 +1423,30 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       links: { "lesson.md": "review", "task.md": linkedTask.code },
       images: {},
     };
+    const validate = assembleValidateSourceTask(importDependencies());
+    expect(
+      await validate(
+        {
+          ...prior.body,
+          definition: v2,
+          page: { ...originalPage, editorial: { value: Number.NaN } },
+        },
+        { actor: owner },
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+    expect(
+      await validate(
+        {
+          ...prior.body,
+          definition: v2,
+          page: {
+            ...originalPage,
+            editorial: { value: ["nested", true, null] },
+          },
+        },
+        { actor: owner },
+      ),
+    ).toMatchObject({ ok: true });
     const applied = await assembleApplySourceTask(importDependencies())(
       {
         ...prior.body,
@@ -1697,7 +1721,16 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     };
     const doc = {
       schemaVersion: 1,
-      doc: { type: "doc", content: [imageNode] },
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "blockquote",
+            attrs: { nodeId: randomUUID() },
+            content: [imageNode],
+          },
+        ],
+      },
     };
     const saved = await authoring.applySourceMaterial({
       actor: owner,
@@ -1795,13 +1828,27 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       }),
     ).toEqual({ ok: false, error: { code: "asset_not_found" } });
     const grantId = await grant(subject, [`product:${productId}`]);
+    const tasksWithAssets = assembleLearningTasks({
+      ...dependencies,
+      materialAssets: assets,
+    });
     expect(
-      await learning().page({ subject, productSlug, code: body.code }),
+      await tasksWithAssets.page({ subject, productSlug, code: body.code }),
     ).toMatchObject({
       ok: true,
       value: {
         task: {
           page: {
+            body: {
+              blocks: [
+                {
+                  kind: "blockquote",
+                  content: [
+                    { kind: "image", assetId: imageId, width: 16, height: 16 },
+                  ],
+                },
+              ],
+            },
             cover: { assetId: imageId, alt: "Обложка" },
             artifacts: [
               { sourceId: "template", title: "Шаблон", assetId: fileId },
@@ -1830,10 +1877,22 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         assetId: randomUUID(),
       }),
     ).toEqual({ ok: false, error: { code: "asset_not_found" } });
-    const read = await readAll(learning(), subject, body.code);
+    const read = await readAll(tasksWithAssets, subject, body.code);
     expect(JSON.parse(read.context)).toMatchObject({
       payload: {
         task: {
+          page: {
+            body: {
+              blocks: [
+                {
+                  kind: "blockquote",
+                  content: [
+                    { kind: "image", assetId: imageId, width: 16, height: 16 },
+                  ],
+                },
+              ],
+            },
+          },
           definition: {
             criteria: [
               {

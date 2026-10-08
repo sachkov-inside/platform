@@ -120,6 +120,7 @@ export async function readTaskPage(
         ? { ok: true, value: { access: "closed", task: place } }
         : notFound();
     const view = await taskPageView(dependencies, task, product.slug);
+    if (!view.ok) return view;
     return {
       ok: true,
       value: {
@@ -128,8 +129,8 @@ export async function readTaskPage(
           ...place,
           access: task.access,
           version: task.version,
-          definition: view.definition,
-          ...(view.page === undefined ? {} : { page: view.page }),
+          definition: view.value.definition,
+          ...(view.value.page === undefined ? {} : { page: view.value.page }),
         },
         reviewProtocol: taskReviewProtocol,
         relatedMaterials: await readRelatedMaterials(
