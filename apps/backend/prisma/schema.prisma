@@ -983,6 +983,7 @@ model BillingProductCohort {
   stage String
   startsOn DateTime? @map("starts_on") @db.Date
   nextEvent String @default("") @map("next_event")
+  priceAfterStartKopecks BigInt? @map("price_after_start_kopecks")
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
   @@map("product_cohorts")
   @@schema("billing")

@@ -15,6 +15,7 @@ const cohort: ProductCohort = {
   stage: "preorder",
   startsOn: "2026-10-20",
   nextEvent: "",
+  priceAfterStartKopecks: null,
 };
 const slug = "ai-engineering";
 const call = (
@@ -65,23 +66,38 @@ describe("first screen call of a product cohort", () => {
     ).toBe("programme");
   });
 
-  it("asks for the price of the offer this person sees on preorder and running", () => {
+  it("asks to pre-order before the start and to pay with the price while running", () => {
     const price = new Intl.NumberFormat("ru-RU", {
       style: "currency",
       currency: "RUB",
       maximumFractionDigits: 0,
     }).format(productWithSupportOffer.firstPriceKopecks / 100);
-    for (const stage of ["preorder", "running"] as const) {
-      expect(call({ cohort: { ...cohort, stage } }).action).toEqual({
-        kind: "purchase",
-        href: "/products/ai-engineering/buy",
-        label: `Оплатить ${price}`,
-      });
-    }
-    expect(call().banner?.text).toBe("Предзаказ открыт до 20 октября");
+    expect(call().action).toEqual({
+      kind: "purchase",
+      href: "/products/ai-engineering/buy",
+      label: "Оформить предзаказ",
+    });
+    expect(call({ cohort: { ...cohort, stage: "running" } }).action).toEqual({
+      kind: "purchase",
+      href: "/products/ai-engineering/buy",
+      label: `Оплатить ${price}`,
+    });
+    expect(call().banner?.text).toBe("Набор на первый поток. Старт 20 октября");
     expect(call({ cohort: { ...cohort, stage: "running" } }).banner?.text).toBe(
       "Стартовал 20 октября. Присоединиться можно в любой момент",
     );
+  });
+
+  it("compares the pre-order price with the price after the start only when it is higher", () => {
+    const afterStart = productWithSupportOffer.firstPriceKopecks + 1_000_000;
+    const higher = call({
+      cohort: { ...cohort, priceAfterStartKopecks: afterStart },
+    });
+    expect(higher.banner?.detail).toMatch(/^До старта — .+ вместо .+\./u);
+    const lower = call({
+      cohort: { ...cohort, priceAfterStartKopecks: 100 },
+    });
+    expect(lower.banner?.detail).toMatch(/^Предзаказ до старта дешевле/u);
   });
 
   it("names the next event between cohorts", () => {

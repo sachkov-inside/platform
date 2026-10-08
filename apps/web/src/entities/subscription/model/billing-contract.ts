@@ -72,8 +72,8 @@ export const priceSnapshotSchema = z.object({
   renewalPriceKopecks: z.number().int().positive(),
 });
 /**
- * Текущий поток продукта из каталога: этап продаж, название, дата старта и событие между
- * потоками. Этап выбирает обещание страницы, но деньги принимает только включённое предложение.
+ * Текущий поток продукта из каталога: этап продаж, название, дата старта, событие между
+ * потоками и цена после старта. Этап выбирает обещание страницы, но деньги принимает только включённое предложение.
  */
 export const cohortStageSchema = z.enum([
   "announcement",
@@ -88,6 +88,12 @@ export const productCohortSchema = z.object({
   stage: cohortStageSchema,
   startsOn: z.iso.date().nullable(),
   nextEvent: z.string(),
+  /**
+   * Цена после старта в копейках только для витрины: страница показывает её зачёркнутой рядом с
+   * ценой предзаказа, а списывается всегда цена предложения. `null` — не показывать. Прежний
+   * backend поля не присылает, поэтому его отсутствие читается как `null`.
+   */
+  priceAfterStartKopecks: z.number().int().positive().nullable().default(null),
 });
 export const productCohortsSchema = z.object({
   items: z.array(productCohortSchema),

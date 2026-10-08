@@ -69,12 +69,15 @@ export function AiEngineeringCourseView({
   result,
   page,
   returnTarget,
+  statusCall,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
+  /** Плашка набора на поток вместо заголовка нижнего блока, пока поток не стартовал. */
+  readonly statusCall?: ReactNode;
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
@@ -109,6 +112,7 @@ export function AiEngineeringCourseView({
 
       {page.blocks.map((block) => (
         <CourseBlock
+          statusCall={statusCall}
           block={block}
           hasFreeLessons={hasFreeLessons}
           key={block.id}
@@ -130,10 +134,12 @@ function CourseBlock({
   block,
   hasFreeLessons,
   programme,
+  statusCall,
 }: {
   readonly block: ProductPageBlock;
   readonly hasFreeLessons: boolean;
   readonly programme: Route;
+  readonly statusCall?: ReactNode;
 }): ReactNode {
   switch (block.kind) {
     case "hero":
@@ -152,7 +158,7 @@ function CourseBlock({
       return <FormatCards block={block} programme={programme} />;
     case "list":
       if (block.id === "status")
-        return <Status block={block} programme={programme} />;
+        return <Status block={block} call={statusCall} programme={programme} />;
       if (block.id === "agents") return <Agents block={block} />;
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
@@ -831,16 +837,25 @@ function withTelegramLinks(text: string): ReactNode[] {
 
 function Status({
   block,
+  call,
   programme,
 }: {
   readonly block: ProductPageBlockOf<"list">;
+  /**
+   * Плашка набора на поток. Пока она есть, она стоит вместо заголовка и кнопки блока; без неё
+   * блок показывает свой текст из описания курса.
+   */
+  readonly call?: ReactNode;
   readonly programme: Route;
 }) {
   return (
     <section className="aie-status">
-      <div>
-        <h2>{block.title}</h2>
-        {block.text === "" ? null : <p>{block.text}</p>}
+      <div className="aie-status-lead">
+        <div className="aie-status-default">
+          <h2>{block.title}</h2>
+          {block.text === "" ? null : <p>{block.text}</p>}
+        </div>
+        {call}
       </div>
       <ul>
         {block.items.map((item, index) => (
@@ -850,7 +865,10 @@ function Status({
           </li>
         ))}
       </ul>
-      <IntentPrefetchLink className="aie-status-button" href={programme}>
+      <IntentPrefetchLink
+        className="aie-status-button aie-status-default"
+        href={programme}
+      >
         Открыть программу
         <ArrowRight />
       </IntentPrefetchLink>

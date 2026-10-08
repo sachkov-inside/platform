@@ -7,12 +7,14 @@ import {
 } from "@/entities/subscription.sale.server";
 import {
   CohortCallView,
+  CohortStatusView,
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 import { cohortCall } from "../model/cohort-call";
+import { cohortStatus } from "../model/cohort-status";
 
 type ResolvedSeries = Extract<
   PublishedSeriesResult,
@@ -54,6 +56,32 @@ export async function PersonalCohortCall({
       })}
     />
   );
+}
+
+/**
+ * Личная часть нижнего блока: плашка набора на поток, пока он не стартовал. Без набора блок
+ * остаётся со своим текстом из описания курса, поэтому здесь тогда ничего не рисуется.
+ */
+export async function PersonalCohortStatus({
+  result,
+}: {
+  readonly result: ResolvedSeries;
+}) {
+  await connection();
+  const { id: productId, slug } = result.reference;
+  if (productId === undefined) return null;
+  const accessToken = await getOptionalPlatformAccessToken();
+  const sale = await (accessToken === undefined
+    ? readGuestProductSale(productId)
+    : readViewerProductSale(productId, accessToken));
+  if (sale.kind === "unavailable" || !sale.cohortKnown) return null;
+  const status = cohortStatus({
+    cohort: sale.cohort,
+    offer: sale.offers[0] ?? null,
+    productAccess: sale.access,
+    slug,
+  });
+  return status === null ? null : <CohortStatusView status={status} />;
 }
 
 function withoutCohort(slug: string): CohortCall {

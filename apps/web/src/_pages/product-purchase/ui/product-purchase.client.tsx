@@ -6,6 +6,7 @@ import {
   billingErrorMessage,
   formatKopecks,
   offerCompositionLabel,
+  type PreorderTerms,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
@@ -27,6 +28,8 @@ export interface ProductPurchaseProps {
   readonly unavailable?: boolean;
   /** Промокод персональной ссылки владельца: переживает вход и уходит в расчёт цены. */
   readonly promoCode?: string;
+  /** Пока поток набирается: день старта и цена после него, зачёркнутая рядом с ценой. */
+  readonly preorder?: PreorderTerms | null;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -37,6 +40,7 @@ export function ProductPurchase({
   unavailable = false,
   promoCode,
   offerId,
+  preorder = null,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
@@ -124,6 +128,7 @@ export function ProductPurchase({
             onDocumentsChanged={() => {
               void contact.refetch();
             }}
+            preorder={preorder}
             snapshot={selected}
             {...(promoCode === undefined ? {} : { promoCode })}
           />

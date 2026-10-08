@@ -66,10 +66,14 @@
   background: var(--primary);
   color: var(--primary-foreground);
 }
+/* Пока идёт набор на поток, его плашка стоит вместо заголовка и кнопки блока. */
+.aie-status:has(.aie-cohort-status) .aie-status-default {
+  display: none;
+}
 .aie-status h2 {
   color: var(--primary-foreground);
 }
-.ai-product-page .aie-status p {
+.ai-product-page .aie-status-default p {
   margin-top: 0.75rem;
   color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
 }

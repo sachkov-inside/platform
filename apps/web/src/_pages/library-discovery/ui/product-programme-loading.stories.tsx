@@ -268,3 +268,44 @@ export const MemberLoadsInPlace: Story = { ...loadsInPlace(desktop, true) };
 export const MemberLoadsInPlaceMobile: Story = {
   ...loadsInPlace(mobile, true),
 };
+
+/** Набор на поток: вместо «Оплатить сейчас» — цена предзаказа, зачёркнутая цена после старта и предзаказ. */
+export const GuestPreorder: Story = {
+  decorators: [
+    (Story) => (
+      <MaterialReadingScope
+        value={{
+          accountId: null,
+          resolved: true,
+          states: new Map(),
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+          failed: false,
+        }}
+      >
+        <Story />
+      </MaterialReadingScope>
+    ),
+  ],
+  args: {
+    result,
+    productOffer: productOnlyOffer,
+    preorder: {
+      price: "29 900 ₽",
+      priceAfterStart: "39 900 ₽",
+      startsOn: "9 ноября",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByRole("link", { name: "Оформить предзаказ" }),
+    ).toBeVisible();
+    await expect(canvas.getByText("39 900 ₽")).toBeInTheDocument();
+    await expect(canvas.getByText("до старта 9 ноября")).toBeVisible();
+  },
+};
+export const GuestPreorderMobile: Story = {
+  ...GuestPreorder,
+  globals: mobile.globals,
+};

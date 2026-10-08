@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import {
   billingActionClass,
+  PreorderPriceView,
+  type PreorderPrice,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -43,6 +45,7 @@ type ResolvedSeriesResult = Extract<
 export function ProductProgrammeView({
   artifacts,
   result,
+  preorder = null,
   productOffer = null,
   pending: accessPending = false,
   subscriptionOffered = false,
@@ -50,6 +53,8 @@ export function ProductProgrammeView({
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ResolvedSeriesResult;
   readonly productOffer?: PriceSnapshot | null;
+  /** Цена предзаказа: пока поток набирается, кнопка оплаты становится предзаказом. */
+  readonly preorder?: PreorderPrice | null;
   /**
    * Программа нарисована из общих данных, личная часть ещё идёт (ADR 0027): состав и названия
    * настоящие, а замки, счётчик открытого, приглашение к оплате и прогресс уточняются на месте.
@@ -134,7 +139,11 @@ export function ProductProgrammeView({
               className={programmePurchaseRowClass}
               data-programme-purchase-row
             >
-              <ProgrammePurchase invitation={purchase} offer={productOffer} />
+              <ProgrammePurchase
+                invitation={purchase}
+                offer={productOffer}
+                preorder={preorder}
+              />
             </div>
           )}
         </div>
@@ -206,9 +215,11 @@ export function programmePurchase({
 function ProgrammePurchase({
   invitation,
   offer,
+  preorder,
 }: {
   readonly invitation: PurchaseInvitation;
   readonly offer: PriceSnapshot | null;
+  readonly preorder: PreorderPrice | null;
 }) {
   if (invitation.kind === "subscription") {
     return (
@@ -217,13 +228,23 @@ function ProgrammePurchase({
       </Button>
     );
   }
-  return (
+  const button = (
     <Button
       asChild
       className={`product-purchase-cta ${billingActionClass}`}
       data-product-offer={offer?.paymentOption.id}
     >
-      <Link href={invitation.href}>Оплатить сейчас</Link>
+      <Link href={invitation.href}>
+        {preorder === null ? "Оплатить сейчас" : "Оформить предзаказ"}
+      </Link>
     </Button>
+  );
+  // Пока поток набирается, рядом с кнопкой — цена предзаказа и зачёркнутая цена после старта.
+  if (preorder === null) return button;
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 @[36rem]/programme:flex-nowrap @[36rem]/programme:justify-end [&>a]:w-full @[36rem]/programme:[&>a]:w-auto">
+      <PreorderPriceView price={preorder} />
+      {button}
+    </div>
   );
 }

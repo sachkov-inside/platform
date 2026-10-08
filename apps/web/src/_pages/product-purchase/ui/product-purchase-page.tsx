@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { preorderTerms } from "@/entities/subscription";
 import {
   readGuestProductSale,
   readViewerProductSale,
@@ -51,6 +52,7 @@ export async function ProductPurchasePage({
         summary: product.reference.summary,
       }}
       offers={catalog.kind === "ready" ? catalog.offers : []}
+      preorder={catalog.kind === "ready" ? preorderTerms(catalog.cohort) : null}
       {...(offerId === undefined ? {} : { offerId })}
       slug={slug}
       {...(promoCode === undefined ? {} : { promoCode })}

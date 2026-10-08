@@ -6,7 +6,7 @@
   "platformAccepted": true,
   "extraction": "gh api 'repos/sachkov-inside/platform/contents/apps/backend/openapi/platform-api.json?ref=<providerCommit>' -H 'Accept: application/vnd.github.raw' | jq '{response: .paths[\"/billing/cohorts\"].get.responses[\"200\"].content[\"application/json\"].schema}', then prettier --write",
   "files": {
-    "schema.json": "4cc966dea10347342e64488d03ac00a82fa2579968be1ca9ba9bd914dd7c1546",
+    "schema.json": "c8e6f1dc4e16de473af9cf790b4cfeee4b5809536f4c4ca5ac1ae94465d58395",
     "fixtures.json": "79c29bc334089715c0ac79ff0d61609d13dcb43bc3ab8057adaec9ef8fb28df4"
   },
   "upgradeIssue": "https://github.com/sachkov-inside/platform/issues/1065"

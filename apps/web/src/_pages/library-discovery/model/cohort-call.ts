@@ -1,5 +1,7 @@
 import {
+  formatCohortDate,
   formatKopecks,
+  preorderPrice,
   type ProductCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -14,16 +16,7 @@ import {
   productPurchaseHref,
 } from "@/shared/routing/subscription-route";
 
-const cohortDate = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
-
-/** Дата старта — календарный день из каталога: часовой пояс читателя её не сдвигает. */
-export function formatCohortDate(startsOn: string): string {
-  return cohortDate.format(new Date(`${startsOn}T00:00:00Z`));
-}
+export { formatCohortDate };
 
 /**
  * Плашка и кнопка первого экрана по этапу продаж потока. Этап задаёт обещание, но деньги
@@ -88,17 +81,22 @@ export function cohortCall({
             },
         compactOnPhone: false,
       };
-    case "preorder":
+    case "preorder": {
+      const preorder = preorderPrice(cohort, offer);
+      const afterStart = preorder?.priceAfterStart ?? null;
       return {
         banner: {
           label,
-          text: `Предзаказ открыт до ${date}`,
+          text: `Набор на первый поток. Старт ${date}`,
           detail:
-            "Сообщество и все опубликованные главы сразу после оплаты. Следующие главы выходят по порядку программы, без фиксированных дат. После старта цена вырастет",
+            afterStart === null
+              ? "Предзаказ до старта дешевле. Сообщество и все опубликованные главы сразу после оплаты"
+              : `До старта — ${price} вместо ${afterStart}. Сообщество и все опубликованные главы сразу после оплаты`,
         },
-        action: pay(`Оплатить ${price}`),
+        action: pay("Оформить предзаказ"),
         compactOnPhone: false,
       };
+    }
     case "running":
       return {
         banner: {

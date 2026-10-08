@@ -5,7 +5,7 @@ import { productCohortSchema } from "../../domain/product-cohort.js";
 import { failure, type PricingResult } from "../../domain/pricing.js";
 
 /** Сколько продуктов с потоком читается за раз: у каталога их единицы, граница только от сбоя. */
-const cohortListLimit = 100;
+export const cohortListLimit = 100;
 
 export const productCohortsSchema = z.strictObject({
   items: z.array(productCohortSchema).max(cohortListLimit),
@@ -13,7 +13,8 @@ export const productCohortsSchema = z.strictObject({
 
 /**
  * Текущие потоки продуктов для страницы продукта и бота. Поток — публичный факт, он не зависит
- * от читателя; цену и продажу страница берёт из предложений, а не отсюда.
+ * от читателя; цену и продажу страница берёт из предложений, а не отсюда. Цена после старта
+ * здесь только для витрины: страница показывает её зачёркнутой, а списание её не читает.
  */
 export async function listProductCohorts(
   prisma: BillingPrismaClient,
@@ -35,6 +36,10 @@ export async function listProductCohorts(
           stage: row.stage,
           startsOn: row.startsOn?.toISOString().slice(0, 10) ?? null,
           nextEvent: row.nextEvent,
+          priceAfterStartKopecks:
+            row.priceAfterStartKopecks === null
+              ? null
+              : Number(row.priceAfterStartKopecks),
         })),
       }),
     };

@@ -1,4 +1,8 @@
 import {
+  name as productCohortPriceAfterStartName,
+  statement as productCohortPriceAfterStartStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0085-product-cohort-price-after-start.js";
+import {
   name as domainNamesName,
   statement as domainNamesStatement,
 } from "./0082-domain-names.js";
@@ -543,6 +547,10 @@ export const platformMigrations = [
   },
   { name: removeWorkshopName, statement: removeWorkshopStatement },
   { name: domainNamesName, statement: domainNamesStatement },
+  {
+    name: productCohortPriceAfterStartName,
+    statement: productCohortPriceAfterStartStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

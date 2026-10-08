@@ -114,6 +114,7 @@ const meta = {
         stage: "preorder",
         startsOn: "2026-10-20",
         nextEvent: "",
+        priceAfterStartKopecks: 3_990_000,
       },
     ],
   },
@@ -327,15 +328,45 @@ export const ProductCohort: Story = {
     ).toBeVisible();
     await userEvent.click(page.getByRole("button", { name: "Изменить" }));
     await expect(page.getByLabelText("Название потока")).toHaveValue("Поток 1");
+    await expect(page.getByLabelText("Цена после старта, ₽")).toHaveValue(
+      "39900",
+    );
     await userEvent.click(
       page.getByRole("button", { name: "Сохранить поток" }),
     );
     await waitFor(() =>
       expect(lastRequest("cohorts/save")).toMatchObject({
         expectedRevision: 3,
-        value: { productId, name: "Поток 1", stage: "preorder" },
+        value: {
+          productId,
+          name: "Поток 1",
+          stage: "preorder",
+          priceAfterStartKopecks: 3_990_000,
+        },
       }),
     );
+  },
+};
+
+/** Цена после старта не положительна: форма объясняет ошибку и не отправляет поток. */
+export const ProductCohortInvalidPriceAfterStart: Story = {
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      await page.findByRole("button", { name: "Изменить" }),
+    );
+    const price = page.getByLabelText("Цена после старта, ₽");
+    await userEvent.clear(price);
+    await userEvent.type(price, "-100");
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить поток" }),
+    );
+    await expect(
+      await page.findByText(
+        /Цена после старта — положительная сумма в рублях/u,
+      ),
+    ).toBeVisible();
+    await expect(price).toHaveAttribute("aria-invalid", "true");
   },
 };
 

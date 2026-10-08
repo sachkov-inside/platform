@@ -1,0 +1,62 @@
+/* Плашка набора стоит на тёмном нижнем блоке страницы курса вместо его заголовка и кнопки. */
+.aie-cohort-status {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+.aie-cohort-status h2 {
+  margin: 0;
+}
+.ai-product-page .aie-cohort-status > p {
+  margin: 0;
+  color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
+}
+.aie-cohort-status-label {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.aie-cohort-status .preorder-price {
+  margin-top: 0.35rem;
+}
+.aie-cohort-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.aie-cohort-status-buy,
+.aie-cohort-status-programme {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+.aie-cohort-status-buy {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-cohort-status-buy:hover {
+  background: var(--accent-hover);
+}
+.aie-cohort-status-buy svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aie-cohort-status-programme {
+  background: color-mix(in srgb, var(--primary-foreground) 12%, var(--primary));
+  color: var(--primary-foreground);
+}
+.aie-cohort-status-buy:focus-visible,
+.aie-cohort-status-programme:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
