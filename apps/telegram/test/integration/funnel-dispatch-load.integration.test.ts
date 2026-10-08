@@ -1,4 +1,7 @@
-import { registerRuntimeClock } from "../support/fixed-clock.js";
+import {
+  registerRuntimeClock,
+  useTimeoutClock,
+} from "../support/fixed-clock.js";
 import { WorkerLoop } from "../../src/operations/worker-loop.js";
 import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
@@ -481,17 +484,18 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
   worker.start();
   let stopped = false;
   let stopping: Promise<void> | undefined;
+  let restoreDate: (() => void) | undefined;
   try {
     await vi.waitFor(() => expect(sends).toBe(1), { timeout: 5000 });
     stopping = worker.stop().then(() => {
       stopped = true;
     });
     expect(cycleSignal?.aborted).toBe(true);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    restoreDate = useTimeoutClock({ shouldAdvanceTime: true });
     await vi.advanceTimersByTimeAsync(2000);
     expect(stopped).toBe(false);
   } finally {
-    vi.useRealTimers();
+    restoreDate?.();
     release();
     await (stopping ?? worker.stop());
   }
@@ -537,6 +541,7 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     observedAt: runtimeClock.now(),
   });
   let waiter: Promise<unknown> | undefined;
+  let restoreDate: (() => void) | undefined;
   try {
     // Negative fixture: a command that takes the scheduler lock is detected as waiting.
     waiter = database
@@ -549,10 +554,10 @@ it("completes every BotContact command while the bot scheduler lock is held", as
       waiterCompleted = true;
     });
     await advisoryLockWaiting(database, "communications-scheduler:inside");
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    restoreDate = useTimeoutClock({ shouldAdvanceTime: true });
     await vi.advanceTimersByTimeAsync(300);
     expect(waiterCompleted).toBe(false);
-    vi.useRealTimers();
+    restoreDate();
     waiter = waiting;
     const commands = [
       () => app.get(BotContacts).observeStart(contact("1"), "welcome"),
@@ -569,7 +574,7 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     for (const command of commands)
       expect(await elapsed(command, 5000)).toBeLessThan(5000);
   } finally {
-    vi.useRealTimers();
+    restoreDate?.();
     release();
     await holder;
     await waiter;

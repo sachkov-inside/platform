@@ -37,3 +37,16 @@ export function runtimeTestClock(): { now(): Date } {
   const started = performance.now();
   return { now: () => new Date(instant + performance.now() - started) };
 }
+
+/** Preserve the registered Date clock while timeout timers are temporarily virtual. */
+export function useTimeoutClock(
+  options: { shouldAdvanceTime?: boolean } = {},
+): () => void {
+  const install = (toFake: ("Date" | "setTimeout" | "clearTimeout")[]) => {
+    // deterministic-test-allow wall-clock: The caller registered virtual Date; capture its current instant before Vitest reinstalls timer methods.
+    const instant = Date.now();
+    vi.useFakeTimers({ ...options, now: instant, toFake });
+  };
+  install(["Date", "setTimeout", "clearTimeout"]);
+  return () => install(["Date"]);
+}

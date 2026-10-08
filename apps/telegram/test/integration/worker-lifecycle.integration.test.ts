@@ -1,4 +1,4 @@
-import { registerFixedClock } from "../support/fixed-clock.js";
+import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
 import { BackgroundWorkers } from "../../src/operations/background-workers.js";
 import { hasText } from "../../src/shared/text.js";
 import {
@@ -167,15 +167,16 @@ describe("background worker lifecycle", () => {
       const closing = app.close().then(() => {
         lifecycle.closed = true;
       });
+      let restoreDate: (() => void) | undefined;
       try {
         await vi.waitFor(() => expect(shutdownStarted).toHaveBeenCalled(), {
           timeout: 5000,
         });
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        restoreDate = useTimeoutClock();
         await vi.advanceTimersByTimeAsync(200);
         expect(lifecycle.closed).toBe(false);
       } finally {
-        vi.useRealTimers();
+        restoreDate?.();
         shutdownStarted.mockRestore();
         release({ kind: "delivered", providerMessageId: "7" });
         await closing;
