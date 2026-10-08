@@ -14,4 +14,5 @@ case "$1" in
   success) exit 0 ;;
   failure) exit 23 ;;
   signal) kill -TERM "$$" ;;
+  timeout) wait "$load" ;;
 esac

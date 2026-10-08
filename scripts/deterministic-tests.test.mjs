@@ -255,11 +255,12 @@ test("diagnostic process aliases need cleanup, an unrelated child does not satis
   );
 });
 
-test("EXIT cleanup leaves no background load on success, failure or SIGTERM", async () => {
+test("EXIT cleanup leaves no background load on success, failure, timeout or SIGTERM", async () => {
   for (const [mode, code] of [
     ["success", 0],
     ["failure", 23],
     ["signal", 143],
+    ["timeout", 143],
   ]) {
     const child = spawn(
       "bash",
@@ -274,6 +275,14 @@ test("EXIT cleanup leaves no background load on success, failure or SIGTERM", as
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
+    if (mode === "timeout")
+      child.stdout.once("data", () => {
+        AbortSignal.timeout(25).addEventListener(
+          "abort",
+          () => child.kill("SIGTERM"),
+          { once: true },
+        );
+      });
     let stdout = "";
     child.stdout.setEncoding("utf8").on("data", (chunk) => {
       stdout += chunk;
