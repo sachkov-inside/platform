@@ -37,12 +37,12 @@ export async function getBookmarkStates(materialIds: readonly string[]) {
 /** Состояния закладок личные, поэтому у гостя запрос выключен, а не отбит отказом 401. */
 export function bookmarkStatesQueryOptions(input: {
   readonly materialId: string;
-  readonly signedIn: boolean;
+  readonly accountId: string | null;
 }) {
   return queryOptions({
-    queryKey: ["bookmarks", "states", input.materialId],
+    queryKey: ["bookmarks", input.accountId, "states", input.materialId],
     queryFn: () => getBookmarkStates([input.materialId]),
-    enabled: input.signedIn,
+    enabled: input.accountId !== null,
     retry: false,
   });
 }

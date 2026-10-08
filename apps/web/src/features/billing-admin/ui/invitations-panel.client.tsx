@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -18,6 +18,10 @@ import {
   listInvitations,
   revokeInvitation,
 } from "../api/invitations.browser";
+import {
+  announceInvitationChange,
+  subscribeInvitationChange,
+} from "../model/invitation-events";
 import {
   accessSummaryQueryKey,
   invitationsQueryKey,
@@ -54,6 +58,16 @@ export function InvitationsPanel({
   readonly offers: readonly PriceSnapshot[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribeInvitationChange(() => {
+        void cache.invalidateQueries(
+          { queryKey: invitationsQueryKey },
+          { cancelRefetch: false },
+        );
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   const [filter, setFilter] = useState<InvitationStateFilter>("all");
   const [message, setMessage] = useState("");
@@ -76,8 +90,14 @@ export function InvitationsPanel({
     getNextPageParam: (page) => page.nextCursor,
   });
   function refresh() {
-    void cache.invalidateQueries({ queryKey: invitationsQueryKey });
-    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+    void cache.invalidateQueries(
+      { queryKey: invitationsQueryKey },
+      { cancelRefetch: false },
+    );
+    void cache.invalidateQueries(
+      { queryKey: accessSummaryQueryKey },
+      { cancelRefetch: false },
+    );
   }
   function lost() {
     setFailure(
@@ -94,6 +114,7 @@ export function InvitationsPanel({
         );
         return;
       }
+      announceInvitationChange();
       completeOperation("issue");
       setFailure(null);
       setMessage("");
@@ -120,6 +141,7 @@ export function InvitationsPanel({
         }
         return;
       }
+      announceInvitationChange();
       completeOperation(`revoke:${input.invitationId}`);
       setFailure(null);
       setMessage("Приглашение отозвано.");

@@ -1,13 +1,33 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { billingErrorMessage } from "@/entities/subscription";
+import {
+  billingErrorMessage,
+  subscribeEnrollmentChange,
+} from "@/entities/subscription";
 
+import { subscribeInvitationChange } from "../model/invitation-events";
 import { readAccessSummary } from "../api/access.browser";
 import { AccessSummaryView } from "./access-summary-view.client";
 import { accessSummaryQueryKey } from "../model/access-query-keys";
 
 export function AccessSummaryPanel() {
+  const cache = useQueryClient();
+  useEffect(() => {
+    const refresh = () => {
+      void cache.invalidateQueries(
+        { queryKey: accessSummaryQueryKey },
+        { cancelRefetch: false },
+      );
+    };
+    const stopEnrollments = subscribeEnrollmentChange(refresh);
+    const stopInvitations = subscribeInvitationChange(refresh);
+    return () => {
+      stopEnrollments();
+      stopInvitations();
+    };
+  }, [cache]);
   const summary = useQuery({
     queryKey: accessSummaryQueryKey,
     queryFn: async () => {

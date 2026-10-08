@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -9,6 +9,7 @@ import {
 
 import {
   announceEnrollmentChange,
+  subscribeEnrollmentChange,
   billingErrorMessage,
   type BillingCommandResult,
   type BillingFailureCode,
@@ -66,6 +67,16 @@ export function PeoplePanel({
   readonly offers: readonly PriceSnapshot[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribeEnrollmentChange(() => {
+        void cache.invalidateQueries(
+          { queryKey: peopleQueryKey },
+          { cancelRefetch: false },
+        );
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   // Начало назначения читается при первой отправке и не меняется у повтора той же операции.
   const assignmentStarts = useRef(new Map<string, string>());
@@ -104,8 +115,14 @@ export function PeoplePanel({
     (row) => row.availableForAssignment && !row.archived,
   );
   function refresh() {
-    void cache.invalidateQueries({ queryKey: peopleQueryKey });
-    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+    void cache.invalidateQueries(
+      { queryKey: peopleQueryKey },
+      { cancelRefetch: false },
+    );
+    void cache.invalidateQueries(
+      { queryKey: accessSummaryQueryKey },
+      { cancelRefetch: false },
+    );
   }
   const change = useMutation({
     retry: false,
