@@ -1,6 +1,6 @@
 "use client";
 import type { Route } from "next";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
@@ -15,6 +15,7 @@ import {
   type PurchaseStatus,
   type VerifiedContact,
 } from "@/entities/subscription";
+import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
@@ -22,7 +23,12 @@ import {
   readBillingPurchaseStatus,
   startBillingPurchase,
 } from "../api/billing-checkout.browser";
-import { acceptedPurchaseDocuments, rememberPurchase } from "../model/checkout";
+import {
+  acceptedPurchaseDocuments,
+  rememberPurchase,
+  type QuoteInput,
+  type PurchaseInput,
+} from "../model/checkout";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
@@ -44,10 +50,46 @@ export interface CheckoutFlowProps {
   readonly promoCode?: string;
 }
 
-/**
- * Держит одну попытку покупки: тот же `operationId` повторяется, пока не изменилась нагрузка,
- * поэтому повтор после сбоя присоединяется к начатой операции, а не создаёт вторую.
- */
+interface CheckoutSelection {
+  readonly key: string;
+  readonly identity: object;
+  readonly quote: BillingQuote | null;
+  readonly acknowledge: boolean;
+  readonly existingAccess: boolean;
+  readonly legacyBlocked: boolean;
+  readonly error: string | undefined;
+}
+
+interface PurchaseAttempt {
+  readonly command: PurchaseInput;
+  readonly identity: object;
+  readonly snapshot: PriceSnapshot;
+  readonly email: string;
+}
+
+type PaymentRequest =
+  | { readonly retry: PurchaseAttempt }
+  | {
+      readonly quote: BillingQuote;
+      readonly identity: object;
+      readonly contact: VerifiedContact;
+      readonly documents: readonly LegalDocument[];
+      readonly acknowledgeExistingAccess: boolean;
+    };
+
+function newSelection(key: string): CheckoutSelection {
+  return {
+    key,
+    identity: {},
+    quote: null,
+    acknowledge: false,
+    existingAccess: false,
+    legacyBlocked: false,
+    error: undefined,
+  };
+}
+
+/** Расчёт принадлежит выбранным условиям; команда оплаты переживает смену выбора. */
 export function CheckoutFlow({
   snapshot,
   contact,
@@ -59,41 +101,63 @@ export function CheckoutFlow({
   onDocumentsChanged,
   promoCode,
 }: CheckoutFlowProps) {
-  const [quote, setQuote] = useState<BillingQuote | null>(null);
-  const [acknowledge, setAcknowledge] = useState(false);
-  const [existingAccess, setExistingAccess] = useState(false);
-  const [legacyBlocked, setLegacyBlocked] = useState(false);
+  const selectionKey = JSON.stringify([
+    snapshot.paymentOption.id,
+    snapshot.paymentOption.revision,
+    paymentMode(snapshot),
+    promoCode,
+  ]);
+  const [selection, setSelection] = useState(() => newSelection(selectionKey));
+  // Сбрасываем до commit: кнопка не получает старый расчёт даже на один рендер.
+  if (selection.key !== selectionKey) setSelection(newSelection(selectionKey));
+  const { quote, acknowledge, existingAccess, legacyBlocked, error } =
+    selection;
+  const updateSelection = (
+    identity: object,
+    patch: Partial<Omit<CheckoutSelection, "key" | "identity">>,
+  ) => {
+    setSelection((current) =>
+      current.identity === identity ? { ...current, ...patch } : current,
+    );
+  };
+  const [attempt, setAttempt] = useState<PurchaseAttempt | null>(null);
+  const [paymentError, setPaymentError] = useState<string>();
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
-  const [error, setError] = useState<string>();
   const { operationId, completeOperation } = useRepeatableOperations();
 
   const quoteMutation = useMutation({
-    mutationFn: createBillingQuote,
+    mutationFn: ({
+      input,
+    }: {
+      readonly input: QuoteInput;
+      readonly identity: object;
+    }) => createBillingQuote(input),
     retry: false,
-    onSuccess: (result) => {
+    onSuccess: (result, request) => {
       if (!result.ok) {
-        setError(billingErrorMessage(result.code));
+        updateSelection(request.identity, {
+          error: billingErrorMessage(result.code),
+        });
         return;
       }
       // Расчёт сохранён и однажды истечёт: пересчёт тех же условий — новая операция.
       completeOperation("quote");
-      setError(undefined);
-      setQuote(result.value);
-      setExistingAccess(false);
-      setLegacyBlocked(false);
+      updateSelection(request.identity, {
+        error: undefined,
+        quote: result.value,
+        existingAccess: false,
+        legacyBlocked: false,
+      });
     },
   });
 
   const payMutation = useMutation({
     retry: false,
-    mutationFn: async (input: {
-      readonly quote: BillingQuote;
-      readonly contactRevision: number;
-      readonly acknowledgeExistingAccess: boolean;
-    }) => {
+    mutationFn: async (input: PaymentRequest) => {
+      if ("retry" in input) return startBillingPurchase(input.retry.command);
       // Нажатие кнопки оплаты принимает документы этой покупки; журнал запишет подпись кнопки.
       const acceptedDocuments = acceptedPurchaseDocuments(
-        documents,
+        input.documents,
         input.quote,
       );
       const recurring = paymentMode(input.quote.snapshot) === "subscription";
@@ -113,25 +177,44 @@ export function CheckoutFlow({
         documents: acceptedDocuments,
       });
       if (!consents.ok) return consents;
-      const evidenceRefs = consents.value.evidenceRefs;
-      return await startBillingPurchase({
-        operationId: operationId("purchase", {
-          quoteRef: input.quote.quoteRef,
-          evidenceRefs,
-          acknowledgeExistingAccess: input.acknowledgeExistingAccess,
-        }),
+      const payload = {
         quoteRef: input.quote.quoteRef,
-        contactRevision: input.contactRevision,
-        consentEvidenceRefs: [...evidenceRefs],
+        contactRevision: input.contact.revision,
+        consentEvidenceRefs: [...consents.value.evidenceRefs],
         acknowledgeExistingAccess: input.acknowledgeExistingAccess,
+      };
+      const command = {
+        operationId: operationId("purchase", payload),
+        ...payload,
+      };
+      // Сохраняем до HTTP: потерянный ответ не даёт права заменить команду новым выбором.
+      setAttempt({
+        command,
+        identity: input.identity,
+        snapshot: input.quote.snapshot,
+        email: input.contact.email,
       });
+      return startBillingPurchase(command);
     },
-    onSuccess: (result) => {
+    onSuccess: (result, request) => {
+      const identity =
+        "retry" in request ? request.retry.identity : request.identity;
       if (!result.ok) {
-        if (result.code === "existing_access") setExistingAccess(true);
-        if (result.code === "legacy_review_required") setLegacyBlocked(true);
+        if (
+          result.code !== "unavailable" &&
+          result.code !== "dependency_unavailable" &&
+          result.code !== "unauthorized"
+        ) {
+          setAttempt(null);
+          completeOperation("purchase");
+        }
+        setPaymentError(billingErrorMessage(result.code));
+        if (result.code === "existing_access")
+          updateSelection(identity, { existingAccess: true });
+        if (result.code === "legacy_review_required")
+          updateSelection(identity, { legacyBlocked: true });
         if (result.code === "quote_expired" || result.code === "quote_changed")
-          setQuote(null);
+          updateSelection(identity, { quote: null });
         // Отказ по согласию значит, что принятая нажатием редакция больше не действует:
         // документы перечитываются, и следующее нажатие примет действующую.
         if (
@@ -140,10 +223,13 @@ export function CheckoutFlow({
         ) {
           onDocumentsChanged?.();
         }
-        setError(billingErrorMessage(result.code));
         return;
       }
-      setError(undefined);
+      // Даже pending/unknown — восстановленный receipt, HTTP-неопределённость закончилась.
+      setAttempt(null);
+      setPaymentError(undefined);
+      completeOperation("purchase");
+      updateSelection(identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
       rememberPurchase(result.value.purchaseRef);
@@ -157,37 +243,35 @@ export function CheckoutFlow({
     retry: false,
     onSuccess: (result) => {
       if (!result.ok) {
-        setError(billingErrorMessage(result.code));
+        updateSelection(selection.identity, {
+          error: billingErrorMessage(result.code),
+        });
         return;
       }
-      setError(undefined);
+      updateSelection(selection.identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
     },
   });
 
   const requestQuote = () => {
-    setError(undefined);
+    updateSelection(selection.identity, { error: undefined });
     const input = {
       paymentOptionId: snapshot.paymentOption.id,
       optionRevision: snapshot.paymentOption.revision,
       ...(promoCode === undefined ? {} : { promoCode }),
     };
     quoteMutation.mutate({
-      operationId: operationId("quote", input),
-      ...input,
+      identity: selection.identity,
+      input: { operationId: operationId("quote", input), ...input },
     });
   };
-  // Разовая покупка показывает цену сразу: отдельный шаг «рассчитать» здесь только мешал бы.
-  // Расчёт запрашивается один раз на вариант; повтор того же operationId вернёт тот же расчёт.
+  // Разовая покупка рассчитывается автоматически; подписка сохраняет явный шаг расчёта.
   const oneTime = paymentMode(snapshot) === "one_time";
-  const requested = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!oneTime || requested.current === snapshot.paymentOption.id) return;
-    requested.current = snapshot.paymentOption.id;
-    requestQuote();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- расчёт принадлежит выбранному варианту
-  }, [oneTime, snapshot.paymentOption.id]);
+    if (oneTime) requestQuote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- новая identity означает новые выбранные условия
+  }, [oneTime, selection.identity]);
 
   const shared = {
     acknowledgeExistingAccess: acknowledge,
@@ -198,27 +282,38 @@ export function CheckoutFlow({
     existingAccess,
     legacyBlocked,
     onPay: () => {
-      if (quote === null || contact === null) return;
-      setError(undefined);
+      if (
+        quote === null ||
+        contact === null ||
+        attempt !== null ||
+        payMutation.isPending
+      )
+        return;
+      updateSelection(selection.identity, { error: undefined });
+      setPaymentError(undefined);
       payMutation.mutate({
         quote,
-        contactRevision: contact.revision,
+        identity: selection.identity,
+        contact,
+        documents,
         acknowledgeExistingAccess: acknowledge,
       });
     },
     onRefreshStatus: () => {
       if (purchase === null) return;
-      setError(undefined);
+      updateSelection(selection.identity, { error: undefined });
       statusMutation.mutate(purchase.purchaseRef);
     },
     onToggleAcknowledge: () => {
-      setAcknowledge((value) => !value);
+      updateSelection(selection.identity, { acknowledge: !acknowledge });
     },
     pending:
-      quoteMutation.isPending ||
+      (quoteMutation.isPending &&
+        quoteMutation.variables.identity === selection.identity) ||
       payMutation.isPending ||
       statusMutation.isPending,
     purchase,
+    paymentBlocked: attempt !== null,
     quote,
     snapshot,
   } as const;
@@ -228,7 +323,7 @@ export function CheckoutFlow({
   const promoRejected =
     promoCode !== undefined && quote?.snapshot.promotion === null;
 
-  return oneTime ? (
+  const panel = oneTime ? (
     <OneTimeCheckoutPanel
       {...shared}
       showInclusions={showInclusions}
@@ -237,6 +332,47 @@ export function CheckoutFlow({
     />
   ) : (
     <CheckoutPanel {...shared} onQuote={requestQuote} />
+  );
+  return (
+    <>
+      {panel}
+      {attempt === null ? null : (
+        <section
+          aria-label="Повтор первоначальной покупки"
+          className="mt-5 rounded-xl border border-border p-4 text-sm leading-6"
+        >
+          <p>
+            Получаем результат первоначальной покупки:{" "}
+            {attempt.snapshot.offer.name}.{" "}
+            {checkoutButtonLabel(attempt.snapshot)}. Чек на {attempt.email}.
+          </p>
+          <p>
+            Если ответ потерялся, повтор сохранённых условий восстановит эту
+            покупку.
+          </p>
+          <Button
+            className="mt-3"
+            disabled={payMutation.isPending}
+            onClick={() => {
+              setPaymentError(undefined);
+              payMutation.mutate({ retry: attempt });
+            }}
+            type="button"
+            variant="outline"
+          >
+            Повторить первоначальную покупку
+          </Button>
+        </section>
+      )}
+      {paymentError === undefined ? null : (
+        <p
+          role="alert"
+          className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6"
+        >
+          {paymentError}
+        </p>
+      )}
+    </>
   );
 }
 
