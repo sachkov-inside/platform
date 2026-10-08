@@ -10,22 +10,22 @@ import time
 sys.path.insert(0, str(Path(__file__).parent / 'heavy-check'))
 sys.path.insert(0, str(Path(__file__).parent / 'owned-process'))
 from lock import track_descendants, signal_groups, command_signals, POLL_SECONDS, process_snapshot
-from lineage import Lineage
+from ownership import ProcessOwnership
 
 
-def track_tree(process, tracked, groups, lineage):
-    if lineage is not None and lineage.library is not None:
-        lineage.include(process_snapshot(), tracked, groups)
+def track_tree(process, tracked, groups, ownership):
+    if ownership.library is not None:
+        ownership.include(process_snapshot(), tracked, groups)
     return track_descendants(process, tracked, groups)
 
 
-def stop_tree(process, tracked, groups, grace, lineage):
+def stop_tree(process, tracked, groups, grace, ownership):
     deadline = time.monotonic() + grace
     kill_deadline = deadline + 5
     signalled = set()
     while True:
         process.poll()
-        live = track_tree(process, tracked, groups, lineage)
+        live = track_tree(process, tracked, groups, ownership)
         if not live:
             process.wait()
             return
@@ -52,15 +52,14 @@ def main():
     tracked = {}
     groups = set()
     grace = 5
-    lineage = None
+    ownership = ProcessOwnership()
     try:
         command = json.loads(sys.argv[1])
         process = subprocess.Popen(command, start_new_session=True,
-                                   preexec_fn=command_signals)
+                                   preexec_fn=command_signals, env=ownership.environment)
         groups.add(process.pid)
-        lineage = Lineage(process.pid)
         while process.poll() is None:
-            track_tree(process, tracked, groups, lineage)
+            track_tree(process, tracked, groups, ownership)
             if stopping:
                 return 143
             if select.select([3], [], [], POLL_SECONDS)[0]:
@@ -76,7 +75,7 @@ def main():
         return 127
     finally:
         if process is not None:
-            stop_tree(process, tracked, groups, grace, lineage)
+            stop_tree(process, tracked, groups, grace, ownership)
 
 
 if __name__ == '__main__':

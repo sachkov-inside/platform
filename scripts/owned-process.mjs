@@ -33,6 +33,18 @@ export function spawnOwned(command, args = [], options = {}) {
     [supervisor, JSON.stringify([command, ...args])],
     {
       ...options,
+      // Inner owners retain outer markers even when the caller supplies a fresh environment.
+      env:
+        options.env === undefined
+          ? process.env
+          : {
+              ...options.env,
+              ...Object.fromEntries(
+                Object.entries(process.env).filter(([key]) =>
+                  key.startsWith("INSIDE_OWNED_PROCESS_"),
+                ),
+              ),
+            },
       detached: true,
       stdio: [...streams, "pipe"],
     },

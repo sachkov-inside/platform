@@ -31,6 +31,23 @@ load.once('message', pid => {
   process.exit(0);
 });
 """
+INTERMEDIATE_LOAD = f"""
+const {{spawn}} = require('node:child_process');
+const intermediate = spawn(process.execPath, ['-e', {json.dumps(DETACHED_LOAD)}],
+  {{stdio:['ignore','pipe','inherit']}});
+intermediate.stdout.pipe(process.stdout);
+intermediate.once('exit',()=>process.exit(0));
+"""
+NESTED_LOAD = f"""
+import({json.dumps(API)}).then(({{spawnOwned}})=>{{
+  const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+    {{env:{{PATH:process.env.PATH}},stdio:['ignore','pipe','inherit']}});
+  child.stdout.once('data',data=>console.log(data.toString().trim(),process.pid));
+  child.once('error',()=>process.exit(1));
+}});
+process.on('SIGTERM',()=>{{}});
+setInterval(()=>{{}},1000);
+"""
 
 
 def read_ready(process):
@@ -67,9 +84,13 @@ def stopped(pid):
 
 class Ownership(unittest.TestCase):
     def exercise(self, action, load=LOAD):
+        command = ['node', '-e', load]
+        if action == 'exec-exit':
+            command = ['/bin/sh', '-c', 'exec "$@"', 'owned-exec', *command]
         owner_source = f"""
         import {{spawnOwned,stopOwned}} from {json.dumps(API)};
-        const child=spawnOwned(process.execPath,['-e',{json.dumps(load)}],
+        const [command,...args]={json.dumps(command)};
+        const child=spawnOwned(command,args,
           {{stdio:['ignore','pipe','inherit']}});
         child.stdout.pipe(process.stdout);
         child.once('exit',code=>{{process.exitCode=code}});
@@ -88,7 +109,7 @@ class Ownership(unittest.TestCase):
         pids = []
         try:
             pids = read_ready(process)
-            if action == 'detached-exit':
+            if action in ('detached-exit', 'exec-exit', 'intermediate-exit'):
                 # The launcher exits as soon as its detached child reports readiness.
                 pass
             elif action == 'command-exit':
@@ -135,6 +156,31 @@ class Ownership(unittest.TestCase):
 
     def test_fast_launcher_exit_cleans_detached_descendant(self):
         self.exercise('detached-exit', DETACHED_LOAD)
+
+    def test_exec_launcher_cleans_detached_descendant(self):
+        self.exercise('exec-exit', DETACHED_LOAD)
+
+    def test_reaped_intermediate_cleans_detached_leaf(self):
+        self.exercise('intermediate-exit', INTERMEDIATE_LOAD)
+
+    def test_nested_owner_retains_outer_ownership(self):
+        self.exercise('stop', NESTED_LOAD)
+
+    def test_unrelated_cookie_does_not_grant_ownership(self):
+        foreign = subprocess.Popen(
+            ['node', '-e', "console.log('READY',process.pid);setInterval(()=>{},1000)"],
+            env=dict(os.environ, INSIDE_OWNED_PROCESS_foreign='1'),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
+        )
+        try:
+            read_ready(foreign)
+            self.exercise('stop')
+            self.assertIsNone(foreign.poll())
+            os.kill(foreign.pid, 0)
+        finally:
+            if foreign.poll() is None:
+                os.killpg(foreign.pid, signal.SIGKILL)
+            foreign.communicate(timeout=5)
 
     def test_native_node_test_runner_sigkill(self):
         source = f"""

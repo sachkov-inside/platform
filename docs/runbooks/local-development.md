@@ -407,6 +407,13 @@ SIGTERM, then SIGKILL after a five-second grace period; command completion also 
 descendants before the supervisor reports its status. `scripts/contracts/owned-process.test.mjs` verifies
 these paths with real signal-resistant child processes.
 
+On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
+descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
+when a nested owner supplies a replacement environment. Commands that construct their own child
+environment must preserve these entries too. A detached descendant that loses both its ancestry
+and its marker cannot be recovered from a later process-table snapshot. Discovery binds the marker
+to the process birth identity before adding its group to cleanup.
+
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
 Product on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
