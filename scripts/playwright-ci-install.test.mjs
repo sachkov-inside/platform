@@ -1,7 +1,13 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -23,16 +29,37 @@ function install(t, failures) {
   const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const log = join(directory, "commands");
+  const sources = join(directory, "apt");
+  mkdirSync(join(sources, "sources.list.d"), { recursive: true });
+  const sourceFiles = {
+    "sources.list": "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
+    "sources.list.d/ubuntu.sources":
+      "URIs: https://azure.archive.ubuntu.com/ubuntu\n",
+    "apt-mirrors.txt":
+      "http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n",
+    "sources.list.d/vendor.list":
+      "deb http://vendor.example/ubuntu noble main\n",
+  };
+  for (const [name, content] of Object.entries(sourceFiles)) {
+    writeFileSync(join(sources, name), content);
+  }
   const stub = `#!/bin/bash
 set -eu
 echo "$(basename "$0") $*" >> "$INSTALL_TEST_LOG"
 if [[ "$(basename "$0")" = sudo ]]; then
   if [[ "$1" = tee ]]; then cat >> "$INSTALL_TEST_LOG"; fi
+  if [[ "$1" = find ]]; then
+    shift 2
+    exec /usr/bin/find "$INSTALL_TEST_SOURCES" "$@"
+  fi
   if [[ "$1" = timeout ]]; then
     count=0
     [[ ! -f "$INSTALL_TEST_LOG.count" ]] || count=$(cat "$INSTALL_TEST_LOG.count")
     count=$((count + 1))
     echo "$count" > "$INSTALL_TEST_LOG.count"
+    if [[ "$count" = 2 ]]; then
+      cp -R "$INSTALL_TEST_SOURCES" "$INSTALL_TEST_SOURCES.second"
+    fi
     case "$count" in
       1) exit "$INSTALL_TEST_FIRST" ;;
       2) exit "$INSTALL_TEST_SECOND" ;;
@@ -44,6 +71,18 @@ fi
   for (const name of ["sudo", "pnpm", "node"]) {
     writeFileSync(join(directory, name), stub, { mode: 0o755 });
   }
+  // Translate GNU sed's in-place flag for the host's BSD sed, without changing its expression.
+  writeFileSync(
+    join(directory, "sed"),
+    `#!/bin/bash
+if [[ "$(uname)" = Darwin && "$1" = -i ]]; then
+  shift
+  exec /usr/bin/sed -i '' "$@"
+fi
+exec /usr/bin/sed "$@"
+`,
+    { mode: 0o755 },
+  );
   const [first = "0", second = "0"] = failures.split(",");
   const result = spawnSync(
     "/bin/bash",
@@ -56,6 +95,7 @@ fi
         HOME: directory,
         BROWSERS: "chromium webkit",
         INSTALL_TEST_LOG: log,
+        INSTALL_TEST_SOURCES: sources,
         INSTALL_TEST_FIRST: first,
         INSTALL_TEST_SECOND: second,
       },
@@ -64,7 +104,19 @@ fi
     },
   );
   assert.ifError(result.error);
-  return { ...result, log: readFileSync(log, "utf8") };
+  return {
+    ...result,
+    log: readFileSync(log, "utf8"),
+    sources: Object.fromEntries(
+      Object.keys(sourceFiles).map((name) => [
+        name,
+        readFileSync(
+          join(first === "0" ? sources : `${sources}.second`, name),
+          "utf8",
+        ),
+      ]),
+    ),
+  };
 }
 
 test("apt succeeds once under a root-owned deadline, then installs both engines", (t) => {
@@ -111,6 +163,27 @@ for (const failure of ["100", "124", "137"]) {
     assert.match(result.log, /playwright install chromium webkit/u);
   });
 }
+
+test("fallback uses HTTPS before the second attempt in every Ubuntu source format", (t) => {
+  const result = install(t, "137,0");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    result.sources["sources.list"],
+    "deb https://archive.ubuntu.com/ubuntu noble main\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/ubuntu.sources"],
+    "URIs: https://archive.ubuntu.com/ubuntu\n",
+  );
+  assert.equal(
+    result.sources["apt-mirrors.txt"],
+    "https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/vendor.list"],
+    "deb http://vendor.example/ubuntu noble main\n",
+  );
+});
 
 test("a failed fallback preserves the exit code and never starts browser downloads", (t) => {
   const result = install(t, "124,100");
