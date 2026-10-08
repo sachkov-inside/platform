@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -48,8 +49,7 @@ const it = test.extend<{
 async function createFixture() {
   const bot = `invitation-${randomUUID()}`;
   const clock = {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    value: new Date(),
+    value: new Date(fixedTestInstant()),
     now() {
       return new Date(this.value);
     },

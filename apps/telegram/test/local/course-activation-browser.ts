@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { AxeBuilder } from "@axe-core/playwright";
@@ -36,8 +37,8 @@ const context = await browser.newContext({
     : { width: 1440, height: 1024 },
 });
 const page = await context.newPage();
-// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-let updateId = Date.now() % 1_000_000_000;
+let updateId = randomInt(1, 1_000_000_000);
+const messageDate = Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000);
 const from = { id: user, is_bot: false, first_name: "Synthetic" };
 const chat = { id: user, type: "private" };
 const transcript: string[] = [];
@@ -54,8 +55,7 @@ async function send(text: string) {
   await webhook({
     message: {
       message_id: updateId,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-      date: Math.floor(Date.now() / 1000),
+      date: messageDate,
       from,
       chat,
       text,
@@ -183,8 +183,7 @@ try {
       chat_instance: "synthetic",
       message: {
         message_id: Number(approval.id),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-        date: Math.floor(Date.now() / 1000),
+        date: messageDate,
         chat,
       },
       data: `signin:approve:${requestRef}`,
@@ -296,7 +295,7 @@ try {
         chat: { id: -1000000000000, type: "supergroup" },
         from,
         user_chat_id: user,
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: The separate local provider compares Telegram membership event time with its real community clock; this proof submits a fresh provider event.
         date: Math.floor(Date.now() / 1000),
         invite_link: {
           invite_link: invite,
@@ -357,7 +356,7 @@ try {
       chat_member: {
         chat: { id: -1000000000000, type: "supergroup" },
         from: { id: 6400099, is_bot: false, first_name: "Synthetic moderator" },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: The separate local provider compares Telegram membership event time with its real community clock; this proof submits a fresh provider event.
         date: Math.floor(Date.now() / 1000),
         old_chat_member: { user: from, status: "member" },
         new_chat_member: { user: from, status: "kicked", until_date: 0 },

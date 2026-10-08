@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -13,6 +14,8 @@ import type {
   TelegramMembership,
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
@@ -499,14 +502,12 @@ describe("durable Membership reconciliation", () => {
     });
     clock.set(new Date("2030-01-01T00:04:00.000Z"));
 
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    const startedAt = Date.now();
+    const startedAt = performance.now();
     const outcome = await provider.reconcileDue(
       { maxDurationMs: 50, maxItems: 1 },
       clock,
     );
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    const elapsedMilliseconds = Date.now() - startedAt;
+    const elapsedMilliseconds = performance.now() - startedAt;
     hangingRead.resume();
     expect(outcome).toMatchObject({ failed: 1, processed: 1 });
     expect(elapsedMilliseconds).toBeLessThan(500);

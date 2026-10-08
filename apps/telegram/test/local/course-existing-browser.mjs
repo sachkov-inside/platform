@@ -3,7 +3,7 @@ import process from "node:process";
 import { URL } from "node:url";
 import console from "node:console";
 import { chromium, expect } from "@playwright/test";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -50,8 +50,7 @@ const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
 });
 const page = await context.newPage();
-// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-let update = Date.now() % 1_000_000_000;
+let update = randomInt(1, 1_000_000_000);
 /** @param {string} text */
 async function send(text) {
   const response = await context.request.post(
@@ -64,8 +63,7 @@ async function send(text) {
         update_id: ++update,
         message: {
           message_id: update,
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-          date: Math.floor(Date.now() / 1000),
+          date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
           from: { id: user, is_bot: false, first_name: "Synthetic" },
           chat: { id: user, type: "private" },
           text,
