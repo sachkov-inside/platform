@@ -376,7 +376,8 @@ function link(
   g.lineWidth = 2;
   g.beginPath();
   g.moveTo(sx, orb.y);
-  g.bezierCurveTo(sx + 70, orb.y, ex - 70, ey, ex, ey);
+  const mid = (sx + ex) / 2;
+  g.bezierCurveTo(mid, orb.y, mid, ey, ex, ey);
   g.stroke();
   g.restore();
 }
@@ -721,19 +722,13 @@ const A_ROWS = [0, 1, 2].map((i) =>
   box(LEFT, TOP + 116 + i * 72, INNER, 60, 0),
 );
 // Контекст: агент слева, файлы двумя колонками справа, внизу шкала контекста.
-const CHIP_X = 260;
-const CHIP_W = (RIGHT - CHIP_X - 16) / 2;
+// Файлы одной колонкой справа от агента: линии к ним расходятся веером и не пересекаются.
+const CHIP_X = 300;
 const B_CHIPS = [0, 1, 2, 3, 4, 5].map((i) =>
-  box(
-    CHIP_X + (i % 2) * (CHIP_W + 16),
-    TOP + Math.floor(i / 2) * 72,
-    CHIP_W,
-    56,
-    0.07,
-  ),
+  box(CHIP_X, TOP + i * 54, RIGHT - CHIP_X, 46, 0.07),
 );
-const B_METER = pill(LEFT, 548, INNER, 16, 0.1);
-const ORB_SIDE: Orb = { x: 128, y: 290, r: 52, o: 1 };
+const B_METER = pill(LEFT, 562, INNER, 16, 0.1);
+const ORB_SIDE: Orb = { x: 128, y: TOP + 160, r: 52, o: 1 };
 // Инструменты: три карточки справа от агента.
 const TOOL_X = 330;
 const C_TOOLS = [0, 1, 2].map((i) =>
@@ -808,7 +803,7 @@ const SCENES: readonly Scene[] = [
       S4: hidden(at(C_TOOLS, 2)),
       S5: hidden(at(C_TOOLS, 2)),
     },
-    orb: { ...ORB_SIDE, y: TOP + 162 },
+    orb: ORB_SIDE,
     draw: drawTools,
   },
   {
@@ -914,6 +909,28 @@ function drawBox(g: CanvasRenderingContext2D, b: Box, c: FilmPalette) {
   }
 }
 
+/**
+ * Значок агента — четырёхлучевая звезда, общий знак AI. Логотип конкретного агента не берём:
+ * навыки курса не привязаны к одному агенту.
+ */
+function sparkle(
+  g: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
+  const k = size * 0.16;
+  g.beginPath();
+  g.moveTo(x, y - size);
+  g.quadraticCurveTo(x + k, y - k, x + size, y);
+  g.quadraticCurveTo(x + k, y + k, x, y + size);
+  g.quadraticCurveTo(x - k, y + k, x - size, y);
+  g.quadraticCurveTo(x - k, y - k, x, y - size);
+  g.closePath();
+  fill(g, color);
+}
+
 function drawOrb(g: CanvasRenderingContext2D, orb: Orb, c: FilmPalette) {
   if (orb.o <= 0 || orb.r <= 0) return;
   g.save();
@@ -923,12 +940,7 @@ function drawOrb(g: CanvasRenderingContext2D, orb: Orb, c: FilmPalette) {
   g.beginPath();
   g.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
   g.stroke();
-  const dot = Math.max(3, orb.r / 10);
-  for (const dx of [-1, 0, 1]) {
-    g.beginPath();
-    g.arc(orb.x + dx * orb.r * 0.32, orb.y, dot, 0, Math.PI * 2);
-    fill(g, c.paper);
-  }
+  sparkle(g, orb.x, orb.y, orb.r * 0.52, c.paper);
   g.restore();
 }
 
