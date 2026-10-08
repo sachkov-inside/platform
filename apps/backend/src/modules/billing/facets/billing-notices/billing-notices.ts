@@ -385,8 +385,8 @@ export class BillingNotices {
         outcomes.push(
           await prisma.$transaction(async (tx) => {
             await lockBillingEnrollmentNotices(tx, listed.enrollmentId);
-            // Граница читается заново под замком: параллельный пробег не запишет устаревший срок.
-            const ending = await this.readEnding(listed.enrollmentId);
+            // Граница и продолжение читаются на соединении транзакции под замком поводов Enrollment.
+            const ending = await this.readEnding(listed.enrollmentId, tx);
             if (ending === null) return "unchanged";
             const planned =
               ending.endsAt > now
@@ -504,9 +504,12 @@ export class BillingNotices {
 
   private async readEnding(
     enrollmentId: string,
+    transaction?: BillingPrisma,
   ): Promise<EnrollmentEnding | null> {
-    const read =
-      await this.dependencies.enrollments.readEnrollmentEnding(enrollmentId);
+    const read = await this.dependencies.enrollments.readEnrollmentEnding(
+      enrollmentId,
+      transaction,
+    );
     if (!read.ok) throw new Error(read.error.code);
     return read.value;
   }
