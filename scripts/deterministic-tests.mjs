@@ -175,16 +175,34 @@ export function deterministicTestViolations(file, source, testSource = true) {
     if (!node(value)) return false;
     const hidden = (/** @type {string} */ binding) =>
       shadowed(ancestors, binding) ||
-      ancestors.some(
-        (scope) =>
-          ["Program", "BlockStatement"].includes(scope.type) &&
-          declares(scope, binding),
-      );
+      ancestors.some((scope) => {
+        if (["Program", "BlockStatement"].includes(scope.type))
+          return declares(scope, binding);
+        if (scope.type === "CatchClause")
+          return bindingNames(scope["param"]).includes(binding);
+        if (["FunctionExpression", "ClassExpression"].includes(scope.type))
+          return name(scope["id"]) === binding;
+        const declaration =
+          scope.type === "ForStatement"
+            ? scope["init"]
+            : ["ForInStatement", "ForOfStatement"].includes(scope.type)
+              ? scope["left"]
+              : null;
+        return (
+          node(declaration) &&
+          declaration.type === "VariableDeclaration" &&
+          nodes(declaration["declarations"]).some((entry) =>
+            bindingNames(entry["id"]).includes(binding),
+          )
+        );
+      });
     if (value.type === "Identifier")
       return name(value) === "Date" && !hidden("Date");
     return (
       value.type === "MemberExpression" &&
       name(value) === "Date" &&
+      node(value["object"]) &&
+      value["object"].type === "Identifier" &&
       ["globalThis", "window", "global"].includes(name(value["object"])) &&
       !hidden(name(value["object"]))
     );

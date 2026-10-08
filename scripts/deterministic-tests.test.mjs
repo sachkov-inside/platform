@@ -62,6 +62,46 @@ test("duration waits require a local reason", () => {
   );
 });
 
+test("loop, catch and named expression clocks are local bindings", () => {
+  for (const source of [
+    "for (const Date of clocks) { Date.now(); }",
+    "for (let Date = clock; Date; ) { Date.now(); }",
+    "for (const Date in clocks) { Date.now(); }",
+    "try { run(); } catch (Date) { Date.now(); }",
+    "const read = function Date() { return Date.now(); };",
+    "const clock = class Date { static read() { return Date.now(); } };",
+  ])
+    assert.deepEqual(
+      deterministicTestViolations("test/example.test.ts", source),
+      [],
+    );
+  assert.match(
+    deterministicTestViolations(
+      "test/example.test.ts",
+      "for (const Date of clocks) { Date.now(); } Date.now();",
+    ).join("\n"),
+    /wall-clock/u,
+  );
+});
+
+test("a property named global is not the global clock owner", () => {
+  for (const owner of ["global", "globalThis", "window"])
+    assert.deepEqual(
+      deterministicTestViolations(
+        "test/example.test.ts",
+        `clock.${owner}.Date.now();`,
+      ),
+      [],
+    );
+  assert.match(
+    deterministicTestViolations(
+      "test/example.test.ts",
+      "globalThis.Date.now();",
+    ).join("\n"),
+    /wall-clock/u,
+  );
+});
+
 test("mutating a module seed is refused, fresh local data is allowed", () => {
   assert.match(
     deterministicTestViolations(
