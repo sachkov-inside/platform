@@ -576,6 +576,26 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     ).toBe("not_found");
   });
 
+  test("разовая покупка сохраняет отказ чтения согласия и допускает повтор после восстановления", async () => {
+    const s = await scenario();
+    const command = await s.command(["terms"]);
+    await db.prisma
+      .$executeRaw`ALTER TABLE accounts.legal_acceptances RENAME TO unavailable_legal_acceptances`;
+    try {
+      expect(await s.runtime.purchase(s.buyer, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE accounts.unavailable_legal_acceptances RENAME TO legal_acceptances`;
+    }
+    expect(await s.runtime.purchase(s.buyer, command)).toMatchObject({
+      ok: true,
+      value: { state: "pending" },
+    });
+  });
+
   test("разовая покупка не принимает согласие на списания и требует оферту", async () => {
     const s = await scenario();
     expect(

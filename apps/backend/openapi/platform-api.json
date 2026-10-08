@@ -43112,6 +43112,34 @@
                     "minimum": 0,
                     "type": "integer"
                   },
+                  "introduction": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "audience": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "outcome": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "prerequisites": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "scope": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "audience",
+                      "outcome",
+                      "prerequisites",
+                      "scope"
+                    ],
+                    "type": "object"
+                  },
                   "name": {
                     "maxLength": 120,
                     "minLength": 1,
@@ -44941,6 +44969,34 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "introduction": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "audience": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "outcome": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "prerequisites": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "scope": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "audience",
+                      "outcome",
+                      "prerequisites",
+                      "scope"
+                    ],
+                    "type": "object"
+                  },
                   "source": {
                     "additionalProperties": false,
                     "properties": {
@@ -51793,6 +51849,7 @@
         ]
       },
       "put": {
+        "description": "Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/seriesIds/<index>; removing a membership uses /metadata/seriesIds.",
         "operationId": "saveCurrentMaterial",
         "parameters": [
           {

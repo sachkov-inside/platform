@@ -206,14 +206,17 @@ export class BillingSubscriptions {
     const contact = await this.dependencies.contact.read(accountId);
     if (!contact.ok) return paymentFailure("dependency_unavailable");
     if (!contact.contact) return paymentFailure("contact_required");
-    const consent = await acceptRecurringConsent(
+    const accepted = await acceptRecurringConsent(
       this.dependencies.contact,
       accountId,
       command.operationId,
       command.consentEvidenceRefs,
       contact.documents,
     );
-    if (!consent) return paymentFailure("consent_required");
+    if (accepted.status === "unavailable")
+      return paymentFailure("dependency_unavailable");
+    if (accepted.status === "absent") return paymentFailure("consent_required");
+    const consent = accepted.consent;
     // Возобновление снова включает списания, поэтому проходит ту же проверку, что и покупка.
     const legacy =
       await this.dependencies.grants.readLegacyClassification(accountId);

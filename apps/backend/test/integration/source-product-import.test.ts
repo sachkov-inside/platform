@@ -106,7 +106,7 @@ describe("authoring source Product completion", () => {
     return product.value;
   }
 
-  test("keeps an imported Product out of ordinary archive and renames it through its source", async () => {
+  test("archives an imported Product through Platform and renames it through its source", async () => {
     const product = await reserveProduct(productSource, "product-import");
     const updated = await authoring.updateSourceProduct({
       actor,
@@ -140,6 +140,54 @@ describe("authoring source Product completion", () => {
         collectionId: product.id,
         expectedVersion: updated.value.version,
         archived: true,
+      }),
+    ).toMatchObject({ ok: true, value: { archived: true } });
+  });
+
+  test("imports introduction, preserves omitted fields and rejects editor replacements", async () => {
+    const sourceId = "inside-content:introduction";
+    const product = await reserveProduct(sourceId, "introduction");
+    const introduction = {
+      audience: "Инженерам",
+      outcome: "Проект",
+      prerequisites: "TypeScript",
+      scope: "Практика",
+    };
+    const request = {
+      actor,
+      sourceId,
+      collectionId: product.id,
+      expectedVersion: product.version,
+      name: product.name,
+      summary: product.summary,
+      source: {
+        slug: product.slug,
+        presentation: "default" as const,
+        page: null,
+      },
+    };
+    const imported = await authoring.updateSourceProduct({
+      ...request,
+      introduction,
+    });
+    expect(imported).toMatchObject({ ok: true, value: { introduction } });
+    if (!imported.ok) throw new Error(imported.error.code);
+    expect(
+      await authoring.updateSourceProduct({
+        ...request,
+        expectedVersion: imported.value.version,
+        name: "Новое название",
+      }),
+    ).toMatchObject({ ok: true, value: { introduction } });
+    expect(
+      await authoring.updateContentCollection({
+        actor,
+        kind: "product",
+        collectionId: product.id,
+        expectedVersion: imported.value.version,
+        introduction,
+        name: product.name,
+        summary: product.summary,
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
@@ -494,6 +542,14 @@ describe("authoring source Product completion", () => {
       "cover-product",
     );
     expect(
+      await covers.change({
+        actor,
+        expectedCoverId: null,
+        kind: "remove",
+        owner: { id: product.id, kind: "series" },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
       await covers.changeImported(
         {
           actor,
@@ -528,6 +584,15 @@ describe("authoring source Product completion", () => {
       "inside-content:artifact-product",
       "artifact-product",
     );
+    expect(
+      await artifacts.create({
+        actor,
+        productId: product.id,
+        kind: "link",
+        externalUrl: "https://example.test/editor",
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     const body = Buffer.from("# Чек-лист\n");
     const file = {
       body,
@@ -543,6 +608,13 @@ describe("authoring source Product completion", () => {
       sourceId: "inside-content:checklist",
       title: "Чек-лист",
     };
+    expect(
+      await artifacts.applyAuthoringImport({
+        actor,
+        artifacts: [artifact],
+        productId: product.id,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
       await artifacts.applyAuthoringImport({
         actor,
@@ -566,6 +638,56 @@ describe("authoring source Product completion", () => {
         ],
       },
     });
+    const listed = await artifacts.listForProduct({
+      actor,
+      productId: product.id,
+    });
+    if (!listed.ok) throw new Error(listed.error.code);
+    const artifactId = listed.value[0]?.artifactId;
+    if (artifactId === undefined) throw new Error("Imported artifact missing");
+    const mutations = [
+      artifacts.update({
+        actor,
+        artifactId,
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+      artifacts.replaceContent({
+        actor,
+        artifactId,
+        kind: "link",
+        externalUrl: "https://example.test/editor",
+      }),
+      artifacts.setArchived({ actor, artifactId, archived: true }),
+      artifacts.setProducts({ actor, artifactId, productIds: [] }),
+      artifacts.setMaterials({ actor, artifactId, materialIds: [] }),
+      artifacts.remove({ actor, artifactId }),
+    ];
+    for (const mutation of mutations)
+      expect(await mutation).toMatchObject({
+        ok: false,
+        error: { code: "forbidden" },
+      });
+    const plainProduct = await authoring.createContentCollection({
+      actor,
+      kind: "product",
+      name: "Legacy import",
+      slug: "legacy-shared-artifact",
+      summary: "",
+    });
+    if (!plainProduct.ok) throw new Error(plainProduct.error.code);
+    expect(
+      await artifacts.applyAuthoringImport({
+        actor,
+        productId: plainProduct.value.id,
+        artifacts: [{ ...artifact, title: "Legacy bypass" }],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await artifacts.listForProduct({
+        actor,
+        productId: plainProduct.value.id,
+      }),
+    ).toMatchObject({ ok: true, value: [] });
     expect(
       await artifacts.applyAuthoringImport({
         actor,
@@ -576,6 +698,167 @@ describe("authoring source Product completion", () => {
     ).toMatchObject({
       ok: true,
       value: { outcomes: [{ outcome: "unchanged" }] },
+    });
+  });
+  test("artifact import rolls back the entire batch and uses the same locks as editor refusals", async () => {
+    const artifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage,
+      prisma: database.prisma,
+    });
+    const product = await reserveProduct(
+      "inside-content:atomic-artifacts",
+      "atomic-artifacts",
+    );
+    const first = {
+      sourceId: "inside-content:atomic-first",
+      title: "Atomic first",
+      purpose: "",
+      access: "closed" as const,
+      externalUrl: "https://example.test/first",
+    };
+    const second = {
+      ...first,
+      sourceId: "inside-content:atomic-second",
+      title: "Rejected batch artifact",
+    };
+    await database.prisma
+      .$executeRaw`alter table materials.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
+    try {
+      expect(
+        await artifacts.applyAuthoringImport({
+          actor,
+          productId: product.id,
+          productSourceId: "inside-content:atomic-artifacts",
+          artifacts: [first, second],
+        }),
+      ).toMatchObject({ ok: false, error: { code: "dependency_unavailable" } });
+      expect(
+        await artifacts.listForProduct({ actor, productId: product.id }),
+      ).toMatchObject({ ok: true, value: [] });
+      const reusable = await artifacts.listReusable({ actor });
+      if (!reusable.ok) throw new Error(reusable.error.code);
+      expect(
+        reusable.value.some((row) => row.sourceId === first.sourceId),
+      ).toBe(false);
+    } finally {
+      await database.prisma
+        .$executeRaw`alter table materials.product_artifacts drop constraint reject_test_artifact_second`;
+    }
+    const created = await artifacts.applyAuthoringImport({
+      actor,
+      productId: product.id,
+      productSourceId: "inside-content:atomic-artifacts",
+      artifacts: [first],
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const artifactId = created.value.outcomes[0]?.artifactId;
+    if (artifactId === undefined) throw new Error("Artifact missing");
+    const [editor, imported] = await Promise.all([
+      artifacts.update({
+        actor,
+        artifactId,
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+      artifacts.applyAuthoringImport({
+        actor,
+        productId: product.id,
+        productSourceId: "inside-content:atomic-artifacts",
+        artifacts: [{ ...first, title: "Source revision" }],
+      }),
+    ]);
+    expect(editor).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(imported).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "updated" }] },
+    });
+    expect(
+      await artifacts.listForProduct({ actor, productId: product.id }),
+    ).toMatchObject({ ok: true, value: [{ title: "Source revision" }] });
+  });
+  test("discards staged files when a concurrent import already installed their bytes", async () => {
+    const product = await reserveProduct(
+      "inside-content:staged-race",
+      "staged-race",
+    );
+    const artifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage,
+      prisma: database.prisma,
+    });
+    const file = (text: string) => {
+      const body = Buffer.from(text);
+      return {
+        body,
+        declaredContentType: "text/markdown",
+        declaredSize: body.byteLength,
+        expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
+        filename: "race.md",
+      };
+    };
+    const initial = {
+      sourceId: "inside-content:staged-race-file",
+      title: "Initial",
+      purpose: "",
+      access: "closed" as const,
+      file: file("# A\n"),
+    };
+    const command = {
+      actor,
+      productId: product.id,
+      productSourceId: "inside-content:staged-race",
+    };
+    expect(
+      await artifacts.applyAuthoringImport({
+        ...command,
+        artifacts: [initial],
+      }),
+    ).toMatchObject({ ok: true });
+    const changed = { ...initial, title: "Concurrent", file: file("# B\n") };
+    let stagedPrefix: string | undefined;
+    const racingStorage: ObjectStorage = {
+      ...objectStorage,
+      async putImmutable(input) {
+        if (stagedPrefix === undefined && input.namespace === "quarantine") {
+          stagedPrefix = input.key.slice(0, input.key.lastIndexOf("/"));
+          expect(
+            await artifacts.applyAuthoringImport({
+              ...command,
+              artifacts: [changed],
+            }),
+          ).toMatchObject({
+            ok: true,
+            value: { outcomes: [{ outcome: "updated" }] },
+          });
+        }
+        return objectStorage.putImmutable(input);
+      },
+    };
+    const racingArtifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage: racingStorage,
+      prisma: database.prisma,
+    });
+    expect(
+      await racingArtifacts.applyAuthoringImport({
+        ...command,
+        artifacts: [{ ...changed, title: "Final metadata" }],
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "updated" }] },
+    });
+    expect(stagedPrefix).toBeDefined();
+    expect(
+      [...stored.keys()].some(
+        (key) => stagedPrefix !== undefined && key.startsWith(stagedPrefix),
+      ),
+    ).toBe(false);
+    expect(
+      await artifacts.listForProduct({ actor, productId: product.id }),
+    ).toMatchObject({
+      ok: true,
+      value: [{ title: "Final metadata", version: 2 }],
     });
   });
 });

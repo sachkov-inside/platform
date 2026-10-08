@@ -1,9 +1,15 @@
 import { randomUUID } from "node:crypto";
-
 import {
-  dependencyFailure,
-  reportDependencyFailure,
-} from "../../../../infrastructure/observability/index.js";
+  Prisma,
+  type MaterialsPrismaTransaction,
+} from "../../../../infrastructure/prisma/index.js";
+import {
+  checkContentWrite,
+  type ContentWriteTarget,
+  type ContentWriter,
+} from "../../domain/content-write-policy.js";
+import { lockSeries } from "../../infrastructure/postgres/series-order.js";
+import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import {
   IMPORT_ARTIFACT_LIMIT,
   importSchema,
@@ -12,7 +18,6 @@ import {
 } from "./product-artifact-commands.js";
 import type { StoredArtifactFile } from "./product-artifact-files.js";
 import {
-  dependencyUnavailable,
   failure,
   loadArtifactsBySource,
   loadPlacedArtifacts,
@@ -27,17 +32,18 @@ import type {
   ApplyAuthoringImportCommand,
   AuthoringImportOutcome,
   AuthoringImportReport,
+  ProductArtifactError,
   ProductArtifactResult,
 } from "./product-artifacts.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
-/** One editor change landed while the import was deciding against an older revision. */
-class ConcurrentArtifactChange extends Error {}
+interface PreparedArtifact {
+  readonly artifactId: string;
+  readonly source: ImportedArtifactSource;
+  readonly stored: StoredArtifactFile | null;
+}
 
-/**
- * Applies the artifacts of one authoring package to its Product. Each source artifact is created,
- * updated, left unchanged or reported as diverged; an authoring artifact the package no longer
- * names is reported as missing. Artifacts authored on Platform stay outside every decision.
- */
+/** Stage bytes before the transaction; ownership, placements and content commit together. */
 export async function applyAuthoringImport(
   context: ProductArtifactContext,
   input: ApplyAuthoringImportCommand,
@@ -48,302 +54,277 @@ export async function applyAuthoringImport(
   const forbidden = await context.authorize(command.actor);
   if (forbidden !== null) return failure(forbidden);
   const sourceIds = command.artifacts.map(({ sourceId }) => sourceId);
-  if (new Set(sourceIds).size !== sourceIds.length) {
+  if (new Set(sourceIds).size !== sourceIds.length)
     return failure({ code: "source_conflict" });
-  }
-  const known = await loadImportCandidates(context, command, sourceIds);
-  if (!known.ok) return known;
-  const outcomes: AuthoringImportOutcome[] = [];
-  for (const source of command.artifacts) {
-    const outcome = await importSource(
-      context,
-      command,
-      source,
-      known.value.candidates,
-    );
-    if (!outcome.ok) return outcome;
-    outcomes.push(outcome.value);
-  }
-  outcomes.push(...missingArtifacts(known.value.authored, sourceIds));
-  return { ok: true, value: { outcomes } };
-}
-
-/**
- * The authoring artifacts the import may match: those already placed in the Product and those
- * the package names by source, which may live in another Product.
- */
-async function loadImportCandidates(
-  context: ProductArtifactContext,
-  command: AuthoringImportCommand,
-  sourceIds: readonly string[],
-): Promise<
-  ProductArtifactResult<{
-    readonly authored: readonly ArtifactRow[];
-    readonly candidates: readonly ArtifactRow[];
-  }>
-> {
-  const { prisma } = context;
-  let placed: readonly ArtifactRow[];
-  let namedBySource: readonly ArtifactRow[];
+  const prepared: PreparedArtifact[] = [];
+  let committed = false;
+  const consumedFiles = new Set<string>();
   try {
-    const product = await prisma.product.findUnique({
-      select: { id: true, sourceId: true },
-      where: { id: command.productId },
-    });
-    if (product === null) return failure({ code: "product_not_found" });
-    if (
-      command.productSourceId !== undefined &&
-      product.sourceId !== command.productSourceId
-    ) {
-      return failure({ code: "forbidden" });
+    const candidates = await loadArtifactsBySource(context.prisma, sourceIds);
+    for (const source of command.artifacts) {
+      const existing = candidates.find(
+        (row) => row.sourceId === source.sourceId,
+      );
+      const artifactId = existing?.id ?? randomUUID();
+      let stored: StoredArtifactFile | null = null;
+      if (
+        source.file !== undefined &&
+        (existing === undefined ||
+          (existing.revision === existing.importedRevision &&
+            !sameContent(existing, source)))
+      ) {
+        const file = await context.files.store(artifactId, source.file);
+        if (!file.ok) return file;
+        stored = file.value;
+      }
+      prepared.push({ artifactId, source, stored });
     }
-    placed = await loadPlacedArtifacts(prisma, command.productId, {
-      take: IMPORT_ARTIFACT_LIMIT,
-    });
-    // An artifact the authoring base already owns may live in another
-    // Product; the package reuses that record instead of creating a second.
-    namedBySource =
-      sourceIds.length === 0
-        ? []
-        : await loadArtifactsBySource(prisma, sourceIds);
+    const result = await executeAuthoringTransaction<
+      AuthoringImportReport,
+      ProductArtifactError
+    >(
+      context.prisma,
+      async (transaction, rollback) => {
+        // All artifact writers take Artifact locks before Product locks.
+        if (sourceIds.length > 0)
+          await transaction.$executeRaw(
+            Prisma.sql`select id from materials.product_artifacts where source_id = any(${sourceIds}::text[]) order by id for update`,
+          );
+        const current = await loadArtifactsBySource(transaction, sourceIds);
+        const placedProductIds =
+          command.productSourceId === undefined
+            ? current.flatMap((row) =>
+                row.placements.map(({ productId }) => productId),
+              )
+            : [];
+        const productIds = [
+          ...new Set([command.productId, ...placedProductIds]),
+        ];
+        await lockSeries(transaction, productIds);
+        const products = await transaction.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, sourceId: true },
+        });
+        if (!products.some(({ id }) => id === command.productId))
+          return rollback({ code: "product_not_found" });
+        const writer: ContentWriter =
+          command.productSourceId === undefined
+            ? { via: "legacy-artifact-import", sourceId: null }
+            : { via: "import", sourceId: command.productSourceId };
+        const targets: ContentWriteTarget[] = [
+          ...products.map((product) => ({
+            kind: "product" as const,
+            sourceId: product.sourceId,
+            path: "/productId",
+          })),
+          ...current.map((artifact) => ({
+            kind: "artifact" as const,
+            sourceId: artifact.sourceId,
+            requestedSourceId: command.artifacts.find(
+              (source) => source.sourceId === artifact.sourceId,
+            )?.sourceId,
+            path: "/artifacts",
+          })),
+        ];
+        const sourceError = checkContentWrite(writer, targets);
+        if (sourceError !== null) return rollback({ code: "forbidden" });
+        const authored = (
+          await loadPlacedArtifacts(transaction, command.productId, {
+            take: IMPORT_ARTIFACT_LIMIT,
+          })
+        ).filter(({ origin }) => origin === "authoring");
+        const outcomes: AuthoringImportOutcome[] = [];
+        for (const item of prepared) {
+          const existing = current.find(
+            (row) => row.sourceId === item.source.sourceId,
+          );
+          if (
+            existing !== undefined &&
+            existing.revision !== existing.importedRevision
+          ) {
+            outcomes.push(
+              outcome(existing.id, item.source, "diverged", existing.title),
+            );
+            continue;
+          }
+          if (existing !== undefined && existing.id !== item.artifactId)
+            return rollback({ code: "source_conflict" });
+          if (existing === undefined) {
+            await createFromSource(transaction, command, item);
+            consumedFiles.add(item.source.sourceId);
+            outcomes.push(outcome(item.artifactId, item.source, "created"));
+            continue;
+          }
+          const unchangedContent = sameContent(existing, item.source);
+          if (
+            !unchangedContent &&
+            item.source.file !== undefined &&
+            item.stored === null
+          )
+            return rollback({ code: "source_conflict" });
+          await transaction.productArtifactPlacement.createMany({
+            data: [{ artifactId: existing.id, productId: command.productId }],
+            skipDuplicates: true,
+          });
+          if (
+            unchangedContent &&
+            existing.title === item.source.title &&
+            existing.purpose === item.source.purpose &&
+            existing.access === item.source.access
+          ) {
+            outcomes.push(outcome(existing.id, item.source, "unchanged"));
+          } else {
+            await updateFromSource(
+              transaction,
+              command,
+              existing,
+              item,
+              unchangedContent,
+            );
+            if (!unchangedContent) consumedFiles.add(item.source.sourceId);
+            outcomes.push(outcome(existing.id, item.source, "updated"));
+          }
+        }
+        outcomes.push(
+          ...authored
+            .filter((row) => !sourceIds.includes(row.sourceId ?? ""))
+            .map((row) => ({
+              artifactId: row.id,
+              outcome: "missing" as const,
+              sourceId: row.sourceId,
+              title: row.title,
+            })),
+        );
+        return { outcomes };
+      },
+      () => ({ code: "dependency_unavailable", retryable: true }),
+      "applyAuthoringImport",
+    );
+    committed = result.ok;
+    if (result.ok) {
+      for (const item of prepared) {
+        if (consumedFiles.has(item.source.sourceId))
+          await context.files.forgetQuarantine(item.stored);
+        else await context.files.discard(item.stored);
+      }
+    }
+    return result;
   } catch (error) {
     return dependencyFailure(
       { module: "materials", operation: "applyAuthoringImport" },
       error,
-      dependencyUnavailable(),
+      { ok: false, error: { code: "dependency_unavailable", retryable: true } },
     );
+  } finally {
+    if (!committed)
+      for (const item of prepared) await context.files.discard(item.stored);
   }
-  // Records authored on Platform stay outside every import decision: an
-  // import never matches, changes or archives them.
-  const authored = placed.filter(({ origin }) => origin === "authoring");
-  const candidates = [
-    ...authored,
-    ...namedBySource.filter((row) => !authored.some(({ id }) => id === row.id)),
-  ];
-  return { ok: true, value: { authored, candidates } };
 }
 
-async function importSource(
-  context: ProductArtifactContext,
-  command: AuthoringImportCommand,
+function sameContent(
+  existing: ArtifactRow,
   source: ImportedArtifactSource,
-  candidates: readonly ArtifactRow[],
-): Promise<ProductArtifactResult<AuthoringImportOutcome>> {
-  const existing =
-    candidates.find(({ sourceId }) => sourceId === source.sourceId) ?? null;
-  if (existing === null) {
-    return createFromSource(context, command, source);
-  }
-  if (existing.revision !== existing.importedRevision) {
-    return {
-      ok: true,
-      value: {
-        artifactId: existing.id,
-        outcome: "diverged",
-        sourceId: source.sourceId,
-        title: existing.title,
-      },
-    };
-  }
-  await context.prisma.productArtifactPlacement.createMany({
-    data: [{ artifactId: existing.id, productId: command.productId }],
-    skipDuplicates: true,
-  });
+): boolean {
   const current = readyVersion(existing);
-  const sameContent =
+  return (
     current !== null &&
     (source.file === undefined
       ? current.contentKind === "link" &&
         current.externalUrl === source.externalUrl
       : current.contentKind === "file" &&
-        current.checksumSha256 === source.file.expectedChecksumSha256);
-  if (
-    sameContent &&
-    existing.title === source.title &&
-    existing.purpose === source.purpose &&
-    existing.access === source.access
-  ) {
-    return {
-      ok: true,
-      value: {
-        artifactId: existing.id,
-        outcome: "unchanged",
-        sourceId: source.sourceId,
-        title: existing.title,
-      },
-    };
-  }
-  return updateFromSource(context, command, existing, source, sameContent);
+        current.checksumSha256 === source.file.expectedChecksumSha256)
+  );
+}
+
+function outcome(
+  artifactId: string,
+  source: ImportedArtifactSource,
+  result: AuthoringImportOutcome["outcome"],
+  title = source.title,
+): AuthoringImportOutcome {
+  return { artifactId, sourceId: source.sourceId, outcome: result, title };
 }
 
 async function createFromSource(
-  context: ProductArtifactContext,
+  transaction: MaterialsPrismaTransaction,
   command: AuthoringImportCommand,
-  source: ImportedArtifactSource,
-): Promise<ProductArtifactResult<AuthoringImportOutcome>> {
-  const artifactId = randomUUID();
-  let stored: StoredArtifactFile | null = null;
-  if (source.file !== undefined) {
-    const file = await context.files.store(artifactId, source.file);
-    if (!file.ok) return file;
-    stored = file.value;
-  }
-  try {
-    await context.prisma.$transaction(async (transaction) => {
-      await transaction.productArtifact.create({
-        data: {
-          access: source.access,
-          createdBy: command.actor,
-          currentVersion: 1,
-          id: artifactId,
-          importedAt: new Date(),
-          importedRevision: 1,
-          origin: "authoring",
-          purpose: source.purpose,
-          sourceId: source.sourceId,
-          state: "active",
-          title: source.title,
-        },
-      });
-      await transaction.productArtifactVersion.create({
-        data: versionRow({
-          actor: command.actor,
-          artifactId,
-          stored,
-          version: 1,
-          ...(source.externalUrl === undefined
-            ? {}
-            : { externalUrl: source.externalUrl }),
-        }),
-      });
-      await transaction.productArtifactPlacement.create({
-        data: { artifactId, productId: command.productId },
-      });
-    });
-  } catch (error) {
-    reportDependencyFailure(
-      { module: "materials", operation: "createFromSource" },
-      error,
-    );
-    await context.files.discard(stored);
-    return dependencyUnavailable();
-  }
-  await context.files.forgetQuarantine(stored);
-  return {
-    ok: true,
-    value: {
-      artifactId,
-      outcome: "created",
+  item: PreparedArtifact,
+): Promise<void> {
+  const { artifactId, source, stored } = item;
+  await transaction.productArtifact.create({
+    data: {
+      access: source.access,
+      createdBy: command.actor,
+      currentVersion: 1,
+      id: artifactId,
+      importedAt: new Date(),
+      importedRevision: 1,
+      origin: "authoring",
+      purpose: source.purpose,
       sourceId: source.sourceId,
+      state: "active",
       title: source.title,
     },
-  };
+  });
+  await transaction.productArtifactVersion.create({
+    data: versionRow({
+      actor: command.actor,
+      artifactId,
+      stored,
+      version: 1,
+      ...(source.externalUrl === undefined
+        ? {}
+        : { externalUrl: source.externalUrl }),
+    }),
+  });
+  await transaction.productArtifactPlacement.create({
+    data: { artifactId, productId: command.productId },
+  });
 }
 
 async function updateFromSource(
-  context: ProductArtifactContext,
+  transaction: MaterialsPrismaTransaction,
   command: AuthoringImportCommand,
   existing: ArtifactRow,
-  source: ImportedArtifactSource,
-  sameContent: boolean,
-): Promise<ProductArtifactResult<AuthoringImportOutcome>> {
-  let stored: StoredArtifactFile | null = null;
-  if (!sameContent && source.file !== undefined) {
-    const file = await context.files.store(existing.id, source.file);
-    if (!file.ok) return file;
-    stored = file.value;
-  }
-  try {
-    await context.prisma.$transaction(async (transaction) => {
-      let nextVersion: number;
-      if (sameContent) {
-        nextVersion = await reopenVersionOnAccessChange(transaction, {
-          actor: command.actor,
-          artifactId: existing.id,
-          currentAccess: existing.access,
-          currentVersion: existing.currentVersion,
-          nextAccess: source.access,
-        });
-      } else {
-        nextVersion = existing.currentVersion + 1;
-        await transaction.productArtifactVersion.create({
-          data: versionRow({
-            actor: command.actor,
-            artifactId: existing.id,
-            stored,
-            version: nextVersion,
-            ...(source.externalUrl === undefined
-              ? {}
-              : { externalUrl: source.externalUrl }),
-          }),
-        });
-        await supersedeVersion(
-          transaction,
-          existing.id,
-          existing.currentVersion,
-        );
-      }
-      // The write only lands on the revision the import decided against.
-      // An editor change that arrives in between makes this a no-op, and
-      // the artifact is reported as diverged instead of overwritten.
-      const revision = existing.revision + 1;
-      const applied = await transaction.productArtifact.updateMany({
-        data: {
-          access: source.access,
-          currentVersion: nextVersion,
-          importedAt: new Date(),
-          importedRevision: revision,
-          purpose: source.purpose,
-          revision,
-          title: source.title,
-          updatedAt: new Date(),
-        },
-        where: { id: existing.id, revision: existing.revision },
-      });
-      if (applied.count !== 1) throw new ConcurrentArtifactChange();
+  item: PreparedArtifact,
+  unchangedContent: boolean,
+): Promise<void> {
+  const { source, stored } = item;
+  const nextVersion = unchangedContent
+    ? await reopenVersionOnAccessChange(transaction, {
+        actor: command.actor,
+        artifactId: existing.id,
+        currentAccess: existing.access,
+        currentVersion: existing.currentVersion,
+        nextAccess: source.access,
+      })
+    : existing.currentVersion + 1;
+  if (!unchangedContent) {
+    await transaction.productArtifactVersion.create({
+      data: versionRow({
+        actor: command.actor,
+        artifactId: existing.id,
+        stored,
+        version: nextVersion,
+        ...(source.externalUrl === undefined
+          ? {}
+          : { externalUrl: source.externalUrl }),
+      }),
     });
-  } catch (error) {
-    await context.files.discard(stored);
-    if (error instanceof ConcurrentArtifactChange) {
-      return {
-        ok: true,
-        value: {
-          artifactId: existing.id,
-          outcome: "diverged",
-          sourceId: source.sourceId,
-          title: existing.title,
-        },
-      };
-    }
-    return dependencyFailure(
-      { module: "materials", operation: "updateFromSource" },
-      error,
-      dependencyUnavailable(),
-    );
+    await supersedeVersion(transaction, existing.id, existing.currentVersion);
   }
-  await context.files.forgetQuarantine(stored);
-  return {
-    ok: true,
-    value: {
-      artifactId: existing.id,
-      outcome: "updated",
-      sourceId: source.sourceId,
+  const revision = existing.revision + 1;
+  await transaction.productArtifact.update({
+    where: { id: existing.id },
+    data: {
+      access: source.access,
+      currentVersion: nextVersion,
+      importedAt: new Date(),
+      importedRevision: revision,
+      purpose: source.purpose,
+      revision,
       title: source.title,
+      updatedAt: new Date(),
     },
-  };
-}
-
-/** Authoring artifacts of the Product that the package no longer names. */
-function missingArtifacts(
-  authored: readonly ArtifactRow[],
-  sourceIds: readonly string[],
-): readonly AuthoringImportOutcome[] {
-  return authored
-    .filter((existing) => !sourceIds.includes(existing.sourceId ?? ""))
-    .map((existing) => ({
-      artifactId: existing.id,
-      outcome: "missing",
-      sourceId: existing.sourceId,
-      title: existing.title,
-    }));
+  });
 }

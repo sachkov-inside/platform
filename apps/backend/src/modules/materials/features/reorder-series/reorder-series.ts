@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { z } from "zod";
 
 import {
@@ -112,8 +116,6 @@ export function assembleReorderSeries(
           where: { id: command.seriesId },
           select: { sourceId: true },
         });
-        if (source !== null && source.sourceId !== sourceId)
-          return rollback({ code: "forbidden" });
         const snapshot = await loadSeriesOrderSnapshot(
           transaction,
           command.seriesId,
@@ -125,6 +127,29 @@ export function assembleReorderSeries(
         await lockMaterialReferenceChanges(transaction, [
           ...new Set([...currentIds, ...command.orderedMaterialIds]),
         ]);
+        const foundMaterials =
+          command.orderedMaterialIds.length === 0
+            ? []
+            : await transaction.material.findMany({
+                where: { id: { in: [...command.orderedMaterialIds] } },
+                select: { id: true, sourceId: true },
+              });
+        const added = foundMaterials.filter(
+          ({ id }) => !currentIds.includes(id),
+        );
+        const sourceError = checkContentWrite(contentWriter(sourceId), [
+          {
+            kind: "product",
+            sourceId: source?.sourceId ?? null,
+            path: "/seriesId",
+          },
+          ...added.map((material) => ({
+            kind: "membership" as const,
+            sourceId: material.sourceId,
+            path: `/orderedMaterialIds/${String(command.orderedMaterialIds.indexOf(material.id))}`,
+          })),
+        ]);
+        if (sourceError !== null) return rollback(sourceError);
         const nextChapters: readonly ProductChapterEntry[] =
           command.chapters ?? snapshot.chapters;
         const chapterIds = new Set(nextChapters.map(({ id }) => id));
@@ -180,41 +205,6 @@ export function assembleReorderSeries(
               ],
             });
           }
-        }
-        const foundMaterials =
-          command.orderedMaterialIds.length === 0
-            ? []
-            : await transaction.material.findMany({
-                where: { id: { in: [...command.orderedMaterialIds] } },
-                select: { id: true, sourceId: true },
-              });
-        const added = foundMaterials.filter(
-          ({ id }) => !currentIds.includes(id),
-        );
-        // Перенесённый из источника материал и материал редактора не смешиваются в одном составе.
-        // Это свойство ссылки, а не права автора: редактор называет такой материал по пути отказа.
-        const mismatched = new Set(
-          added
-            .filter(
-              (material) =>
-                (material.sourceId === null) !== (sourceId === null),
-            )
-            .map(({ id }) => id),
-        );
-        if (mismatched.size > 0) {
-          return rollback({
-            code: "invalid_reference",
-            issues: command.orderedMaterialIds.flatMap((materialId, index) =>
-              mismatched.has(materialId)
-                ? [
-                    {
-                      code: "material_source_mismatch",
-                      path: `/orderedMaterialIds/${String(index)}`,
-                    },
-                  ]
-                : [],
-            ),
-          });
         }
         const removedIds = currentIds.filter(
           (id) => !command.orderedMaterialIds.includes(id),
