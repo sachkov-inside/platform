@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 import { BillingContact } from "../../src/modules/accounts/facets/billing-contact/billing-contact.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import type { LegalDocument } from "../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
@@ -30,6 +37,10 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     return message;
   }
   let billing: BillingContact;
+  beforeEach(() => {
+    messages.length = 0;
+  });
+
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     billing = new BillingContact({

@@ -178,6 +178,12 @@ these are the rules a change follows.
 
 ## Interaction and enforcement
 
+- Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
+  Browser tests wait for the produced render, response or URL; module tests supply I/O doubles.
+  Each case creates its own account, content and mutable double state. Build the production site
+  and prepare large corpora before the test budget starts. Virtual clocks trigger work; assert its
+  observed completion.
+
 - Hover, focus, loading, and hydration preserve surrounding layout. Reserve a definite footprint or
   use an overlay; layout may change after explicit user actions such as pinning or resizing.
 - Prove layout-sensitive interaction with geometry assertions or Layout Shift API checks when
@@ -187,6 +193,8 @@ these are the rules a change follows.
 - Compare a node with live document state inside one evaluation, `document.activeElement` above all.
   A locator resolves in one round trip and evaluates in the next, so a re-render between them leaves
   the assertion holding a detached node that can never equal what the document reports now.
+- Freeze "today" and expiration in domain fixtures; page and mocked provider use the same instant.
+  Restore owned fake clocks after each case. Monotonic time measures latency and polling budgets.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
 - Simulate a return to the tab with `visibilitychange` and `focus` together, as a browser sends

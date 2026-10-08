@@ -290,6 +290,7 @@ describe("анонс первой публикации материала", () =
   test("анонс невозможно записать материалу, который ещё не публиковался", async () => {
     const materialId = await draft("Черновик без публикации");
     // Обе границы окна приходят из одного чтения часов, как их считает сам источник.
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const occurredAt = new Date();
     await expect(
       database.prisma.materialAnnouncement.create({
@@ -312,6 +313,7 @@ describe("анонс первой публикации материала", () =
 
   test("чужой и неизвестный повод не открывают отправку", async () => {
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const unknownOccurredAt = new Date();
     expect(
       await facet.resolveAnnouncement({ contractVersion: "other" }),

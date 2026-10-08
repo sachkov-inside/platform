@@ -135,6 +135,7 @@ gateway.on("upgrade", (request, socket, head) => {
 });
 /** @param {string[]} args */
 function run(args) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...args], {
     cwd: root,
     env: environment,

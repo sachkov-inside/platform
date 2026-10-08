@@ -1112,6 +1112,7 @@ describe("durable Membership events", () => {
       .then(() => {
         transitionCompleted = true;
       });
+    // deterministic-test-allow duration-wait: Legacy quiet window checks a blocked transition; replace with a pinned barrier in #1154.
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(transitionCompleted).toBe(false);
 

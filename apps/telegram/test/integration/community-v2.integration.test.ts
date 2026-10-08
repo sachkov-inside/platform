@@ -36,6 +36,7 @@ async function stand(
   const bot = `v2-${randomUUID()}`;
   const user = "70099";
   const clock = {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     value: new Date(),
     now() {
       return new Date(this.value);

@@ -358,10 +358,12 @@ describe("Content Library discovery", () => {
     await Promise.all([
       testDatabase.prisma.topic.update({
         where: { slug: "platform" },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         data: { archivedAt: new Date() },
       }),
       testDatabase.prisma.product.update({
         where: { slug: "platform-inside" },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         data: { archivedAt: new Date() },
       }),
     ]);

@@ -193,6 +193,7 @@ async function withinBudget(operation, budget, failure) {
       operation,
       /** @type {Promise<never>} */ (
         new Promise((_, reject) => {
+          // deterministic-test-allow duration-wait: Deadline rejects a stuck observation; it is not a readiness signal.
           timer = setTimeout(
             () => reject(new Error(`${failure} within ${String(budget)}ms`)),
             budget,
@@ -266,6 +267,7 @@ async function settledHiddenScrollHeight({ selectors, budget }) {
       ),
       /** @type {Promise<boolean>} */ (
         new Promise((resolve) => {
+          // deterministic-test-allow duration-wait: Deadline bounds waiting for animation.finished; expiration fails the observation.
           setTimeout(() => resolve(false), deadline - performance.now());
         })
       ),

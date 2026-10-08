@@ -165,6 +165,7 @@ describe("smoke stand", () => {
           });
         });
         if (busy) break;
+        // deterministic-test-allow duration-wait: Poll whether the child owns its port; the delay is only the sampling interval.
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
 

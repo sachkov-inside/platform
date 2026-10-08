@@ -222,6 +222,7 @@ function beginLinkBody() {
   return {
     accountRef: "account-ref-a",
     contractVersion: "inside.identity-linking.v1",
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     returnCorrelation: "return-ref-a",
     tokenDigest: "jKKh9RnjKMdeJyPGrUz3N7LTyO3qlo7dUNRlIji0Qk8",

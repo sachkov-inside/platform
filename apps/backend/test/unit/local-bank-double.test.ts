@@ -1,3 +1,4 @@
+// deterministic-test-allow unit-io: Local bank process/loopback contract; separating it from unit is tracked in #1154.
 import { fork } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -429,12 +430,14 @@ describe("local bank double", () => {
       port: 0,
     });
     try {
+      // deterministic-test-allow unit-io: Local bank process/loopback contract; separating it from unit is tracked in #1154.
       const health = await fetch(`http://127.0.0.1:${running.port}/health`);
       expect(await health.json()).toMatchObject({
         process: "bank-double",
         status: "ready",
         terminal: config.terminalKey,
       });
+      // deterministic-test-allow unit-io: Local bank process/loopback contract; separating it from unit is tracked in #1154.
       const page = await fetch(`http://127.0.0.1:${running.port}/`);
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("Двойник банка Inside");

@@ -1,4 +1,5 @@
 import { once } from "node:events";
+// deterministic-test-allow unit-io: SMTP adapter contract uses an owned ephemeral loopback responder; suite separation is tracked in #1154.
 import { createServer, type Server } from "node:net";
 
 import { afterEach, describe, expect, test } from "vitest";

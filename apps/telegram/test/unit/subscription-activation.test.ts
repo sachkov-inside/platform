@@ -24,6 +24,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(privateStartUpdate(1, 42, { text })),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       );
     expect(translate("/start a_course")).toMatchObject({
@@ -45,6 +46,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(forged),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       ),
     ).not.toHaveProperty("value.activationCode");

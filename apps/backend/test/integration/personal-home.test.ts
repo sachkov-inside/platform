@@ -82,6 +82,7 @@ describe("Personal Home on PostgreSQL", () => {
             membershipActive
               ? {
                   kind: "active",
+                  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
                   validUntil: new Date(Date.now() + 60_000).toISOString(),
                 }
               : { kind: "expired" },
@@ -584,6 +585,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     await database.prisma.product.update({
       where: { id: collection.id },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       data: { archivedAt: new Date() },
     });
     expect(await home.getLearning(accountId)).toEqual({

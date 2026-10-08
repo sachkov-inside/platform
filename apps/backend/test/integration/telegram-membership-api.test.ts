@@ -197,6 +197,7 @@ describe("Telegram Membership API", () => {
     if (typeof principalRef !== "string") {
       throw new TypeError("Provider registration has no principalRef");
     }
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const checkedAt = new Date();
     const memberEvidence = evidence(principalRef, checkedAt);
     const receiptsBefore =
@@ -317,6 +318,7 @@ describe("Telegram Membership API", () => {
   }
 
   async function signToken(subject: string): Promise<string> {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: `${subject}@example.test`,

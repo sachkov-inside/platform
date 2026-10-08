@@ -36,6 +36,7 @@ const context = await browser.newContext({
     : { width: 1440, height: 1024 },
 });
 const page = await context.newPage();
+// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
 let updateId = Date.now() % 1_000_000_000;
 const from = { id: user, is_bot: false, first_name: "Synthetic" };
 const chat = { id: user, type: "private" };
@@ -53,6 +54,7 @@ async function send(text: string) {
   await webhook({
     message: {
       message_id: updateId,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       date: Math.floor(Date.now() / 1000),
       from,
       chat,
@@ -181,6 +183,7 @@ try {
       chat_instance: "synthetic",
       message: {
         message_id: Number(approval.id),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         date: Math.floor(Date.now() / 1000),
         chat,
       },
@@ -293,6 +296,7 @@ try {
         chat: { id: -1000000000000, type: "supergroup" },
         from,
         user_chat_id: user,
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         date: Math.floor(Date.now() / 1000),
         invite_link: {
           invite_link: invite,
@@ -353,6 +357,7 @@ try {
       chat_member: {
         chat: { id: -1000000000000, type: "supergroup" },
         from: { id: 6400099, is_bot: false, first_name: "Synthetic moderator" },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         date: Math.floor(Date.now() / 1000),
         old_chat_member: { user: from, status: "member" },
         new_chat_member: { user: from, status: "kicked", until_date: 0 },

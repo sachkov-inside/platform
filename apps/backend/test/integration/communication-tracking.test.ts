@@ -76,6 +76,7 @@ beforeEach(async () => {
   await database.prisma.communicationTrackingHit.deleteMany();
   received.clear();
   calls.length = 0;
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   now = new Date();
   outage = false;
   loseAck = false;

@@ -91,6 +91,7 @@ describe("scoped learner access over the learner MCP transport", () => {
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
   let world: ScopedProductsWorld;
+  // deterministic-test-allow shared-mutation: Cleanup registry closes every owned MCP client afterAll; it is not scenario seed data.
   const clients: Client[] = [];
 
   beforeAll(async () => {

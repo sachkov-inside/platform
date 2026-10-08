@@ -109,6 +109,7 @@ describe("shared communications contract", () => {
           "inside",
           "1",
           prepareTelegramUpdateForInbox(update),
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           new Date(),
         ).kind,
       ).toBe("start");

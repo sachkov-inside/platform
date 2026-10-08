@@ -36,6 +36,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     ownerId = (
       await bootstrapOwnerAccount(database.prisma, { issuer, subject: "owner" })
     ).accountId;
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = new Date();
     await database.prisma.telegramLinkTransaction.create({
       data: {

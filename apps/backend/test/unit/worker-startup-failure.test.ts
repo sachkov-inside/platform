@@ -1,3 +1,4 @@
+// deterministic-test-allow unit-io: Worker process exit contract; separating cold startup from unit is tracked in #1154.
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 

@@ -178,6 +178,7 @@ async function run(
   { capture = false, extraEnvironment = {} } = {},
 ) {
   const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(command, arguments_, {
     cwd: repositoryRoot,
     env: { ...environment, ...extraEnvironment },

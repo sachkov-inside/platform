@@ -580,6 +580,7 @@ describe("Product chapters", () => {
     if (!saved.ok) throw new Error(saved.error.code);
     await testDatabase.prisma.product.update({
       where: { id: productId },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       data: { archivedAt: new Date() },
     });
 

@@ -52,6 +52,7 @@ describe("Bookmarks on PostgreSQL", () => {
     });
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       clock: () => new Date(),
     });
     bookmarks = assembleBookmarks(database.prisma);
@@ -137,7 +138,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "member",
         reasonCode: "chat_member",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -156,7 +159,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "not_member",
         reasonCode: "chat_not_member",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -272,10 +277,13 @@ describe("Bookmarks on PostgreSQL", () => {
     const firstId = await material();
     const secondId = await material();
     const thirdId = await material();
-    for (const id of [firstId, secondId, thirdId]) {
+    for (const [index, id] of [firstId, secondId, thirdId].entries()) {
       const added = await bookmarks.addBookmark({ accountId, materialId: id });
       if (!added.ok) throw new Error(added.error.code);
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await database.prisma.bookmarkedMaterial.update({
+        where: { accountId_materialId: { accountId, materialId: id } },
+        data: { bookmarkedAt: new Date(Date.UTC(2030, 0, 1, 0, 0, index)) },
+      });
     }
     const page = await bookmarks.listBookmarks({ accountId, first: 2 });
     if (!page.ok) throw new Error(page.error.code);

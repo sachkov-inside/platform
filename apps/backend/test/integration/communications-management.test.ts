@@ -194,6 +194,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
           ).accountId,
         );
       if (subject !== "unlinked") {
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         const now = new Date();
         await database.prisma.telegramLinkTransaction.create({
           data: {
@@ -299,6 +300,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   function token(subject: string) {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const issuedAt = Math.floor(Date.now() / 1_000);
     return new SignJWT({})
       .setProtectedHeader({ alg: "ES384", kid: "communications-key" })

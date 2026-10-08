@@ -20,6 +20,7 @@ describe("WorkerLoop", () => {
     const loop = new WorkerLoop(
       "test",
       () => {
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         startedAt.push(Date.now());
         return Promise.resolve(found.shift() ?? false);
       },

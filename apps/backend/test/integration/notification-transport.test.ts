@@ -174,6 +174,7 @@ function watchCrashWorker(child: ChildProcess) {
               ),
             );
         };
+        // deterministic-test-allow duration-wait: Deadline bounds waiting for process output; it is not a readiness signal.
         const timer = setTimeout(settle, budgetMs);
         wake = settle;
         if (reached.has(awaited) || departure !== undefined) settle();
@@ -185,7 +186,9 @@ function watchCrashWorker(child: ChildProcess) {
 describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let database: TestDatabase;
+  // deterministic-test-allow shared-mutation: Cleanup registry closes every owned broker connection afterAll; it is not scenario seed data.
   const connections: ChannelModel[] = [];
+  // deterministic-test-allow shared-mutation: Legacy cross-case restart scenario shares confirmed evidence; isolate it in #1154.
   const confirmedBeforeOutage: string[] = [];
   const config = (principal: NotificationPrincipal, vhost = "inside-test") => ({
     url: broker.url(principal, vhost),
@@ -370,6 +373,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         if (phase.includes("confirm"))
           await stageBillingNotification(scenario.prisma, payload);
         else await publishNotification(producer, envelope);
+        // deterministic-test-allow process-cleanup: watchCrashWorker owns this single worker; finally awaits worker.kill and close.
         const child = fork(
           new URL("./fixtures/notification-crash-worker.ts", import.meta.url),
           [],

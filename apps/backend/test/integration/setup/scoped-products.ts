@@ -65,6 +65,7 @@ export async function createScopedProductsWorld(
   await database.prisma.accountPermission.create({
     data: { accountId: owner, permission: "platform:admin" },
   });
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   let now = (): Date => new Date();
   const grants = assembleAccessGrants({
     prisma: database.prisma,
@@ -161,6 +162,7 @@ export async function createScopedProductsWorld(
       productIds: [productId],
       body: async (materialId) => {
         protectedObjectKey = `materials/${materialId}/assets/${assetId}/original`;
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         const ready = new Date();
         await database.prisma.materialAsset.create({
           data: {
@@ -346,9 +348,11 @@ export async function createScopedProductsWorld(
     freeProduct,
     publicMaterial: { slug: publicCreated.slug, bodyText },
     grantProduct: (accountId, productId) =>
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       grant(accountId, productId, null, new Date().toISOString()),
     async grantExpiredProduct(accountId, productId) {
       // Право выдано в прошлом и кончилось вчера: facade видит момент выдачи, транспорт — сегодня.
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       const issued = Date.now() - 2 * 24 * 60 * 60 * 1_000;
       now = () => new Date(issued);
       try {
@@ -359,6 +363,7 @@ export async function createScopedProductsWorld(
           new Date(issued).toISOString(),
         );
       } finally {
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         now = () => new Date();
       }
     },

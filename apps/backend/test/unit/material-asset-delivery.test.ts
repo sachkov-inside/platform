@@ -36,7 +36,7 @@ describe("Material asset delivery", () => {
       }),
       contentAccess: accessDecision({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "public",
         effect: "allow",
         policyVersion: "content-access-v1",
@@ -78,15 +78,16 @@ describe("Material asset delivery", () => {
       .fn<ContentAccess["authorize"]>()
       .mockResolvedValueOnce({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "member",
         effect: "allow",
         policyVersion: "content-access-v1",
         reason: "active_membership",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         validUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
       })
       .mockResolvedValueOnce({
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "denied",
         effect: "deny",
         policyVersion: "content-access-v1",
@@ -165,7 +166,7 @@ describe("Material asset delivery", () => {
         const protectedDecision = (validUntil: string | null) =>
           accessDecision({
             checkedContentVersion: 2,
-            decidedAt: new Date().toISOString(),
+            decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
             decisionId: validUntil ?? "lifetime",
             effect: "allow",
             policyVersion: "content-access-v1",
@@ -255,7 +256,7 @@ describe("Material asset delivery", () => {
     const allow = (reason: "materials_manager" | "public_resource") =>
       accessDecision({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: reason,
         effect: "allow",
         policyVersion: "content-access-v1",
@@ -305,7 +306,7 @@ describe("Material asset delivery", () => {
       assets: { loadDelivery },
       contentAccess: accessDecision({
         checkedContentVersion: contentVersion,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "current",
         effect: "allow" as const,
         policyVersion: "content-access-v1" as const,

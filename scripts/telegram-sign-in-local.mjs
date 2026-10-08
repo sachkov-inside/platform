@@ -86,6 +86,7 @@ const commands = [
   ].map((command) => ["--filter", "@inside/backend", command]),
 ];
 const children = commands.map((args) =>
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   spawn("pnpm", args, {
     cwd: root,
     env: environment,

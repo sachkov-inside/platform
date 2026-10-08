@@ -229,6 +229,7 @@ describe("published learning practice", () => {
             reason: "membership_expired",
             decisionId: "test",
             policyVersion: "content-access-v1",
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             decidedAt: new Date().toISOString(),
           }),
       },
