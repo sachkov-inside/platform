@@ -780,5 +780,181 @@
       "admissionRestriction": "none"
     },
     "valid": true
+  },
+  {
+    "name": "member-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "lifetime"
+      },
+      "status": "unknown",
+      "observedMembership": "member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": true
+  },
+  {
+    "name": "finite-member-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2031-01-01T00:00:00Z"
+      },
+      "status": "unknown",
+      "observedMembership": "member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": true
+  },
+  {
+    "name": "denied-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "denied"
+      },
+      "status": "unknown",
+      "observedMembership": "member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": false
+  },
+  {
+    "name": "moderated-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "lifetime"
+      },
+      "status": "unknown",
+      "observedMembership": "member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "moderation",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": false
+  },
+  {
+    "name": "external-restriction-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "lifetime"
+      },
+      "status": "unknown",
+      "observedMembership": "member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "external_unknown",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": false
+  },
+  {
+    "name": "nonmember-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "lifetime"
+      },
+      "status": "unknown",
+      "observedMembership": "not_member",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": false
+  },
+  {
+    "name": "unknown-membership-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "lifetime"
+      },
+      "status": "unknown",
+      "observedMembership": "unknown",
+      "updatedAt": "2030-01-01T00:00:00Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": false
   }
 ]
