@@ -1,5 +1,6 @@
 """Read macOS/Linux process identity and ancestry without spawning ps."""
 import ctypes
+import errno
 import os
 import select
 from pathlib import Path
@@ -48,8 +49,7 @@ def process_row(pid):
         return None
 
 
-def darwin_group_exited(group):
-    """Prove every listed group member exited, including unreadable BSD info."""
+def _darwin_group_members(group):
     # PROC_PGRP_ONLY includes zombies and other UIDs without proc_pidinfo access.
     capacity = LIBPROC.proc_listpids(2, group, None, 0) // ctypes.sizeof(ctypes.c_int) + 64
     while True:
@@ -60,9 +60,13 @@ def darwin_group_exited(group):
             raise OSError(ctypes.get_errno(), 'proc_listpids group')
         count = size // ctypes.sizeof(ctypes.c_int)
         if count < capacity:
-            members = list(buffer[:count])
-            break
+            return set(buffer[:count])
         capacity *= 2
+
+
+def darwin_group_exited(group):
+    """Confirm native exit and exclude members forked during exit observation."""
+    members = _darwin_group_members(group)
     queue = select.kqueue()
     try:
         for pid in members:
@@ -76,12 +80,24 @@ def darwin_group_exited(group):
                 continue
             except PermissionError:
                 return False  # An unreadable live member is not proof of exit.
-            if not any(event.ident == pid and event.fflags & select.KQ_NOTE_EXIT
-                       for event in events):
+            exited = False
+            for event in events:
+                if event.ident != pid:
+                    continue
+                if event.flags & select.KQ_EV_ERROR:
+                    # Registration receipts retain the requested NOTE_EXIT bit.
+                    # Only ESRCH proves exit; EPERM/EACCES do not.
+                    if event.data != errno.ESRCH:
+                        return False
+                    exited = True
+                elif event.filter == select.KQ_FILTER_PROC and event.fflags & select.KQ_NOTE_EXIT:
+                    exited = True
+            if not exited:
                 return False
     finally:
         queue.close()
-    return True
+    # Once every old member exited, none can fork after this final census.
+    return _darwin_group_members(group) <= members
 
 
 def process_snapshot():

@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import selectors
+import select
 import signal
 import subprocess
 import sys
@@ -13,7 +14,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/heavy-check'))
-from processes import process_row, process_snapshot
+from processes import process_row, process_snapshot, LIBPROC
 from lock import signal_groups
 sys.path.insert(0, str(ROOT / 'scripts/owned-process'))
 from ownership import ProcessOwnership
@@ -363,6 +364,82 @@ class Ownership(unittest.TestCase):
         finally:
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS native group exit adapter')
+    def test_cleanup_rejects_kqueue_error_receipt_as_exit(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            receipt = select.kevent(process.pid, filter=select.KQ_FILTER_PROC,
+                                    flags=select.KQ_EV_ERROR,
+                                    fflags=select.KQ_NOTE_EXIT, data=1)
+            with patch('processes.select.kqueue') as queue:
+                queue.return_value.control.return_value = [receipt]
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS native group exit adapter')
+    def test_cleanup_rechecks_members_forked_after_group_census(self):
+        source = """
+import os, signal, sys
+print('READY', os.getpid(), flush=True)
+sys.stdin.readline()
+r, w = os.pipe()
+if os.fork() == 0:
+    os.close(r)
+    print('READY', os.getpid(), flush=True)
+    os.write(w, b'1')
+    os.close(w)
+    while True:
+        signal.pause()
+os.close(w)
+os.read(r, 1)
+os._exit(0)
+"""
+        process = subprocess.Popen([sys.executable, '-c', source],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        listed = LIBPROC.proc_listpids
+        changed = False
+
+        def fork_after_census(kind, group, buffer, size):
+            nonlocal changed
+            result = listed(kind, group, buffer, size)
+            if buffer is not None and not changed:
+                changed = True
+                process.stdin.write(b'fork\n')
+                process.stdin.flush()
+                read_ready(process)
+                deadline = time.monotonic() + 5
+                while os.waitid(os.P_PID, process.pid,
+                                os.WEXITED | os.WNOWAIT | os.WNOHANG) is None:
+                    self.assertLess(time.monotonic(), deadline, 'forking leader did not exit')
+                    time.sleep(0.01)
+            return result
+
+        try:
+            read_ready(process)
+            with patch('processes.LIBPROC.proc_listpids', side_effect=fork_after_census):
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+            self.assertTrue(changed, 'fork barrier was not exercised')
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
             process.communicate(timeout=5)
 
     def test_native_node_test_runner_sigkill(self):
