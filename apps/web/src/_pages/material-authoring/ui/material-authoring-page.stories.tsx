@@ -737,7 +737,10 @@ export const LessonBlocksEditing: Story = {
         "aside[data-callout] [data-callout-body] p",
         "Тело врезки не найдено: панель блока не к чему вернуть",
       );
-      await userEvent.click(callout);
+      // userEvent меняет DOM-выбор; редактор получает его через selectionchange.
+      // Передаём событие до следующей задачи браузера, которая может восстановить старый выбор.
+      await userEvent.click(callout, { delay: null });
+      canvasElement.ownerDocument.dispatchEvent(new Event("selectionchange"));
       await expect(
         await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       ).toHaveAttribute("aria-pressed", "true");
@@ -748,6 +751,25 @@ export const LessonBlocksEditing: Story = {
     } finally {
       errors.mockRestore();
     }
+  },
+};
+
+/** Нативное событие выбора может прийти после следующих действий истории (#1191). */
+export const LessonBlocksEditingDelayedSelection: Story = {
+  ...LessonBlocksEditing,
+  name: "Редактор · блоки урока, отложенный выбор",
+  beforeEach: () => {
+    const delayNativeSelection = (event: Event) => {
+      if (event.isTrusted) event.stopImmediatePropagation();
+    };
+    document.addEventListener("selectionchange", delayNativeSelection, true);
+    return () => {
+      document.removeEventListener(
+        "selectionchange",
+        delayNativeSelection,
+        true,
+      );
+    };
   },
 };
 
