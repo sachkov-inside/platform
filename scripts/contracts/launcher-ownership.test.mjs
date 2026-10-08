@@ -11,7 +11,9 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 const backendRequire = createRequire(
   new URL("../../apps/backend/package.json", import.meta.url),
 );
-const fixture = fileURLToPath(new URL("./launcher-ownership.py", import.meta.url));
+const fixture = fileURLToPath(
+  new URL("./launcher-ownership.py", import.meta.url),
+);
 
 for (const surface of ["production-web", "dev-api-vitest"]) {
   for (const signal of ["SIGINT", "SIGTERM", "SIGKILL"]) {
