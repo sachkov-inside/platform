@@ -2,6 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RecursiveSchema2schema0 } from '../models/RecursiveSchema2schema0';
+import type { RecursiveSchema2schema1 } from '../models/RecursiveSchema2schema1';
+import type { RecursiveSchema3schema0 } from '../models/RecursiveSchema3schema0';
+import type { RecursiveSchema3schema1 } from '../models/RecursiveSchema3schema1';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTaskAuthoringService {
@@ -21,7 +25,7 @@ export class ProductTaskAuthoringService {
       afterMaterialSourceId: string | null;
       chapterId: string;
       code: string;
-      definition: {
+      definition: ({
         criteria: Array<{
           acceptableEvidence: Array<string>;
           id: string;
@@ -32,8 +36,26 @@ export class ProductTaskAuthoringService {
         result: Array<string>;
         schemaVersion: 1;
         situation: string;
-      };
+      } | {
+        criteria: Array<{
+          acceptableEvidence: Array<string>;
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        }>;
+        format: 'c';
+        freedom: string;
+        intro: string;
+        schemaVersion: 2;
+      });
       expectedRevision: number | null;
+      page?: Record<string, RecursiveSchema3schema0>;
+      pageBody?: {
+        doc: Record<string, RecursiveSchema3schema1>;
+        schemaVersion: 1;
+      };
       position: number;
       productId: string;
       provenance: {
@@ -43,6 +65,11 @@ export class ProductTaskAuthoringService {
       };
       publicationState: 'published' | 'unpublished';
       relatedMaterialSourceIds: Array<string>;
+      resolvedImages: Record<string, {
+        assetId: string;
+        materialId: string;
+      }>;
+      resolvedLinks: Record<string, string>;
       sourceId: string;
       title: string;
     },
@@ -77,7 +104,7 @@ export class ProductTaskAuthoringService {
       afterMaterialSourceId: string | null;
       chapterId?: string;
       code: string;
-      definition: {
+      definition: ({
         criteria: Array<{
           acceptableEvidence: Array<string>;
           id: string;
@@ -88,6 +115,24 @@ export class ProductTaskAuthoringService {
         result: Array<string>;
         schemaVersion: 1;
         situation: string;
+      } | {
+        criteria: Array<{
+          acceptableEvidence: Array<string>;
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        }>;
+        format: 'c';
+        freedom: string;
+        intro: string;
+        schemaVersion: 2;
+      });
+      page?: Record<string, RecursiveSchema2schema0>;
+      pageBody?: {
+        doc: Record<string, RecursiveSchema2schema1>;
+        schemaVersion: 1;
       };
       position?: number;
       productId?: string;
@@ -98,6 +143,11 @@ export class ProductTaskAuthoringService {
       };
       publicationState: 'published' | 'unpublished';
       relatedMaterialSourceIds: Array<string>;
+      resolvedImages: Record<string, {
+        assetId: string;
+        materialId: string;
+      }>;
+      resolvedLinks: Record<string, string>;
       sourceId: string;
       title: string;
     },
@@ -109,6 +159,9 @@ export class ProductTaskAuthoringService {
       publicationState: 'published' | 'unpublished';
       revision: number;
       taskId: string;
+    } | null;
+    migration: {
+      materialId: string;
     } | null;
     valid: boolean;
   }> {
@@ -193,12 +246,18 @@ export class ProductTaskAuthoringService {
     }>;
     versions: Array<{
       code: string;
-      criteria: Array<{
+      criteria: Array<({
         acceptableEvidence: Array<string>;
         id: string;
         level: 'required' | 'additional';
         requirement: string;
-      }>;
+      } | {
+        advice?: string;
+        explanation: string;
+        id: string;
+        level: 'required' | 'additional';
+        task: string;
+      })>;
       version: number;
     }>;
   }> {

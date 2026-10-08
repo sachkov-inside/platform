@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { RecursiveSchema4schema0 } from '../models/RecursiveSchema4schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTasksService {
@@ -32,12 +33,18 @@ export class ProductTasksService {
       taskVersion: number;
     }>;
     versions: Array<{
-      criteria: Array<{
+      criteria: Array<({
         acceptableEvidence: Array<string>;
         id: string;
         level: 'required' | 'additional';
         requirement: string;
-      }>;
+      } | {
+        advice?: string;
+        explanation: string;
+        id: string;
+        level: 'required' | 'additional';
+        task: string;
+      })>;
       version: number;
     }>;
   }> {
@@ -115,16 +122,56 @@ export class ProductTasksService {
         ordinal: number;
       };
       code: string;
-      definition: {
-        criteria: Array<{
+      definition: ({
+        criteria: Array<({
           acceptableEvidence: Array<string>;
           id: string;
           level: 'required' | 'additional';
           requirement: string;
-        }>;
+        } | {
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        })>;
         freedom: string;
         result: Array<string>;
         situation: string;
+      } | {
+        criteria: Array<({
+          acceptableEvidence: Array<string>;
+          id: string;
+          level: 'required' | 'additional';
+          requirement: string;
+        } | {
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        })>;
+        format: 'c';
+        freedom: string;
+        intro: string;
+        schemaVersion: 2;
+      });
+      page?: {
+        artifacts: Array<{
+          assetId: string;
+          sourceId: string;
+          title: string;
+        }>;
+        body: {
+          blocks: Array<RecursiveSchema4schema0>;
+          schemaVersion: 1;
+        };
+        cover: {
+          alt: string;
+          assetId: string;
+        } | null;
+        summary: string;
+        title: string;
       };
       product: {
         name: string;
