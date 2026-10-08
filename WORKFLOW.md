@@ -8,14 +8,15 @@ this contract and `AGENTS.md` hold what they leave open and the owner's override
 
 - Work that fits one session: `issue → implement → review → pull request`. When the issue leaves an
   owner decision open, the owner grills it first (`grill-with-docs`).
-- Work for several sessions: `grilling → to-spec → to-tickets`, then per ticket one `implement`
-  session, branch and pull request; `implement-spec` is not part of this route.
+- Work for several sessions: `grilling → to-spec → to-tickets`, then per ticket its own `implement`
+  session and branch; `implement-spec` and its single integration branch are not part of this route.
 
 The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
 stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
-there before a task gets `ready-for-agent`. On either route, the owner accepts the look of a visual
-change in a prototype (skill `prototype`) before that label; `docs/agents/frontend-delivery.md`
-sets the visual gates and the temporary-UI path. After `to-tickets` publishes the tickets, the
+there before a task gets `ready-for-agent`. A visual change follows
+`docs/agents/frontend-delivery.md`: before that label, the owner accepts its prototype (skill
+`prototype`, kept as a Storybook proof on a `prototype/*` branch), or the ticket takes the
+temporary-UI path with a linked integration ticket. After `to-tickets` publishes the tickets, the
 same session removes `ready-for-agent` from the issue it broke down: this overrides the skill's
 "Do NOT close or modify any parent issue".
 
@@ -104,11 +105,12 @@ code. The agent then:
 5. gives the owner the result, the checks that ran and those that did not, material limitations
    and the next step, with a link to the pull request or requested artifact when one exists.
 
-Steps 4 and 5 apply to every handoff, including a ready pull request, a stopped task or a result
-that waits for acceptance. The delivery format follows the owner's request and the invoked skill:
-a concise chat message is enough when neither calls for an artifact, and a requested architecture
-review or research document keeps its own structure and design. The shared `report` skill, its
-HTML template and `report.py finish` are not completion requirements in this project.
+Steps 4 and 5 apply to every handoff of a result to the owner, including a ready pull request, a
+stopped task or a result that waits for acceptance. The delivery format follows the owner's request
+and the invoked skill: a concise chat message is enough when neither calls for an artifact, and a
+requested architecture review or research document keeps its own structure and design. The shared
+`report` skill, its HTML template and `report.py finish` are not completion requirements in this
+project.
 
 ## Owner corrections
 
