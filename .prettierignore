@@ -18,6 +18,12 @@ infra/notifications/local-definitions.json
 
 # Pinned protocol corpora: manifests and consumers compare them as published.
 contracts/
+!scripts/contracts/
+!scripts/contracts/**
+!apps/backend/test/contracts/
+!apps/backend/test/contracts/**
+!apps/web/test/contracts/
+!apps/web/test/contracts/**
 docs/contracts/
 apps/backend/src/modules/*/contracts/
 

@@ -14,11 +14,14 @@ describe("production runtime release bundle", () => {
       const build = spawnSync(
         "bash",
         ["scripts/build-production-runtime-bundle.sh", bundle],
-        { encoding: "utf8" },
+        { timeout: 30_000, encoding: "utf8" },
       );
       assert.equal(build.status, 0, build.stderr);
 
-      const listing = spawnSync("tar", ["-tzf", bundle], { encoding: "utf8" });
+      const listing = spawnSync("tar", ["-tzf", bundle], {
+        timeout: 30_000,
+        encoding: "utf8",
+      });
       assert.equal(listing.status, 0, listing.stderr);
       assert.deepEqual(listing.stdout.trim().split("\n").sort(), [
         "bin/deploy-release",

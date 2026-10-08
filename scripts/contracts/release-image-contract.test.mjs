@@ -7,9 +7,12 @@ import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 import { z } from "zod";
 
-import { readPackageManifest } from "./package-manifest.mjs";
+import { readPackageManifest } from "../package-manifest.mjs";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 /** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
@@ -82,7 +85,7 @@ describe("release image contract", () => {
     const images = spawnSync(
       process.execPath,
       ["scripts/release-contract.mjs", "images"],
-      { cwd: repositoryRoot, encoding: "utf8" },
+      { cwd: repositoryRoot, encoding: "utf8", timeout: 30_000 },
     );
 
     assert.equal(images.status, 0, images.stderr);

@@ -16,7 +16,7 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { z } from "zod";
 
-import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
+import { writeTrustedReleaseEvidence } from "../github-release-evidence.test-support.mjs";
 
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
@@ -125,7 +125,7 @@ describe("inside-deploy forced SSH command", () => {
           "caddy/platform.caddy",
           "compose.production.yaml",
         ],
-        { encoding: "utf8" },
+        { timeout: 30_000, encoding: "utf8" },
       );
       assert.equal(forgedBundleResult.status, 0, forgedBundleResult.stderr);
       const forgedManifest = z
@@ -267,7 +267,7 @@ fi
       "caddy/platform.caddy",
       "compose.production.yaml",
     ],
-    { encoding: "utf8" },
+    { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(bundleResult.status, 0, bundleResult.stderr);
 
@@ -339,7 +339,7 @@ function createEnvelope(fixture) {
       "release-manifest.json",
       "production-runtime.tar.gz",
     ],
-    { encoding: "utf8" },
+    { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stderr);
 }
@@ -351,6 +351,7 @@ function createEnvelope(fixture) {
  */
 function runGateway(fixture, command, input = readFileSync(fixture.payload)) {
   return spawnSync("bash", ["infra/production/host/inside-deploy"], {
+    timeout: 30_000,
     encoding: "utf8",
     env: {
       ...process.env,

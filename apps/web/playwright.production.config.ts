@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-import { productionTarget } from "./test/production/pass-config";
+import { passCells, productionTarget } from "./test/production/pass-config";
 
 /**
  * Production-проход доступа (#905, #906) против настоящего production: каждый запрос проходит
@@ -19,7 +19,8 @@ export default defineConfig({
   forbidOnly: true,
   reporter: "list",
   retries: 0,
-  timeout: 180_000,
+  // The whole scenario retains the sum of the former per-cell termination budgets.
+  timeout: 180_000 * passCells.filter((cell) => !("deferred" in cell)).length,
   workers: 1,
   use: {
     baseURL: productionTarget.web,

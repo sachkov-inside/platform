@@ -77,7 +77,7 @@ describe("run-scoped Vite cache for Storybook runners (#1004)", () => {
         `const { runScopedViteCache } = await import(${JSON.stringify(helper.href)});
          process.stdout.write(runScopedViteCache().config().cacheDir);`,
       ],
-      { encoding: "utf8" },
+      { encoding: "utf8", timeout: 5_000 },
     );
     created.push(cacheDir);
 

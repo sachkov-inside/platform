@@ -97,7 +97,7 @@ The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `tes
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
 `test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
 and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
-`lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+The local contract commands also claim slots. `lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
 `smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
 and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
 smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
@@ -485,10 +485,11 @@ pnpm check
 ```
 
 This covers formatting, lint, strict typecheck, backend architecture guardrails,
-unit/module/Storybook tests, Playwright, production builds and the Storybook build without
+unit/module/local contract/Storybook tests, Playwright, production builds and the Storybook build without
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
 `check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
-failure to reproduce it. A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
+failure to reproduce it. Local contracts have separate selections under
+[`pnpm check:contracts`](continuous-integration.md#local-contract-tests). A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
 names the generated, pinned and managed files that keep their own bytes. `.git-blame-ignore-revs`
 lists the mechanical formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs`
 once per clone so local `git blame` skips them, as GitHub does.

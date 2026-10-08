@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { ChannelModel } from "amqplib";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -174,6 +175,7 @@ function watchCrashWorker(child: ChildProcess) {
               ),
             );
         };
+        // deterministic-test-allow duration-wait: Deadline bounds a signal barrier; receipt or close settles it first.
         const timer = setTimeout(settle, budgetMs);
         wake = settle;
         if (reached.has(awaited) || departure !== undefined) settle();
@@ -186,7 +188,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let database: TestDatabase;
   const connections: ChannelModel[] = [];
-  const confirmedBeforeOutage: string[] = [];
   const config = (principal: NotificationPrincipal, vhost = "inside-test") => ({
     url: broker.url(principal, vhost),
     ...(broker.caFile === undefined ? {} : { caFile: broker.caFile }),
@@ -234,10 +235,12 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     broker = await startNotificationBroker({ topology, tls: true });
     database = await createMigratedTestDatabase();
   }, 180_000);
-  afterAll(async () => {
+  afterEach(async () => {
     await Promise.allSettled(
-      connections.map((connection) => connection.close()),
+      connections.splice(0).map((connection) => connection.close()),
     );
+  });
+  afterAll(async () => {
     // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
     try {
       await database.dispose();
@@ -389,6 +392,11 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
           },
         );
         const worker = watchCrashWorker(child);
+        onTestFinished(async () => {
+          if (child.exitCode === null && child.signalCode === null)
+            child.kill("SIGKILL");
+          await worker.kill();
+        });
         async function reaches(
           signal: CrashWorkerSignal,
           budgetMs: number,
@@ -430,6 +438,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
             }
           }
         } finally {
+          if (child.exitCode === null && child.signalCode === null)
+            child.kill("SIGKILL");
           death = await worker.kill();
         }
         // Сценарий проверяет смерть от SIGKILL на барьере; самостоятельный выход — другой сценарий.
@@ -532,14 +542,17 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     );
   }
 
-  test("mandatory return and queue saturation preserve unpublished outbox; other lanes advance", async () => {
+  test("mandatory return and saturation preserve outbox; broker restart retains confirmed messages (singleton, not HA)", async () => {
+    const scenario = await createMigratedTestDatabase();
+    onTestFinished(() => scenario.dispose());
+    const confirmedBeforeOutage: string[] = [];
     const producer = await connect("materials");
     const materialEvent = { ...materialFixture, messageId: randomUUID() };
-    await stageMaterialsNotification(database.prisma, materialEvent);
+    await stageMaterialsNotification(scenario.prisma, materialEvent);
     // Temporarily remove the binding via a deployment authority, not a runtime principal.
     await admin(["delete_queue", "-p", "inside-test", lanes.materials.queue]);
     const relay = assembleNotificationOutbox(
-      database.prisma.materialNotificationOutbox,
+      scenario.prisma.materialNotificationOutbox,
       ["materials"],
     );
     await expect(
@@ -548,7 +561,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       ),
     ).rejects.toThrow("publisher_return");
     expect(
-      await database.prisma.materialNotificationOutbox.findFirst(),
+      await scenario.prisma.materialNotificationOutbox.findFirst(),
     ).toMatchObject({ publishedAt: null, attempts: 1 });
     await admin(["import_definitions", "/etc/rabbitmq/definitions.json"]);
     const billing = await connect("billing");
@@ -587,10 +600,10 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       attempt++
     ) {
       const payload = event();
-      await stageBillingNotification(database.prisma, payload);
+      await stageBillingNotification(scenario.prisma, payload);
       try {
         const published = await assembleNotificationOutbox(
-          database.prisma.billingNotificationOutbox,
+          scenario.prisma.billingNotificationOutbox,
           ["billing"],
         ).relay("billing", (message) => publishNotification(billing, message));
         expect(
@@ -609,7 +622,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       `queue declared with x-max-length ${String(queueCapacity)} accepted ${String(saturationAttempts)} publishes without rejecting`,
     ).toBe("publisher_nack");
     expect(
-      await database.prisma.billingNotificationOutbox.findUniqueOrThrow({
+      await scenario.prisma.billingNotificationOutbox.findUniqueOrThrow({
         where: {
           scope_messageId: { scope: "billing", messageId: rejectedMessageId },
         },
@@ -626,7 +639,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         messageId: randomUUID(),
       }),
     );
-    const transport = assembleNotificationTransport(database.prisma, 100);
+    const transport = assembleNotificationTransport(scenario.prisma, 100);
     const consumer = await consumeNotificationLane(
       await connect("notifications"),
       "materials",
@@ -637,7 +650,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       "materials inbox committed despite billing saturation",
       async () => {
         expect(
-          await database.prisma.notificationInbox.count({
+          await scenario.prisma.notificationInbox.count({
             where: { lane: "materials" },
           }),
         ).toBeGreaterThan(0);
@@ -645,7 +658,79 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       barrierBudgetMs,
     );
     await consumer.stop();
-  }, 45_000);
+
+    expect(confirmedBeforeOutage.length).toBeGreaterThan(0);
+    await admin(["stop_app"]);
+    const duringOutage = { ...materialFixture, messageId: randomUUID() };
+    await stageMaterialsNotification(scenario.prisma, duringOutage);
+    expect(
+      await scenario.prisma.materialNotificationOutbox.count({
+        where: { publishedAt: null },
+      }),
+    ).toBeGreaterThan(0);
+    await admin(["start_app"]);
+    const restartedProducer = await connect("materials");
+    await scenario.prisma.materialNotificationOutbox.updateMany({
+      data: { nextAttemptAt: new Date(0) },
+    });
+    const restartedTransport = assembleNotificationTransport(
+      scenario.prisma,
+      100,
+    );
+    const receiver = await consumeNotificationLane(
+      await connect("notifications"),
+      "materials",
+      restartedTransport,
+      1,
+    );
+    const restartedRelay = assembleNotificationOutbox(
+      scenario.prisma.materialNotificationOutbox,
+      ["materials"],
+    );
+    while (
+      await restartedRelay.relay("materials", (message) =>
+        publishNotification(restartedProducer, message),
+      )
+    ) {
+      /* bounded test fixture backlog */
+    }
+    await transportBarrier(
+      "materials inbox committed after broker restart",
+      async () => {
+        expect(
+          await scenario.prisma.notificationInbox.findUnique({
+            where: {
+              scope_messageId: {
+                scope: "materials",
+                messageId: duringOutage.messageId,
+              },
+            },
+          }),
+        ).not.toBeNull();
+      },
+      barrierBudgetMs,
+    );
+    await receiver.stop();
+    const billingReceiver = await consumeNotificationLane(
+      await connect("notifications"),
+      "billing",
+      restartedTransport,
+      1,
+    );
+    await transportBarrier(
+      "confirmed billing messages committed after broker restart",
+      async () => {
+        for (const messageId of confirmedBeforeOutage)
+          expect(
+            await scenario.prisma.notificationInbox.findUnique({
+              where: { scope_messageId: { scope: "billing", messageId } },
+            }),
+          ).not.toBeNull();
+      },
+      barrierBudgetMs,
+    );
+    await billingReceiver.stop();
+  }, 90_000);
 
   test("poison evidence commits before ack; full quarantine stops reception without dropping the next message", async () => {
     const producer = await connect("email");
@@ -711,72 +796,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     await recovered.stop();
   }, 30_000);
 
-  test("broker node outage retains queue data and PostgreSQL work across restart (singleton, not HA)", async () => {
-    await admin(["stop_app"]);
-    await stageMaterialsNotification(database.prisma, {
-      ...materialFixture,
-      messageId: randomUUID(),
-    });
-    expect(
-      await database.prisma.materialNotificationOutbox.count({
-        where: { publishedAt: null },
-      }),
-    ).toBeGreaterThan(0);
-    await admin(["start_app"]);
-    const producer = await connect("materials");
-    await database.prisma.materialNotificationOutbox.updateMany({
-      data: { nextAttemptAt: new Date(0) },
-    });
-    const transport = assembleNotificationTransport(database.prisma, 100);
-    const receiver = await consumeNotificationLane(
-      await connect("notifications"),
-      "materials",
-      transport,
-      1,
-    );
-    const relay = assembleNotificationOutbox(
-      database.prisma.materialNotificationOutbox,
-      ["materials"],
-    );
-    while (
-      await relay.relay("materials", (message) =>
-        publishNotification(producer, message),
-      )
-    ) {
-      /* bounded test fixture backlog */
-    }
-    await transportBarrier(
-      "materials inbox committed after broker restart",
-      async () => {
-        expect(
-          await database.prisma.notificationInbox.count({
-            where: { lane: "materials" },
-          }),
-        ).toBeGreaterThan(1);
-      },
-      barrierBudgetMs,
-    );
-    await receiver.stop();
-    const billingReceiver = await consumeNotificationLane(
-      await connect("notifications"),
-      "billing",
-      transport,
-      1,
-    );
-    await transportBarrier(
-      "confirmed billing messages committed after broker restart",
-      async () => {
-        for (const messageId of confirmedBeforeOutage)
-          expect(
-            await database.prisma.notificationInbox.findUnique({
-              where: { scope_messageId: { scope: "billing", messageId } },
-            }),
-          ).not.toBeNull();
-      },
-      barrierBudgetMs,
-    );
-    await billingReceiver.stop();
-  }, 45_000);
   test("отказ разбора входящих не останавливает воркер и называет причину", async () => {
     await migrateRuntimeDatabase(database.url);
     const transport = assembleNotificationTransport(database.prisma, 100);

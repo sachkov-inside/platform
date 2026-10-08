@@ -53,6 +53,10 @@ test("integration samples distinguish the parallel and serial selection commands
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {
   const commands = planSuite("unit");
+  assert.equal(
+    new Set(commands.map((command) => command.name)).size,
+    commands.length,
+  );
   for (const name of [
     "access-capabilities",
     "backend",
@@ -65,6 +69,21 @@ test("unit samples use workspace package test scripts and the root native launch
       `Missing ${name}`,
     );
   const tooling = commands.find((command) => command.name === "tooling");
+  const contracts = commands.find((command) => command.name === "contracts");
+  assert.ok(
+    contracts?.args.some((arg) =>
+      arg.endsWith("contracts/release-contract.test.mjs"),
+    ),
+  );
+  assert.ok(!tooling?.args.some((arg) => arg.includes("scripts/contracts/")));
+  assert.ok(commands.some((command) => command.name === "backend-contracts"));
+  assert.ok(
+    commands.some(
+      (command) =>
+        command.directory === "apps/web" &&
+        command.args.includes("test:contracts"),
+    ),
+  );
   assert.ok(tooling?.args.includes("--test-concurrency=2"));
   assert.ok(
     tooling?.args.some((arg) => arg.endsWith("heavy-check-lock.test.mjs")),

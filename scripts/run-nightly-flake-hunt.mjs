@@ -91,12 +91,14 @@ function rootNodeCommands(script) {
 }
 
 /** @returns {Command[]} */
-function unitCommands() {
+function unitCommands(script = "check:unit") {
   const aggregate = readPackageManifest(resolve(root, "package.json")).scripts[
-    "check:unit"
+    script
   ];
-  if (aggregate === undefined) throw new Error("Missing check:unit script");
+  if (aggregate === undefined) throw new Error(`Missing ${script} script`);
   return aggregate.split(" && ").flatMap((command) => {
+    if (command === "pnpm check:contracts")
+      return unitCommands("check:contracts");
     const rootScript = /^pnpm (test:[\w-]+)$/u.exec(command)?.[1];
     if (rootScript !== undefined) return rootNodeCommands(rootScript);
     if (
@@ -107,8 +109,18 @@ function unitCommands() {
       command,
     )?.[1];
     if (webScript !== undefined)
-      return [vitest(webScript.replace("test:", ""), "apps/web", webScript)];
-    throw new Error(`Unsupported check:unit stage: ${command}`);
+      return [
+        vitest(
+          webScript === "test:contracts"
+            ? "web-contracts"
+            : webScript.replace("test:", ""),
+          "apps/web",
+          webScript,
+        ),
+      ];
+    if (command === "pnpm --filter @inside/backend test:contracts")
+      return [vitest("backend-contracts", "apps/backend", "test:contracts")];
+    throw new Error(`Unsupported ${script} stage: ${command}`);
   });
 }
 /** @param {string} suite @returns {Command[]} */
