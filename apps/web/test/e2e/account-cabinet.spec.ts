@@ -709,10 +709,11 @@ test("без объявлений подтвердившая поверхнос�
 }) => {
   const state = contactState();
   await stubAccount(page, { contact: state.read });
-  // Браузер без BroadcastChannel: соседние вкладки такое подтверждение не услышат, но та,
-  // где его совершили, обязана показать адрес и здесь.
+  // Отключены межвкладочный канал и запасные события window: подтвердившая поверхность
+  // обязана показать адрес благодаря собственному перечитыванию.
   await page.addInitScript(() => {
     Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    window.dispatchEvent = () => true;
   });
 
   await confirmContactOn(page, state);
@@ -929,10 +930,10 @@ test("начатая привязка карты видна в разделе «
 test("без объявлений записавшая поверхность обновляется сама", async ({
   context,
 }) => {
-  // Браузер без BroadcastChannel: соседние вкладки запись не услышат, но та, где её
-  // совершили, обязана показать новый ответ.
+  // Отключены оба способа объявления: записавшая поверхность должна перечитать ответ сама.
   await context.addInitScript(() => {
     Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    window.dispatchEvent = () => true;
   });
 
   const subscription = await context.newPage();
