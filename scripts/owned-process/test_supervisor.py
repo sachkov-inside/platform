@@ -200,7 +200,11 @@ class Ownership(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='owned-native-runner-') as directory:
             fixture = Path(directory) / 'runner.test.mjs'
             fixture.write_text(source)
-            process = subprocess.Popen(['node', '--test', str(fixture)], cwd=ROOT,
+            # This is a new CLI runner, not a worker of the outer Node test harness.
+            environment = {key: value for key, value in os.environ.items()
+                           if key != 'NODE_TEST_CONTEXT'}
+            process = subprocess.Popen(['node', '--test', '--test-reporter=tap', str(fixture)],
+                                       cwd=ROOT, env=environment,
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        start_new_session=True)
             pids = []
