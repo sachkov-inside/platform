@@ -47,6 +47,52 @@ function documentNode(
 }
 
 describe("MaterialBodyOperations", () => {
+  test("rejects malformed list attributes without throwing during acceptance", () => {
+    for (const type of ["orderedList", "bulletList"]) {
+      for (const attrs of [null, "invalid", []]) {
+        for (const assignMissingNodeIds of [false, true]) {
+          const document = {
+            schemaVersion: 1,
+            doc: {
+              type: "doc",
+              content: [
+                {
+                  type,
+                  attrs,
+                  content: [
+                    {
+                      type: "listItem",
+                      content: [
+                        {
+                          type: "paragraph",
+                          attrs: { nodeId: testNodeId(2) },
+                          content: [{ type: "text", text: "Item" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          };
+          expect(
+            materialBodyOperations.accept(document, { assignMissingNodeIds }),
+          ).toMatchObject({
+            ok: false,
+            error: {
+              issues: [
+                {
+                  code: "invalid_node_id",
+                  path: "/doc/content/0/attrs/nodeId",
+                },
+              ],
+            },
+          });
+        }
+      }
+    }
+  });
+
   test("preserves integer list starts and the existing default numbering", () => {
     for (const start of [
       undefined,

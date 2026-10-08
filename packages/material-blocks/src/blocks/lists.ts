@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { defineMaterialBlock } from "../block-definition.js";
 import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
+import { isJsonObject } from "../json.js";
 import type { MaterialBlockDefinition } from "../block-definition.js";
 
 type ListKind = "bullet_list" | "ordered_list";
@@ -11,12 +12,10 @@ function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
   return defineMaterialBlock<ListKind>({
     children: (block) => block.items.flat(),
     issues: (node, report) => {
-      const start = nodeAttributes(node)["start"];
-      if (
-        kind === "ordered_list" &&
-        start !== undefined &&
-        !listStartSchema.safeParse(start).success
-      ) {
+      if (kind !== "ordered_list") return;
+      const attributes = node["attrs"];
+      const start = isJsonObject(attributes) ? attributes["start"] : undefined;
+      if (start !== undefined && !listStartSchema.safeParse(start).success) {
         report("invalid_ordered_list_start", "start");
       }
     },
