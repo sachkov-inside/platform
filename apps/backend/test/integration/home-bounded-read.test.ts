@@ -223,7 +223,16 @@ function catalogVideos(prisma: PrismaClient) {
 }
 
 // One case owns both corpora; each legacy read occurs outside the query measurement.
-test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL budget and at most 39 unique enrichments", async () => {
+test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL budget and at most 39 unique enrichments", () => {
+  const first = corpora[0];
+  const second = corpora[1];
+  if (first === undefined || second === undefined)
+    throw new Error("Missing comparison corpora");
+  // Both clients stay owned until every iteration and assertion settles, even if the test stops awaiting it.
+  return first.run(() => second.run(compareHomeCorpora));
+});
+
+async function compareHomeCorpora() {
   const counts: number[] = [];
   const results: unknown[] = [];
   for (const corpus of corpora.slice(0, 2)) {
@@ -272,7 +281,7 @@ test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL bud
   }
   expect(counts[1]).toBe(counts[0]);
   expect(results[1]).toEqual(results[0]);
-});
+}
 
 test("Home preserves membership, feed filters, archived and empty groups, covers and a pin outside the first four Playlists", async () => {
   const corpus = corpora[2];
