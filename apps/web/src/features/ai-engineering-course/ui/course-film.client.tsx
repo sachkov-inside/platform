@@ -36,8 +36,8 @@ const readServerReducedMotion = () => true;
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
- * Две версии фильма: вторая — путь фичи от задачи до релиза — показывается по умолчанию, первая —
- * навыки AI-инженера — по адресу с `?film=v1`, чтобы владелец мог сравнить их.
+ * Две версии фильма: первая — навыки AI-инженера — показывается по умолчанию (выбор владельца
+ * 08.10.2026), вторая — путь фичи от задачи до релиза — по адресу с `?film=v2`.
  */
 interface Film {
   readonly draw: typeof drawFilm;
@@ -62,10 +62,10 @@ const FILMS: Readonly<Record<"v1" | "v2", Film>> = {
 type FilmVersion = keyof typeof FILMS;
 const subscribeNothing = () => () => undefined;
 const readFilmVersion = (): FilmVersion =>
-  new URLSearchParams(window.location.search).get("film") === "v1"
-    ? "v1"
-    : "v2";
-const readServerFilmVersion = (): FilmVersion => "v2";
+  new URLSearchParams(window.location.search).get("film") === "v2"
+    ? "v2"
+    : "v1";
+const readServerFilmVersion = (): FilmVersion => "v1";
 
 /** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
 function readPalette(element: HTMLElement): FilmPalette {
