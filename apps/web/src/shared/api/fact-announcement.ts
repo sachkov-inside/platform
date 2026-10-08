@@ -5,8 +5,8 @@
  * вкладки, которой между двумя одновременно видимыми окнами не бывает.
  *
  * Границы механизма: объявление живёт внутри одного браузера. Другое устройство им не сходится —
- * там нужен серверный толчок. Браузер без `BroadcastChannel` остаётся на прежнем поведении:
- * записавшая поверхность обновится сама, соседняя — при следующем открытии.
+ * там нужен серверный толчок. Без `BroadcastChannel` событие `window` обновляет соседние
+ * поверхности той же вкладки; другая вкладка обновится при следующем открытии.
  */
 export interface FactAnnouncement {
   /**
@@ -33,17 +33,27 @@ export function factAnnouncement(channelName: string): FactAnnouncement {
   return {
     announce: () => {
       const channel = open();
-      if (channel === null) return;
+      if (channel === null) {
+        if (typeof window !== "undefined")
+          window.dispatchEvent(new Event(channelName));
+        return;
+      }
       channel.postMessage("written");
       channel.close();
     },
     subscribe: (onAnnounced) => {
       const channel = open();
-      channel?.addEventListener("message", () => {
-        onAnnounced();
-      });
+      if (channel === null) {
+        if (typeof window !== "undefined")
+          window.addEventListener(channelName, onAnnounced);
+        return () => {
+          if (typeof window !== "undefined")
+            window.removeEventListener(channelName, onAnnounced);
+        };
+      }
+      channel.addEventListener("message", onAnnounced);
       return () => {
-        channel?.close();
+        channel.close();
       };
     },
   };
