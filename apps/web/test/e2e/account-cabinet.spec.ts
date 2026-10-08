@@ -209,6 +209,24 @@ test("«Покупки» ведут в сообщество Inside", async ({ pa
   ).toBeEnabled();
 });
 
+test("участник открывает группу из «Покупок»", async ({ page }) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        value: { kind: "member", groupUrl: "https://t.me/c/1234567890/1" },
+      },
+    }),
+  );
+  await page.goto("/account/purchases");
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  const link = community.getByRole("link", { name: "Открыть группу" });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+});
+
 test("повторное подключение Telegram после reload открывает прежний бот", async ({
   page,
 }) => {

@@ -7,6 +7,8 @@ import { describe, expect, test } from "vitest";
 
 import fixtures from "../../../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
 import schema from "../../../../docs/contracts/billing-v1/schema.json" with { type: "json" };
+import v2Fixtures from "@inside/contracts/community-v2/fixtures.json" with { type: "json" };
+import v2Schema from "@inside/contracts/community-v2/schema.json" with { type: "json" };
 import {
   canonicalJson,
   contractDigest,
@@ -21,6 +23,10 @@ import {
 const ajv = new Ajv({ strict: true, allErrors: true });
 addFormats.default(ajv);
 ajv.addSchema(schema);
+ajv.addSchema(v2Schema);
+const validateV2 = ajv.compile({
+  $ref: `${v2Schema.$id}#/definitions/communityResult`,
+});
 const validate = ajv.compile({ $ref: `${schema.$id}#` });
 
 /**
@@ -44,6 +50,68 @@ function providerCanonicalJson(value: unknown): string {
 }
 
 describe("community entitlement wire agreement", () => {
+  test("v2 member results keep a safe group URL and older results still parse", () => {
+    const value = {
+      contractVersion: "inside.community-entitlement.v2",
+      operation: "entitlement.result",
+      operationId: "00000000-0000-4000-8000-000000000001",
+      binding: {
+        accountRef: "account-fixture-a",
+        telegramIdentityRef: "telegram-fixture-a",
+        linkRef: "00000000-0000-4000-8000-000000000002",
+        linkRevision: 1,
+      },
+      entitlementRevision: 1,
+      access: { kind: "lifetime" },
+      status: "applied",
+      observedMembership: "member",
+      admissionRestriction: "none",
+      updatedAt: "2030-01-01T00:00:00.000Z",
+    };
+    expect(communityResultSchema.safeParse(value).success).toBe(true);
+    expect(
+      communityResultSchema.parse({
+        ...value,
+        groupUrl: "https://t.me/c/1234567890/1",
+      }),
+    ).toMatchObject({
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    expect(
+      communityResultSchema.safeParse({
+        ...value,
+        contractVersion: "inside.community-entitlement.v1",
+        admissionRestriction: undefined,
+        groupUrl: "https://t.me/c/1234567890/1",
+      }).success,
+    ).toBe(false);
+    for (const groupUrl of [
+      "javascript:alert(1)",
+      "https://example.com",
+      "https://t.me@evil.test/c/123/1",
+      "https://t.me/+invite",
+    ]) {
+      expect(
+        communityResultSchema.safeParse({ ...value, groupUrl }).success,
+      ).toBe(false);
+    }
+  });
+
+  test("shared result codec and portable v2 schema agree on result examples", () => {
+    for (const fixture of v2Fixtures) {
+      if (
+        fixture.definition !== "communityResponse" ||
+        fixture.value.operation !== "entitlement.result"
+      )
+        continue;
+      expect(validateV2(fixture.value), fixture.name).toBe(fixture.valid);
+      expect(
+        communityResultSchema.safeParse(fixture.value).success,
+        fixture.name,
+      ).toBe(fixture.valid);
+    }
+  });
+
   test("the payload fingerprint matches the provider's canonical form", () => {
     for (const fixture of fixtures) {
       if (fixture.definition !== "communityRequest" || !fixture.valid) continue;

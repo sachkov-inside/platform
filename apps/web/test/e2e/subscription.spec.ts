@@ -173,6 +173,25 @@ test("участник сообщества после оплаты не зов�
   await expect(community.getByRole("link")).toHaveCount(0);
 });
 
+test("участник после оплаты открывает группу по адресу бота", async ({
+  page,
+}) => {
+  await returnFromBank(page, "ready", {
+    kind: "member",
+    groupUrl: "https://t.me/c/1234567890/1",
+  });
+  await page.goto("/payment/return");
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  const link = community.getByRole("link", { name: "Открыть группу" });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(
+    community.getByRole("link", { name: "Вступить в сообщество" }),
+  ).toHaveCount(0);
+});
+
 test("до подтверждения оплаты переход в сообщество не показывается", async ({
   page,
 }) => {

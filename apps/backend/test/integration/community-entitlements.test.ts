@@ -68,6 +68,7 @@ const finish = "2030-02-01T00:00:00.000Z";
 class ProviderDouble implements CommunityEntitlementProvider {
   readonly sent: CommunitySetCommand[] = [];
   readonly polled: string[] = [];
+  groupUrl: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
   private readonly observations = new Map<
     string,
@@ -114,6 +115,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
       status: "accepted" as CommunityDeliveryStatus,
     };
     const result = {
+      ...(this.groupUrl === undefined ? {} : { groupUrl: this.groupUrl }),
       admissionRestriction: "none" as const,
       access: command.access,
       binding: command.binding,
@@ -731,6 +733,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     await app.sweep();
     expect(await app.readOwnCommunityEntry(account)).toEqual({
       kind: "member",
+    });
+    provider.groupUrl = "https://t.me/c/1234567890/1";
+    now = new Date(new Date(start).getTime() + 183_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
     });
     // The activation wire keeps its own admission shape.
     expect(await app.readOwnAdmission(account)).toEqual({

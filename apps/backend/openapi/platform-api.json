@@ -19920,6 +19920,10 @@
                     {
                       "additionalProperties": false,
                       "properties": {
+                        "groupUrl": {
+                          "pattern": "^https:\\/\\/t\\.me\\/c\\/[1-9][0-9]*\\/[1-9][0-9]*$",
+                          "type": "string"
+                        },
                         "kind": {
                           "enum": [
                             "member"

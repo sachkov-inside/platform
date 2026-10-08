@@ -37,7 +37,7 @@ const passedSteps = {
   member: 3,
 } as const satisfies Record<PathEntry["kind"], number>;
 
-/** Кнопки блока одной ширины отступов: обе ведут к следующему шагу пути. */
+/** Кнопки блока используют одинаковые отступы. */
 export const pathActionClass = cn(billingActionClass, "px-4");
 
 /**
@@ -54,7 +54,7 @@ const announcements = {
 /**
  * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот: сам
  * после подключения Telegram или по `/community`. Поэтому путь показан тремя шагами: Telegram,
- * ссылка от бота, группа. Адреса группы здесь нет, и участник видит пройденный путь без кнопки.
+ * ссылка от бота, группа. Участник видит пройденный путь и кнопку, если бот передал адрес группы.
  */
 export function CommunityEntryView({
   entry,
@@ -199,12 +199,25 @@ function PathAction({
     case "link_telegram":
       return <div className="mt-6">{telegramAction}</div>;
     case "member":
-      // Сюда встанет «Открыть группу», когда Platform узнает адрес группы (#823).
       return (
-        <p className="mt-6 flex items-center gap-2 text-sm font-semibold">
-          <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
-          Вы уже в сообществе Inside — группа есть в вашем Telegram.
-        </p>
+        <div className="mt-6">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
+            Вы уже в сообществе Inside — группа есть в вашем Telegram.
+          </p>
+          {entry.groupUrl === undefined ? null : (
+            <Button asChild className={cn(pathActionClass, "mt-4")}>
+              <a
+                href={entry.groupUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <UsersRound aria-hidden="true" />
+                Открыть группу
+              </a>
+            </Button>
+          )}
+        </div>
       );
     case "preparing":
       return null;

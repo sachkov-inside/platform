@@ -87,7 +87,7 @@ export class CommunityEntitlements {
 
   /** Какой переход в сообщество показать самому Account; правило живёт здесь, а не в интерфейсе. */
   async readOwnCommunityEntry(accountId: string): Promise<OwnCommunityEntry> {
-    const { admission, linked, membership } =
+    const { admission, linked, membership, groupUrl } =
       await this.resolveOwnAdmission(accountId);
     // Непрочитанные факты не превращаются в совет подключить Telegram: блока просто нет.
     if (linked === null || admission.state === "no_access")
@@ -100,7 +100,7 @@ export class CommunityEntitlements {
       return { kind: "restricted" };
     if (admission.state !== "ready") return { kind: "preparing" };
     return membership === "member"
-      ? { kind: "member" }
+      ? { kind: "member", ...(groupUrl === undefined ? {} : { groupUrl }) }
       : { kind: "join", botUrl: this.dependencies.botStartUrl };
   }
 
@@ -109,6 +109,7 @@ export class CommunityEntitlements {
     /** `null`, когда связь с Telegram не удалось прочитать. */
     readonly linked: boolean | null;
     readonly membership: ObservedMembership;
+    readonly groupUrl?: string;
   }> {
     const unresolved = {
       admission: { admissionRestriction: null, state: "checking" as const },
@@ -168,6 +169,9 @@ export class CommunityEntitlements {
       },
       linked,
       membership: result.data.observedMembership,
+      ...(result.data.groupUrl === undefined
+        ? {}
+        : { groupUrl: result.data.groupUrl }),
     };
   }
 

@@ -262,6 +262,11 @@
             "moderation",
             "external_unknown"
           ]
+        },
+        "groupUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://t\\.me/c/[1-9][0-9]*/[1-9][0-9]*$"
         }
       },
       "allOf": [
