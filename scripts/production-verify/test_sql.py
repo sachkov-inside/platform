@@ -15,10 +15,11 @@ class SqlContractTests(unittest.TestCase):
         cls.container = 'inside-production-verify-test-' + uuid.uuid4().hex[:12]
         try:
             subprocess.run(['docker', 'run', '--detach', '--name', cls.container, '--label', 'inside.owner=production-verify-test',
-                            '--env', 'POSTGRES_PASSWORD=synthetic-test-only', '--health-cmd', 'pg_isready -U postgres',
+                            '--env', 'POSTGRES_PASSWORD=synthetic-test-only', '--health-cmd', 'pg_isready -h 127.0.0.1 -U postgres',
                             '--health-interval', '1s', '--health-retries', '30', 'postgres:18.4-alpine3.23'],
                            check=True, capture_output=True, timeout=120)
-            # Docker health is the committed fact; the budget only bounds a stuck start.
+            # TCP health excludes the temporary socket-only server used by image initialization.
+            # The budget only bounds a stuck start.
             import time
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline:
@@ -43,7 +44,7 @@ class SqlContractTests(unittest.TestCase):
     def execute(cls, query, readonly=True):
         env = ['--env', 'PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=15000'] if readonly else []
         result = subprocess.run(['docker', 'exec', '-i', *env, cls.container, 'psql', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
-                                 '-U', 'postgres', '-d', 'postgres', '-At'], input=query, capture_output=True, text=True, timeout=30)
+                                 '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres', '-At'], input=query, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             raise RuntimeError(result.stderr)
         return result.stdout.strip()
