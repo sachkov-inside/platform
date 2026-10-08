@@ -100,6 +100,10 @@ test("unit samples use workspace package test scripts and the root native launch
         command.args.some((arg) => arg.endsWith("native.test.mts")),
     ),
   );
+  const native = commands.find((command) =>
+    command.args.includes("apps/backend/node_modules/tsx/dist/cli.mjs"),
+  );
+  assert.equal(native?.args[0], "scripts/owned-node.mjs");
 });
 
 test("Node reporter follows explicit parent IDs when nested tests enqueue after another suite", async () => {

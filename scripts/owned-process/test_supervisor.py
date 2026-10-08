@@ -12,7 +12,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/heavy-check'))
-from processes import process_row
+from processes import process_row, process_snapshot
+sys.path.insert(0, str(ROOT / 'scripts/owned-process'))
+from ownership import ProcessOwnership
 
 API = (ROOT / 'scripts/owned-process.mjs').as_uri()
 LOAD = """
@@ -74,8 +76,9 @@ def read_ready(process):
                 line = b''
 
 
-def stopped(pid):
-    deadline = time.monotonic() + 2
+def stopped(pid, deadline=None):
+    if deadline is None:
+        deadline = time.monotonic() + 2
     while True:
         row = process_row(pid)
         if row is None or row[2] == 'Z':
@@ -166,6 +169,39 @@ class Ownership(unittest.TestCase):
     def test_reaped_intermediate_cleans_detached_leaf(self):
         self.exercise('intermediate-exit', INTERMEDIATE_LOAD)
 
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS ownership marker adapter')
+    def test_marker_discovers_leaf_after_unobserved_ancestors_are_reaped(self):
+        ownership = ProcessOwnership()
+        process = subprocess.Popen(['node', '-e', INTERMEDIATE_LOAD], cwd=ROOT,
+                                   env=ownership.environment, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        pids = []
+        try:
+            pids = read_ready(process)
+            _stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 0, stderr.decode())
+            self.assertIsNone(process_row(process.pid))
+            self.assertTrue(stopped(pids[0]), 'intermediate must exit before discovery')
+            leaf = process_row(pids[1])
+            self.assertIsNotNone(leaf)
+            self.assertEqual(leaf[1], pids[1], 'leaf must own a detached group')
+            self.assertNotEqual(leaf[2], 'Z')
+            # No ancestry snapshot was taken before the two launchers were reaped.
+            tracked = {}
+            groups = set()
+            ownership.include(process_snapshot(), tracked, groups)
+            self.assertIn(pids[1], tracked)
+            self.assertIn(pids[1], groups)
+        finally:
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
     def test_nested_owner_retains_outer_ownership(self):
         self.exercise('stop', NESTED_LOAD)
 
@@ -186,6 +222,15 @@ class Ownership(unittest.TestCase):
             foreign.communicate(timeout=5)
 
     def test_native_node_test_runner_sigkill(self):
+        self.native_runner(signal.SIGKILL)
+
+    def test_native_node_test_runner_sigterm(self):
+        self.native_runner(signal.SIGTERM)
+
+    def test_native_node_test_runner_sigint(self):
+        self.native_runner(signal.SIGINT)
+
+    def native_runner(self, signum):
         source = f"""
         import {{test}} from 'node:test';
         import {{spawnOwned,stopOwned}} from {json.dumps(API)};
@@ -193,7 +238,7 @@ class Ownership(unittest.TestCase):
           const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
             {{stdio:['ignore','pipe','inherit']}});
           t.after(()=>stopOwned(child,100));
-          child.stdout.once('data',data=>console.log(data.toString().trim(),process.pid));
+          child.stdout.once('data',data=>console.log(data.toString().trim(),process.pid,child.pid,process.ppid));
           await new Promise(()=>{{}});
         }});
         """
@@ -203,18 +248,26 @@ class Ownership(unittest.TestCase):
             # This is a new CLI runner, not a worker of the outer Node test harness.
             environment = {key: value for key, value in os.environ.items()
                            if key != 'NODE_TEST_CONTEXT'}
-            process = subprocess.Popen(['node', '--test', '--test-reporter=tap', str(fixture)],
+            process = subprocess.Popen(['node', str(ROOT / 'scripts/owned-node.mjs'),
+                                        '--test', '--test-reporter=tap', str(fixture)],
                                        cwd=ROOT, env=environment,
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        start_new_session=True)
             pids = []
             try:
                 pids = read_ready(process)
-                os.kill(process.pid, signal.SIGKILL)
+                shutdown_deadline = time.monotonic() + 12
+                # Kill the real CLI runner. Its external owner must also stop its test worker.
+                os.kill(pids[-1], signum)
                 process.communicate(timeout=12)
-                self.assertEqual(process.returncode, -signal.SIGKILL)
+                # Node's test CLI handles INT/TERM as a canceled test (status 1).
+                expected = 128 + signum if signum == signal.SIGKILL else 1
+                self.assertEqual(process.returncode, expected)
                 for pid in pids:
-                    self.assertTrue(stopped(pid), f'native runner load {pid} survived')
+                    self.assertTrue(stopped(pid, shutdown_deadline),
+                                    f'native runner load {pid} survived: '
+                                    f'ready(root,leaf,worker,supervisor,runner)={pids}, '
+                                    f'row={process_row(pid)}')
             finally:
                 for pid in pids:
                     try:

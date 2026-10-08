@@ -32,7 +32,7 @@ export function spawnOwned(command, args = [], options = {}) {
         ];
   const child = spawn(
     "python3",
-    [supervisor, JSON.stringify([command, ...args])],
+    [supervisor, JSON.stringify([command, ...args]), String(process.ppid)],
     {
       ...options,
       // Inner owners retain outer markers even when the caller supplies a fresh environment.

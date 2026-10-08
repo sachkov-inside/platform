@@ -9,7 +9,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).parent / 'heavy-check'))
 sys.path.insert(0, str(Path(__file__).parent / 'owned-process'))
-from lock import (ExitEvents, adopt_orphans, track_descendants, signal_groups,
+from lock import (ExitEvents, adopt_orphans, ancestors, track_descendants, signal_groups,
                   command_signals, process_snapshot)
 from ownership import ProcessOwnership
 
@@ -71,11 +71,19 @@ def main():
     ownership = ProcessOwnership()
     try:
         command = json.loads(sys.argv[1])
+        parents = ancestors()
+        # A Node test worker can outlive its CLI runner. Retain the launcher's PID
+        # from the JS boundary even if it exits before Python enumerates ancestry.
+        launching_parent = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+        if launching_parent > 1 and launching_parent not in parents:
+            parents.append(launching_parent)
+        events = ExitEvents(3, parents)
+        if events.wait(0):
+            return 143
         adopt_orphans()
         process = subprocess.Popen(command, start_new_session=True,
                                    preexec_fn=command_signals, env=ownership.environment)
         groups.add(process.pid)
-        events = ExitEvents(3, [])
         events.watch(process.pid, forks=True)
         track_tree(process, tracked, groups, ownership)
         for pid in tracked:
@@ -86,6 +94,8 @@ def main():
             # The timeout only lets Python observe its signal handler; ownership census
             # is driven by native fork/exit events, not by a process-table polling loop.
             if events.wait(SIGNAL_WAIT_SECONDS):
+                if events.dead & events.parents:
+                    return 143
                 # EOF also detects normal exit and SIGKILL of the Node owner.
                 request = os.read(3, 4096)
                 if request:

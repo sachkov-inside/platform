@@ -412,6 +412,10 @@ command's process groups. Owner exit, SIGINT, SIGTERM or SIGKILL closes that pip
 SIGTERM, then SIGKILL after a five-second grace period; command completion also clears remaining
 descendants before the supervisor reports its status. `scripts/contracts/owned-process.test.mjs` verifies
 these paths with real signal-resistant child processes.
+The supervisor also observes launching ancestors: a killed test CLI must stop load created by a
+surviving worker. `pnpm test:practice-review` runs the native test CLI through
+`scripts/owned-node.mjs`, which owns the runner and its workers outside their test hooks. For a
+standalone native run, use `node scripts/owned-node.mjs` before the Node arguments too.
 
 On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
 descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
