@@ -37,6 +37,7 @@ import {
   accessSummaryQueryKey,
   peopleQueryKey,
 } from "../model/access-query-keys";
+import { refreshAccessRead } from "../model/access-refresh";
 import { invitationOfferNames } from "../model/invitation-operations";
 import {
   PeopleView,
@@ -69,11 +70,8 @@ export function PeoplePanel({
   const cache = useQueryClient();
   useEffect(
     () =>
-      subscribeEnrollmentChange(() => {
-        void cache.invalidateQueries(
-          { queryKey: peopleQueryKey },
-          { cancelRefetch: false },
-        );
+      subscribeEnrollmentChange((announcementId) => {
+        void refreshAccessRead(cache, peopleQueryKey, announcementId);
       }),
     [cache],
   );
@@ -149,10 +147,11 @@ export function PeoplePanel({
       }
       completeOperation(task.slot);
       assignmentStarts.current.clear();
-      announceEnrollmentChange();
+      const announcementId = announceEnrollmentChange();
+      void refreshAccessRead(cache, peopleQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       setFailure(null);
       setMessage(task.message);
-      refresh();
     },
   });
   function changeGround(request: GroundChangeRequest) {

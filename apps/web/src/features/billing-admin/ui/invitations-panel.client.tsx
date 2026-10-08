@@ -11,6 +11,7 @@ import {
   type BillingFailureCode,
   type PriceSnapshot,
 } from "@/entities/subscription";
+import { refreshAccessRead } from "../model/access-refresh";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
@@ -60,11 +61,8 @@ export function InvitationsPanel({
   const cache = useQueryClient();
   useEffect(
     () =>
-      subscribeInvitationChange(() => {
-        void cache.invalidateQueries(
-          { queryKey: invitationsQueryKey },
-          { cancelRefetch: false },
-        );
+      subscribeInvitationChange((announcementId) => {
+        void refreshAccessRead(cache, invitationsQueryKey, announcementId);
       }),
     [cache],
   );
@@ -114,12 +112,13 @@ export function InvitationsPanel({
         );
         return;
       }
-      announceInvitationChange();
+      const announcementId = announceInvitationChange();
+      void refreshAccessRead(cache, invitationsQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       completeOperation("issue");
       setFailure(null);
       setMessage("");
       setIssued(result.value.result.value);
-      refresh();
     },
   });
   const revoking = useMutation({
@@ -141,11 +140,12 @@ export function InvitationsPanel({
         }
         return;
       }
-      announceInvitationChange();
+      const announcementId = announceInvitationChange();
+      void refreshAccessRead(cache, invitationsQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       completeOperation(`revoke:${input.invitationId}`);
       setFailure(null);
       setMessage("Приглашение отозвано.");
-      refresh();
     },
   });
   return (

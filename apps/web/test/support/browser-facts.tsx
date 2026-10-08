@@ -13,6 +13,9 @@ import { materialsOffer } from "@/storybook/billing.fixtures";
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
 });
+const secondaryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+});
 function BrowserFacts() {
   const [accountId, setAccountId] = useState(
     "00000000-0000-4000-8000-000000000001",
@@ -42,16 +45,32 @@ function BrowserFacts() {
         <section aria-label="Bookmark list">
           <BookmarksPageQuery />
         </section>
+        <section aria-label="People">
+          <PeoplePanel offers={[materialsOffer]} />
+        </section>
+        <section aria-label="Invitations">
+          <InvitationsPanel offers={[materialsOffer]} />
+        </section>
+        <section aria-label="Summary">
+          <AccessSummaryPanel />
+        </section>
+        {new URLSearchParams(window.location.search).has("secondary") ? (
+          <QueryClientProvider client={secondaryClient}>
+            <section aria-label="Secondary bookmark list">
+              <BookmarksPageQuery />
+            </section>
+            <section aria-label="Secondary People">
+              <PeoplePanel offers={[materialsOffer]} />
+            </section>
+            <section aria-label="Secondary Invitations">
+              <InvitationsPanel offers={[materialsOffer]} />
+            </section>
+            <section aria-label="Secondary Summary">
+              <AccessSummaryPanel />
+            </section>
+          </QueryClientProvider>
+        ) : null}
       </MaterialReadingScope>
-      <section aria-label="People">
-        <PeoplePanel offers={[materialsOffer]} />
-      </section>
-      <section aria-label="Invitations">
-        <InvitationsPanel offers={[materialsOffer]} />
-      </section>
-      <section aria-label="Summary">
-        <AccessSummaryPanel />
-      </section>
     </QueryClientProvider>
   );
 }

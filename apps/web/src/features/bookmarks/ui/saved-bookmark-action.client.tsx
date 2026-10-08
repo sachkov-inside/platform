@@ -7,7 +7,7 @@ import {
   bookmarkStatesQueryOptions,
   setBookmark,
 } from "../api/bookmarks.browser";
-import { bookmarkChanges } from "../model/bookmark-events";
+import { bookmarkChanges, refreshBookmarks } from "../model/bookmark-events";
 import { useBookmarkChanges } from "../model/use-bookmark-changes.client";
 import type { BookmarkActionView } from "../model/bookmark-action-view";
 import { BookmarkAction } from "./bookmark-action.client";
@@ -48,11 +48,14 @@ export function SavedBookmarkAction({
         return;
       }
       setNotice(null);
-      if (result.kind === "ready") bookmarkChanges(input.accountId).announce();
-      await queryClient.invalidateQueries(
-        { queryKey: ["bookmarks", input.accountId] },
-        { cancelRefetch: false },
-      );
+      if (result.kind === "ready") {
+        const announcementId = bookmarkChanges(input.accountId).announce();
+        await refreshBookmarks(queryClient, input.accountId, announcementId);
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: ["bookmarks", input.accountId],
+        });
+      }
     },
     onError: () => {
       setNotice("error");

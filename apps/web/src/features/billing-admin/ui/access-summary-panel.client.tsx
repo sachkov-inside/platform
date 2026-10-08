@@ -7,6 +7,7 @@ import {
   subscribeEnrollmentChange,
 } from "@/entities/subscription";
 
+import { refreshAccessRead } from "../model/access-refresh";
 import { subscribeInvitationChange } from "../model/invitation-events";
 import { readAccessSummary } from "../api/access.browser";
 import { AccessSummaryView } from "./access-summary-view.client";
@@ -15,11 +16,8 @@ import { accessSummaryQueryKey } from "../model/access-query-keys";
 export function AccessSummaryPanel() {
   const cache = useQueryClient();
   useEffect(() => {
-    const refresh = () => {
-      void cache.invalidateQueries(
-        { queryKey: accessSummaryQueryKey },
-        { cancelRefetch: false },
-      );
+    const refresh = (announcementId: string) => {
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
     };
     const stopEnrollments = subscribeEnrollmentChange(refresh);
     const stopInvitations = subscribeInvitationChange(refresh);

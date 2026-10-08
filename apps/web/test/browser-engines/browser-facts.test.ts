@@ -74,7 +74,10 @@ afterAll(async () => {
 
 function fixture(billing?: (page: Page) => Promise<void>) {
   const state = { saved: false, account: accountA };
-  const attach = async (page: Page) => {
+  const attach = async (
+    page: Page,
+    { waitForEmpty = true, secondary = false } = {},
+  ) => {
     await page.route(
       (url) => url.pathname.startsWith("/api/bookmarks"),
       async (route) => {
@@ -123,16 +126,19 @@ function fixture(billing?: (page: Page) => Promise<void>) {
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(message.text());
     });
-    await page.goto(baseURL);
+    await page.goto(baseURL + (secondary ? "?secondary=1" : ""));
     try {
       await browserExpect(
         page
           .getByRole("region", { name: "Bookmark action" })
           .getByRole("button", { name: "В закладки", exact: true }),
       ).toHaveAttribute("aria-disabled", "false");
-      await browserExpect(
-        page.getByRole("heading", { name: "Пока пусто" }),
-      ).toBeVisible();
+      if (waitForEmpty)
+        await browserExpect(
+          page
+            .getByRole("region", { name: "Bookmark list", exact: true })
+            .getByRole("heading", { name: "Пока пусто" }),
+        ).toBeVisible();
     } catch (error) {
       throw new Error(
         errors.join("\n") + (await page.locator("body").innerText()),
@@ -232,16 +238,23 @@ test("without BroadcastChannel bookmark writes update the list in the same docum
       Reflect.deleteProperty(globalThis, "BroadcastChannel");
     });
     const page = await context.newPage();
-    await fixture().attach(page);
+    await fixture().attach(page, { secondary: true });
+    const reader = page.getByRole("region", {
+      name: "Secondary bookmark list",
+      exact: true,
+    });
+    await browserExpect(
+      reader.getByRole("heading", { name: "Пока пусто" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "В закладки", exact: true }).click();
     await browserExpect(
-      page.getByRole("link", { name: /Saved for Account A/u }),
+      reader.getByRole("link", { name: /Saved for Account A/u }),
     ).toBeVisible();
     await page
       .getByRole("button", { name: "В закладках", exact: true })
       .click();
     await browserExpect(
-      page.getByRole("heading", { name: "Пока пусто" }),
+      reader.getByRole("heading", { name: "Пока пусто" }),
     ).toBeVisible();
   } finally {
     await context.close();
@@ -430,12 +443,12 @@ for (const channel of ["BroadcastChannel", "window fallback"] as const) {
         });
       const { attach } = accessFixture();
       const writer = await context.newPage();
-      await attach(writer);
+      await attach(writer, { secondary: channel === "window fallback" });
       const reader =
         channel === "window fallback" ? writer : await context.newPage();
       if (reader !== writer) await attach(reader);
       const summary = reader.getByRole("region", {
-        name: "Summary",
+        name: channel === "window fallback" ? "Secondary Summary" : "Summary",
         exact: true,
       });
       const issuedCount = summary
@@ -461,7 +474,10 @@ for (const channel of ["BroadcastChannel", "window fallback"] as const) {
         invitations.locator("[data-issued-invitation]"),
       ).toBeVisible();
       const readerInvitations = reader.getByRole("region", {
-        name: "Invitations",
+        name:
+          channel === "window fallback"
+            ? "Secondary Invitations"
+            : "Invitations",
         exact: true,
       });
       await browserExpect(readerInvitations.getByRole("listitem")).toHaveCount(
@@ -486,3 +502,52 @@ for (const channel of ["BroadcastChannel", "window fallback"] as const) {
     }
   }, 30_000);
 }
+
+test("a write supersedes an initial bookmark read that captured the old answer", async () => {
+  const context = await runningBrowser().newContext();
+  let release: () => void = () => undefined;
+  try {
+    const writer = await context.newPage();
+    const reader = await context.newPage();
+    let started: () => void = () => undefined;
+    const initialRead = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let first = true;
+    const { attach } = fixture(async (page) => {
+      if (page !== reader) return;
+      await page.route(
+        (url) => url.pathname === "/api/bookmarks",
+        async (route) => {
+          if (!first) {
+            await route.fallback();
+            return;
+          }
+          first = false;
+          started();
+          await held;
+          await route.fulfill({ json: { items: [], nextCursor: null } });
+        },
+      );
+    });
+    await attach(writer);
+    await attach(reader, { waitForEmpty: false });
+    await initialRead;
+    await writer
+      .getByRole("button", { name: "В закладки", exact: true })
+      .click();
+    await browserExpect(
+      writer.getByRole("button", { name: "В закладках", exact: true }),
+    ).toBeVisible();
+    release();
+    await browserExpect(
+      reader.getByRole("link", { name: /Saved for Account A/u }),
+    ).toBeVisible();
+  } finally {
+    release();
+    await context.close();
+  }
+}, 30_000);
