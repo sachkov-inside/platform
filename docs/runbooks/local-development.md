@@ -108,13 +108,20 @@ bash scripts/heavy-check.sh bash -c 'your-command'
 
 Local admission requires Python 3 and POSIX `flock` from its standard library; no `flock` executable
 is required on macOS. macOS uses `kqueue` and `libproc`; Linux requires Python with `os.pidfd_open`
-and a kernel that supports pidfds (Python 3.9+ and Linux 5.3+). Two persistent files live in `~/.cache/inside-platform/heavy-check/`.
+and a kernel that supports pidfds (Python 3.9+ and Linux 5.3+). The two persistent slot files,
+`queue.lock` and the `waiters/` ticket directory live in `~/.cache/inside-platform/heavy-check/`.
 Do not remove them while checks run: the kernel owns their locks, and empty files do not mean
 occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
 keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
 
-Nested commands reuse their ancestor's slot. Waiting invocations retry admission every 1.5–2.5
-seconds with jitter. Parent exit and cancellation wake them immediately. A holder waits for process
+Nested commands reuse their ancestor's slot. New invocations register tickets under a short queue
+lock; the oldest live ticket claims the next available slot (FIFO). A later invocation cannot
+bypass an older registered waiter. Cancelled or killed waiters release their ticket's kernel lock;
+admission removes unlocked older tickets as the queue advances. Waiting invocations retry admission every 1.5–2.5
+seconds with jitter. Parent exit and cancellation wake them immediately. Slot filenames remain
+compatible with pre-FIFO holders and waiters: they can finish without a restart, but their old
+admission loop cannot participate in FIFO ordering. Update worktrees to get FIFO for new runs.
+A holder waits for process
 events rather than polling `ps`. Process identity and ancestry come from `libproc` on macOS and
 `/proc` on Linux, without external commands. On macOS, fork events trigger descendant tracking;
 on Linux, the supervisor adopts orphaned descendants as a child subreaper. It closes the slot after
