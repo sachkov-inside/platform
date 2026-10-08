@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { expect, test, onTestFinished } from "vitest";
 import { startNotificationBroker, queueDepth } from "./setup/broker.js";
@@ -27,6 +29,8 @@ import { stageBillingNotification } from "../../src/modules/billing/facets/notif
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
 import type { NotificationEvent } from "../../src/modules/notifications/domain/notification-wire.js";
 
+registerFixedClock();
+
 // Every wait below ends on a committed fact; the budget only bounds a stuck run.
 const barrierBudgetMs = 30_000;
 test("real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL", async () => {
@@ -40,7 +44,7 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
   onTestFinished(() => database.dispose());
   const { urls } = broker;
   const actor = randomUUID();
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   const instant = new Date();
   const before = new Date(instant.getTime() - 60_000);
   const event = (category: "subscription" | "material"): NotificationEvent => ({

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { describe, expect, test, vi } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
@@ -9,6 +11,8 @@ import type {
 import { assembleMaterialAssetDelivery } from "../../src/modules/materials/features/deliver-material-asset/deliver-material-asset.js";
 import type { MaterialContent } from "../../src/modules/materials/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
+
+registerFixedClock();
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const assetId = "20000000-0000-4000-8000-000000000001";
@@ -83,7 +87,7 @@ describe("Material asset delivery", () => {
         effect: "allow",
         policyVersion: "content-access-v1",
         reason: "active_membership",
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
       })
       .mockResolvedValueOnce({

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { TelegramAccountSignIn } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/telegram-account-sign-in.js";
 /** The first sign-in screen is already passed in these scenarios. */
 const acceptedTerms = {
@@ -20,6 +22,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+registerFixedClock();
+
 const issuer = "https://communications.test/oidc";
 const secret = "synthetic-authorization-secret";
 const accountRef = randomUUID();
@@ -36,7 +40,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     ownerId = (
       await bootstrapOwnerAccount(database.prisma, { issuer, subject: "owner" })
     ).accountId;
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = new Date();
     await database.prisma.telegramLinkTransaction.create({
       data: {

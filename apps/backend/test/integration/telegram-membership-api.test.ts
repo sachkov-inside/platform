@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { enrollPriorParticipantsFixture } from "./setup/prior-participants.js";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import {
@@ -18,6 +20,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.telegram-membership.test/oidc";
 const audience = "https://api.telegram-membership.test";
@@ -197,7 +201,7 @@ describe("Telegram Membership API", () => {
     if (typeof principalRef !== "string") {
       throw new TypeError("Provider registration has no principalRef");
     }
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const checkedAt = new Date();
     const memberEvidence = evidence(principalRef, checkedAt);
     const receiptsBefore =
@@ -318,7 +322,7 @@ describe("Telegram Membership API", () => {
   }
 
   async function signToken(subject: string): Promise<string> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: `${subject}@example.test`,

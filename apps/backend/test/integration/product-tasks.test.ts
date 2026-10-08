@@ -1,7 +1,12 @@
+import {
+  registerFixedClock,
+  fixedTestInstant,
+} from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -42,6 +47,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const definition = {
   schemaVersion: 1 as const,
@@ -286,7 +293,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
           sourceRef: randomUUID(),
           terms: {
             capabilities,
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
             startsAt: new Date(Date.now() - 60_000).toISOString(),
             validUntil: null,
             reason: "Product Task fixture (#946)",
@@ -797,6 +804,8 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         currentVersion: 2,
       },
     });
+    // The second version is submitted after the committed first receipt.
+    vi.setSystemTime(fixedTestInstant() + 1);
     const second = await submit({
       ...base,
       taskVersion: 2,
@@ -848,7 +857,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         comment: "Хорошее разделение владельца.",
         reviewedAt: new Date("2026-10-05T10:00:00Z"),
         updatedBy: owner,
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         updatedAt: new Date(),
       },
     });
@@ -970,7 +979,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     expect(
       await tasks.submit({ subject, source: "mcp", submission: submission() }),
     ).toEqual({ ok: false, error: { code: "submission_rate_limited" } });
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const later = learning(true, () => new Date(Date.now() + 61 * 60 * 1_000));
     expect(
       await later.submit({ subject, source: "mcp", submission: submission() }),
@@ -1333,6 +1342,8 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       },
     });
     expect(minimal).toMatchObject({ ok: true, value: { source: "form" } });
+    // The full report follows the committed minimal submission.
+    vi.setSystemTime(fixedTestInstant() + 1);
     const full = await tasks.submit({
       subject,
       source: "form",
