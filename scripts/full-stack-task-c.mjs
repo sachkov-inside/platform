@@ -177,16 +177,16 @@ export async function seedFullStackTaskC(origin, accessToken) {
         ),
       })
       .passthrough();
+    const taskRequest = z.object({
+      path: z.literal("/authoring/import/tasks/apply"),
+      body: taskApply,
+    });
     let closedAssetId;
     for (const operation of Object.values(journal.operations)) {
-      if (
-        !isJournalOperation(operation) ||
-        operation.request.path !== "/authoring/import/tasks/apply"
-      )
-        continue;
-      const parsed = taskApply.safeParse(operation.request.body);
+      if (!isJournalOperation(operation)) continue;
+      const parsed = taskRequest.safeParse(operation.request);
       if (parsed.success)
-        closedAssetId = parsed.data.resolvedImages["diagram.png"]?.assetId;
+        closedAssetId = parsed.data.body.resolvedImages["diagram.png"]?.assetId;
     }
     if (closedAssetId === undefined)
       throw new Error("Synthetic closed Task has no imported diagram");
