@@ -107,17 +107,23 @@ bash scripts/heavy-check.sh bash -c 'your-command'
 ```
 
 Local admission requires Python 3 and POSIX `flock` from its standard library; no `flock` executable
-is required on macOS. Two persistent files live in `~/.cache/inside-platform/heavy-check/`.
+is required on macOS. macOS uses `kqueue` and `libproc`; Linux requires Python with `os.pidfd_open`
+and a kernel that supports pidfds (Python 3.9+ and Linux 5.3+). Two persistent files live in `~/.cache/inside-platform/heavy-check/`.
 Do not remove them while checks run: the kernel owns their locks, and empty files do not mean
 occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
 keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
 
-Nested commands reuse their ancestor's slot. The supervisor tracks descendant process groups while the command runs. It closes the slot after
+Nested commands reuse their ancestor's slot. Waiting invocations retry admission every 1.5–2.5
+seconds with jitter. Parent exit and cancellation wake them immediately. A holder waits for process
+events rather than polling `ps`. Process identity and ancestry come from `libproc` on macOS and
+`/proc` on Linux, without external commands. On macOS, fork events trigger descendant tracking;
+on Linux, the supervisor adopts orphaned descendants as a child subreaper. It closes the slot after
 the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
 launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
 five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
-leave a stale kernel lock. Tracking includes detached groups observed during the run. A custom command that detaches a
-child and exits before observation must manage that child itself. Use foreground commands for
+leave a stale kernel lock. On macOS, tracking includes detached groups observed after fork events or during shutdown. A custom
+command that detaches a child and exits before observation must manage that child itself. Linux
+also tracks detached orphans adopted by the supervisor. Use foreground commands for
 heavy checks.
 
 Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook

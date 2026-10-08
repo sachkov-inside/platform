@@ -4,14 +4,43 @@ import os
 import shlex
 from pathlib import Path
 import selectors
+import ctypes
+import time
 import signal
 import subprocess
 import sys
 import tempfile
 import unittest
 
+from processes import process_snapshot
+
 WRAPPER = Path(__file__).resolve().parents[1] / 'heavy-check.sh'
 FIXTURE = "import os,sys; print('READY', os.getpid(), flush=True); sys.stdin.readline()"
+
+
+def cpu_seconds(pid):
+    """OS counters include CPU spent by reaped subprocesses such as ps."""
+    if sys.platform == 'darwin':
+        # rusage_info_v2, sys/resource.h: UUID followed by 18 uint64 fields.
+        class Usage(ctypes.Structure):
+            _fields_ = [('uuid', ctypes.c_uint8 * 16), ('values', ctypes.c_uint64 * 18)]
+        libproc = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
+        libproc.proc_pid_rusage.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+        usage = Usage()
+        if libproc.proc_pid_rusage(pid, 2, ctypes.byref(usage)) != 0:
+            raise OSError(ctypes.get_errno(), 'proc_pid_rusage')
+        # ri_*_time uses Mach absolute-time units, not nanoseconds.
+        class Timebase(ctypes.Structure):
+            _fields_ = [('numer', ctypes.c_uint32), ('denom', ctypes.c_uint32)]
+        system = ctypes.CDLL('/usr/lib/libSystem.B.dylib')
+        system.mach_timebase_info.argtypes = [ctypes.c_void_p]
+        timebase = Timebase()
+        if system.mach_timebase_info(ctypes.byref(timebase)) != 0:
+            raise RuntimeError('mach_timebase_info failed')
+        ticks = sum(usage.values[index] for index in (0, 1, 10, 11))
+        return ticks * timebase.numer / timebase.denom / 1_000_000_000
+    fields = (Path('/proc') / str(pid) / 'stat').read_text().rsplit(')', 1)[1].split()
+    return sum(int(fields[index]) for index in (11, 12, 13, 14)) / os.sysconf('SC_CLK_TCK')
 
 
 class LockTest(unittest.TestCase):
@@ -114,8 +143,9 @@ class LockTest(unittest.TestCase):
         fixture = WRAPPER.parent / 'fixtures/heavy-check/detached.mjs'
         first = self.start(['node', str(fixture)])
         self.line(first, 'acquired')
-        self.line(first, 'READY')
-        pid = int(self.line(first, 'DETACHED').split()[-1])
+        lines = [self.line(first, ''), self.line(first, '')]
+        self.assertTrue(any(line.startswith('READY ') for line in lines))
+        pid = int(next(line for line in lines if line.startswith('DETACHED ')).split()[-1])
         self.addCleanup(self.kill_process, pid)
         second = self.start()
         self.line(second, 'acquired')
@@ -158,6 +188,37 @@ class LockTest(unittest.TestCase):
             self.line(process, 'READY')
             holders.append(process)
         return holders
+
+    def test_eight_waiters_use_less_than_point_two_cpu_seconds_over_three_seconds(self):
+        holders = self.holders()
+        waiters = [self.start([sys.executable, '-c',
+                              "print('READY', flush=True)"]) for _ in range(8)]
+        for waiter in waiters:
+            self.line(waiter, 'waiting')
+        snapshot = process_snapshot()
+        wrappers = {process.pid for process in [*waiters, *holders]}
+        pids = wrappers | {pid for pid, row in snapshot.items() if row[0] in wrappers}
+        self.assertEqual(len(pids), 20)
+        before = sum(cpu_seconds(pid) for pid in pids)
+        # A quiet window proves admission stays blocked and measures idle CPU.
+        started = time.monotonic()
+        with selectors.DefaultSelector() as selector:
+            for waiter in waiters:
+                selector.register(waiter.stdout, selectors.EVENT_READ)
+            self.assertFalse(selector.select(timeout=3))
+        elapsed = time.monotonic() - started
+        cpu = sum(cpu_seconds(pid) for pid in pids) - before
+        print(f'8 waiters + 2 holders: {cpu:.6f} CPU seconds; '
+              f'{elapsed:.3f} seconds blocked', flush=True)
+        for holder in holders:
+            holder.stdin.write(b'\n')
+            holder.stdin.flush()
+            self.assertEqual(holder.wait(timeout=10), 0)
+        for waiter in waiters:
+            self.line(waiter, 'acquired')
+            self.line(waiter, 'READY')
+            self.assertEqual(waiter.wait(timeout=10), 0)
+        self.assertLess(cpu, 0.2)
 
     def test_nested_command_uses_outer_slot(self):
         holders = self.holders()
