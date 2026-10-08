@@ -4,11 +4,11 @@ import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { signalProcessGroup } from "./process-group-signal.mjs";
+import { signalProcessGroup } from "../process-group-signal.mjs";
 
-const root = fileURLToPath(new URL("..", import.meta.url));
+const root = fileURLToPath(new URL("../..", import.meta.url));
 const probe = fileURLToPath(
-  new URL("./fixtures/production-web-cleanup/probe.py", import.meta.url),
+  new URL("../fixtures/production-web-cleanup/probe.py", import.meta.url),
 );
 
 for (const [mode, status] of /** @type {const} */ ([
