@@ -527,6 +527,7 @@ test("a write supersedes an initial bookmark read that captured the old answer",
         (url) => url.pathname === "/api/bookmarks",
         async (route) => {
           if (!first) {
+            postWriteStarted();
             await route.fallback();
             return;
           }
