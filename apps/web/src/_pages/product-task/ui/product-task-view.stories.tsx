@@ -288,6 +288,9 @@ export const FormatC: Story = {
       "/materials/synthetic-lesson",
     );
     await expect(page.queryByText("Чем подтвердить")).toBeNull();
+    await expect(
+      page.getAllByRole("heading", { level: 2, name: "Материалы к заданию" }),
+    ).toHaveLength(1);
     const advice = page
       .getByText("Мой совет", { exact: true })
       .closest("summary");

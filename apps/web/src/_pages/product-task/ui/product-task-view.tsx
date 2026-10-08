@@ -288,7 +288,8 @@ export function ProductTaskView({
           </>
         ) : null}
 
-        {page.relatedMaterials.length === 0 ? null : (
+        {task.page !== undefined ||
+        page.relatedMaterials.length === 0 ? null : (
           <section aria-labelledby="task-related-heading">
             <h2
               className="text-xl font-semibold tracking-[-0.015em]"
@@ -432,9 +433,7 @@ function TaskSection({
   children,
   id,
   title,
-  hideHeading = false,
 }: {
-  readonly hideHeading?: boolean;
   readonly children: ReactNode;
   readonly id: string;
   readonly title: string;
@@ -446,11 +445,7 @@ function TaskSection({
       id={`task-${id}`}
     >
       <h2
-        className={
-          hideHeading
-            ? "sr-only"
-            : "mb-3 text-xl font-semibold tracking-[-0.015em]"
-        }
+        className="mb-3 text-xl font-semibold tracking-[-0.015em]"
         id={`task-${id}-heading`}
       >
         {title}
