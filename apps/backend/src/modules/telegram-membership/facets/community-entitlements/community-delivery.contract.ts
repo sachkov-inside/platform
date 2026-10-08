@@ -48,18 +48,7 @@ export type CommunityOperatorFailureCode =
  * Список оператора: кого Telegram по последнему наблюдению видит в общем чате, хотя действующего
  * права на чат у Account нет. `truncated` говорит, что просмотрены не все Account с наблюдением.
  */
-export const communityMembersWithoutRightSchema = z.strictObject({
-  checkedAt: instant,
-  items: z.array(
-    z.strictObject({
-      accountId: z.uuid(),
-      telegramIdentityRef: z.string(),
-      observedAt: instant,
-    }),
-  ),
-  truncated: z.boolean(),
-});
-
-export type CommunityMembersWithoutRight = z.infer<
-  typeof communityMembersWithoutRightSchema
->;
+export {
+  communityMembersWithoutRightSchema,
+  type CommunityMembersWithoutRight,
+} from "@inside/contracts/community-members-without-right";

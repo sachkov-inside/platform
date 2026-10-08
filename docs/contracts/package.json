@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./community-members-without-right": {
+      "types": "./dist/members-without-right.d.ts",
+      "default": "./dist/members-without-right.js"
+    },
     "./*": "./*",
     "./community-result": {
       "types": "./dist/codec.d.ts",

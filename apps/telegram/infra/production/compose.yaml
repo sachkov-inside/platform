@@ -59,6 +59,13 @@ services:
     profiles: [operations]
     restart: "no"
 
+  # Operator bearer and writable report directory are provided only to this one-off command.
+  group-members-report:
+    <<: *runtime
+    entrypoint: [node, dist/operations/group-members-report-cli.js]
+    profiles: [operations]
+    restart: "no"
+
   app:
     <<: *runtime
     ports:

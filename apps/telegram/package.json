@@ -7,6 +7,7 @@
     "node": "26.x"
   },
   "scripts": {
+    "owner:group-members-report": "tsx src/operations/group-members-report-cli.ts",
     "build": "tsc -p tsconfig.build.json",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm build",
     "check:full": "pnpm check && pnpm test:integration",
