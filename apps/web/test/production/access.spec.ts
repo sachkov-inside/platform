@@ -304,7 +304,7 @@ test("production access observes every live cell in one isolated scenario", asyn
     const page = await context.newPage();
     await page.goto(`/materials/${slug}`);
     const state = page.locator(
-      "#content [data-material-reader-state='available'], #content [data-material-reader-state='access-required']",
+      "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
     );
     await expect(state.first()).toBeVisible();
     const readerState = await state

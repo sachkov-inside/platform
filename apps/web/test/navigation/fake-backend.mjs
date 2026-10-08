@@ -235,8 +235,8 @@ function body(lesson, entitled) {
   };
 }
 
-/** @param {boolean} source @returns {import("@inside/material-blocks").RenderedMaterialBody} */
-function anchorBody(source) {
+/** @param {boolean} source @param {boolean} [chromeCollision] @returns {import("@inside/material-blocks").RenderedMaterialBody} */
+function anchorBody(source, chromeCollision = false) {
   /** @type {import("@inside/material-blocks").RenderedBlock[]} */
   const destination = [
     ...Array.from({ length: 16 }, () =>
@@ -248,7 +248,7 @@ function anchorBody(source) {
       content: [
         {
           kind: "text",
-          text: "Как спроектировать один этап?",
+          text: chromeCollision ? "Content" : "Как спроектировать один этап?",
           marks: [{ kind: "code" }],
         },
       ],
@@ -268,7 +268,10 @@ function anchorBody(source) {
             kind: "text",
             text: "grill-with-docs",
             marks: [
-              { kind: "link", href: `${target}#как-спроектировать-один-этап` },
+              {
+                kind: "link",
+                href: `${target}#${chromeCollision ? "content" : "как-спроектировать-один-этап"}`,
+              },
             ],
           },
         ],
@@ -482,11 +485,13 @@ function route(method, url, entitled) {
   if (
     material !== null &&
     (material[1] === "navigation-anchor-source" ||
-      material[1] === "navigation-anchor-target")
+      material[1] === "navigation-anchor-target" ||
+      material[1] === "navigation-anchor-content")
   ) {
     const template = lessons[0];
     if (template === undefined) throw new Error("Missing Reader template");
     const source = material[1] === "navigation-anchor-source";
+    const chromeCollision = material[1] === "navigation-anchor-content";
     return json({
       kind: "available",
       cacheScope: "public",
@@ -496,11 +501,13 @@ function route(method, url, entitled) {
         slug: material[1],
         materialId: source
           ? "33333333-3333-4333-8333-333333333311"
-          : "33333333-3333-4333-8333-333333333312",
+          : chromeCollision
+            ? "33333333-3333-4333-8333-333333333313"
+            : "33333333-3333-4333-8333-333333333312",
         seriesMemberships: [],
         title: source ? "Ссылки на раздел" : "Целевой материал",
       }),
-      body: anchorBody(source),
+      body: anchorBody(source, chromeCollision),
     });
   }
   if (material !== null) {

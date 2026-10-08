@@ -464,7 +464,7 @@ try {
   );
   await page.goto(`${web}/account`);
   await page
-    .locator("#content")
+    .locator("[data-application-content]")
     .getByRole("button", { name: "Войти", exact: true })
     .click();
   await page.getByRole("button", { name: /Telegram/u }).click();

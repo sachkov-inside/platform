@@ -4,8 +4,8 @@ const source = "/materials/navigation-anchor-source";
 const target = "/materials/navigation-anchor-target";
 const anchor = "как-спроектировать-один-этап";
 
-async function expectHeadingInView(page: Page) {
-  const heading = page.locator(`[data-reader-body] h2[id="${anchor}"]`);
+async function expectHeadingInView(page: Page, fragment = anchor) {
+  const heading = page.locator(`[data-reader-body] h2[id="${fragment}"]`);
   await expect(heading).toBeVisible();
   await expect
     .poll(() => heading.evaluate((node) => node.getBoundingClientRect().top))
@@ -72,7 +72,9 @@ test("an unknown fragment returns the document and desktop container to the star
     .poll(() =>
       page.evaluate(() => ({
         document: window.scrollY,
-        container: document.getElementById("content")?.scrollTop,
+        container: document.querySelector<HTMLElement>(
+          "[data-application-content]",
+        )?.scrollTop,
       })),
     )
     .toEqual({ document: 0, container: 0 });
@@ -81,4 +83,16 @@ test("an unknown fragment returns the document and desktop container to the star
   await expect(
     page.getByRole("heading", { name: "Целевой материал", exact: true }),
   ).toBeInViewport();
+});
+
+test("a Content source heading keeps native repeated links and unique IDs", async ({
+  page,
+}) => {
+  await page.goto("/materials/navigation-anchor-content");
+  const link = page.getByRole("link", { name: "grill-with-docs", exact: true });
+  await link.click();
+  await expectHeadingInView(page, "content");
+  await link.click();
+  await expectHeadingInView(page, "content");
+  await expect(page.locator('[id="content"]')).toHaveCount(1);
 });

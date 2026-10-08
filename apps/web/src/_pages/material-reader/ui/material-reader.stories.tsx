@@ -1572,3 +1572,44 @@ export const SourceAnchorLegacyCollision: Story = {
     }
   },
 };
+
+/** Shell IDs use punctuation that Content source slugs cannot produce. */
+export const SourceAnchorShellCollision: Story = {
+  args: {
+    body: (SourceAnchors.args?.body ?? []).map((block, index) =>
+      index === 0
+        ? {
+            kind: "paragraph" as const,
+            content: [
+              {
+                kind: "text" as const,
+                text: "Перейти к Content",
+                marks: [{ kind: "link" as const, href: "#content" }],
+              },
+            ],
+          }
+        : block.kind === "heading"
+          ? {
+              ...block,
+              content: [{ kind: "text" as const, text: "Content", marks: [] }],
+            }
+          : block,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: /^Content$/u }),
+    ).toHaveAttribute("id", "content");
+    await expect(
+      canvasElement.ownerDocument.querySelectorAll('[id="content"]'),
+    ).toHaveLength(1);
+    const main = canvasElement.ownerDocument.querySelector(
+      "[data-application-content]",
+    );
+    await expect(main).toHaveAttribute("id", "app:content");
+    await expect(
+      canvas.getByRole("link", { name: /^Перейти к содержанию$/u }),
+    ).toHaveAttribute("href", "#app:content");
+  },
+};

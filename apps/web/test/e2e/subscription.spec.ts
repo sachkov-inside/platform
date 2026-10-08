@@ -309,7 +309,10 @@ test("раздел подписки просит войти без действ�
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
   await expect(
-    page.locator("#content").getByRole("button", { name: "Войти" }).first(),
+    page
+      .locator("[data-application-content]")
+      .getByRole("button", { name: "Войти" })
+      .first(),
   ).toBeVisible();
 });
 

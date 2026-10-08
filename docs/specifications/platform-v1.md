@@ -390,7 +390,8 @@ The body scrolls to the matching heading after it arrives. An unknown fragment o
 the top without an error. Legacy `material-section-*` addresses remain aliases unless a source
 heading occupies that exact name. The owner chose Content source priority for this ambiguous
 address on 2026-10-08; non-colliding legacy addresses remain valid. Access checks still decide
-whether the body is available.
+whether the body is available. The application skip link has a separate address so a source
+heading named Content keeps its own anchor.
 [#1179](https://github.com/sachkov-inside/platform/issues/1179) owns the implementation and Task c
 integration with #1194; author acceptance on real Content chapters belongs to Content #56.
 

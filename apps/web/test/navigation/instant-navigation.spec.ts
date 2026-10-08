@@ -288,7 +288,7 @@ async function rscRequestsSettled(page: Page) {
 async function personalPartLanded(page: Page) {
   await expect(
     page.locator(
-      "#content [data-series-access-pending]:visible, #content [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
+      "[data-application-content] [data-series-access-pending]:visible, [data-application-content] [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible",
     ),
   ).toHaveCount(0);
 }
@@ -339,7 +339,7 @@ async function transition(
   };
 }
 
-// Пока поток ещё идёт, React держит пришедшую часть в скрытом контейнере вне `#content`, а прежний
+// Пока поток ещё идёт, React держит пришедшую часть в скрытом контейнере вне `[data-application-content]`, а прежний
 // урок Next.js оставляет в документе скрытым, поэтому готовность ищется среди видимого в основной области.
 /**
  * Core Web Vitals, которые страница сама отметила в User Timing. CLS и INP библиотека сообщает, когда
@@ -439,7 +439,9 @@ async function boxesOf(
   return page.evaluate(
     (list) =>
       list.map((selector) => {
-        const element = document.querySelector(`#content ${selector}`);
+        const element = document.querySelector(
+          `[data-application-content] ${selector}`,
+        );
         if (element === null) throw new Error(`Нет опоры ${selector}`);
         const { left, top, width, height } = element.getBoundingClientRect();
         return { height, left, top, width };
@@ -452,7 +454,7 @@ const lessonReady = (page: Page, slug: string) => async () => {
   await page.waitForURL((url) => url.pathname === `/materials/${slug}`);
   await expect(
     page.locator(
-      "#content [data-material-reader-state='available']:visible, #content [data-material-reader-state='access-required']:visible",
+      "[data-application-content] [data-material-reader-state='available']:visible, [data-application-content] [data-material-reader-state='access-required']:visible",
     ),
   ).toBeVisible();
 };
@@ -464,7 +466,7 @@ const programmeReady =
     await expect(
       page
         .locator(
-          "#content [data-product-programme]:visible a[href*='/materials/']",
+          "[data-application-content] [data-product-programme]:visible a[href*='/materials/']",
         )
         .first(),
     ).toBeVisible();
@@ -702,7 +704,7 @@ test("продукт → программа → платный урок: у ка
   ).toEqual([]);
   await expect(
     page.locator(
-      "#content [data-material-reader-state='access-required']:visible",
+      "[data-application-content] [data-material-reader-state='access-required']:visible",
     ),
   ).toBeVisible();
 });
@@ -812,7 +814,7 @@ test("авторская запись сбрасывает общий кеш: с
     const guestPage = await guest.newPage();
     await guestPage.goto(`${baseURL}${product}`);
     await expect(
-      guestPage.locator("#content [data-product-landing]"),
+      guestPage.locator("[data-application-content] [data-product-landing]"),
     ).toBeVisible();
     await guest.close();
   };
@@ -857,7 +859,7 @@ test("сбой каталога не застывает в кеше: повто�
       .click({ timeout: 1_000 });
     await expect(
       page.locator(
-        "#content [data-material-reader-state='access-required']:visible",
+        "[data-application-content] [data-material-reader-state='access-required']:visible",
       ),
     ).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
@@ -891,7 +893,7 @@ test("закрытое тело не попадает ни в предзагру
   // Вошедшему платный урок открыт: личная часть программы пришла с его доступностью.
   await expect(
     page.locator(
-      `#content [data-material-slug='${paidLesson}'][data-material-availability='available']:visible`,
+      `[data-application-content] [data-material-slug='${paidLesson}'][data-material-availability='available']:visible`,
     ),
   ).toBeVisible();
   // Предзагрузка страницы целиком рисует урок на сервере с сессией вошедшего: именно она могла бы
@@ -933,7 +935,7 @@ test("закрытое тело не попадает ни в предзагру
   );
   await expect(
     guestPage.locator(
-      "#content [data-material-reader-state='access-required']:visible",
+      "[data-application-content] [data-material-reader-state='access-required']:visible",
     ),
   ).toBeVisible();
   expect(await guestResponse?.text()).not.toContain(protectedBodyMarker);
@@ -944,7 +946,7 @@ test("закрытое тело не попадает ни в предзагру
   await page.reload();
   await expect(
     page.locator(
-      "#content [data-material-reader-state='access-required']:visible",
+      "[data-application-content] [data-material-reader-state='access-required']:visible",
     ),
   ).toBeVisible();
   await expect(page.getByText(protectedBodyMarker)).toHaveCount(0);
@@ -975,7 +977,9 @@ test("снимки перехода «программа → урок → про
     .click();
   await expect(loading).toBeVisible();
   await expect(
-    page.locator("#content [data-material-reader-state='pending']:visible"),
+    page.locator(
+      "[data-application-content] [data-material-reader-state='pending']:visible",
+    ),
   ).toBeVisible();
   const lessonSharedPart = await boxesOf(page, lessonAnchors);
   await page.screenshot({
@@ -1002,14 +1006,16 @@ test("снимки перехода «программа → урок → про
     "[data-series-ordinal='1']",
   ];
   await expect(
-    page.locator("#content [data-series-access-pending]").first(),
+    page
+      .locator("[data-application-content] [data-series-access-pending]")
+      .first(),
   ).toBeVisible();
   const programmeSharedPart = await boxesOf(page, programmeAnchors);
   await page.screenshot({
     path: evidenceFile(`lesson-to-programme-loading-${project}.png`),
   });
   await expect(
-    page.locator("#content [data-series-access-pending]"),
+    page.locator("[data-application-content] [data-series-access-pending]"),
   ).toHaveCount(0);
   expect(
     await boxesOf(page, programmeAnchors),
@@ -1077,7 +1083,9 @@ test("Главная ↔ продукт: свой скелет продукта,
 
   const productReady = async () => {
     await page.waitForURL((url) => url.pathname === product);
-    await expect(page.locator("#content [data-product-landing]")).toBeVisible();
+    await expect(
+      page.locator("[data-application-content] [data-product-landing]"),
+    ).toBeVisible();
   };
   const homeReady = async () => {
     await page.waitForURL((url) => url.pathname === "/");
@@ -1145,14 +1153,14 @@ test("смена режима прохождения сбрасывает стр
   // Соседний урок остаётся в документе скрытым, поэтому шаг ищется среди видимого.
   const step = (mode: "example" | "own") =>
     page
-      .locator("#content")
+      .locator("[data-application-content]")
       .getByText(`ШАГ-ДЛЯ-РЕЖИМА-${mode}`)
       .filter({ visible: true });
   await page.goto(modesProgramme);
   await programmeReady(page, modesProgramme)();
   await page
     .locator(
-      "#content [data-product-programme]:visible a[href*='/materials/navigation-lesson-5']",
+      "[data-application-content] [data-product-programme]:visible a[href*='/materials/navigation-lesson-5']",
     )
     .first()
     .click();
@@ -1173,7 +1181,8 @@ test("смена режима прохождения сбрасывает стр
 });
 
 /** Обложка продукта в видимой странице, а не её копия в скрытом контейнере потока. */
-const productCover = "#content [data-product-part='hero'] img";
+const productCover =
+  "[data-application-content] [data-product-part='hero'] img";
 
 /**
  * Записывает каждого кандидата LCP с начала загрузки. Запись об обложке приходит после её отрисовки,
@@ -1233,7 +1242,7 @@ test("обложка первого экрана продукта грузитс
   await page.goto("/products/navigation-cover");
 
   // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
-  // а копия с сервера до показа лежит в скрытом контейнере вне `#content` (#740, #747).
+  // а копия с сервера до показа лежит в скрытом контейнере вне `[data-application-content]` (#740, #747).
   const cover = page.locator(productCover);
   await expect(cover).toHaveAttribute("fetchpriority", "high");
   await expect(cover).toHaveAttribute("loading", "eager");
