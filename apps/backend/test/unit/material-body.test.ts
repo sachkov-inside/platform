@@ -48,7 +48,15 @@ function documentNode(
 
 describe("MaterialBodyOperations", () => {
   test("preserves integer list starts and the existing default numbering", () => {
-    for (const start of [undefined, 1, 0, -2, 5]) {
+    for (const start of [
+      undefined,
+      1,
+      0,
+      -2,
+      5,
+      -2_147_483_648,
+      2_147_483_647,
+    ]) {
       const list = documentNode(
         "orderedList",
         {
@@ -64,7 +72,9 @@ describe("MaterialBodyOperations", () => {
         ],
       );
       const doc: unknown = documentNode("doc", null, [list]).toJSON();
-      const rendered = materialBodyOperations.render({ schemaVersion: 1, doc });
+      const accepted = materialBodyOperations.accept({ schemaVersion: 1, doc });
+      if (!accepted.ok) throw new Error(JSON.stringify(accepted.error));
+      const rendered = materialBodyOperations.render(accepted.value);
       if (!rendered.ok) throw new Error(JSON.stringify(rendered.error));
       const block = rendered.value.blocks[0];
       expect(renderedMaterialBodySchema.parse(rendered.value)).toEqual(
@@ -83,7 +93,14 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("rejects invalid ordered list starts at document and rendered contract boundaries", () => {
-    for (const start of [null, "5", 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    for (const start of [
+      null,
+      "5",
+      1.5,
+      -2_147_483_649,
+      2_147_483_648,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]) {
       const doc = {
         schemaVersion: 1,
         doc: {

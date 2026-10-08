@@ -236,8 +236,8 @@
                 "type": "string"
               },
               "start": {
-                "maximum": 9007199254740991,
-                "minimum": -9007199254740991,
+                "maximum": 2147483647,
+                "minimum": -2147483648,
                 "type": "integer"
               }
             },
@@ -972,8 +972,8 @@
                 "type": "string"
               },
               "start": {
-                "maximum": 9007199254740991,
-                "minimum": -9007199254740991,
+                "maximum": 2147483647,
+                "minimum": -2147483648,
                 "type": "integer"
               }
             },

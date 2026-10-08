@@ -5,7 +5,7 @@ import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
 import type { MaterialBlockDefinition } from "../block-definition.js";
 
 type ListKind = "bullet_list" | "ordered_list";
-const listStartSchema = z.number().int();
+const listStartSchema = z.int32();
 
 function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
   return defineMaterialBlock<ListKind>({
