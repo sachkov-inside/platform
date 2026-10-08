@@ -49,7 +49,7 @@ Before an agent runs repository Compose commands from any worktree, it must read
 
 - The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
   symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
-  review, readiness, or merge. `Owner gates` there lists what needs the owner's approval.
+  review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
 - Merge procedure: a merge goes through the merge queue; follow
   [Merge queue](docs/runbooks/continuous-integration.md#merge-queue).
 - The owner starts grilling, the specification and the ticket breakdown, each with its own command.
