@@ -1,10 +1,77 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type CDPSession,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
+
+const readerStartupScriptCpuBudgetMs = 200;
+
+test("keeps reader startup JavaScript within its CPU budget", async ({
+  page,
+}, testInfo) => {
+  const session = await page.context().newCDPSession(page);
+  try {
+    // Thread CPU time excludes network waits and time when the renderer is not scheduled.
+    // This is a fresh browser context, a production build and native CPU speed (no throttling).
+    await session.send("Performance.enable", { timeDomain: "threadTicks" });
+    const before = await readScriptCpuSeconds(session);
+    const response = await page.goto("/materials/kak-ustroen-inside-platform", {
+      waitUntil: "commit",
+    });
+    expect(response?.status()).toBe(200);
+    // Observe the same browser-rendered readiness fact as the INP test, without triggering input.
+    await page.waitForFunction(() =>
+      document.querySelector(
+        '[data-material-reader-state="available"] [data-reading-action-state="anonymous"]',
+      ),
+    );
+    const scriptCpuMs =
+      ((await readScriptCpuSeconds(session)) - before) * 1_000;
+    await testInfo.attach("reader-startup-cpu", {
+      body: JSON.stringify({
+        scriptCpuMs,
+        budgetMs: readerStartupScriptCpuBudgetMs,
+        timeDomain: "threadTicks",
+        cpuThrottlingRate: 1,
+        project: testInfo.project.name,
+      }),
+      contentType: "application/json",
+    });
+    expect(
+      scriptCpuMs,
+      "startup must record actual JavaScript execution",
+    ).toBeGreaterThan(0);
+    expect(
+      scriptCpuMs,
+      "reader startup JavaScript CPU time in milliseconds",
+    ).toBeLessThanOrEqual(readerStartupScriptCpuBudgetMs);
+  } finally {
+    await session.detach();
+  }
+});
+
+async function readScriptCpuSeconds(session: CDPSession): Promise<number> {
+  const result: unknown = await session.send("Performance.getMetrics");
+  const { metrics } = z
+    .object({
+      metrics: z.array(
+        z.object({ name: z.string(), value: z.number().nonnegative() }),
+      ),
+    })
+    .parse(result);
+  return z
+    .number()
+    .nonnegative()
+    .parse(metrics.find(({ name }) => name === "ScriptDuration")?.value);
+}
 
 test("Home filters public products and preserves the reader return", async ({
   page,
@@ -311,7 +378,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
-  // после гидрации действия чтения; оглавление стоит в той же границе Suspense.
+  // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
   await expect(
     page.getByRole("main").locator("[data-reading-action-state]"),
     "действие чтения гидрировано и получило ответ /auth/status",
