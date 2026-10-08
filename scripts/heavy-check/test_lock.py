@@ -128,7 +128,7 @@ class LockTest(unittest.TestCase):
         command = shlex.join(['bash', str(WRAPPER), sys.executable, '-c', FIXTURE])
         (cwd / 'package.json').write_text(json.dumps({'scripts': {'check': command}}))
         process = self.start(cwd=cwd, launcher=['pnpm', 'check'])
-        while 'acquired' not in self.line(process, ''):
+        while not self.line(process, '').startswith('heavy-check: acquired '):
             pass
         return process
 
