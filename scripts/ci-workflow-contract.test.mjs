@@ -178,7 +178,7 @@ describe("application CI workflow contract", () => {
   it("runs every stage of pnpm check as its own job", () => {
     assert.equal(
       rootScripts["check"],
-      checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
+      `bash scripts/heavy-check.sh bash -c '${checkStages.map(([, script]) => `pnpm ${script}`).join(" && ")} "$@"' --`,
     );
     for (const [job, script] of checkStages) {
       assert.match(
