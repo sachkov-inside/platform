@@ -72,7 +72,8 @@ FROM development AS billing-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
 
 FROM development AS notifications-worker
-CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
+# Compose owns recovery: watch would keep the container alive after the application exits.
+CMD ["pnpm", "--filter", "@inside/backend", "exec", "tsx", "src/entrypoints/notifications-worker.ts"]
 
 # Двойник банка существует только для стенда: цели production ниже его не собирают и не запускают.
 FROM development AS bank-double
