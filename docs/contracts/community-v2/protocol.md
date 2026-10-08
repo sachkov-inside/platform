@@ -21,4 +21,6 @@ the Android client opens the chat with that ID. A real device check remains rele
 not something portable conformance fixtures prove.
 
 Platform hides `groupUrl` after a failed provider poll or more than two reconciliation intervals
-(120 seconds) without a successful result. The previous member status remains as the #822 fallback.
+(120 seconds) without a successful result or a current provider `updatedAt`. A successful HTTP status replay
+cannot refresh the age of Telegram’s stored observation. The previous member status remains
+as the #822 fallback.

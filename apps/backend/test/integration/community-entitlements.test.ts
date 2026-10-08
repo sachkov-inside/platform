@@ -69,6 +69,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
   readonly sent: CommunitySetCommand[] = [];
   readonly polled: string[] = [];
   groupUrl: string | undefined;
+  updatedAt: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
   private readonly observations = new Map<
     string,
@@ -125,7 +126,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
       operation: "entitlement.result" as const,
       operationId: command.operationId,
       status: observation.status,
-      updatedAt: command.issuedAt,
+      updatedAt: this.updatedAt ?? command.issuedAt,
     };
     expect(validateWire(result), JSON.stringify(validateWire.errors)).toBe(
       true,
@@ -736,6 +737,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
     provider.groupUrl = "https://t.me/c/1234567890/1";
     now = new Date(new Date(start).getTime() + 183_000);
+    provider.updatedAt = now.toISOString();
     await app.sweep();
     expect(await app.readOwnCommunityEntry(account)).toEqual({
       kind: "member",
@@ -750,13 +752,34 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
     provider.answer = "accept";
     now = new Date(new Date(start).getTime() + 305_000);
+    provider.updatedAt = now.toISOString();
     await app.sweep();
     expect(await app.readOwnCommunityEntry(account)).toEqual({
       kind: "member",
       groupUrl: "https://t.me/c/1234567890/1",
     });
-    // If reconciliation stops altogether, an old member observation cannot keep the button forever.
-    now = new Date(new Date(start).getTime() + 425_001);
+    // Working HTTP can repeat an old Telegram observation while its own reconciliation is stopped.
+    now = new Date(new Date(start).getTime() + 366_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    now = new Date(new Date(start).getTime() + 427_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+    });
+
+    now = new Date(new Date(start).getTime() + 488_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    // If Platform reconciliation stops altogether, the received result also expires.
+    now = new Date(new Date(start).getTime() + 608_001);
     expect(await app.readOwnCommunityEntry(account)).toEqual({
       kind: "member",
     });

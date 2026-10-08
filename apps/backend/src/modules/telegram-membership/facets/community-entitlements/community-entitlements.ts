@@ -158,15 +158,19 @@ export class CommunityEntitlements {
     )
       return { ...unresolved, linked };
     const restriction = result.data.admissionRestriction;
-    const observationAge =
+    const responseAge =
       operation?.resultAt === null || operation?.resultAt === undefined
         ? null
         : now.getTime() - operation.resultAt.getTime();
+    const providerObservationAge =
+      now.getTime() - new Date(result.data.updatedAt).getTime();
     const freshObservation =
       operation?.errorCode === null &&
-      observationAge !== null &&
-      observationAge >= 0 &&
-      observationAge <= MEMBER_OBSERVATION_MAX_AGE_MS;
+      responseAge !== null &&
+      responseAge >= 0 &&
+      responseAge <= MEMBER_OBSERVATION_MAX_AGE_MS &&
+      providerObservationAge >= 0 &&
+      providerObservationAge <= MEMBER_OBSERVATION_MAX_AGE_MS;
     return {
       admission: {
         admissionRestriction: restriction,
