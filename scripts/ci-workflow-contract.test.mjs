@@ -500,6 +500,11 @@ describe("nightly full-stack workflow contract", () => {
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /^ {12}apps\/web\/playwright-report$/mu);
     assert.match(job, /^ {12}apps\/web\/test-results$/mu);
+    assert.match(
+      job,
+      /name: nightly-fullstack-diagnostics-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.doesNotMatch(job, /overwrite: true/u);
     assert.match(job, /^\s+retention-days: 7$/mu);
     assert.equal(job.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 2);
   });

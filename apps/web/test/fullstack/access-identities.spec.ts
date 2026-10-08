@@ -1,6 +1,6 @@
 import {
   expect,
-  test,
+  test as baseTest,
   type Browser,
   type BrowserContext,
   type Page,
@@ -13,6 +13,9 @@ import {
   signInFullStack,
   type FullStackRole,
 } from "../support/full-stack-session";
+
+// The context fixture retains video for the helper's page, which closes before the test continues.
+const test = baseTest.extend({ video: "retain-on-failure" });
 
 /**
  * Права через настоящий Web/BFF отдельными identities (#904). У каждой identity одно основание,
@@ -126,8 +129,14 @@ interface SignedIn {
 }
 
 /** Отдельный browser context под своей identity; страница уже стоит на origin приложения. */
-async function openAs(browser: Browser, role: FullStackRole) {
-  const context = await browser.newContext({ baseURL: fullStackBaseUrl() });
+async function openAs(
+  browser: Browser,
+  role: FullStackRole,
+  fixtureContext?: BrowserContext,
+) {
+  const context =
+    fixtureContext ??
+    (await browser.newContext({ baseURL: fullStackBaseUrl() }));
   await signInFullStack(context, role);
   const page = await context.newPage();
   await page.goto("/account");
@@ -281,8 +290,9 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 
 test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
   browser,
+  context,
 }) => {
-  const billingManager = await openAs(browser, "BILLING_ONLY");
+  const billingManager = await openAs(browser, "BILLING_ONLY", context);
   const observer = await openAs(browser, "MATERIALS_ONLY");
   try {
     await billingManager.page.goto("/authoring/billing");
