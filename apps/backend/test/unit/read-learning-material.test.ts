@@ -1,4 +1,7 @@
-import type { RenderedBlock } from "@inside/material-blocks";
+import type {
+  RenderedBlock,
+  RenderedMaterialBody,
+} from "@inside/material-blocks";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -21,7 +24,7 @@ describe("Learning material reference batches", () => {
           filename: `file-${String(index)}.txt`,
         }),
       );
-      const body = {
+      const body: RenderedMaterialBody = {
         schemaVersion: 1 as const,
         blocks: [
           ...blocks,
