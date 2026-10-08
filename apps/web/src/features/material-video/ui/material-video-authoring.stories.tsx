@@ -65,13 +65,19 @@ export const AuthoringIdle: Story = {
 };
 
 export const AuthoringUploading: Story = {
-  args: { phase: "uploading" },
+  args: { phase: "uploading", providerVideoId: "existing-video" },
   name: "Authoring · uploading",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Загрузка 47%")).toBeVisible();
     await expect(
       canvas.getByRole("button", { name: "Загрузить" }),
+    ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByText("Выбрать существующее видео Kinescope"),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Привязать" }),
     ).toBeDisabled();
   },
 };

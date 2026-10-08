@@ -23,7 +23,9 @@ import {
 } from "../api/video-authoring.browser";
 import {
   clearBrowserVideoUploadAttempt,
+  clearRecoveredBrowserVideoUploadAttempt,
   getOrCreateBrowserVideoUploadAttempt,
+  recordBrowserVideoUploadAttempt,
   type BrowserVideoUploadAttempt,
 } from "../api/video-upload-attempt.browser";
 import {
@@ -261,6 +263,10 @@ export function MaterialVideoAuthoring({
       ...browserAttempt,
       videoId: initialized.value.video.videoId,
     };
+    recordBrowserVideoUploadAttempt(
+      browserAttempt,
+      initialized.value.video.videoId,
+    );
     detachReplacedUpload(replaced, initialized.value.video.videoId);
     setVideo(initialized.value.video);
     if (
@@ -352,6 +358,11 @@ export function MaterialVideoAuthoring({
           .catch(() => undefined);
         if (uploadAttempt.current)
           clearBrowserVideoUploadAttempt(uploadAttempt.current);
+        if (activeVideo !== null && activeVideo.videoId === recoveredVideoId)
+          clearRecoveredBrowserVideoUploadAttempt(
+            materialId,
+            activeVideo.videoId,
+          );
         uploadAttempt.current = null;
         setVideo(null);
         setRecoveredVideoId(null);
@@ -561,6 +572,7 @@ export function MaterialVideoAuthoringView({
             disabled={
               disabled ||
               providerVideoId.trim().length === 0 ||
+              phase === "uploading" ||
               phase === "processing"
             }
             onClick={onAttach}
