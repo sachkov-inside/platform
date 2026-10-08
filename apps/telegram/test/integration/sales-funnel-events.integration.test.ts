@@ -384,6 +384,45 @@ describe("sales funnel events", () => {
     ]);
   });
 
+  it("rolls back the link, initial check and legacy communication contact when account event persistence fails", async () => {
+    await text("/start");
+    // Simulate a contact from before communication storage existed.
+    await database.deleteFrom("communication_contacts").execute();
+    await sql`create function synthetic_account_event_fault() returns trigger language plpgsql as $$
+      begin if new.kind = 'account_linked' then raise exception 'synthetic account event failure'; end if; return new; end $$;
+      create trigger synthetic_account_event_fault before insert on sales_funnel_event_outbox
+      for each row execute function synthetic_account_event_fault()`.execute(
+      database,
+    );
+    try {
+      await expect(link("42")).rejects.toThrow(
+        "synthetic account event failure",
+      );
+      expect(
+        await database.selectFrom("platform_links").selectAll().execute(),
+      ).toEqual([]);
+      expect(
+        await database.selectFrom("membership_checks").selectAll().execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("communication_contacts")
+          .selectAll()
+          .execute(),
+      ).toEqual([]);
+      expect(
+        (await queued()).filter((event) => event.kind === "account_linked"),
+      ).toEqual([]);
+    } finally {
+      await sql`drop trigger synthetic_account_event_fault on sales_funnel_event_outbox;
+        drop function synthetic_account_event_fault()`.execute(database);
+    }
+    await expect(link("42")).resolves.toMatchObject({ status: "linked" });
+    expect(
+      (await queued()).filter((event) => event.kind === "account_linked"),
+    ).toHaveLength(1);
+  });
+
   it("delivers every event to Platform once, retries through a Platform failure and never sends Telegram ids", async () => {
     await publishDefaultFunnel();
     await text("/start m_survey", 987654321);

@@ -369,6 +369,47 @@ describe("bot sign-in provider", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("rolls back the sign-in link reservation when the completion reply cannot be persisted", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    const accountRef = randomUUID();
+    const bind = () =>
+      request(`/${challenge.requestRef}/account-link`, {
+        accountRef,
+        subjectRef: proof.subjectRef,
+      });
+    await sql`create function synthetic_sign_in_reply_fault() returns trigger language plpgsql as $$
+      begin if new.edit_message_id is not null then raise exception 'synthetic sign-in reply failure'; end if; return new; end $$;
+      create trigger synthetic_sign_in_reply_fault before insert on start_response_deliveries
+      for each row execute function synthetic_sign_in_reply_fault()`.execute(
+      database,
+    );
+    try {
+      expect((await bind()).statusCode).toBe(500);
+      expect(
+        await database
+          .selectFrom("link_transactions")
+          .selectAll()
+          .where("link_transaction_ref", "=", challenge.requestRef)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("start_response_deliveries")
+          .selectAll()
+          .where("edit_message_id", "is not", null)
+          .execute(),
+      ).toEqual([]);
+    } finally {
+      await sql`drop trigger synthetic_sign_in_reply_fault on start_response_deliveries;
+        drop function synthetic_sign_in_reply_fault()`.execute(database);
+    }
+    expect((await bind()).json()).toMatchObject({ status: "linked" });
+  });
+
   it.each(["before", "after"] as const)(
     "retains completion intent across a failure %s the link commit without premature success",
     async (failurePoint) => {
