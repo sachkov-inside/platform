@@ -23,8 +23,10 @@ export function ReaderReturnNavigation({
   useEffect(() => {
     const top = topRef.current;
     if (top === null || !repeatAtBottom) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry !== undefined) setTopOutsideViewport(!entry.isIntersecting);
+    const observer = new IntersectionObserver((entries) => {
+      const latestEntry = entries.at(-1);
+      if (latestEntry !== undefined)
+        setTopOutsideViewport(!latestEntry.isIntersecting);
     });
     observer.observe(top);
     return () => {
