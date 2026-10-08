@@ -15,7 +15,6 @@ export async function waitPastAccessTokenExpiry(
 ): Promise<void> {
   // deterministic-test-allow duration-wait: Logto owns the external token clock; the next step verifies token refresh.
   await page.waitForTimeout(
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    Math.max(0, accessTokenExpiredAt(signedInAt) - Date.now()),
+    Math.max(0, accessTokenExpiredAt(signedInAt) - performance.now()),
   );
 }

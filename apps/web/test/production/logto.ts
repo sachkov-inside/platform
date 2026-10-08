@@ -167,7 +167,7 @@ export async function createLogtoPassClient(
       const pat = z.object({ value: z.string().min(1) }).parse(
         await api(tokensPath(userId), {
           method: "POST",
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+          // deterministic-test-allow wall-clock: The remote Logto Management API owns PAT expiry in UTC epoch milliseconds; this live adapter issues and cleans up its real tokens.
           body: { name, expiresAt: Date.now() + patLifetimeMs },
         }),
       );
@@ -193,7 +193,7 @@ export async function createLogtoPassClient(
             name === own ||
             (name.startsWith(passPatPrefix) &&
               expiresAt !== null &&
-              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+              // deterministic-test-allow wall-clock: The remote Logto Management API owns PAT expiry in UTC epoch milliseconds; this live adapter issues and cleans up its real tokens.
               expiresAt <= Date.now()),
         )
         .map(({ name }) => name);

@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 test("owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL", async ({
   page,
   context,
@@ -69,8 +70,13 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .fill(`synthetic-course-${info.project.name}`);
   await rules
     .getByLabel("Начало по Москве")
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    .fill(new Date(Date.now() - 86_400_000).toISOString().slice(0, 16));
+    .fill(
+      new Date(
+        Date.parse(await backendFixtureInstant(page.request)) - 86_400_000,
+      )
+        .toISOString()
+        .slice(0, 16),
+    );
   await rules
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическая публикация правила");
