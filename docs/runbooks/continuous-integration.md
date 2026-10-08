@@ -206,16 +206,20 @@ run it: desktop Chromium at 1440 × 1024 and mobile Chromium at 390 × 844. Each
 fresh browser context on the production build, at native CPU speed without emulated throttling.
 
 The budget is 200 ms of renderer-thread CPU time. CDP `Performance.enable` selects `threadTicks`;
-the test subtracts the `ScriptDuration` counter before navigation from its value after the reading
-action becomes `anonymous`. That browser-rendered state proves the action is hydrated and has
-received the guest authentication result. The test sends no input before measuring. Waiting for
+the test subtracts the `ScriptDuration` counter before navigation from the next snapshot taken
+after observing the reading action become `anonymous`. That browser-rendered state proves the
+action is hydrated. The test separately checks that the captured `/auth/status` response is HTTP
+200 with `state: "guest"` and `accountId: null`; an authentication failure cannot pass as readiness.
+The test sends no input before measuring. Waiting for
 HTTP responses and time when the renderer thread is not scheduled do not consume this budget.
 The measured value and profile are attached as `reader-startup-cpu` JSON in the Playwright report.
 A missing counter, unsupported thread clock or zero execution fails the test.
 
 This is an initial JavaScript work budget, not an elapsed hydration deadline or an INP guarantee
-for a particular device. It includes startup scripts and browser-test observation until the
-reading action is ready; it excludes script work after that fact, compilation, layout and paint.
+for a particular device. It includes startup scripts and browser-test observation up to the
+second counter snapshot, including any script work between readiness and that snapshot.
+`ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
+in script execution. Separate compilation, layout and paint budgets are outside this check.
 The existing representative-Material test still checks INP after readiness (#933). The startup
 budget runs with the full-stack smoke, nightly and locally; it is outside the required PR CI gate.
 
