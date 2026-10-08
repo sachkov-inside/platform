@@ -24,7 +24,7 @@ const eventSchema = z.object({
  * @param {AsyncIterable<unknown>} source
  */
 export default async function* reporter(source) {
-  /** @type {Map<string, {name: string, assertionResults: {fullName: string, status: string}[]}>} */
+  /** @type {Map<string, {name: string, assertionResults: {fullName: string, status: string, testId: number}[]}>} */
   const files = new Map();
   /** @type {Map<string, string>} */
   const names = new Map();
@@ -59,8 +59,11 @@ export default async function* reporter(source) {
     file.assertionResults.push({
       fullName: names.get(key) ?? data.name,
       status: skipped ? "skipped" : type === "test:pass" ? "passed" : "failed",
+      testId: data.testId ?? 0,
     });
     files.set(data.file, file);
   }
+  for (const file of files.values())
+    file.assertionResults.sort((a, b) => a.testId - b.testId);
   yield JSON.stringify({ testResults: [...files.values()] });
 }

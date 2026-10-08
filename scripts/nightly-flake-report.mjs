@@ -18,7 +18,7 @@ export const observationSchema = z.object({
   status: z.enum(["passed", "failed", "skipped"]),
 });
 /** @typedef {z.infer<typeof observationSchema>} Observation */
-/** @typedef {Omit<Observation, "status"> & {attempts: number, failed: number, skipped: number}} Row */
+/** @typedef {Omit<Observation, "status"> & {caseIndex?: number, attempts: number, failed: number, skipped: number}} Row */
 const vitestSchema = z.object({
   testResults: z.array(
     z.object({
@@ -131,11 +131,11 @@ export function normalizePlaywright(input, root, suite) {
   return rows;
 }
 
-/** @param {Omit<Observation, "status">} row */
+/** @param {Omit<Observation, "status"> & {caseIndex?: number}} row */
 export function identity(row) {
-  return createHash("sha256")
-    .update(JSON.stringify([row.suite, row.file, row.project, row.name]))
-    .digest("hex");
+  const parts = [row.suite, row.file, row.project, row.name];
+  if (row.caseIndex !== undefined) parts.push(String(row.caseIndex));
+  return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
 
 /** @param {Observation[][]} samples @returns {Row[]} */
@@ -143,14 +143,25 @@ export function aggregate(samples) {
   /** @type {Map<string, Row>} */
   const rows = new Map();
   for (const sample of samples) {
-    const seen = new Set();
+    /** @type {Map<string, number>} */
+    const counts = new Map();
+    /** @type {Map<string, number>} */
+    const occurrences = new Map();
     for (const observation of sample) {
       const key = identity(observation);
-      if (seen.has(key))
-        throw new Error(`Duplicate test identity: ${observation.name}`);
-      seen.add(key);
-      const row = rows.get(key) ?? {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    for (const observation of sample) {
+      const baseKey = identity(observation);
+      const occurrence = (occurrences.get(baseKey) ?? 0) + 1;
+      occurrences.set(baseKey, occurrence);
+      const test = {
         ...observation,
+        ...((counts.get(baseKey) ?? 0) > 1 ? { caseIndex: occurrence } : {}),
+      };
+      const key = identity(test);
+      const row = rows.get(key) ?? {
+        ...test,
         attempts: 0,
         failed: 0,
         skipped: 0,
@@ -168,6 +179,13 @@ export function aggregate(samples) {
   );
 }
 
+/** @param {Omit<Observation, "status"> & {caseIndex?: number}} row */
+function testName(row) {
+  return row.caseIndex === undefined
+    ? row.name
+    : `${row.name} [case ${row.caseIndex}]`;
+}
+
 /** @typedef {{ref: string, event: string, runUrl: string, sha: string, attempt: string}} Context */
 /** @typedef {{find: (marker: string) => Promise<number | undefined>, create: (title: string, body: string) => Promise<void>, update: (number: number, body: string) => Promise<void>}} IssueClient */
 /** @param {Row[]} rows @param {Context} context @param {IssueClient} client */
@@ -179,8 +197,8 @@ export async function publishFailures(rows, context, client) {
     return;
   for (const row of rows.filter((row) => row.failed > 0)) {
     const marker = `<!-- platform-flake:${identity(row)} -->`;
-    const title = `Nightly flake: ${row.suite} ${row.name}`.slice(0, 240);
-    const body = `${marker}\n\nТест: ${row.name}\nФайл: ${row.file}\nSuite: ${row.suite}\nProject / command: ${row.project || "node"}\n\nПадения: ${row.failed}/${row.attempts} (${((100 * row.failed) / row.attempts).toFixed(1)}%). Пропуски: ${row.skipped}.\nПрогон: ${context.runUrl} (attempt ${context.attempt})\nКоммит: ${context.sha}\nАртефакты: ${context.runUrl}#artifacts — flake-${row.suite}-${context.attempt}; логи и JSON каждого повтора, browser diagnostics при падении. Хранятся семь дней.\n\nКаждый повтор независим; retries выключены. Даже одно падение требует диагноза. Доля 100% может означать постоянный дефект. Исправление подтвердите зелёным ночным прогоном на main.\n`;
+    const title = `Nightly flake: ${row.suite} ${testName(row)}`.slice(0, 240);
+    const body = `${marker}\n\nТест: ${testName(row)}\nФайл: ${row.file}\nSuite: ${row.suite}\nProject / command: ${row.project || "node"}\n\nПадения: ${row.failed}/${row.attempts} (${((100 * row.failed) / row.attempts).toFixed(1)}%). Пропуски: ${row.skipped}.\nПрогон: ${context.runUrl} (attempt ${context.attempt})\nКоммит: ${context.sha}\nАртефакты: ${context.runUrl}#artifacts — flake-${row.suite}-${context.attempt}; логи и JSON каждого повтора, browser diagnostics при падении. Хранятся семь дней.\n\nКаждый повтор независим; retries выключены. Даже одно падение требует диагноза. Доля 100% может означать постоянный дефект. Исправление подтвердите зелёным ночным прогоном на main.\n`;
     const number = await client.find(marker);
     if (number === undefined) await client.create(title, body);
     else await client.update(number, body);
@@ -207,7 +225,7 @@ function cell(value) {
 }
 /** @param {Row[]} rows */
 export function summary(rows) {
-  return `## Nightly flake hunt\n\n| Suite | File / test | Project / command | Failures / executed | Failure rate | Skipped |\n|---|---|---|---|---|---|\n${rows.map((row) => `| ${cell(row.suite)} | ${cell(`${row.file}: ${row.name}`)} | ${cell(row.project)} | ${row.failed}/${row.attempts} | ${row.attempts === 0 ? "n/a" : `${((100 * row.failed) / row.attempts).toFixed(1)}%`} | ${row.skipped} |`).join("\n")}\n\nPlanned: five independent runs, no retries. Setup/reporting failures remain red in the test jobs; missing samples are not counted as passes.\n`;
+  return `## Nightly flake hunt\n\n| Suite | File / test | Project / command | Failures / executed | Failure rate | Skipped |\n|---|---|---|---|---|---|\n${rows.map((row) => `| ${cell(row.suite)} | ${cell(`${row.file}: ${testName(row)}`)} | ${cell(row.project)} | ${row.failed}/${row.attempts} | ${row.attempts === 0 ? "n/a" : `${((100 * row.failed) / row.attempts).toFixed(1)}%`} | ${row.skipped} |`).join("\n")}\n\nPlanned: five independent runs, no retries. Setup/reporting failures remain red in the test jobs; missing samples are not counted as passes.\n`;
 }
 
 /** @param {string[]} args @param {unknown} [body] */
