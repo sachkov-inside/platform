@@ -15,7 +15,7 @@ export const aiEngineeringCoursePage: ProductPage = {
     {
       id: "hero",
       kind: "hero",
-      badge: "+ менторинг автора",
+      badge: "+ менторинг",
       lead: "Освой на практике востребованные навыки работы с AI и стань настоящим AI-инженером.",
       highlights: [
         "Гайды, видео и задания",
@@ -96,7 +96,7 @@ export const aiEngineeringCoursePage: ProductPage = {
         },
         {
           title: "RAG",
-          text: "Подключишь агенту поиск по базе знаний. Перед ответом он найдёт нужные фрагменты и сошлётся на них.",
+          text: "Встроишь RAG в продукт: агент продукта будет отвечать с опорой на данные и контекст компании и ссылаться на источники.",
           detailLabel: "",
           detail: "",
         },
