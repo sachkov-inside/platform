@@ -38,7 +38,9 @@ async function createCorpus() {
   return {
     prisma,
     materials,
-    run: database.run,
+    run<Result>(work: () => Promise<Result>): Promise<Result> {
+      return database.run(work);
+    },
     async prepareLegacy() {
       expected = await database.run(() =>
         readLegacyHomeContent(
