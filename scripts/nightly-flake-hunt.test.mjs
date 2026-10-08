@@ -53,13 +53,17 @@ test("integration samples distinguish the parallel and serial selection commands
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {
   const commands = planSuite("unit");
-  assert.deepEqual(
-    commands
-      .filter((command) => command.engine === "vitest")
-      .map((command) => command.name)
-      .sort(),
-    ["access-capabilities", "backend", "legal", "module", "telegram"],
-  );
+  for (const name of [
+    "access-capabilities",
+    "backend",
+    "legal",
+    "module",
+    "telegram",
+  ])
+    assert.ok(
+      commands.some((command) => command.name === name),
+      `Missing ${name}`,
+    );
   assert.ok(
     commands
       .filter((command) => command.engine === "vitest")

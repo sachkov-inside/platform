@@ -87,6 +87,28 @@ function rootNodeCommands(script) {
     };
   });
 }
+
+/** @returns {Command[]} */
+function unitCommands() {
+  const aggregate = readPackageManifest(resolve(root, "package.json")).scripts[
+    "check:unit"
+  ];
+  if (aggregate === undefined) throw new Error("Missing check:unit script");
+  return aggregate.split(" && ").flatMap((command) => {
+    const rootScript = /^pnpm (test:[\w-]+)$/u.exec(command)?.[1];
+    if (rootScript !== undefined) return rootNodeCommands(rootScript);
+    if (
+      command === "pnpm --recursive --if-present --filter '!@inside/web' test"
+    )
+      return workspaceUnitCommands();
+    const webScript = /^pnpm --filter @inside\/web (test:[\w-]+)$/u.exec(
+      command,
+    )?.[1];
+    if (webScript !== undefined)
+      return [vitest(webScript.replace("test:", ""), "apps/web", webScript)];
+    throw new Error(`Unsupported check:unit stage: ${command}`);
+  });
+}
 /** @param {string} suite @returns {Command[]} */
 export function planSuite(suite) {
   switch (suite) {
@@ -115,13 +137,7 @@ export function planSuite(suite) {
         vitest("integration-serial", "apps/backend", "test:integration:serial"),
       ];
     case "unit":
-      return [
-        ...workspaceUnitCommands(),
-        vitest("module", "apps/web", "test:module"),
-        ...rootNodeCommands("test:tooling"),
-        ...rootNodeCommands("test:authoring"),
-        ...rootNodeCommands("test:practice-review"),
-      ];
+      return unitCommands();
     case "fixture":
       return [
         {
