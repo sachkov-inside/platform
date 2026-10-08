@@ -902,3 +902,167 @@ test("image block selection keeps its description and size controls readable whi
     }
   }
 });
+
+/** Both selections have identical bytes and File metadata, including lastModified. */
+async function selectRepeatVideo(page: Page) {
+  await page.getByLabel("Видео для загрузки").evaluate((input) => {
+    if (!(input instanceof HTMLInputElement))
+      throw new Error("Video input missing");
+    const files = new DataTransfer();
+    files.items.add(
+      new File(["Repeated video bytes"], "repeat.mp4", {
+        lastModified: 123,
+        type: "video/mp4",
+      }),
+    );
+    input.files = files.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+test("reselecting the same file after removing a recovered upload survives another reload", async ({
+  page,
+}) => {
+  await createDraft(page, "повтор восстановленного файла");
+  // Keep the real provider outcome unsettled so reopening must recover the upload.
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  // The removal must survive leaving even before the author chooses the file again.
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("an attachment waits for upload startup instead of abandoning an unremoved upload", async ({
+  page,
+}) => {
+  await createDraft(page, "привязка во время старта");
+  await page
+    .getByText("Выбрать существующее видео Kinescope", { exact: true })
+    .click();
+  await page.getByLabel(/ID видео/u).fill("existing-video");
+  const attach = page.getByRole("button", { name: "Привязать", exact: true });
+  await expect(attach).toBeEnabled();
+  const { promise: gate, resolve: release } =
+    Promise.withResolvers<undefined>();
+  const { promise: initialized, resolve: started } =
+    Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/material-video-uploads", async (route) => {
+    const response = await route.fetch();
+    started(undefined);
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  try {
+    await selectRepeatVideo(page);
+    await initialized;
+    await expect(page.getByText("Загрузка 0%")).toBeVisible();
+    await expect(attach).toBeDisabled();
+  } finally {
+    release(undefined);
+  }
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await expect(attach).toBeEnabled();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("a failed replacement startup cannot keep the retry key of a removed recovered upload", async ({
+  page,
+}) => {
+  await createDraft(page, "снятие после неудачной замены");
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.route("**/api/authoring/material-video-uploads", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  const rejected = page.waitForResponse(
+    "**/api/authoring/material-video-uploads",
+  );
+  await page.getByLabel("Видео для загрузки").setInputFiles({
+    name: "unstarted.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Replacement video bytes"),
+  });
+  await rejected;
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Основное видео")
+      .getByRole("button", { name: "Загрузить", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.unroute("**/api/authoring/material-video-uploads");
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("removing an adopted upload after it becomes ready still renews the same-file attempt", async ({
+  page,
+}) => {
+  await createDraft(page, "снятие готовой восстановленной загрузки");
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.unroute("**/api/authoring/material-video-reconciliations");
+  await page.getByRole("button", { name: "Проверить", exact: true }).click();
+  await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 20_000 });
+  await saved(page);
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});

@@ -10,6 +10,7 @@ const storedUploadAttemptSchema = z
   .object({
     submissionId: z.uuid(),
     version: z.literal(1),
+    videoId: z.uuid().optional(),
   })
   .strict();
 
@@ -46,6 +47,61 @@ export async function getOrCreateBrowserVideoUploadAttempt(
     // Upload remains available when storage is disabled, with server-side fail-closed protection.
   }
   return { storageKey, submissionId };
+}
+
+/** Keep the upload's identity across editor reloads without changing its retry key. */
+export function recordBrowserVideoUploadAttempt(
+  attempt: BrowserVideoUploadAttempt,
+  videoId: string,
+): void {
+  if (attempt.storageKey === undefined) return;
+  try {
+    const stored = storedUploadAttemptSchema.safeParse(
+      JSON.parse(localStorage.getItem(attempt.storageKey) ?? "null"),
+    );
+    if (stored.success && stored.data.submissionId === attempt.submissionId) {
+      localStorage.setItem(
+        attempt.storageKey,
+        JSON.stringify({ ...stored.data, videoId }),
+      );
+    }
+  } catch {
+    // Identity recording is best-effort when storage is unavailable.
+  }
+}
+
+/** Retire persisted retry keys for the Video the author explicitly removes. */
+export function clearBrowserVideoUploadAttemptsForVideo(
+  materialId: string,
+  videoId: string,
+): void {
+  try {
+    const prefix = `inside.video-upload.v1:${materialId}:`;
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key === null || !key.startsWith(prefix)) continue;
+      let value: unknown;
+      try {
+        value = JSON.parse(localStorage.getItem(key) ?? "null");
+      } catch {
+        // One malformed entry must not hide this Video's remaining retry keys.
+        continue;
+      }
+      const stored = storedUploadAttemptSchema.safeParse(value);
+      // Legacy attempts lack a Video identity. Retire only this Material's unidentifiable keys.
+      if (
+        stored.success &&
+        (stored.data.videoId === undefined || stored.data.videoId === videoId)
+      ) {
+        clearBrowserVideoUploadAttempt({
+          storageKey: key,
+          submissionId: stored.data.submissionId,
+        });
+      }
+    }
+  } catch {
+    // Cleanup is best-effort when storage is unavailable.
+  }
 }
 
 export function clearBrowserVideoUploadAttempt(
