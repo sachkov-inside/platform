@@ -1,4 +1,3 @@
-import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -8,6 +7,10 @@ import {
   getOptionalPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
+import {
+  authoringMaterialsRootHref,
+  authoringProductEditorHref,
+} from "@/shared/routing/authoring";
 import { getContentCollections } from "../api/get-content-collections";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
 
@@ -26,7 +29,13 @@ export async function SeriesEditorPage({
   const unauthorized = (
     <MaterialAuthoringUnauthorizedState
       context="editor"
-      action={<MaterialAuthoringSignInActions returnHref={returnHref} />}
+      action={
+        // Вход возвращает в этот продукт, а кнопка возврата не ведёт на ту же страницу.
+        <MaterialAuthoringSignInActions
+          backHref={authoringMaterialsRootHref}
+          returnHref={returnHref}
+        />
+      }
     />
   );
   if (token === undefined) return unauthorized;

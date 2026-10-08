@@ -1,5 +1,4 @@
 "use client";
-import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import type { ReactNode } from "react";
 
 import {
@@ -25,6 +24,7 @@ import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-co
 import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 import {
   Select,

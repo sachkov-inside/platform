@@ -1,5 +1,4 @@
 "use client";
-import { authoringProductEditorHref } from "@/shared/routing/authoring";
 
 import {
   Archive,
@@ -20,6 +19,7 @@ import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { ContentCoverImage } from "@/entities/material";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 import { ContentCoverEditor } from "@/features/content-covers";
 

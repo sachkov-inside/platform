@@ -54,10 +54,14 @@ export function MaterialAuthoringPreviewUnauthorizedState({
 export function MaterialAuthoringSignInActions({
   onBack,
   returnHref = authoringMaterialsRootHref,
-  backLabel = authoringReturnActionLabel(returnHref),
+  backHref = returnHref,
+  backLabel = authoringReturnActionLabel(backHref),
 }: {
   readonly onBack?: () => void;
+  /** Куда вход возвращает автора. */
   readonly returnHref?: string;
+  /** Куда ведёт кнопка возврата, когда она не совпадает с адресом после входа. */
+  readonly backHref?: string;
   readonly backLabel?: string | undefined;
 }) {
   return (
@@ -71,7 +75,7 @@ export function MaterialAuthoringSignInActions({
       </form>
       {onBack === undefined ? (
         <Button asChild variant="outline">
-          <Link href={{ pathname: returnHref }}>
+          <Link href={{ pathname: backHref }}>
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
             {backLabel}
           </Link>
