@@ -62,9 +62,19 @@ recipient is marked superseded in the delivery state and keeps its last provider
 The background pass runs in `billing-worker` once a minute and covers three sources without any
 user request: the ordered access-change cursor, a reached expiry boundary, and a changed verified
 link. Projection and delivery happen in the same pass, so a change found by a pass is sent by that
-pass. The cursor only advances over a fully projected window, and only a failure inside its own
-window holds it back: an unrelated boundary or link Account cannot stall the audit trail. Work
-still unfinished after five minutes is reported as `operator_attention`.
+pass. Before projecting each Account, the pass records its responsibility in
+`telegram_membership.community_projection_retries`. The access cursor advances after the window
+has been visited, including failed Accounts whose retry responsibility remains durable. Failed
+projections retry on the reconciliation cadence in a separate bounded lane, ordered by the next
+attempt and Account identifier. Boundary and link scans exclude queued Accounts, so a persistent
+failure cannot consume those lanes. A successful attempt removes only its own retry responsibility;
+an older concurrent attempt cannot remove a newer attempt's work. Projection still recomputes
+current access and binding, and dispatch authorization still fails closed on unavailable facts.
+An accepted operation with a schema-invalid stored command becomes `rejected` with `malformed`,
+retains its history and provider observation, and leaves the poll lane for operator attention.
+Ordinary projection validates commands before saving them; this branch handles corrupted storage,
+not an additional accepted input format. Delivery work still unfinished after five minutes is
+reported as `operator_attention`.
 
 ## Dispatch authorization
 

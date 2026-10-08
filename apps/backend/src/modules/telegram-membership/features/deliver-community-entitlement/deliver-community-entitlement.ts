@@ -190,7 +190,18 @@ export async function pollCommunityOperations(
       continue;
     }
     const command = communitySetSchema.safeParse(row.command);
-    if (!command.success) continue;
+    if (!command.success) {
+      await dependencies.prisma.telegramCommunityOperation.update({
+        where: { operationId: row.operationId },
+        data: {
+          delivery: "rejected",
+          errorCode: "malformed",
+          polledAt: now,
+          updatedAt: now,
+        },
+      });
+      continue;
+    }
     const outcome = await dependencies.provider.status(command.data);
     polled += 1;
     if (outcome.kind === "result") {

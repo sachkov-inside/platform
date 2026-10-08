@@ -30,6 +30,7 @@ import {
 import {
   DISPATCH_CONTRACT_VERSION,
   communitySetSchema,
+  communityResultSchema,
   type CommunityDeliveryStatus,
   type DispatchAuthorizeRequest,
   type ObservedMembership,
@@ -268,6 +269,265 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       payloadDigest,
     };
   }
+
+  async function streamFixture(isolated: TestDatabase, clock: () => Date) {
+    const localAccounts = assembleAccounts({
+      prisma: isolated.prisma,
+      emailFingerprintKey: "community-stream-test-fingerprint-key",
+    });
+    const localOwner = (
+      await bootstrapOwnerAccount(
+        isolated.prisma,
+        { issuer, subject: "stream-owner" },
+        "platform:admin",
+      )
+    ).accountId;
+    const localGrants = assembleAccessGrants({
+      accounts: localAccounts,
+      prisma: isolated.prisma,
+      clock,
+    });
+    const localLinks = new TelegramAccountLinks(isolated.prisma);
+    async function enroll(subject: string) {
+      const established = await localAccounts.establishAccount({
+        identity: verifiedAccountSignIn({
+          issuer,
+          subject,
+          verifiedEmail: `${subject}@example.test`,
+        }).identity,
+      });
+      if (!established.ok) throw new Error("Account fixture failed");
+      const accountId = established.account.accountId;
+      await linkTelegramAccount(isolated.prisma, {
+        accountId,
+        identityRef: `identity-${subject}`,
+        now: clock(),
+      });
+      const preview = await localGrants.previewBatch(localOwner, {
+        operationId: randomUUID(),
+        rows: [
+          {
+            rowKey: "community",
+            accountId,
+            source: "manual",
+            sourceRef: randomUUID(),
+            terms: {
+              capabilities: ["community"],
+              reason: "Stream isolation",
+              startsAt: start,
+              validUntil: null,
+            },
+          },
+        ],
+      });
+      if (!preview.ok) throw new Error("Preview fixture failed");
+      const applied = await localGrants.applyBatch(localOwner, {
+        operationId: randomUUID(),
+        previewRef: preview.previewRef,
+        expectedRevision: preview.revision,
+        confirmedRows: ["community"],
+      });
+      const grant = applied.ok ? applied.rows[0]?.result : undefined;
+      if (grant === undefined || !grant.ok || !("grantRef" in grant))
+        throw new Error("Grant fixture failed");
+      return {
+        accountId,
+        grantRef: grant.grantRef,
+        revision: grant.revision,
+      };
+    }
+    return { localAccounts, localOwner, localGrants, localLinks, enroll };
+  }
+
+  test("a persistent Account failure cannot hold later access windows and recovery closes its old admission once", async () => {
+    // This case owns a separate database: a page of one must contain only its own changes.
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let now = new Date(start);
+      const { localAccounts, localOwner, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => now);
+      const provider = new ProviderDouble();
+      let failing: string | null = null;
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => now,
+        grants: {
+          readChangedAccounts: (query) =>
+            localGrants.readChangedAccounts(query),
+          resolveCapabilities: (accountId) =>
+            accountId === failing
+              ? Promise.resolve({
+                  ok: false as const,
+                  error: { code: "unavailable" as const },
+                })
+              : localGrants.resolveCapabilities(accountId),
+        },
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      const broken = await enroll("stream-broken");
+      await app.sweep(1);
+      const original = provider.sent[0];
+      if (original === undefined) throw new Error("Admission fixture failed");
+      failing = broken.accountId;
+      const revoked = await localGrants.changeGrant(localOwner, {
+        action: "revoke",
+        operationId: randomUUID(),
+        grantRef: broken.grantRef,
+        expectedRevision: broken.revision,
+        reason: "Revoke while projection is unavailable",
+      });
+      expect(revoked.ok).toBe(true);
+      const healthy = await enroll("stream-healthy");
+      expect(await app.sweep(1)).toMatchObject({ failed: 1 });
+      const later = await enroll("stream-later");
+      // Two successive windows must move even though the first Account is still unavailable.
+      now = new Date("2030-01-01T00:01:01.000Z");
+      await app.sweep(1);
+      now = new Date("2030-01-01T00:02:02.000Z");
+      await app.sweep(1);
+      const changes = await localGrants.readChangedAccounts({
+        afterRevision: 0,
+        limit: 500,
+      });
+      if (!changes.ok) throw new Error("Audit fixture failed");
+      expect(
+        await isolated.prisma.telegramCommunityProjectionCursor.findUnique({
+          where: { id: 1 },
+        }),
+      ).toMatchObject({ accessRevision: changes.cursor });
+      expect(
+        provider.sent.filter(
+          (command) =>
+            command.binding.accountRef !== original.binding.accountRef,
+        ),
+      ).toHaveLength(2);
+      expect(await app.readDelivery(localOwner, later.accountId)).toMatchObject(
+        { ok: true, value: { desired: { entitlementRevision: 1 } } },
+      );
+      expect(
+        await app.readDelivery(localOwner, healthy.accountId),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          desired: { entitlementRevision: 1 },
+          operations: [{ delivery: "accepted" }],
+        },
+      });
+      expect(
+        await app.authorizeDispatch(
+          authorization(
+            original.operationId,
+            contractDigest(original),
+            "community.ensure_admission",
+          ),
+        ),
+      ).toMatchObject({
+        ok: true,
+        result: { decision: { status: "unavailable" } },
+      });
+      // A fresh facade proves retry responsibility survives the original worker instance.
+      failing = null;
+      const restarted = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => now,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      now = new Date("2030-01-01T00:03:03.000Z");
+      await restarted.sweep(1);
+      await restarted.sweep(1);
+      expect(
+        provider.sent
+          .filter(
+            (command) =>
+              command.binding.accountRef === original.binding.accountRef,
+          )
+          .map((command) => command.access),
+      ).toEqual([{ kind: "lifetime" }, { kind: "denied" }]);
+      expect(
+        await restarted.readDelivery(localOwner, broken.accountId),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          desired: { access: { kind: "denied" }, entitlementRevision: 2 },
+        },
+      });
+    } finally {
+      await isolated.dispose();
+    }
+  });
+
+  test("a corrupted accepted command becomes visible operator work without starving a valid poll", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let now = new Date(start);
+      const { localAccounts, localOwner, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => now);
+      const { accountId } = await enroll("poll-healthy");
+      const provider = new ProviderDouble();
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => now,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      await app.sweep();
+      const accepted =
+        await isolated.prisma.telegramCommunityOperation.findFirst({
+          where: { accountId },
+        });
+      if (accepted === null) throw new Error("Accepted fixture failed");
+      // Synthetic storage corruption: normal projection validates the immutable command.
+      const corruptAccount = randomUUID();
+      const corruptOperation = randomUUID();
+      await isolated.prisma.telegramCommunityOperation.create({
+        data: {
+          ...accepted,
+          access: communitySetSchema.parse(accepted.command).access,
+          result: communityResultSchema.parse(accepted.result),
+          accountId: corruptAccount,
+          operationId: corruptOperation,
+          command: {},
+          polledAt: new Date("2029-12-31T23:00:00.000Z"),
+        },
+      });
+      provider.observe(accepted.operationId, "applied", "member");
+      now = new Date("2030-01-01T00:01:01.000Z");
+      await app.sweep(1);
+      expect(await app.readDelivery(localOwner, corruptAccount)).toMatchObject({
+        ok: true,
+        value: {
+          operations: [
+            {
+              delivery: "rejected",
+              errorCode: "malformed",
+              appliedState: "accepted",
+            },
+          ],
+        },
+      });
+      await app.sweep(1);
+      expect(provider.polled).toContain(accepted.operationId);
+      expect(provider.polled).not.toContain(corruptOperation);
+      expect(await app.readDelivery(localOwner, accountId)).toMatchObject({
+        ok: true,
+        value: {
+          operations: [{ delivery: "accepted", appliedState: "applied" }],
+        },
+      });
+    } finally {
+      await isolated.dispose();
+    }
+  });
 
   test("a granted right is delivered once, a revoke supersedes it, and a replay never resurrects it", async () => {
     now = new Date(start);
