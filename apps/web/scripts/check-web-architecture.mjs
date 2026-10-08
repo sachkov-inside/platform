@@ -1317,6 +1317,15 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: a server render reads the session only through @/shared/auth, whose connection() stops a prefetch before it starts a token refresh`,
     );
   }
+  if (
+    sourcePath !== "src/shared/api/fact-announcement.ts" &&
+    (namesIdentifier(program, "BroadcastChannel") ||
+      stringLiterals(program).includes("BroadcastChannel"))
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: BroadcastChannel belongs to src/shared/api/fact-announcement.ts`,
+    );
+  }
   if (specifiers.some((specifier) => siteAnimationPackages.test(specifier))) {
     findingsForFile.push(
       `${sourcePath}: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets`,

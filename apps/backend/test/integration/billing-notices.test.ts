@@ -41,6 +41,7 @@ import {
   syntheticConsentDocuments,
   type RenewalSource,
 } from "./setup/consent-documents.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
@@ -933,6 +934,81 @@ describe("служебные сообщения подписки (реальны
 
   const endingSubject = "Доступ Inside скоро закончится";
   const endedSubject = "Доступ Inside закончился";
+
+  test("календарь окончания Enrollment завершает пробег на одном соединении без повторных поводов", async () => {
+    const isolated = await createMigratedTestDatabase();
+    let calendarNow = new Date("2031-03-07T00:00:00Z");
+    const accountId = randomUUID();
+    const tierId = randomUUID();
+    try {
+      await isolated.prisma.account.create({
+        data: {
+          id: accountId,
+          logtoIssuer: "https://identity.example.test",
+          logtoSubject: accountId,
+        },
+      });
+      await isolated.prisma.tariffAssignment.create({
+        data: {
+          id: randomUUID(),
+          accountId,
+          tierId,
+          tierRevision: 1,
+          snapshot: {
+            id: tierId,
+            revision: 1,
+            name: "Исторический срок: материалы",
+            benefits: ["materials"],
+            coverage: { productIds: [randomUUID()], materialIds: [] },
+          },
+          origin: "manual",
+          sourceRef: randomUUID(),
+          startsAt: new Date("2031-01-01T00:00:00Z"),
+          endsAt: new Date("2031-03-10T00:00:00Z"),
+          endPolicy: "fixed",
+          revision: 1,
+          reason: "Historical finite fixture",
+        },
+      });
+      await withExhaustedPool(isolated, async (prisma) => {
+        const notices = new BillingNotices({
+          prisma,
+          enrollments: assembleAccessGrants({
+            prisma,
+            accounts: assembleAccounts({
+              prisma,
+              emailFingerprintKey: "synthetic-notice-fingerprint-000000",
+            }),
+            clock: () => calendarNow,
+          }),
+          clock: () => calendarNow,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 1,
+          refreshed: 0,
+          superseded: 0,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 0,
+          refreshed: 0,
+          superseded: 0,
+        });
+        calendarNow = new Date("2031-03-10T00:00:00Z");
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 1,
+          refreshed: 0,
+          superseded: 1,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 0,
+          refreshed: 0,
+          superseded: 0,
+        });
+      });
+    } finally {
+      await isolated.dispose();
+    }
+  });
 
   test("исторический конечный доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
     const s = await scenario({ telegram: true });

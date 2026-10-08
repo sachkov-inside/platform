@@ -6,6 +6,12 @@ import { fileURLToPath, URL } from "node:url";
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = [
   {
+    root: "test/guardrails/fixtures/architecture/fact-announcement",
+    diagnostics: [
+      "BroadcastChannel belongs to src/shared/api/fact-announcement.ts",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/codegen-boundary",
     diagnostics: [
       "codegen runtime belongs to the backend transport module",
