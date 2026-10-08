@@ -286,11 +286,13 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 });
 
 // The context fixture retains video for the helper's page, which closes before the test continues.
-const firstSignInTest = test.extend({ video: "retain-on-failure" });
+test.describe(() => {
+  test.use({ video: "retain-on-failure" });
 
-firstSignInTest(
-  "Billing-only opens billing tools and is denied a Materials mutation without a durable effect",
-  async ({ browser, context }) => {
+  test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
+    browser,
+    context,
+  }) => {
     const billingManager = await openAs(browser, "BILLING_ONLY", context);
     const observer = await openAs(browser, "MATERIALS_ONLY");
     try {
@@ -335,8 +337,8 @@ firstSignInTest(
       await billingManager.context.close();
       await observer.context.close();
     }
-  },
-);
+  });
+});
 
 test("an ordinary Account is denied Materials and Billing mutations on existing resources without a durable effect", async ({
   browser,
