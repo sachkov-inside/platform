@@ -1,3 +1,4 @@
+import { DeliverTaskAssetController } from "./features/deliver-task-asset/deliver-task-asset.controller.js";
 import { Module } from "@nestjs/common";
 
 import { AccountsModule } from "../accounts/index.js";
@@ -19,6 +20,7 @@ import { ProductTasksModule } from "./product-tasks.module.js";
   controllers: [
     ImportProductTaskController,
     ReadTaskPageController,
+    DeliverTaskAssetController,
     ListOwnTaskSubmissionsController,
     SubmitTaskFormController,
     ListAuthorSubmissionsController,

@@ -45,7 +45,7 @@ export function throwSystemError(error: SystemError, title: string): never {
   });
 }
 
-export const criterionHttpSchema = z
+const criterionV1HttpSchema = z
   .object({
     id: z.string(),
     level: z.enum(["required", "additional"]),
@@ -54,8 +54,30 @@ export const criterionHttpSchema = z
   })
   .strict();
 
+const criterionV2HttpSchema = z
+  .object({
+    id: z.string(),
+    level: z.enum(["required", "additional"]),
+    task: z.string(),
+    explanation: z.string(),
+    advice: z.string().optional(),
+  })
+  .strict();
+export const criterionHttpSchema = z.union([
+  criterionV1HttpSchema,
+  criterionV2HttpSchema,
+]);
+
 /** One criterion as a learner response names it, field by field. */
 export function criterionHttp(criterion: TaskDefinition["criteria"][number]) {
+  if ("task" in criterion)
+    return {
+      id: criterion.id,
+      level: criterion.level,
+      task: criterion.task,
+      explanation: criterion.explanation,
+      ...(criterion.advice === undefined ? {} : { advice: criterion.advice }),
+    };
   return {
     id: criterion.id,
     level: criterion.level,

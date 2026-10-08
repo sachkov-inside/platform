@@ -1,3 +1,4 @@
+import { renderedMaterialBodySchema } from "@inside/material-blocks";
 import { Controller, Get, Inject, Param } from "@nestjs/common";
 import {
   ApiOkResponse,
@@ -53,14 +54,46 @@ export const taskPageHttpSchema = z.discriminatedUnion("access", [
           ...placeSchema,
           access: z.enum(["free", "closed"]),
           version: z.number().int().positive(),
-          definition: z
+          page: z
             .object({
-              situation: z.string(),
-              result: z.array(z.string()),
-              freedom: z.string(),
-              criteria: z.array(criterionHttpSchema),
+              title: z.string(),
+              summary: z.string(),
+              body: renderedMaterialBodySchema,
+              cover: z
+                .object({ assetId: z.uuid(), alt: z.string() })
+                .strict()
+                .nullable(),
+              artifacts: z.array(
+                z
+                  .object({
+                    sourceId: z.string(),
+                    title: z.string(),
+                    assetId: z.uuid(),
+                  })
+                  .strict(),
+              ),
             })
-            .strict(),
+            .strict()
+            .optional(),
+          definition: z.union([
+            z
+              .object({
+                situation: z.string(),
+                result: z.array(z.string()),
+                freedom: z.string(),
+                criteria: z.array(criterionHttpSchema),
+              })
+              .strict(),
+            z
+              .object({
+                schemaVersion: z.literal(2),
+                format: z.literal("c"),
+                intro: z.string(),
+                freedom: z.string(),
+                criteria: z.array(criterionHttpSchema),
+              })
+              .strict(),
+          ]),
         })
         .strict(),
       reviewProtocol: z
@@ -177,12 +210,36 @@ export class ReadTaskPageController {
         chapter: place.chapter,
         access: page.task.access,
         version: page.task.version,
-        definition: {
-          situation: definition.situation,
-          result: [...definition.result],
-          freedom: definition.freedom,
-          criteria: definition.criteria.map(criterionHttp),
-        },
+        ...(page.task.page === undefined
+          ? {}
+          : {
+              page: {
+                title: page.task.page.title,
+                summary: page.task.page.summary,
+                body: page.task.page.body,
+                cover: page.task.page.cover,
+                artifacts: page.task.page.artifacts.map((item) => ({
+                  sourceId: item.sourceId,
+                  title: item.title,
+                  assetId: item.assetId,
+                })),
+              },
+            }),
+        definition:
+          definition.schemaVersion === 2
+            ? {
+                schemaVersion: 2,
+                format: "c",
+                intro: definition.intro,
+                freedom: definition.freedom,
+                criteria: definition.criteria.map(criterionHttp),
+              }
+            : {
+                situation: definition.situation,
+                result: [...definition.result],
+                freedom: definition.freedom,
+                criteria: definition.criteria.map(criterionHttp),
+              },
       },
       reviewProtocol: {
         version: page.reviewProtocol.version,

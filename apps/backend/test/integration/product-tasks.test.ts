@@ -1,3 +1,10 @@
+import sharp from "sharp";
+import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
+import { deliverTaskAsset } from "../../src/modules/product-tasks/features/deliver-task-asset/deliver-task-asset.js";
+import type {
+  ObjectStorage,
+  StoredObject,
+} from "../../src/infrastructure/object-storage/index.js";
 import {
   registerFixedClock,
   fixedTestInstant,
@@ -1373,6 +1380,479 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         },
       },
     );
+  });
+
+  test("imports format c without flattening its authored fields and keeps prior submission criteria", async () => {
+    const prior = await imported();
+    const subject = await learner();
+    const tasks = learning();
+    expect(
+      await tasks.submit({
+        subject,
+        source: "form",
+        submission: {
+          code: prior.code,
+          taskVersion: 1,
+          submissionKey: randomUUID(),
+          note: "Сдал первую версию",
+        },
+      }),
+    ).toMatchObject({ ok: true });
+    const linkedTask = await imported();
+    const v2 = {
+      schemaVersion: 2,
+      format: "c",
+      intro: "Сделай заявку",
+      freedom: "Выбери стек",
+      criteria: [
+        {
+          id: "request",
+          level: "required",
+          task: "Создай заявку",
+          explanation: "Сохрани [разбор](lesson.md) и [задание](task.md)",
+          advice:
+            "Проверь [разбор][lesson].\n\n[lesson]: lesson.md\n\n`[пример](lesson.md)`",
+          acceptableEvidence: ["Заявка сохраняется"],
+        },
+      ],
+    };
+    const originalPage = {
+      title: "1. Заявка",
+      summary: "Задание",
+      markdown: "# Заявка",
+      links: { "lesson.md": "review", "task.md": linkedTask.code },
+      images: {},
+    };
+    const applied = await assembleApplySourceTask(importDependencies())(
+      {
+        ...prior.body,
+        definition: v2,
+        page: originalPage,
+        pageBody: representativeDocument("Заявка"),
+        resolvedLinks: {
+          "lesson.md": relatedSourceId,
+          "task.md": linkedTask.body.sourceId,
+        },
+        expectedRevision: 1,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(applied).toMatchObject({
+      ok: true,
+      value: { currentVersion: 2, revision: 2 },
+    });
+    expect(
+      await tasks.page({ subject, productSlug, code: prior.code }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        task: {
+          version: 2,
+          definition: {
+            schemaVersion: 2,
+            criteria: [{ task: "Создай заявку" }],
+          },
+          page: {
+            title: "1. Заявка",
+            summary: "Задание",
+            body: { schemaVersion: 1 },
+          },
+        },
+      },
+    });
+    const read = await readAll(tasks, subject, prior.code);
+    expect(JSON.parse(read.context)).toMatchObject({
+      payload: {
+        task: {
+          page: {
+            title: "1. Заявка",
+            summary: "Задание",
+            body: { schemaVersion: 1 },
+          },
+          definition: {
+            ...v2,
+            criteria: [
+              {
+                ...v2.criteria[0],
+                explanation: `Сохрани [разбор](/materials/${relatedSlug}) и [задание](/products/${productSlug}/tasks/${linkedTask.code})`,
+                advice:
+                  `Проверь [разбор][lesson].\n\n[lesson]: /materials/${relatedSlug}\n\n` +
+                  "`[пример](lesson.md)`",
+              },
+            ],
+          },
+        },
+      },
+    });
+    const pageUpdated = await assembleApplySourceTask(importDependencies())(
+      {
+        ...prior.body,
+        definition: v2,
+        page: { ...originalPage, summary: "Обновлённое описание" },
+        pageBody: representativeDocument("Обновлённая страница"),
+        resolvedLinks: {
+          "lesson.md": relatedSourceId,
+          "task.md": linkedTask.body.sourceId,
+        },
+        expectedRevision: 2,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(pageUpdated).toMatchObject({
+      ok: true,
+      value: { currentVersion: 2, revision: 3 },
+    });
+    const history = await tasks.submissions({ subject, code: prior.code });
+    expect(history).toMatchObject({
+      ok: true,
+      value: { submissions: [{ taskVersion: 1 }] },
+    });
+    if (!history.ok) throw new Error(history.error.code);
+    expect(history.value.versions.find((item) => item.version === 1)).toEqual({
+      version: 1,
+      criteria: definition.criteria,
+    });
+    expect(
+      await tasks.submit({
+        subject,
+        source: "form",
+        submission: {
+          code: prior.code,
+          taskVersion: 2,
+          submissionKey: randomUUID(),
+          note: "Сдал новую версию",
+        },
+      }),
+    ).toMatchObject({ ok: true });
+    const currentHistory = await tasks.submissions({
+      subject,
+      code: prior.code,
+    });
+    if (!currentHistory.ok) throw new Error(currentHistory.error.code);
+    expect(
+      currentHistory.value.versions.find((item) => item.version === 2),
+    ).toEqual({ version: 2, criteria: v2.criteria });
+  });
+
+  test("reports a legacy Material migration and refuses Task import without changing that Material", async () => {
+    const existing = await publishedMaterial("free");
+    const code = existing.sourceId.split(":")[1];
+    const body = { ...source(), sourceId: existing.sourceId, code };
+    const before = await materials.authoring.loadMaterial({
+      actor: owner,
+      materialId: existing.materialId,
+    });
+    const validated = await assembleValidateSourceTask(importDependencies())(
+      body,
+      { actor: owner },
+    );
+    expect(validated).toMatchObject({
+      ok: true,
+      value: { migration: { materialId: existing.materialId } },
+    });
+    expect(
+      await assembleApplySourceTask(importDependencies())(
+        { ...body, expectedRevision: null },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toEqual({ ok: false, error: { code: "source_mismatch" } });
+    expect(
+      await materials.authoring.loadMaterial({
+        actor: owner,
+        materialId: existing.materialId,
+      }),
+    ).toEqual(before);
+  });
+
+  test("rejects missing page asset mappings instead of silently losing an authored cover", async () => {
+    const body = source();
+    const v2 = {
+      schemaVersion: 2,
+      format: "c",
+      intro: "Вступление",
+      freedom: "Стек",
+      criteria: [
+        {
+          id: "access",
+          level: "required",
+          task: "Сделай",
+          explanation: "Пояснение",
+          acceptableEvidence: ["Проверка"],
+        },
+      ],
+    };
+    expect(
+      await assembleApplySourceTask(importDependencies())(
+        {
+          ...body,
+          definition: v2,
+          page: {
+            title: "Страница",
+            summary: "Задание",
+            markdown: "Задание",
+            links: {},
+            images: {},
+            coverAssetId: "cover-original",
+            coverAlt: "Схема",
+            artifacts: [],
+          },
+          pageBody: representativeDocument("Задание"),
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+  });
+
+  test("Task images, cover and artifacts survive import and deliver only through current Task access", async () => {
+    const objects = new Map<string, StoredObject>();
+    const storage: ObjectStorage = {
+      putImmutable: (input) => {
+        objects.set(`${input.namespace}/${input.key}`, {
+          body: input.body,
+          checksumSha256: input.checksumSha256,
+          contentType: input.contentType,
+          contentLength: input.body.length,
+        });
+        return Promise.resolve({ ok: true });
+      },
+      read: (namespace, key) =>
+        Promise.resolve(objects.get(`${namespace}/${key}`) ?? null),
+      delete: (namespace, key) => {
+        objects.delete(`${namespace}/${key}`);
+        return Promise.resolve();
+      },
+      signGet: (input) =>
+        Promise.resolve(`https://storage.test/${input.namespace}/${input.key}`),
+    };
+    const assets = assembleMaterialAssets({
+      prisma: db.prisma,
+      objectStorage: storage,
+    });
+    const authoring = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy,
+      materialAssets: assets,
+    }).authoring;
+    const body = source({ access: "closed" });
+    const descriptor = {
+      id: `inside-task-page:${body.sourceId}`,
+      path: "task-pages/asset-task.md",
+      revision: "e".repeat(64),
+      showInFeed: false,
+    };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor: owner,
+      source: descriptor,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const materialId = reserved.value.materialId;
+    const imageBytes = await sharp({
+      create: { width: 16, height: 16, channels: 3, background: "white" },
+    })
+      .png()
+      .toBuffer();
+    const upload = async (
+      bytes: Uint8Array,
+      filename: string,
+      kind: "image" | "file",
+      contentType: string,
+    ) => {
+      const result = await assets.upload({
+        actor: owner,
+        materialId,
+        body: bytes,
+        filename,
+        kind,
+        declaredContentType: contentType,
+        declaredSize: bytes.length,
+        expectedChecksumSha256: createHash("sha256")
+          .update(bytes)
+          .digest("hex"),
+        idempotencyKey: filename,
+      });
+      if (!result.ok) throw new Error(result.error.code);
+      return result.value.assetId;
+    };
+    const imageId = await upload(
+      imageBytes,
+      "scheme.png",
+      "image",
+      "image/png",
+    );
+    const fileId = await upload(
+      new TextEncoder().encode("Шаблон заявки"),
+      "template.txt",
+      "file",
+      "text/plain",
+    );
+    const imageNode = {
+      type: "assetImage",
+      attrs: {
+        nodeId: randomUUID(),
+        assetId: imageId,
+        alt: "Схема",
+        caption: "",
+      },
+    };
+    const doc = {
+      schemaVersion: 1,
+      doc: { type: "doc", content: [imageNode] },
+    };
+    const saved = await authoring.applySourceMaterial({
+      actor: owner,
+      source: descriptor,
+      materialId,
+      expectedContentVersion: reserved.value.contentVersion,
+      idempotencyKey: randomUUID(),
+      publicationState: "draft",
+      primaryVideoId: null,
+      metadata: {
+        title: "Private task assets",
+        summary: "Assets",
+        access: "closed",
+        topicId,
+        formatId: "guide",
+        tagIds: [],
+        seriesIds: [],
+        difficulty: null,
+        outcomes: [],
+      },
+      body: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            imageNode,
+            {
+              type: "assetFile",
+              attrs: { nodeId: randomUUID(), assetId: fileId, label: "Шаблон" },
+            },
+          ],
+        },
+      },
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+    const v2 = {
+      schemaVersion: 2,
+      format: "c",
+      intro: "Вступление",
+      freedom: "Стек",
+      criteria: [
+        {
+          id: "access",
+          level: "required",
+          task: "Сделай",
+          explanation: "![Схема](scheme.png)",
+          acceptableEvidence: ["Проверка"],
+        },
+      ],
+    };
+    const original = {
+      title: "Страница",
+      summary: "Задание",
+      markdown: "![Схема](scheme.png)",
+      links: {},
+      images: { "scheme.png": "scheme-original" },
+      coverAssetId: "cover-original",
+      coverAlt: "Обложка",
+      artifacts: [
+        { sourceId: "template", title: "Шаблон", assetId: "template-original" },
+      ],
+    };
+    const apply = assembleApplySourceTask({ ...importDependencies(), assets });
+    const applied = await apply(
+      {
+        ...body,
+        definition: v2,
+        page: original,
+        pageBody: doc,
+        resolvedImages: {
+          "scheme.png": { assetId: imageId, materialId },
+          "cover:cover-original": { assetId: imageId, materialId },
+          "artifact:template": { assetId: fileId, materialId },
+        },
+        expectedRevision: null,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(applied).toMatchObject({ ok: true });
+    const subject = await learner();
+    const dependencies = {
+      prisma: db.prisma,
+      directory,
+      contentAccess,
+      submissionsEnabled: true,
+      assets,
+      objectStorage: storage,
+    };
+    expect(
+      await deliverTaskAsset(dependencies, {
+        subject,
+        productSlug,
+        code: body.code,
+        assetId: imageId,
+      }),
+    ).toEqual({ ok: false, error: { code: "asset_not_found" } });
+    const grantId = await grant(subject, [`product:${productId}`]);
+    expect(
+      await learning().page({ subject, productSlug, code: body.code }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        task: {
+          page: {
+            cover: { assetId: imageId, alt: "Обложка" },
+            artifacts: [
+              { sourceId: "template", title: "Шаблон", assetId: fileId },
+            ],
+          },
+        },
+      },
+    });
+    for (const assetId of [imageId, fileId])
+      expect(
+        await deliverTaskAsset(dependencies, {
+          subject,
+          productSlug,
+          code: body.code,
+          assetId,
+        }),
+      ).toMatchObject({
+        ok: true,
+        value: { kind: "redirect", cacheScope: "private-no-store" },
+      });
+    expect(
+      await deliverTaskAsset(dependencies, {
+        subject,
+        productSlug,
+        code: body.code,
+        assetId: randomUUID(),
+      }),
+    ).toEqual({ ok: false, error: { code: "asset_not_found" } });
+    const read = await readAll(learning(), subject, body.code);
+    expect(JSON.parse(read.context)).toMatchObject({
+      payload: {
+        task: {
+          definition: {
+            criteria: [
+              {
+                explanation: `![Схема](/library/products/${productSlug}/tasks/${body.code}/assets/${imageId})`,
+              },
+            ],
+          },
+        },
+      },
+    });
+    await revoke(grantId);
+    expect(
+      await deliverTaskAsset(dependencies, {
+        subject,
+        productSlug,
+        code: body.code,
+        assetId: fileId,
+      }),
+    ).toEqual({ ok: false, error: { code: "asset_not_found" } });
   });
 
   test("import and submission finish on a one-connection pool: no transaction waits for another connection", async () => {

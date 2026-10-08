@@ -1,3 +1,4 @@
+import type { MaterialAssets } from "../../../assets/index.js";
 import { preProductCommand } from "../../../../infrastructure/contracts/pre-product-command.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -42,6 +43,7 @@ export interface TaskImportDependencies {
   >;
   readonly authorPolicy: AuthorPolicy;
   readonly clock?: () => Date;
+  readonly assets?: Pick<MaterialAssets, "loadAccessFacts">;
 }
 
 type TaskRow = NonNullable<
@@ -62,6 +64,9 @@ export function assembleValidateSourceTask(
     );
     if (!authorized.ok) return authorized;
     try {
+      const [migration] = await dependencies.directory.materialsBySource([
+        parsed.data.sourceId,
+      ]);
       const current = await dependencies.prisma.productTask.findUnique({
         where: { code: parsed.data.code },
       });
@@ -71,6 +76,10 @@ export function assembleValidateSourceTask(
         ok: true,
         value: {
           valid: true,
+          migration:
+            migration === undefined
+              ? null
+              : { materialId: migration.materialId },
           current:
             current === null
               ? null
@@ -112,6 +121,41 @@ export function assembleApplySourceTask(
     if (!authorized.ok) return authorized;
     const placement = await checkPlacement(dependencies.directory, command);
     if (!placement.ok) return placement;
+    const references = Object.values(command.resolvedImages);
+    if (references.length > 0) {
+      try {
+        const [owner] = await dependencies.directory.materialsBySource([
+          `inside-task-page:${command.sourceId}`,
+        ]);
+        const facts = await dependencies.assets?.loadAccessFacts([
+          ...new Set(references.map((item) => item.assetId)),
+        ]);
+        if (facts === undefined || !facts.ok)
+          return {
+            ok: false,
+            error: { code: "dependency_unavailable", retryable: true },
+          };
+        if (
+          owner === undefined ||
+          references.some(
+            (reference) =>
+              reference.materialId !== owner.materialId ||
+              !facts.value.some(
+                (fact) =>
+                  fact.assetId === reference.assetId &&
+                  fact.materialId === owner.materialId,
+              ),
+          )
+        )
+          return { ok: false, error: { code: "source_mismatch" } };
+      } catch (error) {
+        return dependencyFailure(
+          scope("applySourceTask"),
+          error,
+          systemFailure(error),
+        );
+      }
+    }
     const fingerprint = commandDigest(
       preProductCommand({ operation, ...command }),
     );
@@ -182,7 +226,17 @@ async function saveTask(
   now: Date,
 ): Promise<TaskImportReceipt> {
   const digest = taskDefinitionDigest(command.definition);
+  const page =
+    command.page === undefined || command.pageBody === undefined
+      ? undefined
+      : {
+          source: command.page,
+          body: command.pageBody,
+          resolvedLinks: command.resolvedLinks,
+          resolvedImages: command.resolvedImages,
+        };
   const state = {
+    ...(page === undefined ? {} : { page }),
     chapterId: command.chapterId,
     position: command.position,
     title: command.title,
@@ -235,6 +289,8 @@ async function saveTask(
   );
   const newVersion = currentVersion.definitionDigest !== digest;
   const stateChanged =
+    (page !== undefined &&
+      commandDigest(current.page) !== commandDigest(page)) ||
     current.chapterId !== state.chapterId ||
     current.position !== state.position ||
     current.title !== state.title ||
@@ -282,6 +338,9 @@ async function checkPlacement(
   command: SourceTask,
 ): Promise<Result<undefined, TaskImportError>> {
   try {
+    const [migration] = await directory.materialsBySource([command.sourceId]);
+    if (migration !== undefined)
+      return { ok: false, error: { code: "source_mismatch" } };
     const [product] = await directory.products({ ids: [command.productId] });
     if (product === undefined || product.archived)
       return { ok: false, error: { code: "product_not_found" } };
