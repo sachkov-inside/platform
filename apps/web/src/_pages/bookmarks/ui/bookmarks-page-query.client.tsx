@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { MaterialCard } from "@/entities/material";
-import { listBookmarkPage } from "@/features/bookmarks";
+import { MaterialCard, useMaterialReading } from "@/entities/material";
+import { listBookmarkPage, useBookmarkChanges } from "@/features/bookmarks";
 import { Button } from "@/shared/ui/button";
 import {
   BookmarksEmpty,
@@ -13,16 +13,21 @@ import {
 } from "./bookmarks-page";
 
 export function BookmarksPageQuery() {
+  const { accountId, resolved } = useMaterialReading();
+  useBookmarkChanges(resolved ? accountId : null);
   const query = useInfiniteQuery({
-    queryKey: ["bookmarks", "list"],
+    queryKey: ["bookmarks", accountId, "list"],
     queryFn: ({ pageParam }) => listBookmarkPage(pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) =>
       last.kind === "ready" ? (last.nextCursor ?? undefined) : undefined,
     retry: false,
+    enabled: resolved && accountId !== null,
   });
   const pages = useMemo(() => query.data?.pages ?? [], [query.data]);
 
+  if (!resolved) return <BookmarksLoading />;
+  if (accountId === null) return <BookmarksSignInRequired />;
   if (query.isPending) return <BookmarksLoading />;
   if (query.data === undefined) return <BookmarksUnavailable />;
 

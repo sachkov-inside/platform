@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { z } from "zod";
 
 const offer = {
   id: "00000000-0000-4000-8000-000000000101",
@@ -232,19 +233,28 @@ const billingChannel = "inside.account.billing.changed";
  * что объявление этого шага уже дошло бы раньше неё.
  */
 async function countBillingAnnouncements(page: Page) {
-  await page.addInitScript((channel) => {
-    new BroadcastChannel(channel).addEventListener(
-      "message",
-      (event: MessageEvent) => {
-        if (event.data === "written") {
-          const heard = Number(sessionStorage.getItem("test.announcements"));
-          sessionStorage.setItem("test.announcements", String(heard + 1));
-        } else {
-          sessionStorage.setItem("test.marker", String(event.data));
-        }
-      },
-    );
-  }, billingChannel);
+  await page.addInitScript(
+    ({ channel, uuidPattern }) => {
+      const announcementId = new RegExp(uuidPattern);
+      new BroadcastChannel(channel).addEventListener(
+        "message",
+        (event: MessageEvent) => {
+          // A write now carries its UUID; older tabs still send the written literal.
+          // Test markers are deliberately outside that protocol.
+          const isWrite =
+            event.data === "written" ||
+            (typeof event.data === "string" && announcementId.test(event.data));
+          if (isWrite) {
+            const heard = Number(sessionStorage.getItem("test.announcements"));
+            sessionStorage.setItem("test.announcements", String(heard + 1));
+          } else {
+            sessionStorage.setItem("test.marker", String(event.data));
+          }
+        },
+      );
+    },
+    { channel: billingChannel, uuidPattern: z.regexes.uuid().source },
+  );
   return {
     count: () =>
       page.evaluate(() => Number(sessionStorage.getItem("test.announcements"))),
@@ -273,6 +283,12 @@ test("подтверждённая покупка перечитывает ст�
   const announcements = await countBillingAnnouncements(page);
   await page.goto("/payment/checkout");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  expect(refreshes.count).toBe(0);
+
+  // Delivery alone is not a purchase: the observer must reject a non-write message.
+  await postMarker(page, "before-purchase");
+  await expect.poll(announcements.marker).toBe("before-purchase");
+  expect(await announcements.count()).toBe(0);
   expect(refreshes.count).toBe(0);
 
   const purchase = await context.newPage();
