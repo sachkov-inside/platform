@@ -155,8 +155,8 @@ export class BackgroundWorkers
       add(
         "marketing",
         BACKGROUND,
-        async () =>
-          (await this.funnels.processAvailable()) > 0 ||
+        async (signal) =>
+          (await this.funnels.processAvailable(25, signal)) > 0 ||
           (await this.turnPending("general")),
       );
     }
@@ -231,5 +231,13 @@ export class BackgroundWorkers
 
   async onModuleDestroy(): Promise<void> {
     await Promise.all(this.loops.map((loop) => loop.stop()));
+  }
+
+  /** Every enabled cycle has reached an empty poll at the requested delay, within its policy. */
+  isIdle(minimumPollDelayMs = 0): boolean {
+    return (
+      this.loops.length > 0 &&
+      this.loops.every((loop) => loop.isIdle(minimumPollDelayMs))
+    );
   }
 }

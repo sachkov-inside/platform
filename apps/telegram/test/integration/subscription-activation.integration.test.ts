@@ -4,7 +4,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
@@ -28,143 +28,157 @@ import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { required } from "../support/required.js";
 
-const bot = `activation-${randomUUID()}`;
-const clock = {
-  value: new Date(),
-  now() {
-    return new Date(this.value);
+const it = test.extend<{
+  activation: Awaited<ReturnType<typeof createFixture>>;
+}>({
+  activation: async ({ signal }, use) => {
+    signal.throwIfAborted();
+    const fixture = await createFixture();
+    try {
+      await use(fixture);
+    } finally {
+      await fixture.app.close();
+    }
   },
-};
-const config = loadApplicationConfig({
-  DATABASE_URL: process.env["DATABASE_URL"],
-  TELEGRAM_BOT_IDENTITY: bot,
-  TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
-  TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
-  PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
-  TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
-  TELEGRAM_LINKED_MEMBER_TEXT: "member",
-  TELEGRAM_LINKED_NON_MEMBER_TEXT: "not member",
-  TELEGRAM_LINKED_UNAVAILABLE_TEXT: "unavailable",
-  TELEGRAM_WELCOME_TEXT: "Welcome",
-  WORKERS_ENABLED: "false",
-  TELEGRAM_ACTIVATION_ENABLED: "true",
-  PLATFORM_ACTIVATION_SECRET: "s".repeat(32),
-  PLATFORM_ACTIVATION_URL: "http://127.0.0.1:1/activation",
-  PLATFORM_ACCOUNT_URL: "https://platform.example/account",
-  TELEGRAM_ACTIVATION_SOURCES: JSON.stringify([
-    { sourceRef: "course", chatId: "-1000000000001", policy: "whole_group" },
-  ]),
 });
-let app: NestFastifyApplication;
-let db: Database;
-let worker: SubscriptionActivation;
-const bindings = new Map<string, ActivationBinding>();
-const proofs: ActivationEvidence[] = [];
-const begins: string[] = [];
-const granted = new Set<string>();
-const results = new Map<string, ActivationResult<ActivationResponse>>();
-const receipts = new Map<string, ActivationResult<ActivationResponse>>();
-let loseResponse = false;
-let dropBeforeAccept = false;
-let evidenceConflict = false;
-let onSourceCheck: (() => Promise<void>) | undefined;
-let source: "member" | "not_member" | "unavailable" = "member";
-let bindingUnavailable = false;
-const rule = { id: randomUUID(), revision: 1, sourceRef: "course" };
-const platform: ActivationPlatform = {
-  redeem: () => Promise.resolve(undefined),
-  binding(identityRef) {
-    return Promise.resolve(
-      bindingUnavailable
-        ? { ok: false, error: { code: "unavailable" } }
-        : {
-            ok: true,
-            value: {
-              contractVersion: ACTIVATION_VERSION,
-              ...(bindings.has(identityRef)
-                ? {
-                    state: "linked",
-                    binding: required(bindings.get(identityRef)),
-                  }
-                : { state: "unlinked" }),
+
+async function createFixture() {
+  const bot = `activation-${randomUUID()}`;
+  const clock = {
+    value: new Date(),
+    now() {
+      return new Date(this.value);
+    },
+  };
+  const config = loadApplicationConfig({
+    DATABASE_URL: process.env["DATABASE_URL"],
+    TELEGRAM_BOT_IDENTITY: bot,
+    TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+    TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
+    PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
+    TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
+    TELEGRAM_LINKED_MEMBER_TEXT: "member",
+    TELEGRAM_LINKED_NON_MEMBER_TEXT: "not member",
+    TELEGRAM_LINKED_UNAVAILABLE_TEXT: "unavailable",
+    TELEGRAM_WELCOME_TEXT: "Welcome",
+    WORKERS_ENABLED: "false",
+    TELEGRAM_ACTIVATION_ENABLED: "true",
+    PLATFORM_ACTIVATION_SECRET: "s".repeat(32),
+    PLATFORM_ACTIVATION_URL: "http://127.0.0.1:1/activation",
+    PLATFORM_ACCOUNT_URL: "https://platform.example/account",
+    TELEGRAM_ACTIVATION_SOURCES: JSON.stringify([
+      { sourceRef: "course", chatId: "-1000000000001", policy: "whole_group" },
+    ]),
+  });
+  const bindings = new Map<string, ActivationBinding>();
+  const proofs: ActivationEvidence[] = [];
+  const begins: string[] = [];
+  const granted = new Set<string>();
+  const results = new Map<string, ActivationResult<ActivationResponse>>();
+  const receipts = new Map<string, ActivationResult<ActivationResponse>>();
+  const state = {
+    loseResponse: false,
+    dropBeforeAccept: false,
+    evidenceConflict: false,
+    onSourceCheck: undefined as (() => Promise<void>) | undefined,
+    source: "member" as "member" | "not_member" | "unavailable",
+    bindingUnavailable: false,
+  };
+  const rule = { id: randomUUID(), revision: 1, sourceRef: "course" };
+  const platform: ActivationPlatform = {
+    redeem: () => Promise.resolve(undefined),
+    binding(identityRef) {
+      return Promise.resolve(
+        state.bindingUnavailable
+          ? { ok: false, error: { code: "unavailable" } }
+          : {
+              ok: true,
+              value: {
+                contractVersion: ACTIVATION_VERSION,
+                ...(bindings.has(identityRef)
+                  ? {
+                      state: "linked",
+                      binding: required(bindings.get(identityRef)),
+                    }
+                  : { state: "unlinked" }),
+              },
             },
-          },
-    );
-  },
-  begin(input) {
-    begins.push(input.attemptId);
-    if (results.has(input.attemptId))
-      return Promise.resolve(
-        structuredClone(required(results.get(input.attemptId))),
       );
-    return Promise.resolve({
-      ok: true,
-      value: {
-        contractVersion: ACTIVATION_VERSION,
-        attemptId: input.attemptId,
-        state: "needs_account",
-        enrollment: null,
-        rule,
-      },
-    });
-  },
-  evidence(input) {
-    proofs.push(structuredClone(input));
-    if (dropBeforeAccept) {
-      dropBeforeAccept = false;
-      return Promise.resolve(undefined);
-    }
-    if (evidenceConflict)
+    },
+    begin(input) {
+      begins.push(input.attemptId);
+      if (results.has(input.attemptId))
+        return Promise.resolve(
+          structuredClone(required(results.get(input.attemptId))),
+        );
       return Promise.resolve({
-        ok: false,
-        error: { code: "identity_conflict" },
+        ok: true,
+        value: {
+          contractVersion: ACTIVATION_VERSION,
+          attemptId: input.attemptId,
+          state: "needs_account",
+          enrollment: null,
+          rule,
+        },
       });
-    if (receipts.has(input.evidenceRef))
-      return Promise.resolve(
-        structuredClone(required(receipts.get(input.evidenceRef))),
-      );
-    if (Date.parse(input.validUntil) <= clock.now().getTime())
+    },
+    evidence(input) {
+      proofs.push(structuredClone(input));
+      if (state.dropBeforeAccept) {
+        state.dropBeforeAccept = false;
+        return Promise.resolve(undefined);
+      }
+      if (state.evidenceConflict)
+        return Promise.resolve({
+          ok: false,
+          error: { code: "identity_conflict" },
+        });
+      if (receipts.has(input.evidenceRef))
+        return Promise.resolve(
+          structuredClone(required(receipts.get(input.evidenceRef))),
+        );
+      if (Date.parse(input.validUntil) <= clock.now().getTime())
+        return Promise.resolve({
+          ok: false,
+          error: { code: "source_not_confirmed" },
+        });
+      if (input.decision === "member")
+        granted.add(`${input.sourceRef}:${input.identityRef}`);
+      const result: ActivationResult<ActivationResponse> = {
+        ok: true,
+        value: {
+          contractVersion: ACTIVATION_VERSION,
+          attemptId: input.attemptId,
+          state:
+            input.decision === "member"
+              ? "active"
+              : input.decision === "not_member"
+                ? "rejected"
+                : "unavailable",
+          enrollment: null,
+        },
+      };
+      results.set(input.attemptId, structuredClone(result));
+      receipts.set(input.evidenceRef, structuredClone(result));
+      if (state.loseResponse) {
+        state.loseResponse = false;
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(result);
+    },
+    own() {
       return Promise.resolve({
-        ok: false,
-        error: { code: "source_not_confirmed" },
+        ok: true,
+        value: {
+          contractVersion: ACTIVATION_VERSION,
+          enrollments: [],
+          grounds: [],
+          admission: { state: "no_access", admissionRestriction: "none" },
+        },
       });
-    if (input.decision === "member")
-      granted.add(`${input.sourceRef}:${input.identityRef}`);
-    const result: ActivationResult<ActivationResponse> = {
-      ok: true,
-      value: {
-        contractVersion: ACTIVATION_VERSION,
-        attemptId: input.attemptId,
-        state:
-          input.decision === "member"
-            ? "active"
-            : input.decision === "not_member"
-              ? "rejected"
-              : "unavailable",
-        enrollment: null,
-      },
-    };
-    results.set(input.attemptId, structuredClone(result));
-    receipts.set(input.evidenceRef, structuredClone(result));
-    if (loseResponse) {
-      loseResponse = false;
-      return Promise.resolve(undefined);
-    }
-    return Promise.resolve(result);
-  },
-  own() {
-    return Promise.resolve({
-      ok: true,
-      value: {
-        contractVersion: ACTIVATION_VERSION,
-        enrollments: [],
-        grounds: [],
-        admission: { state: "no_access", admissionRestriction: "none" },
-      },
-    });
-  },
-};
-beforeAll(async () => {
+    },
+  };
+
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
@@ -175,88 +189,120 @@ beforeAll(async () => {
     .overrideProvider(SourceGroupProof)
     .useValue({
       async check() {
-        const hook = onSourceCheck;
-        onSourceCheck = undefined;
+        const hook = state.onSourceCheck;
+        state.onSourceCheck = undefined;
         if (hook) await hook();
-        return { decision: source };
+        return { decision: state.source };
       },
     })
     .compile();
-  app = module.createNestApplication<NestFastifyApplication>(
+  const app = module.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter(),
     { logger: false },
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  db = app.get(DATABASE);
-  worker = app.get(SubscriptionActivation);
-});
-afterAll(async () => {
-  await app.close();
-});
-let updateId = 300000;
-async function ingress(user: number, text: string) {
-  const response = await app.inject({
-    method: "POST",
-    url: "/webhooks/telegram",
-    headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
-    payload: privateStartUpdate(++updateId, user, { text }),
-  });
-  expect(response.statusCode).toBe(202);
-  await app.get(TelegramUpdateProcessor).processAvailable();
-}
-async function identity(user: number) {
-  return (
-    await db
-      .selectFrom("telegram_identity_reservations")
-      .select("identity_ref")
-      .where("bot_identity", "=", bot)
-      .where("telegram_user_id", "=", String(user))
-      .executeTakeFirstOrThrow()
-  ).identity_ref;
-}
-async function link(user: number) {
-  const linking = app.get(IdentityLinking);
-  const accountRef = `account-${bot}-${user}`;
-  const token = randomUUID();
-  const challenge = await linking.register({
-    accountRef,
-    expiresAt: new Date(clock.now().getTime() + 300_000),
-    returnCorrelation: randomUUID(),
-    tokenDigest: createHash("sha256")
-      .update(`${token}${user}`)
-      .digest("base64url"),
-  });
-  await linking.acceptStart({
-    botIdentity: bot,
-    telegramUserId: String(user),
-    observedAt: clock.now(),
-    linkToken: {
-      kind: "digest",
-      digest: createHash("sha256")
+  const db = app.get<Database>(DATABASE);
+  const worker = app.get(SubscriptionActivation);
+  let updateId = 300000;
+  async function ingress(user: number, text: string) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
+      payload: privateStartUpdate(++updateId, user, { text }),
+    });
+    expect(response.statusCode).toBe(202);
+    await app.get(TelegramUpdateProcessor).processAvailable();
+  }
+  async function identity(user: number) {
+    return (
+      await db
+        .selectFrom("telegram_identity_reservations")
+        .select("identity_ref")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(user))
+        .executeTakeFirstOrThrow()
+    ).identity_ref;
+  }
+  async function link(user: number) {
+    const linking = app.get(IdentityLinking);
+    const accountRef = `account-${bot}-${user}`;
+    const token = randomUUID();
+    const challenge = await linking.register({
+      accountRef,
+      expiresAt: new Date(clock.now().getTime() + 300_000),
+      returnCorrelation: randomUUID(),
+      tokenDigest: createHash("sha256")
         .update(`${token}${user}`)
         .digest("base64url"),
-    },
-  });
-  const confirmed = await linking.confirm({
-    accountRef,
-    linkTransactionRef: challenge.linkTransactionRef,
-    returnCorrelation: challenge.returnCorrelation,
-  });
-  expect(confirmed).toMatchObject({
-    status: "linked",
-    telegramIdentityRef: await identity(user),
-  });
-  const id = await identity(user);
-  bindings.set(id, {
-    accountRef,
-    identityRef: id,
-    linkRef: randomUUID(),
-    linkRevision: 3,
-  });
+    });
+    await linking.acceptStart({
+      botIdentity: bot,
+      telegramUserId: String(user),
+      observedAt: clock.now(),
+      linkToken: {
+        kind: "digest",
+        digest: createHash("sha256")
+          .update(`${token}${user}`)
+          .digest("base64url"),
+      },
+    });
+    const confirmed = await linking.confirm({
+      accountRef,
+      linkTransactionRef: challenge.linkTransactionRef,
+      returnCorrelation: challenge.returnCorrelation,
+    });
+    expect(confirmed).toMatchObject({
+      status: "linked",
+      telegramIdentityRef: await identity(user),
+    });
+    const id = await identity(user);
+    bindings.set(id, {
+      accountRef,
+      identityRef: id,
+      linkRef: randomUUID(),
+      linkRevision: 3,
+    });
+  }
+
+  return {
+    app,
+    db,
+    worker,
+    bot,
+    clock,
+    config,
+    bindings,
+    proofs,
+    begins,
+    granted,
+    rule,
+    platform,
+    state,
+    ingress,
+    identity,
+    link,
+  };
 }
+
 describe("durable activation ingress, identity and continuation", () => {
-  it("keeps the same source identity across linking, two links and concurrent workers", async () => {
+  it("keeps the same source identity across linking, two links and concurrent workers", async ({
+    activation,
+  }) => {
+    const {
+      db,
+      worker,
+      bot,
+      clock,
+      bindings,
+      proofs,
+      granted,
+      rule,
+      ingress,
+      identity,
+      link,
+    } = activation;
     await ingress(70001, "/start a_course");
     await worker.processAvailable();
     expect(
@@ -301,10 +347,25 @@ describe("durable activation ingress, identity and continuation", () => {
         .execute(),
     ).toHaveLength(0);
   });
-  it("replays exactly the persisted evidence after a lost response and restart", async () => {
+  it("replays exactly the persisted evidence after a lost response and restart", async ({
+    activation,
+  }) => {
+    const {
+      app,
+      db,
+      worker,
+      clock,
+      config,
+      proofs,
+      platform,
+      state,
+      ingress,
+      identity,
+      link,
+    } = activation;
     await ingress(70002, "/start a_course");
     await link(70002);
-    loseResponse = true;
+    state.loseResponse = true;
     await worker.processAvailable();
     const first = required(proofs.at(-1));
     expect(first.identityRef).toBe(await identity(70002));
@@ -331,10 +392,14 @@ describe("durable activation ingress, identity and continuation", () => {
     await restarted.processAvailable();
     expect(proofs.at(-1)).toEqual(first);
   });
-  it("replays an expired unaccepted payload before creating fresh evidence", async () => {
+  it("replays an expired unaccepted payload before creating fresh evidence", async ({
+    activation,
+  }) => {
+    const { worker, clock, proofs, granted, state, ingress, identity, link } =
+      activation;
     await ingress(70007, "/start a_course");
     await link(70007);
-    dropBeforeAccept = true;
+    state.dropBeforeAccept = true;
     await worker.processAvailable();
     const first = required(proofs.at(-1));
     clock.value = new Date(clock.now().getTime() + 301_000);
@@ -343,16 +408,20 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(required(proofs.at(-1)).evidenceRef).not.toBe(first.evidenceRef);
     expect(granted.has(`course:${await identity(70007)}`)).toBe(true);
   });
-  it("stops identity conflict until an explicit user retry", async () => {
+  it("stops identity conflict until an explicit user retry", async ({
+    activation,
+  }) => {
+    const { worker, clock, proofs, granted, state, ingress, identity, link } =
+      activation;
     await ingress(70008, "/start a_course");
     await link(70008);
-    dropBeforeAccept = true;
+    state.dropBeforeAccept = true;
     await worker.processAvailable();
-    evidenceConflict = true;
+    state.evidenceConflict = true;
     clock.value = new Date(clock.now().getTime() + 60_000);
     await worker.processAvailable();
     const count = proofs.length;
-    evidenceConflict = false;
+    state.evidenceConflict = false;
     clock.value = new Date(clock.now().getTime() + 60_000);
     await worker.processAvailable();
     expect(proofs).toHaveLength(count);
@@ -361,10 +430,14 @@ describe("durable activation ingress, identity and continuation", () => {
     await worker.processAvailable();
     expect(granted.has(`course:${await identity(70008)}`)).toBe(true);
   });
-  it("prevents a stale worker from submitting after another worker takes its lease", async () => {
+  it("prevents a stale worker from submitting after another worker takes its lease", async ({
+    activation,
+  }) => {
+    const { worker, clock, proofs, state, ingress, identity, link } =
+      activation;
     await ingress(70009, "/start a_course");
     await link(70009);
-    onSourceCheck = async () => {
+    state.onSourceCheck = async () => {
       clock.value = new Date(clock.now().getTime() + 61_000);
       await worker.processAvailable();
     };
@@ -372,8 +445,12 @@ describe("durable activation ingress, identity and continuation", () => {
     const id = await identity(70009);
     expect(proofs.filter((p) => p.identityRef === id)).toHaveLength(1);
   });
-  it("distinguishes unavailable binding from missing Account and rejects nonmembers", async () => {
-    bindingUnavailable = true;
+  it("distinguishes unavailable binding from missing Account and rejects nonmembers", async ({
+    activation,
+  }) => {
+    const { db, worker, bot, clock, granted, state, ingress, identity, link } =
+      activation;
+    state.bindingUnavailable = true;
     await ingress(70003, "/start a_course");
     await worker.processAvailable();
     expect(
@@ -384,16 +461,30 @@ describe("durable activation ingress, identity and continuation", () => {
         .where("telegram_user_id", "=", "70003")
         .executeTakeFirst(),
     ).toEqual({ state: "retry", diagnostic_code: "binding_unavailable" });
-    bindingUnavailable = false;
+    state.bindingUnavailable = false;
     await link(70003);
-    source = "not_member";
+    state.source = "not_member";
     clock.value = new Date(clock.now().getTime() + 60_000);
     await worker.processAvailable();
     expect(granted.has(`course:${await identity(70003)}`)).toBe(false);
-    source = "member";
+    state.source = "member";
   });
-  it("recovers saved unavailable without a rule and suppresses unchanged automatic replies", async () => {
-    source = "unavailable";
+  it("recovers saved unavailable without a rule and suppresses unchanged automatic replies", async ({
+    activation,
+  }) => {
+    const {
+      db,
+      worker,
+      bot,
+      clock,
+      proofs,
+      granted,
+      state,
+      ingress,
+      identity,
+      link,
+    } = activation;
+    state.source = "unavailable";
     await ingress(70005, "/start a_course");
     await link(70005);
     await worker.processAvailable();
@@ -410,14 +501,29 @@ describe("durable activation ingress, identity and continuation", () => {
       .where("source_key", "like", "activation:%:unavailable")
       .execute();
     expect(replies).toHaveLength(1);
-    source = "member";
+    state.source = "member";
     clock.value = new Date(clock.now().getTime() + 60_000);
     await worker.processAvailable();
     expect(required(proofs.at(-1)).attemptId).not.toBe(initial.attemptId);
     expect(granted.has(`course:${await identity(70005)}`)).toBe(true);
   });
-  it("expires known unavailable work and permits a fresh explicit start", async () => {
-    source = "unavailable";
+  it("expires known unavailable work and permits a fresh explicit start", async ({
+    activation,
+  }) => {
+    const {
+      db,
+      worker,
+      bot,
+      clock,
+      proofs,
+      begins,
+      granted,
+      state,
+      ingress,
+      identity,
+      link,
+    } = activation;
+    state.source = "unavailable";
     await ingress(70011, "/start a_course");
     await link(70011);
     await worker.processAvailable();
@@ -434,16 +540,31 @@ describe("durable activation ingress, identity and continuation", () => {
         .where("telegram_user_id", "=", "70011")
         .execute(),
     ).toEqual([]);
-    source = "member";
+    state.source = "member";
     await ingress(70011, "/start a_course");
     await worker.processAvailable();
     expect(required(proofs.at(-1)).attemptId).not.toBe(first.attemptId);
     expect(granted.has(`course:${await identity(70011)}`)).toBe(true);
   });
-  it("resolves expired uncertain evidence before cleanup without starting a new proof", async () => {
+  it("resolves expired uncertain evidence before cleanup without starting a new proof", async ({
+    activation,
+  }) => {
+    const {
+      db,
+      worker,
+      bot,
+      clock,
+      proofs,
+      begins,
+      granted,
+      state,
+      ingress,
+      identity,
+      link,
+    } = activation;
     await ingress(70010, "/start a_course");
     await link(70010);
-    dropBeforeAccept = true;
+    state.dropBeforeAccept = true;
     await worker.processAvailable();
     const first = required(proofs.at(-1));
     const beginCount = begins.length;
@@ -461,20 +582,27 @@ describe("durable activation ingress, identity and continuation", () => {
         .execute(),
     ).toEqual([]);
   });
-  it("allows a rejected course to be checked again after retention", async () => {
-    source = "not_member";
+  it("allows a rejected course to be checked again after retention", async ({
+    activation,
+  }) => {
+    const { worker, clock, proofs, granted, state, ingress, identity, link } =
+      activation;
+    state.source = "not_member";
     await ingress(70006, "/start a_course");
     await link(70006);
     await worker.processAvailable();
     const rejected = required(proofs.at(-1));
     clock.value = new Date(clock.now().getTime() + 31 * 24 * 60 * 60_000);
-    source = "member";
+    state.source = "member";
     await ingress(70006, "/start a_course");
     await worker.processAvailable();
     expect(required(proofs.at(-1)).attemptId).not.toBe(rejected.attemptId);
     expect(granted.has(`course:${await identity(70006)}`)).toBe(true);
   });
-  it("purges old unlinked attempts while retaining the stable source identity", async () => {
+  it("purges old unlinked attempts while retaining the stable source identity", async ({
+    activation,
+  }) => {
+    const { db, worker, bot, clock, ingress, identity } = activation;
     await ingress(70004, "/start a_course");
     await worker.processAvailable();
     const before = await identity(70004);

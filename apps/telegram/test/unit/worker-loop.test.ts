@@ -27,8 +27,14 @@ describe("WorkerLoop", () => {
     );
 
     loop.start();
+    expect(loop.isIdle()).toBe(false);
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(200 + 400 + 500 + 500 + 100);
+    expect(loop.isIdle()).toBe(true);
+    expect(loop.isIdle(500)).toBe(false);
+    await vi.advanceTimersByTimeAsync(200 + 400);
+    expect(loop.isIdle(500)).toBe(true);
+    expect(loop.isIdle(1000)).toBe(true);
+    await vi.advanceTimersByTimeAsync(500 + 500 + 100);
     await loop.stop();
 
     const gaps = startedAt
@@ -53,10 +59,12 @@ describe("WorkerLoop", () => {
     const beforeWake = cycles;
 
     loop.wake();
+    expect(loop.isIdle()).toBe(false);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(cycles).toBe(beforeWake + 1);
     await loop.stop();
+    expect(loop.isIdle()).toBe(false);
   });
 
   it("waits for the running cycle on stop and schedules nothing after it", async () => {
@@ -77,6 +85,7 @@ describe("WorkerLoop", () => {
     );
     loop.start();
     await vi.advanceTimersByTimeAsync(0);
+    expect(loop.isIdle()).toBe(false);
 
     let stopped = false;
     const stopping = loop.stop().then(() => {

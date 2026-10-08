@@ -20,6 +20,7 @@ export class WorkerLoop {
   private delayMs: number;
   private woken = false;
   private started = false;
+  private foundWork: boolean | undefined;
 
   constructor(
     private readonly name: string,
@@ -38,13 +39,27 @@ export class WorkerLoop {
   wake(): void {
     if (!this.started || this.controller.signal.aborted) return;
     if (this.running) this.woken = true;
-    else this.schedule(0);
+    else {
+      this.foundWork = undefined;
+      this.schedule(0);
+    }
   }
 
   async stop(): Promise<void> {
     this.controller.abort();
     clearTimeout(this.timer);
     await this.running;
+  }
+
+  /** An empty cycle is waiting, with the requested polling delay capped by its idle policy. */
+  isIdle(minimumPollDelayMs = 0): boolean {
+    return (
+      this.started &&
+      !this.controller.signal.aborted &&
+      this.running === undefined &&
+      this.foundWork === false &&
+      this.delayMs >= Math.min(minimumPollDelayMs, this.pacing.idleMs)
+    );
   }
 
   private schedule(delayMs: number): void {
@@ -64,6 +79,7 @@ export class WorkerLoop {
         this.running = undefined;
         if (this.controller.signal.aborted) return;
         const again = foundWork || this.woken;
+        this.foundWork = again;
         this.woken = false;
         this.delayMs = again
           ? this.pacing.busyMs
