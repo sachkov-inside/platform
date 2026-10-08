@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
+  DEFAULT_PALETTE,
   drawFilm,
   FILM_DESCRIPTION,
   FILM_DURATION,
   FILM_POSTER_TIME,
   FILM_WIDTH,
   type FilmFonts,
+  type FilmPalette,
 } from "../model/course-film";
 
 import "./course-film.css";
@@ -26,6 +28,21 @@ const readReducedMotion = () => window.matchMedia(reducedMotionQuery).matches;
 const readServerReducedMotion = () => true;
 
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
+
+/** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
+function readPalette(element: HTMLElement): FilmPalette {
+  const style = getComputedStyle(element);
+  const token = (name: string, fallback: string) => {
+    const value = style.getPropertyValue(name).trim();
+    return value === "" ? fallback : value;
+  };
+  return {
+    ink: token("--primary", DEFAULT_PALETTE.ink),
+    paper: token("--secondary", DEFAULT_PALETTE.paper),
+    accent: token("--accent", DEFAULT_PALETTE.accent),
+    good: DEFAULT_PALETTE.good,
+  };
+}
 
 /**
  * Анимация курса AI Engineering на холсте. Кадр задаёт только время: `drawFilm` — чистая функция,
@@ -55,6 +72,7 @@ export function CourseFilm({
     const element = canvas.current;
     if (!element) return undefined;
     let fonts: FilmFonts = { sans: "sans-serif", mono: MONO };
+    let palette = readPalette(element);
     const paint = () => {
       const g = element.getContext("2d");
       if (!g) return;
@@ -70,12 +88,15 @@ export function CourseFilm({
       }
       const scale = (dpr * width) / FILM_WIDTH;
       g.setTransform(scale, 0, 0, scale, 0, 0);
-      drawFilm(g, time.current, fonts);
+      drawFilm(g, time.current, fonts, palette);
     };
     const resize = new ResizeObserver(paint);
     resize.observe(element);
     void document.fonts.ready.then(() => {
-      fonts = { sans: getComputedStyle(element).fontFamily, mono: MONO };
+      const style = getComputedStyle(element);
+      const utility = style.getPropertyValue("--font-utility").trim();
+      fonts = { sans: style.fontFamily, mono: utility === "" ? MONO : utility };
+      palette = readPalette(element);
       paint();
       setReady(true);
     });

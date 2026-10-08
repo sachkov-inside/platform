@@ -48,14 +48,20 @@ export function CourseHero({
   return (
     <div className="aie-hero">
       <div className="aie-hero-copy">
-        <Heading className="aie-hero-title" id={headingId}>
-          <span className="aie-hero-name">{name}</span>
-          {badge === "" ? null : (
-            <>
-              {" "}
-              <span className="aie-hero-badge">{badge}</span>
-            </>
-          )}
+        <Heading
+          className="aie-hero-title"
+          data-badge={badge !== ""}
+          id={headingId}
+        >
+          <span className="aie-hero-mark">
+            <span className="aie-hero-name">{name}</span>
+            {badge === "" ? null : (
+              <>
+                {" "}
+                <span className="aie-hero-badge">{badge}</span>
+              </>
+            )}
+          </span>
         </Heading>
         {lead === "" ? null : <p className="aie-hero-lead">{lead}</p>}
         {highlights.length === 0 ? null : (
