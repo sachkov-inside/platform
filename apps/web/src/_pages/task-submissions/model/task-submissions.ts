@@ -18,7 +18,6 @@ const criterionSchema = z.union([
       task: z.string(),
       explanation: z.string(),
       advice: z.string().optional(),
-      acceptableEvidence: z.array(z.string()),
     })
     .strict(),
 ]);

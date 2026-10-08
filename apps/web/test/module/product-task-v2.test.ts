@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { productTaskPageSchema } from "@/_pages/product-task/model/product-task-page";
+import {
+  ownTaskSubmissionsSchema,
+  productTaskPageSchema,
+} from "@/_pages/product-task/model/product-task-page";
 
 function page() {
   return {
@@ -45,6 +48,34 @@ describe("Product Task c reader contract (#1194)", () => {
   it("accepts separate authored criteria, explanation and advice without agent evidence", () => {
     const parsed = productTaskPageSchema.safeParse(page());
     expect(parsed.success).toBe(true);
+  });
+
+  it("accepts historical c criteria without disclosing agent evidence", () => {
+    const criteria = page().task.definition.criteria;
+    expect(
+      ownTaskSubmissionsSchema.safeParse({
+        code: "synthetic-task",
+        currentVersion: 2,
+        versions: [{ version: 2, criteria }],
+        submissions: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      ownTaskSubmissionsSchema.safeParse({
+        code: "synthetic-task",
+        currentVersion: 2,
+        versions: [
+          {
+            version: 2,
+            criteria: criteria.map((criterion) => ({
+              ...criterion,
+              acceptableEvidence: ["Hidden"],
+            })),
+          },
+        ],
+        submissions: [],
+      }).success,
+    ).toBe(false);
   });
 
   it("refuses agent evidence in the c reader response", () => {

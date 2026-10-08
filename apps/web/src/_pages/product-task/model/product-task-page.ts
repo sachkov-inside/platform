@@ -20,10 +20,6 @@ const criterionV2Schema = z
   })
   .strict();
 
-const historicalCriterionV2Schema = criterionV2Schema.extend({
-  acceptableEvidence: z.array(z.string()),
-});
-
 const definitionV1Schema = z
   .object({
     situation: z.string(),
@@ -114,9 +110,7 @@ export const ownTaskSubmissionsSchema = z
       z
         .object({
           version: z.number().int().positive(),
-          criteria: z.array(
-            z.union([criterionSchema, historicalCriterionV2Schema]),
-          ),
+          criteria: z.array(z.union([criterionSchema, criterionV2Schema])),
         })
         .strict(),
     ),
@@ -144,9 +138,7 @@ export const ownTaskSubmissionsSchema = z
   .strict();
 
 export type TaskCriterion =
-  | z.infer<typeof criterionSchema>
-  | z.infer<typeof criterionV2Schema>
-  | z.infer<typeof historicalCriterionV2Schema>;
+  z.infer<typeof criterionSchema> | z.infer<typeof criterionV2Schema>;
 export type OpenProductTask = Extract<
   z.infer<typeof productTaskPageSchema>,
   { access: "open" }
