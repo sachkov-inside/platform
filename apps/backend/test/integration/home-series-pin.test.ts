@@ -74,6 +74,7 @@ beforeAll(async () => {
       "0081_remove_workshop",
       "0082_domain_names",
       "0083_task_pages",
+      "0084_owner_command_keys",
     ],
   });
   await database.prisma.topic.create({
