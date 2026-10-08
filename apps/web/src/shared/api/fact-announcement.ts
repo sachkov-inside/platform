@@ -72,7 +72,7 @@ export function factAnnouncement(channelName: string): FactAnnouncement {
       }
       channel.addEventListener("message", (event: MessageEvent<unknown>) => {
         // Previous releases sent this literal; their open tabs keep working during an upgrade.
-        if (event.data === "written") {
+        if (event.data === "written" || event.data === "changed") {
           onAnnounced(crypto.randomUUID());
           return;
         }

@@ -9,7 +9,8 @@ import { InvitationsPanel } from "@/features/billing-admin/ui/invitations-panel.
 import { AccessSummaryPanel } from "@/features/billing-admin/ui/access-summary-panel.client";
 import { materialsOffer } from "@/storybook/billing.fixtures";
 
-// One document has one real browser query cache, just as the production shell does.
+// The main surface has the production query cache. Secondary surfaces use an independent
+// recipient cache to prove window announcements without the writer's local invalidation.
 const client = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
 });

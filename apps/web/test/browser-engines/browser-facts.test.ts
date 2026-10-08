@@ -516,6 +516,10 @@ test("a write supersedes an initial bookmark read that captured the old answer",
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
+    let postWriteStarted: () => void = () => undefined;
+    const postWriteRead = new Promise<void>((resolve) => {
+      postWriteStarted = resolve;
+    });
     let first = true;
     const { attach } = fixture(async (page) => {
       if (page !== reader) return;
@@ -542,6 +546,7 @@ test("a write supersedes an initial bookmark read that captured the old answer",
     await browserExpect(
       writer.getByRole("button", { name: "В закладках", exact: true }),
     ).toBeVisible();
+    await postWriteRead;
     release();
     await browserExpect(
       reader.getByRole("link", { name: /Saved for Account A/u }),
