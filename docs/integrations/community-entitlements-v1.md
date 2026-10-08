@@ -70,7 +70,8 @@ attempt and Account identifier. Boundary and link scans exclude queued Accounts,
 failure cannot consume those lanes. A successful attempt removes only its own retry responsibility;
 an older concurrent attempt cannot remove a newer attempt's work. Projection still recomputes
 current access and binding, and dispatch authorization still fails closed on unavailable facts.
-An accepted operation with a schema-invalid stored command becomes `rejected` with `malformed`,
+An accepted operation selected for polling with a schema-invalid stored command becomes `rejected`
+with `malformed`, before checking whether a newer command displaced it. It
 retains its history and provider observation, and leaves the poll lane for operator attention.
 Ordinary projection validates commands before saving them; this branch handles corrupted storage,
 not an additional accepted input format. Delivery work still unfinished after five minutes is
