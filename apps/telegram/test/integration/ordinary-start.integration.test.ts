@@ -583,11 +583,11 @@ describe("durable start response delivery", () => {
       ...verifiedStart("42", "1"),
       observedAt: now,
     });
-    let announceStarted: () => void = () => {};
+    let announceStarted!: () => void;
     const started = new Promise<void>((resolve) => {
       announceStarted = resolve;
     });
-    let complete: (result: TelegramDeliveryResult) => void = () => {};
+    let complete!: (result: TelegramDeliveryResult) => void;
     const outcome = new Promise<TelegramDeliveryResult>((resolve) => {
       complete = resolve;
     });
