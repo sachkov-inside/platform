@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
+import {
+  isUnknownArray,
+  isUnknownRecord,
+  renderedMaterialBodySchema,
+} from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
@@ -43,6 +47,150 @@ function documentNode(
 }
 
 describe("MaterialBodyOperations", () => {
+  test("rejects malformed list attributes without throwing during acceptance", () => {
+    for (const type of ["orderedList", "bulletList"]) {
+      for (const attrs of [null, "invalid", []]) {
+        for (const assignMissingNodeIds of [false, true]) {
+          const document = {
+            schemaVersion: 1,
+            doc: {
+              type: "doc",
+              content: [
+                {
+                  type,
+                  attrs,
+                  content: [
+                    {
+                      type: "listItem",
+                      content: [
+                        {
+                          type: "paragraph",
+                          attrs: { nodeId: testNodeId(2) },
+                          content: [{ type: "text", text: "Item" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          };
+          expect(
+            materialBodyOperations.accept(document, { assignMissingNodeIds }),
+          ).toMatchObject({
+            ok: false,
+            error: {
+              issues: [
+                {
+                  code: "invalid_node_id",
+                  path: "/doc/content/0/attrs/nodeId",
+                },
+              ],
+            },
+          });
+        }
+      }
+    }
+  });
+
+  test("preserves integer list starts and the existing default numbering", () => {
+    for (const start of [
+      undefined,
+      1,
+      0,
+      -2,
+      5,
+      -2_147_483_648,
+      2_147_483_647,
+    ]) {
+      const list = documentNode(
+        "orderedList",
+        {
+          nodeId: testNodeId(1),
+          ...(start === undefined ? {} : { start }),
+        },
+        [
+          documentNode("listItem", null, [
+            documentNode("paragraph", { nodeId: testNodeId(2) }, [
+              materialDocumentSchemaV1.text("Item"),
+            ]),
+          ]),
+        ],
+      );
+      const doc: unknown = documentNode("doc", null, [list]).toJSON();
+      const accepted = materialBodyOperations.accept({ schemaVersion: 1, doc });
+      if (!accepted.ok) throw new Error(JSON.stringify(accepted.error));
+      const rendered = materialBodyOperations.render(accepted.value);
+      if (!rendered.ok) throw new Error(JSON.stringify(rendered.error));
+      const block = rendered.value.blocks[0];
+      expect(renderedMaterialBodySchema.parse(rendered.value)).toEqual(
+        rendered.value,
+      );
+      if (start === undefined || start === 1)
+        expect(block).not.toHaveProperty("start");
+      else expect(block).toMatchObject({ kind: "ordered_list", start });
+    }
+    expect(
+      renderedMaterialBodySchema.safeParse({
+        schemaVersion: 1,
+        blocks: [{ kind: "bullet_list", start: 5, items: [] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects invalid ordered list starts at document and rendered contract boundaries", () => {
+    for (const start of [
+      null,
+      "5",
+      1.5,
+      -2_147_483_649,
+      2_147_483_648,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]) {
+      const doc = {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "orderedList",
+              attrs: { nodeId: testNodeId(1), start },
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: testNodeId(2) },
+                      content: [{ type: "text", text: "Item" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      expect(materialBodyOperations.accept(doc)).toMatchObject({
+        ok: false,
+        error: {
+          issues: [
+            {
+              code: "invalid_ordered_list_start",
+              path: "/doc/content/0/attrs/start",
+            },
+          ],
+        },
+      });
+      expect(
+        renderedMaterialBodySchema.safeParse({
+          schemaVersion: 1,
+          blocks: [{ kind: "ordered_list", start, items: [] }],
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   test("accepts decorative image alt as empty text while still rejecting a missing attribute", () => {
     const image = (alt: unknown) => ({
       schemaVersion: 1,

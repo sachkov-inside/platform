@@ -33,6 +33,7 @@ export type RecursiveSchema1schema0 = ({
 } | {
   items: Array<Array<RecursiveSchema1schema0>>;
   kind: 'ordered_list';
+  start?: number;
 } | {
   content: Array<RecursiveSchema1schema0>;
   kind: 'blockquote';

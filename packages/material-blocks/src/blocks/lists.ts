@@ -1,14 +1,24 @@
 import { z } from "zod";
 
 import { defineMaterialBlock } from "../block-definition.js";
-import { expectArray, expectObject } from "../document-node.js";
+import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
+import { isJsonObject } from "../json.js";
 import type { MaterialBlockDefinition } from "../block-definition.js";
 
 type ListKind = "bullet_list" | "ordered_list";
+const listStartSchema = z.int32();
 
 function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
   return defineMaterialBlock<ListKind>({
     children: (block) => block.items.flat(),
+    issues: (node, report) => {
+      if (kind !== "ordered_list") return;
+      const attributes = node["attrs"];
+      const start = isJsonObject(attributes) ? attributes["start"] : undefined;
+      if (start !== undefined && !listStartSchema.safeParse(start).success) {
+        report("invalid_ordered_list_start", "start");
+      }
+    },
     kind,
     mapChildren: (block, map) => ({
       ...block,
@@ -23,11 +33,27 @@ function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
         return tools.blockContent(item);
       }),
       kind,
+      ...(kind === "ordered_list" &&
+      nodeAttributes(node)["start"] !== undefined &&
+      nodeAttributes(node)["start"] !== 1
+        ? { start: listStartSchema.parse(nodeAttributes(node)["start"]) }
+        : {}),
     }),
     renderedSchema: (block) =>
-      z
-        .object({ items: z.array(z.array(block)), kind: z.literal(kind) })
-        .strict(),
+      kind === "ordered_list"
+        ? z
+            .object({
+              items: z.array(z.array(block)),
+              kind: z.literal("ordered_list"),
+              start: listStartSchema.optional(),
+            })
+            .strict()
+        : z
+            .object({
+              items: z.array(z.array(block)),
+              kind: z.literal("bullet_list"),
+            })
+            .strict(),
     text: (block, tools) =>
       block.items
         .map((item) => item.map(tools.blockText).filter(Boolean).join("\n"))

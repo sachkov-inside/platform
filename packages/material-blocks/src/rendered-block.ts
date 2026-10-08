@@ -36,7 +36,12 @@ export type RenderedBlock =
     }
   | {
       readonly items: readonly (readonly RenderedBlock[])[];
-      readonly kind: "bullet_list" | "ordered_list";
+      readonly kind: "bullet_list";
+    }
+  | {
+      readonly items: readonly (readonly RenderedBlock[])[];
+      readonly kind: "ordered_list";
+      readonly start?: number | undefined;
     }
   | { readonly content: readonly RenderedBlock[]; readonly kind: "blockquote" }
   | { readonly kind: "code_block"; readonly text: string }

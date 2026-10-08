@@ -136,7 +136,10 @@ function PreviewBlock({
     case "ordered_list": {
       const List = block.kind === "bullet_list" ? "ul" : "ol";
       return (
-        <List className="ml-6 space-y-2 marker:text-accent">
+        <List
+          start={block.kind === "ordered_list" ? block.start : undefined}
+          className={`ml-6 space-y-2 marker:text-accent ${block.kind === "ordered_list" ? "list-decimal" : ""}`}
+        >
           {block.items.map((item, index) => (
             <li key={index}>
               {item.map((child, childIndex) => (
