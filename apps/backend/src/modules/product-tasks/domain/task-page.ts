@@ -4,6 +4,15 @@ import {
   type MaterialBodySnapshot,
 } from "../../materials/index.js";
 
+// The wire schema is opaque like Materials' document boundary. Parse JSON at runtime without
+// publishing Zod's primitive recursive aliases to generated OpenAPI clients.
+const jsonValueSchema = z.unknown().transform((value, context) => {
+  const parsed = z.json().safeParse(value);
+  if (parsed.success) return parsed.data;
+  context.addIssue({ code: "custom", message: "Expected a JSON value" });
+  return z.NEVER;
+});
+
 /** Original source row, including metadata that the reader does not render. */
 export const sourceTaskPageSchema = z
   .object({
@@ -26,9 +35,12 @@ export const sourceTaskPageSchema = z
       )
       .optional(),
   })
-  .catchall(z.json());
+  .catchall(jsonValueSchema);
 export const taskPageBodySchema = z
-  .object({ schemaVersion: z.literal(1), doc: z.record(z.string(), z.json()) })
+  .object({
+    schemaVersion: z.literal(1),
+    doc: z.record(z.string(), jsonValueSchema),
+  })
   .strict()
   .refine(
     (value) => materialBodyOperations.accept(value).ok,

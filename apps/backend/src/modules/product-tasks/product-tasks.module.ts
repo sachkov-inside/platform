@@ -112,17 +112,20 @@ import {
         ProductDirectory,
         CONTENT_ACCESS,
         PLATFORM_CONFIG,
+        MATERIAL_ASSETS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: ProductDirectory,
         contentAccess: ContentAccess,
         config: PlatformConfig,
+        materialAssets: MaterialAssets,
       ): LearningTasks =>
         assembleLearningTasks({
           prisma,
           directory,
           contentAccess,
+          materialAssets,
           submissionsEnabled: config.productTasks.submissionsEnabled,
         }),
     },
