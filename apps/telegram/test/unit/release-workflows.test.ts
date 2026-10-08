@@ -12,7 +12,15 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { jsonRecord } from "../support/json.js";
 
 const release = readFileSync(
@@ -233,8 +241,8 @@ describe("deploy workflow", () => {
     expect(() => assertDeploymentBoundary(unsafe)).toThrow();
   });
 
-  it.each(["v5", "v6"])(
-    "verifies both source families outside a Git checkout (%s)",
+  describe.each(["v5", "v6"])(
+    "source family %s outside a Git checkout",
     (version) => {
       const sourceRepository =
         version === "v5"
@@ -243,10 +251,57 @@ describe("deploy workflow", () => {
       const tag = version === "v5" ? version : `telegram-${version}`;
       const workflow =
         version === "v5" ? "release.yml" : "telegram-release.yml";
-      const directory = mkdtempSync(path.join(tmpdir(), "telegram-workflow-"));
-      try {
+      const compose = "name: inside-production-telegram\n";
+      let directory: string;
+      let fixtures: string;
+
+      let commandDirectory: string;
+
+      beforeAll(() => {
+        commandDirectory = mkdtempSync(
+          path.join(tmpdir(), "telegram-workflow-bin-"),
+        );
+        const gh = path.join(commandDirectory, "gh");
+        writeFileSync(
+          gh,
+          `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == release && " $* " != *" --repo ${sourceRepository} "* ]]; then
+  echo 'No repository selected outside a Git checkout' >&2
+  exit 1
+fi
+case "$1 $2" in
+  'release view') cat "$FIXTURES/release.json" ;;
+  'release download')
+    while [[ "$1" != --dir ]]; do shift; done
+    cp "$FIXTURES/release-manifest.json" "$FIXTURES/compose.yaml" "$FIXTURES/telegram.caddy" "$2/" ;;
+  'api repos/${sourceRepository}/commits/${tag}')
+    if [[ "\${3:-}" == --jq && "\${4:-}" == .sha ]]; then
+      jq --raw-output .sha "$FIXTURES/commit.json"
+    else
+      cat "$FIXTURES/commit.json"
+    fi ;;
+  'api repos/${sourceRepository}/actions/runs/91') cat "$FIXTURES/run.json" ;;
+  *) exit 1 ;;
+esac
+`,
+        );
+        chmodSync(gh, 0o755);
+        const shaShim = path.join(commandDirectory, "sha256sum");
+        writeFileSync(
+          shaShim,
+          '#!/usr/bin/env bash\nfor command in /usr/bin/sha256sum /sbin/sha256sum; do\n  if [[ -x "$command" ]]; then exec "$command" "$@"; fi\ndone\nexec shasum -a 256 "$@"\n',
+        );
+        chmodSync(shaShim, 0o755);
+      });
+
+      afterAll(() => {
+        rmSync(commandDirectory, { recursive: true, force: true });
+      });
+
+      beforeEach(() => {
+        directory = mkdtempSync(path.join(tmpdir(), "telegram-workflow-"));
         const sourceSha = "1".repeat(40);
-        const compose = "name: inside-production-telegram\n";
         const caddy = "telegram.sachkov.dev {\n}\n";
         const digest = (value: string) =>
           `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -270,7 +325,7 @@ describe("deploy workflow", () => {
             workflowRunUrl: `https://github.com/${sourceRepository}/actions/runs/91`,
           },
         };
-        const fixtures = path.join(directory, "fixtures");
+        fixtures = path.join(directory, "fixtures");
         mkdirSync(fixtures);
         writeFileSync(
           path.join(fixtures, "release-manifest.json"),
@@ -309,59 +364,34 @@ describe("deploy workflow", () => {
             path: `.github/workflows/${workflow}`,
           }),
         );
-        const gh = path.join(directory, "gh");
-        writeFileSync(
-          gh,
-          `#!/usr/bin/env bash
-set -euo pipefail
-if [[ "$1" == release && " $* " != *" --repo ${sourceRepository} "* ]]; then
-  echo 'No repository selected outside a Git checkout' >&2
-  exit 1
-fi
-case "$1 $2" in
-  'release view') cat "$FIXTURES/release.json" ;;
-  'release download')
-    while [[ "$1" != --dir ]]; do shift; done
-    cp "$FIXTURES/release-manifest.json" "$FIXTURES/compose.yaml" "$FIXTURES/telegram.caddy" "$2/" ;;
-  'api repos/${sourceRepository}/commits/${tag}')
-    if [[ "\${3:-}" == --jq && "\${4:-}" == .sha ]]; then
-      jq --raw-output .sha "$FIXTURES/commit.json"
-    else
-      cat "$FIXTURES/commit.json"
-    fi ;;
-  'api repos/${sourceRepository}/actions/runs/91') cat "$FIXTURES/run.json" ;;
-  *) exit 1 ;;
-esac
-`,
-        );
-        chmodSync(gh, 0o755);
-        const shaShim = path.join(directory, "sha256sum");
-        writeFileSync(
-          shaShim,
-          '#!/usr/bin/env bash\nif command -v /usr/bin/sha256sum >/dev/null 2>&1; then exec /usr/bin/sha256sum "$@"; fi\nexec shasum -a 256 "$@"\n',
-        );
-        chmodSync(shaShim, 0o755);
+      });
 
-        const runStep = (name: string, env: Record<string, string> = {}) =>
-          spawnSync("bash", ["-c", stepScript(deploy, name)], {
-            cwd: directory,
-            encoding: "utf8",
-            env: {
-              ...process.env,
-              PATH: `${directory}:${process.env["PATH"] ?? ""}`,
-              FIXTURES: fixtures,
-              RUNNER_TEMP: directory,
-              GITHUB_ENV: path.join(directory, "github.env"),
-              GITHUB_REPOSITORY: "sachkov-inside/platform",
-              RELEASE_DIR: path.join(directory, "production-release"),
-              OPERATION: "deploy",
-              VERSION: version,
-              GITHUB_REF: "refs/heads/main",
-              SOURCE_REPOSITORY: sourceRepository,
-              RELEASE_TAG: tag,
-              ...env,
-            },
-          });
+      afterEach(() => {
+        rmSync(directory, { recursive: true, force: true });
+      });
+
+      const runStep = (name: string, env: Record<string, string> = {}) =>
+        spawnSync("bash", ["-c", stepScript(deploy, name)], {
+          cwd: directory,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${commandDirectory}:${process.env["PATH"] ?? ""}`,
+            FIXTURES: fixtures,
+            RUNNER_TEMP: directory,
+            GITHUB_ENV: path.join(directory, "github.env"),
+            GITHUB_REPOSITORY: "sachkov-inside/platform",
+            RELEASE_DIR: path.join(directory, "production-release"),
+            OPERATION: "deploy",
+            VERSION: version,
+            GITHUB_REF: "refs/heads/main",
+            SOURCE_REPOSITORY: sourceRepository,
+            RELEASE_TAG: tag,
+            ...env,
+          },
+        });
+
+      it("verifies, downloads and rechecks the selected release", () => {
         for (const name of [
           "Verify and download the selected release",
           "Recheck the selected release after waiting in the queue",
@@ -369,100 +399,79 @@ esac
           const result = runStep(name);
           expect(result.status, `${name}: ${result.stderr}`).toBe(0);
         }
-        const originalRun = jsonRecord(
-          readFileSync(path.join(fixtures, "run.json"), "utf8"),
-        );
-        for (const override of [
-          { path: ".github/workflows/untrusted.yml" },
-          { head_sha: "f".repeat(40) },
-          { repository: { full_name: "untrusted/repository" } },
-          { id: 92 },
-        ]) {
-          writeFileSync(
-            path.join(fixtures, "run.json"),
-            JSON.stringify({ ...originalRun, ...override }),
-          );
-          rmSync(path.join(directory, "production-release"), {
-            recursive: true,
-          });
-          const rejected = runStep("Verify and download the selected release");
-          // The fixture removes the prior download so validation reaches the changed run.
-          expect(rejected.status).not.toBe(0);
-        }
-        writeFileSync(
-          path.join(fixtures, "run.json"),
-          JSON.stringify(originalRun),
-        );
-        const originalRelease = jsonRecord(
-          readFileSync(path.join(fixtures, "release.json"), "utf8"),
-        );
-        for (const [asset, invalid, message] of [
-          [
-            "commit.json",
-            JSON.stringify({ sha: "f".repeat(40) }),
-            "Telegram tag SHA mismatch",
-          ],
-          [
-            "release.json",
-            JSON.stringify({
-              ...originalRelease,
-              targetCommitish: "f".repeat(40),
-            }),
-            "Telegram release target SHA mismatch",
-          ],
-          [
-            "compose.yaml",
-            "untrusted compose\n",
-            "Telegram Compose asset hash mismatch",
-          ],
-          [
-            "telegram.caddy",
-            "untrusted caddy\n",
-            "Telegram Caddy asset hash mismatch",
-          ],
-        ] as const) {
-          const file = path.join(fixtures, asset);
-          const original = readFileSync(file, "utf8");
-          writeFileSync(file, invalid);
-          rmSync(path.join(directory, "production-release"), {
-            recursive: true,
-          });
-          const rejected = runStep("Verify and download the selected release");
-          expect(rejected.status, `${asset}: ${rejected.stderr}`).toBe(1);
-          expect(rejected.stderr).toContain(message);
-          writeFileSync(file, original);
-        }
-        const invalidEnvironments: Record<string, string>[] = [
-          { OPERATION: "untrusted" },
-          { VERSION: "v0" },
-          { GITHUB_REPOSITORY: "untrusted/repository" },
-          { GITHUB_REF: "refs/heads/untrusted" },
-        ];
-        for (const env of invalidEnvironments) {
-          rmSync(path.join(directory, "production-release"), {
-            recursive: true,
-            force: true,
-          });
-          expect(
-            runStep("Verify and download the selected release", env).status,
-          ).not.toBe(0);
-        }
-        rmSync(path.join(directory, "production-release"), {
-          recursive: true,
-          force: true,
-        });
-        expect(runStep("Verify and download the selected release").status).toBe(
-          0,
-        );
         expect(
           readFileSync(
             path.join(directory, "production-release/compose.yaml"),
             "utf8",
           ),
         ).toBe(compose);
-      } finally {
-        rmSync(directory, { recursive: true, force: true });
-      }
+        expect(
+          readFileSync(path.join(directory, "github.env"), "utf8"),
+        ).toContain(
+          `SOURCE_REPOSITORY=${sourceRepository}\nRELEASE_TAG=${tag}\n`,
+        );
+      });
+
+      it.each([
+        ["workflow", { path: ".github/workflows/untrusted.yml" }],
+        ["SHA", { head_sha: "f".repeat(40) }],
+        ["repository", { repository: { full_name: "untrusted/repository" } }],
+        ["run ID", { id: 92 }],
+      ])("rejects an untrusted publication %s", (_name, override) => {
+        const file = path.join(fixtures, "run.json");
+        const originalRun = jsonRecord(readFileSync(file, "utf8"));
+        writeFileSync(file, JSON.stringify({ ...originalRun, ...override }));
+        const rejected = runStep("Verify and download the selected release");
+        expect(rejected.status, rejected.stderr).toBe(1);
+      });
+
+      it.each([
+        ["commit.json", "Telegram tag SHA mismatch"],
+        ["release.json", "Telegram release target SHA mismatch"],
+        ["compose.yaml", "Telegram Compose asset hash mismatch"],
+        ["telegram.caddy", "Telegram Caddy asset hash mismatch"],
+      ])("rejects a changed %s", (asset, message) => {
+        const file = path.join(fixtures, asset);
+        const invalid =
+          asset === "commit.json"
+            ? JSON.stringify({ sha: "f".repeat(40) })
+            : asset === "release.json"
+              ? JSON.stringify({
+                  ...jsonRecord(readFileSync(file, "utf8")),
+                  targetCommitish: "f".repeat(40),
+                })
+              : "untrusted asset\n";
+        writeFileSync(file, invalid);
+        const rejected = runStep("Verify and download the selected release");
+        expect(rejected.status, rejected.stderr).toBe(1);
+        expect(rejected.stderr).toContain(message);
+      });
+
+      it.each<[string, Record<string, string>, string]>([
+        [
+          "operation",
+          { OPERATION: "untrusted" },
+          "Unsupported Telegram operation",
+        ],
+        ["version", { VERSION: "v0" }, "Invalid Telegram version"],
+        [
+          "repository",
+          { GITHUB_REPOSITORY: "untrusted/repository" },
+          "Telegram deployment requires platform main",
+        ],
+        [
+          "ref",
+          { GITHUB_REF: "refs/heads/untrusted" },
+          "Telegram deployment requires platform main",
+        ],
+      ])("rejects an untrusted deployment %s", (_name, env, message) => {
+        const rejected = runStep(
+          "Verify and download the selected release",
+          env,
+        );
+        expect(rejected.status, rejected.stderr).toBe(1);
+        expect(rejected.stderr).toContain(message);
+      });
     },
   );
 });
