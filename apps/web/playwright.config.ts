@@ -22,6 +22,7 @@ export default defineConfig({
         "subscription.spec.ts",
       ],
   fullyParallel: true,
+  workers: 2,
   forbidOnly: Boolean(process.env["CI"]),
   // Без повтора и в CI: «Waiting in tests» в корневом CODING_STANDARDS.md (#476).
   retries: 0,
