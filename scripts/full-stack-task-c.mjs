@@ -10,6 +10,7 @@ import { canonical, checksum } from "../tools/authoring/package.mjs";
 import { syncLocal } from "../tools/authoring/local-sync.mjs";
 import {
   parseJournal,
+  materialReceiptSchema,
   isJournalOperation,
 } from "../tools/authoring/local-boundaries.mjs";
 
@@ -198,9 +199,20 @@ export async function seedFullStackTaskC(origin, accessToken) {
       path: z.literal("/authoring/import/tasks/apply"),
       body: taskApply,
     });
+    const materialIds = new Set(
+      Object.values(journal.materials).map(({ materialId }) => materialId),
+    );
+    const materialRequest = z.object({
+      path: z.literal("/authoring/import/materials/apply"),
+    });
     let closedAssetId;
     for (const operation of Object.values(journal.operations)) {
-      if (!isJournalOperation(operation)) continue;
+      if (!isJournalOperation(operation) || operation.status !== "applied")
+        continue;
+      if (materialRequest.safeParse(operation.request).success)
+        materialIds.add(
+          materialReceiptSchema.parse(operation.result).materialId,
+        );
       const parsed = taskRequest.safeParse(operation.request);
       if (parsed.success)
         closedAssetId = parsed.data.body.resolvedImages["diagram.png"]?.assetId;
@@ -212,9 +224,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
       code: "c-first",
       closedCode: "c-closed",
       closedAssetId,
-      materialIds: Object.values(journal.materials).map(
-        ({ materialId }) => materialId,
-      ),
+      materialIds: [...materialIds],
     };
   } finally {
     await rm(directory, { recursive: true, force: true });
