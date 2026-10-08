@@ -542,6 +542,8 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   const imageId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const fileId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
   const imageFileId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  /** @type {import("./task-import.mjs").TaskReceipt | null} */
+  let taskReceipt = null;
   /** @type {Record<string,unknown>[]} */
   const commands = [];
   /** @type {string[]} */
@@ -552,7 +554,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
     if (path.startsWith("/authoring/collections?")) return [];
     if (path === "/authoring/import/products/validate") return { valid: true };
     if (path === "/authoring/import/tasks/validate")
-      return { valid: true, current: null, migration: null };
+      return { valid: true, current: taskReceipt, migration: null };
     if (
       path === "/authoring/import/products/reserve" ||
       path === "/authoring/import/products/update"
@@ -603,7 +605,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
     }
     if (path === "/authoring/import/tasks/apply") {
       commands.push({ path, ...object(body) });
-      return {
+      taskReceipt = {
         taskId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
         code: "task-one",
         revision: 1,
@@ -611,10 +613,12 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
         definitionDigest: "a".repeat(64),
         publicationState: "unpublished",
       };
+      return taskReceipt;
     }
     throw new Error(`Unexpected ${path}`);
   };
-  await syncLocal(f.path, f.state, { request });
+  const origin = "http://127.0.0.1:3101";
+  await syncLocal(f.path, f.state, { request, origin });
   assert.deepEqual(uploadKinds, ["image", "file", "file"]);
   const reserve = commands.find(
     (row) => row["path"] === "/authoring/import/materials/reserve",
@@ -665,6 +669,11 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   assert.deepEqual(applied["page"], task.page);
   assert.ok(canonical(applied["pageBody"]).includes(imageId));
   assert.equal(commands.at(-1)?.["path"], "/authoring/import/tasks/apply");
+  const second = await syncLocal(f.path, f.state, { request, origin });
+  assert.equal(second.tasks?.[0]?.change, "unchanged");
+  const preview = await previewRelease(f.path, f.state, { request, origin });
+  assert.equal(preview.preview.tasks?.[0]?.change, "unchanged");
+  assert.deepEqual(uploadKinds, ["image", "file", "file"]);
 });
 
 test("preview rejects unknown Task codes and conflicting access choices before transport", async (t) => {
