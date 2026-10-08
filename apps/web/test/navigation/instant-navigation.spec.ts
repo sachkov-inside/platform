@@ -15,11 +15,11 @@ import { z } from "zod";
 
 /** Оболочка нужного маршрута получена целиком; другие запросы страницы не задают барьер. */
 const test = base.extend<{
-  shellPrefetched: (pathname: string) => Promise<void>;
+  shellPrefetched: (shell: RegExp) => Promise<void>;
 }>({
   shellPrefetched: async ({ page }, provide, testInfo) => {
     await installProbe(page);
-    await provide(async (pathname) => {
+    await provide(async (shell) => {
       await expect
         .poll(
           () =>
@@ -30,11 +30,11 @@ const test = base.extend<{
                 : "проба не установлена";
             }),
           {
-            message: `Получен целиком ответ оболочки ${pathname}`,
+            message: `Получен целиком ответ общей оболочки ${String(shell)}`,
             timeout: testInfo.timeout,
           },
         )
-        .toContain(pathname);
+        .toEqual(expect.arrayContaining([expect.stringMatching(shell)]));
     });
   },
 });
@@ -54,6 +54,10 @@ const backend = `http://127.0.0.1:${fakeBackendPort()}`;
 const programme = "/products/navigation-proof/programme";
 const product = "/products/navigation-proof";
 const freeLesson = "navigation-lesson-1";
+// RuntimeShell не зависит от slug: Next.js переиспользует её между адресами одного маршрута.
+const materialShell = /^\/materials\/[^/]+$/u;
+const productShell = /^\/products\/[^/]+$/u;
+const programmeShell = /^\/products\/[^/]+\/programme$/u;
 const paidLesson = "navigation-lesson-3";
 /** Этим текстом подставной backend помечает тело платного урока, отданное по токену. */
 const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
@@ -520,7 +524,31 @@ test("оболочка урока предзагружена даже при н�
       void fetch("/__unrelated_navigation_request").catch(() => undefined);
     });
     await unrelated;
-    await shellPrefetched(`/materials/${freeLesson}`);
+    await shellPrefetched(materialShell);
+  } finally {
+    heldResponse.resolve(undefined);
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
+test("оболочка другого урока завершает барьер, пока предзагрузка первого ещё заблокирована", async ({
+  page,
+  shellPrefetched,
+}) => {
+  const heldResponse = Promise.withResolvers<undefined>();
+  const firstRequested = Promise.withResolvers<undefined>();
+  await page.route("**/materials/navigation-lesson-1?*", async (route) => {
+    if (route.request().headers()["next-router-prefetch"] !== undefined) {
+      firstRequested.resolve(undefined);
+      await heldResponse.promise;
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(programme);
+    await programmeReady(page)();
+    await firstRequested.promise;
+    await shellPrefetched(materialShell);
   } finally {
     heldResponse.resolve(undefined);
     await page.unrouteAll({ behavior: "wait" });
@@ -533,7 +561,7 @@ test("программа ↔ урок: свой скелет на первом �
 }, testInfo) => {
   await page.goto(programme);
   await programmeReady(page)();
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
   await setBackendDelay(700);
 
   const lessonLink = page
@@ -642,7 +670,7 @@ test("продукт → программа → платный урок: у ка
 }, testInfo) => {
   await page.goto(product);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await shellPrefetched(programme);
+  await shellPrefetched(programmeShell);
   await setBackendDelay(700);
 
   const toProgramme = await transition(
@@ -685,7 +713,7 @@ test("намерение предзагружает общую часть уро
 }, testInfo) => {
   await page.goto(programme);
   await programmeReady(page)();
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
 
   const lessonLink = page
     .locator(
@@ -725,7 +753,7 @@ test("повторный переход не ходит в backend, а гост�
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await page.goto(programme);
   await programmeReady(page)();
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
   const lessonLink = () =>
     page
       .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
@@ -869,7 +897,7 @@ test("закрытое тело не попадает ни в предзагру
   // Предзагрузка страницы целиком рисует урок на сервере с сессией вошедшего: именно она могла бы
   // унести закрытое тело. Нажатие ждёт, пока браузер с ней закончит. Слушатель ставится, когда
   // ответ оболочки урока уже пришёл: запрос дерева /_tree — не предзагрузка страницы целиком.
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
   const pagePrefetch = pagePrefetchSettled(page, paidLesson);
   await lessonLink.hover();
   const pagePrefetchBody = await replayPrefetch(page, await pagePrefetch);
@@ -937,7 +965,7 @@ test("снимки перехода «программа → урок → про
   const loading = page.locator("main [aria-busy='true']").first();
   await page.goto(programme);
   await programmeReady(page)();
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
   const lessonAnchors = ["[data-reader-return='top']", "[data-reader-header]"];
@@ -965,7 +993,7 @@ test("снимки перехода «программа → урок → про
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
-  await shellPrefetched(programme);
+  await shellPrefetched(programmeShell);
   await page.getByRole("link", { name: "Назад к программе" }).first().click();
   await page.waitForURL((url) => url.pathname === programme);
   const programmeAnchors = [
@@ -1004,7 +1032,7 @@ test("снимки «до»: те же кадры перехода на коде
   const loading = page.locator("main [aria-busy='true']").first();
   await page.goto(programme);
   await programmeReady(page)();
-  await shellPrefetched(`/materials/${freeLesson}`);
+  await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
   await page
@@ -1022,7 +1050,7 @@ test("снимки «до»: те же кадры перехода на коде
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
-  await shellPrefetched(programme);
+  await shellPrefetched(programmeShell);
   await page.getByRole("link", { name: "Назад к программе" }).first().click();
   await page.waitForURL((url) => url.pathname === programme);
   await expect(loading).toBeVisible();
@@ -1044,7 +1072,7 @@ test("Главная ↔ продукт: свой скелет продукта,
     .getByRole("link", { name: /Открыть (продукт|практикум)/u })
     .first();
   await expect(productLink).toBeVisible();
-  await shellPrefetched(product);
+  await shellPrefetched(productShell);
   await setBackendDelay(700);
 
   const productReady = async () => {

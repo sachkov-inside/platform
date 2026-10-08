@@ -86,7 +86,7 @@ pauses would reject correct tests; the ban on network-idle waits below has its o
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
-Navigation tests wait for the completed RuntimeShell prefetch response of the next route, not the
+Navigation tests wait for the completed RuntimeShell prefetch response of a compatible route shell, not the
 whole private Next.js queue (#1182). Route-tree responses and response headers alone do not prove
 the shell arrived. Optimistic routing can skip requests for other links that share that shell.
 The former `networkidle` exception (#758) is retired: unrelated unfinished requests can exhaust the
