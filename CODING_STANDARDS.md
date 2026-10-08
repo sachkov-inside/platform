@@ -101,6 +101,13 @@ The nearest standard names the helper for each surface.
 
 ## Deterministic test contracts (#1153)
 
+- Test and suite names stay identical across independent runs (#1166). Use fixed values or stable
+  case labels when parameterized names interpolate data; random data may remain behind a stable
+  name. The deterministic guardrail rejects direct `randomUUID` calls (including named crypto
+  import aliases) and `Math.random` in `it`/`test`/`describe` title expressions and inline `each`
+  array tables in columns consumed by printf-style title placeholders. Referenced tables,
+  `$property` titles, wrappers, clocks and other indirect name dependencies require review; this
+  syntax check does not prove stable identity.
 - Domain tests do not depend on today's date or the machine's wall clock. Fix one instant per case
   or inject virtual clocks; derive expirations, deadlines and "today" from that instant. Producers
   and consumers share the same clock. Never extend a literal expiry to make a failing test pass.
