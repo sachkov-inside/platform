@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  ChevronLeft,
   Bot,
   Check,
   ChevronDown,
@@ -35,6 +36,7 @@ import {
   type CourseIconName,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
@@ -59,18 +61,21 @@ type ResolvedSeriesResult = Extract<
  * Оформление `ai-engineering-course`: страница-описание курса. Весь текст приходит из описания
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
- * Программа и прохождение живут на странице программы: туда ведут все кнопки. Ссылки «Назад на
- * Главную» нет: на Главную ведёт навигация сайта, а первый экран начинается сразу с курса.
+ * Программа и прохождение живут на странице программы: туда ведут все кнопки. На телефоне и
+ * планшете навигации сайта внизу нет: её место занимает кнопка в программу, а назад ведёт
+ * маленькая кнопка в самом верху.
  */
 export function AiEngineeringCourseView({
   heroCall,
   result,
   page,
+  returnTarget,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
   readonly page: ProductPage;
+  readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
@@ -83,8 +88,14 @@ export function AiEngineeringCourseView({
     <article
       className="ai-product-page aie-course"
       data-product-presentation="ai-engineering-course"
+      data-hide-mobile-navigation
       data-product-landing={reference.slug}
     >
+      <IntentPrefetchLink className="aie-back" href={returnTarget.href}>
+        <ChevronLeft aria-hidden="true" />
+        Назад
+      </IntentPrefetchLink>
+
       <header className="aie-course-hero">
         <CourseHero
           action={{ href: programme, label: "Открыть программу" }}

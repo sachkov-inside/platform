@@ -308,6 +308,15 @@ body:has([data-public-shell]) {
   }
 }
 
+/*
+ * Страница может убрать нижнюю навигацию на телефоне и планшете атрибутом
+ * `data-hide-mobile-navigation`: её место тогда занимает главное действие страницы.
+ */
+@media (max-width: 63.999rem) {
+  body:has([data-hide-mobile-navigation]) .mobile-navigation {
+    display: none;
+  }
+}
 .mobile-navigation-items {
   transition: grid-template-columns var(--motion-duration-shell)
     var(--motion-ease-out);

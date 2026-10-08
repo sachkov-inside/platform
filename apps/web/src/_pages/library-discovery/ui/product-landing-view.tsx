@@ -85,6 +85,7 @@ const productViews: Record<
         heroCall={props.heroCall}
         page={page}
         result={props.result}
+        returnTarget={props.returnTarget}
       />
     ),
 };
