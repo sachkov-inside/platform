@@ -1,4 +1,7 @@
-import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
 
 import { createHash, randomUUID } from "node:crypto";
 
@@ -10,6 +13,7 @@ import {
   describe,
   expect,
   test,
+  vi,
 } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
@@ -80,12 +84,23 @@ describe("ContentCovers", () => {
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
-    await seedLocalDevelopment(database.prisma);
+    const instant = fixedTestInstant();
+    // Background publications precede the material whose cover this catalog page checks.
+    vi.setSystemTime(instant - 1);
+    try {
+      await seedLocalDevelopment(database.prisma);
+    } finally {
+      vi.setSystemTime(instant);
+    }
     const material = await database.prisma.material.findUniqueOrThrow({
       where: { slug: "kak-ustroen-inside-platform" },
       select: { id: true },
     });
     materialId = material.id;
+    await database.prisma.publishedMaterial.update({
+      where: { materialId },
+      data: { publishedAt: new Date(instant) },
+    });
   });
 
   afterAll(async () => {
