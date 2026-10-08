@@ -130,7 +130,7 @@ production module it shows; it never copies page markup.
 Issue evidence follows [Snapshots as issue evidence](../runbooks/local-development.md#snapshots-as-issue-evidence).
 Two recurring traps affect what a snapshot shows:
 
-- From the `lg` breakpoint the application shell fixes the page height and scrolls `#content`; the
+- From the `lg` breakpoint the application shell fixes the page height and scrolls `[data-application-content]`; the
   authoring shell does the same from `md` with `#authoring-content`. A Playwright `fullPage` capture
   above those widths stops at one screen. Capture a whole page with `screenshotWholePage(page,
   options)` from

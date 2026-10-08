@@ -380,6 +380,23 @@ Published membership projection доступна Library/internal search и exte
 Published body читается только для current `published` state; draft/unpublished недоступны через
 обычные read/download/play paths.
 
+### Source heading anchors
+
+Reader and Task c use the Content anchor contract: visible heading text in lowercase, punctuation removed,
+spaces replaced by hyphens, and collision-aware `-1`, `-2` suffixes. Unicode letters and numbers,
+underscores and hyphens remain. One document owns allocation across nested headings; code examples
+create no headings. Import preserves fragments in local Material and Task links, including same-page
+links. Both pages use the shared document renderer.
+The body scrolls to the matching heading after it arrives. An unknown fragment opens the page from
+the top without an error. Legacy `material-section-*` addresses remain aliases unless a source
+heading occupies that exact name. The owner chose Content source priority for this ambiguous
+address on 2026-10-08; non-colliding legacy addresses remain valid. Access checks still decide
+whether the body is available. The application skip link has a separate address so a source
+heading named Content keeps its own anchor. Task service sections receive a separate address when
+a source heading occupies their usual name; their navigation and accessible labels follow that address.
+[#1179](https://github.com/sachkov-inside/platform/issues/1179) owns the implementation and Task c
+integration with #1194; author acceptance on real Content chapters belongs to Content #56.
+
 ### Series step sequences
 
 `SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
@@ -1330,9 +1347,9 @@ Source: [Platform #1194](https://github.com/sachkov-inside/platform/issues/1194)
 checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
 The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
-`loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 feature is
-`task-c-v2`; unknown features are refused by name. Quizzes (#940), image variants (#1195), general
-collapsible callouts (#1196) and source anchors (#1179) remain separate integrations. A Content
+`loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
+`task-c-v2` and `github-anchors-v1`; unknown features are refused by name. Quizzes (#940), image
+variants (#1195) and general collapsible callouts (#1196) remain separate integrations. A Content
 package that requires them is refused until those integrations support their features. In particular,
 Content's generated c advice may also declare `collapsible-callouts-v1`; Task-local folding alone
 does not declare support for that package capability.

@@ -131,7 +131,7 @@ try {
     ),
   );
   const signIn = page
-    .locator("#content")
+    .locator("[data-application-content]")
     .getByRole("button", { name: "Войти", exact: true });
   await signIn.focus();
   await expect(signIn).toBeFocused();

@@ -314,3 +314,78 @@ export const FormatCMobile: Story = {
   ...FormatC,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const SourceAnchors: Story = {
+  args: {
+    submissions: notSubmittedYet,
+    page: {
+      ...openFormatCTask,
+      task: {
+        ...openFormatCTask.task,
+        page: {
+          title: "Задание с исходными якорями",
+          summary: "Синтетическая проверка навигации Content.",
+          cover: null,
+          artifacts: [],
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "heading",
+                level: 2,
+                content: [
+                  {
+                    kind: "text",
+                    text: "Как спроектировать один этап?",
+                    marks: [],
+                  },
+                ],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "task-submit", marks: [] }],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "task-mine", marks: [] }],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [
+                  { kind: "text", text: "task-mine-heading", marks: [] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "Как спроектировать один этап?" }),
+    ).toHaveAttribute("id", "как-спроектировать-один-этап");
+    await expect(
+      canvasElement.querySelectorAll('[id="task-section-0"]'),
+    ).toHaveLength(1);
+    await expect(
+      page.getByRole("heading", { name: /^task-submit$/u }),
+    ).toHaveAttribute("id", "task-submit");
+    const ids = Array.from(canvasElement.querySelectorAll("[id]")).map(
+      (node) => node.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Части задания" })
+        .querySelector('a[href="#task-submit:page"]'),
+    ).not.toBeNull();
+    await expect(
+      page.getByRole("region", { name: "Мои сдачи" }),
+    ).toBeInTheDocument();
+  },
+};

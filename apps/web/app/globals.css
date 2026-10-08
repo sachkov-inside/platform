@@ -300,7 +300,7 @@ body:has([data-public-shell]) {
 }
 
 @media (width >= 64rem) {
-  [data-public-shell] #content {
+  [data-public-shell] [data-application-content] {
     scroll-padding-bottom: calc(
       2.5rem + env(safe-area-inset-bottom, 0px) +
         var(--storage-notice-space, 0px)

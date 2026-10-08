@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { materialSourceAnchors } from "@/entities/material";
 import {
   formatSubmissionDay,
   formatSubmissionMoment,
@@ -55,6 +56,10 @@ export function ProductTaskView({
   submissions,
 }: ProductTaskViewProps) {
   const { task } = page;
+  const sourceIds = new Set(
+    materialSourceAnchors(task.page?.body.blocks ?? []).values(),
+  );
+  const pageId = (id: string) => (sourceIds.has(id) ? `${id}:page` : id);
   const criteria = task.definition.criteria;
   const additional = criteria.some(({ level }) => level === "additional");
   const parts =
@@ -77,16 +82,16 @@ export function ProductTaskView({
   const submissionBlock = (
     <section
       aria-labelledby={
-        "format" in task.definition ? undefined : "task-submit-heading"
+        "format" in task.definition ? undefined : pageId("task-submit-heading")
       }
       aria-label={"format" in task.definition ? "Сдать" : undefined}
       className="scroll-mt-6 rounded-2xl bg-muted/60 p-5 sm:p-6"
-      id="task-submit"
+      id={pageId("task-submit")}
     >
       {"format" in task.definition ? null : (
         <h2
           className="text-xl font-semibold tracking-[-0.015em]"
-          id="task-submit-heading"
+          id={pageId("task-submit-heading")}
         >
           Сдача
         </h2>
@@ -172,7 +177,12 @@ export function ProductTaskView({
     </section>
   );
   const mineBlock = (
-    <TaskSection id="mine" title="Мои сдачи">
+    <TaskSection
+      id="mine"
+      sectionId={pageId("task-mine")}
+      headingId={pageId("task-mine-heading")}
+      title="Мои сдачи"
+    >
       <OwnSubmissions
         currentVersion={task.version}
         returnTo={returnTo}
@@ -212,7 +222,7 @@ export function ProductTaskView({
           {parts.map(([id, label]) => (
             <a
               className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-              href={`#task-${id}`}
+              href={`#${pageId(`task-${id}`)}`}
               key={id}
             >
               {label}
@@ -290,10 +300,10 @@ export function ProductTaskView({
 
         {task.page !== undefined ||
         page.relatedMaterials.length === 0 ? null : (
-          <section aria-labelledby="task-related-heading">
+          <section aria-labelledby={pageId("task-related-heading")}>
             <h2
               className="text-xl font-semibold tracking-[-0.015em]"
-              id="task-related-heading"
+              id={pageId("task-related-heading")}
             >
               Материалы к заданию
             </h2>
@@ -433,20 +443,20 @@ function TaskSection({
   children,
   id,
   title,
+  sectionId = `task-${id}`,
+  headingId = `task-${id}-heading`,
 }: {
   readonly children: ReactNode;
   readonly id: string;
   readonly title: string;
+  readonly sectionId?: string;
+  readonly headingId?: string;
 }) {
   return (
-    <section
-      aria-labelledby={`task-${id}-heading`}
-      className="scroll-mt-6"
-      id={`task-${id}`}
-    >
+    <section aria-labelledby={headingId} className="scroll-mt-6" id={sectionId}>
       <h2
         className="mb-3 text-xl font-semibold tracking-[-0.015em]"
-        id={`task-${id}-heading`}
+        id={headingId}
       >
         {title}
       </h2>

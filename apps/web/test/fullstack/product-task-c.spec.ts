@@ -37,6 +37,7 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
   await expect(page.getByText("SECRET_AGENT_EVIDENCE")).toHaveCount(0);
   const image = page.getByRole("img", { name: "Схема учебного проекта" });
   await expect(image).toBeVisible();
+  await image.scrollIntoViewIfNeeded();
   await expect
     .poll(() =>
       image.evaluate(
