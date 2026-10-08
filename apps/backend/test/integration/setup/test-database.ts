@@ -13,6 +13,10 @@ export interface TestDatabase {
   /** Fails a query through itself inside its own `$transaction` callback: see `transaction-guard.ts`. */
   readonly prisma: PlatformPrisma;
   readonly url: string;
+  /** Owns a multi-query operation until it settles, even if the test stops awaiting it. */
+  run<Result>(work: () => Promise<Result>): Promise<Result>;
+  /** Waits for owned operations before the next test uses the database. */
+  drain(): Promise<void>;
   /** Also fails with the first query the client refused inside a transaction. */
   dispose(): Promise<void>;
 }
@@ -38,11 +42,31 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
   const { prisma, refused } = guardTransactionConnections(
     createPrismaClient(url.toString()),
   );
+  const running = new Set<Promise<unknown>>();
+  let disposing = false;
+
+  async function drain(): Promise<void> {
+    await Promise.allSettled([...running]);
+  }
 
   return {
     prisma,
     url: url.toString(),
+    run<Result>(work: () => Promise<Result>): Promise<Result> {
+      if (disposing)
+        return Promise.reject(new Error("Test database is disposing"));
+      const operation = Promise.resolve()
+        .then(work)
+        .finally(() => {
+          running.delete(operation);
+        });
+      running.add(operation);
+      return operation;
+    },
+    drain,
     async dispose() {
+      disposing = true;
+      await drain();
       await prisma.$disconnect();
       const cleanupPool = new Pool({ connectionString: adminUrl, max: 1 });
       try {
