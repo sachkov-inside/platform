@@ -390,7 +390,8 @@ the pending step's start and failure observation on one monotonic clock, plus in
 runner CPU counters, load and memory, worker CPU/memory usage, and
 best-effort Linux `/proc` and cgroup readings. Missing Linux readings carry their errors rather
 than suppressing the other diagnostics. `webkit-log.json` retains `pw:browser` (including browser
-stderr) and `pw:protocol` output only from the geometry scenario. The collector uses Playwright
+stderr) and `pw:protocol` output only from the geometry scenario. Collection stops when the test
+finishes, before asynchronous failure cleanup. The collector uses Playwright
 1.63.0's exported `utilsBundle.debug` instance; its runtime shape and real browser output are
 checked by `webkit-failure-diagnostics.test.ts`. The log keeps up to 2 MiB of initial messages and
 2 MiB of final messages; it reports omitted entries. A failure before the first trace starts

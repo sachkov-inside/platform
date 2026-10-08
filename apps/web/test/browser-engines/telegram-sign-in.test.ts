@@ -372,6 +372,8 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
   // Vitest invokes this hook after a timeout too, while the test's await is still pending.
   // Save the phase before attempting trace export, including failures before a context exists.
   onTestFinished(async () => {
+    // End the global log scope before asynchronous failure cleanup can stall.
+    capture.restore();
     try {
       if (task.result?.state !== "fail") return;
       try {
