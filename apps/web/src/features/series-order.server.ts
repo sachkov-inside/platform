@@ -5,3 +5,5 @@ export {
   handleHomePinReadRequest,
   handleHomePinWriteRequest,
 } from "./series-order/api/home-pin-route.server";
+
+export { handleSeriesOrderRequest } from "./series-order/api/series-order-route.server";

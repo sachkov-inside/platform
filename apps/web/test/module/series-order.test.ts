@@ -6,8 +6,8 @@ vi.mock("@/shared/auth/index.server", () => ({
   readLogtoBffConfig: vi.fn().mockReturnValue({}),
 }));
 
-import { getSeriesOrder } from "@/_pages/series-order/api/get-series-order";
-import { executeReorderSeries } from "@/_pages/series-order/api/reorder-series";
+import { getSeriesOrder } from "@/features/series-order.server";
+import { executeReorderSeries } from "@/features/series-order/api/reorder-series.server";
 
 const seriesId = "96000000-0000-4000-8000-000000000001";
 const firstId = "96000000-0000-4000-8000-000000000002";
