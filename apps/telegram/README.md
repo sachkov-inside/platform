@@ -228,6 +228,10 @@ transition evidence and recovery procedure.
 
 ## Local development
 
+Операторский [отчёт участников группы](docs/operations/group-members-report.md) работает
+в runtime-образе и показывает участников без привязки или без подтверждённого права
+по известным боту ID. Он явно сохраняет неполное покрытие и неизвестные данные.
+
 Install once from the repository root, using its `.node-version` and pnpm pin:
 
 ```bash

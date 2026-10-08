@@ -9,6 +9,10 @@ Platform и Telegram импортируют его вместе с провер�
 описание v1/v2 для переносимых conformance-проверок. Форматы `date-time` и `uuid` в общем
 codec сохраняют прежние правила `ajv-formats`, включая допустимые исторические записи.
 
+Ответ операторского `GET /community-entitlements/members-without-right` принадлежит
+`@inside/contracts/community-members-without-right`. Platform и команда отчёта Telegram
+используют одну схему; перенос схемы не меняет HTTP-ответ.
+
 ## Изменение контракта
 
 Изменяй исходную схему, fixtures и protocol в одном PR. Manifest, snapshot и provenance
