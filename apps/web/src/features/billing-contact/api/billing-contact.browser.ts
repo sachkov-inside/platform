@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   readContactSchema,
@@ -12,23 +13,17 @@ import {
 
 /** Собственный контакт Account: закрытый исход вместо строки в тексте ошибки. */
 export async function readBillingContact(): Promise<ReadContactResult> {
-  let response: Response;
-  try {
-    response = await fetch("/api/account/billing/contact", {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-    });
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-  if (!response.ok)
+  const result = await requestAuthenticatedRead("/api/account/billing/contact");
+  if (result.kind !== "ready")
     return {
       ok: false,
-      code: response.status === 401 ? "unauthorized" : "unavailable",
+      code:
+        result.kind === "authentication_required"
+          ? "unauthorized"
+          : "unavailable",
     };
   try {
-    const parsed = readContactSchema.safeParse(await response.json());
+    const parsed = readContactSchema.safeParse(result.value);
     return parsed.success ? parsed.data : { ok: false, code: "unavailable" };
   } catch {
     return { ok: false, code: "unavailable" };

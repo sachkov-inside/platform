@@ -20,6 +20,11 @@ export {
 export {
   getPlatformAccessToken,
   getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
 } from "./platform-access-token.server";
 export { getOptionalPlatformAccessToken } from "./optional-platform-access-token.server";
+
+export {
+  handleAuthenticatedRead,
+  readAuthenticatedSession,
+} from "./authenticated-read.server";
+export { LogtoSessionUnavailableError } from "./session-adapter.server";

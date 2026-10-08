@@ -6,11 +6,8 @@ import {
   requestConfirmBillingContact,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
-import { privateBillingHeaders } from "@/entities/subscription.server";
 import {
-  getPlatformAccessToken,
-  readLogtoBffConfig,
-  LogtoSessionUnavailableError,
+  handleAuthenticatedRead,
   handleAuthenticatedMutation,
 } from "@/shared/auth/index.server";
 import {
@@ -38,25 +35,17 @@ function mapResult(result: BackendTransportResult): unknown {
   };
 }
 export async function handleReadBillingContact(): Promise<Response> {
-  const headers = privateBillingHeaders;
-  try {
-    const token = await getPlatformAccessToken(readLogtoBffConfig());
+  return handleAuthenticatedRead(async (token) => {
     const result = await requestBillingContact(token);
     if (!result.ok)
       return Response.json(mapResult(result), {
-        headers,
         status: result.response.status,
       });
     const parsed = readContactSchema.safeParse(result.body);
     return parsed.success
-      ? Response.json(parsed.data, { headers })
-      : new Response(null, { headers, status: 502 });
-  } catch (error) {
-    return new Response(null, {
-      headers,
-      status: error instanceof LogtoSessionUnavailableError ? 401 : 503,
-    });
-  }
+      ? Response.json(parsed.data)
+      : new Response(null, { status: 502 });
+  });
 }
 export function handleStartBillingContact(request: Request): Promise<Response> {
   return handleAuthenticatedMutation(request, async (form, token) => {

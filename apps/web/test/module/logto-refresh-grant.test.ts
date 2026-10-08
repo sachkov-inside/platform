@@ -214,7 +214,9 @@ describe.each(rejectedGrants)(
       const response = await accountPresentation();
 
       expect(response.status).toBe(401);
-      expect(await response.text()).toBe("");
+      expect(await response.json()).toEqual({
+        kind: "authentication_required",
+      });
       expect(response.headers.get("cache-control")).toBe("no-store, private");
       expect(cookieWrites).toEqual([
         { name: sessionCookie, value: "", maxAge: 0 },
@@ -278,7 +280,7 @@ describe.each(providerFailures)(
       const response = await accountPresentation();
 
       expect(response.status).toBe(503);
-      expect(await response.text()).toBe("");
+      expect(await response.json()).toEqual({ kind: "identity_unavailable" });
       expect(cookieWrites).toEqual([]);
     });
   },

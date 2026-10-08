@@ -300,6 +300,67 @@ MCP-инструментом `billing_offers_save` со значением `elig
 Команды читают состояние и ничего не меняют. Имена контейнеров следуют `PLATFORM_COMPOSE_PROJECT`
 (`inside-platform-production`).
 
+### Штатная read-only проверка выпуска
+
+После deploy выполните инструмент из проверенного checkout. Он поддерживает текущую Platform schema
+после `0082_domain_names` и Telegram activation contract с `products.v1`.
+Локально нужны toolchain проекта, установленные pnpm dependencies, Python 3.9+ и SSH-доступ оператора.
+На сервере нужны Python 3.9+, Docker, curl,
+psql внутри PostgreSQL-контейнера и доступ к server-owned manifest/state/configuration.
+
+```bash
+pnpm production:verify --host inside-production --application platform --version v22
+pnpm production:verify --host inside-production --application telegram --version v9
+# Опционально: counts действующих credentials существующего access-pass application, без значений.
+pnpm production:verify --host inside-production --application platform --version v22 --logto-app-id TEST_APP_ID
+```
+
+Замените версии фактически выложенными. Version/SHA/digest/schema берутся из выбранного release
+manifest, который проверяется канонической схемой до сравнения фактов. Они сверяются со state, образом и живым readiness. Инструмент передаёт исходник через SSH
+в памяти; серверные файлы не устанавливает. При наличии checkout с toolchain и pnpm dependencies на host используйте
+`python3 scripts/production-verify/verify.py --local --application platform --version v22`.
+
+JSON содержит `passed`, время и список `checks`: `passed`, `failed` или `not_checked` с основанием.
+Exit `0` означает, что выполненные обязательные проверки прошли; `not_checked` остаётся явным
+ограничением. Exit `1` означает отказ проверки либо невозможность собрать обязательные факты.
+Exit `2` означает ошибку аргументов. При первом `failed` инструмент останавливается; оператор
+сообщает координатору до дальнейших действий. Инструмент не делает rollback или forward repair.
+
+Platform проверяет процессы, readiness API/Web/MCP, изображения и ревизии, воркеры, маршруты Caddy,
+очереди, память, timer и текущий доменный каталог. Incompatible rollback запись допустима, когда
+она совпадает с manifest; наличие записи не означает разрешённый откат. `rollback=null` означает,
+что gateway не предлагает откат, и допустим после rollback или forward repair. Колонки индексов не
+считаются колонками таблиц. Формат материалов читается из `materials.materials.format_id`;
+историческая таблица `materials.formats` не используется. Опциональная проверка Logto сравнивает
+`expires_at` с `now()` PostgreSQL и выводит только количества.
+
+Telegram проверяет app/state/operation, digest/revision/migrations identity, readiness, 23 маршрута,
+metrics/logs, текущие webhook и права бота. Числовой Bot ID сверяется с токеном; логическое
+`TELEGRAM_BOT_IDENTITY` не считается числовым ID. Синтетические непривязанные чтения `binding` и
+`own-access` проверяют activation с заголовком `x-inside-domain-names: products.v1`.
+Конфигурация читается через `loadApplicationConfig` из фактического окружения контейнера,
+поэтому пустые значения и комментарии в env-файле не разбираются повторно. Отсутствие cohorts config даёт `not_checked`: приветствие без даты разрешено. Это само по себе
+не доказывает отсутствие регрессии; при подозрении сравните прежнюю конфигурацию. Частичная пара
+настроек даёт отказ.
+
+SQL работает с `default_transaction_read_only=on` и `statement_timeout=15000`. Инструмент не
+создаёт sign-in tokens, binding, activation attempts, покупки или сообщения. Он не меняет webhook,
+настройки, права, процесс или базу. Секреты, персональные строки и stderr команд не включаются в JSON.
+Пять накопительных счётчиков проверяются с момента старта app; `community_effects_unknown`
+показывает текущее значение. Его ноль не доказывает отсутствие прежних неизвестных исходов.
+Ненулевой исторический счётчик требует разбора,
+а не рестарта ради зелёной проверки.
+
+Инструмент дополняет Production access pass и ручные шаги runbook. Он не подтверждает живой
+`/start`, привязку, положительное own-access тестового Account, платежи, восстановление backup
+или сохранность данных между двумя выпусками. Эти критерии проверяются отдельно.
+
+`pnpm test:tooling` выполняет unit-тесты без production credentials и Docker.
+CI job Integration выполняет SQL-контракты на изолированной PostgreSQL.
+С SQL-контрактами выполните `pnpm production:verify:sql-test` только после получения Docker-слота.
+Этот тест запускает отдельный PostgreSQL без опубликованных портов и удаляет только свой контейнер
+и его volumes даже при отказе. Общий stand и его данные он не трогает.
+
 **Доступ глазами тестовых Accounts.** Job `Production access pass` идёт в `deploy.yml` сам; его
 итог и разбор красного результата описаны в разделе
 [Проход доступа после выпуска](#проход-доступа-после-выпуска).

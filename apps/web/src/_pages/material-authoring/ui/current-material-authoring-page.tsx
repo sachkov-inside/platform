@@ -9,11 +9,7 @@ import {
 } from "@/widgets/material-authoring/route-states";
 import type { MaterialAuthoringPresentation } from "@/widgets/material-authoring/model";
 import { withAuthoringReturnHref } from "@/shared/routing/authoring";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
 import { getCurrentMaterial } from "../api/get-current-material";
@@ -26,11 +22,9 @@ export async function CurrentMaterialAuthoringPage({
   readonly materialId: string;
   readonly returnHref: Route;
 }) {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError) {
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required") {
       return (
         <MaterialAuthoringUnauthorizedState
           action={<MaterialAuthoringSignInActions returnHref={returnHref} />}
@@ -38,8 +32,9 @@ export async function CurrentMaterialAuthoringPage({
         />
       );
     }
-    throw error;
+    throw new Error("Identity session is unavailable");
   }
+  const accessToken = session.value;
 
   const state = await getCurrentMaterial(materialId, accessToken);
   if (state.kind === "unauthorized") {

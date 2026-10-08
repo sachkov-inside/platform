@@ -14,23 +14,14 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestAddBookmark: fakes.add,
   requestRemoveBookmark: fakes.remove,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: fakes.token,
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/index.server", async () => {
-  const handlers =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
-    getPlatformAccessToken: fakes.token,
-    readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-    LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-  };
-});
+
 import {
   handleBookmarkList,
   handleBookmarkStates,

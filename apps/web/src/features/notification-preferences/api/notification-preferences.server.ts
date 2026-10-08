@@ -7,10 +7,8 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 import {
-  getPlatformAccessToken,
+  handleAuthenticatedRead,
   handleAuthenticatedMutation,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
 import {
@@ -19,7 +17,6 @@ import {
   notificationPreferencesSchema,
 } from "../model/notification-preferences";
 
-const privateHeaders = { "cache-control": "private, no-store" };
 const booleanField = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
@@ -45,27 +42,17 @@ function failure(result: Extract<BackendTransportResult, { ok: false }>): {
 }
 
 export async function handleReadNotificationPreferences(): Promise<Response> {
-  try {
-    const token = await getPlatformAccessToken(readLogtoBffConfig());
+  return handleAuthenticatedRead(async (token) => {
     const result = await requestNotificationPreferences(token);
     if (!result.ok)
       return Response.json(failure(result), {
-        headers: privateHeaders,
         status: result.response.status,
       });
     const parsed = notificationPreferencesSchema.safeParse(result.body);
     return parsed.success
-      ? Response.json(
-          { ok: true, preferences: parsed.data },
-          { headers: privateHeaders },
-        )
-      : new Response(null, { headers: privateHeaders, status: 502 });
-  } catch (error) {
-    return new Response(null, {
-      headers: privateHeaders,
-      status: error instanceof LogtoSessionUnavailableError ? 401 : 503,
-    });
-  }
+      ? Response.json({ ok: true, preferences: parsed.data })
+      : new Response(null, { status: 502 });
+  });
 }
 
 export function handleChangeNotificationPreferences(
