@@ -6,6 +6,7 @@ import {
 } from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
+  CONTENT_ACCESS_BATCH_SIZE,
   type MaterialResourceFacts,
   type MembershipAccessState,
   type Subject,
@@ -273,6 +274,10 @@ describe("ContentAccess availability", () => {
       reason: "active_membership",
       validUntil: null,
     });
+  });
+
+  test("publishes the maximum operations per availability call", () => {
+    expect(CONTENT_ACCESS_BATCH_SIZE).toBe(100);
   });
 
   test.each([1, 100])(
