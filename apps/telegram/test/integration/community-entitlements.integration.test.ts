@@ -233,6 +233,22 @@ afterAll(async () => {
 });
 
 describe("community entitlement inbox", () => {
+  it("preserves a legacy lowercase date-time through set, ledger update and replay", async () => {
+    const who = subject();
+    const grant = command("finite-community-grant", who, {
+      access: { kind: "finite", validUntil: "2030-02-01t00:00:00z" },
+    });
+    expect(parseCommunityRequest(grant).kind).toBe("set");
+    await seedCommunityBinding(db, grant.binding, clock.now(), who.user, who.bot);
+    const app = provider(who);
+    expect(resultOf(await app.handle(grant)).access).toEqual(grant.access);
+    await app.processDueEffects();
+    expect(resultOf(await app.handle(grant))).toMatchObject({
+      access: grant.access,
+      status: "waiting_for_join",
+    });
+  });
+
   it("v2 member results carry a group URL on set, status and replay", async () => {
     const who = subject();
     chat.membership = "member";

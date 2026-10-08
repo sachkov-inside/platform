@@ -19,3 +19,6 @@ The shared runtime codec lives in `@inside/contracts/community-result`. Official
 [message-link syntax](https://core.telegram.org/api/links#message-links) requires the message ID;
 the Android client opens the chat with that ID. A real device check remains release evidence,
 not something portable conformance fixtures prove.
+
+Platform hides `groupUrl` after a failed provider poll or more than two reconciliation intervals
+(120 seconds) without a successful result. The previous member status remains as the #822 fallback.

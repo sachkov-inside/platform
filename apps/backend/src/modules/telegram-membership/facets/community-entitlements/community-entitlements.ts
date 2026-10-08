@@ -5,6 +5,7 @@ import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/
 import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../account-rights/index.js";
 import {
+  COMMUNITY_RECONCILIATION_INTERVAL_MS,
   sameAccess,
   communityAccessSchema,
   communityResultSchema,
@@ -64,6 +65,7 @@ export interface CommunitySweepReport {
 }
 
 const OPERATION_HISTORY_LIMIT = 20;
+const MEMBER_OBSERVATION_MAX_AGE_MS = 2 * COMMUNITY_RECONCILIATION_INTERVAL_MS;
 /** Сколько Account с наблюдением просматривает один запрос списка оператора. */
 const MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT = 1000;
 
@@ -126,7 +128,8 @@ export class CommunityEntitlements {
     ]);
     if (!access.ok || !binding.ok) return unresolved;
     const linked = binding.binding !== null;
-    if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
+    const now = this.clock();
+    if (!accessAllows(communityAccessFor(access.capabilities), now))
       return {
         ...unresolved,
         admission: { admissionRestriction: null, state: "no_access" },
@@ -155,6 +158,15 @@ export class CommunityEntitlements {
     )
       return { ...unresolved, linked };
     const restriction = result.data.admissionRestriction;
+    const observationAge =
+      operation?.resultAt === null || operation?.resultAt === undefined
+        ? null
+        : now.getTime() - operation.resultAt.getTime();
+    const freshObservation =
+      operation?.errorCode === null &&
+      observationAge !== null &&
+      observationAge >= 0 &&
+      observationAge <= MEMBER_OBSERVATION_MAX_AGE_MS;
     return {
       admission: {
         admissionRestriction: restriction,
@@ -169,7 +181,7 @@ export class CommunityEntitlements {
       },
       linked,
       membership: result.data.observedMembership,
-      ...(result.data.groupUrl === undefined
+      ...(result.data.groupUrl === undefined || !freshObservation
         ? {}
         : { groupUrl: result.data.groupUrl }),
     };

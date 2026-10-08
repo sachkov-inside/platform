@@ -421,6 +421,9 @@ importers:
 
   docs/contracts:
     dependencies:
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.20.0)
       zod:
         specifier: 4.6.5
         version: 4.6.5

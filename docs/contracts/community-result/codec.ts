@@ -1,10 +1,28 @@
+import { fullFormats } from "ajv-formats/dist/formats.js";
 import { z } from "zod";
 
 const COMMUNITY_CONTRACT_VERSION = "inside.community-entitlement.v1";
 const COMMUNITY_V2_CONTRACT_VERSION = "inside.community-entitlement.v2";
-const id = z.uuid();
+// Preserve JSON Schema format semantics for historical provider messages.
+function isStringFormat(
+  validator: typeof fullFormats["date-time"],
+): validator is { type?: "string"; validate: (value: string) => boolean } {
+  return (
+    typeof validator === "object" &&
+    !(validator instanceof RegExp) &&
+    validator.async !== true &&
+    validator.type !== "number" &&
+    typeof validator.validate === "function"
+  );
+}
+function acceptsWireFormat(format: "date-time" | "uuid", value: string): boolean {
+  const validator = fullFormats[format];
+  if (validator instanceof RegExp) return validator.test(value);
+  return isStringFormat(validator) && validator.validate(value);
+}
+const id = z.string().refine((value) => acceptsWireFormat("uuid", value)).meta({ format: "uuid" });
 const opaqueRef = z.string().min(1).max(256);
-const instant = z.iso.datetime({ offset: true });
+const instant = z.string().refine((value) => acceptsWireFormat("date-time", value)).meta({ format: "date-time" });
 const revision = z.number().int().positive();
 const admissionRestrictionSchema: z.ZodEnum<{
  none: "none"; moderation: "moderation"; external_unknown: "external_unknown";
@@ -16,7 +34,7 @@ export const communityGroupUrlSchema: z.ZodURL = z.url({ protocol: /^https$/, ho
 
 export const communityAccessSchema: z.ZodDiscriminatedUnion<[
   z.ZodObject<{ kind: z.ZodLiteral<"denied"> }, z.core.$strict>,
-  z.ZodObject<{ kind: z.ZodLiteral<"finite">; validUntil: z.ZodISODateTime }, z.core.$strict>,
+  z.ZodObject<{ kind: z.ZodLiteral<"finite">; validUntil: z.ZodString }, z.core.$strict>,
   z.ZodObject<{ kind: z.ZodLiteral<"lifetime"> }, z.core.$strict>
 ], "kind"> = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("denied") }),
@@ -27,7 +45,7 @@ export type CommunityAccess = z.infer<typeof communityAccessSchema>;
 
 export const communityBindingSchema: z.ZodObject<{
   accountRef: z.ZodString; telegramIdentityRef: z.ZodString;
-  linkRef: z.ZodUUID; linkRevision: z.ZodNumber;
+  linkRef: z.ZodString; linkRevision: z.ZodNumber;
 }, z.core.$strict> = z.strictObject({
   accountRef: opaqueRef,
   telegramIdentityRef: opaqueRef,
@@ -65,7 +83,7 @@ export const communityResultSchema: z.ZodObject<{
     "inside.community-entitlement.v2": "inside.community-entitlement.v2";
   }>;
   operation: z.ZodLiteral<"entitlement.result">;
-  operationId: z.ZodUUID;
+  operationId: z.ZodString;
   binding: typeof communityBindingSchema;
   entitlementRevision: z.ZodNumber;
   access: typeof communityAccessSchema;
@@ -73,7 +91,7 @@ export const communityResultSchema: z.ZodObject<{
   observedMembership: typeof observedMembershipSchema;
   admissionRestriction: z.ZodOptional<typeof admissionRestrictionSchema>;
   groupUrl: z.ZodOptional<typeof communityGroupUrlSchema>;
-  updatedAt: z.ZodISODateTime;
+  updatedAt: z.ZodString;
 }, z.core.$strict> = z
   .strictObject({
     contractVersion: z.enum([

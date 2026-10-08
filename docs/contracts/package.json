@@ -20,7 +20,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "ajv-formats": "3.0.1"
   },
   "devDependencies": {
     "typescript": "7.0.2"

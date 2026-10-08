@@ -741,6 +741,20 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       kind: "member",
       groupUrl: "https://t.me/c/1234567890/1",
     });
+    provider.answer = "unavailable";
+    now = new Date(new Date(start).getTime() + 244_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({ kind: "member" });
+
+    provider.answer = "accept";
+    now = new Date(new Date(start).getTime() + 305_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member", groupUrl: "https://t.me/c/1234567890/1",
+    });
+    // If reconciliation stops altogether, an old member observation cannot keep the button forever.
+    now = new Date(new Date(start).getTime() + 425_001);
+    expect(await app.readOwnCommunityEntry(account)).toEqual({ kind: "member" });
     // The activation wire keeps its own admission shape.
     expect(await app.readOwnAdmission(account)).toEqual({
       admissionRestriction: "none",

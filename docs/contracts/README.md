@@ -6,7 +6,8 @@
 Протоколы, сценарии и fixtures остаются рядом со схемами. Копий в `apps/` и других пакетах нет.
 Runtime codec `CommunityResult` и типы из него принадлежат `@inside/contracts/community-result`;
 Platform и Telegram импортируют его вместе с проверкой `groupUrl`. JSON corpora сохраняют
-описание v1/v2 для переносимых conformance-проверок.
+описание v1/v2 для переносимых conformance-проверок. Форматы `date-time` и `uuid` в общем
+codec сохраняют прежние правила `ajv-formats`, включая допустимые исторические записи.
 
 ## Изменение контракта
 
