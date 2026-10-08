@@ -54,54 +54,35 @@ export async function readLegacyHomeContent(
   accountRights: Pick<AccountRights, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
+  readCatalog: typeof listPublishedMaterials = listPublishedMaterials,
 ): Promise<HomeContentResult> {
   const [catalog, videos, guides, notes, pin, membership] = await Promise.all([
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: 1,
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        feedOnly: true,
-        formatSlugs: ["video"],
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        feedOnly: true,
-        formatSlugs: ["guide"],
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        feedOnly: true,
-        formatSlugs: ["note"],
-        subject,
-        sort: "newest",
-      },
-    ),
+    readCatalog(publishedMaterialReader, contentAccess, videoCatalog, {
+      first: 1,
+      subject,
+      sort: "newest",
+    }),
+    readCatalog(publishedMaterialReader, contentAccess, videoCatalog, {
+      first: HOME_MATERIAL_LIMIT,
+      feedOnly: true,
+      formatSlugs: ["video"],
+      subject,
+      sort: "newest",
+    }),
+    readCatalog(publishedMaterialReader, contentAccess, videoCatalog, {
+      first: HOME_MATERIAL_LIMIT,
+      feedOnly: true,
+      formatSlugs: ["guide"],
+      subject,
+      sort: "newest",
+    }),
+    readCatalog(publishedMaterialReader, contentAccess, videoCatalog, {
+      first: HOME_MATERIAL_LIMIT,
+      feedOnly: true,
+      formatSlugs: ["note"],
+      subject,
+      sort: "newest",
+    }),
     publishedMaterialReader.readHomePinnedSeries(),
     resolveHomeMembership(accountRights, subscriptionForSale, subject),
   ]);

@@ -8,6 +8,11 @@ import {
   assembleMaterials,
   assembleMaterialResourceFacts,
 } from "../../src/modules/materials/index.js";
+import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
+import type {
+  ListPublishedMaterialsQuery,
+  PublishedMaterialCatalogResult,
+} from "../../src/modules/content-library/features/list-published-materials/list-published-materials.contract.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { assembleVideos } from "../../src/modules/videos/facets/videos/assemble-videos.js";
 import { readLegacyHomeContent } from "../support/legacy-home-content.js";
@@ -30,6 +35,13 @@ async function createCorpus() {
     authorPolicy: { canManage: () => false },
   });
   let expected: Awaited<ReturnType<typeof readLegacyHomeContent>> | undefined;
+  const legacyCatalogs = new Map<
+    string,
+    {
+      query: ListPublishedMaterialsQuery;
+      result: PublishedMaterialCatalogResult;
+    }
+  >();
   let queryCount = 0;
   let measuring = false;
   prisma.$on("query", () => {
@@ -41,6 +53,27 @@ async function createCorpus() {
     run<Result>(work: () => Promise<Result>): Promise<Result> {
       return database.run(work);
     },
+    async prepareLegacyCatalog(format: "video" | "guide" | "note" | undefined) {
+      const query: ListPublishedMaterialsQuery =
+        format === undefined
+          ? { first: 1, subject: { kind: "anonymous" }, sort: "newest" }
+          : {
+              first: 8,
+              feedOnly: true,
+              formatSlugs: [format],
+              subject: { kind: "anonymous" },
+              sort: "newest",
+            };
+      const result = await database.run(() =>
+        listPublishedMaterials(
+          materials.publishedMaterialReader,
+          materials.contentAccess,
+          catalogVideos(prisma),
+          query,
+        ),
+      );
+      legacyCatalogs.set(format ?? "catalog", { query, result });
+    },
     async prepareLegacy() {
       expected = await database.run(() =>
         readLegacyHomeContent(
@@ -50,6 +83,15 @@ async function createCorpus() {
           { resolveForAccess: () => Promise.resolve({ kind: "required" }) },
           false,
           { kind: "anonymous" },
+          (_reader, _access, _videos, query) => {
+            const prepared = legacyCatalogs.get(
+              query.formatSlugs?.[0] ?? "catalog",
+            );
+            if (prepared === undefined)
+              throw new Error("Legacy catalog not prepared");
+            expect(query).toEqual(prepared.query);
+            return Promise.resolve(prepared.result);
+          },
         ),
       );
       if (!expected.ok) throw new Error(expected.error.code);
@@ -97,7 +139,16 @@ for (const size of [90, 9000, 90]) {
     });
   });
 }
+// Each real legacy catalog read gets its own preparation hook. The old Home composition consumes
+// those exact results, so four expensive catalog reads cannot exhaust one hook's budget together.
 for (const index of [0, 1]) {
+  for (const format of [undefined, "video", "guide", "note"] as const) {
+    beforeAll(async () => {
+      const corpus = corpora[index];
+      if (corpus === undefined) throw new Error("Missing comparison corpus");
+      await corpus.prepareLegacyCatalog(format);
+    });
+  }
   beforeAll(async () => {
     const corpus = corpora[index];
     if (corpus === undefined) throw new Error("Missing comparison corpus");
