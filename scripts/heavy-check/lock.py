@@ -2,29 +2,28 @@
 import fcntl
 import os
 from pathlib import Path
+import random
 import select
 import signal
 import subprocess
 import sys
 import time
 
+from processes import adopt_orphans, process_row, process_snapshot
+
 OWNER = 'INSIDE_HEAVY_CHECK_OWNER'
-POLL_SECONDS = 0.25
+WAIT_SECONDS = 2
+CLEANUP_POLL_SECONDS = 0.25
 STOP_SECONDS = 5
 
 
 def ancestors():
     result = []
     ancestor = os.getppid()
-    while ancestor > 1:
+    while ancestor > 1 and ancestor not in result:
         result.append(ancestor)
-        parent = subprocess.run(
-            ['ps', '-o', 'ppid=', '-p', str(ancestor)],
-            capture_output=True, text=True, check=False,
-        ).stdout.strip()
-        if not parent.isdecimal():
-            break
-        ancestor = int(parent)
+        row = process_row(ancestor)
+        ancestor = row[0] if row is not None else 1
     return result
 
 
@@ -33,34 +32,70 @@ def owner_alive(parents):
     return value.isdecimal() and int(value) in parents
 
 
-def parents_alive(parents):
-    result = subprocess.run(
-        ['ps', '-o', 'pid=,stat=', '-p', ','.join(map(str, parents))],
-        capture_output=True, text=True, check=False,
-    )
-    live = set()
-    for line in result.stdout.splitlines():
-        pid, state = line.split()
-        # kill(pid, 0) still succeeds for a killed parent awaiting waitpid.
-        if 'Z' not in state:
-            live.add(int(pid))
-    return all(parent in live for parent in parents)
+class ExitEvents:
+    """Wait for cancellation or process exit, including unreaped zombie parents."""
+    def __init__(self, read_fd, parents):
+        self.read_fd = read_fd
+        self.parents = set(parents)
+        self.dead = set()
+        self.pidfds = {}
+        self.watched = set()
+        self.tree_changed = False
+        self.queue = select.kqueue() if hasattr(select, 'kqueue') else None
+        if self.queue is not None:
+            self.queue.control([select.kevent(read_fd, filter=select.KQ_FILTER_READ,
+                                              flags=select.KQ_EV_ADD)], 0, 0)
+        try:
+            for pid in parents:
+                self.watch(pid)
+        except BaseException:
+            self.close()
+            raise
 
+    def watch(self, pid, forks=False):
+        if pid in self.watched:
+            return
+        try:
+            if self.queue is not None:
+                self.queue.control([select.kevent(
+                    pid, filter=select.KQ_FILTER_PROC,
+                    flags=select.KQ_EV_ADD | select.KQ_EV_CLEAR,
+                    fflags=select.KQ_NOTE_EXIT | (select.KQ_NOTE_FORK if forks else 0),
+                )], 0, 0)
+            else:
+                self.pidfds[os.pidfd_open(pid)] = pid
+            self.dead.discard(pid)
+            self.watched.add(pid)
+        except ProcessLookupError:
+            self.dead.add(pid)
 
-def cancelled(read_fd, timeout=0):
-    return bool(select.select([read_fd], [], [], timeout)[0])
+    def wait(self, timeout=None):
+        if self.queue is not None:
+            events = self.queue.control([], len(self.watched) + 1, timeout)
+            for event in events:
+                if event.filter == select.KQ_FILTER_READ:
+                    return True
+                if event.fflags & select.KQ_NOTE_EXIT:
+                    self.dead.add(event.ident)
+                    self.watched.discard(event.ident)
+                if event.fflags & select.KQ_NOTE_FORK:
+                    self.tree_changed = True
+        else:
+            ready, _, _ = select.select([self.read_fd, *self.pidfds], [], [], timeout)
+            if self.read_fd in ready:
+                return True
+            for fd in ready:
+                pid = self.pidfds.pop(fd)
+                self.dead.add(pid)
+                self.watched.discard(pid)
+                os.close(fd)
+        return bool(self.dead & self.parents)
 
-
-def process_snapshot():
-    result = subprocess.run(
-        ['ps', '-axo', 'pid=,ppid=,pgid=,stat=,lstart='],
-        capture_output=True, text=True, check=True,
-    )
-    snapshot = {}
-    for line in result.stdout.splitlines():
-        pid, parent, group, state, started = line.split(maxsplit=4)
-        snapshot[int(pid)] = (int(parent), int(group), state, started)
-    return snapshot
+    def close(self):
+        if self.queue is not None:
+            self.queue.close()
+        for fd in self.pidfds:
+            os.close(fd)
 
 
 def track_descendants(process, tracked, known_groups):
@@ -78,6 +113,9 @@ def track_descendants(process, tracked, known_groups):
     live.update(pid for pid, row in snapshot.items() if row[1] in known_groups)
     if not tracked and process.poll() is None:
         live.add(process.pid)
+    if sys.platform == 'linux':
+        # Subreaper ownership includes detached children whose parents already exited.
+        live.update(pid for pid, row in snapshot.items() if row[0] == os.getpid())
     while True:
         descendants = {
             pid for pid, (parent, _group, _state, _started) in snapshot.items()
@@ -113,6 +151,13 @@ def stop_groups(process, tracked, known_groups):
     signalled = set(groups)
     while groups:
         process.poll()
+        if sys.platform == 'linux':
+            for pid in list(tracked):
+                if pid != process.pid:
+                    try:
+                        os.waitpid(pid, os.WNOHANG)
+                    except ChildProcessError:
+                        pass
         groups = track_descendants(process, tracked, known_groups)
         if time.monotonic() >= deadline:
             signal_groups(groups, signal.SIGKILL)
@@ -121,7 +166,7 @@ def stop_groups(process, tracked, known_groups):
             signal_groups(groups - signalled, signal.SIGTERM)
             signalled.update(groups)
         if groups:
-            time.sleep(POLL_SECONDS)
+            time.sleep(CLEANUP_POLL_SECONDS)
     process.wait()
 
 
@@ -137,12 +182,13 @@ def supervise(read_fd, command, parents):
     ))
     directory.mkdir(parents=True, exist_ok=True)
     slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
+    events = ExitEvents(read_fd, parents)
     process = None
     tracked = {}
     known_groups = set()
     try:
         waiting = False
-        while not cancelled(read_fd) and parents_alive(parents):
+        while not events.wait(0):
             for slot in slots:
                 try:
                     fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -150,25 +196,38 @@ def supervise(read_fd, command, parents):
                     continue
                 print(f'heavy-check: acquired {slot.name}', file=sys.stderr, flush=True)
                 environment = dict(os.environ, **{OWNER: str(os.getpid())})
+                adopt_orphans()
                 process = subprocess.Popen(
                     command, env=environment, start_new_session=True,
                     preexec_fn=command_signals,
                 )
                 known_groups.add(process.pid)
-                while process.poll() is None:
-                    track_descendants(process, tracked, known_groups)
-                    if cancelled(read_fd, POLL_SECONDS) or not parents_alive(parents):
+                events.watch(process.pid, forks=True)
+                track_descendants(process, tracked, known_groups)
+                for pid in tracked:
+                    events.watch(pid, forks=True)
+                # Registration can already report exit. NOTE_EXIT can also precede
+                # waitpid readiness: never wait for a second exit event.
+                while process.pid not in events.dead and process.poll() is None:
+                    if events.wait():
                         return 143
-                returncode = process.returncode
+                    if events.tree_changed:
+                        events.tree_changed = False
+                        track_descendants(process, tracked, known_groups)
+                        for pid in tracked:
+                            events.watch(pid, forks=True)
+                returncode = process.wait()
                 return returncode if returncode >= 0 else 128 - returncode
             if not waiting:
                 print('heavy-check: waiting for one of two local slots', file=sys.stderr, flush=True)
                 waiting = True
-            cancelled(read_fd, POLL_SECONDS)
+            if events.wait(random.uniform(WAIT_SECONDS * 0.75, WAIT_SECONDS * 1.25)):
+                return 143
         return 143
     finally:
         if process is not None:
             stop_groups(process, tracked, known_groups)
+        events.close()
         for slot in slots:
             slot.close()
         os.close(read_fd)
