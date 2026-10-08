@@ -329,9 +329,10 @@ by an Actions run; these local tests do not claim that all browser/container sui
 
 ## Diagnostics and cleanup
 
-Playwright traces, screenshots and HTML reports are uploaded only after a failure. Compose jobs
+PR CI and the nightly full-stack smoke upload Playwright traces, screenshots and HTML reports
+only after a failure. The flake hunt retains every sample as described above. Compose jobs
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
-retained for seven days; successful runs store none of them.
+retained for seven days; successful PR CI and full-stack smoke runs store none of them.
 
 The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` (#999) and
 `unlinked Account sees centered onboarding once per authenticated session` in
