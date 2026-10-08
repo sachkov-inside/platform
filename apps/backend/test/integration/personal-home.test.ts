@@ -689,7 +689,9 @@ describe("Personal Home on PostgreSQL", () => {
     const accountId = randomUUID();
     const collection = await series();
     const entries = [];
-    const loadReadyDurations = vi.fn(videos.loadReadyDurations);
+    const loadReadyDurations = vi.fn((ids: readonly string[]) =>
+      videos.loadReadyDurations(ids),
+    );
     const observedHome = makeHome({ ...videos, loadReadyDurations });
     for (const size of [6, 30]) {
       while (entries.length < size)
@@ -705,7 +707,7 @@ describe("Personal Home on PostgreSQL", () => {
       );
     }
     const next = entries[4];
-    if (next === undefined || next.videoId === null)
+    if (next?.videoId === undefined || next.videoId === null)
       throw new Error("Missing next video");
     await open(accountId, next);
     await videos.saveProgress({
