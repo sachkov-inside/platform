@@ -400,6 +400,13 @@ The API health response is:
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
+Host diagnostic launchers and the production-web browser-test launcher require Python 3 for
+`scripts/owned-process.py`. The supervisor keeps a private pipe to the Node owner and tracks the
+command's process groups. Owner exit, SIGINT, SIGTERM or SIGKILL closes that pipe. Shutdown sends
+SIGTERM, then SIGKILL after a five-second grace period; command completion also clears remaining
+descendants before the supervisor reports its status. `scripts/owned-process.test.mjs` verifies
+these paths with real signal-resistant child processes.
+
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
 Product on sale and the API refuses to start a sale without a bank and a receipt mailbox. It

@@ -189,9 +189,10 @@ await test("observed tool inventory and shell execution are retained separately 
 });
 
 await test("deadline escalates an owned child which ignores SIGTERM and captures close", async () => {
-  const { spawn } = await import("node:child_process");
+  const { spawnOwned, stopOwned } =
+    await import("../../../scripts/owned-process.mjs");
   const { processDeadline } = await import("./process-deadline.mjs");
-  const child = spawn(
+  const child = spawnOwned(
     process.execPath,
     [
       "-e",
@@ -199,24 +200,29 @@ await test("deadline escalates an owned child which ignores SIGTERM and captures
     ],
     { detached: true, stdio: ["ignore", "pipe", "pipe"] },
   );
-  await new Promise<void>((resolve, reject) => {
-    child.once("error", reject);
-    child.stdout.once("data", () => {
-      resolve();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child.once("error", reject);
+      child.stdout?.once("data", () => {
+        resolve();
+      });
     });
-  });
-  const start = Date.now();
-  const deadline = processDeadline(child, 25, 25);
-  const result = await new Promise<{
-    code: number | null;
-    signal: NodeJS.Signals | null;
-  }>((resolve, reject) => {
-    child.once("error", reject);
-    child.once("close", (code, signal) => {
-      resolve({ code, signal });
+    const start = Date.now();
+    const deadline = processDeadline(child, 25, 25);
+    const result = await new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+    }>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (code, signal) => {
+        resolve({ code, signal });
+      });
     });
-  });
-  assert.equal(deadline.timedOut, true);
-  assert.equal(result.signal, "SIGKILL");
-  assert.ok(Date.now() - start < 3000);
+    assert.equal(deadline.timedOut, true);
+    assert.equal(result.code, 143);
+    assert.equal(result.signal, null);
+    assert.ok(Date.now() - start < 3000);
+  } finally {
+    await stopOwned(child, 25);
+  }
 });
