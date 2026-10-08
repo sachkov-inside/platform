@@ -128,6 +128,18 @@ test("loadPackage preserves a task-only v2 envelope, authored definition and rea
   assert.equal(pkg.manifest.tasks?.[0]?.access, null);
 });
 
+test("a v2 package can require Content source heading anchors", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("github-anchors-v1");
+  await f.write(manifest);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(pkg.manifest.requiredFeatures, [
+    "task-c-v2",
+    "github-anchors-v1",
+  ]);
+});
+
 test("unknown features stop load, sync and preview before transport or asset reads", async (t) => {
   const f = await temporary(t);
   const manifest = fixture();

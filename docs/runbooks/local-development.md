@@ -1176,7 +1176,7 @@ so `apply` publishes exactly what was reviewed. A Material missing from this sta
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
 Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
-uploads. This importer supports only `task-c-v2`. A Task with `access: null` is a preview conflict
+uploads. This importer supports `task-c-v2` and `github-anchors-v1`. A Task with `access: null` is a preview conflict
 until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
 unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes
 no `--task-access` and does not change package bytes. An existing Material with the Task source key

@@ -183,6 +183,7 @@ export type BillingPrisma = Pick<
   | "billingChangeQuote"
   | "billingPaymentMethodFlow"
   | "billingOwnerCommand"
+  | "billingOwnerCommandKey"
   | "billingRefundDecision"
   | "billingRefund"
   | "billingNotice"

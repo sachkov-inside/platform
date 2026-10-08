@@ -63,7 +63,7 @@ export function ApplicationShell({
       data-public-shell
     >
       <a
-        href="#content"
+        href="#app:content"
         className="fixed left-4 top-4 z-[100] max-w-[calc(100vw-2rem)] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground focus:translate-y-0"
       >
         Перейти к содержанию
@@ -105,7 +105,8 @@ export function ApplicationShell({
         onNavigate={onMobileNavigate}
       />
       <main
-        id="content"
+        id="app:content"
+        data-application-content
         tabIndex={-1}
         className="mobile-scrollbar-hidden flex min-w-0 flex-1 flex-col lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
       >

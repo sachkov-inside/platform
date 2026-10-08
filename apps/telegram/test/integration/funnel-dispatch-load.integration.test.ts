@@ -1,3 +1,7 @@
+import {
+  registerRuntimeClock,
+  useTimeoutClock,
+} from "../support/fixed-clock.js";
 import { WorkerLoop } from "../../src/operations/worker-loop.js";
 import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
@@ -55,6 +59,13 @@ const START_PROCESSING_LIMIT_MS = 1000;
 const START_REPLY_LIMIT_MS = 3000;
 const MEASUREMENT_CAP_MS = 60_000;
 
+registerRuntimeClock();
+
+const runtimeClock = {
+  // deterministic-test-allow wall-clock: registerRuntimeClock fixes Date per case and advances it with native elapsed time; webhook, fixtures and CLOCK share it.
+  now: () => new Date(),
+};
+
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
 const database = createDatabase(databaseUrl);
@@ -111,10 +122,9 @@ async function createFixture() {
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
-    // Real time lets the shared 40 ms transport lane advance while the backlog drains.
+    // The webhook and the shared 40 ms transport lane use the same advancing virtual Date.
     .overrideProvider(CLOCK)
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    .useValue({ now: () => new Date() })
+    .useValue({ now: () => runtimeClock.now() })
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue({ authorize: () => Promise.resolve("allowed") })
     .overrideProvider(AUTHOR_CONTENT_VALIDATION)
@@ -227,10 +237,8 @@ async function seedDueAudience(
   await funnels.execute(
     command("funnels.publish", { funnelId: value.funnelId }, 1),
   );
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const enrolledAt = new Date(Date.now() - 3600_000);
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const due = new Date(Date.now() - 1000);
+  const enrolledAt = new Date(runtimeClock.now().getTime() - 3600_000);
+  const due = new Date(runtimeClock.now().getTime() - 1000);
   const rows = Array.from({ length: size }, (_, i) => ({
     user: String(1_000_000 + i),
     contactId: randomUUID(),
@@ -397,8 +405,7 @@ describe("funnel dispatch performance", () => {
               telegramUserId: "1000000",
               privateChatId: "1000000",
               updateId: "900",
-              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-              observedAt: new Date(),
+              observedAt: runtimeClock.now(),
             },
             "none",
           ),
@@ -417,8 +424,7 @@ describe("funnel dispatch performance", () => {
           });
           await app
             .get(TelegramUpdateProcessor)
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-            .processAvailable(1, new Date());
+            .processAvailable(1, runtimeClock.now());
         });
         await elapsed(() => replyReceived);
         const reply = sent.find((s) => s.message.chatId === "777");
@@ -478,17 +484,18 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
   worker.start();
   let stopped = false;
   let stopping: Promise<void> | undefined;
+  let restoreDate: (() => void) | undefined;
   try {
     await vi.waitFor(() => expect(sends).toBe(1), { timeout: 5000 });
     stopping = worker.stop().then(() => {
       stopped = true;
     });
     expect(cycleSignal?.aborted).toBe(true);
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    restoreDate = useTimeoutClock({ shouldAdvanceTime: true });
     await vi.advanceTimersByTimeAsync(2000);
     expect(stopped).toBe(false);
   } finally {
-    vi.useRealTimers();
+    restoreDate?.();
     release();
     await (stopping ?? worker.stop());
   }
@@ -531,10 +538,10 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     telegramUserId: user,
     privateChatId: user,
     updateId,
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    observedAt: new Date(),
+    observedAt: runtimeClock.now(),
   });
   let waiter: Promise<unknown> | undefined;
+  let restoreDate: (() => void) | undefined;
   try {
     // Negative fixture: a command that takes the scheduler lock is detected as waiting.
     waiter = database
@@ -547,10 +554,10 @@ it("completes every BotContact command while the bot scheduler lock is held", as
       waiterCompleted = true;
     });
     await advisoryLockWaiting(database, "communications-scheduler:inside");
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    restoreDate = useTimeoutClock({ shouldAdvanceTime: true });
     await vi.advanceTimersByTimeAsync(300);
     expect(waiterCompleted).toBe(false);
-    vi.useRealTimers();
+    restoreDate();
     waiter = waiting;
     const commands = [
       () => app.get(BotContacts).observeStart(contact("1"), "welcome"),
@@ -567,7 +574,7 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     for (const command of commands)
       expect(await elapsed(command, 5000)).toBeLessThan(5000);
   } finally {
-    vi.useRealTimers();
+    restoreDate?.();
     release();
     await holder;
     await waiter;
@@ -580,8 +587,7 @@ async function seedBlockedReplies(
   const value = await seedDueAudience(app, 0);
   // Every entry waits for an intro whose result is unknown; none of them may be sent.
   const stuck = 600;
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const earlier = new Date(Date.now() - 60_000);
+  const earlier = new Date(runtimeClock.now().getTime() - 60_000);
   const rows = Array.from({ length: stuck }, (_, i) => ({
     user: String(2_000_000 + i),
     contactId: randomUUID(),
@@ -693,8 +699,9 @@ describe("blocked replies", () => {
           text: "/start",
         },
       });
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-      await app.get(TelegramUpdateProcessor).processAvailable(1, new Date());
+      await app
+        .get(TelegramUpdateProcessor)
+        .processAvailable(1, runtimeClock.now());
       const scheduler = app.get(FunnelScheduler);
       for (let cycle = 0; cycle < 5; cycle++) {
         await scheduler.processAvailable();
@@ -715,8 +722,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
   // Contact 1000000 is first in due order but its chat lane is taken; 1000001 is sendable.
   await database
     .updateTable("communication_deliveries as d")
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    .set({ due_at: new Date(Date.now() - 5000) })
+    .set({ due_at: new Date(runtimeClock.now().getTime() - 5000) })
     .from("communication_contacts as c")
     .whereRef("c.contact_id", "=", "d.contact_id")
     .where("c.telegram_user_id", "=", "1000000")
@@ -727,8 +733,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
     .values({
       bot_identity: "inside",
       lane: "chat:1000000",
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-      available_at: new Date(Date.now() + 60_000),
+      available_at: new Date(runtimeClock.now().getTime() + 60_000),
     })
     .execute();
   let reached!: () => void;
@@ -762,8 +767,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
   const dispatch = new FunnelScheduler(
     pausing,
     config,
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    { now: () => new Date() },
+    { now: () => runtimeClock.now() },
     {
       send: (message: CommunicationMessage) => {
         sent.push({ message, at: performance.now() });
@@ -784,8 +788,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
             telegramUserId: "1000000",
             privateChatId: "1000000",
             updateId: "910",
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-            observedAt: new Date(),
+            observedAt: runtimeClock.now(),
           },
           "none",
         ),

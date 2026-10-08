@@ -1,3 +1,4 @@
+import { randomInt, randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -137,16 +138,15 @@ test("неизвестный документ показывает «не най
 test("неизвестный документ и неизвестная редакция отвечают 404 с первого захода", async ({
   request,
 }, testInfo) => {
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const now = Date.now();
-  const unseen = `${testInfo.project.name}-${String(now)}`;
+  const unseen = `${testInfo.project.name}-${randomUUID()}`;
+  const unseenEdition = randomInt(100, 1000);
 
   for (const path of [
     "/legal/facts-and-applicability",
     "/legal/purchase/v2",
     `/legal/unpublished-${unseen}`,
     // Редакция из трёх цифр: адрес допустим по форме, но такой редакции нет.
-    `/legal/terms/v${String(100 + (now % 900))}`,
+    `/legal/terms/v${String(unseenEdition)}`,
   ]) {
     const response = await request.get(path, { maxRedirects: 0 });
 

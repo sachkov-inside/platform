@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
@@ -376,8 +377,7 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
   const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   const terms = {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    startsAt: new Date().toISOString(),
+    startsAt: await backendFixtureInstant(billingManager.page.request),
     endsAt: null,
     endPolicy: "fixed",
   };

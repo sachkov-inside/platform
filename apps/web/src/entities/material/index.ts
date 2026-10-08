@@ -51,6 +51,7 @@ export {
   type MaterialReadingSnapshot,
 } from "./model/reading-context.client";
 
+export { materialSourceAnchors } from "./model/material-source-anchors";
 export {
   MaterialBodyView,
   type MaterialBodyRendering,
