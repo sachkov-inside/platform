@@ -1018,3 +1018,21 @@ function mcpRoute(name, path) {
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+// Smoke must exercise the production lifecycle, not reject a valid cold worker startup (#1251).
+it("production smoke inherits worker startup grace and failure policy", () => {
+  const override = read(
+    "scripts/fixtures/production-runtime/compose.smoke.yaml",
+  );
+  for (const worker of [
+    "material-assets-worker",
+    "profile-avatars-worker",
+    "video-deletions-worker",
+    "billing-worker",
+    "notifications-worker",
+  ]) {
+    const block = override.split(`  ${worker}:\n`)[1]?.split("\n  ")[0];
+    assert.ok(block, `${worker} candidate image is required`);
+    assert.doesNotMatch(block, /healthcheck:/u);
+  }
+});
