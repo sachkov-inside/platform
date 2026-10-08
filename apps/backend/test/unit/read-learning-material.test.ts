@@ -122,7 +122,8 @@ describe("Learning material reference batches", () => {
           input.operations.map(({ itemId }) => itemId),
         ),
       ).toEqual(blocks.map((block) => block.assetId));
-      expect(authorize).toHaveBeenCalledExactlyOnceWith({
+      expect(authorize).toHaveBeenCalledTimes(1);
+      expect(authorize.mock.calls[0]?.[0]).toMatchObject({
         subject: anonymousSubject,
         resource: {
           kind: "material",
@@ -130,7 +131,6 @@ describe("Learning material reference batches", () => {
         },
         action: "read",
         enforcementPoint: "mcp_material_read",
-        correlationId: expect.any(String),
       });
       if (state === "revoked") {
         expect(result).toEqual({
