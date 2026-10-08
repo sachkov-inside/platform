@@ -340,6 +340,7 @@ export async function selectHomeMaterialProjections(
   const metadata = homeMetadataSchema.array().parse(rawMetadata)[0];
   if (metadata === undefined)
     throw new TypeError("Home projection metadata is missing");
+  const notes = await projectHomeFeedNotes(prisma, rawNotes);
   const previews = await selectPublishedMaterialProjectionsByIds(
     prisma,
     metadata.series.flatMap(({ previewMaterialIds }) => previewMaterialIds),
@@ -366,12 +367,51 @@ export async function selectHomeMaterialProjections(
       .parse(rawGuides)
       .slice(0, 8)
       .map(toProjection),
-    notes: searchedPublishedMaterialProjectionRowSchema
-      .array()
-      .parse(rawNotes)
-      .slice(0, 8)
-      .map(toProjection),
+    notes,
   };
+}
+
+/** The legacy feed drops an excerpt when any active Product uses that note as a feed preview. */
+async function projectHomeFeedNotes(
+  prisma: MaterialsPrisma,
+  rawNotes: unknown,
+): Promise<readonly PublishedMaterialProjectionDto[]> {
+  const notes = searchedPublishedMaterialProjectionRowSchema
+    .array()
+    .parse(rawNotes)
+    .slice(0, 8);
+  const excerptIds = notes
+    .filter((note) => note.note_excerpt != null)
+    .map((note) => note.material_id);
+  if (excerptIds.length === 0) return notes.map(toProjection);
+  // Inspect only the selected notes; do not hydrate or enrich invisible Product previews.
+  const previewNotes = z
+    .object({ material_id: z.uuid() })
+    .strict()
+    .array()
+    .parse(
+      await prisma.$queryRaw(Prisma.sql`
+      select distinct membership.material_id
+      from materials.published_material_series_memberships as membership
+      join materials.series as series on series.id = membership.series_id
+      where series.archived_at is null
+        and membership.material_id in (${Prisma.join(excerptIds)})
+        and (
+          select count(*)
+          from materials.published_material_series_memberships as earlier
+          join materials.published_materials as publication on publication.material_id = earlier.material_id
+          where earlier.series_id = membership.series_id
+            and (earlier.ordinal, earlier.material_id) < (membership.ordinal, membership.material_id)
+            and ${projectionScopeSql(true)}
+        ) < 3
+    `),
+    );
+  const previewIds = new Set(previewNotes.map((note) => note.material_id));
+  return notes.map((note) =>
+    toProjection(
+      previewIds.has(note.material_id) ? { ...note, note_excerpt: null } : note,
+    ),
+  );
 }
 
 function searchProjectionQuery(

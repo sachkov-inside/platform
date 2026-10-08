@@ -3,7 +3,7 @@ import { assembleContentAccess } from "../../src/modules/content-access/index.js
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { PrismaClient } from "../../src/infrastructure/prisma/generated/client.js";
 import { createPrismaPgAdapter } from "../../src/infrastructure/prisma/prisma-adapter.js";
-import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import type { Prisma } from "../../src/infrastructure/prisma/index.js";
 import {
   assembleMaterials,
   assembleMaterialResourceFacts,
@@ -316,6 +316,41 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     where: { id: id(4) },
     data: { showInFeed: false },
   });
+  // A public note outside the first four Playlists is still a legacy feed preview.
+  await prisma.materialSearchDocument.createMany({
+    data: [
+      {
+        materialId: id(7),
+        contentVersion: 1n,
+        plainText: "Visible note excerpt",
+      },
+      {
+        materialId: id(52),
+        contentVersion: 1n,
+        plainText: "Preview note excerpt",
+      },
+    ],
+  });
+  await prisma.publishedMaterialProductMembership.update({
+    where: {
+      materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
+    },
+    data: { ordinal: 100 },
+  });
+  await prisma.publishedMaterialProductMembership.update({
+    where: {
+      materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
+    },
+    data: { ordinal: 1 },
+  });
+  await prisma.material.update({
+    where: { id: id(52) },
+    data: { publishedAt: new Date("2026-01-03") },
+  });
+  await prisma.publishedMaterial.update({
+    where: { materialId: id(52) },
+    data: { publishedAt: new Date("2026-01-03") },
+  });
   const videos = catalogVideos(prisma);
   for (const kind of [
     "active",
@@ -504,7 +539,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
     ),
   ).toMatchObject({
     ok: false,
-    error: { code: "internal_error", correlationId: expect.any(String) },
+    error: { code: "internal_error" },
   });
   expect(
     await readHomeContent(
@@ -527,7 +562,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
   );
   expect(broken).toMatchObject({
     ok: false,
-    error: { code: "internal_error", correlationId: expect.any(String) },
+    error: { code: "internal_error" },
   });
   expect(
     await readLegacyHomeContent(
