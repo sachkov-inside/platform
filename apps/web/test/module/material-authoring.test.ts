@@ -444,22 +444,20 @@ describe("Material Authoring action workflow", () => {
   it("explains source ownership mismatches in Save", async () => {
     const refused = {
       ...successfulSaveDependencies(),
-      save: vi
-        .fn()
-        .mockResolvedValue({
-          ok: false,
-          problem: {
-            code: "invalid_reference",
-            issues: [
-              {
-                code: "material_source_mismatch",
-                path: "/metadata/seriesIds/0",
-              },
-            ],
-            status: 422,
-          },
-          response: Response.json({}, { status: 422 }),
-        }),
+      save: vi.fn().mockResolvedValue({
+        ok: false,
+        problem: {
+          code: "invalid_reference",
+          issues: [
+            {
+              code: "material_source_mismatch",
+              path: "/metadata/seriesIds/0",
+            },
+          ],
+          status: 422,
+        },
+        response: Response.json({}, { status: 422 }),
+      }),
     } satisfies SaveMaterialDependencies;
     await expect(
       executeSaveMaterial(validSaveFormData(), "access-token", refused),

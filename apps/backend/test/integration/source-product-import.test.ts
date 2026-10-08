@@ -160,7 +160,11 @@ describe("authoring source Product completion", () => {
       expectedVersion: product.version,
       name: product.name,
       summary: product.summary,
-      source: { slug: product.slug, presentation: "default" as const, page: null },
+      source: {
+        slug: product.slug,
+        presentation: "default" as const,
+        page: null,
+      },
     };
     const imported = await authoring.updateSourceProduct({
       ...request,
@@ -663,6 +667,27 @@ describe("authoring source Product completion", () => {
         ok: false,
         error: { code: "forbidden" },
       });
+    const plainProduct = await authoring.createContentCollection({
+      actor,
+      kind: "product",
+      name: "Legacy import",
+      slug: "legacy-shared-artifact",
+      summary: "",
+    });
+    if (!plainProduct.ok) throw new Error(plainProduct.error.code);
+    expect(
+      await artifacts.applyAuthoringImport({
+        actor,
+        productId: plainProduct.value.id,
+        artifacts: [{ ...artifact, title: "Legacy bypass" }],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await artifacts.listForProduct({
+        actor,
+        productId: plainProduct.value.id,
+      }),
+    ).toMatchObject({ ok: true, value: [] });
     expect(
       await artifacts.applyAuthoringImport({
         actor,
@@ -674,6 +699,82 @@ describe("authoring source Product completion", () => {
       ok: true,
       value: { outcomes: [{ outcome: "unchanged" }] },
     });
+  });
+  test("artifact import rolls back the entire batch and uses the same locks as editor refusals", async () => {
+    const artifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage,
+      prisma: database.prisma,
+    });
+    const product = await reserveProduct(
+      "inside-content:atomic-artifacts",
+      "atomic-artifacts",
+    );
+    const first = {
+      sourceId: "inside-content:atomic-first",
+      title: "Atomic first",
+      purpose: "",
+      access: "closed" as const,
+      externalUrl: "https://example.test/first",
+    };
+    const second = {
+      ...first,
+      sourceId: "inside-content:atomic-second",
+      title: "Rejected batch artifact",
+    };
+    await database.prisma
+      .$executeRaw`alter table materials.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
+    try {
+      expect(
+        await artifacts.applyAuthoringImport({
+          actor,
+          productId: product.id,
+          productSourceId: "inside-content:atomic-artifacts",
+          artifacts: [first, second],
+        }),
+      ).toMatchObject({ ok: false, error: { code: "dependency_unavailable" } });
+      expect(
+        await artifacts.listForProduct({ actor, productId: product.id }),
+      ).toMatchObject({ ok: true, value: [] });
+      const reusable = await artifacts.listReusable({ actor });
+      if (!reusable.ok) throw new Error(reusable.error.code);
+      expect(
+        reusable.value.some((row) => row.sourceId === first.sourceId),
+      ).toBe(false);
+    } finally {
+      await database.prisma
+        .$executeRaw`alter table materials.product_artifacts drop constraint reject_test_artifact_second`;
+    }
+    const created = await artifacts.applyAuthoringImport({
+      actor,
+      productId: product.id,
+      productSourceId: "inside-content:atomic-artifacts",
+      artifacts: [first],
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const artifactId = created.value.outcomes[0]?.artifactId;
+    if (artifactId === undefined) throw new Error("Artifact missing");
+    const [editor, imported] = await Promise.all([
+      artifacts.update({
+        actor,
+        artifactId,
+        metadata: { access: "closed", title: "Editor", purpose: "" },
+      }),
+      artifacts.applyAuthoringImport({
+        actor,
+        productId: product.id,
+        productSourceId: "inside-content:atomic-artifacts",
+        artifacts: [{ ...first, title: "Source revision" }],
+      }),
+    ]);
+    expect(editor).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(imported).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "updated" }] },
+    });
+    expect(
+      await artifacts.listForProduct({ actor, productId: product.id }),
+    ).toMatchObject({ ok: true, value: [{ title: "Source revision" }] });
   });
 });
 

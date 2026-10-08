@@ -1134,8 +1134,10 @@ What the transfer applies:
 - The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed
   product page description (`product.yaml`, key `page`; see
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
-  page description before the transfer's first write, and its refusal names the product. The editor-owned Product introduction fields are not
-  imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+  page description before the transfer's first write, and its refusal names the product.
+  The optional `products[].introduction` imports all four introduction fields; omitting it preserves
+  the stored introduction. The source owns this text for imported Products (#845).
+  Editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
 private draft: its author previews it through the authoring preview, while guests, other accounts,

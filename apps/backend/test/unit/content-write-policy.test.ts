@@ -60,4 +60,55 @@ describe("content write ownership", () => {
         });
     },
   );
+  test("named artifact import uses the artifact identity alongside its Product identity", () => {
+    expect(
+      checkContentWrite({ via: "import", sourceId: "inside-content:product" }, [
+        {
+          kind: "product",
+          sourceId: "inside-content:product",
+          path: "/productId",
+        },
+        {
+          kind: "artifact",
+          sourceId: "inside-content:artifact",
+          requestedSourceId: "inside-content:artifact",
+          path: "/artifacts/0",
+        },
+      ]),
+    ).toBeNull();
+    expect(
+      checkContentWrite({ via: "import", sourceId: "inside-content:product" }, [
+        {
+          kind: "artifact",
+          sourceId: "inside-content:other",
+          requestedSourceId: "inside-content:artifact",
+          path: "/artifacts/0",
+        },
+      ]),
+    ).toEqual({ code: "forbidden" });
+  });
+  test.each([
+    ["material", null, "forbidden"],
+    ["cover", null, "forbidden"],
+    ["archive", null, "forbidden"],
+    ["membership", null, "forbidden"],
+    ["product", null, null],
+    ["product", "inside-content:product", "forbidden"],
+    ["artifact", "inside-content:artifact", null],
+    ["artifact", null, "forbidden"],
+  ] as const)(
+    "legacy artifact import: %s with owner %s",
+    (kind, sourceId, expected) => {
+      expect(
+        checkContentWrite({ via: "legacy-artifact-import", sourceId: null }, [
+          {
+            kind,
+            sourceId,
+            requestedSourceId: "inside-content:artifact",
+            path: "/id",
+          },
+        ])?.code ?? null,
+      ).toBe(expected);
+    },
+  );
 });
