@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { PlatformConfig } from "../../src/config/platform-config.js";
 import { KinescopeVideoAuthorizationController } from "../../src/modules/materials/index.js";
+import { VideoPlaybackController } from "../../src/modules/materials/adapters/nest/video-playback.controller.js";
 import type { VideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import {
   KinescopeWebhookController,
@@ -90,6 +91,38 @@ describe("Kinescope integration HTTP boundary", () => {
       providerVideoId: "provider-video",
       token: "tampered-token",
     });
+  });
+
+  test("passes only an explicit author preview to the playback session", async () => {
+    const createSession = vi
+      .fn<VideoPlayback["createSession"]>()
+      .mockResolvedValue({
+        ok: false,
+        error: { code: "access_denied" },
+      });
+    const controller = new VideoPlaybackController({
+      authorizeProvider: vi.fn(),
+      createSession,
+      saveProgress: vi.fn(),
+    });
+    const materialId = "81000000-0000-4000-8000-000000000002";
+    const videoId = "81000000-0000-4000-8000-000000000003";
+
+    for (const preview of [undefined, "false", "true"]) {
+      await expect(
+        controller.create(undefined, materialId, videoId, preview),
+      ).rejects.toMatchObject({ status: 403 });
+    }
+    expect(createSession.mock.calls.map(([input]) => input.preview)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+
+    await expect(
+      controller.create(undefined, materialId, videoId, "yes"),
+    ).rejects.toMatchObject({ response: { code: "invalid_request" } });
+    expect(createSession).toHaveBeenCalledTimes(3);
   });
 });
 

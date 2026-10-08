@@ -701,6 +701,117 @@ describe("independent product, library, support and shared chat rights", () => {
     ).toMatchObject({ ok: true });
   });
 
+  test("draft video plays only in the author preview; readers, members and guests stay denied", async () => {
+    now = new Date("2030-04-01T00:00:00Z");
+    await grant([`product:${productA}`], null);
+    const videos = assembleVideos({
+      prisma: db.prisma,
+      provider: createTestVideoProvider(),
+      projects: { free: "free", closed: "members" },
+      canManage: () => Promise.resolve(false),
+      clock: () => now,
+    });
+    const playback = assembleVideoPlayback({
+      contentAccess: assembleContentAccess({
+        videoResourceFacts: assembleVideoResourceFacts(videos),
+        materialResourceFacts: assembleMaterialResourceFacts(
+          materials.materialContent,
+        ),
+        accountPermissions: {
+          hasMaterialsManage: (id) => Promise.resolve(id === owner),
+        },
+        accountRights: membership,
+      }),
+      videos,
+      jwtSecret: "synthetic-playback-signing-key-838",
+      jwtTtlSeconds: 60,
+      clock: () => now,
+    });
+    async function draftWithVideo(access: "free" | "closed") {
+      const id = await material([productA], "draft", access);
+      const videoId = randomUUID(),
+        providerVideoId = randomUUID();
+      await db.prisma.video.create({
+        data: {
+          id: videoId,
+          materialId: id,
+          createdBy: owner,
+          access,
+          projectId: access === "free" ? "free" : "members",
+          providerVideoId,
+          title: "Draft lesson video",
+          origin: "platform_upload",
+          providerStatus: "done",
+          state: "ready",
+          readyAt: now,
+          providerVisibleAt: now,
+          providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`,
+          durationSeconds: 60,
+        },
+      });
+      await db.prisma.material.update({
+        where: { id },
+        data: { primaryVideoId: videoId },
+      });
+      return { materialId: id, videoId, providerVideoId };
+    }
+    const author = { kind: "account" as const, accountId: accountId(owner) };
+    const member = { kind: "account" as const, accountId: accountId(buyer) };
+    const stranger = {
+      kind: "account" as const,
+      accountId: accountId(randomUUID()),
+    };
+    const anonymous = { kind: "anonymous" as const };
+
+    for (const access of ["closed", "free"] as const) {
+      const draft = await draftWithVideo(access);
+      const session = await playback.createSession({
+        materialId: draft.materialId,
+        videoId: draft.videoId,
+        preview: true,
+        subject: author,
+        correlationId: randomUUID(),
+      });
+      expect(session).toMatchObject({
+        ok: true,
+        value: { videoId: draft.videoId, resumeSeconds: null },
+      });
+      if (!session.ok) throw new Error("Expected an author preview session");
+      if (access === "closed") {
+        const token = session.value.drmAuthToken;
+        if (!hasText(token)) throw new Error("Expected a preview DRM token");
+        expect(
+          await playback.authorizeProvider({
+            providerVideoId: draft.providerVideoId,
+            token,
+          }),
+        ).toBe(true);
+      } else {
+        expect(session.value.drmAuthToken).toBeNull();
+      }
+      // Обычная выдача не открывает черновик никому, даже автору; preview — только автору.
+      for (const [subject, preview] of [
+        [author, false],
+        [member, false],
+        [member, true],
+        [stranger, false],
+        [stranger, true],
+        [anonymous, false],
+        [anonymous, true],
+      ] as const) {
+        expect(
+          await playback.createSession({
+            materialId: draft.materialId,
+            videoId: draft.videoId,
+            preview,
+            subject,
+            correlationId: randomUUID(),
+          }),
+        ).toEqual({ ok: false, error: { code: "access_denied" } });
+      }
+    }
+  });
+
   test("two sources of the single chat survive one revocation; support expires separately and legacy lifetime remains", async () => {
     now = new Date("2030-01-01T00:00:00Z");
     const first = await grant(["community"], null);

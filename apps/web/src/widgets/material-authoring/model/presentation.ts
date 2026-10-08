@@ -72,8 +72,8 @@ export interface MaterialPreviewPresentation {
   readonly topic: string;
   readonly publicationState: "draft" | "published" | "unpublished";
   /**
-   * Основное видео материала. Плеер работает только у опубликованного урока, поэтому предпросмотр
-   * называет состояние видео словами. Без поля строка о видео не выводится.
+   * Основное видео материала. Готовое видео предпросмотр показывает плеером и у черновика; когда
+   * видео нет или оно не готово, состояние названо словами. Без поля о видео ничего не выводится.
    */
   readonly video?: MaterialPreviewVideo;
 }
@@ -81,9 +81,11 @@ export interface MaterialPreviewPresentation {
 export type MaterialPreviewVideo =
   | { readonly kind: "none" }
   | {
+      readonly durationSeconds?: number | undefined;
       readonly kind: "attached";
       readonly ready: boolean;
       readonly title: string;
+      readonly videoId: string;
     }
   | { readonly kind: "unavailable" };
 

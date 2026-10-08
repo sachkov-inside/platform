@@ -178,7 +178,13 @@ export const ProductRoute: Story = {
   args: {
     preview: {
       ...materialPreview,
-      video: { kind: "attached", ready: true, title: "Запись урока" },
+      video: {
+        durationSeconds: 754,
+        kind: "attached",
+        ready: true,
+        title: "Запись урока",
+        videoId: "03000000-0000-4000-8000-000000000001",
+      },
     },
     route: materialPreviewRoute,
   },
@@ -209,11 +215,16 @@ export const ProductRoute: Story = {
     ).toHaveAttribute("aria-current", "page");
     await expect(route.getByText("В главе пока нет материалов.")).toBeVisible();
     await expect(route.getByText("Вне глав")).toBeVisible();
+    // Готовое видео черновика предпросмотр показывает плеером, а не строкой.
     await expect(
       canvasElement.querySelector("[data-preview-video]"),
-    ).toHaveTextContent(
-      "Видео «Запись урока» готово. Плеер появится на странице урока после публикации.",
-    );
+    ).not.toBeInTheDocument();
+    await expect(
+      page.getByRole("region", { name: "Видео: Запись урока" }),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Просмотрено" }),
+    ).not.toBeInTheDocument();
     await expect(
       page.getByRole("navigation", { name: "Соседние материалы руководства" }),
     ).toBeVisible();

@@ -42,6 +42,8 @@ export interface VideoPlayback {
   createSession(input: {
     readonly correlationId: string;
     readonly materialId: string;
+    /** Author preview of the current saved Material: needs `materials:manage`, keeps no progress. */
+    readonly preview?: boolean;
     readonly subject: Subject;
     readonly videoId: string;
   }): Promise<PlaybackSessionResult>;
@@ -75,8 +77,9 @@ export function assembleVideoPlayback(dependencies: {
 
   const playback: VideoPlayback = {
     async createSession(input) {
+      const action = input.preview === true ? "preview" : "play";
       const decision = await dependencies.contentAccess.authorize({
-        action: "play",
+        action,
         correlationId: input.correlationId,
         enforcementPoint: "playback_token_issue",
         resource: { kind: "video", videoId: input.videoId },
@@ -107,7 +110,7 @@ export function assembleVideoPlayback(dependencies: {
         return { ok: false, error: { code: "video_mismatch" } };
       }
       const progress =
-        input.subject.kind === "account"
+        action === "play" && input.subject.kind === "account"
           ? await dependencies.videos.loadProgress({
               accountId: input.subject.accountId,
               videoId: input.videoId,
@@ -134,6 +137,8 @@ export function assembleVideoPlayback(dependencies: {
       const drmAuthToken =
         loaded.value.access !== "free"
           ? await new SignJWT({
+              // The provider callback repeats the same action: a preview token stays a preview.
+              ...(action === "preview" ? { act: action } : {}),
               pid: loaded.value.providerVideoId,
               vid: loaded.value.videoId,
             })
@@ -170,8 +175,10 @@ export function assembleVideoPlayback(dependencies: {
           currentDate: clock(),
         });
         const localVideoId = verified.payload["vid"];
+        const tokenAction = verified.payload["act"];
         if (
           typeof localVideoId !== "string" ||
+          (tokenAction !== undefined && tokenAction !== "preview") ||
           verified.payload["pid"] !== input.providerVideoId ||
           typeof verified.payload.sub !== "string"
         ) {
@@ -187,7 +194,7 @@ export function assembleVideoPlayback(dependencies: {
           return false;
         }
         const decision = await dependencies.contentAccess.authorize({
-          action: "play",
+          action: tokenAction ?? "play",
           correlationId: randomUUID(),
           enforcementPoint: "video_authorization_callback",
           resource: { kind: "video", videoId: localVideoId },

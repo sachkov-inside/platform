@@ -35,6 +35,11 @@ interface MaterialPrimaryVideoProps {
   readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly materialId: string;
+  /**
+   * Author preview of the current saved Material, including a draft: the session needs
+   * `materials:manage`, and the player neither resumes nor saves progress.
+   */
+  readonly preview?: boolean;
   readonly video: {
     readonly chapters?: readonly {
       readonly start: number;
@@ -53,6 +58,7 @@ export type PlayerPhase = "loading" | "playing" | "error";
 export function MaterialPrimaryVideo({
   className,
   materialId,
+  preview = false,
   video,
   showWatchedAction = true,
 }: MaterialPrimaryVideoProps) {
@@ -100,6 +106,7 @@ export function MaterialPrimaryVideo({
       try {
         const session = await createPlaybackSession({
           materialId,
+          preview,
           videoId: video.videoId,
         });
         if (!isActive()) return;
@@ -116,8 +123,9 @@ export function MaterialPrimaryVideo({
         if (session.drmAuthToken !== null) {
           source.searchParams.set("drmauthtoken", session.drmAuthToken);
         }
-        const savedPositionSeconds =
-          session.progressScope === "anonymous"
+        const savedPositionSeconds = preview
+          ? null
+          : session.progressScope === "anonymous"
             ? (readAnonymousProgress(video.videoId) ?? session.resumeSeconds)
             : session.resumeSeconds;
         if (video.durationSeconds !== undefined) {
@@ -226,7 +234,7 @@ export function MaterialPrimaryVideo({
           setWatchedOverride(playbackProgress.watched);
         let lastPersisted = currentTime;
         const persist = (position: number) => {
-          if (!isActive()) return;
+          if (!isActive() || preview) return;
           const rounded = Math.max(0, Math.min(duration, Math.round(position)));
           lastPersisted = rounded;
           if (session.progressScope === "anonymous") {
@@ -277,6 +285,7 @@ export function MaterialPrimaryVideo({
     createPlaybackSession,
     materialId,
     persistAccountProgress,
+    preview,
     retryAttempt,
     video.chapters,
     video.durationSeconds,
@@ -353,7 +362,7 @@ export function MaterialPrimaryVideo({
       }}
       {...(className === undefined ? {} : { className })}
       phase={phase}
-      showWatchedAction={showWatchedAction}
+      showWatchedAction={showWatchedAction && !preview}
       sectionRef={sectionRef}
       title={video.title}
       videoId={video.videoId}
