@@ -420,10 +420,13 @@ remove them on exit; neither uses production credentials or contacts the product
 
 Production smoke inherits the worker healthcheck from `compose.production.yaml`, including its
 40 s startup grace and 2 s startup probe interval. It does not override the failure policy.
-On failure, before shutdown, it captures each unhealthy/exited/dead container's State (including
+When `PRODUCTION_SMOKE_ARTIFACT_DIR` is set, before shutdown on failure it captures each
+unhealthy/exited/dead container's State (including
 Health probe history) and last 100 log lines. The job prints State and the last 30 log lines.
 `PRODUCTION_SMOKE_ARTIFACT_DIR` selects the artifact directory; CI uploads it for seven days.
 Development CI uses the same collector before its final shutdown.
+The checksum failure/recovery proof derives its observation bound from the workers' effective
+healthcheck interval, timeout and retries; it does not change the healthcheck policy.
 
 ## Publish the next ordinal release
 

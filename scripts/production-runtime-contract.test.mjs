@@ -1031,7 +1031,7 @@ it("production smoke inherits worker startup grace and failure policy", () => {
     "billing-worker",
     "notifications-worker",
   ]) {
-    const block = override.split(`  ${worker}:\n`)[1]?.split(/\n  [a-z]/u)[0];
+    const block = override.split(`  ${worker}:\n`)[1]?.split("\n  ")[0];
     assert.ok(block, `${worker} candidate image is required`);
     assert.doesNotMatch(block, /healthcheck:/u);
   }
