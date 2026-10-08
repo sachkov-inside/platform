@@ -589,10 +589,10 @@ async function observeMaterialsAuthoring(
   actor: Actor,
 ): Promise<Observation> {
   const response = await passContextGet(context, "/api/authoring/materials");
-  expect(response.status()).toBe(200);
   const { kind } = z
     .object({ kind: z.enum(["ready", "forbidden"]) })
     .parse(await response.json());
+  expect(response.status()).toBe(kind === "ready" ? 200 : 403);
   return kind === "ready"
     ? { observed: "allowed" }
     : browserDenial(context, actor, "forbidden");
