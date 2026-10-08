@@ -8,11 +8,13 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
 READY_SECONDS = 15
 STOP_SECONDS = 20
+PROCESS_PROBE_SECONDS = 0.25
 
 # This provider owns both a real listening HTTP socket and an independent control TCP connection.
 # HTTP responses stay pending so the unchanged backend test is executing when its runner is killed.
@@ -158,6 +160,46 @@ def wait_child_closed(connection, deadline):
             return
 
 
+def wait_processes_stopped(source, pids, deadline):
+    process_row = None
+    native_processes = source / 'scripts/heavy-check'
+    if (native_processes / 'processes.py').is_file():
+        sys.path.insert(0, str(native_processes))
+        from processes import process_row
+
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError(f'Timed out observing stopped launcher/child: {pids}')
+        if process_row is not None:
+            states = {pid: row[2] for pid in pids.values()
+                      if (row := process_row(pid)) is not None}
+        else:
+            # Baseline compatibility only: inspect the two owned PIDs, never the process table.
+            result = subprocess.run(
+                ['ps', '-o', 'pid=,stat=', '-p', ','.join(map(str, pids.values()))],
+                capture_output=True, text=True, timeout=remaining)
+            if result.returncode not in (0, 1) or result.stderr.strip():
+                raise AssertionError(f'Process state probe failed: {result.returncode} {result.stderr}')
+            states = {}
+            for line in result.stdout.splitlines():
+                pid, state = line.split()
+                pid = int(pid)
+                if pid not in pids.values():
+                    raise AssertionError(f'Process probe returned an unowned PID: {pid}')
+                states[pid] = state[0]
+        # Linux can retain an exited orphan as a zombie until its adopting parent reaps it.
+        running = {name: (pid, states[pid]) for name, pid in pids.items()
+                   if pid in states and states[pid] != 'Z'}
+        if not running:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError(f'Launcher/child still running after TCP close and owner exit: {running}')
+        # The observed state ends this wait; the cadence only limits fixture probe overhead.
+        time.sleep(min(PROCESS_PROBE_SECONDS, remaining))
+
+
 def kill_group(pid):
     try:
         os.killpg(pid, signal.SIGKILL)
@@ -193,7 +235,7 @@ def exercise(options):
                                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             connection = None
             ready = None
-            child_closed = False
+            processes_stopped = False
             try:
                 connection, ready = ready_connection(listener, options.surface)
                 if owner.poll() is not None:
@@ -202,18 +244,21 @@ def exercise(options):
                 os.kill(owner.pid, getattr(signal, options.signal))
                 shutdown_deadline = time.monotonic() + STOP_SECONDS
                 wait_child_closed(connection, shutdown_deadline)
-                child_closed = True
                 owner.wait(timeout=max(0, shutdown_deadline - time.monotonic()))
                 if options.signal == 'SIGKILL' and owner.returncode != -signal.SIGKILL:
                     raise AssertionError(f'Runner was not killed: {owner.returncode}')
-                print(f'{options.surface} {options.signal}: child ready, owner signalled, child TCP closed')
+                wait_processes_stopped(source, {'launcher': ready['launcherPid'], 'child': ready['pid']},
+                                       shutdown_deadline)
+                processes_stopped = True
+                print(f'{options.surface} {options.signal}: child ready, owner signalled, '
+                      'child TCP closed, launcher and child stopped')
             except BaseException as error:
                 log.seek(0)
                 output = log.read().decode(errors='replace')[-12000:]
                 raise AssertionError(f'{options.surface} {options.signal}: {error}\n{output}') from error
             finally:
                 # These groups belong only to this disposable fixture; cleanup does not prove the test.
-                if ready is not None and not child_closed:
+                if ready is not None and not processes_stopped:
                     kill_group(ready['pid'])
                 kill_group(owner.pid)
                 if ready is not None:
