@@ -25,6 +25,11 @@ async function createCorpus() {
     adapter: createPrismaPgAdapter(database.url),
     log: [{ emit: "event", level: "query" }],
   });
+  const materials = assembleMaterials({
+    prisma,
+    authorPolicy: { canManage: () => false },
+  });
+  let expected: Awaited<ReturnType<typeof readLegacyHomeContent>> | undefined;
   let queryCount = 0;
   let measuring = false;
   prisma.$on("query", () => {
@@ -32,10 +37,25 @@ async function createCorpus() {
   });
   return {
     prisma,
-    materials: assembleMaterials({
-      prisma,
-      authorPolicy: { canManage: () => false },
-    }),
+    materials,
+    run: database.run,
+    async prepareLegacy() {
+      expected = await database.run(() =>
+        readLegacyHomeContent(
+          materials.publishedMaterialReader,
+          materials.contentAccess,
+          catalogVideos(prisma),
+          { resolveForAccess: () => Promise.resolve({ kind: "required" }) },
+          false,
+          { kind: "anonymous" },
+        ),
+      );
+      if (!expected.ok) throw new Error(expected.error.code);
+    },
+    legacy() {
+      if (expected === undefined) throw new Error("Legacy Home not prepared");
+      return expected;
+    },
     start() {
       queryCount = 0;
       measuring = true;
@@ -45,31 +65,43 @@ async function createCorpus() {
       return queryCount;
     },
     async dispose() {
+      await database.drain();
       await prisma.$disconnect();
       await database.dispose();
     },
   };
 }
 
-beforeAll(async () => {
+beforeAll(() => {
   corpora = [];
-  // Each test owns its mutable database. Build both large corpora before measurements start.
-  for (const size of [90, 9000, 90]) {
+});
+// Each case owns its database. Corpus construction and the expensive legacy oracle are preparation, not Home's operation.
+for (const size of [90, 9000, 90]) {
+  beforeAll(async () => {
     const corpus = await createCorpus();
     corpora.push(corpus);
-    await corpus.prisma.account.create({
-      data: {
-        id: actor,
-        logtoIssuer: "https://home.invalid",
-        logtoSubject: "home",
-      },
+    await corpus.run(async () => {
+      await corpus.prisma.account.create({
+        data: {
+          id: actor,
+          logtoIssuer: "https://home.invalid",
+          logtoSubject: "home",
+        },
+      });
+      await corpus.prisma.product.create({
+        data: { id: product, name: "Z-main", slug: "main", summary: "fixed" },
+      });
+      await seed(corpus.prisma, 0, size);
     });
-    await corpus.prisma.product.create({
-      data: { id: product, name: "Z-main", slug: "main", summary: "fixed" },
-    });
-    await seed(corpus.prisma, 0, size);
-  }
-});
+  });
+}
+for (const index of [0, 1]) {
+  beforeAll(async () => {
+    const corpus = corpora[index];
+    if (corpus === undefined) throw new Error("Missing comparison corpus");
+    await corpus.prepareLegacy();
+  });
+}
 afterAll(async () => {
   await Promise.all(corpora.map((corpus) => corpus.dispose()));
 });
@@ -210,25 +242,20 @@ test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL bud
       resolveForAccess: () => Promise.resolve({ kind: "required" as const }),
     };
     const subject = { kind: "anonymous" as const };
-    const expected = await readLegacyHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      subject,
-    );
+    const expected = corpus.legacy();
     corpus.start();
     let result;
     let count;
     try {
-      result = await readHomeContent(
-        materials.publishedMaterialReader,
-        access,
-        videos,
-        rights,
-        false,
-        subject,
+      result = await corpus.run(() =>
+        readHomeContent(
+          materials.publishedMaterialReader,
+          access,
+          videos,
+          rights,
+          false,
+          subject,
+        ),
       );
     } finally {
       count = corpus.stop();
@@ -248,352 +275,356 @@ test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL bud
 test("Home preserves membership, feed filters, archived and empty groups, covers and a pin outside the first four Playlists", async () => {
   const corpus = corpora[2];
   if (corpus === undefined) throw new Error("Missing scenario corpus");
-  const { prisma, materials } = corpus;
-  const seriesId = id(200008);
-  const coverId = id(700000);
-  await prisma.contentCover.create({
-    data: {
-      id: coverId,
-      seriesId,
-      state: "ready",
-      currentlyReferenced: true,
-      renditions: {
-        create: {
-          width: 320,
-          height: 180,
-          contentType: "image/webp",
-          byteSize: 12,
-          checksumSha256: "a".repeat(64),
-          publicObjectKey: "home-cover.webp",
+  return corpus.run(async () => {
+    const { prisma, materials } = corpus;
+    const seriesId = id(200008);
+    const coverId = id(700000);
+    await prisma.contentCover.create({
+      data: {
+        id: coverId,
+        seriesId,
+        state: "ready",
+        currentlyReferenced: true,
+        renditions: {
+          create: {
+            width: 320,
+            height: 180,
+            contentType: "image/webp",
+            byteSize: 12,
+            checksumSha256: "a".repeat(64),
+            publicObjectKey: "home-cover.webp",
+          },
         },
       },
-    },
-  });
-  await prisma.product.update({
-    where: { id: seriesId },
-    data: {
-      coverId,
-      presentation: "ai-engineering-course",
-      page: {
-        card: { eyebrow: "Course", subtitle: "Learn", action: "Open" },
-        blocks: [
-          {
-            id: "hero",
-            kind: "hero",
-            badge: "Inside",
-            lead: "Home hero",
-            highlights: ["Learn"],
-          },
-        ],
-      },
-    },
-  });
-  await prisma.homeSeriesPin.update({ where: { id: 1 }, data: { seriesId } });
-  await prisma.product.create({
-    data: { id: id(600000), name: "A-empty", slug: "empty" },
-  });
-  await prisma.topic.create({
-    data: { id: id(600001), name: "A-empty", slug: "empty" },
-  });
-  await prisma.topic.update({
-    where: { id: id(100000) },
-    data: { archivedAt: new Date("2026-01-02") },
-  });
-  await prisma.product.update({
-    where: { id: id(200000) },
-    data: { archivedAt: new Date("2026-01-02") },
-  });
-  // Closed and hidden free Materials remain in counts and previews, but never in the Home feed.
-  await prisma.material.update({
-    where: { id: id(2) },
-    data: { access: "closed" },
-  });
-  await prisma.publishedMaterial.update({
-    where: { materialId: id(2) },
-    data: { access: "closed" },
-  });
-  await prisma.material.update({
-    where: { id: id(4) },
-    data: { showInFeed: false },
-  });
-  // A public note outside the first four Playlists is still a legacy feed preview.
-  await prisma.materialSearchDocument.createMany({
-    data: [
-      {
-        materialId: id(7),
-        contentVersion: 1n,
-        plainText: "Visible note excerpt",
-      },
-      {
-        materialId: id(52),
-        contentVersion: 1n,
-        plainText: "Preview note excerpt",
-      },
-    ],
-  });
-  await prisma.publishedMaterialProductMembership.update({
-    where: {
-      materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
-    },
-    data: { ordinal: 100 },
-  });
-  await prisma.publishedMaterialProductMembership.update({
-    where: {
-      materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
-    },
-    data: { ordinal: 1 },
-  });
-  await prisma.material.update({
-    where: { id: id(52) },
-    data: { publishedAt: new Date("2026-01-03") },
-  });
-  await prisma.publishedMaterial.update({
-    where: { materialId: id(52) },
-    data: { publishedAt: new Date("2026-01-03") },
-  });
-  // Hidden earlier placements make a later note a feed preview, while the full preview stays unchanged.
-  await prisma.material.updateMany({
-    where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
-    data: { showInFeed: false },
-  });
-  await prisma.materialSearchDocument.create({
-    data: {
-      materialId: id(34),
-      contentVersion: 1n,
-      plainText: "Later feed preview note",
-    },
-  });
-  await prisma.material.update({
-    where: { id: id(34) },
-    data: { publishedAt: new Date("2026-01-04") },
-  });
-  await prisma.publishedMaterial.update({
-    where: { materialId: id(34) },
-    data: { publishedAt: new Date("2026-01-04") },
-  });
-  const videos = catalogVideos(prisma);
-  for (const kind of [
-    "active",
-    "required",
-    "expired",
-    "stale",
-    "unavailable",
-  ] as const) {
-    const rights = {
-      resolveForAccess: () =>
-        Promise.resolve(
-          kind === "active" ? { kind, validUntil: null } : { kind },
-        ),
-    };
-    const access = assembleContentAccess({
-      materialResourceFacts: assembleMaterialResourceFacts(
-        materials.materialContent,
-      ),
-      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      accountRights: rights,
     });
-    const subject = { kind: "account" as const, accountId: accountId(actor) };
-    const result = await readHomeContent(
-      materials.publishedMaterialReader,
-      access,
-      videos,
-      rights,
-      true,
-      subject,
-    );
-    expect(result).toEqual(
-      await readLegacyHomeContent(
+    await prisma.product.update({
+      where: { id: seriesId },
+      data: {
+        coverId,
+        presentation: "ai-engineering-course",
+        page: {
+          card: { eyebrow: "Course", subtitle: "Learn", action: "Open" },
+          blocks: [
+            {
+              id: "hero",
+              kind: "hero",
+              badge: "Inside",
+              lead: "Home hero",
+              highlights: ["Learn"],
+            },
+          ],
+        },
+      },
+    });
+    await prisma.homeSeriesPin.update({ where: { id: 1 }, data: { seriesId } });
+    await prisma.product.create({
+      data: { id: id(600000), name: "A-empty", slug: "empty" },
+    });
+    await prisma.topic.create({
+      data: { id: id(600001), name: "A-empty", slug: "empty" },
+    });
+    await prisma.topic.update({
+      where: { id: id(100000) },
+      data: { archivedAt: new Date("2026-01-02") },
+    });
+    await prisma.product.update({
+      where: { id: id(200000) },
+      data: { archivedAt: new Date("2026-01-02") },
+    });
+    // Closed and hidden free Materials remain in counts and previews, but never in the Home feed.
+    await prisma.material.update({
+      where: { id: id(2) },
+      data: { access: "closed" },
+    });
+    await prisma.publishedMaterial.update({
+      where: { materialId: id(2) },
+      data: { access: "closed" },
+    });
+    await prisma.material.update({
+      where: { id: id(4) },
+      data: { showInFeed: false },
+    });
+    // A public note outside the first four Playlists is still a legacy feed preview.
+    await prisma.materialSearchDocument.createMany({
+      data: [
+        {
+          materialId: id(7),
+          contentVersion: 1n,
+          plainText: "Visible note excerpt",
+        },
+        {
+          materialId: id(52),
+          contentVersion: 1n,
+          plainText: "Preview note excerpt",
+        },
+      ],
+    });
+    await prisma.publishedMaterialProductMembership.update({
+      where: {
+        materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
+      },
+      data: { ordinal: 100 },
+    });
+    await prisma.publishedMaterialProductMembership.update({
+      where: {
+        materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
+      },
+      data: { ordinal: 1 },
+    });
+    await prisma.material.update({
+      where: { id: id(52) },
+      data: { publishedAt: new Date("2026-01-03") },
+    });
+    await prisma.publishedMaterial.update({
+      where: { materialId: id(52) },
+      data: { publishedAt: new Date("2026-01-03") },
+    });
+    // Hidden earlier placements make a later note a feed preview, while the full preview stays unchanged.
+    await prisma.material.updateMany({
+      where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
+      data: { showInFeed: false },
+    });
+    await prisma.materialSearchDocument.create({
+      data: {
+        materialId: id(34),
+        contentVersion: 1n,
+        plainText: "Later feed preview note",
+      },
+    });
+    await prisma.material.update({
+      where: { id: id(34) },
+      data: { publishedAt: new Date("2026-01-04") },
+    });
+    await prisma.publishedMaterial.update({
+      where: { materialId: id(34) },
+      data: { publishedAt: new Date("2026-01-04") },
+    });
+    const videos = catalogVideos(prisma);
+    for (const kind of [
+      "active",
+      "required",
+      "expired",
+      "stale",
+      "unavailable",
+    ] as const) {
+      const rights = {
+        resolveForAccess: () =>
+          Promise.resolve(
+            kind === "active" ? { kind, validUntil: null } : { kind },
+          ),
+      };
+      const access = assembleContentAccess({
+        materialResourceFacts: assembleMaterialResourceFacts(
+          materials.materialContent,
+        ),
+        accountPermissions: {
+          hasMaterialsManage: () => Promise.resolve(false),
+        },
+        accountRights: rights,
+      });
+      const subject = { kind: "account" as const, accountId: accountId(actor) };
+      const result = await readHomeContent(
         materials.publishedMaterialReader,
         access,
         videos,
         rights,
         true,
         subject,
+      );
+      expect(result).toEqual(
+        await readLegacyHomeContent(
+          materials.publishedMaterialReader,
+          access,
+          videos,
+          rights,
+          true,
+          subject,
+        ),
+      );
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          membership: {
+            kind:
+              kind === "active"
+                ? "active"
+                : kind === "stale" || kind === "unavailable"
+                  ? "unknown"
+                  : "inactive",
+          },
+          pinnedSeries: {
+            id: seriesId,
+            count: 9,
+            presentation: "ai-engineering-course",
+            card: { eyebrow: "Course", subtitle: "Learn", action: "Open" },
+            hero: { badge: "Inside", lead: "Home hero", highlights: ["Learn"] },
+            cover: { coverId, renditions: [{ width: 320, height: 180 }] },
+            previewItems: [
+              expect.objectContaining({ materialId: id(73) }),
+              expect.objectContaining({ materialId: id(74) }),
+              expect.objectContaining({ materialId: id(75) }),
+            ],
+          },
+        },
+      });
+      if (!result.ok) throw new Error(result.error.code);
+      expect(result.value.playlists.map((item) => item.id)).toEqual([
+        id(200001),
+        id(200002),
+        id(200003),
+        id(200004),
+      ]);
+      expect(result.value.videos.map((item) => item.materialId)).not.toContain(
+        id(2),
+      );
+      expect(result.value.guides.map((item) => item.materialId)).not.toContain(
+        id(4),
+      );
+    }
+    const rights = {
+      resolveForAccess: () => Promise.resolve({ kind: "required" as const }),
+    };
+    const subject = { kind: "anonymous" as const };
+    // The same pin also appears among Playlists after reordering; enrichment remains unique.
+    await prisma.product.update({
+      where: { id: seriesId },
+      data: { name: "A-pin" },
+    });
+    const enriched: string[] = [];
+    const access = {
+      async checkAvailabilityMany(
+        input: Parameters<
+          typeof materials.contentAccess.checkAvailabilityMany
+        >[0],
+      ) {
+        enriched.push(...input.operations.map((operation) => operation.itemId));
+        return materials.contentAccess.checkAvailabilityMany(input);
+      },
+    };
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        access,
+        videos,
+        rights,
+        false,
+        subject,
+      ),
+    ).toEqual(
+      await readLegacyHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        videos,
+        rights,
+        false,
+        subject,
       ),
     );
-    expect(result).toMatchObject({
-      ok: true,
-      value: {
-        membership: {
-          kind:
-            kind === "active"
-              ? "active"
-              : kind === "stale" || kind === "unavailable"
-                ? "unknown"
-                : "inactive",
-        },
-        pinnedSeries: {
-          id: seriesId,
-          count: 9,
-          presentation: "ai-engineering-course",
-          card: { eyebrow: "Course", subtitle: "Learn", action: "Open" },
-          hero: { badge: "Inside", lead: "Home hero", highlights: ["Learn"] },
-          cover: { coverId, renditions: [{ width: 320, height: 180 }] },
-          previewItems: [
-            expect.objectContaining({ materialId: id(73) }),
-            expect.objectContaining({ materialId: id(74) }),
-            expect.objectContaining({ materialId: id(75) }),
-          ],
-        },
+    expect(enriched.length).toBeLessThanOrEqual(39);
+    expect(new Set(enriched).size).toBe(enriched.length);
+    await prisma.product.update({
+      where: { id: seriesId },
+      data: { archivedAt: new Date("2026-01-02") },
+    });
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        videos,
+        rights,
+        false,
+        subject,
+      ),
+    ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
+    await prisma.product.update({
+      where: { id: seriesId },
+      data: { archivedAt: null },
+    });
+    await prisma.publishedMaterial.deleteMany({
+      where: {
+        materialId: { in: Array.from({ length: 9 }, (_, n) => id(73 + n)) },
       },
     });
-    if (!result.ok) throw new Error(result.error.code);
-    expect(result.value.playlists.map((item) => item.id)).toEqual([
-      id(200001),
-      id(200002),
-      id(200003),
-      id(200004),
-    ]);
-    expect(result.value.videos.map((item) => item.materialId)).not.toContain(
-      id(2),
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        videos,
+        rights,
+        false,
+        subject,
+      ),
+    ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
+    // A visible enrichment dependency retains its public failure contract.
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        {
+          loadReadyDurations: () =>
+            Promise.resolve({
+              ok: false,
+              error: { code: "dependency_unavailable", retryable: true },
+            }),
+        },
+        rights,
+        false,
+        subject,
+      ),
+    ).toEqual({
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
+    });
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        {
+          checkAvailabilityMany: () =>
+            Promise.resolve({ ok: false, error: { code: "empty_batch" } }),
+        },
+        videos,
+        rights,
+        false,
+        subject,
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "internal_error" },
+    });
+    expect(
+      await readHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        videos,
+        rights,
+        false,
+        { ...subject, unexpected: true } as typeof subject,
+      ),
+    ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+    await prisma.homeSeriesPin.delete({ where: { id: 1 } });
+    const broken = await readHomeContent(
+      materials.publishedMaterialReader,
+      materials.contentAccess,
+      videos,
+      rights,
+      false,
+      subject,
     );
-    expect(result.value.guides.map((item) => item.materialId)).not.toContain(
-      id(4),
+    expect(broken).toMatchObject({
+      ok: false,
+      error: { code: "internal_error" },
+    });
+    expect(
+      await readLegacyHomeContent(
+        materials.publishedMaterialReader,
+        materials.contentAccess,
+        videos,
+        rights,
+        false,
+        subject,
+      ),
+    ).toMatchObject(
+      broken.ok ? broken : { ok: false, error: { code: broken.error.code } },
     );
-  }
-  const rights = {
-    resolveForAccess: () => Promise.resolve({ kind: "required" as const }),
-  };
-  const subject = { kind: "anonymous" as const };
-  // The same pin also appears among Playlists after reordering; enrichment remains unique.
-  await prisma.product.update({
-    where: { id: seriesId },
-    data: { name: "A-pin" },
   });
-  const enriched: string[] = [];
-  const access = {
-    async checkAvailabilityMany(
-      input: Parameters<
-        typeof materials.contentAccess.checkAvailabilityMany
-      >[0],
-    ) {
-      enriched.push(...input.operations.map((operation) => operation.itemId));
-      return materials.contentAccess.checkAvailabilityMany(input);
-    },
-  };
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      access,
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  ).toEqual(
-    await readLegacyHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  );
-  expect(enriched.length).toBeLessThanOrEqual(39);
-  expect(new Set(enriched).size).toBe(enriched.length);
-  await prisma.product.update({
-    where: { id: seriesId },
-    data: { archivedAt: new Date("2026-01-02") },
-  });
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
-  await prisma.product.update({
-    where: { id: seriesId },
-    data: { archivedAt: null },
-  });
-  await prisma.publishedMaterial.deleteMany({
-    where: {
-      materialId: { in: Array.from({ length: 9 }, (_, n) => id(73 + n)) },
-    },
-  });
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  ).toMatchObject({ ok: true, value: { pinnedSeries: null } });
-  // A visible enrichment dependency retains its public failure contract.
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      {
-        loadReadyDurations: () =>
-          Promise.resolve({
-            ok: false,
-            error: { code: "dependency_unavailable", retryable: true },
-          }),
-      },
-      rights,
-      false,
-      subject,
-    ),
-  ).toEqual({
-    ok: false,
-    error: { code: "dependency_unavailable", retryable: true },
-  });
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      {
-        checkAvailabilityMany: () =>
-          Promise.resolve({ ok: false, error: { code: "empty_batch" } }),
-      },
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  ).toMatchObject({
-    ok: false,
-    error: { code: "internal_error" },
-  });
-  expect(
-    await readHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      { ...subject, unexpected: true } as typeof subject,
-    ),
-  ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
-  await prisma.homeSeriesPin.delete({ where: { id: 1 } });
-  const broken = await readHomeContent(
-    materials.publishedMaterialReader,
-    materials.contentAccess,
-    videos,
-    rights,
-    false,
-    subject,
-  );
-  expect(broken).toMatchObject({
-    ok: false,
-    error: { code: "internal_error" },
-  });
-  expect(
-    await readLegacyHomeContent(
-      materials.publishedMaterialReader,
-      materials.contentAccess,
-      videos,
-      rights,
-      false,
-      subject,
-    ),
-  ).toMatchObject(
-    broken.ok ? broken : { ok: false, error: { code: broken.error.code } },
-  );
 });
