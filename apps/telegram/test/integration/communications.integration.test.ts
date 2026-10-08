@@ -752,18 +752,16 @@ describe("author transport and API", () => {
   it("author 403 blocks the private contact and /start restores it without replaying the rejected sample", async () => {
     await seedLink();
     const time = new Date("2030-01-01T00:00:00Z");
-    await app
-      .get(BotContacts)
-      .observeStart(
-        {
-          botIdentity: "inside",
-          telegramUserId: "42",
-          privateChatId: "42",
-          updateId: "100",
-          observedAt: time,
-        },
-        "none",
-      );
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        updateId: "100",
+        observedAt: time,
+      },
+      "none",
+    );
     const post = request();
     await communications.execute(post);
     await http({
@@ -795,18 +793,16 @@ describe("author transport and API", () => {
         .where("telegram_user_id", "=", "42")
         .executeTakeFirstOrThrow(),
     ).toEqual({ contactability: "blocked" });
-    await app
-      .get(BotContacts)
-      .observeStart(
-        {
-          botIdentity: "inside",
-          telegramUserId: "42",
-          privateChatId: "42",
-          updateId: "101",
-          observedAt: new Date(time.getTime() + 1000),
-        },
-        "none",
-      );
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        updateId: "101",
+        observedAt: new Date(time.getTime() + 1000),
+      },
+      "none",
+    );
     expect(
       await database
         .selectFrom("bot_contacts")

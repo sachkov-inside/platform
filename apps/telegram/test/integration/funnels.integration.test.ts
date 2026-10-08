@@ -610,16 +610,14 @@ describe("durable marketing entry and scheduling", () => {
   it("does not claim another bot's reply or let it hold this bot's marketing", async () => {
     await setup();
     await start();
-    await app
-      .get(StartResponseDeliveryQueue)
-      .enqueue({
-        botIdentity: "other-bot",
-        telegramUserId: "42",
-        privateChatId: "42",
-        messageText: "other bot reply",
-        sourceKey: "other-bot-reply",
-        now,
-      });
+    await app.get(StartResponseDeliveryQueue).enqueue({
+      botIdentity: "other-bot",
+      telegramUserId: "42",
+      privateChatId: "42",
+      messageText: "other bot reply",
+      sourceKey: "other-bot-reply",
+      now,
+    });
     expect(
       await app.get(StartResponseDeliveryProcessor).processAvailable(1, now),
     ).toBe(0);
