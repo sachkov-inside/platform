@@ -1014,6 +1014,12 @@ test("a failed replacement startup cannot keep the retry key of a removed recove
     buffer: Buffer.from("Replacement video bytes"),
   });
   await rejected;
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Основное видео")
+      .getByRole("button", { name: "Загрузить", exact: true }),
+  ).toBeEnabled();
   await expect(page.getByText("repeat", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Убрать", exact: true }).click();
   await saved(page);
