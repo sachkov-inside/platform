@@ -13,6 +13,8 @@ const stops = new WeakMap();
 /**
  * The returned child is the supervisor. Its exit follows command-tree cleanup; its status is
  * the command's status. A private pipe lets supervision survive exit or SIGKILL of this owner.
+ * On macOS, descendants that replace their environment must preserve INSIDE_OWNED_PROCESS_*
+ * entries: a detached process with lost ancestry and no readable marker cannot be rediscovered.
  * @param {string} command
  * @param {readonly string[]} [args]
  * @param {import('node:child_process').SpawnOptions} [options]
@@ -71,7 +73,7 @@ export function isOwnedProcess(child) {
 }
 
 /**
- * Stop the entire command tree, escalate after the grace period, and await the supervisor.
+ * Stop the supervised command tree, escalate after the grace period, and await the supervisor.
  * @param {import('node:child_process').ChildProcess} child
  * @param {number} [graceMilliseconds]
  * @returns {Promise<void>}
