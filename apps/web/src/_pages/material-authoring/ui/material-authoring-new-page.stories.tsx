@@ -122,23 +122,29 @@ export const DraftCreated: Story = {
           .length,
       ).toBeGreaterThan(0);
     } catch (error) {
-      const title = canvas.queryByLabelText("Название");
-      console.error("[DraftCreated failure]", {
-        typedMs: typed - started,
-        waitedMs: performance.now() - typed,
-        fetchIntact: window.fetch === installedFetch,
-        connected: canvasElement.isConnected,
-        title: title instanceof HTMLInputElement ? title.value : null,
-        statuses: canvas
-          .queryAllByRole("status")
-          .map((node) => node.textContent),
-        alerts: canvas.queryAllByRole("alert").map((node) => node.textContent),
-        requests: materialRequests.mock.calls.map(([method, form]) => ({
-          method,
-          title: form?.get("title"),
-        })),
-        addressChanges: addressChanges.mock.calls,
-      });
+      try {
+        const title = canvas.queryByLabelText("Название");
+        console.error("[DraftCreated failure]", {
+          typedMs: typed - started,
+          waitedMs: performance.now() - typed,
+          fetchIntact: window.fetch === installedFetch,
+          connected: canvasElement.isConnected,
+          title: title instanceof HTMLInputElement ? title.value : null,
+          statuses: canvas
+            .queryAllByRole("status")
+            .map((node) => node.textContent),
+          alerts: canvas
+            .queryAllByRole("alert")
+            .map((node) => node.textContent),
+          requests: materialRequests.mock.calls.map(([method, form]) => ({
+            method,
+            title: form?.get("title"),
+          })),
+          addressChanges: addressChanges.mock.calls,
+        });
+      } catch {
+        // Keep the saved-state assertion even if collecting diagnostics fails.
+      }
       throw error;
     }
     await expect(canvas.getAllByText(/Черновик/u).length).toBeGreaterThan(0);
