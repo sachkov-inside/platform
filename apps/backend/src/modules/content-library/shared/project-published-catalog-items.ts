@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type {
-  AccessAvailability,
-  ContentAccess,
-  Subject,
+import {
+  CONTENT_ACCESS_BATCH_SIZE,
+  type AccessAvailability,
+  type ContentAccess,
+  type Subject,
 } from "../../content-access/index.js";
 import {
   materialId as checkedMaterialId,
@@ -11,8 +12,6 @@ import {
 } from "../../materials/index.js";
 import type { Videos } from "../../videos/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../features/list-published-materials/list-published-materials.contract.js";
-
-const CONTENT_ACCESS_BATCH_SIZE = 100;
 
 export type PublishedCatalogItemsResult =
   | {

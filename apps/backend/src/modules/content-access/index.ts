@@ -19,6 +19,7 @@ export type {
 } from "./facets/content-access/content-access.dependencies.js";
 export {
   anonymousSubject,
+  CONTENT_ACCESS_BATCH_SIZE,
   type AccessAvailability,
   type ContentAccess,
   type Resource,
