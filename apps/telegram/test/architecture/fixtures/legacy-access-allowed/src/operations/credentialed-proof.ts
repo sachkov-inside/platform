@@ -1,0 +1,2 @@
+// Operator proof reads persisted evidence; no product writes.
+export const referencedTables = ["bot_contacts", "identity_link_events", "identity_link_recoveries", "link_transactions", "membership_check_results", "membership_checks", "membership_event_audit", "membership_evidence_outbox", "membership_provider_observations", "membership_provider_state", "membership_reconciliations", "telegram_updates"];
