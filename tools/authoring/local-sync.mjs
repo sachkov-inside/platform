@@ -9,6 +9,8 @@ import {
 } from "./practice-import.mjs";
 import {
   replayTaskImports,
+  assertTaskReplayAccess,
+  resolveTaskAccess,
   syncSourceTasks,
   validateSourceTasks,
 } from "./task-import.mjs";
@@ -97,6 +99,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {boolean} [pinHome]
  * @property {PublishSelection} [publish]
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
+ * @property {string[]} [reviewedTaskAccess] Explicit Task access from the reviewed release only.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -578,6 +581,7 @@ export async function syncLocal(
     publish = [],
     accessToken,
     reviewed = false,
+    reviewedTaskAccess = [],
     reconcileOnly = false,
   } = {},
 ) {
@@ -599,7 +603,13 @@ export async function syncLocal(
   };
   if (!["free", "closed"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
-  const pkg = await loadPackage(packagePath);
+  if (!reviewed && reviewedTaskAccess.length > 0)
+    throw new Error("Task access choices require a reviewed release preview");
+  const original = await loadPackage(packagePath);
+  const pkg = {
+    ...original,
+    manifest: resolveTaskAccess(original.manifest, reviewedTaskAccess).manifest,
+  };
   for (const task of pkg.manifest.tasks ?? [])
     if (task.access === null)
       throw new Error(
@@ -624,6 +634,8 @@ export async function syncLocal(
     await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    if (pkg.manifest.schemaVersion === 2)
+      assertTaskReplayAccess(pkg.manifest, journal);
     for (const task of pkg.manifest.tasks ?? [])
       if (
         journal.materials[sourceKey(pkg.manifest, task.sourceId)] !== undefined
@@ -1503,15 +1515,7 @@ export async function syncLocal(
     if ((pkg.manifest.tasks ?? []).length)
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
         productIdOf: (id) => valueAt(products, id).id,
-        pageOf: (task) =>
-          importTaskPage(
-            pkg,
-            task,
-            context,
-            request,
-            links,
-            valueAt(products, task.productId).id,
-          ),
+        pageOf: (task) => importTaskPage(pkg, task, context, request, links),
         selected: (key) => publicationOfKey(key) === "published",
       });
 

@@ -280,7 +280,7 @@ test("applyRelease sends rendered Task pages and both source link directions wit
   };
   const task = {
     ...original,
-    access: "closed",
+    access: null,
     afterMaterialId: "lesson",
     page: {
       ...original.page,
@@ -332,8 +332,10 @@ test("applyRelease sends rendered Task pages and both source link directions wit
       path === "/authoring/import/materials/validate"
     )
       return { valid: true };
-    if (path === "/authoring/import/tasks/validate")
+    if (path === "/authoring/import/tasks/validate") {
+      assert.notEqual(Reflect.get(object(body), "access"), null);
       return { valid: true, current: null, migration: null };
+    }
     if (path === "/authoring/import/materials/reserve")
       return { materialId, contentVersion: 1 };
     if (path === `/authoring/materials/${materialId}`)
@@ -383,10 +385,29 @@ test("applyRelease sends rendered Task pages and both source link directions wit
     }
     throw new Error(`Unexpected ${path}`);
   };
+  const taskAccess = ["task-two=closed", "task-one=free", "at-start=closed"];
   const reviewed = await previewRelease(f.path, f.state, {
     origin: "http://127.0.0.1:3101",
     request,
+    taskAccess,
   });
+  assert.deepEqual(reviewed.preview.taskAccess, [
+    "at-start=closed",
+    "task-one=free",
+    "task-two=closed",
+  ]);
+  const duplicate = await previewRelease(f.path, f.state, {
+    origin: "http://127.0.0.1:3101",
+    request,
+    taskAccess: [...taskAccess, "task-one=free"],
+  });
+  assert.equal(duplicate.preview.fingerprint, reviewed.preview.fingerprint);
+  const closed = await previewRelease(f.path, f.state, {
+    origin: "http://127.0.0.1:3101",
+    request,
+    taskAccess: ["at-start=closed", "task-one=closed", "task-two=closed"],
+  });
+  assert.notEqual(closed.preview.fingerprint, reviewed.preview.fingerprint);
   const report = await applyRelease(reviewed.path, f.state, { request });
   assert.equal(report.tasks?.[0]?.change, "new");
   const appliedTask = applied.find(
@@ -398,6 +419,8 @@ test("applyRelease sends rendered Task pages and both source link directions wit
     (row) => row["path"] === "/authoring/import/materials/apply",
   );
   assert.ok(appliedTask && appliedMaterial);
+  assert.equal(appliedTask["access"], "free");
+  assert.equal((await loadPackage(f.path)).manifest.tasks?.[1]?.access, null);
   assert.deepEqual(appliedTask["definition"], original.definition);
   assert.deepEqual(appliedTask["page"], task.page);
   assert.deepEqual(appliedTask["resolvedLinks"], {
@@ -562,9 +585,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   assert.equal(Reflect.get(object(reserve["source"]), "showInFeed"), false);
   assert.equal(backing["publicationState"], "draft");
   assert.equal(Reflect.get(object(backing["metadata"]), "access"), "closed");
-  assert.deepEqual(Reflect.get(object(backing["metadata"]), "seriesIds"), [
-    productId,
-  ]);
+  assert.deepEqual(Reflect.get(object(backing["metadata"]), "seriesIds"), []);
   assert.ok(canonical(backing["body"]).includes("assetFile"));
   assert.ok(canonical(backing["body"]).includes(imageId));
   assert.deepEqual(applied["resolvedImages"], {
@@ -575,4 +596,94 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   assert.deepEqual(applied["page"], task.page);
   assert.ok(canonical(applied["pageBody"]).includes(imageId));
   assert.equal(commands.at(-1)?.["path"], "/authoring/import/tasks/apply");
+});
+
+test("preview rejects unknown Task codes and conflicting access choices before transport", async (t) => {
+  const f = await temporary(t);
+  await f.write(fixture());
+  /** @type {string[]} */
+  const calls = [];
+  /** @type {import('./target.mjs').LocalTransport} */
+  const request = async (path) => {
+    calls.push(path);
+    throw new Error("transport must not run");
+  };
+  await assert.rejects(
+    previewRelease(f.path, f.state, {
+      origin: "http://127.0.0.1:3101",
+      request,
+      taskAccess: ["absent=free"],
+    }),
+    /Unknown Task access code: absent/u,
+  );
+  await assert.rejects(
+    previewRelease(f.path, f.state, {
+      origin: "http://127.0.0.1:3101",
+      request,
+      taskAccess: ["task-one=free", "task-one=closed"],
+    }),
+    /Conflicting Task access choices/u,
+  );
+  await assert.rejects(
+    previewRelease(f.path, f.state, {
+      origin: "http://127.0.0.1:3101",
+      request,
+      taskAccess: ["task-one=workshop"],
+    }),
+    /free or closed/u,
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("an interrupted Task apply cannot replay under a different reviewed access choice", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  await f.write(manifest);
+  const { withJournal, applyJournaled } = await import("./journal.mjs");
+  const { authoringTarget } = await import("./target.mjs");
+  const target = authoringTarget("http://127.0.0.1:3101");
+  const operation = {
+    path: "/authoring/import/tasks/apply",
+    body: {
+      code: task.sourceId,
+      sourceId: "synthetic:task-one",
+      access: "closed",
+      title: task.title,
+      definition: task.definition,
+      page: task.page,
+      publicationState: "unpublished",
+      provenance: task.provenance,
+    },
+  };
+  await assert.rejects(
+    withJournal(f.state, target.id, (context) =>
+      applyJournaled(context, operation, async () => {
+        throw new Error("Lost response");
+      }),
+    ),
+    /Lost response/u,
+  );
+  /** @type {string[]} */
+  const writes = [];
+  /** @type {import('./target.mjs').LocalTransport} */
+  const request = async (path) => {
+    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path === "/authoring/import/tasks/validate")
+      return { valid: true, current: null, migration: null };
+    writes.push(path);
+    throw new Error(`Unexpected write ${path}`);
+  };
+  await assert.rejects(
+    syncLocal(f.path, f.state, {
+      request,
+      origin: target.id,
+      reviewed: true,
+      reconcileOnly: true,
+      reviewedTaskAccess: ["task-one=free"],
+    }),
+    /different access decision/u,
+  );
+  assert.deepEqual(writes, []);
 });
