@@ -6,6 +6,7 @@ import {
 } from "./generated/platform-api";
 import {
   executeGeneratedRequest,
+  readBackendBaseUrl,
   type BackendTransportResult,
 } from "./transport-core.server";
 
@@ -113,5 +114,27 @@ export function requestSaveAuthorTaskFeedback(
       }),
     200,
     { accessToken },
+  );
+}
+
+/** Task assets use the same viewer identity as the Task page and keep the backend redirect. */
+export function requestProductTaskAssetDelivery(input: {
+  readonly productSlug: string;
+  readonly code: string;
+  readonly assetId: string;
+  readonly accessToken?: string;
+  readonly signal: AbortSignal;
+}): Promise<Response> {
+  return fetch(
+    `${readBackendBaseUrl()}/library/products/${encodeURIComponent(input.productSlug)}/tasks/${encodeURIComponent(input.code)}/assets/${encodeURIComponent(input.assetId)}`,
+    {
+      cache: "no-store",
+      redirect: "manual",
+      headers:
+        input.accessToken === undefined
+          ? {}
+          : { authorization: `Bearer ${input.accessToken}` },
+      signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
+    },
   );
 }

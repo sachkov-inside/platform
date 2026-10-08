@@ -243,6 +243,7 @@ test("legacy cache entries remain readable and exact generic pending requests ar
     products: {},
     operations: {
       [key]: { status: "pending", request },
+      [`task-page-asset:${id}:file:${"c".repeat(64)}`]: { assetId: id },
       [`image:${id}:${"b".repeat(64)}`]: {
         assetId: id,
         presentation: { width: 640 },
@@ -254,8 +255,23 @@ test("legacy cache entries remain readable and exact generic pending requests ar
     () =>
       parseJournal({
         ...journal,
-        operations: { "authoring:wrong-key": { status: "pending", request } },
+        operations: {
+          ...journal.operations,
+          "authoring:wrong-key": { status: "pending", request },
+        },
       }),
     /fingerprint mismatch/,
+  );
+  assert.throws(
+    () =>
+      parseJournal({
+        ...journal,
+        operations: {
+          [`task-page-asset:${id}:image:${"c".repeat(64)}`]: {
+            assetId: "invalid",
+          },
+        },
+      }),
+    /Invalid UUID/,
   );
 });

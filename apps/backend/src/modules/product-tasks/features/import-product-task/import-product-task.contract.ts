@@ -9,6 +9,12 @@ import {
 } from "../../domain/task-definition.js";
 import type { Result, SystemError } from "../../shared/result.js";
 
+import {
+  sourceTaskPageSchema,
+  taskPageBodySchema,
+  taskImageReferenceSchema,
+} from "../../domain/task-page.js";
+
 const revisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
 /**
@@ -25,6 +31,10 @@ const sourceTaskFields = z
     title: z.string().trim().min(1).max(200),
     access: taskAccessSchema,
     definition: taskDefinitionSchema,
+    page: sourceTaskPageSchema.optional(),
+    pageBody: taskPageBodySchema.optional(),
+    resolvedLinks: z.record(z.string(), taskSourceIdSchema).default({}),
+    resolvedImages: z.record(z.string(), taskImageReferenceSchema).default({}),
     relatedMaterialSourceIds: z.array(z.string().min(1).max(200)).max(50),
     /**
      * The Material of the same chapter right after which the programme shows the task; `null` puts
@@ -39,10 +49,16 @@ const sourceTaskFields = z
 function checkSourceTask(
   value: Pick<
     z.infer<typeof sourceTaskFields>,
-    "sourceId" | "code" | "relatedMaterialSourceIds"
+    "sourceId" | "code" | "relatedMaterialSourceIds" | "definition" | "page"
   >,
   context: z.RefinementCtx,
 ): void {
+  if (value.definition.schemaVersion === 2 && value.page === undefined)
+    context.addIssue({
+      code: "custom",
+      path: ["page"],
+      message: "Format c requires its source page",
+    });
   if (!value.sourceId.endsWith(`:${value.code}`))
     context.addIssue({
       code: "custom",
@@ -74,7 +90,43 @@ export const applySourceTaskBodySchema = sourceTaskFields
     expectedRevision: revisionSchema.nullable(),
   })
   .strict()
-  .superRefine(checkSourceTask);
+  .superRefine(checkSourceTask)
+  .superRefine((value, context) => {
+    const page = value.page;
+    if (page === undefined) return;
+    if (value.pageBody === undefined)
+      context.addIssue({
+        code: "custom",
+        path: ["pageBody"],
+        message: "Page requires a MaterialBody",
+      });
+    if (
+      Object.keys(page.links).some(
+        (address) => value.resolvedLinks[address] === undefined,
+      )
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["resolvedLinks"],
+        message: "Every source link requires its source mapping",
+      });
+    const keys = [
+      ...Object.keys(page.images),
+      ...(page.coverAssetId === undefined || page.coverAssetId === null
+        ? []
+        : [`cover:${page.coverAssetId}`]),
+      ...(page.artifacts ?? []).map((item) => `artifact:${item.sourceId}`),
+    ];
+    if (
+      keys.some((key) => value.resolvedImages[key] === undefined) ||
+      Object.keys(value.resolvedImages).some((key) => !keys.includes(key))
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["resolvedImages"],
+        message: "Every page asset requires exactly its source mapping",
+      });
+  });
 
 export const taskImportReceiptSchema = z
   .object({
@@ -91,6 +143,7 @@ export const validateSourceTaskResultSchema = z
   .object({
     valid: z.literal(true),
     current: taskImportReceiptSchema.nullable(),
+    migration: z.object({ materialId: z.uuid() }).strict().nullable(),
   })
   .strict();
 

@@ -522,6 +522,190 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     });
   });
 
+  test("Reader format c returns rendered page and authored criterion fields without evaluator evidence", async () => {
+    const code = `format-c-${randomUUID()}`;
+    const apply = assembleApplySourceTask({
+      prisma: database.prisma,
+      directory: new ProductDirectory(database.prisma),
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+    });
+    const sourceTask = {
+      sourceId: `inside-content:${code}`,
+      code,
+      productId,
+      chapterId,
+      position: 10,
+      title: "Задание c",
+      access: "free",
+      publicationState: "published",
+      relatedMaterialSourceIds: [],
+      definition: {
+        schemaVersion: 2,
+        format: "c",
+        intro: "Авторское вступление",
+        freedom: "Выбирай стек",
+        criteria: [
+          {
+            id: "request",
+            level: "required",
+            task: "Создай заявку",
+            explanation: "Сохрани заявку",
+            advice: "Проверь ответ",
+            acceptableEvidence: ["Секретные доказательства для агента"],
+          },
+        ],
+      },
+      page: {
+        title: "1. Заявка",
+        summary: "Практика",
+        markdown: "Создай заявку",
+        links: {},
+        images: {},
+      },
+      pageBody: {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: randomUUID() },
+              content: [{ type: "text", text: "Создай заявку" }],
+            },
+          ],
+        },
+      },
+      provenance: {
+        repository: "sachkov-inside/inside-content",
+        commit: "c".repeat(40),
+        path: "practice/request.yaml",
+      },
+      expectedRevision: null,
+    };
+    const imported = await apply(sourceTask, {
+      actor: owner,
+      idempotencyKey: randomUUID(),
+    });
+    expect(imported).toMatchObject({ ok: true });
+    const response = await declaredServer(
+      app.getHttpAdapter().getInstance(),
+    ).inject({
+      method: "GET",
+      url: `/library/products/${productSlug}/tasks/${code}`,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      access: "open",
+      task: {
+        definition: {
+          schemaVersion: 2,
+          format: "c",
+          intro: "Авторское вступление",
+          freedom: "Выбирай стек",
+          criteria: [
+            {
+              id: "request",
+              level: "required",
+              task: "Создай заявку",
+              explanation: "Сохрани заявку",
+              advice: "Проверь ответ",
+            },
+          ],
+        },
+        page: {
+          title: "1. Заявка",
+          summary: "Практика",
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "paragraph",
+                content: [{ kind: "text", text: "Создай заявку" }],
+              },
+            ],
+          },
+          cover: null,
+          artifacts: [],
+        },
+      },
+    });
+    expect(response.body).not.toContain("acceptableEvidence");
+    expect(response.body).not.toContain("Секретные доказательства");
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const learnerId = randomUUID();
+    const learner = {
+      authorization: `Bearer ${await signToken(learnerId, `${learnerId}@example.test`)}`,
+    };
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts",
+          headers: learner,
+        })
+      ).statusCode,
+    ).toBe(201);
+    const submissionsUrl = `/accounts/current/product-tasks/${code}/submissions`;
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: submissionsUrl,
+          headers: learner,
+          payload: {
+            taskVersion: 1,
+            submissionKey: randomUUID(),
+            note: "Сдал задание c",
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      await apply(
+        {
+          ...sourceTask,
+          definition: {
+            ...sourceTask.definition,
+            intro: "Обновлённое вступление",
+          },
+          expectedRevision: 1,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: true, value: { currentVersion: 2 } });
+    const author = {
+      authorization: `Bearer ${await signToken(owner, "owner@example.test")}`,
+    };
+    for (const request of [
+      { method: "GET" as const, url: submissionsUrl, headers: learner },
+      {
+        method: "GET" as const,
+        url: `/authoring/product-tasks/submissions?productId=${productId}&taskCode=${code}`,
+        headers: author,
+      },
+    ]) {
+      const history = await server.inject(request);
+      expect(history.statusCode).toBe(200);
+      expect(history.json()).toMatchObject({
+        versions: [
+          {
+            version: 1,
+            criteria: [
+              {
+                id: "request",
+                task: "Создай заявку",
+                explanation: "Сохрани заявку",
+                advice: "Проверь ответ",
+              },
+            ],
+          },
+        ],
+      });
+      expect(history.body).not.toContain("acceptableEvidence");
+      expect(history.body).not.toContain("Секретные доказательства");
+    }
+  });
+
   async function signToken(
     subject = "product-task-learner",
     email = "learner@example.test",

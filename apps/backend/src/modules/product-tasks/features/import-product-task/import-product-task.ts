@@ -1,8 +1,12 @@
+import type { MaterialAssets } from "../../../assets/index.js";
 import { preProductCommand } from "../../../../infrastructure/contracts/pre-product-command.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { commandDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import {
+  commandDigest,
+  replayFingerprint,
+} from "../../../../infrastructure/contracts/canonical-digest.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
@@ -42,6 +46,7 @@ export interface TaskImportDependencies {
   >;
   readonly authorPolicy: AuthorPolicy;
   readonly clock?: () => Date;
+  readonly assets?: Pick<MaterialAssets, "loadAccessFacts">;
 }
 
 type TaskRow = NonNullable<
@@ -62,6 +67,9 @@ export function assembleValidateSourceTask(
     );
     if (!authorized.ok) return authorized;
     try {
+      const [migration] = await dependencies.directory.materialsBySource([
+        parsed.data.sourceId,
+      ]);
       const current = await dependencies.prisma.productTask.findUnique({
         where: { code: parsed.data.code },
       });
@@ -71,6 +79,10 @@ export function assembleValidateSourceTask(
         ok: true,
         value: {
           valid: true,
+          migration:
+            migration === undefined
+              ? null
+              : { materialId: migration.materialId },
           current:
             current === null
               ? null
@@ -112,8 +124,56 @@ export function assembleApplySourceTask(
     if (!authorized.ok) return authorized;
     const placement = await checkPlacement(dependencies.directory, command);
     if (!placement.ok) return placement;
-    const fingerprint = commandDigest(
-      preProductCommand({ operation, ...command }),
+    const references = Object.values(command.resolvedImages);
+    if (references.length > 0) {
+      try {
+        const [owner] = await dependencies.directory.materialsBySource([
+          `inside-task-page:${command.sourceId}`,
+        ]);
+        const facts = await dependencies.assets?.loadAccessFacts([
+          ...new Set(references.map((item) => item.assetId)),
+        ]);
+        if (facts === undefined || !facts.ok)
+          return {
+            ok: false,
+            error: { code: "dependency_unavailable", retryable: true },
+          };
+        if (
+          owner === undefined ||
+          references.some(
+            (reference) =>
+              reference.materialId !== owner.materialId ||
+              !facts.value.some(
+                (fact) =>
+                  fact.assetId === reference.assetId &&
+                  fact.materialId === owner.materialId,
+              ),
+          )
+        )
+          return { ok: false, error: { code: "source_mismatch" } };
+      } catch (error) {
+        return dependencyFailure(
+          scope("applySourceTask"),
+          error,
+          systemFailure(error),
+        );
+      }
+    }
+    const envelope = preProductCommand({ operation, ...command });
+    const { resolvedLinks, resolvedImages, ...legacyCommand } = command;
+    // Receipts before Task pages did not include these default-empty maps. Only page-free v1
+    // commands can replay that form; every authored field still contributes to its digest.
+    const legacyEnvelope =
+      command.definition.schemaVersion === 1 &&
+      command.page === undefined &&
+      command.pageBody === undefined &&
+      Object.keys(resolvedLinks).length === 0 &&
+      Object.keys(resolvedImages).length === 0
+        ? preProductCommand({ operation, ...legacyCommand })
+        : envelope;
+    const fingerprint = replayFingerprint(
+      envelope,
+      commandDigest(legacyEnvelope),
     );
     const receiptKey = {
       actorId: context.actor,
@@ -129,7 +189,7 @@ export function assembleApplySourceTask(
       const receipt = await dependencies.prisma.$transaction(
         async (transaction): Promise<TaskImportReceipt> => {
           const claim = await transaction.productTaskImportReceipt.createMany({
-            data: { ...receiptKey, requestFingerprint: fingerprint },
+            data: { ...receiptKey, requestFingerprint: fingerprint.digest },
             skipDuplicates: true,
           });
           if (claim.count === 0) {
@@ -137,7 +197,7 @@ export function assembleApplySourceTask(
               await transaction.productTaskImportReceipt.findUniqueOrThrow({
                 where: { actorId_operation_idempotencyKey: receiptKey },
               });
-            if (previous.requestFingerprint !== fingerprint)
+            if (!fingerprint.recognizes(previous.requestFingerprint))
               throw new Rollback({ code: "idempotency_conflict" });
             // A historical receipt; the caller reads again to learn the current state.
             return taskImportReceiptSchema.parse(previous.receipt);
@@ -182,7 +242,17 @@ async function saveTask(
   now: Date,
 ): Promise<TaskImportReceipt> {
   const digest = taskDefinitionDigest(command.definition);
+  const page =
+    command.page === undefined || command.pageBody === undefined
+      ? undefined
+      : {
+          source: command.page,
+          body: command.pageBody,
+          resolvedLinks: command.resolvedLinks,
+          resolvedImages: command.resolvedImages,
+        };
   const state = {
+    ...(page === undefined ? {} : { page }),
     chapterId: command.chapterId,
     position: command.position,
     title: command.title,
@@ -235,6 +305,8 @@ async function saveTask(
   );
   const newVersion = currentVersion.definitionDigest !== digest;
   const stateChanged =
+    (page !== undefined &&
+      commandDigest(current.page) !== commandDigest(page)) ||
     current.chapterId !== state.chapterId ||
     current.position !== state.position ||
     current.title !== state.title ||
@@ -282,6 +354,9 @@ async function checkPlacement(
   command: SourceTask,
 ): Promise<Result<undefined, TaskImportError>> {
   try {
+    const [migration] = await directory.materialsBySource([command.sourceId]);
+    if (migration !== undefined)
+      return { ok: false, error: { code: "source_mismatch" } };
     const [product] = await directory.products({ ids: [command.productId] });
     if (product === undefined || product.archived)
       return { ok: false, error: { code: "product_not_found" } };

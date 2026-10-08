@@ -47,6 +47,11 @@ export function decodePackageV1(value) {
       const task = record.parse(value);
       rename(task, "guideId", "productId");
       task["access"] = access(task["access"]);
+      if (task["page"] !== undefined) {
+        const page = record.parse(task["page"]);
+        page["access"] = access(page["access"]);
+        task["page"] = page;
+      }
       return task;
     });
   return manifest;

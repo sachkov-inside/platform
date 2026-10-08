@@ -10,6 +10,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { RecursiveSchema0schema0 } from './models/RecursiveSchema0schema0';
 export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
+export type { RecursiveSchema2schema0 } from './models/RecursiveSchema2schema0';
 
 export { AccountsService } from './services/AccountsService';
 export { BillingService } from './services/BillingService';
@@ -27,6 +28,7 @@ export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { ProductArtifactsService } from './services/ProductArtifactsService';
+export { ProductTaskAssetsService } from './services/ProductTaskAssetsService';
 export { ProductTaskAuthoringService } from './services/ProductTaskAuthoringService';
 export { ProductTasksService } from './services/ProductTasksService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
