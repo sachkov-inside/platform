@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -9,12 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { ensureCheckDatabase } from "./check-database.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
-import { signalProcessGroup } from "./process-group-signal.mjs";
-import {
-  startWithRoutes,
-  stopProcessGroup,
-  stopServerOnPort,
-} from "./smoke-stand.mjs";
+import { startWithRoutes } from "./smoke-stand.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const identityCompose = resolve(root, "infra/identity/logto/compose.yaml");
@@ -56,13 +52,19 @@ const applicationProcesses = new Set();
 let ownsIdentity = false;
 let ownsPlatform = false;
 let sensitiveOutputObserved = false;
-// API и web живут в своих группах процессов, и Ctrl-C терминала до них не доходит. Прерванный
-// proof останавливает их сам, иначе `next dev` держит фиксированный порт стенда.
+/** @type {Set<import("node:child_process").ChildProcess>} */
+const activeCommands = new Set();
+/** @type {NodeJS.Signals | undefined} */
+let interruptedSignal;
+let cleaningUp = false;
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
-    for (const child of applicationProcesses)
-      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGTERM");
-    process.exit(signal === "SIGINT" ? 130 : 143);
+    interruptedSignal ??= signal;
+    void Promise.all(
+      [...applicationProcesses, ...activeCommands].map((child) =>
+        stopOwned(child),
+      ),
+    );
   });
 }
 
@@ -155,7 +157,7 @@ try {
         ],
         runtimeEnvironment,
       ),
-    stop: (web) => stopServerOnPort(web, webPort),
+    stop: (web) => stopOwned(web),
     // Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`; готовность ждёт любого
     // ответа сервера.
     ready: (web) =>
@@ -175,7 +177,10 @@ try {
   process.stdout.write(
     "Issue 116 proof passed: 10/10m recipient cap, outage recovery, one Account, no Platform session table, redacted audit.\n",
   );
+} catch (error) {
+  if (interruptedSignal === undefined) throw error;
 } finally {
+  cleaningUp = true;
   try {
     try {
       await stopApplications();
@@ -186,6 +191,9 @@ try {
     await releaseLock();
   }
 }
+
+if (interruptedSignal !== undefined)
+  process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
 
 async function assertNoRunningProof() {
   for (const [compose, environment] of /** @type {const} */ ([
@@ -226,7 +234,12 @@ async function resetStoppedProof() {
  */
 async function waitForResponse(child, url, accepts) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (child.exitCode !== null || child.signalCode !== null) {
+    if (
+      interruptedSignal !== undefined ||
+      child.pid === undefined ||
+      child.exitCode !== null ||
+      child.signalCode !== null
+    ) {
       throw new Error("An application proof process exited before readiness");
     }
     const response = await globalThis
@@ -326,9 +339,10 @@ async function assertDatabaseInvariants(environment) {
  * @param {Environment} environment
  */
 function spawnApplication(arguments_, environment) {
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+  if (interruptedSignal !== undefined)
+    throw new Error("Identity proof interrupted");
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
-    detached: true,
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -338,7 +352,7 @@ function spawnApplication(arguments_, environment) {
       observeOutput(chunk.toString(), environment),
     );
   }
-  child.once("exit", () => applicationProcesses.delete(child));
+  child.once("error", (error) => process.stderr.write(`${String(error)}\n`));
   return child;
 }
 
@@ -368,7 +382,7 @@ function observeOutput(output, environment) {
 
 async function stopApplications() {
   for (const child of [...applicationProcesses].reverse())
-    await stopProcessGroup(child);
+    await stopOwned(child);
 }
 
 async function cleanup() {
@@ -456,11 +470,15 @@ function runPnpm(arguments_, environment) {
  * @param {boolean} capture
  */
 async function run(command, arguments_, environment, capture) {
-  const child = spawn(command, arguments_, {
+  if (interruptedSignal !== undefined && !cleaningUp)
+    throw new Error("Identity proof interrupted");
+  const child = spawnOwned(command, arguments_, {
     cwd: root,
     env: environment,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    ...(cleaningUp ? { timeout: 60_000 } : {}),
   });
+  activeCommands.add(child);
   let output = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
@@ -470,11 +488,14 @@ async function run(command, arguments_, environment, capture) {
       output += chunk.toString();
     });
   }
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
-  const exitCode = await exited;
-  if (exitCode !== 0)
-    throw new Error(`${command} ${arguments_.join(" ")} failed`);
+  try {
+    const exitCode = await commandExit(child);
+    if (exitCode !== 0)
+      throw new Error(`${command} ${arguments_.join(" ")} failed`);
+  } finally {
+    await stopOwned(child);
+    activeCommands.delete(child);
+  }
   return output;
 }
 

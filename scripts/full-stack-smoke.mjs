@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -12,7 +13,6 @@ import {
 } from "./full-stack-practice.mjs";
 import { seedFullStackTask } from "./full-stack-task.mjs";
 
-import { signalProcessGroup } from "./process-group-signal.mjs";
 import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -148,7 +148,6 @@ writeFileSync(
  *   name: string;
  *   child: import("node:child_process").ChildProcess;
  *   output: string[];
- *   detached: boolean;
  * }} ProcessEntry
  */
 const developmentHealthSchema = z
@@ -362,21 +361,21 @@ function fullStackTestArguments() {
  * @param {string} name
  * @param {string[]} arguments_
  * @param {NodeJS.ProcessEnv} environment
- * @param {boolean} [detached]
  * @returns {ProcessEntry}
  */
-function startPnpm(name, arguments_, environment, detached = true) {
+function startPnpm(name, arguments_, environment) {
+  if (interruptedSignal !== undefined)
+    throw new Error("Full-stack smoke interrupted");
   /** @type {string[]} */
   const output = [];
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
-    detached: detached && process.platform !== "win32",
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const entry = { name, child, output, detached };
+  const entry = { name, child, output };
   activeProcesses.add(entry);
-  child.once("exit", () => activeProcesses.delete(entry));
+  child.once("error", (error) => output.push(String(error)));
   child.stdout?.on("data", (/** @type {Buffer} */ chunk) =>
     retainOutput(output, chunk),
   );
@@ -391,21 +390,22 @@ function startPnpm(name, arguments_, environment, detached = true) {
  * @param {NodeJS.ProcessEnv} [environment]
  */
 async function runPnpm(arguments_, environment = childEnvironment) {
-  const entry = startPnpm("pnpm", arguments_, environment, false);
+  const entry = startPnpm("pnpm", arguments_, environment);
   if (arguments_.includes(fullStackBrowserCommand)) {
     // Stream browser measurements before the bounded failure log can evict their chunks.
     entry.child.stdout?.pipe(process.stdout, { end: false });
     entry.child.stderr?.pipe(process.stderr, { end: false });
   }
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => {
-    entry.child.once("exit", (code) => resolveExit(code));
-  });
-  const exitCode = await exited;
-  if (exitCode !== 0) {
-    throw new Error(
-      `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
-    );
+  try {
+    const exitCode = await commandExit(entry.child);
+    if (exitCode !== 0) {
+      throw new Error(
+        `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
+      );
+    }
+  } finally {
+    await stopOwned(entry.child);
+    activeProcesses.delete(entry);
   }
 }
 
@@ -455,7 +455,9 @@ async function waitForHttp(url, entries) {
   while (Date.now() < deadline) {
     assertProcessesRunning(entries);
     try {
-      const response = await globalThis.fetch(url);
+      const response = await globalThis.fetch(url, {
+        signal: AbortSignal.timeout(30_000),
+      });
       if (response.ok) {
         return response;
       }
@@ -487,7 +489,14 @@ function assertHealth(value) {
 
 /** @param {ProcessEntry[]} entries */
 function assertProcessesRunning(entries) {
-  const stopped = entries.find(({ child }) => child.exitCode !== null);
+  if (interruptedSignal !== undefined)
+    throw new Error("Full-stack smoke interrupted");
+  const stopped = entries.find(
+    ({ child }) =>
+      child.pid === undefined ||
+      child.exitCode !== null ||
+      child.signalCode !== null,
+  );
   if (stopped !== undefined) {
     throw new Error(
       `${stopped.name} exited early:\n${stopped.output.join("")}`,
@@ -495,32 +504,9 @@ function assertProcessesRunning(entries) {
   }
 }
 
-/** @param {ProcessEntry} entry */
-async function stopProcess({ child, detached }) {
-  if (child.pid === undefined || child.exitCode !== null) {
-    return;
-  }
-  if (process.platform === "win32" || !detached) {
-    child.kill("SIGTERM");
-  } else if (!signalProcessGroup(child.pid, "SIGTERM")) {
-    child.kill("SIGTERM");
-  }
-  await Promise.race([
-    new Promise((resolveExit) => child.once("exit", resolveExit)),
-    new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    if (process.platform === "win32" || !detached) {
-      child.kill("SIGKILL");
-    } else if (!signalProcessGroup(child.pid, "SIGKILL")) {
-      child.kill("SIGKILL");
-    }
-  }
-}
-
 function cleanup() {
   cleanupPromise ??= Promise.all(
-    [...activeProcesses].map((entry) => stopProcess(entry)),
+    [...activeProcesses].map((entry) => stopOwned(entry.child)),
   ).then(() => undefined);
   return cleanupPromise;
 }
