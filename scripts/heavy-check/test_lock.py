@@ -76,6 +76,12 @@ class LockTest(unittest.TestCase):
         except ProcessLookupError:
             pass
 
+    @staticmethod
+    def kill_owned_process(pid, started):
+        row = process_snapshot().get(pid)
+        if row is not None and row[3] == started:
+            LockTest.kill_process(pid)
+
     def assert_stopped(self, pid):
         state = subprocess.run(
             ['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True,
@@ -193,19 +199,35 @@ class LockTest(unittest.TestCase):
     def test_three_waiters_receive_slots_in_registration_order(self):
         holders = self.holders()
         waiters = []
-        for _ in range(3):
-            waiter = self.start()
+        # Gate the oldest retry through stdin. Runner exit closes the writer and
+        # releases the gate, so no stopped supervisor can outlive a killed runner.
+        launcher = """
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+import lock
+wait = lock.ExitEvents.wait
+gated = False
+def gated_wait(events, timeout=None):
+    global gated
+    if timeout is not None and timeout > 0 and not gated:
+        gated = True
+        print('PAUSED', flush=True)
+        sys.stdin.readline()
+    return wait(events, timeout)
+lock.ExitEvents.wait = gated_wait
+sys.exit(lock.main())
+"""
+        for index in range(3):
+            waiter = self.start(launcher=[sys.executable, '-c', launcher,
+                                         str(WRAPPER.parent / 'heavy-check'),
+                                         sys.executable, '-c', FIXTURE]
+                                if index == 0 else None)
+            if index == 0:
+                self.addCleanup(self.release_fork, waiter)
             self.line(waiter, 'waiting')
+            if index == 0:
+                self.line(waiter, 'PAUSED')
             waiters.append(waiter)
-        snapshot = process_snapshot()
-        supervisor = next(pid for pid, row in snapshot.items()
-                          if row[0] == waiters[0].pid)
-        self.addCleanup(self.resume, supervisor)
-        os.kill(supervisor, signal.SIGSTOP)
-        deadline = time.monotonic() + 10
-        while 'T' not in process_snapshot()[supervisor][2]:
-            self.assertLess(time.monotonic(), deadline, 'waiting for supervisor SIGSTOP')
-            time.sleep(0.01)
         self.release_fork(holders[0])
         self.assertEqual(holders[0].wait(timeout=10), 0)
         # Older admission is paused: a younger waiter must not take its free slot.
@@ -213,7 +235,7 @@ class LockTest(unittest.TestCase):
             for waiter in waiters[1:]:
                 selector.register(waiter.stdout, selectors.EVENT_READ)
             self.assertFalse(selector.select(timeout=3))
-        self.resume(supervisor)
+        self.release_fork(waiters[0])
         for waiter in waiters:
             self.line(waiter, 'acquired')
             self.line(waiter, 'READY')
@@ -250,6 +272,54 @@ class LockTest(unittest.TestCase):
                 self.assertEqual(follower.wait(timeout=10), 0)
                 self.release_fork(holders[1])
                 self.assertEqual(holders[1].wait(timeout=10), 0)
+
+    def test_fifo_gate_cleans_up_after_test_runner_termination(self):
+        launcher = """
+import sys, unittest
+sys.path.insert(0, sys.argv[1])
+import test_lock
+test_lock.tempfile.tempdir = sys.argv[2]
+line = test_lock.LockTest.line
+def observed_line(test, process, expected):
+    result = line(test, process, expected)
+    if expected == 'PAUSED':
+        print('GATED', flush=True)
+        sys.stdin.readline()
+    return result
+test_lock.LockTest.line = observed_line
+unittest.main(module=test_lock, argv=['test_lock',
+    'LockTest.test_three_waiters_receive_slots_in_registration_order'])
+"""
+        for signum in (signal.SIGTERM, signal.SIGKILL):
+            with self.subTest(signum=signum.name):
+                runner = self.start(launcher=[sys.executable, '-c', launcher,
+                                             str(WRAPPER.parent / 'heavy-check'),
+                                             self.directory.name])
+                self.line(runner, 'GATED')
+                snapshot = process_snapshot()
+                owned = {runner.pid}
+                while True:
+                    children = {pid for pid, row in snapshot.items() if row[0] in owned}
+                    if children <= owned:
+                        break
+                    owned.update(children)
+                owned.remove(runner.pid)
+                self.assertGreaterEqual(len(owned), 8)
+                for pid in owned:
+                    self.addCleanup(self.kill_owned_process, pid, snapshot[pid][3])
+                runner.send_signal(signum)
+                runner.wait(timeout=10)
+                deadline = time.monotonic() + 10
+                while True:
+                    current = process_snapshot()
+                    live = {pid for pid in owned if pid in current
+                            and current[pid][3] == snapshot[pid][3]
+                            and 'Z' not in current[pid][2]}
+                    if not live:
+                        break
+                    self.assertLess(time.monotonic(), deadline, f'owned processes remain: {live}')
+                    # Poll process exit; the deadline only bounds a failed cleanup.
+                    time.sleep(0.01)
 
     def test_legacy_waiters_share_slot_locks_with_fifo_waiters(self):
         # Model the pre-FIFO protocol: the same persistent slot files, no queue files.

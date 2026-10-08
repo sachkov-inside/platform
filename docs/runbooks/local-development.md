@@ -117,7 +117,7 @@ keep the shared default. CI bypasses admission before invoking Python and retain
 Nested commands reuse their ancestor's slot. New invocations register tickets under a short queue
 lock; the oldest live ticket claims the next available slot (FIFO). A later invocation cannot
 bypass an older registered waiter. Cancelled or killed waiters release their ticket's kernel lock;
-the next admission removes unlocked tickets. Waiting invocations retry admission every 1.5–2.5
+admission removes unlocked older tickets as the queue advances. Waiting invocations retry admission every 1.5–2.5
 seconds with jitter. Parent exit and cancellation wake them immediately. Slot filenames remain
 compatible with pre-FIFO holders and waiters: they can finish without a restart, but their old
 admission loop cannot participate in FIFO ordering. Update worktrees to get FIFO for new runs.
