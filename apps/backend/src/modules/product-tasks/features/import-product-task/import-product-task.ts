@@ -3,7 +3,10 @@ import { preProductCommand } from "../../../../infrastructure/contracts/pre-prod
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { commandDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import {
+  commandDigest,
+  replayFingerprint,
+} from "../../../../infrastructure/contracts/canonical-digest.js";
 import {
   dependencyFailure,
   reportDependencyFailure,
@@ -156,8 +159,21 @@ export function assembleApplySourceTask(
         );
       }
     }
-    const fingerprint = commandDigest(
-      preProductCommand({ operation, ...command }),
+    const envelope = preProductCommand({ operation, ...command });
+    const { resolvedLinks, resolvedImages, ...legacyCommand } = command;
+    // Receipts before Task pages did not include these default-empty maps. Only page-free v1
+    // commands can replay that form; every authored field still contributes to its digest.
+    const legacyEnvelope =
+      command.definition.schemaVersion === 1 &&
+      command.page === undefined &&
+      command.pageBody === undefined &&
+      Object.keys(resolvedLinks).length === 0 &&
+      Object.keys(resolvedImages).length === 0
+        ? preProductCommand({ operation, ...legacyCommand })
+        : envelope;
+    const fingerprint = replayFingerprint(
+      envelope,
+      commandDigest(legacyEnvelope),
     );
     const receiptKey = {
       actorId: context.actor,
@@ -173,7 +189,7 @@ export function assembleApplySourceTask(
       const receipt = await dependencies.prisma.$transaction(
         async (transaction): Promise<TaskImportReceipt> => {
           const claim = await transaction.productTaskImportReceipt.createMany({
-            data: { ...receiptKey, requestFingerprint: fingerprint },
+            data: { ...receiptKey, requestFingerprint: fingerprint.digest },
             skipDuplicates: true,
           });
           if (claim.count === 0) {
@@ -181,7 +197,7 @@ export function assembleApplySourceTask(
               await transaction.productTaskImportReceipt.findUniqueOrThrow({
                 where: { actorId_operation_idempotencyKey: receiptKey },
               });
-            if (previous.requestFingerprint !== fingerprint)
+            if (!fingerprint.recognizes(previous.requestFingerprint))
               throw new Rollback({ code: "idempotency_conflict" });
             // A historical receipt; the caller reads again to learn the current state.
             return taskImportReceiptSchema.parse(previous.receipt);
