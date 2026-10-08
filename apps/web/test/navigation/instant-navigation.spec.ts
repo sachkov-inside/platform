@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import {
   expect,
   request as apiRequest,
-  test,
+  test as base,
   type BrowserContext,
   type Page,
   type Request,
@@ -12,6 +12,32 @@ import {
 
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
+
+/** Оболочка нужного маршрута получена целиком; другие запросы страницы не задают барьер. */
+const test = base.extend<{
+  shellPrefetched: (shell: RegExp) => Promise<void>;
+}>({
+  shellPrefetched: async ({ page }, provide, testInfo) => {
+    await installProbe(page);
+    await provide(async (shell) => {
+      await expect
+        .poll(
+          () =>
+            page.evaluate((): unknown => {
+              const probe: unknown = Reflect.get(window, "__navigationProbe");
+              return typeof probe === "object" && probe !== null
+                ? Reflect.get(probe, "prefetchedShells")
+                : "проба не установлена";
+            }),
+          {
+            message: `Получен целиком ответ общей оболочки ${String(shell)}`,
+            timeout: testInfo.timeout,
+          },
+        )
+        .toEqual(expect.arrayContaining([expect.stringMatching(shell)]));
+    });
+  },
+});
 
 /** Порт подставного backend выбирает `playwright.navigation.config.ts`; спека его только читает. */
 function fakeBackendPort() {
@@ -28,6 +54,10 @@ const backend = `http://127.0.0.1:${fakeBackendPort()}`;
 const programme = "/products/navigation-proof/programme";
 const product = "/products/navigation-proof";
 const freeLesson = "navigation-lesson-1";
+// RuntimeShell не зависит от slug: Next.js переиспользует её между адресами одного маршрута.
+const materialShell = /^\/materials\/[^/]+$/u;
+const productShell = /^\/products\/[^/]+$/u;
+const programmeShell = /^\/products\/[^/]+\/programme$/u;
 const paidLesson = "navigation-lesson-3";
 /** Этим текстом подставной backend помечает тело платного урока, отданное по токену. */
 const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
@@ -149,6 +179,8 @@ async function installProbe(page: Page) {
       navigationRequests: 0,
       /** Запросы RSC, ответ на которые ещё не дочитан до конца. */
       pendingRequests: 0,
+      /** Завершённые успешные ответы RuntimeShell; дерево /_tree сюда не входит. */
+      prefetchedShells: [] as string[],
       skeletons: [] as string[],
     };
     Object.assign(window, { __navigationProbe: probe });
@@ -165,7 +197,11 @@ async function installProbe(page: Page) {
       // Копию ответа дочитываем сами: роутер может бросить поток, взяв из него нужное, а сервер
       // закончил работу над запросом, только когда отдал ответ целиком или запрос оборван.
       void response
-        .then((answer) => answer.clone().arrayBuffer())
+        .then(async (answer) => {
+          await answer.clone().arrayBuffer();
+          if (headers.get("next-router-prefetch") === "3" && answer.ok)
+            probe.prefetchedShells.push(new URL(answer.url).pathname);
+        })
         .catch(() => undefined)
         .finally(() => {
           probe.pendingRequests -= 1;
@@ -344,17 +380,6 @@ async function readWebVitals(page: Page): Promise<Record<string, number>> {
 }
 
 /**
- * Очередь предзагрузки видимых ссылок опустела: роутер начинает её после гидрации и шлёт запросы
- * один за другим, поэтому её конец — затихшая сеть свежего документа. Барьер годится только сразу
- * после `goto`: для уже затихшего документа Playwright отвечает сразу, ничего не дожидаясь, а
- * backend, замедленный раньше времени, достался бы самой предзагрузке. Единственное окно тишины
- * вместо факта — исключение из «Waiting in tests» в корневом CODING_STANDARDS.md (#758).
- */
-async function viewportPrefetchDrained(page: Page) {
-  await page.waitForLoadState("networkidle");
-}
-
-/**
  * Предзагрузка страницы урока целиком — та, что рисует урок на сервере, а не оболочка маршрута.
  * Браузер закончил с ней, когда запрос завершён или оборван: клиент Next.js обрывает поток, взяв
  * из него всё нужное, поэтому ждать приходится события запроса, а не конца ответа.
@@ -482,13 +507,61 @@ test.afterEach(async () => {
   await controlBackend({ delayMs: 0, unavailable: false });
 });
 
+test("оболочка урока предзагружена даже при незавершённом постороннем запросе", async ({
+  page,
+  shellPrefetched,
+}) => {
+  const heldResponse = Promise.withResolvers<undefined>();
+  await page.route("**/__unrelated_navigation_request", async (route) => {
+    await heldResponse.promise;
+    await route.fulfill({ body: "done" });
+  });
+  try {
+    await page.goto(programme);
+    await programmeReady(page)();
+    const unrelated = page.waitForRequest("**/__unrelated_navigation_request");
+    await page.evaluate(() => {
+      void fetch("/__unrelated_navigation_request").catch(() => undefined);
+    });
+    await unrelated;
+    await shellPrefetched(materialShell);
+  } finally {
+    heldResponse.resolve(undefined);
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
+test("оболочка другого урока завершает барьер, пока предзагрузка первого ещё заблокирована", async ({
+  page,
+  shellPrefetched,
+}) => {
+  const heldResponse = Promise.withResolvers<undefined>();
+  const firstRequested = Promise.withResolvers<undefined>();
+  await page.route("**/materials/navigation-lesson-1?*", async (route) => {
+    if (route.request().headers()["next-router-prefetch"] !== undefined) {
+      firstRequested.resolve(undefined);
+      await heldResponse.promise;
+    }
+    await route.continue();
+  });
+  try {
+    await page.goto(programme);
+    await programmeReady(page)();
+    await firstRequested.promise;
+    await shellPrefetched(materialShell);
+  } finally {
+    heldResponse.resolve(undefined);
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
 test("программа ↔ урок: свой скелет на первом переходе и мгновенный повтор", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
-  await installProbe(page);
   await page.goto(programme);
   await programmeReady(page)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(materialShell);
   await setBackendDelay(700);
 
   const lessonLink = page
@@ -593,11 +666,11 @@ test("программа ↔ урок: свой скелет на первом �
 
 test("продукт → программа → платный урок: у каждой страницы свой скелет", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
-  await installProbe(page);
   await page.goto(product);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(programmeShell);
   await setBackendDelay(700);
 
   const toProgramme = await transition(
@@ -636,11 +709,11 @@ test("продукт → программа → платный урок: у ка
 
 test("намерение предзагружает общую часть урока: переход без скелета даже при медленном backend", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
-  await installProbe(page);
   await page.goto(programme);
   await programmeReady(page)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(materialShell);
 
   const lessonLink = page
     .locator(
@@ -675,12 +748,12 @@ test("намерение предзагружает общую часть уро
 
 test("повторный переход не ходит в backend, а гость нигде не предъявляет токен", async ({
   page,
+  shellPrefetched,
 }) => {
-  await installProbe(page);
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await page.goto(programme);
   await programmeReady(page)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(materialShell);
   const lessonLink = () =>
     page
       .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
@@ -795,6 +868,7 @@ test("закрытое тело не попадает ни в предзагру
   browser,
   context,
   page,
+  shellPrefetched,
 }) => {
   if (baseURL === undefined) throw new Error("Проверке нужен адрес приложения");
   await signInAsMember(context, baseURL);
@@ -822,8 +896,8 @@ test("закрытое тело не попадает ни в предзагру
   ).toBeVisible();
   // Предзагрузка страницы целиком рисует урок на сервере с сессией вошедшего: именно она могла бы
   // унести закрытое тело. Нажатие ждёт, пока браузер с ней закончит. Слушатель ставится, когда
-  // предзагрузка видимых ссылок уже прошла: её запрос оболочки на этот же адрес — не та предзагрузка.
-  await viewportPrefetchDrained(page);
+  // ответ оболочки урока уже пришёл: запрос дерева /_tree — не предзагрузка страницы целиком.
+  await shellPrefetched(materialShell);
   const pagePrefetch = pagePrefetchSettled(page, paidLesson);
   await lessonLink.hover();
   const pagePrefetchBody = await replayPrefetch(page, await pagePrefetch);
@@ -881,6 +955,7 @@ const beforeStage = process.env["NAVIGATION_EVIDENCE_STAGE"] === "before";
 
 test("снимки перехода «программа → урок → программа» при медленном backend", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
   test.skip(
     beforeStage,
@@ -890,7 +965,7 @@ test("снимки перехода «программа → урок → про
   const loading = page.locator("main [aria-busy='true']").first();
   await page.goto(programme);
   await programmeReady(page)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
   const lessonAnchors = ["[data-reader-return='top']", "[data-reader-header]"];
@@ -918,7 +993,7 @@ test("снимки перехода «программа → урок → про
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(programmeShell);
   await page.getByRole("link", { name: "Назад к программе" }).first().click();
   await page.waitForURL((url) => url.pathname === programme);
   const programmeAnchors = [
@@ -947,6 +1022,7 @@ test("снимки перехода «программа → урок → про
 
 test("снимки «до»: те же кадры перехода на коде без слоёв", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
   test.skip(
     !beforeStage,
@@ -956,7 +1032,7 @@ test("снимки «до»: те же кадры перехода на коде
   const loading = page.locator("main [aria-busy='true']").first();
   await page.goto(programme);
   await programmeReady(page)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
   await page
@@ -974,7 +1050,7 @@ test("снимки «до»: те же кадры перехода на коде
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(programmeShell);
   await page.getByRole("link", { name: "Назад к программе" }).first().click();
   await page.waitForURL((url) => url.pathname === programme);
   await expect(loading).toBeVisible();
@@ -989,14 +1065,14 @@ test("снимки «до»: те же кадры перехода на коде
 
 test("Главная ↔ продукт: свой скелет продукта, Главная без скелета, повтор без запросов", async ({
   page,
+  shellPrefetched,
 }, testInfo) => {
-  await installProbe(page);
   await page.goto("/");
   const productLink = page
     .getByRole("link", { name: /Открыть (продукт|практикум)/u })
     .first();
   await expect(productLink).toBeVisible();
-  await viewportPrefetchDrained(page);
+  await shellPrefetched(productShell);
   await setBackendDelay(700);
 
   const productReady = async () => {
