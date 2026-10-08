@@ -21,6 +21,16 @@ process.once('SIGUSR1',()=>process.exit(19));
 load.once('message', pid => console.log('READY',process.pid,pid));
 setInterval(()=>{},1000);
 """
+DETACHED_LOAD = """
+const {spawn} = require('node:child_process');
+const load = spawn(process.execPath, ['-e',
+  "process.on('SIGTERM',()=>{});setInterval(()=>{},1000);process.send(process.pid)"
+], {detached:true, stdio:['ignore','ignore','ignore','ipc']});
+load.once('message', pid => {
+  console.log('READY',process.pid,pid);
+  process.exit(0);
+});
+"""
 
 
 def read_ready(process):
@@ -56,10 +66,10 @@ def stopped(pid):
 
 
 class Ownership(unittest.TestCase):
-    def exercise(self, action):
+    def exercise(self, action, load=LOAD):
         owner_source = f"""
         import {{spawnOwned,stopOwned}} from {json.dumps(API)};
-        const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+        const child=spawnOwned(process.execPath,['-e',{json.dumps(load)}],
           {{stdio:['ignore','pipe','inherit']}});
         child.stdout.pipe(process.stdout);
         child.once('exit',code=>{{process.exitCode=code}});
@@ -78,7 +88,10 @@ class Ownership(unittest.TestCase):
         pids = []
         try:
             pids = read_ready(process)
-            if action == 'command-exit':
+            if action == 'detached-exit':
+                # The launcher exits as soon as its detached child reports readiness.
+                pass
+            elif action == 'command-exit':
                 os.kill(pids[0], signal.SIGUSR1)
             elif isinstance(action, int):
                 os.kill(process.pid, action)
@@ -119,6 +132,9 @@ class Ownership(unittest.TestCase):
 
     def test_completed_command_cleans_remaining_descendants(self):
         self.exercise('command-exit')
+
+    def test_fast_launcher_exit_cleans_detached_descendant(self):
+        self.exercise('detached-exit', DETACHED_LOAD)
 
     def test_native_node_test_runner_sigkill(self):
         source = f"""

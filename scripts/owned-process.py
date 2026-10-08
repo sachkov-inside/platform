@@ -8,16 +8,24 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).parent / 'heavy-check'))
-from lock import track_descendants, signal_groups, command_signals, POLL_SECONDS
+sys.path.insert(0, str(Path(__file__).parent / 'owned-process'))
+from lock import track_descendants, signal_groups, command_signals, POLL_SECONDS, process_snapshot
+from lineage import Lineage
 
 
-def stop_tree(process, tracked, groups, grace):
+def track_tree(process, tracked, groups, lineage):
+    if lineage is not None and lineage.library is not None:
+        lineage.include(process_snapshot(), tracked, groups)
+    return track_descendants(process, tracked, groups)
+
+
+def stop_tree(process, tracked, groups, grace, lineage):
     deadline = time.monotonic() + grace
     kill_deadline = deadline + 5
     signalled = set()
     while True:
         process.poll()
-        live = track_descendants(process, tracked, groups)
+        live = track_tree(process, tracked, groups, lineage)
         if not live:
             process.wait()
             return
@@ -44,13 +52,15 @@ def main():
     tracked = {}
     groups = set()
     grace = 5
+    lineage = None
     try:
         command = json.loads(sys.argv[1])
         process = subprocess.Popen(command, start_new_session=True,
                                    preexec_fn=command_signals)
         groups.add(process.pid)
+        lineage = Lineage(process.pid)
         while process.poll() is None:
-            track_descendants(process, tracked, groups)
+            track_tree(process, tracked, groups, lineage)
             if stopping:
                 return 143
             if select.select([3], [], [], POLL_SECONDS)[0]:
@@ -66,7 +76,7 @@ def main():
         return 127
     finally:
         if process is not None:
-            stop_tree(process, tracked, groups, grace)
+            stop_tree(process, tracked, groups, grace, lineage)
 
 
 if __name__ == '__main__':
