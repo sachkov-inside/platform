@@ -242,18 +242,6 @@ def main():
     if owner_alive(parents):
         os.execvp(command[0], command)
     read_fd, write_fd = os.pipe()
-    child = os.fork()
-    if child == 0:
-        for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            signal.signal(signum, signal.SIG_IGN)
-        os.close(write_fd)
-        try:
-            status = supervise(read_fd, command, parents)
-        except Exception as error:
-            print(f'heavy-check: {error}', file=sys.stderr, flush=True)
-            status = 1
-        os._exit(status)
-    os.close(read_fd)
     interrupted = 0
 
     def interrupt(signum, _frame):
@@ -265,6 +253,20 @@ def main():
 
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, interrupt)
+    # The supervisor may report waiting before the parent returns from fork.
+    child = os.fork()
+    if child == 0:
+        for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(signum, signal.SIG_IGN)
+        if write_fd is not None:
+            os.close(write_fd)
+        try:
+            status = supervise(read_fd, command, parents)
+        except Exception as error:
+            print(f'heavy-check: {error}', file=sys.stderr, flush=True)
+            status = 1
+        os._exit(status)
+    os.close(read_fd)
     _, status = os.waitpid(child, 0)
     if write_fd is not None:
         os.close(write_fd)
