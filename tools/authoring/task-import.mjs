@@ -43,6 +43,49 @@ const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 /** @param {string} code */
 const resourceKey = (code) => `task:${code}`;
 
+/** Resolve explicit preview choices without mutating the canonical package.
+ * @param {Manifest} manifest
+ * @param {string[]} choices
+ * @returns {{ manifest: Manifest; choices: string[] }} */
+export function resolveTaskAccess(manifest, choices) {
+  /** @type {Map<string, "free" | "closed">} */
+  const selected = new Map();
+  for (const choice of choices) {
+    const [code, access, extra] = choice.split("=");
+    if (
+      code === undefined ||
+      code.length === 0 ||
+      extra !== undefined ||
+      (access !== "free" && access !== "closed")
+    )
+      throw new Error("Task access choice must be code=free or closed");
+    const task = (manifest.tasks ?? []).find((task) => task.sourceId === code);
+    if (task === undefined)
+      throw new Error(`Unknown Task access code: ${code}`);
+    const previous = selected.get(code);
+    if (previous !== undefined && previous !== access)
+      throw new Error(`Conflicting Task access choices: ${code}`);
+    if (task.access !== null && task.access !== access)
+      throw new Error(
+        `${code}: Task access is already explicitly ${task.access}`,
+      );
+    selected.set(code, access);
+  }
+  return {
+    manifest:
+      selected.size === 0
+        ? manifest
+        : {
+            ...manifest,
+            tasks: (manifest.tasks ?? []).map((task) => ({
+              ...task,
+              access: selected.get(task.sourceId) ?? task.access,
+            })),
+          },
+    choices: [...selected].map(([code, access]) => `${code}=${access}`).sort(),
+  };
+}
+
 /**
  * The publication a task asks for: Content's `unpublished` withdraws it; `published` takes effect
  * only for a task the owner selected (`--publish` or `--publish-all`). Otherwise the target keeps
@@ -142,6 +185,28 @@ export async function validateSourceTasks(manifest, request) {
     if (result.migration != null)
       throw new Error(
         `${task.sourceId}: material_to_task_migration requires a release decision`,
+      );
+  }
+}
+
+/** A pending Task command may finish only with the same access decision.
+ * @param {Manifest} manifest
+ * @param {import('./journal.mjs').Journal} journal */
+export function assertTaskReplayAccess(manifest, journal) {
+  for (const entry of Object.values(journal.operations)) {
+    if (!isJournalOperation(entry) || entry.status !== "pending") continue;
+    const parsed = operationSchema.safeParse(entry.request);
+    if (!parsed.success) continue;
+    const task = (manifest.tasks ?? []).find(
+      (task) => task.sourceId === parsed.data.body.code,
+    );
+    if (
+      task !== undefined &&
+      fingerprintAccess(task.access) !==
+        fingerprintAccess(parsed.data.body["access"])
+    )
+      throw new Error(
+        `${task.sourceId}: an interrupted Task transfer used a different access decision; apply its original preview first`,
       );
   }
 }

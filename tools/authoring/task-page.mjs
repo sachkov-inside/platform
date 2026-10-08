@@ -89,16 +89,8 @@ export function preflightTaskPages(pkg) {
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
  * @param {Map<string,string>} links
- * @param {string} productId
  * @returns {Promise<PageImport>} */
-export async function importTaskPage(
-  pkg,
-  task,
-  context,
-  request,
-  links,
-  productId,
-) {
+export async function importTaskPage(pkg, task, context, request, links) {
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
@@ -241,7 +233,7 @@ export async function importTaskPage(
             topicId: null,
             formatId: page.kind,
             tagIds: [],
-            seriesIds: [productId],
+            seriesIds: [],
           },
           body: backingBody,
           primaryVideoId: null,
