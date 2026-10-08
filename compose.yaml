@@ -53,6 +53,7 @@ services:
       object-storage:
         condition: service_healthy
     init: true
+    restart: unless-stopped
     stop_grace_period: 15s
 
   object-storage:

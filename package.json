@@ -54,6 +54,7 @@
     "check:web-e2e": "bash scripts/heavy-check.sh bash -c 'pnpm build && pnpm --filter @inside/web test:prerendered-handlers && pnpm --filter @inside/web test:standalone-config && pnpm test:e2e && pnpm test:navigation \"$@\"' --",
     "compose:up": "docker compose up -d --build --wait",
     "compose:smoke": "bash scripts/heavy-check.sh bash scripts/compose-stack-smoke.sh",
+    "smoke:notifications-recovery": "bash scripts/heavy-check.sh bash scripts/notifications-worker-recovery-smoke.sh",
     "compose:production:smoke": "bash scripts/heavy-check.sh bash scripts/production-compose-smoke.sh",
     "release:images:smoke": "bash scripts/heavy-check.sh bash scripts/release-image-smoke.sh",
     "release:dry-run": "bash scripts/release-dry-run.sh",
