@@ -6,6 +6,7 @@ import { createServer } from "node:net";
 import { describe, it } from "node:test";
 
 import {
+  createPortAllocator,
   reservePort,
   reservedPortRange,
   startWithRoutes,
@@ -23,26 +24,69 @@ describe("smoke stand", () => {
 
     assert.equal(port >= reservedPortRange.first, true);
     assert.equal(port <= reservedPortRange.last, true);
+    await assert.rejects(
+      reservePort(() => port),
+      /No free test port in the reserved range/u,
+    );
   });
 
   it("skips a busy port and never returns the same port twice", async () => {
-    const busy = createServer();
-    await new Promise((resolve) =>
-      busy.listen(reservedPortRange.first, "127.0.0.1", () => {
-        resolve(undefined);
-      }),
-    );
-    try {
-      const candidates = [
-        reservedPortRange.first,
-        reservedPortRange.first + 1,
-        reservedPortRange.first + 1,
-        reservedPortRange.first + 2,
-      ];
-      const pick = () => candidates.shift() ?? reservedPortRange.last;
+    /** @type {number[]} */
+    const probed = [];
+    const allocate = createPortAllocator((port) => {
+      probed.push(port);
+      return Promise.resolve(port !== reservedPortRange.first);
+    });
+    const candidates = [
+      reservedPortRange.first,
+      reservedPortRange.first + 1,
+      reservedPortRange.first + 1,
+      reservedPortRange.first + 2,
+    ];
+    const pick = () => {
+      const port = candidates.shift();
+      assert.ok(port !== undefined, "allocator exhausted the test candidates");
+      return port;
+    };
 
-      assert.equal(await reservePort(pick), reservedPortRange.first + 1);
-      assert.equal(await reservePort(pick), reservedPortRange.first + 2);
+    assert.equal(await allocate(pick), reservedPortRange.first + 1);
+    assert.equal(await allocate(pick), reservedPortRange.first + 2);
+    assert.deepEqual(probed, [
+      reservedPortRange.first,
+      reservedPortRange.first + 1,
+      reservedPortRange.first + 2,
+    ]);
+  });
+
+  it("keeps handed-out ports local to each allocator", async () => {
+    const previous = createPortAllocator(() => Promise.resolve(true));
+    const current = createPortAllocator(() => Promise.resolve(true));
+    const pick = () => reservedPortRange.first + 2;
+
+    assert.equal(await previous(pick), reservedPortRange.first + 2);
+    assert.equal(await current(pick), reservedPortRange.first + 2);
+    await assert.rejects(
+      current(pick),
+      /No free test port in the reserved range/u,
+    );
+  });
+
+  it("rejects a port held by a real loopback server", async () => {
+    const busy = createServer();
+    try {
+      await new Promise((resolve, reject) => {
+        busy.once("error", reject);
+        busy.listen(0, "127.0.0.1", () => {
+          resolve(undefined);
+        });
+      });
+      const address = busy.address();
+      assert.ok(address !== null && typeof address !== "string");
+      const allocate = createPortAllocator();
+      await assert.rejects(
+        allocate(() => address.port),
+        /No free test port in the reserved range/u,
+      );
     } finally {
       await new Promise((resolve) => busy.close(resolve));
     }

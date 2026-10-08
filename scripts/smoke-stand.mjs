@@ -11,9 +11,6 @@ import { signalProcessGroup } from "./process-group-signal.mjs";
  */
 export const reservedPortRange = { first: 20_000, last: 29_999 };
 
-/** @type {Set<number>} */
-const handedOut = new Set();
-
 function randomReservedPort() {
   const size = reservedPortRange.last - reservedPortRange.first + 1;
   return reservedPortRange.first + Math.floor(Math.random() * size);
@@ -37,19 +34,28 @@ async function bindsOnLoopback(port) {
 }
 
 /**
- * A free loopback port for a stand server that binds it later.
+ * Owns one allocator's handed-out ports. Tests can control availability without fixed live ports.
  *
- * @param {() => number} [pick]
+ * @param {(port: number) => Promise<boolean>} [canBind]
  */
-export async function reservePort(pick = randomReservedPort) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    const port = pick();
-    if (handedOut.has(port) || !(await bindsOnLoopback(port))) continue;
-    handedOut.add(port);
-    return port;
-  }
-  throw new Error("No free test port in the reserved range");
+export function createPortAllocator(canBind = bindsOnLoopback) {
+  /** @type {Set<number>} */
+  const handedOut = new Set();
+
+  /** @param {() => number} [pick] */
+  return async (pick = randomReservedPort) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const port = pick();
+      if (handedOut.has(port) || !(await canBind(port))) continue;
+      handedOut.add(port);
+      return port;
+    }
+    throw new Error("No free test port in the reserved range");
+  };
 }
+
+/** A free loopback port for a stand server that binds it later, shared by this module's callers. */
+export const reservePort = createPortAllocator();
 
 const stopGraceMilliseconds = 10_000;
 const portReleaseMilliseconds = 15_000;
