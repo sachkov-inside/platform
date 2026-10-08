@@ -143,7 +143,9 @@ export function aggregate(samples) {
   /** @type {Map<string, Row>} */
   const rows = new Map();
   for (const sample of samples) {
+    /** @type {Map<string, number>} */
     const counts = new Map();
+    /** @type {Map<string, number>} */
     const occurrences = new Map();
     for (const observation of sample) {
       const key = identity(observation);
