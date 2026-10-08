@@ -637,14 +637,19 @@ export class BillingSubscriptions {
           : paymentFailure("operation_conflict");
       const prepared = await prisma.$transaction(
         async (tx): Promise<PaymentResult<string>> => {
-          const now = this.clock();
-          const row = await tx.billingSubscription.findFirst({
+          const found = await tx.billingSubscription.findFirst({
             where: { accountId, state: { not: "ended" } },
+            select: { id: true },
           });
-          if (!row) return paymentFailure("not_found");
+          if (!found) return paymentFailure("not_found");
+          await lockBillingSubscription(tx, found.id);
+          const row = await tx.billingSubscription.findUniqueOrThrow({
+            where: { id: found.id },
+          });
+          if (row.state === "ended") return paymentFailure("not_found");
           if (row.revision !== command.expectedRevision)
             return paymentFailure("revision_conflict");
-          await lockBillingSubscription(tx, row.id);
+          const now = this.clock();
           if (
             (await tx.billingPaymentMethodFlow.count({
               where: { subscriptionRef: row.id, state: "started" },
