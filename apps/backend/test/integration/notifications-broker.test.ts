@@ -1,7 +1,7 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import { expect, test, onTestFinished } from "vitest";
+import { expect, test, onTestFinished, vi } from "vitest";
 import { startNotificationBroker, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
@@ -27,7 +27,10 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
-import type { NotificationEvent } from "../../src/modules/notifications/domain/notification-wire.js";
+import {
+  resultSchema,
+  type NotificationEvent,
+} from "../../src/modules/notifications/domain/notification-wire.js";
 
 registerFixedClock();
 
@@ -210,15 +213,22 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
     // The outage is a fact, not an assumption: results stay staged because the broker refused the
     // publish, which is exactly what the revoked write permission has to produce.
     await eventually(async () => {
-      expect(
-        await database.prisma.notificationOutbox.count({
-          where: {
-            scope: "email",
-            publishedAt: null,
-            lastFailure: "publish_not_confirmed",
-          },
-        }),
-      ).toBeGreaterThanOrEqual(1);
+      const pendingResults = await database.prisma.notificationOutbox.findMany({
+        where: { scope: "email", publishedAt: null },
+        select: { payload: true, lastFailure: true, nextAttemptAt: true },
+      });
+      const sentResults = pendingResults.filter(
+        (row) => resultSchema.parse(JSON.parse(row.payload)).state === "sent",
+      );
+      expect(sentResults).toHaveLength(2);
+      // Intermediate accepted/unknown results also share this lane. Finish every refused publish
+      // before moving Date, so an in-flight refusal cannot schedule a retry beyond the new instant.
+      for (const result of pendingResults) {
+        expect(result.lastFailure).toBe("publish_not_confirmed");
+        expect(result.nextAttemptAt.getTime()).toBeGreaterThan(
+          instant.getTime(),
+        );
+      }
       expect(reports).toContainEqual(
         expect.objectContaining({
           status: "operator_attention",
@@ -246,12 +256,27 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
       emailPermission.write,
       emailPermission.read,
     ]);
+    // Permission recovery does not advance the virtual Date. Reach the persisted retry deadline;
+    // native worker timers still run normally, and the following barrier observes both deliveries.
+    const pendingResults = await database.prisma.notificationOutbox.findMany({
+      where: { scope: "email", publishedAt: null },
+      select: { nextAttemptAt: true },
+    });
+    expect(pendingResults.length).toBeGreaterThanOrEqual(2);
+    vi.setSystemTime(
+      Math.max(...pendingResults.map((row) => row.nextAttemptAt.getTime())),
+    );
     await eventually(async () => {
       expect(
         await database.prisma.notificationDelivery.count({
           where: { state: "sent" },
         }),
       ).toBe(2);
+      expect(
+        await database.prisma.notificationOutbox.count({
+          where: { scope: "email", publishedAt: null },
+        }),
+      ).toBe(0);
     }, barrierBudgetMs);
     await publishNotification(
       publisher,

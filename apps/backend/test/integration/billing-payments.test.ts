@@ -552,6 +552,39 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     });
   });
 
+  test.each(["pending", "unknown"] as const)(
+    "exact purchase replay restores %s after contact revision and quote expiry",
+    async (state) => {
+      const s = await scenario();
+      if (state === "unknown") s.timeout();
+      const original = value(await s.runtime().purchase(s.buyer, s.command));
+      expect(original.state).toBe(state);
+      now = new Date("2030-01-31T10:30:00Z");
+      const change = await contact.start(s.buyer, {
+        operationId: randomUUID(),
+        email: `${s.buyer}-updated@example.test`,
+        expectedRevision: 1,
+      });
+      if (!change.ok) throw new Error(change.error.code);
+      expect(
+        await contact.confirm(s.buyer, {
+          operationId: randomUUID(),
+          challengeRef: change.challengeRef,
+          code: codes.get(change.challengeRef),
+        }),
+      ).toMatchObject({ ok: true });
+      expect(value(await s.runtime().purchase(s.buyer, s.command))).toEqual(
+        original,
+      );
+      expect(
+        await s
+          .runtime()
+          .purchase(s.buyer, { ...s.command, contactRevision: 2 }),
+      ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+      expect(s.requests()).toBe(1);
+    },
+  );
+
   test("unknown Init survives restart and cannot be retried; CheckOrder confirms once", async () => {
     const s = await scenario();
     s.timeout();
