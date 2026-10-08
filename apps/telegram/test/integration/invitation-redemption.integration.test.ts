@@ -25,6 +25,7 @@ import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { reserveTelegramIdentity } from "../../src/modules/identity-linking/stable-telegram-identity.js";
 
 const bot = `invitation-${randomUUID()}`;
+// deterministic-test-allow shared-mutation: Legacy suite clock isolation is tracked in #1154.
 const clock = {
   value: new Date(),
   now() {

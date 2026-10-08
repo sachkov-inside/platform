@@ -111,6 +111,7 @@ async function waitForResponse(
     try {
       return await fetch(url);
     } catch {
+      // deterministic-test-allow duration-wait: Poll the live health response; the delay is only the sampling interval.
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
     }
   }

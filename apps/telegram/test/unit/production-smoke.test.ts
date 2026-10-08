@@ -1,3 +1,4 @@
+// deterministic-test-allow unit-io: Local production smoke shell contract; suite separation is tracked in #1154.
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,

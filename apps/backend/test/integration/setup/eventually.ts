@@ -13,6 +13,7 @@ export async function eventually(
       return;
     } catch (error) {
       if (Date.now() >= deadline) throw error;
+      // deterministic-test-allow duration-wait: Poll a caller-supplied durable fact; the delay is only the sampling interval.
       await delay(50);
     }
   }

@@ -9,7 +9,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { Test } from "@nestjs/testing";
 import { sql } from "kysely";
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -301,6 +301,7 @@ async function elapsed(
   const started = performance.now();
   const done = await Promise.race([
     work().then(() => true),
+    // deterministic-test-allow duration-wait: Deadline bounds the latency measurement; completion is observed from work().
     delay(cap).then(() => false),
   ]);
   return done ? performance.now() - started : Number.POSITIVE_INFINITY;
@@ -313,12 +314,13 @@ it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contac
   const worker = (async () => {
     while (workerState.dispatching) {
       await scheduler.processAvailable();
+      // deterministic-test-allow duration-wait: Worker pacing schedules the next dispatch cycle; the test observes sent messages.
       await delay(20);
     }
   })();
   let measurements: string | undefined;
   try {
-    await delay(300);
+    await vi.waitFor(() => expect(sent.length).toBeGreaterThan(0));
     // A contact inside the dispatched audience and a new visitor both press /start.
     const enrolledMs = await elapsed(() =>
       app.get(BotContacts).observeStart(
@@ -347,6 +349,7 @@ it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contac
       await app.get(TelegramUpdateProcessor).processAvailable(1, new Date());
     });
     await elapsed(async () => {
+      // deterministic-test-allow duration-wait: Poll the sent reply; the delay is only the sampling interval.
       while (!sent.some((s) => s.message.chatId === "777")) await delay(10);
     });
     const reply = sent.find((s) => s.message.chatId === "777");
@@ -360,6 +363,7 @@ it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contac
     expect(required(reply).message.content.text).toBe("intro");
   } finally {
     workerState.dispatching = false;
+    // deterministic-test-allow duration-wait: Deadline bounds worker shutdown; dispatch is already stopped.
     await Promise.race([worker, delay(MEASUREMENT_CAP_MS)]);
   }
   const backlog = sent.filter((s) => s.message.chatId !== "777");

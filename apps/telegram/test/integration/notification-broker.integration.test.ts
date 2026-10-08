@@ -44,6 +44,7 @@ const users = {
   rogue: `${vhost}-rogue`,
 };
 const password = randomUUID();
+// deterministic-test-allow shared-mutation: Connection cleanup registry is drained afterAll; it is not scenario seed data.
 const connections: ChannelModel[] = [];
 let brokers: NotificationBroker[] = [];
 const root =
@@ -227,6 +228,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
     async function authorize(req: IncomingMessage, res: ServerResponse) {
       const request = jsonRecord(await readText(req));
       authorizations.push(request);
+      // deterministic-test-allow duration-wait: Synthetic authorization latency exercises bounded concurrent dispatch; assertions observe delivered commands.
       await new Promise((resolve) => setTimeout(resolve, 80));
       res.setHeader("content-type", "application/json");
       res.end(

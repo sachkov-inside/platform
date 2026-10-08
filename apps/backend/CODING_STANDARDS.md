@@ -159,6 +159,11 @@ not dependency wiring.
 
 ## Tests against real infrastructure
 
+- Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
+  Each case owns its rows and double state; put compilation, migrations and large seeds in bounded
+  setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name
+  their real boundary and own its cleanup. Poll committed rows with the helper below.
+
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
 - Run `rabbitmqctl` and read queue depth through `setup/broker.ts`; a one-off column of its own may

@@ -174,6 +174,7 @@ function watchCrashWorker(child: ChildProcess) {
               ),
             );
         };
+        // deterministic-test-allow duration-wait: Deadline bounds waiting for process output; it is not a readiness signal.
         const timer = setTimeout(settle, budgetMs);
         wake = settle;
         if (reached.has(awaited) || departure !== undefined) settle();

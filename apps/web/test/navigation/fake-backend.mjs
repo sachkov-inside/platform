@@ -706,6 +706,7 @@ const server = createServer(async (request, response) => {
       )
     : route(request.method, url, authorized);
   if (state.delayMs > 0)
+    // deterministic-test-allow duration-wait: Synthetic backend latency exercises navigation; the browser assertions observe rendered state.
     await new Promise((resolve) => setTimeout(resolve, state.delayMs));
   if (result === undefined) {
     send(404, {

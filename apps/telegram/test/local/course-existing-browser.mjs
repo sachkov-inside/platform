@@ -171,7 +171,6 @@ async function purchase() {
     expect(result.ok).toBe(true);
   }
   await page.goto(origin + "/products/platform-inside/buy");
-  await page.waitForTimeout(700);
   await page.keyboard.press("Escape");
   await page.locator('input[name="one-time-consent-terms"]').check();
   const dismiss = page.getByRole("button", { name: "Позже", exact: true });
@@ -182,7 +181,7 @@ async function purchase() {
   await page
     .getByRole("button", { name: "Оплата прошла", exact: true })
     .click();
-  await page.waitForTimeout(1500);
+  await page.waitForURL((url) => url.origin === origin, { timeout: 30000 });
 }
 async function activateExisting() {
   await page.goto(origin + "/account");

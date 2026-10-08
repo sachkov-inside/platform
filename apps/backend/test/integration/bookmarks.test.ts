@@ -272,10 +272,13 @@ describe("Bookmarks on PostgreSQL", () => {
     const firstId = await material();
     const secondId = await material();
     const thirdId = await material();
-    for (const id of [firstId, secondId, thirdId]) {
+    for (const [index, id] of [firstId, secondId, thirdId].entries()) {
       const added = await bookmarks.addBookmark({ accountId, materialId: id });
       if (!added.ok) throw new Error(added.error.code);
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await database.prisma.bookmarkedMaterial.update({
+        where: { accountId_materialId: { accountId, materialId: id } },
+        data: { bookmarkedAt: new Date(Date.UTC(2030, 0, 1, 0, 0, index)) },
+      });
     }
     const page = await bookmarks.listBookmarks({ accountId, first: 2 });
     if (!page.ok) throw new Error(page.error.code);

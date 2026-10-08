@@ -34,7 +34,7 @@
     "format:check": "prettier --check .",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     "typecheck": "pnpm --recursive --if-present typecheck && tsc -p tsconfig.scripts.json && tsc -p tools/practice-review/native/tsconfig.json",
-    "guardrails": "node scripts/check-shared-contracts-boundary.mjs . && node scripts/check-material-blocks-boundary.mjs . && node scripts/check-access-capabilities-boundary.mjs . && node scripts/check-module-initialization-order.mjs . && pnpm --filter @inside/backend guardrails && pnpm --filter @inside/web guardrails && pnpm --filter @inside/telegram guardrails",
+    "guardrails": "node scripts/check-deterministic-tests.mjs . && node scripts/check-shared-contracts-boundary.mjs . && node scripts/check-material-blocks-boundary.mjs . && node scripts/check-access-capabilities-boundary.mjs . && node scripts/check-module-initialization-order.mjs . && pnpm --filter @inside/backend guardrails && pnpm --filter @inside/web guardrails && pnpm --filter @inside/telegram guardrails",
     "build:packages": "pnpm --filter @inside/contracts build && pnpm --filter @inside/material-blocks build && pnpm --filter @inside/access-capabilities build && pnpm --filter @inside/legal build",
     "build:generated": "pnpm build:packages && pnpm --filter @inside/backend prisma:generate",
     "test": "pnpm check:unit && pnpm --filter @inside/web test:browser-engines && pnpm test:storybook",

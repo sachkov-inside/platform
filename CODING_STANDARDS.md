@@ -5,7 +5,8 @@ This file routes repository-wide rules. Apply the standard nearest to the code b
 - Platform backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);
 - Telegram bot modules, Kysely persistence and provider contracts: the repository-wide rules below,
-  [application boundaries](apps/telegram/AGENTS.md) and its executable `guardrails` contract;
+  [application boundaries](apps/telegram/AGENTS.md), [testing standards](apps/telegram/CODING_STANDARDS.md)
+  and its executable `guardrails` contract;
 - Next.js, feature slices, transport adapters, server state, mutations, UI, and browser tests:
   [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md);
 - shared workspace packages under `packages/`: these repository-wide rules plus the backend
@@ -98,6 +99,37 @@ test turns the run red on its first attempt and is fixed, not retried until it p
 `scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
 
 The nearest standard names the helper for each surface.
+
+## Deterministic test contracts (#1153)
+
+- Every test creates its own mutable data. A shared immutable template is copied before mutation;
+  per-test hooks may reset local double observations. A reused database fixture never lets one
+  test rely on rows, counters or provider state left by another test.
+- Build, compile, migrate and prepare a large corpus before the test case or measurement starts.
+  Keep a bounded setup hook and cleanup for its owned resources. A performance test measures the
+  operation it names, not the seed or cold compiler.
+- Unit tests use supplied doubles for git, network and process boundaries. A real subprocess or
+  owned loopback responder belongs to a named process/adapter contract, with an explicit budget
+  and cleanup; it never calls a live external provider.
+- `scripts/check-deterministic-tests.mjs` runs in `pnpm guardrails`. It scans JS/TS application
+  `test/` trees (including support helpers) and `*.test.*`/`*.spec.*` files across the repository,
+  excluding dependency, fixture and generated build directories. It rejects `waitForTimeout`,
+  `setTimeout` calls (including member calls), named timer-import aliases, and process/network
+  imports or `fetch` calls in `unit/`, `module/` and package test files.
+- In test/spec files it also rejects direct writes and listed collection mutators on module-level
+  object/array literals. A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
+  must prove the reset is complete. Local shadowed bindings and module initialization are allowed.
+- A retained timer must explain its role: polling a fact, bounding failure, modeling latency,
+  measuring a performance window, or an external clock. Put
+  `// deterministic-test-allow duration-wait: <specific reason>` immediately before that call.
+  A local process/adapter contract in a historic unit directory uses `unit-io` before its import or
+  call. A cleanup registry or deferred scenario migration uses `shared-mutation` before its
+  declaration. An exception never disables a file; deferred violations link their issue (#1154).
+- Negative fixtures in `scripts/deterministic-tests.test.mjs` prove each syntax rule rejects a bad
+  test, and the CLI fixture proves a nonzero exit. These checks are not proof of determinism:
+  indirect wrappers/import effects, escaped objects, mutable class instances, database isolation,
+  complete resets, meaningful barriers and preparation cost require review. A syntactic ban
+  cannot identify which observed fact belongs to a step or what work dominates its budget.
 
 ## Live HTTP checks
 

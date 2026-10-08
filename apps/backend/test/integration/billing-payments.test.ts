@@ -363,6 +363,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     expect(
       await Promise.race([
         secondTab.then(() => "answered"),
+        // deterministic-test-allow duration-wait: Quiet window proves no reply while a pinned database lock is held; virtual-clock migration is tracked in #1154.
         delay(prematureAnswerGraceMs).then(() => "waiting"),
       ]),
     ).toBe("waiting");

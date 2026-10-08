@@ -628,6 +628,7 @@ async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
       `),
     );
     if ((rows[0]?.waiting ?? 0) >= minimum) return;
+    // deterministic-test-allow duration-wait: Poll pg_stat_activity for the row-lock waiter; the delay is only the sampling interval.
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(

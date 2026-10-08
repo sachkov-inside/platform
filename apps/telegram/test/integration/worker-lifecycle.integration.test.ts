@@ -158,6 +158,7 @@ describe("background worker lifecycle", () => {
       const closing = app.close().then(() => {
         lifecycle.closed = true;
       });
+      // deterministic-test-allow duration-wait: Legacy quiet window checks blocked shutdown; pin shutdown entry in #1154.
       await new Promise((resolve) => setTimeout(resolve, 200));
       expect(lifecycle.closed).toBe(false);
 
@@ -256,9 +257,11 @@ describe("background worker lifecycle", () => {
     );
     try {
       // Let every cycle reach its idle pace before measuring.
+      // deterministic-test-allow duration-wait: Legacy idle warmup lacks a committed barrier; replace it in #1154.
       await new Promise((resolve) => setTimeout(resolve, 15_000));
       const before = statements;
       const windowMs = 10_000;
+      // deterministic-test-allow duration-wait: Performance contract samples the real idle SQL rate during this measured window.
       await new Promise((resolve) => setTimeout(resolve, windowMs));
       const perSecond = ((statements - before) * 1000) / windowMs;
       process.stdout.write(`idle SQL statements per second: ${perSecond}\n`);

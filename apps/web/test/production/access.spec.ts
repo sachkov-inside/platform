@@ -80,6 +80,7 @@ let logto: LogtoPassClient | undefined;
 let mailbox: string;
 
 /** Факты разрешённых чтений ученика A: по ним проход ищет закрытые bytes у остальных. */
+// deterministic-test-allow shared-mutation: Production evidence depends on earlier cases; isolation is tracked in #1154.
 const learnerA: {
   bodySnippet?: string | undefined;
   practiceId?: string | undefined;
