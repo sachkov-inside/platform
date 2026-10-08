@@ -63,8 +63,8 @@ while read -r pid; do
 done < "$INSTALL_TEST_PIDS"
 test "$status" -eq 137
 echo 'Both deadline attempts terminated their SIGTERM-resistant children.'
-grep -q 'http://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
+grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
 grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
-grep -q 'http://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
+grep -q 'https://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
 grep -q 'http://security.ubuntu.com/ubuntu.*priority:2' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
-echo 'Fallback replaced Azure in .list, .sources and apt-mirrors.txt; priorities preserved.'
+echo 'HTTPS fallback replaced Azure in .list, .sources and apt-mirrors.txt; priorities preserved.'

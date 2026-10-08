@@ -19,10 +19,10 @@ if install_system_packages "$@"; then
   :
 else
   status=$?
-  echo "Playwright system packages failed (exit $status); retrying with the Ubuntu archive mirror." >&2
+  echo "Playwright system packages failed (exit $status); retrying with the HTTPS Ubuntu archive mirror." >&2
   # GitHub images also route Ubuntu sources through apt-mirrors.txt.
   sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
-    -exec sed -i 's|://azure[.]archive[.]ubuntu[.]com/ubuntu|://archive.ubuntu.com/ubuntu|g' {} +
+    -exec sed -i -E 's|https?://azure[.]archive[.]ubuntu[.]com/ubuntu|https://archive.ubuntu.com/ubuntu|g' {} +
   install_system_packages "$@"
 fi
 
