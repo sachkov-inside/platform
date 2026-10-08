@@ -25,3 +25,16 @@ iframe; the production navigation tests exercise unadapted links.
 
 Task c integration and the final aggregate checks will be recorded after #1194 lands. Real chapter
 transfer and author acceptance belong to Content #56.
+
+## Source/legacy collision decision
+
+On 2026-10-08 the owner chose the Content source anchor when `material-section-0` also names a
+legacy alias for another heading. `SourceAnchorLegacyCollision` verifies one unique target and
+scrolling to the source heading. Non-colliding legacy aliases remain valid.
+
+Initial full `pnpm check` passed with exit 0 on `dda846ba`; final integrated-head check is pending.
+
+Storybook MCP passed all four source-anchor scenarios with accessibility checks. The desktop
+collision target sits at 95.7 px and its ID appears once.
+
+![Content source wins the ambiguous legacy address](source-legacy-collision.png)

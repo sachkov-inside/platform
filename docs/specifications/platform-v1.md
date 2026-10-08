@@ -388,7 +388,9 @@ underscores and hyphens remain. One document owns allocation across nested headi
 create no headings. Import preserves fragments in local Material links, including same-page links.
 The body scrolls to the matching heading after it arrives. An unknown fragment opens the page from
 the top without an error. Legacy `material-section-*` addresses remain aliases unless a source
-heading occupies that exact name. Access checks still decide whether the body is available.
+heading occupies that exact name. The owner chose Content source priority for this ambiguous
+address on 2026-10-08; non-colliding legacy addresses remain valid. Access checks still decide
+whether the body is available.
 [#1179](https://github.com/sachkov-inside/platform/issues/1179) owns the implementation and Task c
 integration with #1194; author acceptance on real Content chapters belongs to Content #56.
 

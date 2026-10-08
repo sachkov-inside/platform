@@ -1465,12 +1465,17 @@ export const SourceAnchors: Story = {
       },
       { once: true },
     );
-    await userEvent.click(link);
-    await waitFor(async () => {
-      const y = heading.getBoundingClientRect().top;
-      await expect(y).toBeGreaterThanOrEqual(0);
-      await expect(y).toBeLessThan(160);
-    });
+    const previousUrl = window.location.href;
+    try {
+      await userEvent.click(link);
+      await waitFor(async () => {
+        const y = heading.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
   },
 };
 export const SourceAnchorsMobile: Story = {
@@ -1515,5 +1520,55 @@ export const SourceAnchorMetadataCollision: Story = {
     await expect(
       canvas.getByRole("region", { name: "Чему научишься" }),
     ).toBeInTheDocument();
+  },
+};
+
+/** The owner chose the Content source address when a legacy alias conflicts. */
+export const SourceAnchorLegacyCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Первый раздел", marks: [] }],
+      },
+      ...(SourceAnchors.args?.body ?? []).slice(1).map((block) =>
+        block.kind === "heading"
+          ? {
+              ...block,
+              content: [
+                {
+                  kind: "text" as const,
+                  text: "material-section-0",
+                  marks: [],
+                },
+              ],
+            }
+          : block,
+      ),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const target = canvas.getByRole("heading", { name: "material-section-0" });
+    await expect(target).toHaveAttribute("id", "material-section-0");
+    await expect(
+      canvas.getByRole("heading", { name: "Первый раздел" }),
+    ).toHaveAttribute("id", "первый-раздел");
+    await expect(
+      canvasElement.querySelectorAll('[id="material-section-0"]'),
+    ).toHaveLength(1);
+    const previousUrl = window.location.href;
+    try {
+      window.location.hash = "material-section-0";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await waitFor(async () => {
+        const y = target.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
   },
 };
