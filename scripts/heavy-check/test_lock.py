@@ -128,6 +128,28 @@ class LockTest(unittest.TestCase):
         first.wait(timeout=10)
         self.assert_stopped(pid)
 
+    def test_original_group_survives_reap_of_unobserved_parent(self):
+        fixture = WRAPPER.parent / 'fixtures/heavy-check/orphan.mjs'
+        first = self.start(['node', str(fixture)])
+        self.line(first, 'acquired')
+        supervisor = int(self.line(first, 'READY').split()[-1])
+        os.kill(supervisor, signal.SIGSTOP)
+        self.addCleanup(self.resume, supervisor)
+        first.stdin.write(b'\n')
+        first.stdin.flush()
+        pid = int(self.line(first, 'ORPHAN').split()[-1])
+        self.addCleanup(self.kill_process, pid)
+        os.kill(supervisor, signal.SIGCONT)
+        self.assertEqual(first.wait(timeout=10), 0)
+        self.assert_stopped(pid)
+
+    @staticmethod
+    def resume(pid):
+        try:
+            os.kill(pid, signal.SIGCONT)
+        except ProcessLookupError:
+            pass
+
     def holders(self):
         holders = []
         for _ in range(2):

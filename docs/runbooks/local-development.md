@@ -95,9 +95,11 @@ update those worktrees from `main` to use the wrappers.
 
 The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
-`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright, Storybook build and smoke commands,
+`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
 and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
-`lint`, `typecheck` and isolated unit commands do not claim slots. Raw runner binaries and direct
+`lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+`smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
+and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
 smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
 
 ```bash
@@ -173,13 +175,16 @@ production recovery are documented in the
 The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
 never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
+This guarded verification needs host Python 3 and Bash, but no host Node.js or pnpm.
+The wrapper holds one slot through build, smoke and shutdown; the trap cleans up on failure too.
+
 ```bash
-(
+bash scripts/heavy-check.sh bash -euc '
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  trap "docker compose down --volumes" EXIT
   docker compose up --detach --build --wait
-  pnpm compose:smoke
-  docker compose down --volumes
-)
+  bash scripts/compose-stack-smoke.sh
+'
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported

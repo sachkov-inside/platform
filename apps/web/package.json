@@ -20,7 +20,7 @@
     "test:identity": "bash ../../scripts/heavy-check.sh playwright test --config playwright.identity.config.ts",
     "test:production-access": "bash ../../scripts/heavy-check.sh playwright test --config playwright.production.config.ts",
     "test:evidence": "bash ../../scripts/heavy-check.sh env CAPTURE_EVIDENCE=1 playwright test",
-    "smoke:backend": "bash ../../scripts/heavy-check.sh vitest run --config vitest.smoke.config.mts",
+    "smoke:backend": "vitest run --config vitest.smoke.config.mts",
     "openapi:generate": "node scripts/generate-openapi-client.mjs generate",
     "openapi:check": "node scripts/generate-openapi-client.mjs check",
     "storybook": "storybook dev -p 6006",

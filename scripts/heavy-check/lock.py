@@ -63,13 +63,19 @@ def process_snapshot():
     return snapshot
 
 
-def track_descendants(process, tracked):
+def track_descendants(process, tracked, known_groups):
     snapshot = process_snapshot()
     # Start time prevents signalling an unrelated process if a saved PID is reused.
     live = {
         pid for pid, started in tracked.items()
         if pid in snapshot and snapshot[pid][3] == started
     }
+    for group in list(known_groups):
+        leader = snapshot.get(group)
+        if leader is not None and group in tracked and leader[3] != tracked[group]:
+            known_groups.remove(group)
+    # A group outlives its leader. Reparented, newly spawned members still belong to it.
+    live.update(pid for pid, row in snapshot.items() if row[1] in known_groups)
     if not tracked and process.poll() is None:
         live.add(process.pid)
     while True:
@@ -83,10 +89,13 @@ def track_descendants(process, tracked):
     for pid in live:
         if pid in snapshot:
             tracked[pid] = snapshot[pid][3]
-    return {
+    groups = {
         snapshot[pid][1] for pid in live
         if pid in snapshot and 'Z' not in snapshot[pid][2]
     }
+    known_groups.clear()
+    known_groups.update(groups)
+    return groups
 
 
 def signal_groups(groups, signum):
@@ -97,14 +106,14 @@ def signal_groups(groups, signum):
             pass
 
 
-def stop_groups(process, tracked):
-    groups = track_descendants(process, tracked)
+def stop_groups(process, tracked, known_groups):
+    groups = track_descendants(process, tracked, known_groups)
     signal_groups(groups, signal.SIGTERM)
     deadline = time.monotonic() + STOP_SECONDS
     signalled = set(groups)
     while groups:
         process.poll()
-        groups = track_descendants(process, tracked)
+        groups = track_descendants(process, tracked, known_groups)
         if time.monotonic() >= deadline:
             signal_groups(groups, signal.SIGKILL)
         else:
@@ -130,6 +139,7 @@ def supervise(read_fd, command, parents):
     slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
     process = None
     tracked = {}
+    known_groups = set()
     try:
         waiting = False
         while not cancelled(read_fd) and parents_alive(parents):
@@ -144,8 +154,9 @@ def supervise(read_fd, command, parents):
                     command, env=environment, start_new_session=True,
                     preexec_fn=command_signals,
                 )
+                known_groups.add(process.pid)
                 while process.poll() is None:
-                    track_descendants(process, tracked)
+                    track_descendants(process, tracked, known_groups)
                     if cancelled(read_fd, POLL_SECONDS) or not parents_alive(parents):
                         return 143
                 returncode = process.returncode
@@ -157,7 +168,7 @@ def supervise(read_fd, command, parents):
         return 143
     finally:
         if process is not None:
-            stop_groups(process, tracked)
+            stop_groups(process, tracked, known_groups)
         for slot in slots:
             slot.close()
         os.close(read_fd)
