@@ -740,6 +740,12 @@ TLS и ACL брокера, настоящие сообщения и вступл
 
 ## Проверка и восстановление
 
+Штатный read-only инструмент после deploy описан в
+[production-release](../../../../docs/runbooks/production-release.md#штатная-read-only-проверка-выпуска):
+`pnpm production:verify --host inside-production --application telegram --version vN`.
+Он дополняет проверки ниже; живой `/start` и привязка остаются ручными шагами.
+
+
 Docker healthcheck запускает `dist/operations/check-readiness.js`: проверяет HTTP authentication
 boundary и доступ к мигрированным таблицам собственной базы, без Telegram/Platform запросов.
 Это basic readiness, а не доказательство живого reconciliation или пользовательского связывания.

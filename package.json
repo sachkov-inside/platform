@@ -83,7 +83,9 @@
     "authoring:products": "node scripts/authoring-products.mjs",
     "test:practice-review": "node --test tools/practice-review/*.test.mjs && node apps/backend/node_modules/tsx/dist/cli.mjs --tsconfig apps/backend/tsconfig.json --test tools/practice-review/native/*.test.mts",
     "dev:telegram": "pnpm --filter @inside/telegram dev",
-    "telegram:check:full": "pnpm --filter @inside/telegram check:full"
+    "telegram:check:full": "pnpm --filter @inside/telegram check:full",
+    "production:verify": "python3 scripts/production-verify/verify.py",
+    "production:verify:sql-test": "PRODUCTION_VERIFY_SQL_TEST=1 python3 -m unittest discover -s scripts/production-verify -p test_sql.py"
   },
   "dependencies": {
     "zod": "4.6.5"
