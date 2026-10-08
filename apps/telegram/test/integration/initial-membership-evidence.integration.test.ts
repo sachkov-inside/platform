@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -35,6 +36,8 @@ import type {
   TelegramMembership,
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { anyString } from "../support/matchers.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {

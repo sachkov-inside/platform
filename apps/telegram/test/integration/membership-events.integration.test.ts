@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
@@ -37,6 +38,8 @@ import {
 } from "../../src/modules/community/community-ports.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { canonicalMembershipUpdate } from "../support/synthetic-telegram-updates.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {

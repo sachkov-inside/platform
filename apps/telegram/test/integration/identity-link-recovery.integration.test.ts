@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash } from "node:crypto";
 
@@ -9,6 +10,8 @@ import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
 import { IdentityLinkRecovery } from "../../src/modules/identity-linking/identity-link-recovery.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {

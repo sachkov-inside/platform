@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -13,6 +14,8 @@ import type {
   TelegramMembership,
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
