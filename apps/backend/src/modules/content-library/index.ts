@@ -22,3 +22,8 @@ export {
 } from "./adapters/mcp/learning-materials-mcp.js";
 
 export { ListLearningPracticesController } from "./features/list-learning-practices/list-learning-practices.controller.js";
+
+export {
+  projectPublishedCatalogAvailability,
+  addPublishedCatalogDurations,
+} from "./shared/project-published-catalog-items.js";
