@@ -5,8 +5,8 @@
  *
  * Переходы между сценами разные:
  * - aperture-cut: камера влетает в кнопку отправки, следующая сцена уже видна внутри неё;
- * - motion-cut: сцена дрейфует, уходит с разгоном и размытием, новая приходит в том же
- *   направлении по out-expo с длинным хвостом;
+ * - motion-cut: сцена дрейфует и уходит с разгоном, новая приходит в том же направлении по
+ *   out-expo с длинным хвостом; без размытия движения (выбор владельца 08.10.2026);
  * - world-pan: камера едет вниз по общему миру с лёгким отъездом.
  * Элементы появляются законами arrive, pop, rise, cascade, бросок по дуге, press; кадр «живой» —
  * сцена слегка парит; всё встаёт за 0,3 с до склейки, и кадр склейки никогда не пустой.
@@ -830,12 +830,6 @@ function motionIn(t: number, cut: number) {
     16 * (1 - restExpo((t - cut) / 1.2))
   );
 }
-/** Размытие движения: 0,35 px на пиксель сдвига за кадр, не больше 12 px. */
-function motionBlur(offset: (time: number) => number, t: number) {
-  const perFrame = Math.abs(offset(t + 1 / 60) - offset(t));
-  return Math.min(12, 0.35 * perFrame);
-}
-
 function drawShot(
   g: CanvasRenderingContext2D,
   shot: Shot,
@@ -850,12 +844,10 @@ function withOffset(
   g: CanvasRenderingContext2D,
   dx: number,
   dy: number,
-  blur: number,
   draw: () => void,
 ) {
   g.save();
   g.translate(dx, dy);
-  if (blur >= 0.5) g.filter = `blur(${blur.toFixed(1)}px)`;
   draw();
   g.restore();
 }
@@ -969,12 +961,10 @@ export function drawFilmV3(
     t >= nextStart - 0.9
   ) {
     const d = motionOut(t, nextStart);
-    const blur = motionBlur((time) => motionOut(time, nextStart), t);
     withOffset(
       g,
       vertical(shot.cut) ? 0 : -d,
       vertical(shot.cut) ? -d : 0,
-      blur,
       () => {
         drawShot(g, shot, t, fonts, c);
       },
@@ -986,12 +976,10 @@ export function drawFilmV3(
     since < 1.2
   ) {
     const d = motionIn(t, shot.start);
-    const blur = motionBlur((time) => motionIn(time, shot.start), t);
     withOffset(
       g,
       vertical(enteredBy) ? 0 : d,
       vertical(enteredBy) ? d : 0,
-      blur,
       () => {
         drawShot(g, shot, t, fonts, c);
       },

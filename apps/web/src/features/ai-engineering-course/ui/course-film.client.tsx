@@ -42,9 +42,9 @@ const readServerReducedMotion = () => true;
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
- * Две версии фильма: первая — навыки AI-инженера — показывается по умолчанию (выбор владельца
- * 08.10.2026), вторая — путь фичи от задачи до релиза — по адресу с `?film=v2`, третья — сюжет
- * первой с переходами и законами движения по словарю Pronin — по адресу с `?film=v3`.
+ * Три версии фильма. По умолчанию — третья: сюжет первой с переходами и законами движения по
+ * словарю Pronin (выбор владельца 08.10.2026). Первая — навыки AI-инженера с перетеканием
+ * плашек — по адресу с `?film=v1`, вторая — путь фичи от задачи до релиза — с `?film=v2`.
  */
 interface Film {
   readonly draw: typeof drawFilm;
@@ -76,9 +76,9 @@ type FilmVersion = keyof typeof FILMS;
 const subscribeNothing = () => () => undefined;
 const readFilmVersion = (): FilmVersion => {
   const asked = new URLSearchParams(window.location.search).get("film");
-  return asked === "v2" || asked === "v3" ? asked : "v1";
+  return asked === "v1" || asked === "v2" ? asked : "v3";
 };
-const readServerFilmVersion = (): FilmVersion => "v1";
+const readServerFilmVersion = (): FilmVersion => "v3";
 
 /** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
 function readPalette(element: HTMLElement): FilmPalette {
