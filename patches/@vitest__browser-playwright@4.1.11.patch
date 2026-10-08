@@ -1,0 +1,18 @@
+diff --git a/dist/index.js b/dist/index.js
+index f690b4d092a93d8a5fc5da4450eb24135a73c929..851f747ef41ff1eebfa875384e5c357947f3b81c 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -593,10 +593,9 @@ const startChunkTrace = async (command, { name, title }) => {
+ 		}
+ 		const path = resolveTracesPath(command, name);
+ 		provider.pendingTraces.set(path, sessionId);
+-		await context.tracing.startChunk({
+-			name,
+-			title
+-		});
++		// Story names repeat across files; Playwright contexts share the browser's tracesDir.
++		// Keep Playwright's generated context name so chunks cannot overwrite another file.
++		await context.tracing.startChunk({ title });
+ 		return;
+ 	}
+ 	throw new TypeError(`The ${provider.name} provider does not support tracing.`);

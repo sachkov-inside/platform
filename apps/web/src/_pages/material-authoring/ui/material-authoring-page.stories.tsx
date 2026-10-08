@@ -643,10 +643,13 @@ export const LessonBlocksEditing: Story = {
         ),
       ).toBeVisible();
 
-      const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
+      // Фокус и DOM блока уже готовы; панель ещё следует за выбором редактора через React.
+      const tip = await canvas.findByRole("button", {
+        name: "Вид врезки: Совет",
+      });
       await expect(tip).toHaveAttribute("aria-pressed", "true");
       await userEvent.click(
-        canvas.getByRole("button", { name: "Вид врезки: Важно" }),
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       );
       const warning = blockNode(
         'aside[data-callout="warning"]',
@@ -736,7 +739,7 @@ export const LessonBlocksEditing: Story = {
       );
       await userEvent.click(callout);
       await expect(
-        canvas.getByRole("button", { name: "Вид врезки: Важно" }),
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       ).toHaveAttribute("aria-pressed", "true");
       await expect(canvas.getByLabelText("Название врезки")).toHaveValue(
         "Не забудьте",

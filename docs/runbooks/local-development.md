@@ -531,6 +531,17 @@ the installed addon's launch options and disconnect handler. Remove the patch on
 version passes both regression cases and the full MCP run. Every Docker dependency stage copies
 `patches/` before the workspace's frozen install.
 
+The pinned `@vitest/browser-playwright@4.1.11` also has a local pnpm patch (#1160).
+Its trace command leaves the internal chunk name to Playwright: story names such as `Mobile`
+repeat across files, while the browser's contexts share one temporary trace directory. Passing
+that repeated name mixed the files and could fail `tracing.stopChunk` while it built an archive.
+The final archive paths and trace titles keep their readable story names.
+`apps/web/test/browser-engines/vitest-tracing.test.ts` creates two real Chromium contexts,
+starts their chunks with the installed Vitest command and checks that each archive contains
+only its own file's marker.
+The fixture uses `unzip`, available on the macOS development host and Ubuntu CI runner.
+Remove the patch when the upstream provider passes this regression without it.
+
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
 
