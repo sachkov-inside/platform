@@ -15,7 +15,6 @@ import {
   materialSourceAnchors,
 } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
 import { Button } from "@/shared/ui/button";
 import {
   MaterialAssetFile,
@@ -73,7 +72,6 @@ export function MaterialReaderView({
   let outcomesHeadingId = "material-outcomes-heading";
   while (sourceIds.has(outcomesHeadingId)) outcomesHeadingId += "-metadata";
 
-
   return (
     <div
       className="@container/material-reader"
@@ -85,7 +83,10 @@ export function MaterialReaderView({
         target={returnTarget}
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          <MaterialReaderHeader material={material} outcomesHeadingId={outcomesHeadingId} />
+          <MaterialReaderHeader
+            material={material}
+            outcomesHeadingId={outcomesHeadingId}
+          />
           {modeSwitch}
           {primaryVideo === null ? null : (
             <MaterialPrimaryVideo
@@ -110,7 +111,6 @@ export function MaterialReaderView({
                 ? {}
                 : { hint: modeHint.node, hintAt: modeHint.at })}
             />
-            <BodyFragmentNavigation />
           </article>
           {practiceActions}
           {bookmarkAction === undefined &&

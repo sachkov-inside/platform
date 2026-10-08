@@ -3,6 +3,7 @@ import type { RenderedBlock } from "@inside/material-blocks";
 /** Content assigns source anchors in reader order, including occupied suffixes. */
 export function materialSourceAnchors(
   blocks: readonly RenderedBlock[],
+  path: readonly number[] = [],
 ): ReadonlyMap<string, string> {
   const anchors = new Map<string, string>();
   const used = new Set<string>();
@@ -43,6 +44,6 @@ export function materialSourceAnchors(
       anchors.set(at.join("-"), anchor);
     });
   }
-  visit(blocks, []);
+  visit(blocks, path);
   return anchors;
 }

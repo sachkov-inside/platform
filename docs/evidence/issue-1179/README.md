@@ -1,48 +1,71 @@
 # Source anchors — #1179
 
-Local evidence recorded 2026-10-08 on the #1179 worktree. No production import or release.
+Evidence recorded on 2026-10-08 in the #1179 worktree. No production import or release.
+Real chapter transfer and author acceptance belong to Content #56.
 
-The synthetic package went through `pnpm authoring:sync-local` into an isolated real backend,
-PostgreSQL and object storage. Two free Materials were published in that disposable local database.
-The source page linked to `target.md#как-спроектировать-один-этап`, `target.md#раздел-2` and an unknown
-fragment. It also contained `#свой-раздел` on the same page. Local `#fragment` links initially failed
-backend validation with `unsafe_link`; the MaterialBody acceptance test records that regression.
+## Integrated Material and Task c proof
 
-| Observation | Evidence |
+After #1194 landed in main (`e4790866`), the shared `MaterialBodyView` allocated source anchors for
+both Reader and Task c. One document owns allocation across nested blocks. The source algorithm
+matches Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`: lowercase visible text,
+punctuation removal, Unicode letters/numbers, underscores, hyphens, and occupied-suffix handling.
+
+The canonical `seedFullStackTaskC` imported a synthetic v2 package through `syncLocal` and the real
+authoring API. The package required `task-c-v2` and `github-anchors-v1`. Link-map keys retained
+fragments, as the Content export contract requires. The check used owned PostgreSQL/object storage
+and a fresh disposable database. The production Web build used ports 4496/4497/4498; authentication
+used the repository's synthetic identity fixture.
+
+The focused `pnpm smoke:fullstack` run (`FULLSTACK_TEST_GREP='1179|1194'`) passed all four tests:
+source navigation and the existing Task c asset/advice/access checks on desktop and mobile.
+The permanent navigation regression is `apps/web/test/fullstack/source-anchors.spec.ts`.
+
+| Observation | Result |
 | --- | --- |
-| Native cross-page click, mobile width 390 | Heading top 96.45 px; no horizontal overflow; [imported Reader](imported-reader-mobile.png) |
-| Duplicate/collision allocation, desktop width 1440 | Reader ids: `раздел`, `раздел-1`, `раздел-2`, `раздел-3`; `#раздел-2` heading top 96.09 px; desktop `#content.scrollTop` 2326 |
-| Unknown fragment, desktop | Document and `#content` both at scroll position 0; Material title visible |
-| Keyboard same-page link | Focus link «Здесь», press Enter; `#свой-раздел` became the URL fragment and the heading remained visible |
-| Storybook shared production Reader | [Desktop](storybook-desktop.png), [mobile](storybook-mobile.png) |
-| Scoped WCAG scan of live Reader body | axe: no violations for `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`; this was a body-only scan |
+| Task to Material with a fragment | `#раздел-2` opens the third heading in `Раздел`, `Раздел-1`, `Раздел` |
+| Material to Task c with a fragment | The Unicode source heading opens after destination navigation |
+| Task same-page link and repeated click | Both native clicks open the same source heading |
+| Desktop, width 1440 | Heading top 177.3 px; container top 81 px; offset about 96 px; container scroll 2188; window scroll 0 |
+| Mobile, width 390 | Heading top 95.7 px; document scroll 2782; container scroll 0 |
+| Unknown Task fragment | Document and application container both return to scroll position 0; Task title is in the viewport |
+| Source IDs | Every document ID is unique; Unicode and occupied duplicate suffixes are preserved |
+| Responsive/accessibility | No horizontal overflow; the full-main axe scan reports no serious or critical violations |
+| Existing Task c behavior | Keyboard advice, imported image/link, programme order and denied protected asset remain verified |
 
-The permanent regression suite is `apps/web/test/navigation/source-anchors.spec.ts` on a production
-Web build with the navigation backend double. It exercises native cross-page and same-page clicks,
-legacy fragments and unknown-fragment fallback. Import and MaterialBody tests own conversion and
-validation. Storybook uses a fragment click adapter because Vitest supplies a base URL to its
-iframe; the production navigation tests exercise unadapted links.
+![Imported Task c source target on desktop](task-source-anchor-desktop-chromium.png)
 
-Task c integration and the final aggregate checks will be recorded after #1194 lands. Real chapter
-transfer and author acceptance belong to Content #56.
+![Imported Task c source target on mobile](task-source-anchor-mobile-chromium.png)
 
-## Source/legacy collision decision
+## Reader and collision regressions
 
-On 2026-10-08 the owner chose the Content source anchor when `material-section-0` also names a
-legacy alias for another heading. `SourceAnchorLegacyCollision` verifies one unique target and
-scrolling to the source heading. Non-colliding legacy aliases remain valid.
+A fresh production build passed eight native Reader navigation tests on desktop and mobile:
+streamed cross-page arrival, same-page/repeated clicks, legacy aliases, unknown-fragment fallback
+and a heading named Content. The last case failed before the application shell address changed
+from `content` to `app:content`; container lookup now uses `data-application-content`.
 
-Initial full `pnpm check` passed with exit 0 on `dda846ba`; final integrated-head check is pending.
-
-Storybook MCP passed all four source-anchor scenarios with accessibility checks. The desktop
-collision target sits at 95.7 px and its ID appears once.
+The owner chose Content source priority on 2026-10-08 when `material-section-0` also names a legacy
+alias for another heading. `SourceAnchorLegacyCollision` verifies one unique source target and
+scrolling to that heading. Non-colliding legacy aliases remain valid. Reader metadata and Task
+service sections also keep distinct IDs and correct accessible labels when a source name conflicts.
 
 ![Content source wins the ambiguous legacy address](source-legacy-collision.png)
 
-The fragment marker follows the body blocks, preserving `first:mt-0`. A live check confirmed
-`0px` before the first heading and 95.7 px for the collision target. All 32 Reader stories and the
-four MCP accessibility scenarios passed after that correction.
+The navigation marker follows the blocks, preserving `first:mt-0`. Shared navigation opens enclosing
+`details` for a target and resets scrolling ancestors for an unknown fragment. Existing targets
+outside the document body remain addressable.
 
-Fragment navigation lives in shared UI and resets scrolling ancestors without a shell ID.
-Existing targets outside the body remain addressable. The fresh production build passed all six
-Reader navigation tests on desktop and mobile after the move.
+The focused suite passed 48 Reader/Task/body stories, 15 whole-page screenshot browser-engine tests
+and 10 package-v2 tests. Five Storybook MCP source-anchor scenarios passed with accessibility checks.
+
+## Initial Material-only import proof
+
+The earlier v1 synthetic package passed `pnpm authoring:sync-local` through an isolated real API.
+It checked cross-page Unicode links, duplicate suffixes, a same-page keyboard link and unknown
+fragments. Local `#fragment` links initially failed body validation as `unsafe_link`; backend and
+importer regression tests retain this case.
+
+[Imported Reader on mobile](imported-reader-mobile.png), [Reader desktop](storybook-desktop.png),
+[Reader mobile](storybook-mobile.png).
+
+Initial `pnpm check` passed on `dda846ba`. Final aggregate verification, independent review and CI
+are recorded in [PR #1221](https://github.com/sachkov-inside/platform/pull/1221).

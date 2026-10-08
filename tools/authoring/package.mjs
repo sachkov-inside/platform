@@ -419,7 +419,7 @@ export function checkCapabilities(value) {
   if (envelope.schemaVersion === 1 && envelope.requiredFeatures !== undefined)
     throw new Error("Package v1 cannot declare requiredFeatures");
   for (const feature of envelope.requiredFeatures ?? [])
-    if (feature !== "task-c-v2")
+    if (!["task-c-v2", "github-anchors-v1"].includes(feature))
       throw new Error(`Unsupported requiredFeature: ${feature}`);
 }
 

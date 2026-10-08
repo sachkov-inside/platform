@@ -1,5 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 
+import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
+import { materialSourceAnchors } from "../model/material-source-anchors";
 import { cn } from "@/shared/lib/utils";
 import type {
   RenderedBlock,
@@ -14,6 +16,7 @@ export interface MaterialBodyRendering {
     block: Extract<RenderedBlock, { kind: "image" }>,
   ) => ReactNode;
   readonly file: (block: Extract<RenderedBlock, { kind: "file" }>) => ReactNode;
+  /** Existing surface address retained as an alias unless a Content heading owns it. */
   readonly headingId: (path: readonly number[]) => string;
   readonly callout?: (
     block: Extract<RenderedBlock, { kind: "callout" }>,
@@ -21,7 +24,38 @@ export interface MaterialBodyRendering {
   ) => ReactNode;
 }
 
-export function MaterialBodyView({
+interface BodyRendering extends MaterialBodyRendering {
+  readonly sourceIds: ReadonlySet<string>;
+  readonly legacyHeadingId: (path: readonly number[]) => string;
+}
+
+/** Allocate source anchors once for the whole document, including nested branches. */
+export function MaterialBodyView(props: {
+  readonly blocks: readonly RenderedBlock[];
+  readonly rendering: MaterialBodyRendering;
+  readonly hint?: ReactNode;
+  readonly hintAt?: number | undefined;
+  readonly path: readonly number[];
+}) {
+  const anchors = materialSourceAnchors(props.blocks, props.path);
+  return (
+    <>
+      <BodyBlocks
+        {...props}
+        rendering={{
+          ...props.rendering,
+          headingId: (path) =>
+            anchors.get(path.join("-")) ?? props.rendering.headingId(path),
+          legacyHeadingId: props.rendering.headingId,
+          sourceIds: new Set(anchors.values()),
+        }}
+      />
+      <BodyFragmentNavigation />
+    </>
+  );
+}
+
+function BodyBlocks({
   blocks,
   rendering,
   hint,
@@ -29,7 +63,7 @@ export function MaterialBodyView({
   path,
 }: {
   readonly blocks: readonly RenderedBlock[];
-  readonly rendering: MaterialBodyRendering;
+  readonly rendering: BodyRendering;
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
   readonly path: readonly number[];
@@ -62,7 +96,7 @@ function BodyBlockView({
   path,
 }: {
   readonly block: RenderedBlock;
-  readonly rendering: MaterialBodyRendering;
+  readonly rendering: BodyRendering;
   readonly path: readonly number[];
 }) {
   switch (block.kind) {
@@ -87,6 +121,13 @@ function BodyBlockView({
           )}
           id={rendering.headingId(path)}
         >
+          {rendering.sourceIds.has(rendering.legacyHeadingId(path)) ? null : (
+            <span
+              aria-hidden="true"
+              className="block scroll-mt-24"
+              id={rendering.legacyHeadingId(path)}
+            />
+          )}
           <BodyInline content={block.content} />
         </Heading>
       );
@@ -104,7 +145,7 @@ function BodyBlockView({
         >
           {block.items.map((item, index) => (
             <li key={index}>
-              <MaterialBodyView
+              <BodyBlocks
                 blocks={item}
                 rendering={rendering}
                 path={[...path, index]}
@@ -117,7 +158,7 @@ function BodyBlockView({
     case "blockquote":
       return (
         <blockquote className="mt-8 border-l-4 border-accent py-1 pl-5 text-muted-foreground">
-          <MaterialBodyView
+          <BodyBlocks
             blocks={block.content}
             rendering={rendering}
             path={path}
@@ -147,7 +188,7 @@ function BodyBlockView({
       if (block.kind === "callout" && rendering.callout !== undefined) {
         const custom = rendering.callout(
           block,
-          <MaterialBodyView
+          <BodyBlocks
             blocks={block.content}
             path={path}
             rendering={rendering}
@@ -168,7 +209,7 @@ function BodyBlockView({
               />
             ),
             renderBlocks: (blocks, branch) => (
-              <MaterialBodyView
+              <BodyBlocks
                 blocks={blocks}
                 rendering={rendering}
                 path={branch === undefined ? path : [...path, branch]}
@@ -246,7 +287,7 @@ function BodyTable({
   path,
 }: {
   readonly block: Extract<RenderedBlock, { readonly kind: "table" }>;
-  readonly rendering: MaterialBodyRendering;
+  readonly rendering: BodyRendering;
   readonly path: readonly number[];
 }) {
   return (
@@ -274,7 +315,7 @@ function BodyTable({
                     key={cellIndex}
                     scope={cell.header ? "col" : undefined}
                   >
-                    <MaterialBodyView
+                    <BodyBlocks
                       blocks={cell.content}
                       rendering={rendering}
                       path={[...path, rowIndex, cellIndex]}
