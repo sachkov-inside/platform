@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -37,8 +38,7 @@ const bot = `owner-link-${randomUUID()}`;
 const canonicalChatId = "-1000000000000";
 const courseChatId = "-1000000000001";
 const clock = {
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  value: new Date(),
+  value: new Date(fixedTestInstant()),
   now() {
     return new Date(this.value);
   },

@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import {
   expect,
   test,
@@ -30,12 +31,10 @@ const webhookSecret =
   process.env["TELEGRAM_PROOF_WEBHOOK_SECRET"] ??
   "inside-299-synthetic-webhook";
 const telegramUserId = 29900001;
-// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-let lastUpdateId = Date.now() % 1_000_000_000;
+let lastUpdateId = randomInt(1, 1_000_000_000);
 function nextUpdateId() {
   // Parallel /start messages must not share the provider inbox deduplication key.
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  lastUpdateId = Math.max(lastUpdateId + 1, Date.now() % 1_000_000_000);
+  lastUpdateId += 1;
   return lastUpdateId;
 }
 
@@ -79,8 +78,7 @@ async function confirm(
     update_id: nextUpdateId(),
     message: {
       message_id: 1,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-      date: Math.floor(Date.now() / 1000),
+      date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
       from,
       chat,
       text: `/start ${challenge.token}`,
@@ -98,8 +96,7 @@ async function confirm(
             chat_instance: "synthetic",
             message: {
               message_id: 2,
-              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-              date: Math.floor(Date.now() / 1000),
+              date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
               chat,
             },
             data: `signin:${action}:${challenge.requestRef}`,
@@ -162,8 +159,7 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   await expect(
     page.getByRole("button", { name: "Выйти", exact: true }),
   ).toBeVisible();
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const signedInAt = Date.now();
+  const signedInAt = performance.now();
   const before = await createProfile(page);
   await waitPastAccessTokenExpiry(page, signedInAt);
   const refreshed = await page.request.get("/auth/status");
@@ -249,8 +245,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   page,
   request,
 }) => {
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const userId = 29910000 + (Date.now() % 1_000_000);
+  const userId = 29910000 + randomInt(1_000_000);
   const email = `telegram-${String(userId)}@example.test`;
   await page.goto("/");
   if ((page.viewportSize()?.width ?? 1440) < 768)
@@ -318,8 +313,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
           update_id: nextUpdateId(),
           message: {
             message_id: 1,
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-            date: Math.floor(Date.now() / 1000),
+            date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
             from: { id: userId, is_bot: false, first_name: "Synthetic" },
             chat: { id: userId, type: "private" },
             text: `/start ${token}`,
@@ -364,8 +358,7 @@ test("two fresh Logto interactions for one Telegram identity converge on one Acc
     baseURL: webBaseUrl,
   });
   const other = await otherContext.newPage();
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const userId = 39910000 + (Date.now() % 1_000_000);
+  const userId = 39910000 + randomInt(1_000_000);
   try {
     const [first, second] = await Promise.all([start(page), start(other)]);
     await Promise.all([

@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { GrammyError } from "grammy";
 import { describe, expect, it, vi } from "vitest";
 import { GrammyCommunicationsAdapter } from "../../src/adapters/telegram/grammy-communications.adapter.js";
@@ -158,8 +159,7 @@ describe("communication transport", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(raw),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-        new Date(),
+        new Date(fixedTestInstant()),
       );
       expect(result.kind).toBe("start");
       if (result.kind !== "start") throw new Error("unexpected");
@@ -190,8 +190,7 @@ it("accepts only explicit private human stop/resume commands and leaves auth nam
           chat: { id: 42, type: "private" },
         },
       },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-      new Date(),
+      new Date(fixedTestInstant()),
     );
     expect(value.kind).toBe("marketing_preference");
   }
@@ -230,10 +229,14 @@ it("accepts only explicit private human stop/resume commands and leaves auth nam
       "author-input",
     ],
   ] as const)
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    expect(adapter.translate("inside", "1", { message }, new Date()).kind).toBe(
-      kind,
-    );
+    expect(
+      adapter.translate(
+        "inside",
+        "1",
+        { message },
+        new Date(fixedTestInstant()),
+      ).kind,
+    ).toBe(kind);
 });
 
 it("edits author menus and only replaces definitively unavailable messages", async () => {

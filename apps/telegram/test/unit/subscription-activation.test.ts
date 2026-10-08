@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
 import type { OwnAccess } from "../../src/modules/subscription-activation/activation-contract.js";
 import { describe, expect, it } from "vitest";
@@ -24,8 +25,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(privateStartUpdate(1, 42, { text })),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-        new Date(),
+        new Date(fixedTestInstant()),
       );
     expect(translate("/start a_course")).toMatchObject({
       kind: "start",
@@ -46,8 +46,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(forged),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-        new Date(),
+        new Date(fixedTestInstant()),
       ),
     ).not.toHaveProperty("value.activationCode");
     expect(translate(`/start signin_${"x".repeat(35)}`)).toHaveProperty(

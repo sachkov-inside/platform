@@ -1,3 +1,4 @@
+import { readBoundedJson } from "./read-bounded-json.js";
 import {
   validBindingResponse,
   type BindingResponse,
@@ -73,13 +74,14 @@ export class HttpActivationPlatform implements ActivationPlatform {
     validate: ValidateFunction<T>,
   ): Promise<T | undefined> {
     try {
+      const signal = AbortSignal.timeout(5000);
       const response = await this.fetcher(
         new URL(path, `${this.endpoint}/`).href,
         {
           method: "POST",
           redirect: "error",
           cache: "no-store",
-          signal: AbortSignal.timeout(5000),
+          signal,
           headers: {
             authorization: `Bearer ${this.secret}`,
             "content-type": "application/json",
@@ -88,28 +90,8 @@ export class HttpActivationPlatform implements ActivationPlatform {
           body: JSON.stringify(input),
         },
       );
-      if (
-        response.status !== 200 ||
-        !response.body ||
-        response.headers.get("content-type")?.split(";")[0] !==
-          "application/json"
-      )
-        return;
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-      try {
-        for (;;) {
-          const part = await reader.read();
-          if (part.done) break;
-          size += part.value.byteLength;
-          if (size > 1_048_576) return;
-          chunks.push(part.value);
-        }
-      } finally {
-        await reader.cancel();
-      }
-      const body: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      if (response.status !== 200) return;
+      const body = await readBoundedJson(response, 1_048_576, signal);
       return validate(body) ? body : undefined;
     } catch (error) {
       reportFailure("platform.activation", error);

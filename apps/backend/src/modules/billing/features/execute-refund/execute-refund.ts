@@ -47,6 +47,7 @@ const contactSchema = z.object({ emailCiphertext: z.string() });
  */
 export async function executeRefund(
   dependencies: Dependencies,
+  actorId: string,
   command: ExecuteRefundCommand,
 ): Promise<OwnerResult> {
   const { prisma, bank } = dependencies;
@@ -60,10 +61,21 @@ export async function executeRefund(
       tx,
     ): Promise<
       | Extract<OwnerResult, { ok: false }>
-      | { readonly ok: true; readonly refundRef: string }
+      | {
+          readonly ok: true;
+          readonly refundRef: string;
+          readonly replay: boolean;
+        }
     > => {
       const now = dependencies.clock();
       await lockBillingPurchase(tx, decision.purchaseRef);
+      const key = await tx.billingOwnerCommandKey.findUniqueOrThrow({
+        where: {
+          actorId_operationId: { actorId, operationId: command.operationId },
+        },
+      });
+      if (key.refundRef !== null)
+        return { ok: true, refundRef: key.refundRef, replay: true };
       const current = await tx.billingRefundDecision.findUniqueOrThrow({
         where: { id: decision.id },
       });
@@ -123,11 +135,17 @@ export async function executeRefund(
           updatedAt: now,
         },
       });
-      return { ok: true, refundRef };
+      await tx.billingOwnerCommandKey.update({
+        where: {
+          actorId_operationId: { actorId, operationId: command.operationId },
+        },
+        data: { refundRef },
+      });
+      return { ok: true, refundRef, replay: false };
     },
   );
   if (!("refundRef" in prepared)) return prepared;
-  await sendRefund(dependencies, prepared.refundRef);
+  if (!prepared.replay) await sendRefund(dependencies, prepared.refundRef);
   return readDecision(
     prisma,
     decision.purchaseRef,

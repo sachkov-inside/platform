@@ -1,3 +1,4 @@
+import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
 import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
@@ -46,6 +47,8 @@ import {
 } from "../../src/modules/community/community-ports.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { canonicalMembershipUpdate } from "../support/synthetic-telegram-updates.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
@@ -1121,16 +1124,17 @@ describe("durable Membership events", () => {
       .then(() => {
         transitionCompleted = true;
       });
+    let restoreDate: (() => void) | undefined;
     try {
       await advisoryLockWaiting(
         database,
         `membership-provider-delivery:${config.botIdentity}`,
       );
-      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      restoreDate = useTimeoutClock();
       await vi.advanceTimersByTimeAsync(10);
       expect(transitionCompleted).toBe(false);
     } finally {
-      vi.useRealTimers();
+      restoreDate?.();
       platform.resume();
       await expect(processing).resolves.toBe("delivered");
       await transition;

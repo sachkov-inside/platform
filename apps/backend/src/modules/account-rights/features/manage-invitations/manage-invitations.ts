@@ -1,3 +1,7 @@
+import {
+  accessFingerprint,
+  readAccessReceipt,
+} from "../../shared/access-receipts.js";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
@@ -70,13 +74,27 @@ export async function issueInvitation(
 /** Отзывает неиспользованное приглашение. Погашённое не отзывается: доступ меняется отдельно. */
 export async function revokeInvitation(
   prisma: AccountRightsPrismaClient,
+  actorId: string,
   input: unknown,
   now: Date,
 ) {
   const parsed = revokeInvitationSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
+  const fingerprint = accessFingerprint({
+    kind: "revokeInvitation",
+    ...command,
+  });
   return prisma.$transaction(async (tx) => {
+    const receipt = await readAccessReceipt(tx, actorId, command.operationId);
+    if (receipt !== null) {
+      if (!fingerprint.recognizes(receipt.fingerprint))
+        return accessFailure("operation_conflict");
+      const revoked = await tx.invitation.findUniqueOrThrow({
+        where: { id: command.invitationId },
+      });
+      return { ok: true as const, value: invitationView(revoked, now) };
+    }
     const row = await tx.invitation.findUnique({
       where: { id: command.invitationId },
     });
@@ -93,6 +111,16 @@ export async function revokeInvitation(
     const revoked = await tx.invitation.update({
       where: { id: current.id },
       data: { revokedAt: now, revision: current.revision + 1 },
+    });
+    await tx.accessReceipt.create({
+      data: {
+        scope: actorId,
+        operationId: command.operationId,
+        fingerprint: fingerprint.digest,
+        payload: command,
+        result: { invitationId: revoked.id, revision: revoked.revision },
+        createdAt: now,
+      },
     });
     return { ok: true as const, value: invitationView(revoked, now) };
   });

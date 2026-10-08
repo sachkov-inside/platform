@@ -73,7 +73,7 @@ async function memberSessionCookie(baseURL: string) {
     {
       accessToken: JSON.stringify({
         [`@${backend}`]: {
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+          // deterministic-test-allow wall-clock: The separate Web process and Logto SDK validate this live session cookie against their real UTC clock.
           expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
           scope: "",
           token: "navigation-member-token",
@@ -301,12 +301,10 @@ async function transition(
 ): Promise<TransitionMetrics> {
   await personalPartLanded(page);
   await resetProbe(page);
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const startedAt = Date.now();
+  const startedAt = performance.now();
   await act();
   await ready();
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const millisecondsToReady = Date.now() - startedAt;
+  const millisecondsToReady = performance.now() - startedAt;
   // Окно замера закрывает не пауза, а устоявшаяся страница с полученными ответами. Запросы,
   // без которых переход не завершить, роутер шлёт синхронно в самом переходе, до отрисовки новой
   // страницы (`spawnDynamicRequests` в Next.js), поэтому к готовой странице они уже посчитаны.

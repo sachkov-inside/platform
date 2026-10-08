@@ -1,3 +1,11 @@
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import {
+  BillingOperations,
+  BillingPricing,
+  registerBillingTools,
+} from "../../src/modules/billing/index.js";
+
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
@@ -7,7 +15,7 @@ import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -832,6 +840,133 @@ describe("Billing pricing HTTP", () => {
         ...between,
       },
     );
+  });
+
+  test("HTTP и MCP отклоняют межсемейный конфликт до применения и узнают одинаковый повтор", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const headers = {
+      authorization: `Bearer ${await signToken({ subject: "owner-command-race", email: "race@example.test" })}`,
+    };
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
+    await acceptCurrentTerms(server, headers);
+    const owner = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "owner-command-race",
+        },
+      },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner.id, permission: "billing:manage" },
+    });
+    const operations = app.get(BillingOperations);
+    const mcp = new McpServer({ name: "billing-command-test", version: "1" });
+    registerBillingTools(mcp, { accountId: owner.id, billing: operations });
+    const client = new Client({ name: "billing-command-client", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    let release!: () => void;
+    let enter!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pricing = app.get(BillingPricing);
+    const manage = pricing.manage.bind(pricing);
+    const gate = vi
+      .spyOn(pricing, "manage")
+      .mockImplementation(async (actor, input) => {
+        enter();
+        await resume;
+        return manage(actor, input);
+      });
+    const command = {
+      operation: "offers.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "Тариф HTTP/MCP",
+        benefits: ["community"],
+      },
+    };
+    let saving: ReturnType<typeof server.inject> | undefined;
+    try {
+      await Promise.all([
+        mcp.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      saving = server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload: command,
+      });
+      await entered;
+      const arguments_ = {
+        operationId: command.operationId,
+        accountId: owner.id,
+        expectedRevision: 0,
+        classification: "confirmed_new",
+        sourceRef: "synthetic-race",
+        reason: "Межсемейная гонка",
+        bridgeEnabled: false,
+        tributeStopped: false,
+      };
+      const conflict = await client.callTool({
+        name: "billing_grants_classify",
+        arguments: arguments_,
+      });
+      expect(conflict).toMatchObject({
+        isError: true,
+        structuredContent: { ok: false, error: { code: "operation_conflict" } },
+      });
+      const httpConflict = await server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload: { operation: "grants.classify", ...arguments_ },
+      });
+      expect(httpConflict.statusCode).toBe(409);
+      expect(httpConflict.json()).toMatchObject({ code: "operation_conflict" });
+      release();
+      const saved = await saving;
+      expect(saved.statusCode).toBe(200);
+      const repeated = await client.callTool({
+        name: "billing_offers_save",
+        arguments: {
+          operationId: command.operationId,
+          value: command.value,
+        },
+      });
+      expect(repeated.structuredContent).toEqual({
+        ok: true,
+        ...saved.json<Record<string, unknown>>(),
+      });
+      const state = await operations.execute(owner.id, {
+        operation: "grants.readClassification",
+        operationId: randomUUID(),
+        accountId: owner.id,
+      });
+      expect(state).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "classification",
+          value: { classification: "unknown" },
+        },
+      });
+    } finally {
+      release();
+      gate.mockRestore();
+      if (saving !== undefined) await saving;
+      await client.close();
+      await mcp.close();
+    }
   });
 
   async function signToken(

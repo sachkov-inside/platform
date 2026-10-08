@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -43,6 +44,8 @@ import {
   type SalesFunnelPlatform,
 } from "../support/sales-funnel-platform.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");

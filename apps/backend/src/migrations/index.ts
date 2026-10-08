@@ -1,4 +1,8 @@
 import {
+  name as ownerCommandKeysName,
+  statement as ownerCommandKeysStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0084-owner-command-keys.js";
+import {
   name as taskPagesName,
   statement as taskPagesStatement,
 } from "../modules/product-tasks/infrastructure/postgres/migrations/0083-task-pages.js";
@@ -548,6 +552,7 @@ export const platformMigrations = [
   { name: removeWorkshopName, statement: removeWorkshopStatement },
   { name: domainNamesName, statement: domainNamesStatement },
   { name: taskPagesName, statement: taskPagesStatement },
+  { name: ownerCommandKeysName, statement: ownerCommandKeysStatement },
 ] as const;
 
 export function migrateToLatest(
