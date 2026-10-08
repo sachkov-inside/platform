@@ -180,7 +180,7 @@ export async function publishFailures(rows, context, client) {
   for (const row of rows.filter((row) => row.failed > 0)) {
     const marker = `<!-- platform-flake:${identity(row)} -->`;
     const title = `Nightly flake: ${row.suite} ${row.name}`.slice(0, 240);
-    const body = `${marker}\n\nТест: ${row.name}\nФайл: ${row.file}\nSuite: ${row.suite}\nProject: ${row.project || "node"}\n\nПадения: ${row.failed}/${row.attempts} (${((100 * row.failed) / row.attempts).toFixed(1)}%). Пропуски: ${row.skipped}.\nПрогон: ${context.runUrl} (attempt ${context.attempt})\nКоммит: ${context.sha}\nАртефакты: ${context.runUrl}#artifacts — flake-${row.suite}-${context.attempt}; логи и JSON каждого повтора, browser diagnostics при падении. Хранятся семь дней.\n\nКаждый повтор независим; retries выключены. Даже одно падение требует диагноза. Доля 100% может означать постоянный дефект. Исправление подтвердите зелёным ночным прогоном на main.\n`;
+    const body = `${marker}\n\nТест: ${row.name}\nФайл: ${row.file}\nSuite: ${row.suite}\nProject / command: ${row.project || "node"}\n\nПадения: ${row.failed}/${row.attempts} (${((100 * row.failed) / row.attempts).toFixed(1)}%). Пропуски: ${row.skipped}.\nПрогон: ${context.runUrl} (attempt ${context.attempt})\nКоммит: ${context.sha}\nАртефакты: ${context.runUrl}#artifacts — flake-${row.suite}-${context.attempt}; логи и JSON каждого повтора, browser diagnostics при падении. Хранятся семь дней.\n\nКаждый повтор независим; retries выключены. Даже одно падение требует диагноза. Доля 100% может означать постоянный дефект. Исправление подтвердите зелёным ночным прогоном на main.\n`;
     const number = await client.find(marker);
     if (number === undefined) await client.create(title, body);
     else await client.update(number, body);
@@ -207,7 +207,7 @@ function cell(value) {
 }
 /** @param {Row[]} rows */
 export function summary(rows) {
-  return `## Nightly flake hunt\n\n| Suite | File / test | Project | Failures / executed | Failure rate | Skipped |\n|---|---|---|---|---|---|\n${rows.map((row) => `| ${cell(row.suite)} | ${cell(`${row.file}: ${row.name}`)} | ${cell(row.project)} | ${row.failed}/${row.attempts} | ${row.attempts === 0 ? "n/a" : `${((100 * row.failed) / row.attempts).toFixed(1)}%`} | ${row.skipped} |`).join("\n")}\n\nPlanned: five independent runs, no retries. Setup/reporting failures remain red in the test jobs; missing samples are not counted as passes.\n`;
+  return `## Nightly flake hunt\n\n| Suite | File / test | Project / command | Failures / executed | Failure rate | Skipped |\n|---|---|---|---|---|---|\n${rows.map((row) => `| ${cell(row.suite)} | ${cell(`${row.file}: ${row.name}`)} | ${cell(row.project)} | ${row.failed}/${row.attempts} | ${row.attempts === 0 ? "n/a" : `${((100 * row.failed) / row.attempts).toFixed(1)}%`} | ${row.skipped} |`).join("\n")}\n\nPlanned: five independent runs, no retries. Setup/reporting failures remain red in the test jobs; missing samples are not counted as passes.\n`;
 }
 
 /** @param {string[]} args @param {unknown} [body] */

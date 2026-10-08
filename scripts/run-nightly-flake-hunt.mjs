@@ -1,5 +1,5 @@
 // @ts-check
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   closeSync,
   cpSync,
@@ -7,12 +7,12 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
+import { readPackageManifest } from "./package-manifest.mjs";
 import {
   normalizePlaywright,
   normalizeVitest,
@@ -20,23 +20,75 @@ import {
 
 /** @typedef {{name: string, directory: string, engine: "vitest" | "playwright" | "node", args: string[]}} Command */
 const root = resolve(import.meta.dirname, "..");
-/** @param {string} directory */
-function nodeFiles(directory) {
-  return readdirSync(resolve(root, directory))
-    .filter((file) => file.endsWith(".test.mjs"))
-    .map((file) => `${directory}/${file}`);
-}
-/** @param {string} name @param {string} directory @param {string[]} args @returns {Command} */
-function vitest(name, directory, args = []) {
+/** @param {string} name @param {string} directory @param {string} [script] @returns {Command} */
+function vitest(name, directory, script = "test") {
   return {
     name,
     directory,
     engine: "vitest",
-    args: ["exec", "vitest", "run", ...args],
+    args: ["run", script],
   };
 }
+
+/** Unit inventory follows the same workspace manifests as recursive --if-present test.
+ * @returns {Command[]}
+ */
+function workspaceUnitCommands() {
+  const packages = z
+    .array(z.object({ name: z.string(), path: z.string() }))
+    .parse(
+      JSON.parse(
+        execFileSync(
+          "pnpm",
+          ["list", "--recursive", "--depth", "-1", "--json"],
+          { cwd: root, encoding: "utf8" },
+        ),
+      ),
+    );
+  return packages.flatMap((pkg) => {
+    if (pkg.name === "@inside/platform" || pkg.name === "@inside/web")
+      return [];
+    const script = readPackageManifest(resolve(pkg.path, "package.json"))
+      .scripts["test"];
+    if (script === undefined) return [];
+    if (!script.startsWith("vitest run"))
+      throw new Error(
+        `Add a flake reporter adapter for ${pkg.name}: ${script}`,
+      );
+    return [vitest(pkg.name.split("/").at(-1) ?? pkg.name, pkg.path)];
+  });
+}
+
+/** Root Node test scripts own both the launcher and file patterns.
+ * Complex new shell syntax needs an explicit adapter instead of silently skipping tests.
+ * @param {string} script @returns {Command[]}
+ */
+function rootNodeCommands(script) {
+  const source = readPackageManifest(resolve(root, "package.json")).scripts[
+    script
+  ];
+  if (source === undefined)
+    throw new Error(`Missing root test script: ${script}`);
+  return source.split(" && ").map((command, index) => {
+    const [executable, ...tokens] = command.split(/\s+/u);
+    if (
+      executable !== "node" ||
+      !tokens.includes("--test") ||
+      tokens.some((token) => /["'$;|&]/u.test(token))
+    )
+      throw new Error(`Unsupported Node test command: ${command}`);
+    return {
+      name: `${script.replace("test:", "")}${index === 0 ? "" : `-${index + 1}`}`,
+      directory: ".",
+      engine: "node",
+      args: tokens.flatMap((token) =>
+        token.includes("*") ? globSync(token, { cwd: root }) : [token],
+      ),
+    };
+  });
+}
 /** @param {string} suite @returns {Command[]} */
-function commands(suite) {
+export function planSuite(suite) {
   switch (suite) {
     case "web-e2e":
       return [
@@ -44,73 +96,31 @@ function commands(suite) {
           name: "e2e",
           directory: "apps/web",
           engine: "playwright",
-          args: ["exec", "playwright", "test"],
+          args: ["run", "test:e2e"],
         },
         {
           name: "navigation",
           directory: "apps/web",
           engine: "playwright",
-          args: [
-            "exec",
-            "playwright",
-            "test",
-            "--config",
-            "playwright.navigation.config.ts",
-          ],
+          args: ["run", "test:navigation"],
         },
       ];
     case "storybook":
-      return [vitest("storybook", "apps/web", ["--project=storybook"])];
+      return [vitest("storybook", "apps/web", "test:storybook")];
     case "browser-engines":
-      return [
-        vitest("browser-engines", "apps/web", ["--project=browser-engines"]),
-      ];
+      return [vitest("browser-engines", "apps/web", "test:browser-engines")];
     case "integration":
       return [
-        vitest("integration", "apps/backend", [
-          "--config",
-          "vitest.integration.config.mts",
-        ]),
+        vitest("integration", "apps/backend", "test:integration:parallel"),
+        vitest("integration-serial", "apps/backend", "test:integration:serial"),
       ];
     case "unit":
       return [
-        vitest("backend", "apps/backend"),
-        vitest("module", "apps/web", ["--project=module"]),
-        vitest("telegram", "apps/telegram", ["--config", "vitest.config.ts"]),
-        vitest("legal", "packages/legal"),
-        vitest("access-capabilities", "packages/access-capabilities"),
-        {
-          name: "tooling",
-          directory: ".",
-          engine: "node",
-          args: ["--test", ...nodeFiles("scripts")],
-        },
-        {
-          name: "authoring",
-          directory: ".",
-          engine: "node",
-          args: ["--test", ...nodeFiles("tools/authoring")],
-        },
-        {
-          name: "practice-review",
-          directory: ".",
-          engine: "node",
-          args: ["--test", ...nodeFiles("tools/practice-review")],
-        },
-        {
-          name: "practice-native",
-          directory: ".",
-          engine: "node",
-          args: [
-            "apps/backend/node_modules/tsx/dist/cli.mjs",
-            "--tsconfig",
-            "apps/backend/tsconfig.json",
-            "--test",
-            ...readdirSync(resolve(root, "tools/practice-review/native"))
-              .filter((file) => file.endsWith(".test.mts"))
-              .map((file) => `tools/practice-review/native/${file}`),
-          ],
-        },
+        ...workspaceUnitCommands(),
+        vitest("module", "apps/web", "test:module"),
+        ...rootNodeCommands("test:tooling"),
+        ...rootNodeCommands("test:authoring"),
+        ...rootNodeCommands("test:practice-review"),
       ];
     case "fixture":
       return [
@@ -131,7 +141,7 @@ function commands(suite) {
 
 /** @param {string} suite @param {string} output */
 export function runSuite(suite, output) {
-  const plan = commands(suite);
+  const plan = planSuite(suite);
   let failed = false;
   for (let iteration = 1; iteration <= 5; iteration += 1)
     for (const command of plan) {

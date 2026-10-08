@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { z } from "zod";
 import nodeReporter from "./nightly-node-reporter.mjs";
+import { planSuite } from "./run-nightly-flake-hunt.mjs";
 import {
   aggregate,
   normalizeVitest,
@@ -38,6 +39,39 @@ test("counts a first failure even when the remaining independent samples pass", 
   ]);
   assert.equal(rows[0]?.failed, 1);
   assert.equal(rows[0]?.attempts, 5);
+});
+
+test("integration samples distinguish the parallel and serial selection commands", () => {
+  assert.deepEqual(
+    planSuite("integration").map((command) => [command.name, command.args]),
+    [
+      ["integration", ["run", "test:integration:parallel"]],
+      ["integration-serial", ["run", "test:integration:serial"]],
+    ],
+  );
+});
+
+test("unit samples use workspace package test scripts and the root native launcher", () => {
+  const commands = planSuite("unit");
+  assert.deepEqual(
+    commands
+      .filter((command) => command.engine === "vitest")
+      .map((command) => command.name)
+      .sort(),
+    ["access-capabilities", "backend", "legal", "module", "telegram"],
+  );
+  assert.ok(
+    commands
+      .filter((command) => command.engine === "vitest")
+      .every((command) => command.args[0] === "run"),
+  );
+  assert.ok(
+    commands.some(
+      (command) =>
+        command.args.includes("apps/backend/node_modules/tsx/dist/cli.mjs") &&
+        command.args.some((arg) => arg.endsWith("native.test.mts")),
+    ),
+  );
 });
 
 test("Node reporter follows explicit parent IDs when nested tests enqueue after another suite", async () => {

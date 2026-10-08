@@ -283,7 +283,12 @@ and log. Web E2E/navigation retain failed traces, screenshots and the existing p
 Storybook retains failed browser traces and screenshots; browser-engines copies its existing
 diagnostics before the next invocation can replace them. A setup error or absent/malformed report
 keeps the job red; missing samples never count as passes. The job summary shows observed failures
-over executed samples and skipped samples for each test identity (suite, file, project and full name).
+over executed samples and skipped samples for each test identity (suite, file, command/project and
+full name). Playwright includes its real project name. Vitest's JSON reporter omits project names,
+so its identity uses the command selecting the tests. Integration and integration-serial run
+separately through their owning package scripts and remain separate in the table and Issues.
+The unit inventory comes from the workspace package manifests and root Node test scripts,
+the same sources `check:unit` uses; unsupported new command syntax fails visibly.
 
 Only the reporting job has `issues: write`. It runs exclusively for schedule/manual runs on `main`,
 checks out that run's trusted main SHA and downloads data artifacts from the same run. Branch
