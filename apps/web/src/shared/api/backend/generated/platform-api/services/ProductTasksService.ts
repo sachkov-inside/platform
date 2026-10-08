@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RecursiveSchema4schema0 } from '../models/RecursiveSchema4schema0';
+import type { RecursiveSchema2schema0 } from '../models/RecursiveSchema2schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTasksService {
@@ -163,7 +163,7 @@ export class ProductTasksService {
           title: string;
         }>;
         body: {
-          blocks: Array<RecursiveSchema4schema0>;
+          blocks: Array<RecursiveSchema2schema0>;
           schemaVersion: 1;
         };
         cover: {

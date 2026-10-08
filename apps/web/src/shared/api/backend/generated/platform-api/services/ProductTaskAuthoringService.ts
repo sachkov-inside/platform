@@ -2,10 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RecursiveSchema2schema0 } from '../models/RecursiveSchema2schema0';
-import type { RecursiveSchema2schema1 } from '../models/RecursiveSchema2schema1';
-import type { RecursiveSchema3schema0 } from '../models/RecursiveSchema3schema0';
-import type { RecursiveSchema3schema1 } from '../models/RecursiveSchema3schema1';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTaskAuthoringService {
@@ -51,9 +47,9 @@ export class ProductTaskAuthoringService {
         schemaVersion: 2;
       });
       expectedRevision: number | null;
-      page?: Record<string, RecursiveSchema3schema0>;
+      page?: Record<string, any>;
       pageBody?: {
-        doc: Record<string, RecursiveSchema3schema1>;
+        doc: Record<string, any>;
         schemaVersion: 1;
       };
       position: number;
@@ -129,9 +125,9 @@ export class ProductTaskAuthoringService {
         intro: string;
         schemaVersion: 2;
       });
-      page?: Record<string, RecursiveSchema2schema0>;
+      page?: Record<string, any>;
       pageBody?: {
-        doc: Record<string, RecursiveSchema2schema1>;
+        doc: Record<string, any>;
         schemaVersion: 1;
       };
       position?: number;

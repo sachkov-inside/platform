@@ -8,6 +8,10 @@ import { z } from "zod";
 
 import { canonical, checksum } from "../tools/authoring/package.mjs";
 import { syncLocal } from "../tools/authoring/local-sync.mjs";
+import {
+  parseJournal,
+  isJournalOperation,
+} from "../tools/authoring/local-boundaries.mjs";
 
 /** @param {string} origin @param {string} accessToken */
 export async function seedFullStackTaskC(origin, accessToken) {
@@ -159,24 +163,11 @@ export async function seedFullStackTaskC(origin, accessToken) {
       request,
       publish: "all",
     });
-    const journal = z
-      .object({
-        operations: z.record(
-          z.string(),
-          z
-            .object({
-              request: z
-                .object({ path: z.string(), body: z.unknown() })
-                .passthrough(),
-            })
-            .passthrough(),
-        ),
-      })
-      .parse(
-        JSON.parse(
-          await readFile(join(directory, "state", "journal.json"), "utf8"),
-        ),
-      );
+    const journal = parseJournal(
+      JSON.parse(
+        await readFile(join(directory, "state", "journal.json"), "utf8"),
+      ),
+    );
     const taskApply = z
       .object({
         code: z.literal("c-closed"),
@@ -188,7 +179,11 @@ export async function seedFullStackTaskC(origin, accessToken) {
       .passthrough();
     let closedAssetId;
     for (const operation of Object.values(journal.operations)) {
-      if (operation.request.path !== "/authoring/import/tasks/apply") continue;
+      if (
+        !isJournalOperation(operation) ||
+        operation.request.path !== "/authoring/import/tasks/apply"
+      )
+        continue;
       const parsed = taskApply.safeParse(operation.request.body);
       if (parsed.success)
         closedAssetId = parsed.data.resolvedImages["diagram.png"]?.assetId;
