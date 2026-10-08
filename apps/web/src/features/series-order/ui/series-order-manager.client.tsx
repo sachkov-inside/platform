@@ -182,11 +182,12 @@ export function SeriesOrderManager({
     const chapterId = target.chapterId ?? null;
     const next = [...items];
     next.splice(source, 1);
-    next.splice(next.indexOf(target), 0, { ...entry, chapterId });
+    const destination = next.indexOf(target);
+    next.splice(destination, 0, { ...entry, chapterId });
     mutation.reset();
     setItems(next);
     setPositionNotice(
-      `${entry.title}: позиция ${String(next.indexOf(entry) + 1)} из ${String(next.length)}`,
+      `${entry.title}: позиция ${String(destination + 1)} из ${String(next.length)}`,
     );
   };
   const assign = (materialId: string, chapterId: string | null) => {

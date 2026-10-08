@@ -226,6 +226,121 @@ export const Chapters: Story = {
   },
 };
 
+export const DragBetweenChapters: Story = {
+  args: { presentation: chaptered },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    // Vitest's Playwright provider performs native pointer drag-and-drop. In the catalog,
+    // this story leaves the same production handles available for manual interaction.
+    if (import.meta.env.MODE !== "test") return;
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    const source = canvas.getByRole("button", {
+      name: "Переместить «Как устроена база знаний»",
+    });
+    const target = canvas.getByRole("button", {
+      name: "Переместить «С чего начинается Platform Inside»",
+    });
+    await browserUserEvent.dragAndDrop(source, target);
+    await expect(
+      canvas.getByText(/Как устроена база знаний: позиция/u),
+    ).toHaveTextContent("Как устроена база знаний: позиция 1 из 3");
+    await expect(
+      within(
+        canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+      )
+        .getAllByRole("button", { name: /^Переместить «/u })
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "Переместить «Как устроена база знаний»",
+      "Переместить «С чего начинается Platform Inside»",
+      "Переместить «Границы продукта и первая версия»",
+    ]);
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    if (!(body instanceof FormData))
+      throw new Error("Expected composition form");
+    await expect(JSON.parse(formField(body, "orderedMaterialIds"))).toEqual([
+      "95000000-0000-4000-8000-000000000003",
+      "95000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000002",
+    ]);
+    await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
+      "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000003": chapters[0]?.id,
+    });
+  },
+};
+
+export const DragIntoLaterChapter: Story = {
+  args: { presentation: chaptered },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    if (import.meta.env.MODE !== "test") return;
+    const { userEvent: browserUserEvent } =
+      await import("@vitest/browser/context");
+    saveOrderSpy.mockClear();
+    const canvas = within(canvasElement);
+    await browserUserEvent.dragAndDrop(
+      canvas.getByRole("button", {
+        name: "Переместить «С чего начинается Platform Inside»",
+      }),
+      canvas.getByRole("button", {
+        name: "Переместить «Как устроена база знаний»",
+      }),
+    );
+    const notice = () =>
+      canvas.getByText(/С чего начинается Platform Inside: позиция/u);
+    await expect(notice()).toHaveAttribute("role", "status");
+    await expect(notice()).toHaveTextContent(
+      "С чего начинается Platform Inside: позиция 2 из 3",
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
+    if (!(body instanceof FormData))
+      throw new Error("Expected composition form");
+    await expect(JSON.parse(formField(body, "orderedMaterialIds"))).toEqual([
+      "95000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000003",
+    ]);
+    await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
+      "95000000-0000-4000-8000-000000000001": chapters[1]?.id,
+      "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
+      "95000000-0000-4000-8000-000000000003": chapters[1]?.id,
+    });
+    const laterChapter = canvas.getByRole("list", {
+      name: "Материалы главы «Релизы»",
+    });
+    const handle = within(laterChapter).getByRole("button", {
+      name: "Переместить «С чего начинается Platform Inside»",
+    });
+    await browserUserEvent.click(handle);
+    await browserUserEvent.keyboard("{ArrowDown}");
+    await expect(notice()).toHaveTextContent(
+      "С чего начинается Platform Inside: позиция 3 из 3",
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    await expect(saveOrderSpy).toHaveBeenCalledTimes(2);
+    const keyboardBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
+    if (!(keyboardBody instanceof FormData))
+      throw new Error("Expected keyboard composition form");
+    await expect(
+      JSON.parse(formField(keyboardBody, "orderedMaterialIds")),
+    ).toEqual([
+      "95000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000003",
+      "95000000-0000-4000-8000-000000000001",
+    ]);
+    await expect(
+      JSON.parse(formField(keyboardBody, "chapterAssignments")),
+    ).toEqual(JSON.parse(formField(body, "chapterAssignments")));
+  },
+};
+
 export const ChaptersMobile: Story = {
   args: { presentation: chaptered },
   globals: { viewport: { value: "mobile390", isRotated: false } },
