@@ -73,7 +73,7 @@ nearest `AGENTS.md` owns task routing and verification commands.
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
 idle machine and fails at random on a loaded one. No executable check owns this rule as a whole,
 because a pause is the right instrument for proving that nothing happens, and a mechanical ban on
-pauses would reject correct tests; the quiet-window exception below has its own check.
+pauses would reject correct tests; the ban on network-idle waits below has its own check.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -86,13 +86,12 @@ pauses would reject correct tests; the quiet-window exception below has its own 
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
-One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
-`viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
-`networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
-requests for links whose route it predicts, so no page-visible fact marks the end of the queue (the
-analysis is in #758). Revisit it when Next.js exposes the queue or optimistic routing changes.
-`scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait in the application tests
-and browser scripts.
+Navigation tests wait for the completed RuntimeShell prefetch response of the next route, not the
+whole private Next.js queue (#1182). Route-tree responses and response headers alone do not prove
+the shell arrived. Optimistic routing can skip requests for other links that share that shell.
+The former `networkidle` exception (#758) is retired: unrelated unfinished requests can exhaust the
+test budget after the required shell has arrived. `scripts/quiet-window-waits.test.mjs` rejects
+`networkidle` waits in application tests and browser scripts.
 
 Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
 test turns the run red on its first attempt and is fixed, not retried until it passes.
