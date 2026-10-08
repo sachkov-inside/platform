@@ -737,10 +737,13 @@ export const LessonBlocksEditing: Story = {
         "aside[data-callout] [data-callout-body] p",
         "Тело врезки не найдено: панель блока не к чему вернуть",
       );
-      // userEvent меняет DOM-выбор; редактор получает его через selectionchange.
-      // Передаём событие до следующей задачи браузера, которая может восстановить старый выбор.
-      await userEvent.click(callout, { delay: null });
-      canvasElement.ownerDocument.dispatchEvent(new Event("selectionchange"));
+      await userEvent.click(callout);
+      // Завершаем симуляцию выбора синхронно: обвязка клика могла уже восстановить старый курсор.
+      const document = canvasElement.ownerDocument;
+      const selection = document.getSelection();
+      if (selection === null) throw new Error("Выбор текста недоступен");
+      selection.collapse(callout, 0);
+      document.dispatchEvent(new Event("selectionchange"));
       await expect(
         await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       ).toHaveAttribute("aria-pressed", "true");
@@ -754,21 +757,53 @@ export const LessonBlocksEditing: Story = {
   },
 };
 
-/** Нативное событие выбора может прийти после следующих действий истории (#1191). */
+/** Возврат во врезку не зависит от нативного события и восстановления старого DOM-выбора (#1191). */
 export const LessonBlocksEditingDelayedSelection: Story = {
   ...LessonBlocksEditing,
   name: "Редактор · блоки урока, отложенный выбор",
-  beforeEach: () => {
+  beforeEach: ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    let previousSelection: Range | null = null;
+    const isCalloutReturn = (event: MouseEvent) => {
+      const callout = canvasElement.querySelector(
+        "aside[data-callout] [data-callout-body] p",
+      );
+      return (
+        event.target instanceof Node &&
+        callout?.contains(event.target) === true &&
+        canvasElement.querySelector(
+          '[data-material-block-form="labeledList"]',
+        ) !== null
+      );
+    };
+    const rememberSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event)) return;
+      const selection = document.getSelection();
+      previousSelection =
+        selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null;
+    };
+    const restoreSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event) || previousSelection === null) return;
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(previousSelection);
+    };
     const delayNativeSelection = (event: Event) => {
       if (event.isTrusted) event.stopImmediatePropagation();
     };
     document.addEventListener("selectionchange", delayNativeSelection, true);
+    document.addEventListener("mousedown", rememberSelection, true);
+    document.addEventListener("mouseup", restoreSelection);
     return () => {
       document.removeEventListener(
         "selectionchange",
         delayNativeSelection,
         true,
       );
+      document.removeEventListener("mousedown", rememberSelection, true);
+      document.removeEventListener("mouseup", restoreSelection);
     };
   },
 };
