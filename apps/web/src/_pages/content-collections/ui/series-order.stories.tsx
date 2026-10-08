@@ -1,3 +1,7 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
@@ -551,3 +555,39 @@ function formField(body: FormData, name: string): string {
   if (typeof value !== "string") throw new Error(`Missing ${name} field`);
   return value;
 }
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <SeriesOrderManager {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await moveFirstItem(canvasElement);
+      },
+      "Порядок сохранён.",
+      () => Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await moveFirstItem(canvasElement);
+      },
+      "Повторить сохранение",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText("Порядок сохранён."),
+    ).not.toBeInTheDocument();
+  },
+};

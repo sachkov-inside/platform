@@ -1,5 +1,9 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import {
   MaterialAuthoringSignInActions,
@@ -117,5 +121,55 @@ export const Unavailable: Story = {
       page.getByRole("heading", { name: "Структура временно недоступна" }),
     ).toBeVisible();
     await expect(page.getByText(/Код: collections-read/u)).toBeVisible();
+  },
+};
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <ContentCollectionsPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Product engineering/u }),
+    );
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — правка",
+        );
+      },
+      "Сохранено",
+      () =>
+        Response.json({
+          kind: "saved",
+          collection: { ...collections[0], version: 4 },
+        }),
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Product engineering/u }),
+    );
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — правка",
+        );
+      },
+      "Повторить сохранение",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(canvas.queryByText("Сохранено")).not.toBeInTheDocument();
   },
 };
