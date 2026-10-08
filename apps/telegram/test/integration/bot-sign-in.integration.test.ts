@@ -378,6 +378,7 @@ describe("bot sign-in provider", () => {
     const accountRef = randomUUID();
     const bind = () =>
       request(`/${challenge.requestRef}/account-link`, {
+        contractVersion,
         accountRef,
         subjectRef: proof.subjectRef,
       });
