@@ -58,6 +58,7 @@ export async function applyAuthoringImport(
     return failure({ code: "source_conflict" });
   const prepared: PreparedArtifact[] = [];
   let committed = false;
+  const consumedFiles = new Set<string>();
   try {
     const candidates = await loadArtifactsBySource(context.prisma, sourceIds);
     for (const source of command.artifacts) {
@@ -150,6 +151,7 @@ export async function applyAuthoringImport(
             return rollback({ code: "source_conflict" });
           if (existing === undefined) {
             await createFromSource(transaction, command, item);
+            consumedFiles.add(item.source.sourceId);
             outcomes.push(outcome(item.artifactId, item.source, "created"));
             continue;
           }
@@ -179,6 +181,7 @@ export async function applyAuthoringImport(
               item,
               unchangedContent,
             );
+            if (!unchangedContent) consumedFiles.add(item.source.sourceId);
             outcomes.push(outcome(existing.id, item.source, "updated"));
           }
         }
@@ -200,10 +203,7 @@ export async function applyAuthoringImport(
     committed = result.ok;
     if (result.ok) {
       for (const item of prepared) {
-        const applied = result.value.outcomes.find(
-          (row) => row.sourceId === item.source.sourceId,
-        );
-        if (applied?.outcome === "created" || applied?.outcome === "updated")
+        if (consumedFiles.has(item.source.sourceId))
           await context.files.forgetQuarantine(item.stored);
         else await context.files.discard(item.stored);
       }

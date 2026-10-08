@@ -776,6 +776,91 @@ describe("authoring source Product completion", () => {
       await artifacts.listForProduct({ actor, productId: product.id }),
     ).toMatchObject({ ok: true, value: [{ title: "Source revision" }] });
   });
+  test("discards staged files when a concurrent import already installed their bytes", async () => {
+    const product = await reserveProduct(
+      "inside-content:staged-race",
+      "staged-race",
+    );
+    const artifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage,
+      prisma: database.prisma,
+    });
+    const file = (text: string) => {
+      const body = Buffer.from(text);
+      return {
+        body,
+        declaredContentType: "text/markdown",
+        declaredSize: body.byteLength,
+        expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
+        filename: "race.md",
+      };
+    };
+    const initial = {
+      sourceId: "inside-content:staged-race-file",
+      title: "Initial",
+      purpose: "",
+      access: "closed" as const,
+      file: file("# A\n"),
+    };
+    const command = {
+      actor,
+      productId: product.id,
+      productSourceId: "inside-content:staged-race",
+    };
+    expect(
+      await artifacts.applyAuthoringImport({
+        ...command,
+        artifacts: [initial],
+      }),
+    ).toMatchObject({ ok: true });
+    const changed = { ...initial, title: "Concurrent", file: file("# B\n") };
+    let stagedPrefix: string | undefined;
+    const racingStorage: ObjectStorage = {
+      ...objectStorage,
+      async putImmutable(input) {
+        if (stagedPrefix === undefined && input.namespace === "quarantine") {
+          stagedPrefix = input.key.slice(0, input.key.lastIndexOf("/"));
+          expect(
+            await artifacts.applyAuthoringImport({
+              ...command,
+              artifacts: [changed],
+            }),
+          ).toMatchObject({
+            ok: true,
+            value: { outcomes: [{ outcome: "updated" }] },
+          });
+        }
+        return objectStorage.putImmutable(input);
+      },
+    };
+    const racingArtifacts = assembleProductArtifacts({
+      authorPolicy,
+      objectStorage: racingStorage,
+      prisma: database.prisma,
+    });
+    expect(
+      await racingArtifacts.applyAuthoringImport({
+        ...command,
+        artifacts: [{ ...changed, title: "Final metadata" }],
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "updated" }] },
+    });
+    expect(stagedPrefix).toBeDefined();
+    expect(
+      [...stored.keys()].some(
+        (key) => stagedPrefix !== undefined && key.startsWith(stagedPrefix),
+      ),
+    ).toBe(false);
+    expect(
+      await artifacts.listForProduct({ actor, productId: product.id }),
+    ).toMatchObject({
+      ok: true,
+      value: [{ title: "Final metadata", version: 2 }],
+    });
+  });
 });
 
 async function coverUpload(color: string) {
