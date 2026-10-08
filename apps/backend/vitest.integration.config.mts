@@ -62,13 +62,19 @@ const stuckTestBudgetMs = 30_000;
  */
 const stuckHookBudgetMs = 60_000;
 
+// CI retains the resource-based budget; two local runs share the machine.
+const maxWorkers = Math.min(
+  integrationWorkerBudget({
+    availableCpuCount: availableParallelism(),
+    availableMemoryBytes: process.availableMemory(),
+  }),
+  (process.env["CI"] ?? "") !== "" ? Number.POSITIVE_INFINITY : 2,
+);
+
 export default defineConfig({
   test: {
     globalSetup: ["test/integration/setup/postgres.global.ts"],
-    maxWorkers: integrationWorkerBudget({
-      availableCpuCount: availableParallelism(),
-      availableMemoryBytes: process.availableMemory(),
-    }),
+    maxWorkers,
     testTimeout: stuckTestBudgetMs,
     hookTimeout: stuckHookBudgetMs,
     projects: [
@@ -76,6 +82,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration",
+          maxWorkers,
           include: ["test/integration/**/*.test.ts"],
           exclude: serialFiles,
           fileParallelism: true,
@@ -86,6 +93,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration-serial",
+          maxWorkers: 1,
           include: serialFiles,
           fileParallelism: false,
           sequence: { groupOrder: 1 },

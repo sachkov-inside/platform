@@ -108,19 +108,13 @@ The local adapter does not provision Logto clients, service identities or produc
 Content reaches production through the reviewed release with the owner's one-time sign-in; see
 [Content production delivery](docs/runbooks/content-production-delivery.md).
 
-## Docker-only smoke and shutdown
+## Compose smoke and shutdown
 
 The smoke needs the published demonstration catalogue, so it runs in a disposable project with its own
 volumes and the local ports; stop the shared stand first.
 
-```bash
-(
-  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
-  docker compose up --detach --build --wait
-  bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
-```
+Use the [guarded Compose smoke recipe](docs/runbooks/local-development.md#start-from-a-fresh-clone).
+It needs host Python 3 and Bash, and keeps one shared slot until shutdown. It needs no host Node.js or pnpm.
 
 The smoke verifies web → API → PostgreSQL, OpenAPI, MCP protected-resource metadata, the
 unauthenticated fail-closed boundary and the idempotent seeded Material. On the shared stand, normal shutdown preserves

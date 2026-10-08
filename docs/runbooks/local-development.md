@@ -85,6 +85,51 @@ Playwright does not use Compose. The Playwright checks of `pnpm check` take free
 reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
 `PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 
+## Automatic slots for heavy local checks
+
+Use the checked-in `pnpm` commands for heavy checks. `scripts/heavy-check.sh` admits at most two
+independent command trees across all worktrees on this machine. A third invocation prints
+`heavy-check: waiting for one of two local slots` and waits. No request to the orchestrator is
+needed after #1151 is merged. Existing runs from older worktrees must finish before that handoff;
+update those worktrees from `main` to use the wrappers.
+
+The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
+`test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
+`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
+and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
+`lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+`smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
+and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
+smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
+
+```bash
+bash scripts/heavy-check.sh bash -c 'your-command'
+```
+
+Local admission requires Python 3 and POSIX `flock` from its standard library; no `flock` executable
+is required on macOS. Two persistent files live in `~/.cache/inside-platform/heavy-check/`.
+Do not remove them while checks run: the kernel owns their locks, and empty files do not mean
+occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
+keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
+
+Nested commands reuse their ancestor's slot. The supervisor tracks descendant process groups while the command runs. It closes the slot after
+the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
+launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
+five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
+leave a stale kernel lock. Tracking includes detached groups observed during the run. A custom command that detaches a
+child and exits before observation must manage that child itself. Use foreground commands for
+heavy checks.
+
+Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
+project. Playwright's default suite sets two workers; the other suites inherit or set one.
+Local backend integration retains its resource budget with a cap of two workers; its serial project
+sets one worker. CI integration retains the resource-based budget.
+Tooling's Node test runner executes at most two files at once within one invocation.
+These bounds limit repository checks; they do not reserve CPU or memory against other applications.
+
+Admission does not grant ownership of the singleton Compose stand. Keep the ownership rules above
+and leave another session's `inside-platform` services and volumes untouched.
+
 ## Start from a fresh clone
 
 From the repository root:
@@ -130,13 +175,16 @@ production recovery are documented in the
 The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
 never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
+This guarded verification needs host Python 3 and Bash, but no host Node.js or pnpm.
+The wrapper holds one slot through build, smoke and shutdown; the trap cleans up on failure too.
+
 ```bash
-(
+bash scripts/heavy-check.sh bash -euc '
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  trap "docker compose down --volumes" EXIT
   docker compose up --detach --build --wait
   bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
+'
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
@@ -452,6 +500,20 @@ run's browser then failed to load the replaced files, and its stories printed `(
 The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` with an empty cache
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
+
+Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
+the run. Storybook loads two large modules lazily: the React renderer imports
+`@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`
+imports `axe-core` (4 MB) on the first accessibility check. The setup file
+`apps/web/test/support/storybook-preload.ts` loads both before the tests of each file, so the
+15-second budget of a story measures the story itself. Without it, the first story of a file paid
+for that load. When parallel heavy checks slowed the Vite server, the load alone took several
+seconds, and first stories exceeded the budget (#1095, #1128). The preload does not make the run
+shorter: a slow Vite server now shows in the `setup` and `import` times of the Vitest `Duration`
+line, not as a failed story. The pinned versions of `axe-core` and `@storybook/react-dom-shim` in
+`apps/web/package.json` must match the versions that `addon-a11y` and Storybook use; update them
+together. `apps/web/test/module/storybook-preload.test.ts` fails when they differ or when the
+`storybook` project loses the setup file.
 
 The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
 process disables `ipcOutput` buffering: live listeners already consume every message, while the

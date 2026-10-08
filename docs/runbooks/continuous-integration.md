@@ -141,7 +141,9 @@ own their own containers.
 
 The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
 two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
-The smaller limit wins. The memory input is Node's `process.availableMemory()`: it accounts for Linux
+The smaller limit wins. Local runs additionally cap this budget at two file workers (#1151);
+CI retains the resource-based budget. Each integration project names its worker limit; the serial
+project sets one. The memory input is Node's `process.availableMemory()`: it accounts for Linux
 cgroup memory limits; on macOS, it includes free, inactive and purgeable pages without applying a
 process memory limit. The budget allows
 1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker
@@ -265,11 +267,79 @@ Platform issue when diagnosis finds a defect.
 The [#589 evidence](../evidence/issue-589/README.md) records measured CI cost, the mechanism choice
 and the inventory of probes outside the pull-request gate.
 
+## Nightly flake hunt
+
+`.github/workflows/nightly-flake-hunt.yml` samples `main` daily at 02:43 UTC and supports
+`workflow_dispatch`. It is outside `CI Gate`. Each suite runs five times independently, including
+after a failed sample; Playwright and Vitest retries are explicitly zero. A failed sample keeps
+the matrix job red even when the next four pass. This is detection, not recovery of a failed gate.
+
+The matrix covers Web E2E and navigation on one production build, Storybook, browser-engines,
+both backend integration projects, and the unit commands from `check:unit`: backend, Web module,
+Telegram, legal, access-capabilities, Node tooling, authoring and practice-review. It does not repeat
+build/static checks, live production probes, or the separate nightly full-stack smoke.
+
+Each matrix job uploads `flake-<suite>-<run_attempt>` for seven days, including successful samples.
+Each command and iteration has its own JSON reporter output, normalized observations, exit status
+and log. Web E2E/navigation retain failed traces, screenshots and the existing per-test videos.
+Storybook retains failed browser traces and screenshots; browser-engines copies its existing
+diagnostics before the next invocation can replace them. A setup error or absent/malformed report
+keeps the job red; missing samples never count as passes. The job summary shows observed failures
+over executed samples and skipped samples for each test identity (suite, file, command/project and
+full name). Playwright includes its real project name. Vitest's JSON reporter omits project names,
+so its identity uses the command selecting the tests. Integration and integration-serial run
+separately through their owning package scripts and remain separate in the table and Issues.
+The unit inventory comes from the workspace package manifests and root Node test scripts,
+the same sources `check:unit` uses; unsupported new command syntax fails visibly.
+
+Only the reporting job has `issues: write`. It runs exclusively for schedule/manual runs on `main`,
+checks out that run's trusted main SHA and downloads data artifacts from the same run. Branch
+experiments execute with read-only permissions and do not create Issues. A test that fails at least
+once creates a `needs-triage` Issue with its failure fraction, SHA, attempt and artifact link.
+Further failures update the open Issue identified by its stable body marker, even if its label or
+title changed. A denied GitHub write fails the reporting job. After fixing the cause, confirm a
+green run on `main` and close the Issue; a 100% failure fraction may indicate a permanent defect.
+
+Cost and duration are bounded by the matrix timeouts, not measured production baselines yet:
+
+| Suite | Runner-minute ceiling per scheduled run, including setup |
+|---|---:|
+| Web E2E and navigation | 90 |
+| Storybook | 60 |
+| Browser-engines | 60 |
+| Integration | 120 |
+| Unit | 90 |
+| Reporting | 5 |
+| Total | 425 |
+
+At most two test jobs run together. The sum above is also a conservative wall-time ceiling after
+runner allocation, excluding GitHub queue time. For 30 scheduled days the ceiling is 12,750 Linux
+runner-minutes; manual runs and reruns add to it. Actual billed cost depends on the repository's
+GitHub Actions allowance and Linux runner rate; multiply billable minutes by that rate. Artifacts
+also consume storage for seven days. Record actual job durations from the first green scheduled
+run before budgeting against an average; the timeout ceilings are not expected consumption.
+
+For a quick reporting exercise, dispatch with `fixture=true`. Only the deliberately alternating
+fixture runs, with three failures out of five and no retries. Its test job is intentionally red.
+On `main`, the report creates one fixture Issue; a second dispatch updates it. Close the exercise
+Issue after confirming the artifact links and both run URLs. The fixture mode has a 15 runner-minute
+ceiling (10 for samples, five for reporting), and never modifies a production test.
+
+```bash
+gh workflow run nightly-flake-hunt.yml --ref main -f fixture=true
+gh run list --workflow nightly-flake-hunt.yml
+```
+
+The local executable fixture/CLI tests use a substituted GitHub client to prove creation, updates
+and denied-write handling without tracker pollution. The full five-suite workflow must be verified
+by an Actions run; these local tests do not claim that all browser/container suites passed.
+
 ## Diagnostics and cleanup
 
-Playwright traces, screenshots and HTML reports are uploaded only after a failure. Compose jobs
+PR CI and the nightly full-stack smoke upload Playwright traces, screenshots and HTML reports
+only after a failure. The flake hunt retains every sample as described above. Compose jobs
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
-retained for seven days; successful runs store none of them.
+retained for seven days; successful PR CI and full-stack smoke runs store none of them.
 
 The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` (#999) and
 `unlinked Account sees centered onboarding once per authenticated session` in
