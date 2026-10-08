@@ -21,8 +21,6 @@
   `modern-web-guidance`, `playwright-cli`.
 - `karpathy-guidelines`: остаётся до переноса его правил в профиль устройства.
 - Свои skills проекта: `session-cleanup`.
-- `report`: общий skill из <https://github.com/KirillSachkov/workspace> (`skills/report`), подключён
-  на устройстве глобально; копии в проекте нет.
 
 ## Проверка и обновление
 
