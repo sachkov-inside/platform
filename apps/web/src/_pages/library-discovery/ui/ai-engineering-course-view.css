@@ -486,7 +486,7 @@
   font-size: 0.72rem;
   font-weight: 600;
 }
-.aie-art-guard-buttons b:first-child {
+.aie-art-guard-buttons b:last-child {
   background: var(--callout-good);
   color: var(--background);
 }

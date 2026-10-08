@@ -18,7 +18,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Terminal,
   UserRound,
   Wrench,
 } from "lucide-react";
@@ -388,16 +387,16 @@ const topicTiles: readonly {
     art: (
       <div className="aie-art-guard">
         <span className="aie-art-guard-action">
-          <Terminal />
-          git push --force
+          <Bot />
+          Шаг 3 из 5 · auth.ts
         </span>
         <span className="aie-art-guard-gate">
           <ShieldCheck />
-          Нужно подтверждение
+          Тесты 24/24
         </span>
         <span className="aie-art-guard-buttons">
-          <b>Разрешить</b>
-          <b>Отклонить</b>
+          <b>Дифф проверен</b>
+          <b>Принять</b>
         </span>
       </div>
     ),
