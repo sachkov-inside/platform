@@ -45,6 +45,7 @@ import { CLOCK } from "../../src/shared/clock.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
+import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import {
   TELEGRAM_MESSAGES,
@@ -69,6 +70,9 @@ const config = loadApplicationConfig({
   TELEGRAM_LINKED_UNAVAILABLE_TEXT: "synthetic unavailable",
   WORKERS_ENABLED: "false",
   TELEGRAM_MARKETING_ENABLED: "true",
+  TELEGRAM_SIGN_IN_ENABLED: "true",
+  TELEGRAM_SIGN_IN_INTEGRATION_SECRET:
+    "synthetic_sign_in_secret_for_tests_only",
 });
 let now = new Date("2030-01-01T00:00:00Z");
 const clock = { now: () => new Date(now) };
@@ -133,7 +137,7 @@ beforeAll(async () => {
   entry = app.get(MarketingEntry);
 });
 beforeEach(async () => {
-  await sql`truncate communication_funnels, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
+  await sql`truncate sign_in_requests, communication_funnels, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
     database,
   );
   now = new Date("2030-01-01T00:00:00Z");
@@ -512,6 +516,42 @@ describe("durable marketing entry and scheduling", () => {
         .selectAll()
         .execute(),
     ).toHaveLength(1);
+  });
+  it("expired sign-in prompts do not hold independent marketing for the same bot", async () => {
+    await setup();
+    await start();
+    const requestRef = randomUUID();
+    await database
+      .insertInto("sign_in_requests")
+      .values({
+        request_ref: requestRef,
+        bot_identity: "inside",
+        start_token_digest: "a".repeat(43),
+        browser_secret_digest: "b".repeat(43),
+        confirmation_code: "123456",
+        state: "awaiting_approval",
+        telegram_user_id: "43",
+        private_chat_id: "43",
+        created_at: new Date(now.getTime() - 60000),
+        expires_at: now,
+        approved_at: null,
+        consumed_at: null,
+      })
+      .execute();
+    await app.get(StartResponseDeliveryQueue).enqueue({
+      botIdentity: "inside",
+      telegramUserId: "43",
+      privateChatId: "43",
+      messageText: "expired prompt",
+      sourceKey: "expired-prompt",
+      signInRequestRef: requestRef,
+      now,
+    });
+    expect(
+      await app.get(StartResponseDeliveryProcessor).processAvailable(1, now),
+    ).toBe(0);
+    expect(await scheduler.processAvailable()).toBe(1);
+    expect(sent.map((message) => message.content.text)).toEqual(["intro"]);
   });
   it("prioritizes service responses and rechecks stopped and blocked contacts", async () => {
     await setup();

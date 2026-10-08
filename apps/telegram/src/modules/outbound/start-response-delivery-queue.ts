@@ -1,3 +1,4 @@
+import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import type { TelegramButton } from "./telegram-messages.js";
@@ -11,7 +12,7 @@ import {
   deferTelegramSlot,
 } from "./telegram-transport-slots.js";
 import { Inject, Injectable } from "@nestjs/common";
-import { sql, type Transaction } from "kysely";
+import { sql, type Transaction, type ExpressionBuilder } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
 
 import {
@@ -46,6 +47,8 @@ const replies: DurableQueue<"start_response_deliveries"> = {
 };
 
 export interface ClaimedStartResponseDelivery {
+  readonly botIdentity: string;
+  readonly telegramUserId: string;
   readonly buttons?: readonly TelegramButton[];
   readonly attemptNumber: number;
   readonly id: string;
@@ -109,18 +112,81 @@ export async function enqueueReply(
   return inserted !== undefined;
 }
 
+function eligibleReply(
+  eb: ExpressionBuilder<DatabaseSchema, "start_response_deliveries">,
+  now: Date,
+  signInEnabled: boolean,
+) {
+  return eb.or([
+    eb("sign_in_request_ref", "is", null),
+    ...(signInEnabled
+      ? [
+          eb.exists(
+            eb
+              .selectFrom("sign_in_requests")
+              .select("request_ref")
+              .whereRef(
+                "request_ref",
+                "=",
+                "start_response_deliveries.sign_in_request_ref",
+              )
+              .where((requestEb) =>
+                requestEb.or([
+                  requestEb.and([
+                    requestEb(
+                      "start_response_deliveries.edit_message_id",
+                      "is",
+                      null,
+                    ),
+                    requestEb("state", "=", "awaiting_approval"),
+                    requestEb("expires_at", ">", now),
+                  ]),
+                  requestEb.and([
+                    requestEb(
+                      "start_response_deliveries.edit_message_id",
+                      "is not",
+                      null,
+                    ),
+                    requestEb.or([
+                      requestEb("state", "=", "denied"),
+                      requestEb.and([
+                        requestEb("state", "=", "consumed"),
+                        requestEb.exists(
+                          requestEb
+                            .selectFrom("link_transactions")
+                            .select("link_transaction_ref")
+                            .where(
+                              "link_transaction_ref",
+                              "=",
+                              sql<string>`sign_in_requests.request_ref::text`,
+                            )
+                            .where("state", "=", "linked"),
+                        ),
+                      ]),
+                    ]),
+                  ]),
+                ]),
+              ),
+          ),
+        ]
+      : []),
+  ]);
+}
+
 /** Whether a reply is due now; service replies always go ahead of marketing sends. */
 export async function hasDueReply(
   database: Database | Transaction<DatabaseSchema>,
   botIdentity: string,
   now: Date,
+  signInEnabled = false,
 ): Promise<boolean> {
   const due = await database
     .selectFrom("start_response_deliveries")
     .select("id")
     .where("bot_identity", "=", botIdentity)
-    .where("state", "in", ["pending", "retry_scheduled"])
+    .where("state", "in", replies.ready)
     .where("available_at", "<=", now)
+    .where((eb) => eligibleReply(eb, now, signInEnabled))
     .executeTakeFirst();
   return due !== undefined;
 }
@@ -206,63 +272,16 @@ export class StartResponseDeliveryQueue {
           "message_text",
           "private_chat_id",
           "bot_identity",
+          "telegram_user_id",
           "sign_in_request_ref",
           "edit_message_id",
         ],
         where: (eb) =>
-          eb.or([
-            eb("sign_in_request_ref", "is", null),
-            ...(signInEnabled
-              ? [
-                  eb.exists(
-                    eb
-                      .selectFrom("sign_in_requests")
-                      .select("request_ref")
-                      .whereRef(
-                        "request_ref",
-                        "=",
-                        "start_response_deliveries.sign_in_request_ref",
-                      )
-                      .where((requestEb) =>
-                        requestEb.or([
-                          requestEb.and([
-                            requestEb(
-                              "start_response_deliveries.edit_message_id",
-                              "is",
-                              null,
-                            ),
-                            requestEb("state", "=", "awaiting_approval"),
-                            requestEb("expires_at", ">", now),
-                          ]),
-                          requestEb.and([
-                            requestEb(
-                              "start_response_deliveries.edit_message_id",
-                              "is not",
-                              null,
-                            ),
-                            requestEb.or([
-                              requestEb("state", "=", "denied"),
-                              requestEb.and([
-                                requestEb("state", "=", "consumed"),
-                                requestEb.exists(
-                                  requestEb
-                                    .selectFrom("link_transactions")
-                                    .select("link_transaction_ref")
-                                    .where(
-                                      "link_transaction_ref",
-                                      "=",
-                                      sql<string>`sign_in_requests.request_ref::text`,
-                                    )
-                                    .where("state", "=", "linked"),
-                                ),
-                              ]),
-                            ]),
-                          ]),
-                        ]),
-                      ),
-                  ),
-                ]
+          eb.and([
+            ...(this.config
+              ? [eb("bot_identity", "=", this.config.botIdentity)]
               : []),
+            eligibleReply(eb, now, signInEnabled),
           ]),
         prepare: async (tx, row) =>
           (isTruthy(this.config?.marketingEnabled) ||
@@ -281,6 +300,8 @@ export class StartResponseDeliveryQueue {
       }
       const row = delivery.row;
       return {
+        botIdentity: row.bot_identity,
+        telegramUserId: row.telegram_user_id,
         ...(row.buttons ? { buttons: row.buttons } : {}),
         attemptNumber: delivery.attempt,
         id: row.id,
@@ -332,6 +353,13 @@ export class StartResponseDeliveryQueue {
       });
       // An expired lease already recorded this attempt as unknown; the late outcome is dropped.
       if (!held) return false;
+      if (result.kind === "api_rejected" && result.providerErrorCode === 403)
+        await blockDeliveryContact(
+          transaction,
+          delivery.botIdentity,
+          delivery.telegramUserId,
+          attemptedAt,
+        );
       await transaction
         .insertInto("start_response_delivery_attempts")
         .values({

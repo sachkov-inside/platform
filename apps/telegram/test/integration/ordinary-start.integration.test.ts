@@ -554,6 +554,25 @@ describe("durable start response delivery", () => {
       provider_error_code: 403,
     });
     await expect(rejected.processor.processAvailable(1, now)).resolves.toBe(0);
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("bot_identity", "=", "inside")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "blocked" });
+    await application
+      .get(BotContacts)
+      .observeStart({ ...verifiedStart("42", "2"), observedAt: now });
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("bot_identity", "=", "inside")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "reachable" });
   });
 
   it("retries unknown transport outcomes with a bounded, diagnosable duplicate risk", async () => {

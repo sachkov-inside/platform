@@ -4,7 +4,7 @@ import { hasDueReply } from "../outbound/start-response-delivery-queue.js";
 import { enqueueBroadcastAuthorMenu } from "./author-delivery-menu.js";
 import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
 import { trackedContent } from "./communication-tracking.js";
-import { updateMarketingAvailability } from "./marketing-preferences.js";
+import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
 export { relativeDue } from "./funnel-timeline.js";
 import { reconcileFunnels, terminal, started } from "./funnel-timeline.js";
 import { randomUUID } from "node:crypto";
@@ -263,7 +263,14 @@ export class FunnelScheduler {
       await schedulerLock(tx, this.config.botIdentity);
       const now = this.clock.now();
       // A marketing backlog must never reserve capacity ahead of a ready service response.
-      if (await hasDueReply(tx, this.config.botIdentity, now))
+      if (
+        await hasDueReply(
+          tx,
+          this.config.botIdentity,
+          now,
+          this.config.signInEnabled === true,
+        )
+      )
         return { kind: "capacity_busy" } as const;
       // Replies to a contact's own /start go ahead of the funnel and broadcast backlog.
       for (const queue of [REPLY_KINDS, BACKLOG_KINDS]) {
@@ -587,19 +594,12 @@ export class FunnelScheduler {
           .select("telegram_user_id")
           .where("contact_id", "=", delivery.contact_id)
           .executeTakeFirstOrThrow();
-        await updateMarketingAvailability(
+        await blockDeliveryContact(
           tx,
           this.config.botIdentity,
           contact.telegram_user_id,
           now,
-          false,
         );
-        await tx
-          .updateTable("bot_contacts")
-          .set({ contactability: "blocked", updated_at: now })
-          .where("bot_identity", "=", this.config.botIdentity)
-          .where("telegram_user_id", "=", contact.telegram_user_id)
-          .execute();
       }
       if (hasText(delivery.broadcast_id))
         await completeBroadcasts(

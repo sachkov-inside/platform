@@ -1,3 +1,4 @@
+import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
@@ -321,7 +322,7 @@ export class AuthorDelivery {
     await this.database.transaction().execute(async (tx) => {
       if (result.kind === "api_retryable" && result.providerErrorCode === 429)
         await deferTelegramSlot(tx, item.row.bot_identity, availableAt);
-      await settle(tx, authorOutbox, item, {
+      const held = await settle(tx, authorOutbox, item, {
         state:
           result.kind === "delivered"
             ? "delivered"
@@ -335,6 +336,17 @@ export class AuthorDelivery {
         provider_message_id:
           result.kind === "delivered" ? result.providerMessageId : null,
       });
+      if (
+        held &&
+        result.kind === "api_rejected" &&
+        result.providerErrorCode === 403
+      )
+        await blockDeliveryContact(
+          tx,
+          item.row.bot_identity,
+          item.row.telegram_user_id,
+          now,
+        );
     });
     return 1;
   }

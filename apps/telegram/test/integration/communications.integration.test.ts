@@ -749,6 +749,76 @@ describe("author transport and API", () => {
     authorization.result = "denied";
     expect((await http(sample)).statusCode).toBe(403);
   });
+  it("author 403 blocks the private contact and /start restores it without replaying the rejected sample", async () => {
+    await seedLink();
+    const time = new Date("2030-01-01T00:00:00Z");
+    await app
+      .get(BotContacts)
+      .observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: "42",
+          privateChatId: "42",
+          updateId: "100",
+          observedAt: time,
+        },
+        "none",
+      );
+    const post = request();
+    await communications.execute(post);
+    await http({
+      ...request(),
+      operation: "templates.testSend",
+      expectedRevision: 1,
+      payload: { templateId: required(post.payload.templateId) },
+    });
+    let calls = 0;
+    const worker = new AuthorDelivery(
+      database,
+      { ...config, deliveryMode: "live" },
+      authorization,
+      {
+        send: () => {
+          calls++;
+          return Promise.resolve({
+            kind: "api_rejected",
+            providerErrorCode: 403,
+          });
+        },
+      },
+    );
+    expect(await worker.processAvailable(time)).toBe(1);
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "blocked" });
+    await app
+      .get(BotContacts)
+      .observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: "42",
+          privateChatId: "42",
+          updateId: "101",
+          observedAt: new Date(time.getTime() + 1000),
+        },
+        "none",
+      );
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "reachable" });
+    expect(await worker.processAvailable(new Date(time.getTime() + 2000))).toBe(
+      0,
+    );
+    expect(calls).toBe(1);
+  });
   it("does not resend unknown author samples after worker restart and rejects revoked recipients", async () => {
     await seedLink();
     const post = request();

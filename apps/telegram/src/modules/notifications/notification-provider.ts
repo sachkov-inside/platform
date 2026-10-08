@@ -1,3 +1,4 @@
+import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import {
   createCipheriv,
@@ -423,6 +424,19 @@ export class NotificationProvider {
         outcome.kind === "api_rejected" &&
         outcome.providerErrorCode < 500
       ) {
+        if (outcome.providerErrorCode === 403) {
+          const link = await findPlatformLink(tx, {
+            botIdentity: this.bot,
+            telegramIdentityRef: current.command.binding.telegramIdentityRef,
+          });
+          if (link)
+            await blockDeliveryContact(
+              tx,
+              this.bot,
+              link.telegramUserId,
+              this.clock.now(),
+            );
+        }
         evidence = "rejected";
         state = {
           state: "failed",

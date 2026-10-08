@@ -474,6 +474,46 @@ describe("Notification provider with real PostgreSQL and synthetic external face
     expect(required(sends[0]).text).toContain("/subscription?offer=");
     expect((await result(c)).state).toBe("sent");
   });
+  it("403 blocks only the rejected recipient without withdrawing marketing preference", async () => {
+    const c = command();
+    await linked(c);
+    const other = command();
+    await seedNotificationRecipient(db, other, clock.now(), "10002");
+    await db
+      .insertInto("communication_contacts")
+      .values({
+        contact_id: randomUUID(),
+        bot_identity: "inside",
+        telegram_user_id: "10001",
+      })
+      .execute();
+    await receive(c);
+    response = { kind: "api_rejected", providerErrorCode: 403 };
+    await provider().processCategory("subscription");
+    expect(await result(c)).toMatchObject({
+      state: "failed",
+      reason: "recipient_unreachable",
+    });
+    expect(
+      await db
+        .selectFrom("bot_contacts")
+        .select(["telegram_user_id", "contactability"])
+        .orderBy("telegram_user_id")
+        .execute(),
+    ).toEqual([
+      { telegram_user_id: "10001", contactability: "blocked" },
+      { telegram_user_id: "10002", contactability: "reachable" },
+    ]);
+    expect(
+      await db
+        .selectFrom("communication_contacts")
+        .select(["marketing_enabled", "unavailable_since"])
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ marketing_enabled: true, unavailable_since: clock.now() });
+    await receive(c);
+    await provider().processCategory("subscription");
+    expect(sends).toHaveLength(1);
+  });
   it("429 records not_sent, defers the shared bot, then uses a new correlated attempt and permit", async () => {
     const c = command();
     await linked(c);
