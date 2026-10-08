@@ -1,5 +1,4 @@
-// deterministic-test-allow unit-io: Local gateway shell contract; suite separation is tracked in #1154.
-import { spawnSync } from "node:child_process";
+import { runOwnedCommandSync } from "../support/owned-command.js";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -798,7 +797,7 @@ describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
 describe("install-deploy-access.sh", () => {
   it("installs the gateway behind one sudoers rule and a forced-command key", () => {
     const key = path.join(root, "deploy");
-    const generated = spawnSync(
+    const generated = runOwnedCommandSync(
       "ssh-keygen",
       ["-q", "-t", "ed25519", "-N", "", "-C", "coordinator", "-f", key],
       { encoding: "utf8" },
@@ -806,7 +805,7 @@ describe("install-deploy-access.sh", () => {
     expectSuccess(generated);
     const keyBody = readFileSync(`${key}.pub`, "utf8").split(" ")[1];
 
-    const result = spawnSync("bash", [installerPath, `${key}.pub`], {
+    const result = runOwnedCommandSync("bash", [installerPath, `${key}.pub`], {
       encoding: "utf8",
       env: { ...process.env, INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host` },
     });
@@ -843,7 +842,7 @@ describe("install-deploy-access.sh", () => {
     const key = path.join(root, "deploy.pub");
     writeFileSync(key, "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ bad\n");
 
-    const result = spawnSync("bash", [installerPath, key], {
+    const result = runOwnedCommandSync("bash", [installerPath, key], {
       encoding: "utf8",
       env: { ...process.env, INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host` },
     });
@@ -951,7 +950,7 @@ function publishRelease(
 function tarGzip(directory: string, entries: string[]): Buffer {
   // A file target avoids bsdtar padding a gzip stream written to stdout.
   const archive = `${directory}.tar.gz`;
-  const result = spawnSync(
+  const result = runOwnedCommandSync(
     "tar",
     ["-C", directory, "-czf", archive, ...entries],
     { encoding: "utf8", env: { ...process.env, COPYFILE_DISABLE: "1" } },
@@ -992,7 +991,7 @@ function runWithInput(
   input: Buffer,
   environment: Record<string, string> = {},
 ) {
-  return spawnSync("bash", [gatewayPath], {
+  return runOwnedCommandSync("bash", [gatewayPath], {
     input,
     encoding: "utf8",
     env: {
@@ -1007,8 +1006,8 @@ function runWithInput(
   });
 }
 
-function expectSuccess(result: ReturnType<typeof spawnSync>): void {
-  expect(result.status, String(result.stderr)).toBe(0);
+function expectSuccess(result: ReturnType<typeof runOwnedCommandSync>): void {
+  expect(result.status, result.stderr).toBe(0);
 }
 
 function stateFile(): string {

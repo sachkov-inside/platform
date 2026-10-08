@@ -158,7 +158,7 @@ function run(path) {
   return spawnSync(
     process.execPath,
     ["scripts/release-contract.mjs", "manifest", "--input", path],
-    { encoding: "utf8" },
+    { timeout: 30_000, encoding: "utf8" },
   );
 }
 

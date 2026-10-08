@@ -1,5 +1,4 @@
-// deterministic-test-allow unit-io: Local delivery shell contract; suite separation is tracked in #1154.
-import { spawnSync } from "node:child_process";
+import { runOwnedCommandSync } from "../support/owned-command.js";
 
 import { describe, expect, it } from "vitest";
 
@@ -22,15 +21,19 @@ const planInput = {
 };
 
 function plan(input: unknown) {
-  return spawnSync(process.execPath, ["scripts/release-contract.mjs", "plan"], {
-    input: JSON.stringify(input),
-    encoding: "utf8",
-  });
+  return runOwnedCommandSync(
+    process.execPath,
+    ["scripts/release-contract.mjs", "plan"],
+    {
+      input: JSON.stringify(input),
+      encoding: "utf8",
+    },
+  );
 }
 
 describe("Telegram delivery across the repository transition", () => {
   it("preserves the exact legacy v5 migration identity and 31 files", () => {
-    const result = spawnSync(
+    const result = runOwnedCommandSync(
       process.execPath,
       ["scripts/release-contract.mjs", "migrations-identity"],
       { encoding: "utf8" },

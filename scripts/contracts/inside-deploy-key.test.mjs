@@ -27,7 +27,7 @@ describe("restricted production deployment key", () => {
       const generated = spawnSync(
         "ssh-keygen",
         ["-q", "-t", "ed25519", "-N", "", "-f", privateKey],
-        { encoding: "utf8" },
+        { timeout: 30_000, encoding: "utf8" },
       );
       assert.equal(generated.status, 0, generated.stderr);
 
@@ -97,6 +97,7 @@ function runInstaller(root, publicKey) {
     "bash",
     ["infra/production/host/configure-deploy-key.sh", publicKey],
     {
+      timeout: 30_000,
       encoding: "utf8",
       env: { ...process.env, INSIDE_DEPLOY_TEST_ROOT: root },
     },
