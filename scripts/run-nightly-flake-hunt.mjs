@@ -69,7 +69,9 @@ function rootNodeCommands(script) {
   ];
   if (source === undefined)
     throw new Error(`Missing root test script: ${script}`);
-  return source.split(" && ").map((command, index) => {
+  // CI runs the native launcher directly; only this known local admission prefix is removed.
+  const launcher = source.replace(/^bash scripts\/heavy-check\.sh /u, "");
+  return launcher.split(" && ").map((command, index) => {
     const [executable, ...tokens] = command.split(/\s+/u);
     if (
       executable !== "node" ||

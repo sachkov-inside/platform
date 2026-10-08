@@ -64,6 +64,9 @@ test("unit samples use workspace package test scripts and the root native launch
       commands.some((command) => command.name === name),
       `Missing ${name}`,
     );
+  const tooling = commands.find((command) => command.name === "tooling");
+  assert.ok(tooling?.args.includes("--test-concurrency=2"));
+  assert.ok(tooling?.args.some((arg) => arg.endsWith("heavy-check-lock.test.mjs")));
   assert.ok(
     commands
       .filter((command) => command.engine === "vitest")
