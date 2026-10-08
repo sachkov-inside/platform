@@ -36,7 +36,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
       title: "Synthetic c lesson",
       summary: "Урок перед заданием",
       stage: "published",
-      topicId: null,
+      topicId: "synthetic-task-c",
       access: "free",
       showInFeed: false,
       difficulty: null,
