@@ -52,6 +52,7 @@ import {
   type MaterialId,
 } from "../../src/modules/materials/index.js";
 import { Notifications } from "../../src/modules/notifications/index.js";
+import { resultSchema } from "../../src/modules/notifications/domain/notification-wire.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
@@ -126,6 +127,7 @@ describe("приёмка обоих источников Notifications (реал
   let stand: ProviderStand;
   let worker: ReturnType<typeof assembleNotificationPipeline>;
   let application: Notifications;
+  let pendingRetryResult: Promise<void> | undefined;
   const sent: { subject: string; text: string; email: string }[] = [];
   let beforePublication: Notifications;
 
@@ -324,7 +326,19 @@ describe("приёмка обоих источников Notifications (реал
         prefetch: 4,
         quarantineCapacity: 200,
       },
-      transport: application.transport,
+      transport: {
+        ...application.transport,
+        accept: async (envelope) => {
+          if (
+            pendingRetryResult !== undefined &&
+            envelope.lane === "telegramResult" &&
+            resultSchema.parse(JSON.parse(envelope.payload)).state ===
+              "retrying"
+          )
+            await pendingRetryResult;
+          return application.transport.accept(envelope);
+        },
+      },
       prisma: platform.prisma,
       processInbox: () =>
         application.sweep((message) => {
@@ -884,6 +898,11 @@ describe("приёмка обоих источников Notifications (реал
       benefits: ["materials"],
       priceKopecks: 100_000,
     });
+    let releaseRetryResult!: () => void;
+    // Результат sent может зафиксироваться раньше retrying: закрепляем этот порядок без паузы.
+    pendingRetryResult = new Promise<void>((resolve) => {
+      releaseRetryResult = resolve;
+    });
     stand.policy((command, attempt) =>
       command.binding.accountRef === principalOf(limited) && attempt === 1
         ? { state: "retrying", reason: "rate_limited", retryAfterMs: 1_000 }
@@ -917,20 +936,31 @@ describe("приёмка обоих источников Notifications (реал
       expect(new Set(attempts.map((attempt) => attempt.attemptRef)).size).toBe(
         2,
       );
+      // sent фиксирует текущий результат, но не завершает обработку предыдущей попытки.
+      expect(
+        await platform.prisma.notificationResult.count({
+          where: { deliveryId: telegram.id },
+        }),
+      ).toBe(1);
+      releaseRetryResult();
       // Обе попытки объявлены отдельными результатами; отложенная не выдана за отправку.
-      const results = await platform.prisma.notificationResult.findMany({
-        where: { deliveryId: telegram.id },
-        orderBy: { revision: "asc" },
-      });
-      expect(results).toHaveLength(2);
-      expect(JSON.parse(results[0]?.payload ?? "{}")).toMatchObject({
-        state: "retrying",
-        reason: "rate_limited",
-      });
-      expect(JSON.parse(results[1]?.payload ?? "{}")).toMatchObject({
-        state: "sent",
-      });
+      await eventually(async () => {
+        const results = await platform.prisma.notificationResult.findMany({
+          where: { deliveryId: telegram.id },
+          orderBy: { revision: "asc" },
+        });
+        expect(results).toHaveLength(2);
+        expect(JSON.parse(results[0]?.payload ?? "{}")).toMatchObject({
+          state: "retrying",
+          reason: "rate_limited",
+        });
+        expect(JSON.parse(results[1]?.payload ?? "{}")).toMatchObject({
+          state: "sent",
+        });
+      }, barrierBudgetMs);
     } finally {
+      releaseRetryResult();
+      pendingRetryResult = undefined;
       stand.policy(() => ({ state: "sent" }));
     }
   }, 240_000);
