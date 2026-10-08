@@ -71,6 +71,9 @@ export function MaterialReaderView({
 }: MaterialReaderViewProps) {
   const anchors = materialSourceAnchors(body);
   const outline = collectOutline(body, [], anchors);
+  const sourceIds = new Set(anchors.values());
+  let outcomesHeadingId = "material-outcomes-heading";
+  while (sourceIds.has(outcomesHeadingId)) outcomesHeadingId += "-metadata";
 
   return (
     <div
@@ -83,7 +86,10 @@ export function MaterialReaderView({
         target={returnTarget}
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          <MaterialReaderHeader material={material} />
+          <MaterialReaderHeader
+            material={material}
+            outcomesHeadingId={outcomesHeadingId}
+          />
           {modeSwitch}
           {primaryVideo === null ? null : (
             <MaterialPrimaryVideo
@@ -184,8 +190,10 @@ export function SeriesReaderNavigation({
 
 export function MaterialReaderHeader({
   material,
+  outcomesHeadingId = "material-outcomes-heading",
 }: {
   readonly material: MaterialReaderMetadata;
+  readonly outcomesHeadingId?: string;
 }) {
   const publicationDate = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -228,13 +236,13 @@ export function MaterialReaderHeader({
       )}
       {material.outcomes.length === 0 ? null : (
         <section
-          aria-labelledby="material-outcomes-heading"
+          aria-labelledby={outcomesHeadingId}
           className="mt-5 rounded-xl border border-border bg-muted/40 px-5 py-4"
           data-material-outcomes
         >
           <h2
             className="text-sm font-semibold text-foreground"
-            id="material-outcomes-heading"
+            id={outcomesHeadingId}
           >
             Чему научишься
           </h2>

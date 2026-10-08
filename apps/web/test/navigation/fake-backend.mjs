@@ -235,6 +235,64 @@ function body(lesson, entitled) {
   };
 }
 
+/** @param {boolean} source @returns {import("@inside/material-blocks").RenderedMaterialBody} */
+function anchorBody(source) {
+  /** @type {import("@inside/material-blocks").RenderedBlock[]} */
+  const destination = [
+    ...Array.from({ length: 16 }, () =>
+      anchorParagraph("Текст до раздела. ".repeat(15)),
+    ),
+    {
+      kind: "heading",
+      level: 2,
+      content: [
+        {
+          kind: "text",
+          text: "Как спроектировать один этап?",
+          marks: [{ kind: "code" }],
+        },
+      ],
+    },
+    ...Array.from({ length: 16 }, () =>
+      anchorParagraph("Текст после раздела. ".repeat(15)),
+    ),
+  ];
+  const target = source ? "/materials/navigation-anchor-target" : "";
+  return {
+    schemaVersion: 1,
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "grill-with-docs",
+            marks: [
+              { kind: "link", href: `${target}#как-спроектировать-один-этап` },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Нет раздела",
+            marks: [{ kind: "link", href: `${target}#нет-раздела` }],
+          },
+        ],
+      },
+      ...(source ? [] : destination),
+    ],
+  };
+}
+
+/** @param {string} text @returns {import("@inside/material-blocks").RenderedBlock} */
+function anchorParagraph(text) {
+  return { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] };
+}
+
 /** @param {Lesson} lesson */
 function readerProjection(lesson) {
   const { availability: _availability, ...rest } = projection(lesson, false);
@@ -421,6 +479,30 @@ function route(method, url, entitled) {
     });
   }
   const material = /^\/materials\/([^/]+)$/u.exec(path);
+  if (
+    material !== null &&
+    (material[1] === "navigation-anchor-source" ||
+      material[1] === "navigation-anchor-target")
+  ) {
+    const template = lessons[0];
+    if (template === undefined) throw new Error("Missing Reader template");
+    const source = material[1] === "navigation-anchor-source";
+    return json({
+      kind: "available",
+      cacheScope: "public",
+      primaryVideo: null,
+      projection: readerProjection({
+        ...template,
+        slug: material[1],
+        materialId: source
+          ? "33333333-3333-4333-8333-333333333311"
+          : "33333333-3333-4333-8333-333333333312",
+        seriesMemberships: [],
+        title: source ? "Ссылки на раздел" : "Целевой материал",
+      }),
+      body: anchorBody(source),
+    });
+  }
   if (material !== null) {
     const lesson = lessons.find((candidate) => candidate.slug === material[1]);
     if (

@@ -49,6 +49,7 @@ function invalid(
 }
 
 function validateUrl(url: string): boolean {
+  if (url.startsWith("#")) return true;
   if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
     return true;
   }

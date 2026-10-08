@@ -1454,9 +1454,18 @@ export const SourceAnchors: Story = {
       name: "Как спроектировать один этап?",
     });
     await expect(heading).toHaveAttribute("id", "как-спроектировать-один-этап");
-    await userEvent.click(
-      canvas.getByRole("link", { name: "Перейти к разделу" }),
+    const link = canvas.getByRole("link", { name: "Перейти к разделу" });
+    // Vitest supplies a base URL; keep fragment navigation inside its tester iframe.
+    link.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        window.location.hash = link.getAttribute("href") ?? "";
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      },
+      { once: true },
     );
+    await userEvent.click(link);
     await waitFor(async () => {
       const y = heading.getBoundingClientRect().top;
       await expect(y).toBeGreaterThanOrEqual(0);
@@ -1467,4 +1476,44 @@ export const SourceAnchors: Story = {
 export const SourceAnchorsMobile: Story = {
   ...SourceAnchors,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const SourceAnchorMetadataCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          { kind: "text", text: "material-outcomes-heading", marks: [] },
+        ],
+      },
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "material-outcomes-heading-metadata",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        name: "material-outcomes-heading",
+      }),
+    ).toHaveAttribute("id", "material-outcomes-heading");
+    const ids = Array.from(canvasElement.querySelectorAll("[id]")).map(
+      (node) => node.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    await expect(
+      canvas.getByRole("region", { name: "Чему научишься" }),
+    ).toBeInTheDocument();
+  },
 };

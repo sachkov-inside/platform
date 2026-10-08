@@ -930,3 +930,34 @@ describe("MaterialBodyOperations", () => {
     });
   });
 });
+
+test.each(["#раздел", "#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1", "#"])(
+  "accepts same-page fragment %s and preserves it for the reader",
+  (href) => {
+    const accepted = materialBodyOperations.accept({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { nodeId: "92000000-0000-4000-8000-000000000001" },
+            content: [
+              {
+                type: "text",
+                text: "Раздел",
+                marks: [{ type: "link", attrs: { href } }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(accepted).toMatchObject({ ok: true });
+    if (!accepted.ok) throw new Error("Fragment rejected");
+    expect(materialBodyOperations.render(accepted.value)).toMatchObject({
+      ok: true,
+      value: { blocks: [{ content: [{ marks: [{ kind: "link", href }] }] }] },
+    });
+  },
+);
