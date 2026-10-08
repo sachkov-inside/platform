@@ -1,5 +1,5 @@
 import { Activity, useState, type ReactNode } from "react";
-import { expect, spyOn, userEvent, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 
 /** The real page stays mounted while React cleans up its effects. */
@@ -77,6 +77,7 @@ export async function autosaveWhileHidden(
   );
   try {
     await edit();
+    await waitFor(() => expect(timers.size).toBeGreaterThan(0));
     advanceAutosaveClock();
     await started.promise;
     if (editDuringSave) await editDuringSave();
