@@ -9,7 +9,7 @@ import sys
 import time
 
 OWNER = 'INSIDE_HEAVY_CHECK_OWNER'
-POLL_SECONDS = 0.1
+POLL_SECONDS = 0.25
 STOP_SECONDS = 5
 
 
@@ -34,36 +34,85 @@ def owner_alive(parents):
 
 
 def parents_alive(parents):
-    for parent in parents:
-        try:
-            os.kill(parent, 0)
-        except ProcessLookupError:
-            return False
-    return True
+    result = subprocess.run(
+        ['ps', '-o', 'pid=,stat=', '-p', ','.join(map(str, parents))],
+        capture_output=True, text=True, check=False,
+    )
+    live = set()
+    for line in result.stdout.splitlines():
+        pid, state = line.split()
+        # kill(pid, 0) still succeeds for a killed parent awaiting waitpid.
+        if 'Z' not in state:
+            live.add(int(pid))
+    return all(parent in live for parent in parents)
 
 
 def cancelled(read_fd, timeout=0):
     return bool(select.select([read_fd], [], [], timeout)[0])
 
 
-def stop_group(process):
-    # Stop descendants even when the command itself already exited.
-    try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    deadline = time.monotonic() + STOP_SECONDS
-    while time.monotonic() < deadline:
-        process.poll()
+def process_snapshot():
+    result = subprocess.run(
+        ['ps', '-axo', 'pid=,ppid=,pgid=,stat=,lstart='],
+        capture_output=True, text=True, check=True,
+    )
+    snapshot = {}
+    for line in result.stdout.splitlines():
+        pid, parent, group, state, started = line.split(maxsplit=4)
+        snapshot[int(pid)] = (int(parent), int(group), state, started)
+    return snapshot
+
+
+def track_descendants(process, tracked):
+    snapshot = process_snapshot()
+    # Start time prevents signalling an unrelated process if a saved PID is reused.
+    live = {
+        pid for pid, started in tracked.items()
+        if pid in snapshot and snapshot[pid][3] == started
+    }
+    if not tracked and process.poll() is None:
+        live.add(process.pid)
+    while True:
+        descendants = {
+            pid for pid, (parent, _group, _state, _started) in snapshot.items()
+            if parent in live
+        }
+        if descendants <= live:
+            break
+        live.update(descendants)
+    for pid in live:
+        if pid in snapshot:
+            tracked[pid] = snapshot[pid][3]
+    return {
+        snapshot[pid][1] for pid in live
+        if pid in snapshot and 'Z' not in snapshot[pid][2]
+    }
+
+
+def signal_groups(groups, signum):
+    for group in groups:
         try:
-            os.killpg(process.pid, 0)
+            os.killpg(group, signum)
         except ProcessLookupError:
-            return
-        time.sleep(POLL_SECONDS)
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+            pass
+
+
+def stop_groups(process, tracked):
+    groups = track_descendants(process, tracked)
+    signal_groups(groups, signal.SIGTERM)
+    deadline = time.monotonic() + STOP_SECONDS
+    signalled = set(groups)
+    while groups:
+        process.poll()
+        groups = track_descendants(process, tracked)
+        if time.monotonic() >= deadline:
+            signal_groups(groups, signal.SIGKILL)
+        else:
+            # Signal each group once, so graceful shutdown handlers can finish.
+            signal_groups(groups - signalled, signal.SIGTERM)
+            signalled.update(groups)
+        if groups:
+            time.sleep(POLL_SECONDS)
     process.wait()
 
 
@@ -80,6 +129,7 @@ def supervise(read_fd, command, parents):
     directory.mkdir(parents=True, exist_ok=True)
     slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
     process = None
+    tracked = {}
     try:
         waiting = False
         while not cancelled(read_fd) and parents_alive(parents):
@@ -95,6 +145,7 @@ def supervise(read_fd, command, parents):
                     preexec_fn=command_signals,
                 )
                 while process.poll() is None:
+                    track_descendants(process, tracked)
                     if cancelled(read_fd, POLL_SECONDS) or not parents_alive(parents):
                         return 143
                 returncode = process.returncode
@@ -106,7 +157,7 @@ def supervise(read_fd, command, parents):
         return 143
     finally:
         if process is not None:
-            stop_group(process)
+            stop_groups(process, tracked)
         for slot in slots:
             slot.close()
         os.close(read_fd)

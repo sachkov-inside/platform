@@ -110,12 +110,13 @@ Do not remove them while checks run: the kernel owns their locks, and empty file
 occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
 keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
 
-Nested commands reuse their ancestor's slot. The supervisor closes the slot after the command
-exits and its process group is stopped. On interruption, including SIGKILL of the wrapper or a
-launching ancestor such as `pnpm`, it stops that group before releasing the slot. SIGTERM has a
+Nested commands reuse their ancestor's slot. The supervisor tracks descendant process groups while the command runs. It closes the slot after
+the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
+launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
 five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
-leave a stale kernel lock. Commands that create a separate session/process group remain responsible
-for their own cleanup; the supervisor cannot stop those detached descendants.
+leave a stale kernel lock. Tracking includes detached groups observed during the run. A custom command that detaches a
+child and exits before observation must manage that child itself. Use foreground commands for
+heavy checks.
 
 Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
 project. Playwright's default suite sets two workers; the other suites inherit or set one.
@@ -176,7 +177,7 @@ never touches the shared stand volumes. It uses the same ports, so stop the stan
 (
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
   docker compose up --detach --build --wait
-  bash scripts/compose-stack-smoke.sh
+  pnpm compose:smoke
   docker compose down --volumes
 )
 ```

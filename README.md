@@ -117,7 +117,7 @@ volumes and the local ports; stop the shared stand first.
 (
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
   docker compose up --detach --build --wait
-  bash scripts/compose-stack-smoke.sh
+  pnpm compose:smoke
   docker compose down --volumes
 )
 ```

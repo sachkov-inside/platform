@@ -39,6 +39,20 @@ class LockTest(unittest.TestCase):
         process.stdin.close()
         process.stdout.close()
 
+    @staticmethod
+    def kill_process(pid):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+    def assert_stopped(self, pid):
+        state = subprocess.run(
+            ['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True,
+            text=True, check=False,
+        ).stdout.strip()
+        self.assertTrue(not state or 'Z' in state, f'{pid} is still running: {state}')
+
     def line(self, process, expected):
         line = b''
         with selectors.DefaultSelector() as selector:
@@ -66,34 +80,53 @@ class LockTest(unittest.TestCase):
         third = self.start(cwd=second_cwd)
         self.line(third, 'waiting')
         first.kill()
-        first.wait(timeout=10)
+        # Do not reap the killed caller until admission has advanced.
         self.line(third, 'acquired')
         self.line(third, 'READY')
-        with self.assertRaises(ProcessLookupError):
-            os.kill(pid, 0)
+        first.wait(timeout=10)
+        self.assert_stopped(pid)
 
-    def test_killing_pnpm_parent_stops_orphan_command(self):
-        cwd = Path(self.directory.name) / 'pnpm-worktree'
+    def pnpm_worktree(self, name):
+        cwd = Path(self.directory.name) / name
         cwd.mkdir()
         command = shlex.join(['bash', str(WRAPPER), sys.executable, '-c', FIXTURE])
         (cwd / 'package.json').write_text(json.dumps({'scripts': {'check': command}}))
-        first = self.start(cwd=cwd, launcher=['pnpm', 'check'])
-        while True:
-            line = self.line(first, '')
-            if 'acquired' in line:
-                break
+        process = self.start(cwd=cwd, launcher=['pnpm', 'check'])
+        while 'acquired' not in self.line(process, ''):
+            pass
+        return process
+
+    def test_two_pnpm_worktrees_and_killing_pnpm_parent(self):
+        first = self.pnpm_worktree('pnpm-worktree-a')
         pid = int(self.line(first, 'READY').split()[-1])
+        second = self.pnpm_worktree('pnpm-worktree-b')
+        self.line(second, 'READY')
+        third = self.start()
+        self.line(third, 'waiting')
+        first.kill()
+        # Do not reap the killed caller until admission has advanced.
+        self.line(third, 'acquired')
+        self.line(third, 'READY')
+        first.wait(timeout=10)
+        self.assert_stopped(pid)
+
+    def test_detached_sigterm_resistant_descendant_stops_before_slot_release(self):
+        fixture = WRAPPER.parent / 'fixtures/heavy-check/detached.mjs'
+        first = self.start(['node', str(fixture)])
+        self.line(first, 'acquired')
+        self.line(first, 'READY')
+        pid = int(self.line(first, 'DETACHED').split()[-1])
+        self.addCleanup(self.kill_process, pid)
         second = self.start()
         self.line(second, 'acquired')
         self.line(second, 'READY')
         third = self.start()
         self.line(third, 'waiting')
         first.kill()
-        first.wait(timeout=10)
         self.line(third, 'acquired')
         self.line(third, 'READY')
-        with self.assertRaises(ProcessLookupError):
-            os.kill(pid, 0)
+        first.wait(timeout=10)
+        self.assert_stopped(pid)
 
     def holders(self):
         holders = []
@@ -140,8 +173,7 @@ class LockTest(unittest.TestCase):
         pid = int(self.line(process, 'READY').split()[-1])
         process.send_signal(signal.SIGINT)
         self.assertEqual(process.wait(timeout=10), 130)
-        with self.assertRaises(ProcessLookupError):
-            os.kill(pid, 0)
+        self.assert_stopped(pid)
         self.holders()
 
 
