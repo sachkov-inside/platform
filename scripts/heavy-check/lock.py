@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-from processes import adopt_orphans, process_row, process_snapshot
+from processes import adopt_orphans, process_row, process_snapshot, darwin_group_exited
 
 OWNER = 'INSIDE_HEAVY_CHECK_OWNER'
 WAIT_SECONDS = 2
@@ -144,12 +144,9 @@ def signal_groups(groups, signum):
             pass
         except PermissionError:
             # Darwin returns EPERM for an extant group with only unreaped zombies.
-            # Exit can race the caller's census. Suppress only a now-empty live group;
-            # permission failures with any surviving member must still fail cleanup.
-            if sys.platform != 'darwin' or any(
-                row[1] == group and 'Z' not in row[2]
-                for row in process_snapshot().values()
-            ):
+            # Exit can race the caller's census. Prove native exit for every member;
+            # missing BSD info alone cannot distinguish zombies from restricted live PIDs.
+            if sys.platform != 'darwin' or not darwin_group_exited(group):
                 raise
 
 

@@ -1,6 +1,7 @@
 """Read macOS/Linux process identity and ancestry without spawning ps."""
 import ctypes
 import os
+import select
 from pathlib import Path
 import sys
 
@@ -25,6 +26,9 @@ if LIBPROC is not None:
     LIBPROC.proc_pidinfo.restype = ctypes.c_int
     LIBPROC.proc_listallpids.argtypes = [ctypes.c_void_p, ctypes.c_int]
     LIBPROC.proc_listallpids.restype = ctypes.c_int
+    LIBPROC.proc_listpids.argtypes = [ctypes.c_uint32, ctypes.c_uint32,
+                                    ctypes.c_void_p, ctypes.c_int]
+    LIBPROC.proc_listpids.restype = ctypes.c_int
 
 
 def process_row(pid):
@@ -42,6 +46,42 @@ def process_row(pid):
         return int(fields[1]), int(fields[2]), fields[0], int(fields[19])
     except (FileNotFoundError, ProcessLookupError):
         return None
+
+
+def darwin_group_exited(group):
+    """Prove every listed group member exited, including unreadable BSD info."""
+    # PROC_PGRP_ONLY includes zombies and other UIDs without proc_pidinfo access.
+    capacity = LIBPROC.proc_listpids(2, group, None, 0) // ctypes.sizeof(ctypes.c_int) + 64
+    while True:
+        buffer = (ctypes.c_int * capacity)()
+        ctypes.set_errno(0)
+        size = LIBPROC.proc_listpids(2, group, buffer, ctypes.sizeof(buffer))
+        if size < 0 or (size == 0 and ctypes.get_errno()):
+            raise OSError(ctypes.get_errno(), 'proc_listpids group')
+        count = size // ctypes.sizeof(ctypes.c_int)
+        if count < capacity:
+            members = list(buffer[:count])
+            break
+        capacity *= 2
+    queue = select.kqueue()
+    try:
+        for pid in members:
+            try:
+                events = queue.control([select.kevent(
+                    pid, filter=select.KQ_FILTER_PROC,
+                    flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
+                    fflags=select.KQ_NOTE_EXIT,
+                )], 1, 0)
+            except ProcessLookupError:
+                continue
+            except PermissionError:
+                return False  # An unreadable live member is not proof of exit.
+            if not any(event.ident == pid and event.fflags & select.KQ_NOTE_EXIT
+                       for event in events):
+                return False
+    finally:
+        queue.close()
+    return True
 
 
 def process_snapshot():

@@ -346,6 +346,25 @@ class Ownership(unittest.TestCase):
                 os.killpg(process.pid, signal.SIGKILL)
             process.communicate(timeout=5)
 
+    def test_cleanup_does_not_hide_live_group_missing_from_census(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            # proc_pidinfo may omit a live member when its UID denies inspection.
+            with patch('lock.process_snapshot', return_value={}):
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
     def test_native_node_test_runner_sigkill(self):
         self.native_runner(signal.SIGKILL)
 
