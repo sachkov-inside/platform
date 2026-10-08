@@ -1,5 +1,5 @@
 import type { RenderedBlock } from "@inside/material-blocks";
-import { expect } from "storybook/test";
+import { expect, within } from "storybook/test";
 
 function paragraph(text: string): RenderedBlock {
   return { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] };
@@ -39,7 +39,28 @@ export async function expectNumberedLists(canvas: HTMLElement): Promise<void> {
   await expect(lists[0]?.children).toHaveLength(2);
   await expect(lists[1]?.children).toHaveLength(2);
   await expect(lists[0]?.children[1]).toHaveTextContent("Sixth");
-  const bullet = canvas.querySelector("ul");
+  const content = within(canvas);
+  const firstItem = content.getByText("Fifth", { exact: true }).closest("li");
+  const nested = content
+    .getByText("Nested eighth", { exact: true })
+    .closest("ol");
+  await expect(nested?.parentElement).toBe(firstItem);
+  for (const text of [
+    "Fifth",
+    "Sixth",
+    "Nested eighth",
+    "Nested ninth",
+    "First",
+    "Second",
+    "Bullet",
+  ]) {
+    const paragraph = content.getByText(text, { exact: true });
+    await expect(paragraph).toBeVisible();
+    const item = paragraph.closest("li");
+    if (item === null) throw new Error(`Missing list item: ${text}`);
+    await expect(getComputedStyle(item).display).toBe("list-item");
+  }
+  const bullet = content.getByText("Bullet", { exact: true }).closest("ul");
   await expect(bullet).not.toBeNull();
   await expect(bullet).not.toHaveAttribute("start");
 }
