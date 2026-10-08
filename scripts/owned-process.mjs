@@ -94,8 +94,13 @@ export async function stopOwned(child, graceMilliseconds = 5000) {
     throw new RangeError("Process stop grace must be finite and nonnegative");
   /** @type {Promise<void>} */
   const finished = new Promise((resolve) => {
-    child.once("exit", () => resolve());
-    child.once("error", () => resolve());
+    // AbortError can precede cleanup; only actual supervisor exit settles the stop.
+    const ignoreError = () => {};
+    child.on("error", ignoreError);
+    child.once("exit", () => {
+      child.off("error", ignoreError);
+      resolve();
+    });
   });
   stops.set(child, finished);
   control.end(`${String(graceMilliseconds)}\n`);

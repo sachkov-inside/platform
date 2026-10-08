@@ -56,8 +56,8 @@ setInterval(()=>{{}},1000);
 """
 
 
-def read_ready(process):
-    deadline = time.monotonic() + 5
+def read_ready(process, budget_seconds=5):
+    deadline = time.monotonic() + budget_seconds
     line = b''
     with selectors.DefaultSelector() as selector:
         selector.register(process.stdout, selectors.EVENT_READ)
@@ -144,6 +144,48 @@ class Ownership(unittest.TestCase):
 
     def test_explicit_stop_is_idempotent(self):
         self.exercise('stop')
+
+    def test_abort_during_stop_waits_for_supervisor(self):
+        source = f"""
+        import {{spawnOwned,stopOwned}} from {json.dumps(API)};
+        const controller=new AbortController();
+        const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+          {{signal:controller.signal,stdio:['ignore','pipe','inherit']}});
+        const errors=[];
+        child.on('error',error=>errors.push(error.code));
+        child.stdout.once('data',async data=>{{
+          console.log(data.toString().trim(),child.pid);
+          const stopping=stopOwned(child,1000);
+          controller.abort();
+          await stopping;
+          console.log('READY',child.exitCode??-1,errors.length);
+        }});
+        """
+        process = subprocess.Popen(['node', '--input-type=module', '-e', source],
+                                   cwd=ROOT, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        pids = []
+        try:
+            pids = read_ready(process)
+            # This barrier follows stopOwned resolution, before waiting for the owner's exit.
+            status, errors = read_ready(process, budget_seconds=12)
+            self.assertEqual(status, 143, 'stop resolved before actual supervisor exit')
+            self.assertEqual(errors, 1, 'the abort must emit its error during active stop')
+            for pid in pids:
+                row = process_row(pid)
+                self.assertTrue(row is None or row[2] == 'Z',
+                                f'owned process {pid} survived stop resolution: {row}')
+            _stdout, stderr = process.communicate(timeout=12)
+            self.assertEqual(process.returncode, 0, stderr.decode())
+        finally:
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
 
     def test_normal_owner_exit(self):
         self.exercise('exit')
