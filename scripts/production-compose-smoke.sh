@@ -82,6 +82,8 @@ cleanup() {
   trap - EXIT
 
   if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir" "${application_compose[@]}" || true
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir/foundation" "${foundation_compose[@]}" || true
     "${application_compose[@]}" ps --all >"$artifact_dir/compose-ps.txt" 2>&1 || true
     "${application_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/compose.log" 2>&1 || true
     "${foundation_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/foundation.log" 2>&1 || true
