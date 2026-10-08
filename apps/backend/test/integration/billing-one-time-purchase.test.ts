@@ -350,6 +350,32 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     };
   }
 
+  test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
+    const s = await scenario();
+    const command = await s.command();
+    const original = value(await s.runtime.purchase(s.buyer, command));
+    expect(original.state).toBe("pending");
+    now = new Date("2030-01-31T10:30:00Z");
+    const change = await contact.start(s.buyer, {
+      operationId: randomUUID(),
+      email: `${s.buyer}-updated@example.test`,
+      expectedRevision: 1,
+    });
+    if (!change.ok) throw new Error(change.error.code);
+    expect(
+      await contact.confirm(s.buyer, {
+        operationId: randomUUID(),
+        challengeRef: change.challengeRef,
+        code: codes.get(change.challengeRef),
+      }),
+    ).toMatchObject({ ok: true });
+    expect(value(await s.runtime.purchase(s.buyer, command))).toEqual(original);
+    expect(
+      await s.runtime.purchase(s.buyer, { ...command, contactRevision: 2 }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(s.requests()).toHaveLength(1);
+  });
+
   test("разовая оплата состава продукта открывает только оплаченный продукт", async () => {
     const s = await scenario({ scopedMaterials: true });
     await s.buy();
