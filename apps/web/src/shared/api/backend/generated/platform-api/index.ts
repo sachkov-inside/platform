@@ -10,6 +10,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { RecursiveSchema0schema0 } from './models/RecursiveSchema0schema0';
 export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
+export type { RecursiveSchema2schema0 } from './models/RecursiveSchema2schema0';
 
 export { AccountsService } from './services/AccountsService';
 export { BillingService } from './services/BillingService';
@@ -18,9 +19,6 @@ export { CommunicationsService } from './services/CommunicationsService';
 export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
-export { GuideArtifactsService } from './services/GuideArtifactsService';
-export { GuideTaskAuthoringService } from './services/GuideTaskAuthoringService';
-export { GuideTasksService } from './services/GuideTasksService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
@@ -29,6 +27,10 @@ export { MemberProfilesService } from './services/MemberProfilesService';
 export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
+export { ProductArtifactsService } from './services/ProductArtifactsService';
+export { ProductTaskAssetsService } from './services/ProductTaskAssetsService';
+export { ProductTaskAuthoringService } from './services/ProductTaskAuthoringService';
+export { ProductTasksService } from './services/ProductTasksService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { ReadingActivityService } from './services/ReadingActivityService';
 export { SalesFunnelService } from './services/SalesFunnelService';

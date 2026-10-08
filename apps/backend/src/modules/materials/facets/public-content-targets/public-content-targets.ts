@@ -32,14 +32,14 @@ export class PublicContentTargets {
               : "eligible",
       };
     }
-    const series = await this.prisma.guide.findUnique({
+    const series = await this.prisma.product.findUnique({
       where: { slug: target.slug },
       select: { id: true, archivedAt: true },
     });
     if (!series) return { targetId: null, reason: "not_found" };
     if (series.archivedAt)
       return { targetId: series.id, reason: "not_published" };
-    const membership = await this.prisma.guideMembership.findMany({
+    const membership = await this.prisma.productMembership.findMany({
       where: { seriesId: series.id },
       select: { materialId: true },
     });

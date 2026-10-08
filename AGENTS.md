@@ -31,14 +31,9 @@ and the Compose smoke below are the checks before a release.
 The primary development stack requires Docker with Compose; host Node.js and pnpm are an optional
 fallback and use the versions pinned in `.node-version` and `packageManager`.
 
-```bash
-(
-  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
-  docker compose up --detach --build --wait
-  bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
-```
+Run Compose smoke through the [guarded recipe](docs/runbooks/local-development.md#start-from-a-fresh-clone)
+so build, smoke and shutdown hold one shared local slot. This verification needs host Python 3
+and Bash; it does not need host Node.js or pnpm.
 
 The smoke runs in its own disposable Compose project on the same ports, so the shared
 `inside-platform` stand must be stopped first; the stand keeps the owner's product data (see the
@@ -53,7 +48,7 @@ Before an agent runs repository Compose commands from any worktree, it must read
 
 - The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
   symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
-  review, readiness, or merge. `Owner gates` there lists what needs the owner's approval.
+  review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
 - Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 
 ## Human communication

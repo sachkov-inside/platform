@@ -1,0 +1,87 @@
+import { z } from "zod";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
+import { problemDetailsSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  accountId,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
+import {
+  anonymousSubject,
+  type Subject,
+} from "../../../content-access/index.js";
+import type { TaskDefinition } from "../../domain/task-definition.js";
+import type { SystemError } from "../../shared/result.js";
+
+export const learnerTaskUnavailableProblemSchema = problemDetailsSchema(503, [
+  "dependency_unavailable",
+]);
+export const learnerTaskFailureProblemSchema = problemDetailsSchema(500, [
+  "internal_error",
+]);
+
+/** The Content Access subject of a learner request, anonymous without an Account proof. */
+export function learnerSubject(
+  account: AuthenticatedAccount | undefined,
+): Subject {
+  return account === undefined
+    ? anonymousSubject
+    : { kind: "account", accountId: accountId(account.accountId) };
+}
+
+/** The Problem Details of a dependency failure on a learner task request. */
+export function throwSystemError(error: SystemError, title: string): never {
+  if (error.code === "dependency_unavailable")
+    throw problemException(
+      503,
+      error.code,
+      `${title}: dependency unavailable`,
+      {
+        retryable: true,
+      },
+    );
+  throw problemException(500, error.code, `${title} failed`, {
+    correlationId: error.correlationId,
+  });
+}
+
+const criterionV1HttpSchema = z
+  .object({
+    id: z.string(),
+    level: z.enum(["required", "additional"]),
+    requirement: z.string(),
+    acceptableEvidence: z.array(z.string()),
+  })
+  .strict();
+
+const criterionV2HttpSchema = z
+  .object({
+    id: z.string(),
+    level: z.enum(["required", "additional"]),
+    task: z.string(),
+    explanation: z.string(),
+    advice: z.string().optional(),
+  })
+  .strict();
+export const criterionHttpSchema = z.union([
+  criterionV1HttpSchema,
+  criterionV2HttpSchema,
+]);
+
+/** One criterion as a learner response names it, field by field. */
+export function criterionHttp(criterion: TaskDefinition["criteria"][number]) {
+  if ("task" in criterion)
+    return {
+      id: criterion.id,
+      level: criterion.level,
+      task: criterion.task,
+      explanation: criterion.explanation,
+      ...(criterion.advice === undefined ? {} : { advice: criterion.advice }),
+    };
+  return {
+    id: criterion.id,
+    level: criterion.level,
+    requirement: criterion.requirement,
+    acceptableEvidence: [...criterion.acceptableEvidence],
+  };
+}

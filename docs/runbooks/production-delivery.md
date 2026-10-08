@@ -192,8 +192,9 @@ Docker переходит на `interval`, поэтому не готовый п
 `scripts/production-runtime-contract.test.mjs`.
 
 Две неудачные проверки подряд у `api`, `mcp` и воркеров уже дают `unhealthy`: например, когда
-PostgreSQL дважды не ответил с промежутком 30 секунд. Сигналам об отказах из #245 нужно учесть
-эту чувствительность.
+PostgreSQL дважды не ответил с промежутком 30 секунд. Поэтому
+[сторож production](production-monitoring.md) сообщает об `unhealthy` только после двух своих запусков
+подряд.
 
 Docker отмечает контейнер как `unhealthy`, когда проверка устойчиво не проходит. Это отметка
 состояния: `restart: unless-stopped` относится к завершению основного процесса и сама по себе
@@ -403,12 +404,12 @@ readiness. A before/after database digest
 proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash
-node --test \
-  scripts/deployment-workflow-contract.test.mjs \
-  scripts/inside-deploy-gateway.test.mjs \
-  scripts/production-deployment.test.mjs \
-  scripts/production-runtime-bundle.test.mjs \
-  scripts/release-rollback-proof.test.mjs
+bash scripts/heavy-check.sh node --test \
+  scripts/contracts/deployment-workflow-contract.test.mjs \
+  scripts/contracts/inside-deploy-gateway.test.mjs \
+  scripts/contracts/production-deployment.test.mjs \
+  scripts/contracts/production-runtime-bundle.test.mjs \
+  scripts/contracts/release-rollback-proof.test.mjs
 pnpm compose:production:smoke
 ```
 

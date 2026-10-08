@@ -1,21 +1,113 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type CDPSession,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
-test("Home exposes one client-owned feed and preserves the reader return", async ({
+const readerStartupScriptCpuBudgetMs = 200;
+
+test("keeps reader startup JavaScript within its CPU budget", async ({
+  page,
+}, testInfo) => {
+  const session = await page.context().newCDPSession(page);
+  try {
+    // Thread CPU time excludes network waits and time when the renderer is not scheduled.
+    // This is a fresh browser context, a production build and native CPU speed (no throttling).
+    await session.send("Performance.enable", { timeDomain: "threadTicks" });
+    const before = await readScriptCpuSeconds(session);
+    const [authStatusResponse, response] = await Promise.all([
+      page.waitForResponse(
+        (response) => new URL(response.url()).pathname === "/auth/status",
+      ),
+      page.goto("/materials/kak-ustroen-inside-platform", {
+        waitUntil: "commit",
+      }),
+    ]);
+    expect(response?.status()).toBe(200);
+    // Observe the same browser-rendered readiness fact as the INP test, without triggering input.
+    await page.waitForFunction(() =>
+      document.querySelector(
+        '[data-material-reader-state="available"] [data-reading-action-state="anonymous"]',
+      ),
+    );
+    const scriptCpuMs =
+      ((await readScriptCpuSeconds(session)) - before) * 1_000;
+    expect(authStatusResponse.status()).toBe(200);
+    const authStatus: unknown = await authStatusResponse.json();
+    expect(authStatus).toMatchObject({ state: "guest", accountId: null });
+    const measurement = JSON.stringify({
+      scriptCpuMs,
+      budgetMs: readerStartupScriptCpuBudgetMs,
+      timeDomain: "threadTicks",
+      cpuThrottlingRate: 1,
+      project: testInfo.project.name,
+    });
+    console.info(`Reader startup JavaScript CPU: ${measurement}`);
+    await testInfo.attach("reader-startup-cpu", {
+      body: measurement,
+      contentType: "application/json",
+    });
+    expect(
+      scriptCpuMs,
+      "startup must record actual JavaScript execution",
+    ).toBeGreaterThan(0);
+    expect(
+      scriptCpuMs,
+      "reader startup JavaScript CPU time in milliseconds",
+    ).toBeLessThanOrEqual(readerStartupScriptCpuBudgetMs);
+  } finally {
+    await session.detach();
+  }
+});
+
+async function readScriptCpuSeconds(session: CDPSession): Promise<number> {
+  const result: unknown = await session.send("Performance.getMetrics");
+  const { metrics } = z
+    .object({
+      metrics: z.array(
+        z.object({ name: z.string(), value: z.number().nonnegative() }),
+      ),
+    })
+    .parse(result);
+  return z
+    .number()
+    .nonnegative()
+    .parse(metrics.find(({ name }) => name === "ScriptDuration")?.value);
+}
+
+test("Home filters public products and preserves the reader return", async ({
   page,
   request,
 }, testInfo) => {
   const document = await request.get("/");
   expect(document.status()).toBe(200);
   expect(await document.text()).toContain("Материалы");
-  await page.goto("/?format=guide");
+  await page.goto("/");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   await expect(feed.getByRole("article").first()).toBeVisible();
+  const productResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/home/materials" &&
+      url.searchParams.get("q") === null &&
+      url.searchParams.get("format") === "guide" &&
+      response.status() === 200
+    );
+  });
+  await page.getByRole("button", { name: "Гайды", exact: true }).click();
+  await productResponse;
+  await expect(feed.getByRole("article").first()).toBeVisible();
+  await expect(
+    feed.getByRole("article").filter({ hasNot: page.getByText(/^Гайд ·/u) }),
+  ).toHaveCount(0);
   await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(
     0,
   );
@@ -102,7 +194,8 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
-      response.url().includes("/api/home/materials?") &&
+      response.url().includes("/api/library/materials?") &&
+      response.url().includes("q=developer+pipeline") &&
       response.url().includes("format=guide") &&
       response.status() === 200,
   );
@@ -111,6 +204,20 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   await page.keyboard.press("Space");
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
   await filteredResponse;
+  await expect(
+    page.getByRole("status").filter({ hasText: "Материалов: 1" }),
+  ).toHaveText("Материалов: 1");
+  const articles = page
+    .getByRole("region", { name: "Материалы", exact: true })
+    .getByRole("article");
+  await expect(articles).toHaveCount(1);
+  await expect(articles.first()).toContainText("Гайд ·");
+  await expect(
+    articles.first().getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    }),
+  ).toBeVisible();
   expect(documentRequestCount).toBe(documentsBeforeFilter);
   expect(new URL(page.url()).searchParams.getAll("format")).toEqual(["guide"]);
   const sharedUrl = page.url();
@@ -281,7 +388,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
-  // после гидрации действия чтения; оглавление стоит в той же границе Suspense.
+  // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
   await expect(
     page.getByRole("main").locator("[data-reading-action-state]"),
     "действие чтения гидрировано и получило ответ /auth/status",
@@ -551,13 +658,13 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(
     page.getByRole("heading", { name: "Продукты", level: 1 }),
   ).toBeVisible();
-  const platformGuide = page.getByRole("link", {
+  const platformProduct = page.getByRole("link", {
     name: /^Создание Platform Inside \d+ материал/u,
   });
-  await expect(platformGuide).toBeVisible();
-  await expect(platformGuide).toHaveAttribute(
+  await expect(platformProduct).toBeVisible();
+  await expect(platformProduct).toHaveAttribute(
     "href",
-    /^\/authoring\/guides\//u,
+    /^\/authoring\/products\//u,
   );
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
@@ -651,7 +758,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
   await expect(page).toHaveURL(/\/products\/platform-inside\/programme/u);
-  await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
+  await expect(page.locator("[data-product-programme]:visible")).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").nth(1),

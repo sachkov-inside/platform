@@ -17,7 +17,7 @@ export const salesFunnelReportSchema = z.strictObject({
     from: z.iso.datetime({ offset: true }),
     to: z.iso.datetime({ offset: true }),
   }),
-  guides: z.array(
+  products: z.array(
     z.strictObject({
       id: z.uuid(),
       name: z.string(),
@@ -25,7 +25,7 @@ export const salesFunnelReportSchema = z.strictObject({
     }),
   ),
   selection: z
-    .strictObject({ guideId: z.uuid(), chapterId: z.uuid().nullable() })
+    .strictObject({ productId: z.uuid(), chapterId: z.uuid().nullable() })
     .nullable(),
   lastBotEventReceivedAt: z.iso.datetime({ offset: true }).nullable(),
   rows: z.array(
@@ -73,8 +73,8 @@ export interface SalesFunnelReportView {
   /** Даты периода включительно, по московскому времени, в виде `YYYY-MM-DD`. */
   readonly from: string;
   readonly to: string;
-  readonly guides: SalesFunnelReport["guides"];
-  readonly guideId: string | null;
+  readonly products: SalesFunnelReport["products"];
+  readonly productId: string | null;
   readonly chapterId: string | null;
   readonly chapterName: string | null;
   readonly generatedAt: string;
@@ -222,17 +222,17 @@ export function presentSalesFunnelReport(
     readonly corrected: boolean;
   },
 ): SalesFunnelReportView {
-  const guide = report.guides.find(
-    (item) => item.id === report.selection?.guideId,
+  const product = report.products.find(
+    (item) => item.id === report.selection?.productId,
   );
-  const chapter = guide?.chapters.find(
+  const chapter = product?.chapters.find(
     (item) => item.id === report.selection?.chapterId,
   );
   return {
     from: period.from,
     to: period.to,
-    guides: report.guides,
-    guideId: guide?.id ?? null,
+    products: report.products,
+    productId: product?.id ?? null,
     chapterId: chapter?.id ?? null,
     chapterName: chapter?.name ?? null,
     generatedAt: moscowDateTime.format(new Date(report.generatedAt)),

@@ -13,7 +13,8 @@ export async function waitPastAccessTokenExpiry(
   page: Page,
   signedInAt: number,
 ): Promise<void> {
+  // deterministic-test-allow duration-wait: Logto owns the external token clock; the next step verifies token refresh.
   await page.waitForTimeout(
-    Math.max(0, accessTokenExpiredAt(signedInAt) - Date.now()),
+    Math.max(0, accessTokenExpiredAt(signedInAt) - performance.now()),
   );
 }

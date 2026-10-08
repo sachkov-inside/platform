@@ -1,9 +1,18 @@
-import { act } from "react";
+import { act, Profiler } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  fn,
+  mocked,
+  spyOn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 
 import {
   authoringMaterialsRootHref,
+  authoringProductEditorHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import {
@@ -29,6 +38,12 @@ import {
 } from "./material-authoring.fixtures";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
+import { MaterialMetadataPanel } from "@/widgets/material-authoring/ui/material-metadata-panel.client";
+import { MaterialAuthoringHeader } from "@/widgets/material-authoring/ui/material-authoring-chrome.client";
+import { ContentCoverEditor } from "@/features/content-covers";
+import { MaterialVideoAuthoring } from "@/features/material-video";
+
+const typingProfile = fn<(duration: number) => void>();
 const editorPath = `/authoring/materials/${materialId}`;
 const environment = authoringPageEnvironment(editorPath);
 
@@ -106,6 +121,25 @@ export const Editing: Story = {
     await expect(
       canvas.getByRole("button", { name: "Предпросмотр" }),
     ).toBeEnabled();
+  },
+};
+
+/** Материал открыт из предпросмотра продукта: возврат ведёт в редактор продукта (#837). */
+export const FromProductEditor: Story = {
+  args: {
+    returnHref: authoringProductEditorHref(
+      "95000000-0000-4000-8000-000000000010",
+    ),
+  },
+  name: "Открыт из редактора продукта",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Вернуться к продукту" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Вернуться к материалам" }),
+    ).toBeNull();
   },
 };
 
@@ -315,9 +349,9 @@ const publishedPresentation = {
 } as const;
 
 const removalRequired = {
-  guides: [
+  products: [
     {
-      guideId: materialAuthoringPresentation.draft.seriesIds[0],
+      productId: materialAuthoringPresentation.draft.seriesIds[0],
       holders: 12,
       name: "Создание Platform Inside",
     },
@@ -339,7 +373,7 @@ export const Published: Story = {
 };
 
 /** Снятие с публикации уберёт материал из купленного продукта: сервер просит подтверждения. */
-export const GuideRemovalConfirmation: Story = {
+export const ProductRemovalConfirmation: Story = {
   name: "Подтверждение снятия из купленного продукта",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({
@@ -364,13 +398,13 @@ export const GuideRemovalConfirmation: Story = {
     await expect(
       (await canvas.findAllByText("Снят с публикации")).length,
     ).toBeGreaterThan(0);
-    await expect(savedField("confirmedGuideRemovals")).toBe(
-      removalRequired.guides[0].guideId,
+    await expect(savedField("confirmedProductRemovals")).toBe(
+      removalRequired.products[0].productId,
     );
   },
 };
 
-export const GuideRemovalCancelled: Story = {
+export const ProductRemovalCancelled: Story = {
   name: "Снятие из купленного продукта отменено",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({ PUT: removalRequired }),
@@ -609,10 +643,13 @@ export const LessonBlocksEditing: Story = {
         ),
       ).toBeVisible();
 
-      const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
+      // Фокус и DOM блока уже готовы; панель ещё следует за выбором редактора через React.
+      const tip = await canvas.findByRole("button", {
+        name: "Вид врезки: Совет",
+      });
       await expect(tip).toHaveAttribute("aria-pressed", "true");
       await userEvent.click(
-        canvas.getByRole("button", { name: "Вид врезки: Важно" }),
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       );
       const warning = blockNode(
         'aside[data-callout="warning"]',
@@ -701,8 +738,14 @@ export const LessonBlocksEditing: Story = {
         "Тело врезки не найдено: панель блока не к чему вернуть",
       );
       await userEvent.click(callout);
+      // Завершаем симуляцию выбора синхронно: обвязка клика могла уже восстановить старый курсор.
+      const document = canvasElement.ownerDocument;
+      const selection = document.getSelection();
+      if (selection === null) throw new Error("Выбор текста недоступен");
+      selection.collapse(callout, 0);
+      document.dispatchEvent(new Event("selectionchange"));
       await expect(
-        canvas.getByRole("button", { name: "Вид врезки: Важно" }),
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
       ).toHaveAttribute("aria-pressed", "true");
       await expect(canvas.getByLabelText("Название врезки")).toHaveValue(
         "Не забудьте",
@@ -711,6 +754,57 @@ export const LessonBlocksEditing: Story = {
     } finally {
       errors.mockRestore();
     }
+  },
+};
+
+/** Возврат во врезку не зависит от нативного события и восстановления старого DOM-выбора (#1191). */
+export const LessonBlocksEditingDelayedSelection: Story = {
+  ...LessonBlocksEditing,
+  name: "Редактор · блоки урока, отложенный выбор",
+  beforeEach: ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    let previousSelection: Range | null = null;
+    const isCalloutReturn = (event: MouseEvent) => {
+      const callout = canvasElement.querySelector(
+        "aside[data-callout] [data-callout-body] p",
+      );
+      return (
+        event.target instanceof Node &&
+        callout?.contains(event.target) === true &&
+        canvasElement.querySelector(
+          '[data-material-block-form="labeledList"]',
+        ) !== null
+      );
+    };
+    const rememberSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event)) return;
+      const selection = document.getSelection();
+      previousSelection =
+        selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null;
+    };
+    const restoreSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event) || previousSelection === null) return;
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(previousSelection);
+    };
+    const delayNativeSelection = (event: Event) => {
+      if (event.isTrusted) event.stopImmediatePropagation();
+    };
+    document.addEventListener("selectionchange", delayNativeSelection, true);
+    document.addEventListener("mousedown", rememberSelection, true);
+    document.addEventListener("mouseup", restoreSelection);
+    return () => {
+      document.removeEventListener(
+        "selectionchange",
+        delayNativeSelection,
+        true,
+      );
+      document.removeEventListener("mousedown", rememberSelection, true);
+      document.removeEventListener("mouseup", restoreSelection);
+    };
   },
 };
 
@@ -1045,3 +1139,96 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+/** Real page and real children; spies count renders without replacing their implementations. */
+export const WorkspaceTyping: Story = {
+  name: "Редактор · набор документа не перерисовывает соседние панели",
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  decorators: [
+    (Story) => (
+      <Profiler
+        id="material-page"
+        onRender={(_id, _phase, duration) => {
+          typingProfile(duration);
+        }}
+      >
+        <Story />
+      </Profiler>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const paragraph = canvasElement.querySelector(".ProseMirror > p");
+    if (!(paragraph instanceof HTMLElement))
+      throw new Error("No editable paragraph");
+    await userEvent.click(paragraph);
+    const parts = [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialVideoAuthoring,
+      MaterialAuthoringHeader,
+    ];
+    for (const part of parts) {
+      await expect(mocked(part)).toHaveBeenCalled();
+      mocked(part).mockClear();
+    }
+    await userEvent.keyboard(" и");
+    await expect(
+      (await canvas.findAllByText("Не сохранено")).length,
+    ).toBeGreaterThan(0);
+    for (const part of parts.slice(0, 3))
+      await expect(
+        mocked(part),
+        "First document edit rerendered an unrelated panel",
+      ).not.toHaveBeenCalled();
+    await expect(mocked(MaterialAuthoringHeader)).toHaveBeenCalledTimes(1);
+    mocked(MaterialAuthoringHeader).mockClear();
+    typingProfile.mockClear();
+    const text = " текст документа без лишних рендеров";
+    const start = performance.now();
+    await userEvent.keyboard(text);
+    const elapsed = performance.now() - start;
+    const react = typingProfile.mock.calls.reduce(
+      (sum, [duration]) => sum + duration,
+      0,
+    );
+    console.info(
+      "[646-typing]",
+      JSON.stringify({
+        characters: text.length,
+        millisecondsPerCharacter: elapsed / text.length,
+        reactMilliseconds: react,
+        commits: typingProfile.mock.calls.length,
+        renders: parts.map((part) => mocked(part).mock.calls.length),
+      }),
+    );
+    await expect(paragraph).toHaveTextContent(text.trim());
+    for (const part of parts)
+      await expect(
+        mocked(part),
+        "Typing rerendered a part unrelated to the document",
+      ).not.toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("document")).toContain(text.trim());
+    // Positive control: metadata changes still reach every dependent part and the next save.
+    const title = canvas.getByLabelText("Название");
+    await userEvent.type(title, "!", { delay: null });
+    await expect(
+      canvas.getByRole("heading", { name: "Developer Pipeline без магии!" }),
+    ).toBeVisible();
+    for (const part of [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialAuthoringHeader,
+    ])
+      await expect(mocked(part)).toHaveBeenCalled();
+    await expect(mocked(MaterialVideoAuthoring)).not.toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("title")).toBe("Developer Pipeline без магии!");
+    await expect(savedField("document")).toContain(text.trim());
+  },
+};

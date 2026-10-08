@@ -4,7 +4,6 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import type { WorkshopMaterialAccessState } from "./content-access.dependencies.js";
 
 import type {
   AccessAction,
@@ -15,15 +14,15 @@ import type {
   AvailabilityBatchResult,
   ContentAccess,
   DenyReason,
-  GuideAccess,
-  GuideAccessRequest,
+  ProductAccess,
+  ProductAccessRequest,
   Resource,
   Subject,
 } from "./content-access.interface.js";
 import type {
   ContentAccessDependencies,
-  GuideArtifactResourceFacts,
-  GuideTaskResourceFacts,
+  ProductArtifactResourceFacts,
+  ProductTaskResourceFacts,
   MaterialResourceFacts,
   MembershipAccessState,
 } from "./content-access.dependencies.js";
@@ -38,15 +37,16 @@ interface SubjectFacts {
 interface ResolvedResourceFacts {
   readonly access: MaterialResourceFacts["access"];
   readonly contentVersion: number;
-  readonly guideIds?: readonly string[];
-  /** Absent for resources that no Material owns, such as a Guide Artifact. */
+  readonly productIds?: readonly string[];
+  readonly archivedOnly?: boolean;
+  /** Absent for resources that no Material owns, such as a Product Artifact. */
   readonly materialId?: MaterialResourceFacts["materialId"];
   readonly publicationState: MaterialResourceFacts["publicationState"];
   readonly resourceKey: string;
   readonly resourceKind:
     | "file_asset"
-    | "guide_artifact"
-    | "guide_task"
+    | "product_artifact"
+    | "product_task"
     | "image_asset"
     | "material"
     | "video";
@@ -96,7 +96,6 @@ export function assembleContentAccess(
         input.operations.some(
           (operation) =>
             resourceKey(operation.resource) === key &&
-            !isWorkshopDelivery(facts, operation.action) &&
             needsSubjectFacts(facts, operation.action),
         ),
       );
@@ -112,34 +111,40 @@ export function assembleContentAccess(
         );
         for (const [key] of requiredResources)
           subjectFactsByResource.set(key, permission);
-        const protectedResources = requiredResources.filter(
-          ([, facts]) => facts.access === "membership",
+        const membershipResources = requiredResources.filter(
+          ([key, facts]) =>
+            (facts.archivedOnly === true ||
+              permission?.permission === "denied") &&
+            input.operations.some(
+              (operation) =>
+                resourceKey(operation.resource) === key &&
+                needsMembership(facts, operation.action),
+            ),
         );
         if (
-          permission?.permission === "denied" &&
           input.subject.kind === "account" &&
-          protectedResources.length > 0
+          membershipResources.length > 0
         ) {
           const accountId = input.subject.accountId;
           let memberships: readonly MembershipAccessState[];
-          const resources = protectedResources.map(([, facts]) => ({
-            guideIds: facts.guideIds ?? [],
-            materialId: facts.materialId,
+          const resources = membershipResources.map(([, facts]) => ({
+            productIds: facts.productIds ?? [],
+            materialId:
+              facts.archivedOnly === true ? undefined : facts.materialId,
           }));
           try {
             memberships =
-              dependencies.membershipEntitlements.resolveManyForAccess ===
-              undefined
+              dependencies.accountRights.resolveManyForAccess === undefined
                 ? await Promise.all(
                     resources.map((resource) =>
-                      dependencies.membershipEntitlements.resolveForAccess(
+                      dependencies.accountRights.resolveForAccess(
                         accountId,
-                        resource.guideIds,
+                        resource.productIds,
                         resource.materialId,
                       ),
                     ),
                   )
-                : await dependencies.membershipEntitlements.resolveManyForAccess(
+                : await dependencies.accountRights.resolveManyForAccess(
                     accountId,
                     resources,
                   );
@@ -150,25 +155,14 @@ export function assembleContentAccess(
             );
             memberships = [];
           }
-          protectedResources.forEach(([key], index) =>
+          membershipResources.forEach(([key], index) =>
             subjectFactsByResource.set(key, {
-              permission: "denied",
+              permission: permission?.permission ?? "unavailable",
               membership: memberships[index] ?? { kind: "unavailable" },
             }),
           );
         }
       }
-      const workshopAccessByMaterial = await resolveWorkshopAccessMany(
-        dependencies,
-        input.subject,
-        input.operations.flatMap(({ action, resource }) => {
-          const facts = resourcesByKey.get(resourceKey(resource));
-          return facts?.materialId !== undefined &&
-            isWorkshopDelivery(facts, action)
-            ? [facts.materialId]
-            : [];
-        }),
-      );
 
       return {
         ok: true,
@@ -179,9 +173,6 @@ export function assembleContentAccess(
             action,
             input.subject,
             subjectFactsByResource.get(resourceKey(resource)),
-            workshopAccessByMaterial.get(
-              resourcesByKey.get(resourceKey(resource))?.materialId ?? "",
-            ),
           ),
         })),
       };
@@ -211,62 +202,13 @@ export function assembleContentAccess(
           : decision(reason ?? "resource_action_invalid");
       }
 
-      let workshopAccess: WorkshopMaterialAccessState | undefined;
-      if (isWorkshopDelivery(facts, input.action)) {
-        const workshopMaterialId = facts.materialId;
-        if (input.subject.kind === "account") {
-          if (
-            dependencies.workshopMaterialAccess === undefined ||
-            workshopMaterialId === undefined
-          ) {
-            return decision("dependency_unavailable");
-          }
-          try {
-            workshopAccess = await dependencies.workshopMaterialAccess.resolve(
-              input.subject.accountId,
-              workshopMaterialId,
-            );
-          } catch (error) {
-            return dependencyFailure(
-              { module: "content-access", operation: "authorize" },
-              error,
-              decision("dependency_unavailable"),
-            );
-          }
-        }
-        const reason = evaluate(
-          facts,
-          input.action,
-          input.subject,
-          undefined,
-          workshopAccess,
-        );
-        if (
-          reason === "active_workshop" &&
-          workshopAccess?.availability === "available"
-        ) {
-          return {
-            ...metadata(),
-            effect: "allow",
-            reason,
-            validUntil: workshopAccess.validUntil,
-            checkedContentVersion: facts.contentVersion,
-          };
-        }
-        return reason === "active_membership" ||
-          reason === "active_workshop" ||
-          reason === "materials_manager" ||
-          reason === "public_resource"
-          ? decision("dependency_unavailable")
-          : decision(reason);
-      }
-
       const subjectFacts = await resolveSubjectFacts(
         dependencies,
         input.subject,
         needsMembership(facts, input.action),
-        facts.guideIds,
-        facts.materialId,
+        facts.productIds,
+        facts.archivedOnly === true ? undefined : facts.materialId,
+        input.action !== "preview" && facts.archivedOnly === true,
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
       if (reason === "public_resource" || reason === "materials_manager") {
@@ -284,27 +226,25 @@ export function assembleContentAccess(
           checkedContentVersion: facts.contentVersion,
         };
       }
-      return reason === "active_workshop"
-        ? decision("dependency_unavailable")
-        : decision(reason);
+      return decision(reason);
     },
 
     // Разрешение автора здесь не читается: оно открывает материалы для работы, а не продукт
     // читателю, и не должно прятать от автора покупку.
-    async checkGuideAccess({
+    async checkProductAccess({
       subject,
-      guideId,
-    }: GuideAccessRequest): Promise<GuideAccess> {
+      productId,
+    }: ProductAccessRequest): Promise<ProductAccess> {
       if (subject.kind === "anonymous") return { kind: "closed" };
       let membership: MembershipAccessState;
       try {
-        membership = await dependencies.membershipEntitlements.resolveForAccess(
+        membership = await dependencies.accountRights.resolveForAccess(
           subject.accountId,
-          [guideId],
+          [productId],
         );
       } catch (error) {
         return dependencyFailure(
-          { module: "content-access", operation: "checkGuideAccess" },
+          { module: "content-access", operation: "checkProductAccess" },
           error,
           { kind: "unavailable" },
         );
@@ -346,17 +286,20 @@ async function resolveSubjectFacts(
   dependencies: ContentAccessDependencies,
   subject: Subject,
   includeMembership: boolean,
-  guideIds: readonly string[] = [],
+  productIds: readonly string[] = [],
   materialId?: string,
+  readerOnly = false,
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
   }
   let managesMaterials: boolean;
   try {
-    managesMaterials = await dependencies.accountPermissions.hasMaterialsManage(
-      subject.accountId,
-    );
+    managesMaterials =
+      !readerOnly &&
+      (await dependencies.accountPermissions.hasMaterialsManage(
+        subject.accountId,
+      ));
   } catch (error) {
     return dependencyFailure(
       { module: "content-access", operation: "resolveSubjectFacts" },
@@ -373,9 +316,9 @@ async function resolveSubjectFacts(
   try {
     return {
       permission: "denied",
-      membership: await dependencies.membershipEntitlements.resolveForAccess(
+      membership: await dependencies.accountRights.resolveForAccess(
         subject.accountId,
-        guideIds,
+        productIds,
         materialId,
       ),
     };
@@ -405,7 +348,7 @@ function needsMembership(
   return (
     (action === "read" || action === "download" || action === "play") &&
     facts.publicationState === "published" &&
-    facts.access === "membership"
+    (facts.access === "closed" || facts.archivedOnly === true)
   );
 }
 
@@ -414,31 +357,27 @@ function projectAvailability(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-  workshopAccess: WorkshopMaterialAccessState | undefined,
 ): AccessAvailability["availability"] {
   if (facts === undefined) return "unavailable";
   if (facts.publicationState !== "published") {
-    // Only its author still opens an unpublished Guide Task; for everyone else it does not exist.
-    return facts.resourceKind === "guide_task" &&
+    // Only its author still opens an unpublished Product Task; for everyone else it does not exist.
+    return facts.resourceKind === "product_task" &&
       evaluate(facts, action, subject, subjectFacts) === "materials_manager"
       ? "available"
       : "unavailable";
   }
-  const reason = evaluate(facts, action, subject, subjectFacts, workshopAccess);
+  const reason = evaluate(facts, action, subject, subjectFacts);
   if (
     reason === "public_resource" ||
     reason === "materials_manager" ||
-    reason === "active_membership" ||
-    reason === "active_workshop"
+    reason === "active_membership"
   ) {
     return "available";
   }
-  if (reason === "resource_action_invalid") {
+  if (reason === "resource_action_invalid" || reason === "resource_not_found") {
     return "unavailable";
   }
-  if (reason === "workshop_material_locked") return "locked";
-  if (facts.access === "workshop") return "unavailable";
-  return facts.access === "membership" ? "locked" : "unavailable";
+  return facts.access === "closed" ? "locked" : "unavailable";
 }
 
 function evaluate(
@@ -446,30 +385,27 @@ function evaluate(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-  workshopAccess?: WorkshopMaterialAccessState,
-):
-  | DenyReason
-  | "public_resource"
-  | "materials_manager"
-  | "active_membership"
-  | "active_workshop" {
+): DenyReason | "public_resource" | "materials_manager" | "active_membership" {
   const resource = resourceReason(facts, action);
   if (resource !== undefined) {
     return resource;
   }
-  if (subject.kind === "anonymous") {
-    return "authentication_required";
-  }
-  if (isWorkshopDelivery(facts, action)) {
-    switch (workshopAccess?.availability) {
-      case "available":
-        return "active_workshop";
-      case "locked":
-        return "workshop_material_locked";
+  if (facts.archivedOnly === true && action !== "preview") {
+    if (subject.kind === "anonymous") return "resource_not_found";
+    switch (subjectFacts?.membership?.kind) {
+      case "active":
+        return "active_membership";
+      case "required":
+      case "expired":
+        return "resource_not_found";
+      case "stale":
       case "unavailable":
       case undefined:
-        return "workshop_access_required";
+        return "dependency_unavailable";
     }
+  }
+  if (subject.kind === "anonymous") {
+    return "authentication_required";
   }
   if (
     subjectFacts?.permission === "unavailable" ||
@@ -483,7 +419,7 @@ function evaluate(
   if (action === "preview") {
     return "permission_required";
   }
-  // A read of an unpublished resource reaches here only for a Guide Task, past its author.
+  // A read of an unpublished resource reaches here only for a Product Task, past its author.
   if (facts.publicationState !== "published") {
     return "resource_unpublished";
   }
@@ -502,52 +438,6 @@ function evaluate(
   }
 }
 
-function isWorkshopDelivery(
-  facts: ResolvedResourceFacts,
-  action: AccessAction,
-): boolean {
-  return (
-    facts.access === "workshop" &&
-    facts.materialId !== undefined &&
-    (action === "read" || action === "download" || action === "play")
-  );
-}
-
-async function resolveWorkshopAccessMany(
-  dependencies: ContentAccessDependencies,
-  subject: Subject,
-  materialIds: readonly MaterialResourceFacts["materialId"][],
-): Promise<ReadonlyMap<string, WorkshopMaterialAccessState>> {
-  if (
-    subject.kind === "anonymous" ||
-    materialIds.length === 0 ||
-    dependencies.workshopMaterialAccess === undefined
-  ) {
-    return new Map();
-  }
-  const uniqueIds = [...new Set(materialIds)];
-  const entries = await Promise.all(
-    uniqueIds.map(async (materialId) => {
-      try {
-        return [
-          materialId,
-          (await dependencies.workshopMaterialAccess?.resolve(
-            subject.accountId,
-            materialId,
-          )) ?? { availability: "unavailable" as const },
-        ] as const;
-      } catch (error) {
-        return dependencyFailure(
-          { module: "content-access", operation: "resolveWorkshopAccessMany" },
-          error,
-          [materialId, { availability: "unavailable" as const }] as const,
-        );
-      }
-    }),
-  );
-  return new Map(entries);
-}
-
 function resourceReason(
   facts: ResolvedResourceFacts,
   action: AccessAction,
@@ -557,8 +447,8 @@ function resourceReason(
     (facts.resourceKind === "material" && action === "read") ||
     (facts.resourceKind === "image_asset" && action === "read") ||
     (facts.resourceKind === "file_asset" && action === "download") ||
-    (facts.resourceKind === "guide_artifact" && action === "download") ||
-    (facts.resourceKind === "guide_task" && action === "read") ||
+    (facts.resourceKind === "product_artifact" && action === "download") ||
+    (facts.resourceKind === "product_task" && action === "read") ||
     (facts.resourceKind === "video" && action === "play");
   if (!validPair) {
     return "resource_action_invalid";
@@ -567,14 +457,15 @@ function resourceReason(
     (action === "read" || action === "download" || action === "play") &&
     facts.publicationState !== "published"
   ) {
-    // The author of an unpublished Guide Task still reads it, so the subject decides.
-    return facts.resourceKind === "guide_task"
+    // The author of an unpublished Product Task still reads it, so the subject decides.
+    return facts.resourceKind === "product_task"
       ? undefined
       : "resource_unpublished";
   }
   if (
     (action === "read" || action === "download" || action === "play") &&
-    facts.access === "free"
+    facts.access === "free" &&
+    facts.archivedOnly !== true
   ) {
     return "public_resource";
   }
@@ -615,18 +506,18 @@ async function resolveOneResourceFacts(
         : `video-mismatch:${video.videoId}`,
     );
   }
-  if (resource.kind === "guideArtifact") {
+  if (resource.kind === "productArtifact") {
     const artifact =
-      (await dependencies.guideArtifactResourceFacts?.findOne(
+      (await dependencies.productArtifactResourceFacts?.findOne(
         resource.artifactId,
       )) ?? null;
-    return artifact === null ? null : resolveGuideArtifactFacts(artifact);
+    return artifact === null ? null : resolveProductArtifactFacts(artifact);
   }
-  if (resource.kind === "guideTask") {
+  if (resource.kind === "productTask") {
     const task =
-      (await dependencies.guideTaskResourceFacts?.findOne(resource.taskId)) ??
+      (await dependencies.productTaskResourceFacts?.findOne(resource.taskId)) ??
       null;
-    return task === null ? null : resolveGuideTaskFacts(task);
+    return task === null ? null : resolveProductTaskFacts(task);
   }
   const asset =
     (await dependencies.assetResourceFacts?.findOne(resource.assetId)) ?? null;
@@ -660,14 +551,14 @@ async function resolveManyResourceFacts(
   const artifactIds = [
     ...new Set(
       resources.flatMap((resource) =>
-        resource.kind === "guideArtifact" ? [resource.artifactId] : [],
+        resource.kind === "productArtifact" ? [resource.artifactId] : [],
       ),
     ),
   ];
   const artifacts =
     artifactIds.length === 0
       ? []
-      : ((await dependencies.guideArtifactResourceFacts?.findMany(
+      : ((await dependencies.productArtifactResourceFacts?.findMany(
           artifactIds,
         )) ?? []);
   const artifactsById = new Map(
@@ -676,14 +567,15 @@ async function resolveManyResourceFacts(
   const taskIds = [
     ...new Set(
       resources.flatMap((resource) =>
-        resource.kind === "guideTask" ? [resource.taskId] : [],
+        resource.kind === "productTask" ? [resource.taskId] : [],
       ),
     ),
   ];
   const tasks =
     taskIds.length === 0
       ? []
-      : ((await dependencies.guideTaskResourceFacts?.findMany(taskIds)) ?? []);
+      : ((await dependencies.productTaskResourceFacts?.findMany(taskIds)) ??
+        []);
   const tasksById = new Map(tasks.map((facts) => [facts.taskId, facts]));
   const videoIds = [
     ...new Set(
@@ -705,7 +597,7 @@ async function resolveManyResourceFacts(
       ...videos.map(({ materialId }) => materialId),
     ]),
   ];
-  // A batch may now carry only Guide Artifacts, which no Material owns.
+  // A batch may now carry only Product Artifacts, which no Material owns.
   const materials =
     materialIds.length === 0
       ? []
@@ -755,17 +647,17 @@ async function resolveManyResourceFacts(
                 ],
               ];
         }
-        if (resource.kind === "guideArtifact") {
+        if (resource.kind === "productArtifact") {
           const artifact = artifactsById.get(resource.artifactId);
           return artifact === undefined
             ? []
-            : [[resourceKey(resource), resolveGuideArtifactFacts(artifact)]];
+            : [[resourceKey(resource), resolveProductArtifactFacts(artifact)]];
         }
-        if (resource.kind === "guideTask") {
+        if (resource.kind === "productTask") {
           const task = tasksById.get(resource.taskId);
           return task === undefined
             ? []
-            : [[resourceKey(resource), resolveGuideTaskFacts(task)]];
+            : [[resourceKey(resource), resolveProductTaskFacts(task)]];
         }
         const asset = assetsById.get(resource.assetId);
         const material =
@@ -795,38 +687,38 @@ function resolveMaterialFacts(
   return { ...material, resourceKey: resourceKeyValue, resourceKind };
 }
 
-function resolveGuideArtifactFacts(
-  artifact: GuideArtifactResourceFacts,
+function resolveProductArtifactFacts(
+  artifact: ProductArtifactResourceFacts,
 ): ResolvedResourceFacts {
   return {
     access: artifact.access,
     contentVersion: artifact.version,
-    guideIds: artifact.guideIds,
+    productIds: artifact.productIds,
     publicationState: artifact.archived ? "unpublished" : "published",
-    resourceKey: `guide-artifact:${artifact.artifactId}`,
-    resourceKind: "guide_artifact",
+    resourceKey: `product-artifact:${artifact.artifactId}`,
+    resourceKind: "product_artifact",
   };
 }
 
-function resolveGuideTaskFacts(
-  task: GuideTaskResourceFacts,
+function resolveProductTaskFacts(
+  task: ProductTaskResourceFacts,
 ): ResolvedResourceFacts {
   return {
     access: task.access,
     contentVersion: task.version,
-    guideIds: [task.guideId],
+    productIds: [task.productId],
     publicationState: task.published ? "published" : "unpublished",
-    resourceKey: `guide-task:${task.taskId}`,
-    resourceKind: "guide_task",
+    resourceKey: `product-task:${task.taskId}`,
+    resourceKind: "product_task",
   };
 }
 
 function resourceKey(resource: Resource): string {
   if (resource.kind === "material") return `material:${resource.materialId}`;
   if (resource.kind === "video") return `video:${resource.videoId}`;
-  if (resource.kind === "guideArtifact") {
-    return `guide-artifact:${resource.artifactId}`;
+  if (resource.kind === "productArtifact") {
+    return `product-artifact:${resource.artifactId}`;
   }
-  if (resource.kind === "guideTask") return `guide-task:${resource.taskId}`;
+  if (resource.kind === "productTask") return `product-task:${resource.taskId}`;
   return `asset:${resource.assetId}`;
 }

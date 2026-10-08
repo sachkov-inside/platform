@@ -16,12 +16,12 @@ export async function SalesFunnelReportPage({
   const params = await searchParams;
   const from = single(params["from"]);
   const to = single(params["to"]);
-  const guideId = single(params["guideId"]);
+  const productId = single(params["productId"]);
   const chapterId = single(params["chapterId"]);
   const outcome = await loadSalesFunnelReport({
     ...(from === undefined ? {} : { from }),
     ...(to === undefined ? {} : { to }),
-    ...(guideId === undefined ? {} : { guideId }),
+    ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
   });
   return outcome.kind === "ready" ? (

@@ -38,17 +38,18 @@ export function handleVideoPlaybackSessionRequest(
     async (formData, accessToken) => {
       const materialId = formData.get("materialId");
       const videoId = formData.get("videoId");
+      const preview = formData.get("preview");
       if (
         typeof materialId !== "string" ||
         typeof videoId !== "string" ||
         !idSchema.safeParse(materialId).success ||
-        !idSchema.safeParse(videoId).success
+        !idSchema.safeParse(videoId).success ||
+        (preview !== null && preview !== "true")
       ) {
         return Response.json({ code: "not_found" }, { status: 404 });
       }
       const result = await requestVideoPlayback(
-        materialId,
-        videoId,
+        { materialId, preview: preview === "true", videoId },
         accessToken,
       );
       if (!result.ok) {

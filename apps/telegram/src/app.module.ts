@@ -290,7 +290,7 @@ export class AppModule {
                   ? {
                       welcomeDetails: new HttpPlatformCohortAdapter(
                         applicationConfig.communityWelcomeCohort.url,
-                        applicationConfig.communityWelcomeCohort.guideId,
+                        applicationConfig.communityWelcomeCohort.productId,
                       ),
                     }
                   : {}),

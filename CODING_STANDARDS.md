@@ -5,7 +5,8 @@ This file routes repository-wide rules. Apply the standard nearest to the code b
 - Platform backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);
 - Telegram bot modules, Kysely persistence and provider contracts: the repository-wide rules below,
-  [application boundaries](apps/telegram/AGENTS.md) and its executable `guardrails` contract;
+  [application boundaries](apps/telegram/AGENTS.md), [testing standards](apps/telegram/CODING_STANDARDS.md)
+  and its executable `guardrails` contract;
 - Next.js, feature slices, transport adapters, server state, mutations, UI, and browser tests:
   [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md);
 - shared workspace packages under `packages/`: these repository-wide rules plus the backend
@@ -29,9 +30,8 @@ nearest `AGENTS.md` owns task routing and verification commands.
   for `packages/`, `tsconfig.nest-app.json` for the Nest applications, `tsconfig.next-app.json` for
   the web and `tsconfig.scripts.json` for repository `.mjs` scripts. Shared strictness changes only
   in the base; `scripts/toolchain-contract.test.mjs` fails a project that bypasses the base or
-  overrides it.
-  Where `isolatedDeclarations` in packages asks for an exported Zod schema's type, write its exact
-  Zod type, not a hand-written wire type.
+  overrides it. Where `isolatedDeclarations` in packages asks for an exported Zod schema's type,
+  write its exact Zod type, not a hand-written wire type.
 - Where `strict-boolean-expressions` (#694) rejects a text value, `hasText` and `presentText` keep
   its former truthiness (`null`, `undefined` and `""` are absent). They live in
   `apps/backend/src/infrastructure/contracts/text.ts` and `apps/web/src/shared/lib/text.ts`.
@@ -63,9 +63,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
-idle machine and fails at random on a loaded one. Review holds the rules below as a whole: a pause
-is the right instrument for proving that nothing happens, so a mechanical ban would reject correct
-tests.
+idle machine and fails at random on a loaded one. No executable check owns this rule as a whole,
+because a pause is the right instrument for proving that nothing happens, and a mechanical ban on
+pauses would reject correct tests; the ban on network-idle waits below has its own check.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -78,19 +78,82 @@ tests.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
-One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
-`viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
-`networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
-requests for links whose route it predicts, so no page-visible fact marks the end of the queue.
-Revisit it when Next.js exposes the queue or optimistic routing changes.
-`scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait in the application tests
-and browser scripts.
+Navigation tests wait for the completed RuntimeShell prefetch response of a compatible route shell, not the
+whole private Next.js queue (#1182). Route-tree responses and response headers alone do not prove
+the shell arrived. Optimistic routing can skip requests for other links that share that shell.
+The former `networkidle` exception (#758) is retired: unrelated unfinished requests can exhaust the
+test budget after the required shell has arrived. `scripts/quiet-window-waits.test.mjs` rejects
+`networkidle` waits in application tests and browser scripts.
 
 Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
 test turns the run red on its first attempt and is fixed, not retried until it passes.
 `scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
 
 The nearest standard names the helper for each surface.
+
+## Deterministic test contracts (#1153)
+
+- Test and suite names stay identical across independent runs (#1166). Use fixed values or stable
+  case labels when parameterized names interpolate data; random data may remain behind a stable
+  name. The deterministic guardrail rejects direct `randomUUID` calls (including named crypto
+  import aliases) and `Math.random` in `it`/`test`/`describe` title expressions and inline `each`
+  array tables in columns consumed by printf-style title placeholders. Referenced tables,
+  `$property` titles, wrappers, clocks and other indirect name dependencies require review; this
+  syntax check does not prove stable identity.
+- Domain tests do not depend on today's date or the machine's wall clock. Fix one instant per case
+  or inject virtual clocks; derive expirations, deadlines and "today" from that instant. Producers
+  and consumers share the same clock. Never extend a literal expiry to make a failing test pass.
+  Measure elapsed time and polling budgets with monotonic clocks. A fake-timer test registers and
+  restores its virtual clock; a real-clock adapter contract names the boundary it verifies.
+- Every test creates its own mutable data. A shared immutable template is copied before mutation;
+  per-test hooks may reset local double observations. A reused database fixture never lets one
+  test rely on rows, counters or provider state left by another test.
+- Build, compile, migrate and prepare a large corpus before the test case or measurement starts.
+  Keep a bounded setup hook and cleanup for its owned resources. A performance test measures the
+  operation it names, not the seed or cold compiler.
+- Unit tests use supplied doubles for git, network and process boundaries. A real subprocess or
+  owned loopback responder belongs to a named process/adapter contract, with an explicit budget
+  and cleanup; it never calls a live external provider.
+- Tests and diagnostics that start processes or artificial load own their complete process tree.
+  Register cleanup immediately after acquisition. Use an isolated process group, bounded shutdown
+  with forced termination, and `finally`/test cleanup hooks; shell commands use an `EXIT` trap and
+  signal traps. Preserve the original failure status. Terminating only the launcher is insufficient.
+  Verify that no owned process remains after success, failure, timeout and interruption. Test the
+  actual cleanup path, not only a mocked `kill` call. Uncatchable termination requires a supervising
+  process outside the killed group; a trap alone cannot handle `SIGKILL`.
+- `scripts/check-deterministic-tests.mjs` runs in `pnpm guardrails`. It scans JS/TS application
+  `test/` trees (including support helpers) and `*.test.*`/`*.spec.*` files across the repository,
+  plus root/application `scripts/` commands for process ownership, excluding dependency, fixture
+  and generated build directories. It rejects `waitForTimeout`,
+  `setTimeout` calls (including member calls), named timer-import aliases, and process/network
+  imports or `fetch` calls in `unit/`, `module/` and package test files.
+- Direct asynchronous `spawn`/`fork` calls (including named import aliases) require a matching
+  child cleanup in `finally` or a test cleanup hook. Delegated cleanup uses a local
+  `process-cleanup` reason naming its owner and verification; legacy migrations link #1154.
+  This is a syntax check: review proves the group covers descendants, cleanup is registered before
+  a failure can happen, its shutdown is bounded, and error/signal paths really execute it. Shell
+  traps and indirect process wrappers require behavioral verification and review.
+- In tests/support, direct global `new Date()` without arguments, `Date()`, `Date.now()` (including
+  global/member computed forms), and named `systemClock` imports require an adjacent `wall-clock`
+  reason. Fixed dates and injected clock reads are allowed. A reason names the registered virtual
+  clock, real-clock contract or deferred migration issue; it never excuses a calendar-dependent
+  assertion. Indirect clock wrappers, namespace/dynamic imports, aliases and expiry literals require
+  review: syntax cannot prove that production consumers and fixtures share the fixed time.
+- In test/spec files it also rejects direct writes and listed collection mutators on module-level
+  object/array literals in modules and plain `describe` callbacks (including exported declarations).
+  A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
+  must prove the reset is complete. Local shadowed bindings, module initialization and `beforeAll` arrangement are allowed.
+- A retained timer must explain its role: polling a fact, bounding failure, modeling latency,
+  measuring a performance window, or an external clock. Put
+  `// deterministic-test-allow duration-wait: <specific reason>` immediately before that call.
+  A local process/adapter contract in a historic unit directory uses `unit-io` before its import or
+  call. A cleanup registry or deferred scenario migration uses `shared-mutation` before its
+  declaration. An exception never disables a file; deferred violations link their issue (#1154).
+- Negative fixtures in `scripts/deterministic-tests.test.mjs` prove each syntax rule rejects a bad
+  test or diagnostic, and the CLI fixture proves a nonzero exit. These checks are not proof of determinism:
+  indirect wrappers/import effects, escaped objects, mutable class instances, database isolation,
+  process lifetime guarantees, complete resets, meaningful barriers and preparation cost require review. A syntactic ban
+  cannot identify which observed fact belongs to a step or what work dominates its budget.
 
 ## Live HTTP checks
 

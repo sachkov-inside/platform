@@ -19,7 +19,7 @@ export async function ContentCollectionsPage({
 }) {
   const accessToken = await sessionToken();
   const returnHref =
-    kind === "topic" ? "/authoring/topics" : "/authoring/guides";
+    kind === "topic" ? "/authoring/topics" : "/authoring/products";
   if (accessToken === undefined) return unauthorized(returnHref);
   const state = await getContentCollections(kind, accessToken);
   if (state.kind === "unauthorized") return unauthorized(returnHref);

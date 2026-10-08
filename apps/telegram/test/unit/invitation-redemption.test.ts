@@ -11,7 +11,7 @@ import {
 } from "../../src/modules/subscription-activation/activation-contract.js";
 import { activationMessage } from "../../src/modules/subscription-activation/activation-view.js";
 import { invitationAnswer } from "../../src/modules/subscription-activation/invitation-view.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { requestBody } from "../support/json.js";
 
@@ -21,7 +21,7 @@ function translate(text: string) {
     "inside",
     "1",
     prepareTelegramUpdateForInbox(privateStartUpdate(1, 42, { text })),
-    new Date(),
+    new Date("2026-01-01T00:00:00Z"),
   );
 }
 
@@ -63,7 +63,7 @@ describe("invitation start payload", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(forged),
-        new Date(),
+        new Date("2026-01-01T00:00:00Z"),
       ),
     ).not.toHaveProperty("value.invitationCode");
   });
@@ -128,28 +128,19 @@ describe("course activation refusal", () => {
 });
 
 describe("invitation answer", () => {
-  const gift = (endsAt: string | null) =>
-    invitationAnswer(
-      {
-        ok: true,
-        value: {
-          contractVersion: ACTIVATION_VERSION,
-          state: "already_redeemed",
-          mode: "gift",
-          offerName: "Подписка Inside",
-          enrollment: { id: "e", tier: { name: "Подписка Inside" }, endsAt },
-        },
+  it("leads a redeemed invitation to purchase", () => {
+    const answer = invitationAnswer({
+      ok: true,
+      value: {
+        contractVersion: ACTIVATION_VERSION,
+        state: "already_redeemed",
+        mode: "purchase",
+        offerName: "Подписка Inside",
+        checkoutUrl: "https://inside.example.test/subscription",
       },
-      new Date("2030-05-01T00:00:00Z"),
-    );
-  it("does not lead to the community after a gift has ended", () => {
-    const ended = gift("2030-04-01T00:00:00.000Z");
-    expect(ended.text).toContain("закончился");
-    expect(ended.text).toContain("Напишите автору");
-    expect(ended.buttons).toBeUndefined();
-    expect(gift(null).buttons).toEqual([
-      { text: "Вступить в сообщество", callbackData: "access:community" },
+    });
+    expect(answer.buttons).toEqual([
+      { text: "Оплатить", url: "https://inside.example.test/subscription" },
     ]);
-    expect(gift("2030-06-01T00:00:00.000Z").text).toContain("/community");
   });
 });

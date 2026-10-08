@@ -10,7 +10,25 @@ import { z } from "zod";
 /** Часть JSON-отчёта Playwright, которую читает проверка повтора. */
 const listReportSchema = z.object({
   config: z.object({
+    workers: z.number(),
     projects: z.array(z.object({ name: z.string(), retries: z.number() })),
+  }),
+});
+
+const evidenceReportSchema = z.object({
+  config: z.object({
+    projects: z.array(
+      z.object({ name: z.string(), testMatch: z.array(z.string()) }),
+    ),
+    webServer: z.object({
+      command: z.string(),
+      env: z.record(z.string(), z.string()),
+      url: z.string(),
+      reuseExistingServer: z.boolean(),
+      gracefulShutdown: z
+        .object({ signal: z.string(), timeout: z.number() })
+        .optional(),
+    }),
   }),
 });
 
@@ -90,6 +108,42 @@ test("every Playwright configuration names at least one spec it can load", () =>
   }
 });
 
+test("evidence configures the production launcher, backend, health probe and graceful shutdown", () => {
+  const result = runPlaywright(
+    "playwright.config.ts",
+    ["--list", "--reporter=json"],
+    {
+      ...unconfiguredEnvironment,
+      CAPTURE_EVIDENCE: "1",
+      PLAYWRIGHT_PORT: "29199",
+      PLAYWRIGHT_BACKEND_BASE_URL: "http://127.0.0.1:29200",
+    },
+  );
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  const { config } = evidenceReportSchema.parse(JSON.parse(result.stdout));
+  assert.equal(
+    config.webServer.command,
+    "node test/support/production-web.mjs",
+  );
+  assert.deepEqual(config.webServer.env, {
+    PRODUCTION_WEB_BACKEND_URL: "http://127.0.0.1:29200",
+    PRODUCTION_WEB_PORT: "29199",
+  });
+  assert.equal(config.webServer.url, "http://127.0.0.1:29199/_health/live");
+  assert.equal(config.webServer.reuseExistingServer, false);
+  assert.deepEqual(config.webServer.gracefulShutdown, {
+    signal: "SIGTERM",
+    timeout: 5_000,
+  });
+  assert.deepEqual(
+    config.projects.map(({ name, testMatch }) => ({ name, testMatch })),
+    [
+      { name: "desktop-chromium", testMatch: ["evidence.spec.ts"] },
+      { name: "mobile-chromium", testMatch: ["evidence.spec.ts"] },
+    ],
+  );
+});
+
 /**
  * Исполняемая часть правила о повторе из «Waiting in tests» в корневом `CODING_STANDARDS.md` (#476).
  * Конфигурация читается так, как её видит Playwright под `CI=1`.
@@ -115,6 +169,10 @@ test("no Playwright configuration retries a failed test, in CI either", () => {
       );
     }
     const report = listReportSchema.parse(output);
+    assert.ok(
+      report.config.workers >= 1 && report.config.workers <= 2,
+      `${configuration} must use at most two file workers`,
+    );
     for (const project of report.config.projects) {
       assert.equal(
         project.retries,

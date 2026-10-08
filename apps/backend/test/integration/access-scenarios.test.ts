@@ -1,5 +1,7 @@
+import { z } from "zod";
+import { sourceIdentityRef } from "../../src/modules/account-rights/domain/source-identity.js";
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
   accountId as checkedAccountId,
@@ -9,10 +11,10 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
+  assembleAccountRights,
   TributeSources,
   type AccessCapability,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import {
   BillingNotices,
   BillingOperations,
@@ -34,8 +36,8 @@ import {
 } from "../../src/modules/content-access/index.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import {
-  assembleGuideArtifactResourceFacts,
-  assembleGuideArtifacts,
+  assembleProductArtifactResourceFacts,
+  assembleProductArtifacts,
   assembleMaterialResourceFacts,
   assembleMaterials,
   materialId as checkedMaterialId,
@@ -45,7 +47,6 @@ import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters
 import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -108,7 +109,7 @@ const startedAt = "2030-01-31T10:00:00.000Z";
 /** Сопровождение из предложения продукта: ровно шесть календарных месяцев с оплаты. */
 const supportEndsAt = "2030-07-31T10:00:00.000Z";
 const groundEndsAt = "2030-03-02T10:00:00.000Z";
-const guidePriceKopecks = 290_000;
+const productPriceKopecks = 290_000;
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -141,7 +142,7 @@ describe("таблица сценариев доступа (реальный Pos
   let accounts: ReturnType<typeof assembleAccounts>;
   let links: TelegramAccountLinks;
   let grants: ReturnType<typeof assembleAccessGrants>;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
+  let membership: ReturnType<typeof assembleAccountRights>;
   let pricing: BillingPricing;
   let contact: BillingContact;
   let operations: BillingOperations;
@@ -151,7 +152,7 @@ describe("таблица сценариев доступа (реальный Pos
   let community: CommunityEntitlements;
   let bank: BankFixture;
   let materials: ReturnType<typeof assembleMaterials>;
-  let guideArtifacts: ReturnType<typeof assembleGuideArtifacts>;
+  let productArtifacts: ReturnType<typeof assembleProductArtifacts>;
   let videos: ReturnType<typeof assembleVideos>;
   let playback: ReturnType<typeof assembleVideoPlayback>;
   let readerAccess: ContentAccess;
@@ -211,8 +212,8 @@ describe("таблица сценариев доступа (реальный Pos
     };
   }
   let topicId: string;
-  let guideA: string;
-  let guideSlug: string;
+  let productA: string;
+  let productSlug: string;
   let freeMaterial: MaterialId;
   let productMaterial: MaterialId;
   let videoId: string;
@@ -247,14 +248,10 @@ describe("таблица сценариев доступа (реальный Pos
       recipientLinks: links,
       clock: () => now,
     });
-    membership = assembleMembershipEntitlements({
+    membership = assembleAccountRights({
       prisma: db.prisma,
       recipientLinks: links,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     // Tribute открывает тариф только через реестр источника: политика, строка реестра и сверка.
     convergence = new TributeConvergence(
@@ -337,16 +334,16 @@ describe("таблица сценариев доступа (реальный Pos
     materials = assembleMaterials({
       prisma: db.prisma,
       authorPolicy: { canManage: (id) => id === owner },
-      guideAccessHolders: grants,
+      productAccessHolders: grants,
     });
     videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
-      projects: { free: "free", membership: "members" },
+      projects: { free: "free", closed: "members" },
       canManage: () => Promise.resolve(false),
       clock: () => now,
     });
-    guideArtifacts = assembleGuideArtifacts({
+    productArtifacts = assembleProductArtifacts({
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },
@@ -356,9 +353,9 @@ describe("таблица сценариев доступа (реальный Pos
         materials.materialContent,
       ),
       videoResourceFacts: assembleVideoResourceFacts(videos),
-      guideArtifactResourceFacts:
-        assembleGuideArtifactResourceFacts(guideArtifacts),
-      membershipEntitlements: membership,
+      productArtifactResourceFacts:
+        assembleProductArtifactResourceFacts(productArtifacts),
+      accountRights: membership,
       clock: () => now,
     };
     // Читатель — Account без разрешения автора. Автор — тот же Account с `materials:manage` из базы.
@@ -382,11 +379,11 @@ describe("таблица сценариев доступа (реальный Pos
     await db.prisma.topic.create({
       data: { id: topicId, slug: "scenario-topic", name: "Сценарии доступа" },
     });
-    guideSlug = `scenario-guide-${randomUUID()}`;
-    guideA = await guide(guideSlug);
+    productSlug = `scenario-product-${randomUUID()}`;
+    productA = await product(productSlug);
     [freeMaterial, productMaterial] = await Promise.all([
       material([], "free"),
-      material([guideA]),
+      material([productA]),
     ]);
     videoId = randomUUID();
     providerVideoId = randomUUID();
@@ -395,7 +392,7 @@ describe("таблица сценариев доступа (реальный Pos
         id: videoId,
         materialId: productMaterial,
         createdBy: owner,
-        access: "membership",
+        access: "closed",
         projectId: "members",
         providerVideoId,
         title: "Видео руководства",
@@ -412,9 +409,9 @@ describe("таблица сценариев доступа (реальный Pos
       where: { id: productMaterial },
       data: { primaryVideoId: videoId },
     });
-    artifactId = await artifact(guideA);
+    artifactId = await artifact(productA);
 
-    productOptionId = (await productOffer(guideA)).optionId;
+    productOptionId = (await productOffer(productA)).optionId;
     // Стартовый тариф открывает все продукты платформы, включая новые.
     tierId = await tier("all");
 
@@ -426,10 +423,9 @@ describe("таблица сценариев доступа (реальный Pos
       (await tributeMember(groundEndsAt)).account,
     ]);
     grounds.set("manual-assignment", [await assigned("manual", groundEndsAt)]);
-    grounds.set("tier-via-invitation-gift", [await invitedGift(1)]);
     // Скрытый тариф даёт сопровождение; после назначения его закрывают для назначений и архивируют.
     const hiddenTier = await tier(
-      [guideA],
+      [productA],
       ["materials", "community", "support"],
     );
     grounds.set("hidden-active-tier", [
@@ -445,7 +441,7 @@ describe("таблица сценариев доступа (реальный Pos
           name: "Скрытый тариф",
           benefits: ["materials", "community", "support"],
           availableForAssignment: false,
-          contentScope: { guideIds: [guideA], materialIds: [] },
+          coverage: { productIds: [productA], materialIds: [] },
         },
       }),
     );
@@ -490,7 +486,7 @@ describe("таблица сценариев доступа (реальный Pos
     await linkChat(refunded);
     const refundedPurchase = await pay(refunded, productOptionId);
     await project(refunded);
-    await refund(refundedPurchase, "withdrawal", guidePriceKopecks);
+    await refund(refundedPurchase, "withdrawal", productPriceKopecks);
     grounds.set("withdrawal-refund", [refunded]);
 
     // Модератор запретил вход: запрет приходит от бота результатом доставки права.
@@ -516,10 +512,10 @@ describe("таблица сценариев доступа (реальный Pos
       now = previous;
     }
   }
-  async function guide(slug: string): Promise<string> {
+  async function product(slug: string): Promise<string> {
     const created = await materials.authoring.createContentCollection({
       actor: owner,
-      kind: "guide",
+      kind: "product",
       name: slug,
       slug,
       summary: "",
@@ -528,8 +524,8 @@ describe("таблица сценариев доступа (реальный Pos
     return created.value.id;
   }
   function metadataFor(
-    guideIds: readonly string[],
-    access: "free" | "membership",
+    productIds: readonly string[],
+    access: "free" | "closed",
     title = `Материал ${randomUUID()}`,
   ) {
     return {
@@ -541,14 +537,14 @@ describe("таблица сценариев доступа (реальный Pos
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...guideIds],
+      seriesIds: [...productIds],
     };
   }
   async function material(
-    guideIds: readonly string[],
-    access: "free" | "membership" = "membership",
+    productIds: readonly string[],
+    access: "free" | "closed" = "closed",
   ): Promise<MaterialId> {
-    const metadata = metadataFor(guideIds, access);
+    const metadata = metadataFor(productIds, access);
     const created = await materials.authoring.createDraft({
       actor: owner,
       idempotencyKey: randomUUID(),
@@ -568,14 +564,14 @@ describe("таблица сценариев доступа (реальный Pos
     if (!published.ok) throw new Error(published.error.code);
     return checkedMaterialId(created.value.materialId);
   }
-  async function artifact(guideId: string): Promise<string> {
+  async function artifact(productId: string): Promise<string> {
     const body = new TextEncoder().encode("# Артефакт руководства\n");
-    const created = await guideArtifacts.create({
+    const created = await productArtifacts.create({
       actor: owner,
-      guideId,
+      productId,
       kind: "file",
       metadata: {
-        access: "membership",
+        access: "closed",
         purpose: "Сценарии доступа",
         title: "Закрытый артефакт",
       },
@@ -604,10 +600,10 @@ describe("таблица сценариев доступа (реальный Pos
    * Offer продукта с разовой оплатой. Без сроков — прежний Offer мира: право на продукт без срока и
    * сопровождение на шесть месяцев; со сроками таблицы — Offer называет срок и общей группе.
    */
-  async function productOffer(guideId: string, terms?: OfferTerms) {
+  async function productOffer(productId: string, terms?: OfferTerms) {
     const offerId = randomUUID(),
       optionId = randomUUID();
-    const capability: AccessCapability = `guide:${guideId}`;
+    const capability: AccessCapability = `product:${productId}`;
     value(
       await pricing.manage(owner, {
         operationId: randomUUID(),
@@ -639,7 +635,7 @@ describe("таблица сценариев доступа (реальный Pos
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: guidePriceKopecks,
+          priceKopecks: productPriceKopecks,
         },
       }),
     );
@@ -655,14 +651,14 @@ describe("таблица сценариев доступа (реальный Pos
   }
   /** Тариф с правами стартового: материалы, сопровождение и общая группа; состав — все продукты или названные. */
   async function tier(
-    guideIds: readonly string[] | "all",
+    productIds: readonly string[] | "all",
     benefits: readonly string[] = ["materials", "community", "support"],
   ): Promise<string> {
     const id = randomUUID();
-    const contentScope =
-      guideIds === "all"
-        ? { guideIds: [], materialIds: [], allGuides: true }
-        : { guideIds: [...guideIds], materialIds: [] };
+    const coverage =
+      productIds === "all"
+        ? { productIds: [], materialIds: [], wholePlatform: true }
+        : { productIds: [...productIds], materialIds: [] };
     owned(
       await operations.execute(owner, {
         operation: "offers.save",
@@ -672,7 +668,7 @@ describe("таблица сценариев доступа (реальный Pos
           name: "Стартовый тариф",
           benefits: [...benefits],
           availableForAssignment: true,
-          contentScope,
+          coverage,
         },
       }),
     );
@@ -806,13 +802,51 @@ describe("таблица сценариев доступа (реальный Pos
       );
       policy = { policyRef, subscriptionId };
     }
-    const source = await db.prisma.sourceEntitlement.findFirst({
+    let source = await db.prisma.sourceEntitlement.findFirst({
       where: {
         origin: "tribute",
         sourcePolicyRef: policy.policyRef,
         identityRef: member.identityRef,
       },
     });
+    if (mode === "temporary_membership" && source === null) {
+      // Preserve coverage of historical temporary sources; #1064 rejects new sources.
+      const savedPolicy = await db.prisma.tributePolicy.findUniqueOrThrow({
+        where: { id: policy.policyRef },
+      });
+      source = await db.prisma.sourceEntitlement.create({
+        data: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef: sourceIdentityRef(
+            "tribute",
+            policy.policyRef,
+            member.identityRef,
+          ),
+          sourcePolicyRef: policy.policyRef,
+          identityRef: member.identityRef,
+          revision: 1,
+          evidence: { historical: true },
+          checkedAt: now,
+          tributeState: {
+            subscriptionId: policy.subscriptionId,
+            telegramUserId: String(policy.subscriptionId),
+            verificationRef: randomUUID(),
+            mode,
+            startsAt: now.toISOString(),
+            endsAt,
+            renewal,
+            tier: savedPolicy.tierSnapshot,
+            policyRevision: savedPolicy.revision,
+            observation: "pending",
+            observedUntil: null,
+            observationVersion: null,
+            lastEventAt: now.toISOString(),
+            lastEventFingerprint: null,
+          },
+        },
+      });
+    }
     const row = {
       rowRef: randomUUID(),
       policyRef: policy.policyRef,
@@ -885,6 +919,55 @@ describe("таблица сценариев доступа (реальный Pos
     tier: string,
     startsAt = now.toISOString(),
   ) {
+    if (
+      origin === "manual" &&
+      (endsAt !== null || startsAt !== now.toISOString())
+    ) {
+      const row = await db.prisma.billingOffer.findUniqueOrThrow({
+        where: { id: tier },
+      });
+      const id = randomUUID();
+      const terms = { startsAt, endsAt, endPolicy: "fixed" };
+      // Historical finite/scheduled assignment: read and expiry remain supported after #1064.
+      await db.prisma.tariffAssignment.create({
+        data: {
+          id,
+          accountId: recipient,
+          origin: "manual",
+          sourceRef: randomUUID(),
+          tierId: tier,
+          tierRevision: row.revision,
+          snapshot: {
+            id: tier,
+            revision: row.revision,
+            name: row.name,
+            benefits: row.benefits,
+            coverage: row.coverage,
+          },
+          startsAt: new Date(startsAt),
+          endsAt: endsAt === null ? null : new Date(endsAt),
+          endPolicy: "fixed",
+          revision: 1,
+          reason: "Historical assignment fixture",
+        },
+      });
+      await db.prisma.accessGrant.create({
+        data: {
+          id: randomUUID(),
+          accountId: recipient,
+          enrollmentId: id,
+          source: "manual",
+          sourceRef: `enrollment:${id}`,
+          capabilities: row.benefits,
+          coverage: row.coverage ?? {},
+          startsAt: new Date(startsAt),
+          validUntil: endsAt === null ? null : new Date(endsAt),
+          revision: 1,
+          reason: "Historical assignment fixture",
+        },
+      });
+      return { enrollmentId: id, terms };
+    }
     const identityRef = `verified-${recipient}`;
     if (origin === "course")
       await linkTelegramAccount(db.prisma, {
@@ -935,8 +1018,7 @@ describe("таблица сценариев доступа (реальный Pos
   async function redeemInvitation(
     recipient: string,
     offerId: string,
-    mode: "purchase" | "gift",
-    giftMonths: number | null = null,
+    mode: "purchase",
   ): Promise<void> {
     const identityRef = await linkChat(recipient);
     const issued = owned(
@@ -945,7 +1027,6 @@ describe("таблица сценариев доступа (реальный Pos
         operationId: randomUUID(),
         offerId,
         mode,
-        giftMonths,
       }),
     );
     if (issued.outcome !== "invitation") throw new Error(issued.outcome);
@@ -957,32 +1038,23 @@ describe("таблица сценариев доступа (реальный Pos
       }),
     ).toMatchObject({
       ok: true,
-      value: { state: mode === "gift" ? "gift_granted" : "purchase_ready" },
+      value: { state: "purchase_ready" },
     });
-  }
-  /** Тариф в подарок по приглашению на `giftMonths` календарных месяцев с погашения. */
-  async function invitedGift(
-    giftMonths: number | null,
-    tier = tierId,
-  ): Promise<string> {
-    const recipient = await account();
-    await redeemInvitation(recipient, tier, "gift", giftMonths);
-    return recipient;
   }
   /** Прямое право без тарифа: продукт A без даты окончания и отдельное сопровождение до срока. */
   async function directHolder(): Promise<string> {
     const holder = await account();
-    const guideRight: AccessCapability = `guide:${guideA}`;
+    const productRight: AccessCapability = `product:${productA}`;
     const preview = await grants.previewBatch(owner, {
       operationId: randomUUID(),
       rows: [
         {
-          rowKey: "guide",
+          rowKey: "product",
           accountId: holder,
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [guideRight],
+            capabilities: [productRight],
             startsAt: startedAt,
             validUntil: null,
             reason: "Прямое право на продукт",
@@ -1008,7 +1080,7 @@ describe("таблица сценариев доступа (реальный Pos
         operationId: randomUUID(),
         previewRef: preview.previewRef,
         expectedRevision: preview.revision,
-        confirmedRows: ["guide", "support"],
+        confirmedRows: ["product", "support"],
       }),
     ).toMatchObject({ ok: true });
     return holder;
@@ -1087,7 +1159,7 @@ describe("таблица сценариев доступа (реальный Pos
   function actionOf(resource: Resource) {
     return resource.kind === "video"
       ? ("play" as const)
-      : resource.kind === "guideArtifact"
+      : resource.kind === "productArtifact"
         ? ("download" as const)
         : ("read" as const);
   }
@@ -1105,8 +1177,8 @@ describe("таблица сценариев доступа (реальный Pos
     const enforcementPoint =
       resource.kind === "video"
         ? "playback_token_issue"
-        : resource.kind === "guideArtifact"
-          ? "guide_artifact_delivery"
+        : resource.kind === "productArtifact"
+          ? "product_artifact_delivery"
           : "published_material_read";
     const decided = await access.authorize({
       subject: subjectOf(account),
@@ -1151,8 +1223,13 @@ describe("таблица сценариев доступа (реальный Pos
     account: string | null,
     slug: string,
   ): Promise<AccessObservation> {
+    const programmeReader = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy: { canManage: () => false },
+      contentAccess: readerAccess,
+    }).publishedMaterialReader;
     const discovered = await discoverPublishedMaterials(
-      materials.publishedMaterialReader,
+      programmeReader,
       readerAccess,
       videos,
       { first: null, kind: "series", slug, subject: subjectOf(account) },
@@ -1252,7 +1329,7 @@ describe("таблица сценариев доступа (реальный Pos
   ): Promise<AccessObservation | null> {
     const {
       material = productMaterial,
-      slug = guideSlug,
+      slug = productSlug,
       artifact: artifactRef = artifactId,
     } = target;
     switch (surface) {
@@ -1270,7 +1347,7 @@ describe("таблица сценариев доступа (реальный Pos
         return programme(account, slug);
       case "artifacts":
         return decision(readerAccess, account, {
-          kind: "guideArtifact",
+          kind: "productArtifact",
           artifactId: artifactRef,
         });
       case "video":
@@ -1352,9 +1429,9 @@ describe("таблица сценариев доступа (реальный Pos
 
   // Первый экран продукта прячет оплату по этому ответу. Продукт без опубликованных платных
   // материалов проверяет, что ответ идёт от оснований, а не от программы (#831).
-  test("guide-access-without-paid-materials", async () => {
+  test("product-access-without-paid-materials", async () => {
     now = new Date(startedAt);
-    const bare = await guide(`bare-product-${randomUUID()}`);
+    const bare = await product(`bare-product-${randomUUID()}`);
     const namedTier = await tier([bare]);
     const expected: readonly (readonly [string, string | null, string])[] = [
       ["guest", null, "closed"],
@@ -1386,18 +1463,18 @@ describe("таблица сценариев доступа (реальный Pos
         ground,
         holder,
         (
-          await readerAccess.checkGuideAccess({
+          await readerAccess.checkProductAccess({
             subject: subjectOf(holder),
-            guideId: bare,
+            productId: bare,
           })
         ).kind,
       ]);
     expect(observed).toEqual(expected);
     // Разрешение автора открывает материалы для работы, но не продукт: покупка ему видна.
     expect(
-      await authorAccess.checkGuideAccess({
+      await authorAccess.checkProductAccess({
         subject: subjectOf(owner),
-        guideId: bare,
+        productId: bare,
       }),
     ).toEqual({ kind: "closed" });
   });
@@ -1436,21 +1513,9 @@ describe("таблица сценариев доступа (реальный Pos
     await atMoment(groundEndsAt, async () => {
       expect(await transitionVerdicts("expiry", member.account)).toEqual([]);
     });
-    // Подарок по приглашению кончается так же: в момент окончания закрыты материалы и вход в чат.
-    const gifted = await invitedGift(1);
-    await project(gifted);
-    expect(await observe("community-chat", gifted)).toEqual(
-      open("ground-term"),
-    );
-    await atMoment(
-      subscriptionPeriodEnd(new Date(startedAt), 1).toISOString(),
-      async () => {
-        expect(await transitionVerdicts("expiry", gifted)).toEqual([]);
-      },
-    );
   });
 
-  test("expiry: ручной и подарочный доступ закрываются на границе, сообщество получает denied в тот же момент", async () => {
+  test("expiry: исторический конечный доступ закрывается на границе, сообщество получает denied в тот же момент", async () => {
     now = new Date(startedAt);
     const recipient = await account();
     await linkChat(recipient);
@@ -1533,7 +1598,7 @@ describe("таблица сценариев доступа (реальный Pos
         where: { accountId: member.account },
       }),
     ).toMatchObject({
-      bridgeContentScope: { guideIds: [], materialIds: [], allGuides: true },
+      bridgeCoverage: { productIds: [], materialIds: [], wholePlatform: true },
       bridgeBenefits: ["materials", "community"],
     });
     // Мост с сопровождением, но без отдельного `community`: общую группу открывает само сопровождение.
@@ -1599,7 +1664,7 @@ describe("таблица сценариев доступа (реальный Pos
     const purchaseRef = await pay(buyer, productOptionId);
     await project(buyer);
     expect(await observe("support", buyer)).toEqual(open("six-months"));
-    await refund(purchaseRef, "withdrawal", guidePriceKopecks);
+    await refund(purchaseRef, "withdrawal", productPriceKopecks);
     expect(await transitionVerdicts("refund", buyer)).toEqual([]);
   });
 
@@ -1645,7 +1710,7 @@ describe("таблица сценариев доступа (реальный Pos
     ).toMatchObject({ ok: true });
     const purchaseRef = await pay(buyer, productOptionId);
     expect(await observe("support", buyer)).toEqual(open("six-months"));
-    await refund(purchaseRef, "withdrawal", guidePriceKopecks);
+    await refund(purchaseRef, "withdrawal", productPriceKopecks);
     expect(
       await transitionVerdicts("support-kept-by-other-ground", buyer),
     ).toEqual([]);
@@ -1658,7 +1723,7 @@ describe("таблица сценариев доступа (реальный Pos
       await assigned("course", null),
       await directHolder(),
     ];
-    const added = await material([guideA]);
+    const added = await material([productA]);
     const verdicts = [];
     for (const holder of holders)
       verdicts.push(
@@ -1672,8 +1737,8 @@ describe("таблица сценариев доступа (реальный Pos
   test("material-removed-from-product", async () => {
     now = new Date(startedAt);
     const buyer = await purchased(productOptionId);
-    const otherGuide = await guide(`scenario-other-${randomUUID()}`);
-    const removed = await material([guideA, otherGuide]);
+    const otherProduct = await product(`scenario-other-${randomUUID()}`);
+    const removed = await material([productA, otherProduct]);
     expect(
       await observe("product-material", buyer, { material: removed }),
     ).toEqual(open("lifetime"));
@@ -1681,12 +1746,8 @@ describe("таблица сценариев доступа (реальный Pos
       where: { id: removed },
     });
     // Команда сохранения несёт выбор автора целиком: тот же материал без купленного руководства.
-    const metadata = metadataFor(
-      [otherGuide],
-      "membership",
-      current.title ?? "",
-    );
-    const save = (confirmedGuideRemovals: readonly string[]) =>
+    const metadata = metadataFor([otherProduct], "closed", current.title ?? "");
+    const save = (confirmedProductRemovals: readonly string[]) =>
       materials.authoring.saveMaterial({
         actor: owner,
         idempotencyKey: randomUUID(),
@@ -1695,16 +1756,16 @@ describe("таблица сценариев доступа (реальный Pos
         publicationState: "published",
         metadata,
         body: representativeDocument(current.title ?? ""),
-        confirmedGuideRemovals,
+        confirmedProductRemovals,
       });
     expect(await save([])).toMatchObject({
       ok: false,
-      error: { code: "guide_removal_confirmation_required" },
+      error: { code: "product_removal_confirmation_required" },
     });
     expect(
       await observe("product-material", buyer, { material: removed }),
     ).toEqual(open("lifetime"));
-    expect(await save([guideA])).toMatchObject({ ok: true });
+    expect(await save([productA])).toMatchObject({ ok: true });
     expect(
       await transitionVerdicts("material-removed-from-product", buyer, {
         material: removed,
@@ -1712,24 +1773,24 @@ describe("таблица сценариев доступа (реальный Pos
     ).toEqual([]);
   });
 
-  test("guide-archived", async () => {
+  test("product-archived", async () => {
     now = new Date(startedAt);
     const archivedSlug = `scenario-archived-${randomUUID()}`;
-    const archived = await guide(archivedSlug);
+    const archived = await product(archivedSlug);
     const step = await material([archived]);
     const archivedArtifact = await artifact(archived);
     const holder = await account();
-    const guideRight: AccessCapability = `guide:${archived}`;
+    const productRight: AccessCapability = `product:${archived}`;
     const preview = await grants.previewBatch(owner, {
       operationId: randomUUID(),
       rows: [
         {
-          rowKey: "guide",
+          rowKey: "product",
           accountId: holder,
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [guideRight],
+            capabilities: [productRight],
             startsAt: startedAt,
             validUntil: null,
             reason: "Покупатель архивного руководства",
@@ -1743,11 +1804,11 @@ describe("таблица сценариев доступа (реальный Pos
         operationId: randomUUID(),
         previewRef: preview.previewRef,
         expectedRevision: preview.revision,
-        confirmedRows: ["guide"],
+        confirmedRows: ["product"],
       }),
     ).toMatchObject({ ok: true });
     const version = (
-      await db.prisma.guide.findUniqueOrThrow({ where: { id: archived } })
+      await db.prisma.product.findUniqueOrThrow({ where: { id: archived } })
     ).version;
     expect(
       await materials.authoring.setContentCollectionArchive({
@@ -1755,11 +1816,11 @@ describe("таблица сценариев доступа (реальный Pos
         archived: true,
         collectionId: archived,
         expectedVersion: version,
-        kind: "guide",
+        kind: "product",
       }),
     ).toMatchObject({ ok: true });
     expect(
-      await transitionVerdicts("guide-archived", holder, {
+      await transitionVerdicts("product-archived", holder, {
         material: step,
         slug: archivedSlug,
         artifact: archivedArtifact,
@@ -1769,14 +1830,14 @@ describe("таблица сценариев доступа (реальный Pos
 
   test("tier-composition-change", async () => {
     now = new Date(startedAt);
-    const guideC = await guide(`scenario-added-${randomUUID()}`);
-    const added = await material([guideC]);
+    const productC = await product(`scenario-added-${randomUUID()}`);
+    const added = await material([productC]);
     // Стартовый тариф состава не правит: новый продукт открывается его назначению сам.
     const starter = await assigned("course", null);
     expect(
       await observe("product-material", starter, { material: added }),
     ).toEqual(open("lifetime"));
-    const changing = await tier([guideA]);
+    const changing = await tier([productA]);
     const recipient = await account();
     const enrollment = await assignEnrollment(
       "manual",
@@ -1794,7 +1855,7 @@ describe("таблица сценариев доступа (реальный Pos
           name: "Стартовый тариф",
           benefits: ["materials", "community", "support"],
           availableForAssignment: true,
-          contentScope: { guideIds: [guideA, guideC], materialIds: [] },
+          coverage: { productIds: [productA, productC], materialIds: [] },
         },
       }),
     );
@@ -1804,24 +1865,92 @@ describe("таблица сценариев доступа (реальный Pos
     expect(
       await observe("product-material", recipient, { material: added }),
     ).toEqual({ outcome: "locked" });
-    const expansion = owned(
+    const previewCommand = {
+      operation: "enrollments.previewExpansion",
+      operationId: randomUUID(),
+      tierId: changing,
+      tierRevision: saved.value.revision,
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      reason: "Расширение состава",
+    };
+    expect(
       await operations.execute(owner, {
-        operation: "enrollments.previewExpansion",
+        ...previewCommand,
         operationId: randomUUID(),
-        tierId: changing,
-        tierRevision: saved.value.revision,
+        tierRevision: 1,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    expect(
+      await operations.execute(owner, {
+        ...previewCommand,
+        operationId: randomUUID(),
         targets: [
           {
             enrollmentId: enrollment.enrollmentId,
-            expectedRevision: 1,
+            expectedRevision: 2,
             tierRevision: 1,
           },
         ],
-        reason: "Расширение состава",
       }),
-    );
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    // The preview insert must roll back if its receipt fails; retry uses the same operationId.
+    await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
+      ADD CONSTRAINT reject_preview_receipt CHECK (FALSE) NOT VALID`;
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      expect(await operations.execute(owner, previewCommand)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      const logRecord = z
+        .object({ module: z.string(), operation: z.string() })
+        .loose();
+      const failures = errors.mock.calls.flatMap(([line]: unknown[]) => {
+        if (typeof line !== "string") return [];
+        const record = logRecord.safeParse(JSON.parse(line));
+        return record.success ? [record.data] : [];
+      });
+      expect(
+        failures.find((record) => record.module === "account-rights"),
+      ).toMatchObject({
+        operation: "previewEnrollmentExpansion",
+      });
+    } finally {
+      errors.mockRestore();
+      await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
+        DROP CONSTRAINT reject_preview_receipt`;
+    }
+    const expansion = owned(await operations.execute(owner, previewCommand));
     if (expansion.outcome !== "enrollmentExpansionPreview")
       throw new Error(`Unexpected outcome ${expansion.outcome}`);
+    expect(expansion.value).toMatchObject({
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      tier: {
+        id: changing,
+        revision: 2,
+        coverage: { productIds: [productA, productC], materialIds: [] },
+      },
+    });
+    expect(owned(await operations.execute(owner, previewCommand))).toEqual(
+      expansion,
+    );
+    expect(
+      await observe("product-material", recipient, { material: added }),
+    ).toEqual({ outcome: "locked" });
     owned(
       await operations.execute(owner, {
         operation: "enrollments.applyExpansion",
@@ -1836,9 +1965,69 @@ describe("таблица сценариев доступа (реальный Pos
     ).toEqual([]);
   });
 
+  test("owner assigns a course tariff with separate benefit terms and no overall expiry", async () => {
+    now = new Date(startedAt);
+    const courseTier = randomUUID();
+    owned(
+      await operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: courseTier,
+          name: "Course assignment",
+          benefits: [`product:${productA}`, "community", "support"],
+          benefitPeriods: [{ capability: "support", months: 6 }],
+          availableForAssignment: true,
+        },
+      }),
+    );
+    const recipient = await account();
+    const listed = owned(
+      await operations.execute(owner, {
+        operation: "tiers.list",
+        operationId: randomUUID(),
+        limit: 100,
+      }),
+    );
+    if (listed.outcome !== "tiers") throw new Error(listed.outcome);
+    expect(listed.items.map((entry) => entry.tier.id)).toContain(courseTier);
+    const assigned = owned(
+      await operations.execute(owner, {
+        operation: "enrollments.assign",
+        operationId: randomUUID(),
+        accountId: recipient,
+        tierId: courseTier,
+        tierRevision: 1,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        terms: { startsAt: startedAt, endsAt: null, endPolicy: "fixed" },
+        billingRef: null,
+        reason: "Owner assigns course",
+      }),
+    );
+    expect(assigned).toMatchObject({
+      outcome: "enrollment",
+      value: { endsAt: null, startsAt: startedAt },
+    });
+    const enrollment = value(await grants.readOwnEnrollments(recipient))[0];
+    expect(enrollment?.benefitTerms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: `product:${productA}`,
+          endsAt: null,
+        }),
+        expect.objectContaining({ capability: "community", endsAt: null }),
+        expect.objectContaining({
+          capability: "support",
+          endsAt: subscriptionPeriodEnd(now, 6).toISOString(),
+        }),
+      ]),
+    );
+  });
+
   test("tier-archived-with-assignments", async () => {
     now = new Date(startedAt);
-    const archivedTier = await tier([guideA]);
+    const archivedTier = await tier([productA]);
     const recipient = await assigned("manual", groundEndsAt, archivedTier);
     owned(
       await operations.execute(owner, {
@@ -1879,7 +2068,7 @@ describe("таблица сценариев доступа (реальный Pos
       accessScenarioTable.publications[
         "standalone-membership-publication-rejected"
       ];
-    const metadata = metadataFor([], "membership");
+    const metadata = metadataFor([], "closed");
     const created = await materials.authoring.createDraft({
       actor: owner,
       idempotencyKey: randomUUID(),
@@ -1970,7 +2159,7 @@ describe("таблица сценариев доступа (реальный Pos
   test("course-offer-terms", async () => {
     now = new Date(startedAt);
     const scenario = accessScenarioTable.purchases["course-offer-terms"];
-    const { optionId } = await productOffer(guideA, scenario.offer);
+    const { optionId } = await productOffer(productA, scenario.offer);
     const buyer = await purchased(optionId);
     expect(
       termVerdicts(
@@ -1984,7 +2173,7 @@ describe("таблица сценариев доступа (реальный Pos
   test("offer-own-terms", async () => {
     now = new Date(startedAt);
     const scenario = accessScenarioTable.purchases["offer-own-terms"];
-    const { optionId } = await productOffer(guideA, scenario.offer);
+    const { optionId } = await productOffer(productA, scenario.offer);
     const buyer = await purchased(optionId);
     expect(
       termVerdicts(
@@ -2002,11 +2191,11 @@ describe("таблица сценариев доступа (реальный Pos
         "offer-terms-change-keeps-earlier-purchase"
       ];
     const { offerId, optionId } = await productOffer(
-      guideA,
+      productA,
       accessScenarioTable.purchases["course-offer-terms"].offer,
     );
     const earlier = await purchased(optionId);
-    const capability: AccessCapability = `guide:${guideA}`;
+    const capability: AccessCapability = `product:${productA}`;
     value(
       await pricing.manage(owner, {
         operationId: randomUUID(),
@@ -2052,7 +2241,7 @@ describe("таблица сценариев доступа (реальный Pos
               ? "Подписка по приглашению"
               : "Подписка прежних подписчиков Tribute",
           benefits: ["community", "materials", "support"],
-          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+          coverage: { productIds: [], materialIds: [], wholePlatform: true },
           eligibility,
           // Подарок по приглашению назначает этот же Offer.
           availableForAssignment: eligibility === "invitation_only",
@@ -2068,7 +2257,7 @@ describe("таблица сценариев доступа (реальный Pos
           offerId,
           mode: "subscription",
           months: 1,
-          priceKopecks: guidePriceKopecks,
+          priceKopecks: productPriceKopecks,
         },
       }),
     );
@@ -2252,7 +2441,7 @@ describe("таблица сценариев доступа (реальный Pos
     for (const buyer of [
       await account(),
       invitedElsewhere,
-      await invitedGift(1),
+      await assigned("manual", null),
       await assigned("course", null),
     ]) {
       expect(await listed(buyer, offerId, buyer === invitedElsewhere)).toBe(
@@ -2264,13 +2453,16 @@ describe("таблица сценариев доступа (реальный Pos
     }
   });
 
-  test("invitation-offer-after-gift-invitation", async () => {
+  test("gift invitation cannot grant access or purchase admission", async () => {
     now = new Date(startedAt);
-    const scenario =
-      accessScenarioTable.purchases["invitation-offer-after-gift-invitation"];
-    const { offerId, optionId } = await invitationSubscription();
-    const gifted = await invitedGift(1, offerId);
-    expect(await listed(gifted, offerId)).toBe(scenario.listed);
-    expect(await buySubscription(gifted, optionId)).toBe(scenario.rejectedWith);
+    const { offerId } = await invitationSubscription();
+    expect(
+      await operations.execute(owner, {
+        operation: "invitations.issue",
+        operationId: randomUUID(),
+        offerId,
+        mode: "gift",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_request" } });
   });
 });

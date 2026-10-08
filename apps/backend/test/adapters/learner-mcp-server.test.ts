@@ -24,7 +24,7 @@ const projection: PublishedMaterialProjectionDto = {
   summary: "Public summary",
   difficulty: null,
   outcomes: [],
-  access: "membership",
+  access: "closed",
   publishedAt: "2026-09-27T00:00:00Z",
   primaryVideoId: null,
   cover: null,

@@ -35,7 +35,8 @@ only in `NOTIFICATION_TEST_AMQP_URL`; keep `NOTIFICATION_TEST_MANAGEMENT_URL` cr
 Telegram owns BotContact lifecycle, linking, identity invariants, Membership observations,
 reconciliation, MembershipEvidence and communication templates. Platform application capabilities
 own Accounts, permissions, entitlements, profiles and content-access decisions.
-Use authenticated runtime interfaces and pinned versioned corpora across that boundary.
+Use authenticated runtime interfaces and the repository-local corpora in
+[`@inside/contracts`](../../docs/contracts/README.md) across that boundary.
 Keep provider payloads, credentials and user data out of Git and redacted from evidence.
 BotFather writes, administrator changes, marketing enablement and external messages follow
 root `WORKFLOW.md` owner gates.

@@ -19,6 +19,7 @@ import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { ContentCoverImage } from "@/entities/material";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 import { ContentCoverEditor } from "@/features/content-covers";
 
@@ -68,7 +69,7 @@ export function ContentCollectionsPageClient({
         setSummary("");
         setCreateOpen(false);
         if (kind === "series")
-          router.push(`/authoring/guides/${result.collection.id}`);
+          router.push(authoringProductEditorHref(result.collection.id));
       }
     },
   });
@@ -412,7 +413,7 @@ function SeriesList({
             >
               <Link
                 className="group flex min-w-0 flex-1 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5"
-                href={`/authoring/guides/${collection.id}`}
+                href={authoringProductEditorHref(collection.id)}
               >
                 <ContentCoverImage
                   alt=""

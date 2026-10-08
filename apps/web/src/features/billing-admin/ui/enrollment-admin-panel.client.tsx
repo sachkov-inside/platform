@@ -14,8 +14,8 @@ import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import {
   lookupSubscriptionRecipient,
-  assignSubscriptionEnrollment,
-  changeSubscriptionEnrollment,
+  assignTariffAssignment,
+  changeTariffAssignment,
   listSubscriptionTiers,
 } from "../api/enrollments.browser";
 import {
@@ -34,9 +34,7 @@ export function EnrollmentAdminPanel() {
   const [recipient, setRecipient] = useState<z.infer<typeof recipientSchema>>();
   const account = recipient?.accountId ?? "";
   const [target, setTarget] = useState("");
-  const [origin, setOrigin] = useState<"manual" | "course" | "tribute">(
-    "manual",
-  );
+  const [origin, setOrigin] = useState<"manual" | "course">("manual");
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const repeat = useRepeatableOperations();
@@ -54,7 +52,7 @@ export function EnrollmentAdminPanel() {
   });
   const assignments = useOwnerEnrollments(target);
   const assign = useMutation({
-    mutationFn: assignSubscriptionEnrollment,
+    mutationFn: assignTariffAssignment,
     onSuccess: (result) => {
       if (!result.ok) {
         setError(billingErrorMessage(result.code));
@@ -69,7 +67,7 @@ export function EnrollmentAdminPanel() {
     },
   });
   const change = useMutation({
-    mutationFn: changeSubscriptionEnrollment,
+    mutationFn: changeTariffAssignment,
     onSuccess: (result) => {
       if (!result.ok) {
         setError(billingErrorMessage(result.code));
@@ -124,7 +122,12 @@ export function EnrollmentAdminPanel() {
       action,
       terms: {
         startsAt: enrollment.startsAt,
-        endsAt: end === "" ? null : new Date(`${end}+03:00`).toISOString(),
+        endsAt:
+          enrollment.origin === "manual" || enrollment.origin === "course"
+            ? enrollment.endsAt
+            : end === ""
+              ? null
+              : new Date(`${end}+03:00`).toISOString(),
         endPolicy: enrollment.endPolicy,
       },
       reason: formText(data.get("reason")),
@@ -214,10 +217,18 @@ export function EnrollmentAdminPanel() {
                   name="action"
                   className="min-w-0 w-full min-h-11 rounded-xl border border-input bg-background px-3"
                   defaultValue={
-                    enrollment.state === "revoked" ? "restore" : "change_term"
+                    enrollment.state === "revoked"
+                      ? "restore"
+                      : enrollment.origin === "manual" ||
+                          enrollment.origin === "course"
+                        ? "revoke"
+                        : "change_term"
                   }
                 >
-                  <option value="change_term">Изменить срок</option>
+                  {enrollment.origin !== "manual" &&
+                    enrollment.origin !== "course" && (
+                      <option value="change_term">Изменить срок</option>
+                    )}
                   <option value="revoke">Отозвать</option>
                   <option value="restore">Восстановить</option>
                 </select>
@@ -236,7 +247,10 @@ export function EnrollmentAdminPanel() {
                         .toISOString()
                         .slice(0, 16)
                 }
-                disabled={enrollment.origin === "course"}
+                disabled={
+                  enrollment.origin === "course" ||
+                  enrollment.origin === "manual"
+                }
               />
               <label className="grid gap-1 text-sm">
                 Причина
@@ -268,8 +282,6 @@ export function EnrollmentAdminPanel() {
             setError("Выберите тариф, доступный для назначения.");
             return;
           }
-          const end = formText(data.get("end") ?? "");
-          const start = formText(data.get("start") ?? "");
           const command = {
             accountId: target,
             origin,
@@ -277,15 +289,9 @@ export function EnrollmentAdminPanel() {
             tierId: tier.tier.id,
             tierRevision: tier.tier.revision,
             terms: {
-              startsAt:
-                start === ""
-                  ? (courseStart.current ??= new Date().toISOString())
-                  : new Date(`${start}+03:00`).toISOString(),
-              endsAt:
-                origin === "course" || end === ""
-                  ? null
-                  : new Date(`${end}+03:00`).toISOString(),
-              endPolicy: origin === "tribute" ? "confirmed_external" : "fixed",
+              startsAt: (courseStart.current ??= new Date().toISOString()),
+              endsAt: null,
+              endPolicy: "fixed",
             },
             billingRef: null,
             reason: formText(data.get("reason")),
@@ -334,18 +340,12 @@ export function EnrollmentAdminPanel() {
             value={origin}
             onChange={(event) => {
               const value = event.target.value;
-              if (
-                value === "manual" ||
-                value === "course" ||
-                value === "tribute"
-              )
-                setOrigin(value);
+              if (value === "manual" || value === "course") setOrigin(value);
             }}
             className="min-h-11 rounded-xl border border-input bg-background px-3"
           >
             <option value="manual">Решение владельца</option>
             <option value="course">Подтверждённая покупка курса</option>
-            <option value="tribute">Подтверждённый период Tribute</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm">
@@ -366,28 +366,7 @@ export function EnrollmentAdminPanel() {
               className="min-h-11 rounded-xl border border-input bg-background px-3"
             />
           </label>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              Начало по Москве
-              <input
-                name="start"
-                type="datetime-local"
-                required
-                className="min-h-11 rounded-xl border border-input bg-background px-3"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              Окончание по Москве
-              <input
-                name="end"
-                type="datetime-local"
-                required={origin === "tribute"}
-                className="min-h-11 rounded-xl border border-input bg-background px-3"
-              />
-            </label>
-          </div>
-        )}
+        ) : null}
         <label className="grid gap-1 text-sm">
           Причина и подтверждение
           <input
@@ -396,12 +375,10 @@ export function EnrollmentAdminPanel() {
             className="min-h-11 rounded-xl border border-input bg-background px-3"
           />
         </label>
-        {origin === "course" ? (
-          <p className="text-sm text-muted-foreground">
-            Без даты окончания и списаний. Начало фиксируется при первом
-            назначении.
-          </p>
-        ) : null}
+        <p className="text-sm text-muted-foreground">
+          Назначение бессрочное, без списаний. Срок каждого права задаёт тариф,
+          начало фиксируется при назначении.
+        </p>
         <Button
           type="submit"
           disabled={pending || tiers.isPending || target === ""}

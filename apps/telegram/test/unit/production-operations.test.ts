@@ -27,6 +27,7 @@ describe("production operations in the runtime image", () => {
   });
 
   it.each([
+    ["group-members-report", "dist/operations/group-members-report-cli.js"],
     ["community-restriction", "dist/operations/community-restriction-cli.js"],
     ["activation-review", "dist/operations/activation-review-cli.js"],
     [

@@ -30,11 +30,10 @@ import {
   MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
-import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
+import { ACCOUNT_RIGHTS } from "../src/modules/account-rights/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
 import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
-import { WORKSHOP_MATERIAL_ACCESS } from "../src/modules/workshop/index.js";
 
 function isAccessGrants(instance: unknown): boolean {
   return (
@@ -107,9 +106,8 @@ describe("backend process composition", () => {
     const prisma = api.get<PlatformPrisma>(PrismaClientProvider);
     expect(api.get<PlatformPrisma>(PrismaClientProvider)).toBe(prisma);
     expect(api.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
-    expect(api.get(MEMBERSHIP_ENTITLEMENTS)).toBeDefined();
+    expect(api.get(ACCOUNT_RIGHTS)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
-    expect(api.get(WORKSHOP_MATERIAL_ACCESS)).toBeDefined();
 
     const disconnect = vi.spyOn(prisma, "$disconnect");
     await api.close();
@@ -139,7 +137,7 @@ describe("backend process composition", () => {
         "UploadMaterialAssetController",
         "VideoPlaybackController",
         "KinescopeVideoAuthorizationController",
-        "GuideArtifactReadController",
+        "ProductArtifactReadController",
       ]),
     );
     expect(

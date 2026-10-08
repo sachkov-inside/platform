@@ -1,5 +1,5 @@
 import { publicSubscriptionOffers } from "@/entities/subscription";
-import { loadBillingOffers } from "@/entities/subscription.server";
+import { loadViewerBillingOffers } from "@/entities/subscription.server";
 
 import { AccountCabinet } from "./account-cabinet.client";
 
@@ -9,7 +9,7 @@ export async function AccountCabinetFrame({
 }: {
   readonly children: React.ReactNode;
 }) {
-  const result = await loadBillingOffers();
+  const result = await loadViewerBillingOffers();
   return (
     <AccountCabinet
       options={publicSubscriptionOffers(

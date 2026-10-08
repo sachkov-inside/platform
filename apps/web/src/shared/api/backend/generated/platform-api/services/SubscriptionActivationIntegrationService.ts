@@ -31,101 +31,9 @@ export class SubscriptionActivationIntegrationService {
       offerName: string;
       state: 'purchase_ready';
     } | {
-      contractVersion: 'inside.subscription-activation.v1';
-      enrollment: {
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'guide' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
-            materialIds: Array<string>;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-      mode: 'gift';
-      offerName: string;
-      state: 'gift_granted';
-    } | {
       checkoutUrl: string;
       contractVersion: 'inside.subscription-activation.v1';
       mode: 'purchase';
-      offerName: string;
-      state: 'already_redeemed';
-    } | {
-      contractVersion: 'inside.subscription-activation.v1';
-      enrollment: {
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'guide' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
-            materialIds: Array<string>;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-      mode: 'gift';
       offerName: string;
       state: 'already_redeemed';
     });
@@ -158,7 +66,62 @@ export class SubscriptionActivationIntegrationService {
     },
   }): CancelablePromise<({
     ok: boolean;
-    value: {
+    value: ({
+      attemptId: string;
+      contractVersion: 'inside.subscription-activation.v1';
+      enrollment: {
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          coverage: {
+            materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      } | null;
+      rule?: {
+        id: string;
+        revision: number;
+        sourceRef: string;
+        verificationMode?: 'course_membership';
+      };
+      state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
+    } | {
       attemptId: string;
       contractVersion: 'inside.subscription-activation.v1';
       enrollment: {
@@ -191,6 +154,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;
@@ -206,10 +173,10 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
-        verificationMode?: 'course_membership' | 'tribute_registry';
+        verificationMode?: 'course_membership';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
-    };
+    });
   } | {
     error: {
       code: 'invalid_input' | 'not_found' | 'policy_paused' | 'revision_conflict' | 'operation_conflict' | 'identity_conflict' | 'source_not_confirmed' | 'forbidden' | 'unavailable';
@@ -277,7 +244,7 @@ export class SubscriptionActivationIntegrationService {
       audience: 'inside.platform.subscription-activation';
       checkedAt: any;
       contractVersion: 'inside.subscription-activation.v1';
-      decision: 'member' | 'not_member' | 'unavailable' | 'registry_lookup';
+      decision: 'member' | 'not_member' | 'unavailable';
       evidenceRef: string;
       identityRef: string;
       linkRef: string;
@@ -289,7 +256,62 @@ export class SubscriptionActivationIntegrationService {
     },
   }): CancelablePromise<({
     ok: boolean;
-    value: {
+    value: ({
+      attemptId: string;
+      contractVersion: 'inside.subscription-activation.v1';
+      enrollment: {
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          coverage: {
+            materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      } | null;
+      rule?: {
+        id: string;
+        revision: number;
+        sourceRef: string;
+        verificationMode?: 'course_membership';
+      };
+      state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
+    } | {
       attemptId: string;
       contractVersion: 'inside.subscription-activation.v1';
       enrollment: {
@@ -322,6 +344,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;
@@ -337,10 +363,10 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
-        verificationMode?: 'course_membership' | 'tribute_registry';
+        verificationMode?: 'course_membership';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
-    };
+    });
   } | {
     error: {
       code: 'invalid_input' | 'not_found' | 'policy_paused' | 'revision_conflict' | 'operation_conflict' | 'identity_conflict' | 'source_not_confirmed' | 'forbidden' | 'unavailable';
@@ -377,7 +403,51 @@ export class SubscriptionActivationIntegrationService {
         state: 'checking' | 'no_access' | 'moderation_blocked' | 'ready';
       };
       contractVersion: 'inside.subscription-activation.v1';
-      enrollments: Array<{
+      enrollments: Array<({
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          coverage: {
+            materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      } | {
         accountId: string;
         benefitTerms?: Array<{
           capability: string;
@@ -407,6 +477,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;
@@ -417,7 +491,7 @@ export class SubscriptionActivationIntegrationService {
           name: string;
           revision: number;
         };
-      }>;
+      })>;
       grounds: Array<{
         active: boolean;
         capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;

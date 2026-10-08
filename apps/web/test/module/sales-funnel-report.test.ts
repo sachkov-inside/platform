@@ -52,7 +52,7 @@ describe("sales funnel report presentation", () => {
       from: "2030-02-28T21:00:00.000Z",
       to: "2030-03-31T21:00:00.000Z",
     },
-    guides: [
+    products: [
       {
         id: "00000000-0000-4000-8000-000000000001",
         name: "Inside AI Engineering",
@@ -62,7 +62,7 @@ describe("sales funnel report presentation", () => {
       },
     ],
     selection: {
-      guideId: "00000000-0000-4000-8000-000000000001",
+      productId: "00000000-0000-4000-8000-000000000001",
       chapterId: "00000000-0000-4000-8000-000000000002",
     },
     lastBotEventReceivedAt: null,

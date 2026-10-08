@@ -15,8 +15,8 @@ import type { AccessGround } from "./access-scenarios.js";
 export const accessCheckStates = [
   "anonymous",
   "account-without-entitlement",
-  "learner-guide-a",
-  "learner-guide-b",
+  "learner-product-a",
+  "learner-product-b",
   "expired",
   "revoked",
   "materials-only",
@@ -27,7 +27,7 @@ export type AccessCheckState = (typeof accessCheckStates)[number];
 
 /**
  * Основание из таблицы сценариев и разрешение, которыми задано состояние. «Ученик» — Account с
- * AccessGrant или назначением, чья область называет один Guide; это не роль IdP или RBAC.
+ * AccessGrant или назначением, чья область называет один Product; это не роль IdP или RBAC.
  */
 export const accessCheckStateGrounds: Readonly<
   Record<
@@ -44,11 +44,11 @@ export const accessCheckStateGrounds: Readonly<
     grounds: ["account-without-rights"],
     permission: null,
   },
-  "learner-guide-a": {
+  "learner-product-a": {
     grounds: ["direct", "manual-assignment"],
     permission: null,
   },
-  "learner-guide-b": {
+  "learner-product-b": {
     grounds: ["direct", "manual-assignment"],
     permission: null,
   },
@@ -69,8 +69,8 @@ export const accessCheckStateGrounds: Readonly<
 };
 
 export const accessCheckActions = [
-  "read-guide-a",
-  "read-guide-b",
+  "read-product-a",
+  "read-product-b",
   "read-free-practice",
   "manage-materials",
   "manage-billing",
@@ -79,7 +79,7 @@ export const accessCheckActions = [
 export type AccessCheckAction = (typeof accessCheckActions)[number];
 
 /**
- * Поверхности: защищённые чтения Guide (`practice` — список заданий в HTTP и Web, все части
+ * Поверхности: защищённые чтения Product (`practice` — список заданий в HTTP и Web, все части
  * контекста задания в learner MCP), записи Materials и Billing, progress чтения и закладки Account.
  */
 export const accessCheckSurfaces = [
@@ -105,7 +105,7 @@ export type AccessCheckLevel = (typeof accessCheckLevels)[number];
 
 /**
  * Конфигурация production-прохода (#906). Клетка прохода называется `<строка матрицы>@<транспорт>`,
- * например `learner-guide-a/read-guide-a/body@learner-mcp`.
+ * например `learner-product-a/read-product-a/body@learner-mcp`.
  */
 export const productionPassConfigFile =
   "apps/web/test/production/pass-config.ts";
@@ -179,7 +179,7 @@ const webFullstack = (name: string) => `apps/web/test/fullstack/${name}`;
 
 const http = integration("scoped-access-http.test.ts");
 const mcp = integration("scoped-learner-access-mcp.test.ts");
-const guideAccess = integration("guide-access.test.ts");
+const productAccess = integration("product-access.test.ts");
 const paymentMatrix = integration("payment-access-matrix.test.ts");
 const learningPractice = integration("learning-practice.test.ts");
 const billingOperations = integration("billing-operations.test.ts");
@@ -190,17 +190,17 @@ const accessIdentitiesWeb = webFullstack("access-identities.spec.ts");
 
 const httpTests = {
   anonymous:
-    "anonymous reader gets no protected bytes of either Guide while the public Material stays open",
+    "anonymous reader gets no protected bytes of either Product while the public Material stays open",
   withoutEntitlement:
-    "Account without entitlement gets no protected bytes of either Guide while the public Material stays open",
+    "Account without entitlement gets no protected bytes of either Product while the public Material stays open",
   learnerA:
-    "learner of Guide A reads its body, asset, video and practice list while Guide B stays closed",
+    "learner of Product A reads its body, asset, video and practice list while Product B stays closed",
   learnerB:
-    "learner of Guide B reads its body, asset, video and practice list while Guide A stays closed",
+    "learner of Product B reads its body, asset, video and practice list while Product A stays closed",
   expired:
-    "expired Guide A grant exposes no protected bytes while the public Material stays open",
+    "expired Product A grant exposes no protected bytes while the public Material stays open",
   revoked:
-    "revoking Guide A closes the next request and the earlier playback token while Guide B stays open",
+    "revoking Product A closes the next request and the earlier playback token while Product B stays open",
   ownerSurfaces:
     "Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own",
 } as const;
@@ -210,19 +210,19 @@ const mcpTests = {
   withoutEntitlement:
     "Account without entitlement reads the public Material and no protected Material or practice part",
   learnerA:
-    "learner of Guide A reads its Material and every pinned practice part while Guide B stays closed",
+    "learner of Product A reads its Material and every pinned practice part while Product B stays closed",
   learnerB:
-    "learner of Guide B reads its Material and every pinned practice part while Guide A stays closed",
+    "learner of Product B reads its Material and every pinned practice part while Product A stays closed",
   expired:
-    "expired Guide A grant reads the public Material and no protected Material or practice part",
+    "expired Product A grant reads the public Material and no protected Material or practice part",
   revoked:
-    "revoking Guide A closes the Material and every part pinned before revocation while Guide B stays open",
+    "revoking Product A closes the Material and every part pinned before revocation while Product B stays open",
 } as const;
-const guideAccessTests = {
+const productAccessTests = {
   material:
-    "guide A allows its shared Material and direct resource only; B, draft and forged guide context stay denied",
+    "product A allows its shared Material and direct resource only; B, draft and forged product context stay denied",
   media:
-    "direct file delivery and video tokens use real guide scope facts and recheck revoked access",
+    "direct file delivery and video tokens use real product scope facts and recheck revoked access",
 } as const;
 const webTests = {
   lockedTeaser:
@@ -245,7 +245,7 @@ const identityTests = {
   ordinaryAccount:
     "an ordinary Account is denied Materials and Billing mutations on existing resources without a durable effect",
   scopedLearner:
-    "a learner scoped to Guide A reads Guide A, is denied Guide B and loses Guide A on revocation",
+    "a learner scoped to Product A reads Product A, is denied Product B and loses Product A on revocation",
   separateAccounts:
     "two separate Accounts cannot read or change each other's progress and bookmarks",
 } as const;
@@ -265,23 +265,23 @@ const productionReadsOnly =
 
 const viaHttp = (because: string) => reliesOn("nest-http", because);
 const scopedLearnerBodyOnly =
-  "Fullstack-сценарий ученика Guide A (#904) открывает только тело материала; файлы, видео и задания идут тем же ContentAccess, их различие доказывает Nest HTTP";
+  "Fullstack-сценарий ученика Product A (#904) открывает только тело материала; файлы, видео и задания идут тем же ContentAccess, их различие доказывает Nest HTTP";
 const facadeHasOneLearner =
-  "Facade-тесты держат одного ученика Guide A; ученик Guide B проходит тот же facade на PostgreSQL в Nest HTTP";
+  "Facade-тесты держат одного ученика Product A; ученик Product B проходит тот же facade на PostgreSQL в Nest HTTP";
 const noFacadePracticeAccess =
   "Facade-теста задания для этого Account нет: `learning-practice.test.ts` отказывает только через подменённый authorize; Nest HTTP проходит настоящий ContentAccess на PostgreSQL";
 
 // --------------------------------------------------------------------------- строки
 
-type GuideSurface = "body" | "assets" | "video" | "practice";
-type GuideRow = Readonly<Record<AccessCheckLevel, AccessCheckEvidence>>;
+type ProductSurface = "body" | "assets" | "video" | "practice";
+type ProductRow = Readonly<Record<AccessCheckLevel, AccessCheckEvidence>>;
 
-/** Четыре защищённые поверхности одного чтения Guide с общими доказательствами транспорта. */
-function guideReads(
+/** Четыре защищённые поверхности одного чтения Product с общими доказательствами транспорта. */
+function productReads(
   state: AccessCheckState,
-  action: "read-guide-a" | "read-guide-b",
+  action: "read-product-a" | "read-product-b",
   expected: "allowed" | "denied",
-  levels: Readonly<Record<GuideSurface, GuideRow>>,
+  levels: Readonly<Record<ProductSurface, ProductRow>>,
 ): AccessCheckRow[] {
   return (["body", "assets", "video", "practice"] as const).map((surface) => ({
     state,
@@ -293,17 +293,17 @@ function guideReads(
 }
 
 /** Learner MCP: материал и задание — тест транспорта, файл и видео не отдаются вовсе. */
-function mcpLevel(surface: GuideSurface, name: string): AccessCheckEvidence {
+function mcpLevel(surface: ProductSurface, name: string): AccessCheckEvidence {
   return surface === "assets" || surface === "video"
     ? notApplicable(mcpMediaReference)
     : test(mcp, name);
 }
 
 function transportLevels(
-  surface: GuideSurface,
+  surface: ProductSurface,
   httpName: string,
   mcpName: string,
-): Pick<GuideRow, "nest-http" | "learner-mcp"> {
+): Pick<ProductRow, "nest-http" | "learner-mcp"> {
   return {
     "nest-http": test(http, httpName),
     "learner-mcp": mcpLevel(surface, mcpName),
@@ -311,36 +311,37 @@ function transportLevels(
 }
 
 function learnerReads(
-  state: "learner-guide-a" | "learner-guide-b",
-  action: "read-guide-a" | "read-guide-b",
+  state: "learner-product-a" | "learner-product-b",
+  action: "read-product-a" | "read-product-b",
   expected: "allowed" | "denied",
 ): AccessCheckRow[] {
   const httpName =
-    state === "learner-guide-a" ? httpTests.learnerA : httpTests.learnerB;
+    state === "learner-product-a" ? httpTests.learnerA : httpTests.learnerB;
   const mcpName =
-    state === "learner-guide-a" ? mcpTests.learnerA : mcpTests.learnerB;
-  const facade = (surface: GuideSurface): AccessCheckEvidence => {
-    if (state === "learner-guide-b") return viaHttp(facadeHasOneLearner);
-    if (surface === "body") return test(guideAccess, guideAccessTests.material);
+    state === "learner-product-a" ? mcpTests.learnerA : mcpTests.learnerB;
+  const facade = (surface: ProductSurface): AccessCheckEvidence => {
+    if (state === "learner-product-b") return viaHttp(facadeHasOneLearner);
+    if (surface === "body")
+      return test(productAccess, productAccessTests.material);
     if (surface === "practice") return viaHttp(noFacadePracticeAccess);
-    return test(guideAccess, guideAccessTests.media);
+    return test(productAccess, productAccessTests.media);
   };
-  const web = (surface: GuideSurface): AccessCheckEvidence => {
-    if (state === "learner-guide-b")
+  const web = (surface: ProductSurface): AccessCheckEvidence => {
+    if (state === "learner-product-b")
       return viaHttp(
-        "#904 проверяет в браузере ученика Guide A; ученик Guide B — зеркальный случай того же BFF, его различие A/B доказывает Nest HTTP",
+        "#904 проверяет в браузере ученика Product A; ученик Product B — зеркальный случай того же BFF, его различие A/B доказывает Nest HTTP",
       );
     return surface === "body"
       ? identityTest("scopedLearner")
       : viaHttp(scopedLearnerBodyOnly);
   };
-  const row = (surface: GuideSurface): GuideRow => ({
+  const row = (surface: ProductSurface): ProductRow => ({
     "facade-postgresql": facade(surface),
     ...transportLevels(surface, httpName, mcpName),
     "web-bff": web(surface),
     production: productionPass,
   });
-  return guideReads(state, action, expected, {
+  return productReads(state, action, expected, {
     body: row("body"),
     assets: row("assets"),
     video: row("video"),
@@ -349,7 +350,7 @@ function learnerReads(
 }
 
 export const accessCheckMatrix: readonly AccessCheckRow[] = [
-  ...guideReads("anonymous", "read-guide-a", "denied", {
+  ...productReads("anonymous", "read-product-a", "denied", {
     body: {
       "facade-postgresql": cell("product-material/guest"),
       ...transportLevels("body", httpTests.anonymous, mcpTests.anonymous),
@@ -386,7 +387,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: productionPass,
     },
   }),
-  ...guideReads("account-without-entitlement", "read-guide-a", "denied", {
+  ...productReads("account-without-entitlement", "read-product-a", "denied", {
     body: {
       "facade-postgresql": cell("product-material/account-without-rights"),
       ...transportLevels(
@@ -449,7 +450,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "learner-mcp": test(
         mcp,
-        "Account without entitlement reads every pinned part of a free practice while paid Guides stay closed",
+        "Account without entitlement reads every pinned part of a free practice while paid Products stay closed",
       ),
       "web-bff": notApplicable(
         "Полный контекст практики читает агент через learner MCP; Reader показывает запрос проверки",
@@ -457,11 +458,11 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: productionPass,
     },
   },
-  ...learnerReads("learner-guide-a", "read-guide-a", "allowed"),
-  ...learnerReads("learner-guide-a", "read-guide-b", "denied"),
-  ...learnerReads("learner-guide-b", "read-guide-b", "allowed"),
-  ...learnerReads("learner-guide-b", "read-guide-a", "denied"),
-  ...guideReads("expired", "read-guide-a", "denied", {
+  ...learnerReads("learner-product-a", "read-product-a", "allowed"),
+  ...learnerReads("learner-product-a", "read-product-b", "denied"),
+  ...learnerReads("learner-product-b", "read-product-b", "allowed"),
+  ...learnerReads("learner-product-b", "read-product-a", "denied"),
+  ...productReads("expired", "read-product-a", "denied", {
     body: {
       "facade-postgresql": cell("product-material/expired-or-revoked"),
       ...transportLevels("body", httpTests.expired, mcpTests.expired),
@@ -491,7 +492,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: productionPass,
     },
   }),
-  ...guideReads("revoked", "read-guide-a", "denied", {
+  ...productReads("revoked", "read-product-a", "denied", {
     body: {
       "facade-postgresql": cell("product-material/expired-or-revoked"),
       ...transportLevels("body", httpTests.revoked, mcpTests.revoked),
@@ -499,13 +500,13 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: notApplicable(noRevocationInProduction),
     },
     assets: {
-      "facade-postgresql": test(guideAccess, guideAccessTests.media),
+      "facade-postgresql": test(productAccess, productAccessTests.media),
       ...transportLevels("assets", httpTests.revoked, mcpTests.revoked),
       "web-bff": viaHttp(scopedLearnerBodyOnly),
       production: notApplicable(noRevocationInProduction),
     },
     video: {
-      "facade-postgresql": test(guideAccess, guideAccessTests.media),
+      "facade-postgresql": test(productAccess, productAccessTests.media),
       ...transportLevels("video", httpTests.revoked, mcpTests.revoked),
       "web-bff": viaHttp(scopedLearnerBodyOnly),
       production: notApplicable(noRevocationInProduction),
@@ -658,7 +659,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       // Сценарий идёт в `pnpm smoke:enrollments` обязательного CI job `integration`, а не в nightly.
       "web-bff": test(
         webFullstack("enrollment.spec.ts"),
-        "owner assigns scoped course and the open cabinet converges through real BFF and PostgreSQL",
+        "owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL",
       ),
       production: notApplicable(noAdministratorInProduction),
     },

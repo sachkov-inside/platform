@@ -1,13 +1,7 @@
-import { fork } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 
 import { localTbankConfig } from "../../src/config/tbank-config.js";
 import { createLocalBankDouble } from "../../src/development/bank-double/local-bank-double.js";
-import { startLocalBankDouble } from "../../src/development/bank-double/start-local-bank-double.js";
 import {
   Tbank,
   tbankToken,
@@ -18,7 +12,7 @@ const config = localTbankConfig({});
 const origin = config.endpoints.formOrigins[0] ?? "";
 
 /** Двойник и приложение соединяются ровно тем адаптером, который работает с настоящим банком. */
-function stand(ledgerPath?: string) {
+function stand() {
   const notifications: Record<string, unknown>[] = [];
   const double = createLocalBankDouble({
     config,
@@ -26,7 +20,6 @@ function stand(ledgerPath?: string) {
       notifications.push({ ...payload });
       return Promise.resolve();
     },
-    ...(ledgerPath === undefined ? {} : { ledgerPath }),
   });
   const request: BankRequest = (url, init) =>
     double.handle(
@@ -217,26 +210,6 @@ describe("local bank double", () => {
     await expect(bank.state("404404404404")).rejects.toThrow();
   });
 
-  test("журнал переживает перезапуск двойника", async () => {
-    const ledgerPath = join(
-      mkdtempSync(join(tmpdir(), "inside-bank-double-")),
-      "ledger.json",
-    );
-    const first = stand(ledgerPath);
-    const started = await first.bank.init(purchase);
-    await first.outcome(started.PaymentURL, "confirmed");
-
-    // Новый процесс с тем же журналом: банк помнит платёж, поэтому сверка приложения возможна.
-    const restarted = stand(ledgerPath);
-    expect(await restarted.bank.order(purchase.orderId)).toEqual([
-      started.PaymentId,
-    ]);
-    expect(await restarted.bank.state(started.PaymentId)).toMatchObject({
-      Status: "CONFIRMED",
-      Success: true,
-    });
-  });
-
   test("возврат частями и целиком следует запрошенной сумме, повтор не возвращает дважды", async () => {
     const { bank, notifications, outcome } = stand();
     const started = await bank.init(purchase);
@@ -386,60 +359,5 @@ describe("local bank double", () => {
     expect(
       (await double.handle(new Request(`${origin}/pay/unknown`))).status,
     ).toBe(404);
-  });
-
-  // Ожидание заканчивается фактом — выходом процесса; бюджет нужен только чтобы остановить
-  // застрявший запуск: первый холодный запуск компилирует конфигурацию целиком.
-  test("вне стенда двойник не запускается и говорит об этом", async () => {
-    const child = fork(
-      new URL("../../src/development/bank-double.ts", import.meta.url),
-      [],
-      {
-        execArgv: ["--import", "tsx"],
-        stdio: ["ignore", "ignore", "pipe", "ipc"],
-        env: {
-          ...process.env,
-          NODE_ENV: "production",
-          TBANK_PROVIDER_MODE: "test",
-        },
-      },
-    );
-    let reported = "";
-    child.stderr?.on("data", (chunk: Buffer) => {
-      reported += chunk.toString("utf8");
-    });
-    try {
-      const code = await new Promise<number | null>((resolve) =>
-        child.once("exit", resolve),
-      );
-      expect(code).toBe(1);
-      expect(reported).toContain(
-        "The local bank double runs only with NODE_ENV=development",
-      );
-    } finally {
-      if (child.exitCode === null && child.signalCode === null)
-        child.kill("SIGKILL");
-    }
-  }, 30_000);
-
-  test("сетевая оболочка отвечает тем же двойником", async () => {
-    const running = await startLocalBankDouble({
-      config,
-      host: "127.0.0.1",
-      port: 0,
-    });
-    try {
-      const health = await fetch(`http://127.0.0.1:${running.port}/health`);
-      expect(await health.json()).toMatchObject({
-        process: "bank-double",
-        status: "ready",
-        terminal: config.terminalKey,
-      });
-      const page = await fetch(`http://127.0.0.1:${running.port}/`);
-      expect(page.status).toBe(200);
-      expect(await page.text()).toContain("Двойник банка Inside");
-    } finally {
-      await running.close();
-    }
   });
 });

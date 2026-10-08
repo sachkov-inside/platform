@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { describe, expect, test, vi } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
@@ -9,6 +11,8 @@ import type {
 import { assembleMaterialAssetDelivery } from "../../src/modules/materials/features/deliver-material-asset/deliver-material-asset.js";
 import type { MaterialContent } from "../../src/modules/materials/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
+
+registerFixedClock();
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const assetId = "20000000-0000-4000-8000-000000000001";
@@ -36,7 +40,7 @@ describe("Material asset delivery", () => {
       }),
       contentAccess: accessDecision({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "public",
         effect: "allow",
         policyVersion: "content-access-v1",
@@ -78,15 +82,16 @@ describe("Material asset delivery", () => {
       .fn<ContentAccess["authorize"]>()
       .mockResolvedValueOnce({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "member",
         effect: "allow",
         policyVersion: "content-access-v1",
         reason: "active_membership",
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 5 * 60_000).toISOString(),
       })
       .mockResolvedValueOnce({
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "denied",
         effect: "deny",
         policyVersion: "content-access-v1",
@@ -103,7 +108,7 @@ describe("Material asset delivery", () => {
       contentAccess: {
         authorize,
         checkAvailabilityMany: vi.fn(),
-        checkGuideAccess: vi.fn(),
+        checkProductAccess: vi.fn(),
       },
       materialContent: currentReference(),
       objectStorage: storage({ signGet }),
@@ -143,7 +148,7 @@ describe("Material asset delivery", () => {
     expect(signGet).toHaveBeenCalledTimes(1);
   });
 
-  test.each(["active_membership", "active_workshop"] as const)(
+  test.each(["active_membership"] as const)(
     "bounds an %s redirect by entitlement validity and fails closed near expiry",
     async (reason) => {
       vi.useFakeTimers();
@@ -165,7 +170,7 @@ describe("Material asset delivery", () => {
         const protectedDecision = (validUntil: string | null) =>
           accessDecision({
             checkedContentVersion: 2,
-            decidedAt: new Date().toISOString(),
+            decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
             decisionId: validUntil ?? "lifetime",
             effect: "allow",
             policyVersion: "content-access-v1",
@@ -255,7 +260,7 @@ describe("Material asset delivery", () => {
     const allow = (reason: "materials_manager" | "public_resource") =>
       accessDecision({
         checkedContentVersion: 2,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: reason,
         effect: "allow",
         policyVersion: "content-access-v1",
@@ -305,7 +310,7 @@ describe("Material asset delivery", () => {
       assets: { loadDelivery },
       contentAccess: accessDecision({
         checkedContentVersion: contentVersion,
-        decidedAt: new Date().toISOString(),
+        decidedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
         decisionId: "current",
         effect: "allow" as const,
         policyVersion: "content-access-v1" as const,
@@ -362,7 +367,7 @@ function accessDecision(
   return {
     authorize: () => Promise.resolve(decision),
     checkAvailabilityMany: vi.fn(),
-    checkGuideAccess: vi.fn(),
+    checkProductAccess: vi.fn(),
   };
 }
 

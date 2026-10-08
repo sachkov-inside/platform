@@ -9,14 +9,14 @@ import { z } from "zod";
 
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
-  GUIDE_CHAPTER_NAME_MAX,
-  GUIDE_CHAPTER_SUMMARY_MAX,
-  guideChapterAssignmentsSchema,
-  guideChapterDraftsSchema,
-} from "../../shared/guide-chapters.js";
+  PRODUCT_CHAPTER_NAME_MAX,
+  PRODUCT_CHAPTER_SUMMARY_MAX,
+  productChapterAssignmentsSchema,
+  productChapterDraftsSchema,
+} from "../../shared/product-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
-import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
-import { guidePageSchema } from "../../domain/guide-page.js";
+import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
+import { productPageSchema } from "../../domain/product-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
 import type { CreateDraftError } from "../../features/create-draft/create-draft.contract.js";
@@ -101,7 +101,7 @@ export const saveMaterialBodySchema = z
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
     /** Руководства с держателями права, снятие из которых автор подтвердил. */
-    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
   })
   .strict();
 
@@ -120,18 +120,18 @@ export const deleteDraftBodySchema = z
   .strict();
 
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
-export const guideChapterSchema = z
+export const productChapterSchema = z
   .object({
     id: z.uuid(),
-    name: z.string().min(1).max(GUIDE_CHAPTER_NAME_MAX),
+    name: z.string().min(1).max(PRODUCT_CHAPTER_NAME_MAX),
     ordinal: z.number().int().positive(),
-    summary: z.string().max(GUIDE_CHAPTER_SUMMARY_MAX),
+    summary: z.string().max(PRODUCT_CHAPTER_SUMMARY_MAX),
   })
   .strict();
 export const seriesOrderSchema = z
   .object({
     archived: z.boolean(),
-    chapters: z.array(guideChapterSchema),
+    chapters: z.array(productChapterSchema),
     items: z.array(
       z
         .object({
@@ -151,13 +151,13 @@ export const seriesOrderSchema = z
   .strict();
 export const reorderSeriesBodySchema = z
   .object({
-    chapters: guideChapterDraftsSchema.optional(),
-    chapterAssignments: guideChapterAssignmentsSchema.optional(),
+    chapters: productChapterDraftsSchema.optional(),
+    chapterAssignments: productChapterAssignmentsSchema.optional(),
     expectedOrderVersion: seriesOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),
     stepGroups: seriesStepGroupsSchema.optional(),
     /** Руководство с держателями права, снятие материалов из которого автор подтвердил. */
-    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
   })
   .strict()
   .refine(
@@ -169,9 +169,13 @@ export const reorderSeriesReceiptSchema = z
   .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
   .strict();
 
-export const contentCollectionKindSchema = z.enum(["guide", "series", "topic"]);
-const introductionField = z.string().max(GUIDE_INTRODUCTION_FIELD_MAX);
-export const guideIntroductionSchema = z
+export const contentCollectionKindSchema = z.enum([
+  "product",
+  "series",
+  "topic",
+]);
+const introductionField = z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX);
+export const productIntroductionSchema = z
   .object({
     audience: introductionField,
     outcome: introductionField,
@@ -183,11 +187,11 @@ export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
     id: z.uuid(),
-    introduction: guideIntroductionSchema.nullable(),
+    introduction: productIntroductionSchema.nullable(),
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
     name: z.string().min(1).max(120),
-    page: guidePageSchema.nullable(),
+    page: productPageSchema.nullable(),
     pageRejected: z.boolean(),
     presentation: z.string().nullable(),
     slug: z.string().min(1).max(120),
@@ -209,7 +213,7 @@ export const createContentCollectionBodySchema = z
 export const updateContentCollectionBodySchema = z
   .object({
     expectedVersion: z.number().int().positive(),
-    introduction: guideIntroductionSchema.optional(),
+    introduction: productIntroductionSchema.optional(),
     kind: contentCollectionKindSchema,
     name: z.string(),
     summary: z.string(),
@@ -288,10 +292,10 @@ export const materialAuthoringProblemSchema = z.looseObject({
   currentVersion: z.number().int().positive().optional(),
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
-  guides: z
+  products: z
     .array(
       z.strictObject({
-        guideId: z.uuid(),
+        productId: z.uuid(),
         name: z.string(),
         holders: z.number().int().positive(),
       }),
@@ -356,7 +360,7 @@ export function statusForMaterialAuthoringError(
     case "stale_home_pin":
     case "content_collection_slug_conflict":
     case "stale_content_collection_version":
-    case "guide_removal_confirmation_required":
+    case "product_removal_confirmation_required":
       return 409;
     case "duplicate_tag":
     case "invalid_content":

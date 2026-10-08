@@ -1,0 +1,583 @@
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileDown,
+  Play,
+  ShieldCheck,
+} from "lucide-react";
+import type { Route } from "next";
+import type { ReactNode } from "react";
+
+import {
+  fillProductPage,
+  type ProductPage,
+  type ProductPageBlock,
+  type ProductPresentation,
+} from "@/entities/product-page";
+import { ContentCoverImage } from "@/entities/material";
+import {
+  fillOneTimeTerms,
+  type OneTimeOfferTerms,
+} from "@/features/billing-checkout.terms";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
+import {
+  formatMaterialCount,
+  type PublishedSeriesResult,
+} from "@/features/library-discovery";
+import { cn } from "@/shared/lib/utils";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
+import { Button } from "@/shared/ui/button";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+
+import { countFreeLessons } from "../model/free-lessons";
+import { AiEngineeringCourseView } from "./ai-engineering-course-view";
+import { AiFirstProductView } from "./ai-first-product-view";
+import { formatArtifactCount, formatChapterCount } from "./product-counts";
+
+type ResolvedSeriesResult = Extract<
+  PublishedSeriesResult,
+  { kind: "ready" | "empty" }
+>;
+
+interface ProductViewProps {
+  readonly artifacts: ReaderProductArtifactsResult;
+  readonly result: ResolvedSeriesResult;
+  readonly returnTarget: MaterialReaderReturnTarget;
+  readonly freeEntryHref: Route | undefined;
+  readonly page: ProductPage | null;
+  readonly heroCall: ReactNode;
+}
+
+/**
+ * Реестр оформлений (ADR 0026): значение поля продукта выбирает, чем рисовать страницу. Особому
+ * оформлению без описания нечего показать, поэтому оно уступает общему шаблону.
+ */
+const productViews: Record<
+  ProductPresentation,
+  (props: ProductViewProps) => ReactNode
+> = {
+  default: DefaultProductLandingView,
+  "ai-first-process": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultProductLandingView
+        {...props}
+        freeEntryHref={freeEntryHref}
+        page={null}
+      />
+    ) : (
+      <AiFirstProductView
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+      />
+    ),
+  "ai-engineering-course": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultProductLandingView
+        {...props}
+        freeEntryHref={freeEntryHref}
+        page={null}
+      />
+    ) : (
+      <AiEngineeringCourseView
+        heroCall={props.heroCall}
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+      />
+    ),
+};
+
+/**
+ * Страница продукта руководства: она отвечает, о чём это, кому, что получится и что остаётся за
+ * границами. Материалы, состояния доступа и приглашение к оплате живут на странице программы,
+ * поэтому отсюда ведёт одно действие — «Открыть программу». Ненаписанное поле не показывается,
+ * поэтому частично готовое руководство не выглядит завершённым.
+ */
+export function ProductLandingView({
+  artifacts = { kind: "ready", artifacts: [] },
+  heroCall,
+  offerTerms = null,
+  result,
+  freeEntryHref,
+  returnTarget,
+}: {
+  readonly artifacts?: ReaderProductArtifactsResult;
+  readonly result: ResolvedSeriesResult;
+  /** Откуда читатель пришёл: страница продукта — вход в руководство, и выход из неё нужен. */
+  readonly returnTarget: MaterialReaderReturnTarget;
+  /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
+  readonly freeEntryHref?: Route;
+  /** Плашка потока и кнопка по этапу: её рисует оформление курса, остальные её не показывают. */
+  readonly heroCall?: ReactNode;
+  /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
+  readonly offerTerms?: OneTimeOfferTerms | null;
+}) {
+  const productPage = result.reference.productPage ?? null;
+  const View = productViews[productPage?.presentation ?? "default"];
+  const page = productPage?.page ?? null;
+  return (
+    <View
+      artifacts={artifacts}
+      freeEntryHref={freeEntryHref}
+      heroCall={heroCall}
+      // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
+      // готовый текст и не пропускает ни одного поля (ADR 0026).
+      page={
+        page === null
+          ? null
+          : fillProductPage(page, (text) => fillOneTimeTerms(text, offerTerms))
+      }
+      result={result}
+      returnTarget={returnTarget}
+    />
+  );
+}
+
+/** Общий шаблон: описание продукта, если оно перенесено, иначе введение, которое пишет редактор. */
+function DefaultProductLandingView({
+  artifacts,
+  result,
+  freeEntryHref,
+  returnTarget,
+  page,
+}: ProductViewProps) {
+  const { reference } = result;
+  const introduction = page === null ? (reference.introduction ?? null) : null;
+  const items = result.kind === "ready" ? result.items : [];
+  const freeCount = countFreeLessons(items);
+  // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
+  const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
+  const chapters = result.chapters;
+  const productArtifacts =
+    artifacts.kind === "ready" ? artifacts.artifacts : [];
+  const meta = [
+    formatMaterialCount(items.length),
+    chapters.length === 0 ? undefined : formatChapterCount(chapters.length),
+    productArtifacts.length === 0
+      ? undefined
+      : formatArtifactCount(productArtifacts.length),
+  ].filter((value): value is string => value !== undefined);
+
+  return (
+    <div className="min-w-0" data-product-landing={reference.slug}>
+      <div className="mx-auto w-full min-w-0 max-w-[46rem]">
+        <nav
+          aria-label="Хлебные крошки"
+          className="pt-4"
+          data-product-part="back"
+        >
+          <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <li>
+              <IntentPrefetchLink
+                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
+                href={returnTarget.href}
+              >
+                <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
+                {returnTarget.label}
+              </IntentPrefetchLink>
+            </li>
+            <li className="sr-only">Продукт</li>
+            <li aria-current="page" className="sr-only">
+              {reference.name}
+            </li>
+          </ol>
+        </nav>
+
+        <header
+          className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white"
+          data-product-part="hero"
+        >
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
+            Продукт
+          </p>
+          <div className="mt-3 overflow-hidden rounded-2xl">
+            <ContentCoverImage
+              alt=""
+              className="aspect-[16/9] min-h-0 w-full"
+              cover={reference.cover ?? null}
+              fallbackKind="playlist"
+              fallbackSeed={reference.slug}
+              priority
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm tabular-nums text-white/70">
+              {formatMaterialCount(items.length)}
+            </p>
+            {freeEntry === undefined ? null : (
+              <Button
+                asChild
+                className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white"
+                variant="outline"
+              >
+                <IntentPrefetchLink href={freeEntry}>
+                  <Play aria-hidden="true" className="size-4 shrink-0" />
+                  Попробовать бесплатно
+                </IntentPrefetchLink>
+              </Button>
+            )}
+          </div>
+        </header>
+
+        <h1 className="mt-7 break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
+          {reference.name}
+        </h1>
+        {reference.summary === "" ? null : (
+          <p className="mt-3 break-words text-base leading-7 text-muted-foreground md:text-lg">
+            {reference.summary}
+          </p>
+        )}
+        {meta.length === 0 ? null : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {meta.join(" · ")}
+          </p>
+        )}
+
+        {page?.blocks.map((block) => (
+          <DefaultBlock
+            block={block}
+            freeCount={freeCount}
+            key={block.id}
+            programme={productProgrammeHref(reference.slug)}
+          />
+        ))}
+
+        {introduction === null || introduction.audience === "" ? null : (
+          <Section title="Кому это нужно">
+            <Prose value={introduction.audience} />
+          </Section>
+        )}
+
+        {introduction === null || introduction.outcome === "" ? null : (
+          <Section title="Что получается">
+            <Prose value={introduction.outcome} />
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Это то, что останется у вас в проекте после прохождения.
+            </p>
+          </Section>
+        )}
+
+        {chapters.length === 0 ? null : (
+          <Section title="Что внутри продукта">
+            <p className="text-sm leading-6 text-muted-foreground">
+              <span className="font-semibold text-foreground">
+                {formatMaterialCount(items.length)}
+              </span>
+              . Вот основные темы.
+            </p>
+            <ol className="mt-5 grid gap-5">
+              {chapters.map((chapter, index) => (
+                <li
+                  className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+                  key={chapter.id}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "grid size-8 place-items-center rounded-xl text-sm font-semibold tabular-nums",
+                      chapterTone(index),
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold leading-6">
+                      {chapter.name}
+                    </p>
+                    {chapter.summary === "" ? null : (
+                      <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                        {chapter.summary}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Section>
+        )}
+
+        {introduction === null || introduction.prerequisites === "" ? null : (
+          <Section title="Что понадобится">
+            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl bg-muted p-5">
+              <Check
+                aria-hidden="true"
+                className="mt-0.5 size-5 shrink-0 text-accent"
+              />
+              <Prose value={introduction.prerequisites} />
+            </div>
+          </Section>
+        )}
+
+        {productArtifacts.length === 0 ? null : (
+          <Section title="Что останется в проекте">
+            <ul className="grid gap-3">
+              {productArtifacts.map((artifact) => (
+                <li
+                  className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border p-4"
+                  key={artifact.artifactId}
+                >
+                  <FileDown
+                    aria-hidden="true"
+                    className="mt-0.5 size-5 text-muted-foreground"
+                  />
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold leading-6">
+                      {artifact.title}
+                    </p>
+                    {artifact.purpose === "" ? null : (
+                      <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
+                        {artifact.purpose}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {introduction === null || introduction.scope === "" ? null : (
+          <Section title="Что остаётся за границами">
+            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border p-5">
+              <ShieldCheck
+                aria-hidden="true"
+                className="mt-0.5 size-5 text-muted-foreground"
+              />
+              <Prose value={introduction.scope} />
+            </div>
+          </Section>
+        )}
+      </div>
+
+      {/* Липкая, а не фиксированная: панель держится за то, что её прокручивает, и на узком экране
+          останавливается над плавающим меню оболочки, а не уходит под него. */}
+      <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
+        <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card backdrop-blur">
+          <Button
+            asChild
+            className="h-auto min-h-11 w-full whitespace-normal"
+            size="lg"
+          >
+            <IntentPrefetchLink href={productProgrammeHref(reference.slug)}>
+              Открыть программу
+              <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+            </IntentPrefetchLink>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DefaultBlock({
+  block,
+  freeCount,
+  programme,
+}: {
+  readonly block: ProductPageBlock;
+  /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
+  readonly freeCount: number;
+  readonly programme: Route;
+}): ReactNode {
+  switch (block.kind) {
+    case "hero":
+      return (
+        <div className="mt-6">
+          {block.badge === "" ? null : (
+            <p className="mb-3 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">
+              {block.badge}
+            </p>
+          )}
+          <Prose value={block.lead} />
+          {block.highlights.length === 0 ? null : (
+            <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+              {block.highlights.map((highlight, index) => (
+                <li
+                  className="rounded-full bg-secondary px-3 py-1"
+                  key={`${String(index)}-${highlight}`}
+                >
+                  {highlight}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    case "cards":
+      return (
+        <Section
+          title={block.title}
+          {...(block.eyebrow === "" ? {} : { eyebrow: block.eyebrow })}
+        >
+          {block.lead === "" ? null : <Prose value={block.lead} />}
+          <ul className="mt-4 grid gap-3">
+            {block.items.map((item, index) => (
+              <li
+                className="rounded-2xl border border-border p-4"
+                key={`${String(index)}-${item.title}`}
+              >
+                <p className="break-words font-semibold leading-6">
+                  {item.title}
+                </p>
+                <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                  {item.text}
+                </p>
+                {item.detail === "" ? null : (
+                  <p className="mt-2 text-sm">
+                    {item.detailLabel === "" ? null : (
+                      <span className="text-muted-foreground">
+                        {item.detailLabel}:{" "}
+                      </span>
+                    )}
+                    {item.detail}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          {block.note === "" ? null : (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {block.note}
+            </p>
+          )}
+        </Section>
+      );
+    case "text":
+      return (
+        <Section title={block.title}>
+          <div className="grid gap-3">
+            {block.paragraphs.map((paragraph, index) => (
+              <Prose key={`${String(index)}-${paragraph}`} value={paragraph} />
+            ))}
+          </div>
+        </Section>
+      );
+    case "steps":
+      return (
+        <Section title={block.title}>
+          {block.lead === "" ? null : <Prose value={block.lead} />}
+          <ol className="mt-4 grid gap-4">
+            {block.items.map((step, index) => (
+              <li
+                className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+                key={`${String(index)}-${step.title}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-8 place-items-center rounded-xl text-sm font-semibold tabular-nums",
+                    chapterTone(index),
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="break-words font-semibold leading-6">
+                    {step.title}
+                  </p>
+                  <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                    {step.text}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {block.link === "" ? null : (
+            <TextLink href={programme} label={block.link} />
+          )}
+        </Section>
+      );
+    case "list":
+      return (
+        <Section title={block.title}>
+          {block.text === "" ? null : <Prose value={block.text} />}
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+            {block.items.map((item, index) => (
+              <li
+                className="rounded-full bg-secondary px-3 py-1"
+                key={`${String(index)}-${item}`}
+              >
+                {item}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      );
+    case "trial":
+      return freeCount === 0 ? null : (
+        <Section title={block.title}>
+          <Prose value={block.text} />
+          {block.link === "" ? null : (
+            <TextLink href={programme} label={block.link} />
+          )}
+        </Section>
+      );
+  }
+}
+
+function TextLink({
+  href,
+  label,
+}: {
+  readonly href: Route;
+  readonly label: string;
+}) {
+  return (
+    <IntentPrefetchLink
+      className="mt-4 inline-flex min-h-10 items-center gap-2 font-semibold text-accent-foreground underline-offset-4 hover:underline focus-visible:outline-ring"
+      href={href}
+    >
+      {label}
+      <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+    </IntentPrefetchLink>
+  );
+}
+
+function Section({
+  children,
+  eyebrow,
+  title,
+}: {
+  readonly children: ReactNode;
+  /** Надзаголовок автора: он стоит над названием раздела, как в оформлении продукта. */
+  readonly eyebrow?: string;
+  readonly title: string;
+}) {
+  return (
+    <section className="mt-10">
+      {eyebrow === undefined ? null : (
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {eyebrow}
+        </p>
+      )}
+      <h2 className="break-words text-xl font-semibold tracking-[-0.02em] md:text-2xl">
+        {title}
+      </h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+/** Авторский текст показывается как написан: переносы строк автора остаются абзацами. */
+function Prose({ value }: { readonly value: string }) {
+  return (
+    <p className="whitespace-pre-line break-words text-sm leading-6 md:text-base md:leading-7">
+      {value}
+    </p>
+  );
+}
+
+/** Номер главы окрашен своим тоном по кругу: он отличает главы, но ничего о них не утверждает. */
+const chapterTones = [
+  "bg-cover-sand",
+  "bg-cover-blue",
+  "bg-cover-mint",
+  "bg-cover-lavender",
+  "bg-cover-coral",
+] as const;
+function chapterTone(index: number): string {
+  return `${chapterTones[index % chapterTones.length] ?? "bg-secondary"} text-foreground`;
+}

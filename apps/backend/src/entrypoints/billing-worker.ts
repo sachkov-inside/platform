@@ -28,6 +28,12 @@ import {
 } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
+import {
+  runRenewalJob,
+  runRecoveryJob,
+  runNoticeJob,
+} from "./billing-worker/jobs.js";
+
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const noticeQueue = "billing.subscription-notices";
@@ -48,7 +54,7 @@ async function bootstrap(): Promise<void> {
   );
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   try {
-    // Сверка и возвраты без терминала молча ничего не делают: включённая продажа требует настроек.
+    // Включённая продажа требует настроек; фоновые пробеги отдельно сообщают простой.
     await application.get(BillingPricing).assertSaleConfigured(config);
   } catch (error) {
     await application.close();
@@ -90,11 +96,7 @@ async function bootstrap(): Promise<void> {
       await jobs.work(
         recoveryQueue,
         observeJob("billing-worker", recoveryQueue, async () => {
-          const result = await payments.recover(20);
-          if (!result.ok) throw new Error(result.error.code);
-          // Незавершённый возврат сверяется тем же ExternalRequestId и не отправляется заново.
-          const refunds = await operations.reconcileRefunds(20);
-          return { ...result.value, refunds };
+          return runRecoveryJob(payments, operations);
         }),
       );
       await jobs.createQueue(renewalQueue, {
@@ -111,14 +113,7 @@ async function bootstrap(): Promise<void> {
       await jobs.work(
         renewalQueue,
         observeJob("billing-worker", renewalQueue, async () => {
-          const renewed = await payments.renew(20);
-          if (!renewed.ok) throw new Error(renewed.error.code);
-          const bindings = await subscriptions.reconcileMethodFlows(20);
-          // Смена карты не настроена терминалом: продление остаётся рабочим результатом задания.
-          return {
-            ...renewed.value,
-            bindings: bindings.ok ? bindings.value : bindings.error.code,
-          };
+          return runRenewalJob(payments, subscriptions);
         }),
       );
       await jobs.createQueue(noticeQueue, {
@@ -136,9 +131,7 @@ async function bootstrap(): Promise<void> {
         noticeQueue,
         observeJob("billing-worker", noticeQueue, async () => {
           // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
-          const result = await notices.scheduleReminders(20);
-          if (!result.ok) throw new Error(result.error.code);
-          return result.value;
+          return runNoticeJob(notices);
         }),
       );
       // Community delivery only runs where the provider direction is actually configured.

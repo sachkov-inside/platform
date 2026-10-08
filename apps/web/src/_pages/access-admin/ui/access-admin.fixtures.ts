@@ -10,7 +10,7 @@ import {
   type BillingRoutes,
 } from "@/features/billing-admin/ui/billing-bff.fixtures";
 import {
-  guideOnlyOffer,
+  productOnlyOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -39,7 +39,7 @@ export const accessOffers: readonly PriceSnapshot[] = [
       priceKopecks: 1_000_000,
     },
   },
-  guideOnlyOffer,
+  productOnlyOffer,
 ];
 
 const subscription = {
@@ -50,7 +50,10 @@ const materials = {
   id: materialsOffer.offer.id,
   name: materialsOffer.offer.name,
 };
-const guide = { id: guideOnlyOffer.offer.id, name: guideOnlyOffer.offer.name };
+const product = {
+  id: productOnlyOffer.offer.id,
+  name: productOnlyOffer.offer.name,
+};
 
 export function invitation(
   id: string,
@@ -64,7 +67,6 @@ export function invitation(
     offerId: materialsOffer.offer.id,
     offerRevision: 3,
     mode: "purchase",
-    giftMonths: null,
     note: null,
     state: "issued",
     issuedAt: "2030-04-01T09:00:00.000Z",
@@ -83,8 +85,7 @@ export function invitation(
 export const everyStateInvitations: readonly Invitation[] = [
   invitation("e01", { note: "Гость эфира, оплата со скидкой" }),
   invitation("e02", {
-    mode: "gift",
-    giftMonths: 3,
+    mode: "purchase",
     offerId: supportOffer.offer.id,
     state: "claimed",
     claimedAt: "2030-04-02T10:00:00.000Z",
@@ -95,14 +96,6 @@ export const everyStateInvitations: readonly Invitation[] = [
     claimedAt: "2030-04-02T10:00:00.000Z",
     redeemedAt: "2030-04-02T10:05:00.000Z",
     accountId: uuid("c01"),
-    revision: 3,
-  }),
-  invitation("e04", {
-    mode: "gift",
-    state: "redeemed",
-    claimedAt: "2030-04-03T10:00:00.000Z",
-    redeemedAt: "2030-04-03T10:00:00.000Z",
-    accountId: uuid("c02"),
     revision: 3,
   }),
   invitation("e05", { state: "expired", revision: 2 }),
@@ -147,7 +140,7 @@ export const accessPeople: readonly AccessHolder[] = [
   {
     accountId: uuid("c02"),
     telegramIdentityRef: null,
-    grounds: [ground("d02", { source: "invitation", endsAt: null })],
+    grounds: [ground("d02", { source: "manual", endsAt: null })],
   },
   {
     accountId: uuid("c03"),
@@ -181,7 +174,7 @@ export const accessPeople: readonly AccessHolder[] = [
       ground("d06", {
         kind: "grant",
         source: "one_time_purchase",
-        offer: guide,
+        offer: product,
         capabilities: ["materials"],
         purchaseRef: uuid("e01"),
         endsAt: null,
@@ -210,7 +203,7 @@ const accessTiers = [supportOffer, materialsOffer].map(({ offer }) => ({
     revision: offer.revision,
     name: offer.name,
     benefits: offer.benefits,
-    contentScope: { guideIds: [], materialIds: [] },
+    coverage: { productIds: [], materialIds: [] },
   },
   availableForAssignment: true,
   published: true,
@@ -241,7 +234,6 @@ export const accessSummary: AccessSummary = {
     opened: 19,
     purchaseOpened: 12,
     paid: 8,
-    gifted: 5,
     expired: 3,
     revoked: 1,
   },
@@ -257,7 +249,7 @@ export const accessSummary: AccessSummary = {
     {
       accountId: uuid("c02"),
       reason: "ending",
-      source: "invitation",
+      source: "manual",
       offerId: subscription.id,
       title: subscription.name,
       at: "2030-03-20T21:00:00.000Z",

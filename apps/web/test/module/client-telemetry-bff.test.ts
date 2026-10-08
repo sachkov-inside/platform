@@ -133,7 +133,7 @@ it("отклоняет отчёт с адресом, в котором есть 
       "/api/web-vitals",
       JSON.stringify({
         metrics: [lcp],
-        route: "/subscription/return?payment=1",
+        route: "/payment/return?payment=1",
       }),
     ),
   );

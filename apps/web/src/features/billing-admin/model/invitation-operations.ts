@@ -10,10 +10,8 @@ export const invitationStateSchema = z.enum([
   "expired",
   "revoked",
 ]);
-export const invitationModeSchema = z.enum(["purchase", "gift"]);
+export const invitationModeSchema = z.literal("purchase");
 
-/** Срок подарка в месяцах; `null` — бессрочно. Границы те же, что принимает команда. */
-export const giftMonthsMax = 1200;
 export const invitationNoteMaxLength = 200;
 /** Страница списка: сервер по умолчанию отдаёт столько же. */
 export const invitationsPageSize = 50;
@@ -22,7 +20,6 @@ export const issueInvitationInputSchema = z.strictObject({
   operationId: z.uuid(),
   offerId: z.uuid(),
   mode: invitationModeSchema,
-  giftMonths: z.int().min(1).max(giftMonthsMax).nullable().optional(),
   note: z.string().max(invitationNoteMaxLength).nullable().optional(),
 });
 export const revokeInvitationInputSchema = z.strictObject({
@@ -46,7 +43,6 @@ export const invitationSchema = z.object({
   offerId: z.uuid(),
   offerRevision: z.int().positive(),
   mode: invitationModeSchema,
-  giftMonths: z.int().positive().nullable(),
   /** Выдача и отзыв возвращают приглашение без заметки: её показывает только список. */
   note: z.string().nullable().optional(),
   state: invitationStateSchema,
@@ -119,37 +115,20 @@ export const invitationStateFilters: readonly {
   { value: "revoked", label: "Отозвано" },
 ];
 
-/** Использованное приглашение называется по своему результату: оплата открыта или доступ подарен. */
-export function invitationStateLabel(
-  state: InvitationState,
-  mode: InvitationMode,
-): string {
+/** Использованное приглашение называется по своему результату: оплата открыта. */
+export function invitationStateLabel(state: InvitationState): string {
   switch (state) {
     case "issued":
       return "Выдано";
     case "claimed":
       return "Открыто";
     case "redeemed":
-      return mode === "gift" ? "Подарено" : "Оплата открыта";
+      return "Оплата открыта";
     case "expired":
       return "Сгорело";
     case "revoked":
       return "Отозвано";
   }
-}
-
-export function invitationModeLabel(mode: InvitationMode): string {
-  return mode === "gift" ? "Подарок" : "Оплата";
-}
-
-/** Срок есть только у подарка: оплата берёт срок из выбранного варианта оплаты. */
-export function invitationTermLabel(
-  invitation: Pick<Invitation, "mode" | "giftMonths">,
-): string | null {
-  if (invitation.mode !== "gift") return null;
-  return invitation.giftMonths === null
-    ? "Бессрочно"
-    : `${String(invitation.giftMonths)} мес.`;
 }
 
 /** Что отправить человеку: ссылку на бота, а без неё — параметр запуска для ручной ссылки. */

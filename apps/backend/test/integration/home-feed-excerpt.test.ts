@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
@@ -8,6 +10,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = "74000000-0000-4000-8000-000000000001";
 const metadata = {
@@ -70,17 +74,17 @@ describe("Home feed public note excerpts", () => {
     if (!created.ok) throw new Error(created.error.code);
     let version = created.value.contentVersion;
     // Закрытая заметка публикуется только внутри продукта.
-    const closedGuideId = "74000000-0000-4000-8000-000000000098";
-    await database.prisma.guide.create({
+    const closedProductId = "74000000-0000-4000-8000-000000000098";
+    await database.prisma.product.create({
       data: {
-        id: closedGuideId,
-        slug: "feed-excerpt-closed-guide",
-        name: "Feed excerpt closed guide",
+        id: closedProductId,
+        slug: "feed-excerpt-closed-product",
+        name: "Feed excerpt closed product",
       },
     });
     const publish = async (
       text: string,
-      access: "free" | "membership",
+      access: "free" | "closed",
       key: string,
       href?: string,
     ) => {
@@ -93,7 +97,7 @@ describe("Home feed public note excerpts", () => {
         metadata: {
           ...metadata,
           access,
-          seriesIds: access === "membership" ? [closedGuideId] : [],
+          seriesIds: access === "closed" ? [closedProductId] : [],
         },
         body: noteBody(text, href),
         primaryVideoId: null,
@@ -147,7 +151,7 @@ describe("Home feed public note excerpts", () => {
     expect(long?.noteExcerpt?.linkUrl).toBeUndefined();
     await publish(
       "Private note secret",
-      "membership",
+      "closed",
       "feed-note-closed",
       "https://example.com/private-link",
     );
@@ -156,5 +160,35 @@ describe("Home feed public note excerpts", () => {
     expect(closed?.noteExcerpt).toBeUndefined();
     expect(JSON.stringify(closed)).not.toContain("Private note secret");
     expect(JSON.stringify(closed)).not.toContain("private-link");
+    const archived = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "feed-note-archived",
+      materialId: created.value.materialId,
+      expectedContentVersion: version,
+      publicationState: "published",
+      metadata: { ...metadata, seriesIds: [closedProductId] },
+      body: noteBody(
+        "Archived note secret",
+        "https://example.com/archived-secret",
+      ),
+    });
+    if (!archived.ok) throw new Error(archived.error.code);
+    await database.prisma.product.update({
+      where: { id: closedProductId },
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
+      data: { archivedAt: new Date() },
+    });
+    const hiddenArchive = await read();
+    expect(hiddenArchive?.availability).toBe("unavailable");
+    expect(hiddenArchive?.noteExcerpt).toBeUndefined();
+    expect(JSON.stringify(hiddenArchive)).not.toContain("Archived note secret");
+    expect(JSON.stringify(hiddenArchive)).not.toContain("archived-secret");
+    await database.prisma.product.update({
+      where: { id: closedProductId },
+      data: { archivedAt: null },
+    });
+    expect(await read()).toMatchObject({
+      noteExcerpt: { text: "Archived note secret" },
+    });
   });
 });

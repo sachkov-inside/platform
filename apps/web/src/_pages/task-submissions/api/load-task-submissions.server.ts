@@ -4,11 +4,7 @@ import {
   BackendConnectionError,
   requestAuthorTaskSubmissions,
 } from "@/shared/api/backend/index.server";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import {
   consistentSelection,
@@ -35,22 +31,21 @@ type Attempt =
   | { readonly ok: false; readonly status: number };
 
 /**
- * The «Сдачи» section for `/authoring/submissions` (#948). A filter the Guides on offer cannot show
- * — a chapter of another Guide, a task of another chapter, a malformed value — is dropped and read
+ * The «Сдачи» section for `/authoring/submissions` (#948). A filter the Products on offer cannot show
+ * — a chapter of another Product, a task of another chapter, a malformed value — is dropped and read
  * again from the first page, so the selects and the list always agree.
  */
 export async function loadTaskSubmissions(
   selection: SubmissionSelection,
   cursor: string | undefined,
 ): Promise<TaskSubmissionsOutcome> {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError)
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required")
       return { kind: "unauthorized" };
-    throw error;
+    throw new Error("Identity session is unavailable");
   }
+  const accessToken = session.value;
   const read = async (
     query: SubmissionSelection,
     page: string | undefined,
@@ -85,7 +80,7 @@ export async function loadTaskSubmissions(
   if (attempt.ok) {
     const consistent = consistentSelection(
       selection,
-      attempt.submissions.guides,
+      attempt.submissions.products,
     );
     if (!sameSelection(consistent, shown)) {
       shown = consistent;

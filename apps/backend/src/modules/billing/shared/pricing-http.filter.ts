@@ -9,6 +9,7 @@ export function throwPricingError(error: PricingError): never {
       break;
     case "forbidden":
     case "not_eligible":
+    case "legacy_review_required":
       status = 403;
       break;
     case "not_found":

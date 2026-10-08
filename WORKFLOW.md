@@ -59,8 +59,9 @@ assignee instead (`docs/agents/issue-tracker.md`).
   `<type>/<slug>`.
 - Worktree place: `<parent>/<repo>.worktrees/<task>`, beside the repository checkout.
   `<task>` is the branch without its type prefix. The current Inside layout is in `REPOSITORIES.md`.
-- The primary checkout belongs to the owner: read it. Only `session-cleanup` fast-forwards it after
-  the merge, through `git -C`.
+- The primary checkout belongs to the owner: read it and leave its tracked files unchanged. Keep
+  requested local artifacts outside tracked paths and reach them through `git -C` or absolute
+  paths. Only `session-cleanup` fast-forwards the checkout after the merge.
 - One task has one branch, one writing worktree and one open pull request. Another session's
   worktree, branch, containers, volumes and stash entries are live state: leave them alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its
@@ -96,12 +97,15 @@ code. The agent then:
    diagnosed; when it blocks the task, it is a blocker;
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
-4. runs `session-cleanup`;
-5. hands off in chat: the pull request link, one line of outcome, the checks that ran and those
-   that did not, and each leftover the cleanup kept.
+4. runs `session-cleanup` and records each resource it keeps and why;
+5. gives the owner the result, the checks that ran and those that did not, material limitations
+   and the next step, with a link to the pull request or requested artifact when one exists.
 
-Steps 4 and 5 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
-that waits for acceptance.
+Steps 4 and 5 apply to every hand-off, including a ready pull request, a stopped task or a result
+that waits for acceptance. The delivery format follows the owner's request and the invoked skill:
+a concise chat message is enough when neither calls for an artifact, and a requested architecture
+review or research document keeps its own structure and design. The shared `report` skill, its
+HTML template and `report.py finish` are not completion requirements in this project.
 
 ## Owner corrections
 

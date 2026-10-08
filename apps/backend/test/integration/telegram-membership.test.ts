@@ -1,4 +1,4 @@
-import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -10,8 +10,7 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 
-import type { MembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import type { AccountRights } from "../../src/modules/account-rights/index.js";
 import {
   assembleTelegramMembership,
   type TelegramMembership,
@@ -44,7 +43,7 @@ const persistedLinkRowsSchema = z.array(
 describe("TelegramMembership", () => {
   let clock: MutableClock;
   let database: TestDatabase;
-  let entitlements: MembershipEntitlements;
+  let entitlements: AccountRights;
   let membership: TelegramMembership;
   let provider: ControlledTelegramLinkProvider;
 
@@ -632,23 +631,20 @@ class ControlledTelegramLinkProvider implements TelegramLinkProvider {
 
 function fixture(database: TestDatabase): {
   readonly clock: MutableClock;
-  readonly entitlements: MembershipEntitlements;
+  readonly entitlements: AccountRights;
   readonly membership: TelegramMembership;
   readonly provider: ControlledTelegramLinkProvider;
 } {
   const provider = new ControlledTelegramLinkProvider();
   const clock = new MutableClock(new Date("2030-01-01T00:00:00.000Z"));
-  const entitlements = assembleLegacyCohortFixture({
+  const entitlements = assemblePriorParticipantsFixture({
     prisma: database.prisma,
-    workshopEntitlements: assembleWorkshopEntitlements({
-      prisma: database.prisma,
-      clock: () => clock.now(),
-    }),
+
     clock: () => clock.now(),
   });
   const membership = assembleTelegramMembership({
     prisma: database.prisma,
-    membershipEntitlements: entitlements,
+    accountRights: entitlements,
     provider,
     botStartUrl: "https://t.me/inside_test_bot",
     clock: () => clock.now(),

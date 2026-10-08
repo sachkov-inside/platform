@@ -10,25 +10,24 @@ import {
   type AccessGrants,
   type ActivationBindings,
   type RecipientLinks,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   ACTIVATION_CONTRACT_VERSION,
   invitationRedemptionOutcomeSchema,
   redeemInvitationSchema,
-  tierSnapshotSchema,
   type InvitationOffer,
   type InvitationRedemptionOutcome,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import { offerCheckoutPath } from "../../domain/offer-checkout.js";
-import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import {
+  isProductOffer,
   subscriptionOfferForInvitation,
   tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 export class SubscriptionActivation {
   constructor(
     private readonly dependencies: {
@@ -117,11 +116,19 @@ export class SubscriptionActivation {
         error: { code: "identity_conflict" as const },
       };
     const accountId = linked.link.accountId;
+    const [enrollments, access, admission] = await Promise.all([
+      this.dependencies.grants.readOwnEnrollments(accountId),
+      this.dependencies.grants.readOwnAccess(accountId),
+      this.dependencies.readAdmission(accountId),
+    ]);
+    if (!enrollments.ok || !access.ok)
+      return { ok: false as const, error: { code: "unavailable" as const } };
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
-      const current = await this.dependencies.bindings.readBinding({
-        accountId,
-      });
+      const current = await this.dependencies.bindings.readBinding(
+        { accountId },
+        tx,
+      );
       if (
         !current.ok ||
         current.binding === null ||
@@ -133,26 +140,20 @@ export class SubscriptionActivation {
           ok: false as const,
           error: { code: "identity_conflict" as const },
         };
-      const [enrollments, access] = await Promise.all([
-        this.dependencies.grants.readOwnEnrollments(accountId),
-        this.dependencies.grants.readOwnAccess(accountId),
-      ]);
-      if (!enrollments.ok || !access.ok)
-        return { ok: false as const, error: { code: "unavailable" as const } };
       return {
         ok: true as const,
         value: {
           contractVersion: query.contractVersion,
           enrollments: enrollments.value,
           grounds: access.value.grounds,
-          admission: await this.dependencies.readAdmission(accountId),
+          admission,
         },
       };
     });
   }
   /**
    * Погашение приглашения ботом. Platform сама находит Account по текущей привязке identity и
-   * читает Offer до транзакции прав; права закрепляют, допускают или дарят в одной транзакции.
+   * читает Offer до транзакции прав; права закрепляют и допускают в одной транзакции.
    */
   async redeemInvitation(input: unknown) {
     const unavailable = {
@@ -196,29 +197,14 @@ export class SubscriptionActivation {
                 row.published &&
                 row.options.length > 0 &&
                 subscriptionOfferForInvitation(row),
-              tier: tierOpenForAssignment(row)
-                ? tierSnapshotSchema.parse({
-                    id: row.id,
-                    revision: row.revision,
-                    name: row.name,
-                    benefits: row.benefits,
-                    contentScope: row.contentScope,
-                  })
-                : null,
             };
       const result = await grants.redeemInvitation(parsed.data, {
         accountId: linked.state === "found" ? linked.recipient.accountId : null,
         offer,
-        periodEnd: subscriptionPeriodEnd,
       });
       if (!result.ok) {
         // Запрос уже прошёл схему, а идентичность — проверку выше: другой отказ назначения —
         // нарушенный инвариант прав, и его причина записывается как сбой зависимости.
-        if (result.error.code === "identity_conflict")
-          return {
-            ok: false as const,
-            error: { code: "identity_conflict" as const },
-          };
         throw new Error(
           `Invitation redemption refused with ${result.error.code}`,
         );
@@ -230,14 +216,6 @@ export class SubscriptionActivation {
         value = { contractVersion, state: redemption.state };
       else if (row === null)
         throw new Error("Redeemed invitation lost its Offer");
-      else if (redemption.mode === "gift")
-        value = {
-          contractVersion,
-          state: redemption.state,
-          mode: "gift",
-          offerName: row.name,
-          enrollment: redemption.enrollment,
-        };
       else {
         if (siteOrigin === undefined)
           throw new Error("Invitation checkout needs the public site origin");
@@ -297,12 +275,15 @@ export class SubscriptionActivation {
     );
     if (rule === null)
       return { ok: false as const, error: { code: "not_found" as const } };
+    const linked = await this.dependencies.bindings.find({
+      accountRef: parsed.data.accountRef,
+    });
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({
         where: { id: rule.tierId },
       });
-      if (row === null || !tierOpenForAssignment(row))
+      if (row === null || !isProductOffer(row) || !tierOpenForAssignment(row))
         return { ok: false as const, error: { code: "not_found" as const } };
       if (row.revision !== rule.tierRevision)
         return {
@@ -310,14 +291,17 @@ export class SubscriptionActivation {
           error: { code: "revision_conflict" as const },
         };
       return this.dependencies.grants.activateSubscription(
+        tx,
         this.dependencies.bindings,
+        linked,
         parsed.data,
         {
           id: row.id,
           revision: row.revision,
           name: row.name,
           benefits: row.benefits,
-          contentScope: row.contentScope,
+          benefitPeriods: row.benefitPeriods,
+          coverage: row.coverage ?? { productIds: [], materialIds: [] },
         },
       );
     });

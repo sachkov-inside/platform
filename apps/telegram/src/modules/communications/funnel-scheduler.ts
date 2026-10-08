@@ -93,14 +93,14 @@ export class FunnelScheduler {
         "Marketing requires a published default funnel and common intro",
       );
   }
-  async processAvailable(limit = 25): Promise<number> {
-    if (!this.config.marketingEnabled) return 0;
+  async processAvailable(limit = 25, signal?: AbortSignal): Promise<number> {
+    if (!this.config.marketingEnabled || isTruthy(signal?.aborted)) return 0;
     await this.plan();
     let processed = 0;
     // A released claim freed a contact that proved unsendable; it only retries, within bounds.
     for (
       let attempts = 0;
-      processed < limit && attempts < 2 * limit;
+      processed < limit && attempts < 2 * limit && !isTruthy(signal?.aborted);
       attempts++
     ) {
       const outcome = await this.claim();

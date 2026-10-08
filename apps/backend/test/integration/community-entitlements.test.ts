@@ -21,7 +21,7 @@ import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/account
 import {
   assembleAccessGrants,
   type AccessGrants,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -68,6 +68,8 @@ const finish = "2030-02-01T00:00:00.000Z";
 class ProviderDouble implements CommunityEntitlementProvider {
   readonly sent: CommunitySetCommand[] = [];
   readonly polled: string[] = [];
+  groupUrl: string | undefined;
+  updatedAt: string | undefined;
   answer: "accept" | "unavailable" | "operation_conflict" = "accept";
   private readonly observations = new Map<
     string,
@@ -114,6 +116,11 @@ class ProviderDouble implements CommunityEntitlementProvider {
       status: "accepted" as CommunityDeliveryStatus,
     };
     const result = {
+      ...(this.groupUrl !== undefined &&
+      command.access.kind !== "denied" &&
+      observation.observed === "member"
+        ? { groupUrl: this.groupUrl }
+        : {}),
       admissionRestriction: "none" as const,
       access: command.access,
       binding: command.binding,
@@ -123,7 +130,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
       operation: "entitlement.result" as const,
       operationId: command.operationId,
       status: observation.status,
-      updatedAt: command.issuedAt,
+      updatedAt: this.updatedAt ?? command.issuedAt,
     };
     expect(validateWire(result), JSON.stringify(validateWire.errors)).toBe(
       true,
@@ -732,6 +739,54 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(await app.readOwnCommunityEntry(account)).toEqual({
       kind: "member",
     });
+    provider.groupUrl = "https://t.me/c/1234567890/1";
+    now = new Date(new Date(start).getTime() + 183_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    provider.answer = "unavailable";
+    now = new Date(new Date(start).getTime() + 244_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+    });
+
+    provider.answer = "accept";
+    now = new Date(new Date(start).getTime() + 305_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    // Working HTTP can repeat an old Telegram observation while its own reconciliation is stopped.
+    now = new Date(new Date(start).getTime() + 366_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    now = new Date(new Date(start).getTime() + 427_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+    });
+
+    now = new Date(new Date(start).getTime() + 488_000);
+    provider.updatedAt = now.toISOString();
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    // If Platform reconciliation stops altogether, the received result also expires.
+    now = new Date(new Date(start).getTime() + 608_001);
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+    });
     // The activation wire keeps its own admission shape.
     expect(await app.readOwnAdmission(account)).toEqual({
       admissionRestriction: "none",
@@ -1123,8 +1178,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   });
 
-  /** One bought Guide is a reason of its own: the chat right follows that right's own term. */
-  async function grantGuide(
+  /** One bought Product is a reason of its own: the chat right follows that right's own term. */
+  async function grantProduct(
     accountId: string,
     validUntil: string | null,
   ): Promise<{ grantRef: string; revision: number }> {
@@ -1132,13 +1187,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       operationId: randomUUID(),
       rows: [
         {
-          rowKey: "guide",
+          rowKey: "product",
           accountId,
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [`guide:${randomUUID()}`],
-            reason: "Synthetic guide right",
+            capabilities: [`product:${randomUUID()}`],
+            reason: "Synthetic product right",
             startsAt: start,
             validUntil,
           },
@@ -1150,7 +1205,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       operationId: randomUUID(),
       previewRef: preview.previewRef,
       expectedRevision: preview.revision,
-      confirmedRows: ["guide"],
+      confirmedRows: ["product"],
     });
     const row = applied.ok ? applied.rows[0]?.result : undefined;
     if (row === undefined || !row.ok || !("grantRef" in row))
@@ -1158,11 +1213,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     return { grantRef: row.grantRef, revision: row.revision };
   }
 
-  test("a Guide right alone admits to the one shared chat, and its revocation closes it", async () => {
+  test("a Product right alone admits to the one shared chat, and its revocation closes it", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    const guide = await grantGuide(account, null);
+    const product = await grantProduct(account, null);
     const app = community(new ProviderDouble());
 
     expect(await app.project(account)).toMatchObject({
@@ -1173,7 +1228,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       await database.prisma.telegramCommunityDesiredState.findUniqueOrThrow({
         where: { accountId: account },
       });
-    // The Guide right carries no end, so participation carries none either.
+    // The Product right carries no end, so participation carries none either.
     expect(desired.access).toEqual({ kind: "lifetime" });
     expect(desired.nextBoundary).toBeNull();
     const [admitted] = await operations(account);
@@ -1189,10 +1244,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(
       await grants.changeGrant(owner, {
         action: "revoke",
-        grantRef: guide.grantRef,
-        expectedRevision: guide.revision,
+        grantRef: product.grantRef,
+        expectedRevision: product.revision,
         operationId: randomUUID(),
-        reason: "Owner revoked the guide right",
+        reason: "Owner revoked the product right",
       }),
     ).toMatchObject({ ok: true });
     await app.project(account);
@@ -1202,11 +1257,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(denial?.access).toEqual({ kind: "denied" });
   });
 
-  test("a finite Guide right ends participation exactly at its own boundary", async () => {
+  test("a finite Product right ends participation exactly at its own boundary", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    await grantGuide(account, finish);
+    await grantProduct(account, finish);
     const app = community(new ProviderDouble());
 
     await app.project(account);

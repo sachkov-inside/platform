@@ -10,12 +10,12 @@ production smoke, deployment, and traffic remain Telegram #9/release work.
 | `inside.identity-linking.v1` begin | Platform generates a 32-byte base64url bearer, stores only its SHA-256/base64url digest and sends an opaque `principalRef` | transport/malformed response becomes `unavailable` or `recovery-required`; no link or entitlement |
 | `inside.identity-linking.v1` confirmation | original authenticated Account and local `linkRef` select the stored provider transaction and return correlation | wrong Account is indistinguishable from missing; conflict/replay/expiry are typed terminal states |
 | `inside.membership-evidence.v1` ingress | Bearer-authenticated POST plus durable `Idempotency-Key` and explicit evidence source | auth/schema/version/principal failure cannot update the current entitlement projection |
-| Platform access | `MembershipEntitlements` accepts monotonic evidence and `ContentAccess` reads its finite local projection | non-member, expiry, outage and stale evidence deny without a Telegram call |
+| Platform access | `AccountRights` accepts monotonic evidence and `ContentAccess` reads its finite local projection | non-member, expiry, outage and stale evidence deny without a Telegram call |
 
 The identity-linking schema and named fixtures are vendored from
 `sachkov-inside/inside-telegram@e62d6a7d07cd2df611134278ffeb0e59c68cdf53` with SHA-256
 provenance. The normalized Membership Evidence corpus remains pinned to its Workspace source commit
-in `MembershipEntitlements`; its schema and fixtures are byte-identical to the Telegram #8
+in `AccountRights`; its schema and fixtures are byte-identical to the Telegram #8
 snapshots. Neither test nor runtime imports another checkout.
 
 ## Controlled proof

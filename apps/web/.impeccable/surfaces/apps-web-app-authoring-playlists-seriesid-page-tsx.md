@@ -1,8 +1,8 @@
 ---
 version: 1
 slug: "apps-web-app-authoring-playlists-seriesid-page-tsx"
-primary_target: "apps/web/app/authoring/guides/[seriesId]/page.tsx"
-related_targets: ["apps/web/app/authoring/guides/page.tsx","apps/web/src/_pages/content-collections/ui/series-editor-page.client.tsx","apps/web/src/_pages/content-collections/ui/content-collections-page.client.tsx","apps/web/src/features/series-order/ui/series-order-manager.client.tsx"]
+primary_target: "apps/web/app/authoring/products/[seriesId]/page.tsx"
+related_targets: ["apps/web/app/authoring/products/page.tsx","apps/web/src/_pages/content-collections/ui/series-editor-page.client.tsx","apps/web/src/_pages/content-collections/ui/content-collections-page.client.tsx","apps/web/src/features/series-order/ui/series-order-manager.client.tsx"]
 ---
 
 # Редактор руководства и список руководств

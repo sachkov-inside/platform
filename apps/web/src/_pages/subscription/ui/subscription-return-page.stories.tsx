@@ -8,7 +8,7 @@ import type { CommunityEntry } from "@/features/community-entry";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
   communityEntryResponse,
-  confirmedGuidePurchase,
+  confirmedProductPurchase,
   failedPurchase,
 } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -30,7 +30,7 @@ function requestPath(input: RequestInfo | URL): string {
   return new URL(target, window.location.origin).pathname;
 }
 
-const environment = publicPageEnvironment("/subscription/return", {
+const environment = publicPageEnvironment("/payment/return", {
   account: "authenticated",
 });
 const botUrl = "https://t.me/inside_storybook_bot";
@@ -68,7 +68,7 @@ const meta = {
   title: "Pages/Subscription/Return",
   component: SubscriptionReturnPage,
   tags: ["autodocs"],
-  beforeEach: returnFrom(confirmedGuidePurchase, { kind: "join", botUrl }),
+  beforeEach: returnFrom(confirmedProductPurchase, { kind: "join", botUrl }),
   parameters: {
     ...environment.parameters,
     docs: {
@@ -98,7 +98,7 @@ export const ConfirmedJoinMobile: Story = {
 };
 
 export const ConfirmedMember: Story = {
-  beforeEach: returnFrom(confirmedGuidePurchase, { kind: "member" }),
+  beforeEach: returnFrom(confirmedProductPurchase, { kind: "member" }),
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(

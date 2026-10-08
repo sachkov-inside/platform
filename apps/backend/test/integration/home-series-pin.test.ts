@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import {
   migrateToLatest,
@@ -13,6 +15,8 @@ import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = randomUUID();
 const topicId = randomUUID();
@@ -67,6 +71,10 @@ beforeAll(async () => {
       "0078_invitations",
       "0079_guide_tasks",
       "0080_guide_task_placement_and_form",
+      "0081_remove_workshop",
+      "0082_domain_names",
+      "0083_task_pages",
+      "0084_owner_command_keys",
     ],
   });
   await database.prisma.topic.create({
@@ -85,7 +93,7 @@ function metadata(title: string, seriesIds: string[]) {
   return {
     title,
     summary: "Public summary",
-    access: "membership" as const,
+    access: "closed" as const,
     topicId,
     formatId: "guide",
     tagIds: [],
@@ -96,7 +104,7 @@ function metadata(title: string, seriesIds: string[]) {
 }
 async function createSeries(title: string) {
   const seriesId = randomUUID();
-  await database.prisma.guide.create({
+  await database.prisma.product.create({
     data: {
       id: seriesId,
       name: title,
@@ -218,7 +226,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
       expectedVersion: version,
     }),
   ).toEqual({ ok: false, error: { code: "stale_home_pin" } });
-  await database.prisma.guide.update({
+  await database.prisma.product.update({
     where: { id: pinnedId },
     data: { name: "Current series title", summary: "Current series summary" },
   });
@@ -232,8 +240,9 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(await authoring.loadHomePin({ actor })).toEqual(saved);
   await change(pinnedMaterial, pinnedId, "published");
   expect(await home()).toMatchObject({ id: pinnedId });
-  await database.prisma.guide.update({
+  await database.prisma.product.update({
     where: { id: pinnedId },
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     data: { archivedAt: new Date() },
   });
   expect(await home()).toBeNull();

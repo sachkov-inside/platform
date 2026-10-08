@@ -6,7 +6,7 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 
 const querySchema = z.strictObject({
-  guideId: z.uuid().toLowerCase().nullable(),
+  productId: z.uuid().toLowerCase().nullable(),
   from: z.date(),
   to: z.date(),
 });
@@ -42,14 +42,14 @@ export class BillingSurveyRespondentSales {
   constructor(private readonly prisma: BillingPrismaClient) {}
 
   async read(query: {
-    readonly guideId: string | null;
+    readonly productId: string | null;
     readonly from: Date;
     readonly to: Date;
   }): Promise<SurveyRespondentSalesResult> {
     const parsed = querySchema.safeParse(query);
     if (!parsed.success || parsed.data.from >= parsed.data.to)
       return { ok: false, error: { code: "invalid_request" } };
-    const { guideId, from, to } = parsed.data;
+    const { productId, from, to } = parsed.data;
     try {
       const [uploaded, issued] = await Promise.all([
         this.prisma.billingSurveyRespondent.count(),
@@ -58,9 +58,9 @@ export class BillingSurveyRespondentSales {
         }),
       ]);
       if (uploaded === 0) return { ok: true, value: null };
-      if (guideId === null)
+      if (productId === null)
         return { ok: true, value: { uploaded, issued, paid: null } };
-      const namesGuide = Prisma.sql`jsonb_build_array(${guideId}::text)`;
+      const namesProduct = Prisma.sql`jsonb_build_array(${productId}::text)`;
       const rows = countRowsSchema.parse(
         await this.prisma.$queryRaw(Prisma.sql`
           select count(distinct respondent.username) as paid
@@ -71,7 +71,7 @@ export class BillingSurveyRespondentSales {
           where reservation.state = 'confirmed'
             and purchase.state = 'confirmed'
             and purchase.kind in ('initial', 'one_time')
-            and purchase.snapshot -> 'offer' -> 'contentScope' -> 'guideIds' @> ${namesGuide}
+            and purchase.snapshot -> 'offer' -> 'coverage' -> 'productIds' @> ${namesProduct}
             and purchase.confirmed_at >= ${from}
             and purchase.confirmed_at < ${to}
         `),

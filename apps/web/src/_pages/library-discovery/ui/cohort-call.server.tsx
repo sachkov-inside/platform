@@ -2,15 +2,14 @@ import "server-only";
 import { connection } from "next/server";
 
 import {
-  loadGuideCohort,
-  loadGuideOffers,
-} from "@/entities/subscription.server";
+  readGuestProductSale,
+  readViewerProductSale,
+} from "@/entities/subscription.sale.server";
 import {
   CohortCallView,
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { loadGuideAccess } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 import { cohortCall } from "../model/cohort-call";
@@ -36,26 +35,21 @@ export async function PersonalCohortCall({
   readonly result: ResolvedSeries;
 }) {
   await connection();
-  const { id: guideId, slug } = result.reference;
-  if (guideId === undefined) return <PendingCohortCall slug={slug} />;
+  const { id: productId, slug } = result.reference;
+  if (productId === undefined) return <PendingCohortCall slug={slug} />;
   const accessToken = await getOptionalPlatformAccessToken();
-  const [cohort, offers, productAccess] = await Promise.all([
-    loadGuideCohort(guideId),
-    loadGuideOffers(guideId),
-    // Гостю продукт не открыт: оплата ведёт через вход.
-    accessToken === undefined
-      ? ("closed" as const)
-      : loadGuideAccess(guideId, accessToken),
-  ]);
-  // Без потока страница остаётся прежней: сбой чтения каталога не выдумывает этап.
-  if (cohort.kind === "unavailable") return <PendingCohortCall slug={slug} />;
+  const sale = await (accessToken === undefined
+    ? readGuestProductSale(productId)
+    : readViewerProductSale(productId, accessToken));
+  if (sale.kind === "unavailable" || !sale.cohortKnown)
+    return <PendingCohortCall slug={slug} />;
   return (
     <CohortCallView
       call={cohortCall({
-        cohort: cohort.cohort,
-        offer: offers.kind === "ready" ? (offers.offers[0] ?? null) : null,
-        productAccess,
-        signedIn: accessToken !== undefined,
+        cohort: sale.cohort,
+        offer: sale.offers[0] ?? null,
+        productAccess: sale.access,
+        signedIn: sale.signedIn,
         slug,
       })}
     />

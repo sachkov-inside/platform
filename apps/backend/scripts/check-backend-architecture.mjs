@@ -378,28 +378,31 @@ function advisoryLockViolations(sourceFile, program) {
 const handoffDelegates = new Map([
   ["assets", ["material"]],
   [
-    "materials",
+    "billing",
     [
-      "materialAsset",
-      "video",
-      "videoDeletionOperation",
-      "workshopCaseMaterial",
+      "activationRule",
+      "activationAttempt",
+      "accessReceipt",
+      "accessBatchPreview",
+      "tariffAssignment",
+      "sourceEntitlement",
+      "accessGrant",
+      "accessChange",
+      "telegramAccountLinkState",
+      "telegramAccountLinkHistory",
+      "tributePolicy",
+      "tributeImportReview",
+      "legacyClassification",
     ],
   ],
-  ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
+  ["reading-activity", ["material", "publishedMaterialProductMembership"]],
+  [
+    "account-rights",
+    ["account", "telegramAccountLinkState", "telegramAccountLinkHistory"],
+  ],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
-  [
-    "workshop",
-    [
-      "accessChange",
-      "accessGrant",
-      "legacyClassification",
-      "membershipBinding",
-      "membershipEvidenceReceipt",
-      "membershipProjection",
-    ],
-  ],
 ]);
 
 // A delegate is used when one of its model operations is named; `candidate.material.materialId`

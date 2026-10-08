@@ -40,7 +40,7 @@ export const respondentLinkSchema = z.strictObject({
    * Slug продукта, если область шаблона продаёт ровно один продукт: Web собирает из него адрес
    * страницы оплаты с промокодом. Иначе `null`, и владелец отправляет код.
    */
-  guideSlug: z.string().nullable(),
+  productSlug: z.string().nullable(),
   /** Этому нику ссылка уже была выдана: возвращается прежняя, новая не создаётся. */
   alreadyIssued: z.boolean(),
 });

@@ -10,7 +10,7 @@
 
 Logto владеет аутентификацией по email-коду и подтверждению Telegram, OAuth/OIDC protocol, provider session,
 refresh и logout. Platform владеет одним локальным `Account`, business permissions и будущим
-`MembershipEntitlement`. Browser JavaScript не получает provider access/refresh tokens.
+`AccountRights`. Browser JavaScript не получает provider access/refresh tokens.
 
 Platform не создаёт второй session layer. Official `@logto/next` encrypted `HttpOnly` cookie —
 единственный BFF authentication context. Каждый protected backend request получает short-lived
@@ -28,7 +28,7 @@ email code / Telegram proof -> Logto -> official Next BFF cookie
                          v
                        Account ---- exact DB check ----> materials:manage
                          |
-                         +---- future MembershipEntitlement ----> ContentAccess
+                         +---- future AccountRights ----> ContentAccess
 ```
 
 ## Public interface
@@ -119,7 +119,7 @@ The protected Materials operation calls `Accounts.checkPermission(accountId,
 "materials:manage")`. This is an indexed lookup of current Platform state, not a permission copied
 into JWT, BFF cookie or React state. Revocation therefore applies to the next protected operation.
 
-`MembershipEntitlement` is independent, time-bounded access to closed content. It is not a role or
+`AccountRights` is independent, time-bounded access to closed content. It is not a role or
 permission. UI personas are derived projections such as anonymous, Account without entitlement,
 Account with entitlement, and Account with `materials:manage`.
 
@@ -183,7 +183,7 @@ networks.
 ## Deferred consumers
 
 - Account/Profile nickname, avatar, management, disable/delete/recovery;
-- MembershipEntitlement and ContentAccess implementation;
+- AccountRights and ContentAccess implementation;
 - authoring HTTP UI and MCP transport;
 - custom step-up/re-authentication;
 - technical M2M Account.

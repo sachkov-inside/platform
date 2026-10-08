@@ -1,11 +1,11 @@
 export {
-  GUIDE_CHAPTER_NAME_MAX,
-  GUIDE_CHAPTER_SUMMARY_MAX,
-  guideChapterDraftSchema,
+  PRODUCT_CHAPTER_NAME_MAX,
+  PRODUCT_CHAPTER_SUMMARY_MAX,
+  productChapterDraftSchema,
 } from "./model/presentation";
 export type {
   CreateSeriesOrderMaterialSearchQueryOptions,
-  GuideChapterPresentation,
+  ProductChapterPresentation,
   ReorderSeriesInput,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,

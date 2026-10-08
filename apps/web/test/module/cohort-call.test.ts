@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { GuideCohort, PriceSnapshot } from "@/entities/subscription";
-import type { GuideAccess } from "@/features/library-discovery";
+import type { ProductCohort, PriceSnapshot } from "@/entities/subscription";
+import type { ProductAccess } from "@/features/library-discovery";
 import {
   cohortCall,
   formatCohortDate,
 } from "@/_pages/library-discovery/model/cohort-call";
-import { guideWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const cohort: GuideCohort = {
-  guideId: "00000000-0000-4000-8000-000000000814",
+const cohort: ProductCohort = {
+  productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
   name: "Поток 1",
   stage: "preorder",
@@ -19,15 +19,15 @@ const cohort: GuideCohort = {
 const slug = "ai-engineering";
 const call = (
   overrides: Partial<{
-    cohort: GuideCohort | null;
+    cohort: ProductCohort | null;
     offer: PriceSnapshot | null;
-    productAccess: GuideAccess;
+    productAccess: ProductAccess;
     signedIn: boolean;
   }> = {},
 ) =>
   cohortCall({
     cohort,
-    offer: guideWithSupportOffer,
+    offer: productWithSupportOffer,
     productAccess: "closed",
     signedIn: true,
     slug,
@@ -70,7 +70,7 @@ describe("first screen call of a product cohort", () => {
       style: "currency",
       currency: "RUB",
       maximumFractionDigits: 0,
-    }).format(guideWithSupportOffer.firstPriceKopecks / 100);
+    }).format(productWithSupportOffer.firstPriceKopecks / 100);
     for (const stage of ["preorder", "running"] as const) {
       expect(call({ cohort: { ...cohort, stage } }).action).toEqual({
         kind: "purchase",

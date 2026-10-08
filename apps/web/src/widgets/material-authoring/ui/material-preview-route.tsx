@@ -38,14 +38,14 @@ export function MaterialPreviewRoute({
   );
   return (
     <nav
-      aria-label={`Маршрут руководства «${route.guideName}»`}
+      aria-label={`Маршрут руководства «${route.productName}»`}
       className="border-b border-border bg-card px-4 py-3 sm:px-6"
       data-preview-route="ready"
     >
       <div className="mx-auto w-full max-w-[80rem]">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <p className="min-w-0 text-sm">
-            <span className="font-semibold">{route.guideName}</span>
+            <span className="font-semibold">{route.productName}</span>
             <span className="text-muted-foreground">
               {" · "}
               {currentSection?.name == null
@@ -100,17 +100,17 @@ export function MaterialPreviewRoute({
             ))}
           </div>
         </details>
-        {route.otherGuides.length === 0 ? null : (
+        {route.otherProducts.length === 0 ? null : (
           <p className="pb-1 text-sm text-muted-foreground">
             Материал входит и в другие руководства:{" "}
-            {route.otherGuides.map((guide, index) => (
-              <span key={guide.href}>
+            {route.otherProducts.map((product, index) => (
+              <span key={product.href}>
                 {index === 0 ? null : ", "}
                 <Link
                   className="inline-flex min-h-11 items-center underline underline-offset-4"
-                  href={guide.href}
+                  href={product.href}
                 >
-                  {guide.name}
+                  {product.name}
                 </Link>
               </span>
             ))}

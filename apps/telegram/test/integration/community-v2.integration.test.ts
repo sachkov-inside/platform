@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -36,7 +37,7 @@ async function stand(
   const bot = `v2-${randomUUID()}`;
   const user = "70099";
   const clock = {
-    value: new Date(),
+    value: new Date(fixedTestInstant()),
     now() {
       return new Date(this.value);
     },

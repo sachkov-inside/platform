@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
 import type { OwnAccess } from "../../src/modules/subscription-activation/activation-contract.js";
 import { describe, expect, it } from "vitest";
@@ -8,7 +9,7 @@ import {
 import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
 import { activationValidator } from "../../src/modules/subscription-activation/activation-contract.js";
 import { loadActivationConfig } from "../../src/config/activation-config.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 
 describe("activation ingress and separate source proof", () => {
@@ -24,7 +25,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(privateStartUpdate(1, 42, { text })),
-        new Date(),
+        new Date(fixedTestInstant()),
       );
     expect(translate("/start a_course")).toMatchObject({
       kind: "start",
@@ -45,7 +46,7 @@ describe("activation ingress and separate source proof", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(forged),
-        new Date(),
+        new Date(fixedTestInstant()),
       ),
     ).not.toHaveProperty("value.activationCode");
     expect(translate(`/start signin_${"x".repeat(35)}`)).toHaveProperty(

@@ -1,4 +1,8 @@
 import {
+  BOT_DOMAIN_NAMES_HEADER,
+  botDomainResponse,
+} from "../../domain/bot-domain-names.js";
+import {
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
@@ -39,7 +43,7 @@ import {
   ownSubscriptionAccessQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import { SubscriptionActivation } from "../../../billing/index.js";
 @ApiTags("Subscription activation integration")
 @ApiBearerAuth("subscription-activation")
@@ -95,11 +99,12 @@ export class SubscriptionActivationController {
     schema: toOpenApiSchema(ownSubscriptionAccessResponseSchema),
   })
   async own(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
   ) {
     this.authenticate(authorization);
-    return this.activation.readOwn(input);
+    return botDomainResponse(await this.activation.readOwn(input), domainNames);
   }
   @Post("attempts")
   @HttpCode(200)
@@ -111,11 +116,12 @@ export class SubscriptionActivationController {
   @ApiBody({ schema: toOpenApiSchema(beginActivationSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(activationResponseSchema) })
   async begin(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
   ) {
     this.authenticate(authorization);
-    return this.activation.begin(input);
+    return botDomainResponse(await this.activation.begin(input), domainNames);
   }
   @Post("evidence")
   @HttpCode(200)
@@ -127,10 +133,11 @@ export class SubscriptionActivationController {
   @ApiBody({ schema: toOpenApiSchema(activationEvidenceSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(activationResponseSchema) })
   async accept(
+    @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,
     @Headers("authorization") authorization: string | undefined,
     @Body() input: unknown,
   ) {
     this.authenticate(authorization);
-    return this.activation.accept(input);
+    return botDomainResponse(await this.activation.accept(input), domainNames);
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { validateMembershipEvidence } from "../../src/modules/membership-entitlements/features/accept-evidence/validate-membership-evidence.js";
+import { validateMembershipEvidence } from "../../src/modules/account-rights/features/accept-evidence/validate-membership-evidence.js";
 
 const clock = new Date("2030-01-01T00:04:00Z");
 

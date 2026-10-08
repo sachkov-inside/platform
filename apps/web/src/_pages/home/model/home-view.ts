@@ -1,8 +1,8 @@
 import type {
-  GuidePageCard,
-  GuidePageHero,
-  GuidePresentation,
-} from "@/entities/guide-page";
+  ProductPageCard,
+  ProductPageHero,
+  ProductPresentation,
+} from "@/entities/product-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 export interface HomeCollection {
@@ -17,10 +17,10 @@ export interface HomeCollection {
 
 /** Закреплённый продукт знает, каким оформлением нарисовать свою карточку (ADR 0026). */
 export interface HomePinnedCollection extends HomeCollection {
-  readonly presentation: GuidePresentation;
-  readonly card: GuidePageCard | null;
+  readonly presentation: ProductPresentation;
+  readonly card: ProductPageCard | null;
   /** Первый экран страницы продукта: оформление курса повторяет его на Главной. */
-  readonly hero: GuidePageHero | null;
+  readonly hero: ProductPageHero | null;
 }
 
 export interface HomeView {

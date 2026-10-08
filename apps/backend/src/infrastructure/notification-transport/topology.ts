@@ -4,6 +4,16 @@ import { lanes, type NotificationPrincipal } from "./wire.js";
 export const NOTIFICATION_BROKER_IMAGE = "rabbitmq:4.2.4-management-alpine";
 /** Ёмкость каждой очереди окружения: сообщения; байты — по 16 KiB на сообщение. Одна для стенда и production. */
 export const NOTIFICATION_QUEUE_CAPACITY = 1_000;
+export const LOCAL_NOTIFICATION_BROKER_CREDENTIALS = {
+  password: "inside-local-only",
+  usernames: {
+    billing: "local-billing",
+    materials: "local-materials",
+    notifications: "local-notifications",
+    email: "local-email",
+    telegram: "local-telegram",
+  },
+} as const;
 const exact = (names: string[]) =>
   names.length > 0
     ? `^(?:${[...new Set(names)].map((name) => name.replaceAll(".", "\\.")).join("|")})$`
@@ -85,18 +95,33 @@ export function localNotificationTopology(
     salt.subarray(0, 4),
     createHash("sha256")
       .update(salt.subarray(0, 4))
-      .update("inside-local-only")
+      .update(LOCAL_NOTIFICATION_BROKER_CREDENTIALS.password)
       .digest(),
   ]).toString("base64");
   return notificationTopology({
     vhost,
     queueCapacity,
     principals: {
-      billing: { username: "local-billing", passwordHash },
-      materials: { username: "local-materials", passwordHash },
-      notifications: { username: "local-notifications", passwordHash },
-      email: { username: "local-email", passwordHash },
-      telegram: { username: "local-telegram", passwordHash },
+      billing: {
+        username: LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames.billing,
+        passwordHash,
+      },
+      materials: {
+        username: LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames.materials,
+        passwordHash,
+      },
+      notifications: {
+        username: LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames.notifications,
+        passwordHash,
+      },
+      email: {
+        username: LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames.email,
+        passwordHash,
+      },
+      telegram: {
+        username: LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames.telegram,
+        passwordHash,
+      },
     },
   });
 }

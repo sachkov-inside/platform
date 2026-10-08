@@ -23,7 +23,7 @@ export type VideoUploadMutationResult =
   | { readonly kind: "upload_not_authorized" | "upload_outcome_unknown" };
 
 export async function initMaterialVideoUpload(input: {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly byteSize: number;
   readonly filename: string;
   readonly materialId: string;
@@ -55,7 +55,7 @@ export async function initMaterialVideoUpload(input: {
 }
 
 export async function attachMaterialVideo(input: {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly materialId: string;
   readonly providerVideoId: string;
 }): Promise<VideoMutationResult<MaterialVideo>> {

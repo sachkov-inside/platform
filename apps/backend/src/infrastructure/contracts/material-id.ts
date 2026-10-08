@@ -7,7 +7,7 @@ const materialIdSchema = z
 
 /**
  * The checked identifier of one Material. Materials owns Materials; the brand lives here, below
- * every Module, so Content Access and Workshop can name a Material without depending on Materials.
+ * every Module, so Content Access can name a Material without depending on Materials.
  */
 export type MaterialId = z.output<typeof materialIdSchema>;
 

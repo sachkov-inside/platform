@@ -223,7 +223,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await enterCode(recovery, await waitForCode(recipient, 2));
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     expect(await signedInAccountId(recovery)).toBe(accountId);
-    const signedInAt = Date.now();
+    const signedInAt = performance.now();
 
     await waitPastAccessTokenExpiry(recovery, signedInAt);
     await stopService("logto");

@@ -10,12 +10,7 @@ import {
   saveActivationRule,
 } from "../api/enrollments.browser";
 import { saveRuleInputSchema } from "../model/enrollment-operations";
-import {
-  formText,
-  AdminField,
-  AdminSection,
-  AdminSelect,
-} from "./admin-form.client";
+import { formText, AdminField, AdminSection } from "./admin-form.client";
 import { hasText } from "@/shared/lib/text";
 export function ActivationRulesPanel() {
   const [error, setError] = useState<string>();
@@ -61,7 +56,7 @@ export function ActivationRulesPanel() {
   });
   return (
     <AdminSection
-      title="Ссылки активации курса и Tribute"
+      title="Ссылки активации курса"
       description="Код выбирает правило, но не подтверждает покупку. Право выдаётся только после проверки источника и текущей связи аккаунта."
     >
       {hasText(error) || rules.isError ? (
@@ -74,10 +69,7 @@ export function ActivationRulesPanel() {
             {rule.name} · {rule.published ? "Опубликовано" : "Приостановлено"}
           </p>
           <p className="text-sm [overflow-wrap:anywhere]">
-            Код: {rule.code} · источник: {rule.sourceRef} ·{" "}
-            {rule.verificationMode === "tribute_registry"
-              ? "Подтверждённый реестр Tribute"
-              : "Проверка курса"}
+            Код: {rule.code} · источник: {rule.sourceRef} · Проверка курса
           </p>
           <Button
             variant="outline"
@@ -183,7 +175,7 @@ export function ActivationRulesPanel() {
               tierId: tier.tier.id,
               tierRevision: tier.tier.revision,
               sourceRef: formText(form.get("source")),
-              verificationMode: formText(form.get("verificationMode")),
+              verificationMode: "course_membership",
               published: form.get("published") === "on",
               startsAt: new Date(
                 `${formText(form.get("start"))}+03:00`,
@@ -234,25 +226,11 @@ export function ActivationRulesPanel() {
               ))}
           </select>
         </label>
-        <AdminSelect
-          label="Способ подтверждения"
-          name="verificationMode"
-          options={[
-            {
-              value: "course_membership",
-              label: "Проверка утверждённого источника курса",
-            },
-            {
-              value: "tribute_registry",
-              label: "Подтверждённый реестр Tribute на Platform",
-            },
-          ]}
-        />
         <AdminField
           label="Подтверждаемый источник"
           name="source"
           required
-          hint="Для курса — правило проверки Telegram; для Tribute — обозначение разрешённого источника из реестра ниже. Режим после создания неизменен."
+          hint="Правило проверки Telegram-группы прежнего курса. Источник после создания неизменен."
         />
         <AdminField
           label="Начало по Москве"

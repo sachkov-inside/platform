@@ -26,7 +26,7 @@ const projectionSchema = z.object({
   summary: z.string(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
-  access: z.enum(["free", "membership", "workshop"]),
+  access: z.enum(["free", "closed"]),
   cover: contentCoverSchema.nullable(),
   publishedAt: z.iso.datetime({ offset: true }),
   primaryVideoId: z.uuid().nullable(),

@@ -14,14 +14,15 @@ export default defineConfig({
         "account-cabinet.spec.ts",
         "routes.spec.ts",
         "communications.spec.ts",
-        "guide-product.spec.ts",
-        "guide-purchase.spec.ts",
+        "product-landing.spec.ts",
+        "product-purchase.spec.ts",
         "legal.spec.ts",
         "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",
         "subscription.spec.ts",
       ],
   fullyParallel: true,
+  workers: 2,
   forbidOnly: Boolean(process.env["CI"]),
   // Без повтора и в CI: «Waiting in tests» в корневом CODING_STANDARDS.md (#476).
   retries: 0,
@@ -50,36 +51,21 @@ export default defineConfig({
       },
     },
   ],
-  webServer: captureEvidence
-    ? {
-        command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
-        env: {
-          BACKEND_BASE_URL:
-            process.env["PLAYWRIGHT_BACKEND_BASE_URL"] ?? "http://127.0.0.1:1",
-          /** Публичный адрес площадки читается из конфигурации, а не из заголовка запроса. */
-          WEB_BASE_URL: baseURL,
-        },
-        url: baseURL,
-        reuseExistingServer: false,
-        stdout: "ignore",
-        stderr: "pipe",
-        timeout: 300_000,
-      }
-    : {
-        // Проверки идут на production-сборке: dev компилирует маршрут при первом открытии, и
-        // время ответа меряло бы машину. Лаунчер собирает web, если сборку не передали готовой.
-        command: "node test/support/production-web.mjs",
-        env: {
-          PRODUCTION_WEB_BACKEND_URL:
-            process.env["PLAYWRIGHT_BACKEND_BASE_URL"] ?? "http://127.0.0.1:1",
-          PRODUCTION_WEB_PORT: port,
-        },
-        // Лаунчер убирает за собой идентичность выпуска, поэтому ему нужен сигнал, а не SIGKILL.
-        gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
-        url: `${baseURL}/_health/live`,
-        reuseExistingServer: false,
-        stdout: "ignore",
-        stderr: "pipe",
-        timeout: 300_000,
-      },
+  webServer: {
+    // Проверки идут на production-сборке: dev компилирует маршрут при первом открытии, и
+    // время ответа меряло бы машину. Лаунчер собирает web, если сборку не передали готовой.
+    command: "node test/support/production-web.mjs",
+    env: {
+      PRODUCTION_WEB_BACKEND_URL:
+        process.env["PLAYWRIGHT_BACKEND_BASE_URL"] ?? "http://127.0.0.1:1",
+      PRODUCTION_WEB_PORT: port,
+    },
+    // Лаунчер убирает за собой идентичность выпуска, поэтому ему нужен сигнал, а не SIGKILL.
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
+    url: `${baseURL}/_health/live`,
+    reuseExistingServer: false,
+    stdout: "ignore",
+    stderr: "pipe",
+    timeout: 300_000,
+  },
 });

@@ -5,7 +5,7 @@ import {
   subscribeEnrollmentChange,
   billingErrorMessage,
 } from "@/entities/subscription";
-import { readSubscriptionEnrollments } from "../api/enrollments.browser";
+import { readTariffAssignments } from "../api/enrollments.browser";
 
 /** Every open owner surface observes assignment changes from other windows. */
 export function useOwnerEnrollments(accountId: string) {
@@ -21,7 +21,7 @@ export function useOwnerEnrollments(accountId: string) {
     queryKey: ["owner-enrollments", accountId],
     enabled: accountId !== "",
     queryFn: async () => {
-      const result = await readSubscriptionEnrollments({
+      const result = await readTariffAssignments({
         operationId: crypto.randomUUID(),
         accountId,
       });

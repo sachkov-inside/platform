@@ -38,6 +38,10 @@ Every route under `apps/web/app` has a page story, except:
 | `/authoring/communications`, `/authoring/communications/broadcasts` | The layout answers 404 since #419: broadcasts and funnels moved to the Telegram bot (#396).                                                                           |
 | `/authoring/playlists`, `/authoring/playlists/[seriesId]`           | The same modules as `/authoring/guides` and its editor, whose route files re-export them; the stories use the `/authoring/guides` addresses that production links to. |
 
+`/payment/checkout` resolves an Offer and redirects to `/products/<slug>/buy`.
+Its guest sign-in and signed-in denied states are shown in `Pages/Payment/Checkout`;
+the redirect itself has no rendered page.
+
 ## Agent workflow
 
 When Storybook is running, inspect the catalog and rendered Docs at `http://localhost:6006`. Read

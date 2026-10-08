@@ -9,9 +9,8 @@ import {
   type ManageBillingCommand,
 } from "@/shared/api/backend/index.server";
 import {
-  getPlatformAccessTokenRsc,
+  readAuthenticatedSession,
   handleAuthenticatedMutation,
-  readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
 import {
@@ -80,9 +79,9 @@ export function handleSaveOffer(request: Request): Promise<Response> {
         ...(input.value.availableForAssignment === undefined
           ? {}
           : { availableForAssignment: input.value.availableForAssignment }),
-        ...(input.value.contentScope === undefined
+        ...(input.value.coverage === undefined
           ? {}
-          : { contentScope: input.value.contentScope }),
+          : { coverage: input.value.coverage }),
         ...(input.value.eligibility === undefined
           ? {}
           : { eligibility: input.value.eligibility }),
@@ -368,9 +367,10 @@ export function handleRevokeGrant(request: Request): Promise<Response> {
 export async function loadBillingOffersForOwner(): Promise<
   readonly PriceSnapshot[]
 > {
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") return [];
   try {
-    // Рендер не пишет cookie: обновлённый или снятый токен сохранит обработчик маршрута (#1005).
-    const accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
+    const accessToken = session.value;
     const result = await requestManageBilling(
       { operation: "offers.list", operationId: randomUUID(), limit: 100 },
       accessToken,

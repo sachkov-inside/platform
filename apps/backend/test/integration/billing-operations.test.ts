@@ -1,17 +1,22 @@
+import { runRecoveryJob } from "../../src/entrypoints/billing-worker/jobs.js";
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
+import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { z } from "zod";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleAccounts,
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   BillingNotices,
   BillingOperations,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -152,6 +157,7 @@ class BankFixture {
   failCancel = false;
   cancelStatus = "REFUNDED";
   cancelSucceeds = true;
+  beforeCancelReturn: (() => Promise<void>) | undefined;
 
   event(orderId: string, extra: Record<string, unknown> = {}) {
     const order = this.orders.get(orderId);
@@ -174,9 +180,12 @@ class BankFixture {
     return { ...body, Token: tbankToken(body, config.password) };
   }
   client(): Tbank {
-    return new Tbank(config, (url, init) =>
-      Promise.resolve(this.respond(url, init)),
-    );
+    return new Tbank(config, async (url, init) => {
+      const response = this.respond(url, init);
+      if (typeof url === "string" && url.endsWith("/Cancel"))
+        await this.beforeCancelReturn?.();
+      return response;
+    });
   }
   private respond(
     url: Parameters<typeof fetch>[0],
@@ -296,9 +305,10 @@ describe("владельческие операции billing: платежи, �
     grants = assembleAccessGrants({
       prisma: db.prisma,
       accounts,
+      recipientLinks: new TelegramAccountLinks(db.prisma),
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -359,11 +369,12 @@ describe("владельческие операции billing: платежи, �
     options: {
       readonly benefits?: readonly string[];
       readonly priceKopecks?: number;
+      readonly operationsPrisma?: BillingPrismaClient;
     } = {},
   ) {
     now = new Date("2030-03-31T10:00:00Z");
     const buyer = randomUUID();
-    const guideId = randomUUID();
+    const productId = randomUUID();
     await db.prisma.account.create({
       data: {
         id: buyer,
@@ -396,10 +407,10 @@ describe("владельческие операции billing: платежи, �
           benefits: [...(options.benefits ?? ["materials", "support"])],
           // Продаваемый тариф открывает только явный состав; разовое предложение продукта его не несёт.
           ...(options.benefits?.some((benefit) =>
-            benefit.startsWith("guide:"),
+            benefit.startsWith("product:"),
           ) === true
             ? {}
-            : { contentScope: { guideIds: [guideId], materialIds: [] } }),
+            : { coverage: { productIds: [productId], materialIds: [] } }),
         },
       }),
     );
@@ -447,7 +458,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const operations = new BillingOperations({
-      prisma: db.prisma,
+      prisma: options.operationsPrisma ?? db.prisma,
       accounts,
       pricing,
       payments,
@@ -494,11 +505,14 @@ describe("владельческие операции billing: платежи, �
     }
     async function reserve() {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       return value(
         await payments.purchase(buyer, {
@@ -530,19 +544,19 @@ describe("владельческие операции billing: платежи, �
       return purchase.purchaseRef;
     }
     /** Независимое бессрочное право на руководство: оно не связано с подпиской и её возвратом. */
-    async function lifetimeGuideGrant() {
+    async function lifetimeProductGrant() {
       const preview = asGrantPreview(
         await operations.execute(owner, {
           operation: "grants.previewBatch",
           operationId: randomUUID(),
           rows: [
             {
-              rowKey: "guide",
+              rowKey: "product",
               accountId: buyer,
               source: "manual",
-              sourceRef: `guide-${guideId}`,
+              sourceRef: `product-${productId}`,
               terms: {
-                capabilities: [`guide:${guideId}`],
+                capabilities: [`product:${productId}`],
                 startsAt: "2030-01-01T00:00:00Z",
                 validUntil: null,
                 reason: "Курс полностью пройден",
@@ -552,7 +566,7 @@ describe("владельческие операции billing: платежи, �
         }),
       );
       expect(preview.rows).toEqual([
-        { rowKey: "guide", accountId: buyer, status: "confirmed" },
+        { rowKey: "product", accountId: buyer, status: "confirmed" },
       ]);
       const applied = asGrantBatch(
         await operations.execute(owner, {
@@ -560,12 +574,12 @@ describe("владельческие операции billing: платежи, �
           operationId: randomUUID(),
           previewRef: preview.previewRef,
           expectedRevision: preview.revision,
-          confirmedRows: ["guide"],
+          confirmedRows: ["product"],
         }),
       );
       const row = applied.rows[0];
       if (row === undefined || !row.result.ok || !("grantRef" in row.result))
-        throw new Error("Manual guide grant was not applied");
+        throw new Error("Manual product grant was not applied");
       return row.result.grantRef;
     }
     const capabilities = async () => {
@@ -575,7 +589,7 @@ describe("владельческие операции billing: платежи, �
     };
     return {
       buyer,
-      guideId,
+      productId,
       offerId,
       optionId,
       bank,
@@ -585,7 +599,7 @@ describe("владельческие операции billing: платежи, �
       buy,
       reserve,
       consentFor,
-      lifetimeGuideGrant,
+      lifetimeProductGrant,
       capabilities,
     };
   }
@@ -870,7 +884,7 @@ describe("владельческие операции billing: платежи, �
   test("полный возврат отменяет продление, но сам не отзывает доступ и не трогает бессрочное право", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const decided = asRefundDecision(
       await s.operations.execute(owner, {
         operation: "refunds.decide",
@@ -919,13 +933,13 @@ describe("владельческие операции billing: платежи, �
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
       "materials",
+      `product:${s.productId}`,
       "support",
     ]);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null, validUntil: null });
     expect(
@@ -1131,8 +1145,10 @@ describe("владельческие операции billing: платежи, �
     expect(s.bank.cancels).toHaveLength(1);
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     // Повтор с прежним ExternalRequestId банк считает тем же запросом: второй возврат не создаётся.
     expect(s.bank.cancels).toHaveLength(2);
@@ -1194,14 +1210,22 @@ describe("владельческие операции billing: платежи, �
         (payment) => payment.purchaseRef === purchaseRef,
       ),
     ).toMatchObject({ refundedKopecks: 0, refundedAt: null });
+    await expect(runRecoveryJob(s.payments, s.operations)).rejects.toThrow(
+      "provider_unavailable",
+    );
+    expect(await refundNotices()).toEqual([]);
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 0,
       settled: 0,
+      failed: 0,
     });
     const notices = await refundNotices();
     expect(notices).toHaveLength(1);
@@ -1260,8 +1284,10 @@ describe("владельческие операции billing: платежи, �
     });
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     expect(
       new Set(s.bank.cancels.map((cancel) => cancel.externalRequestId)),
@@ -1283,7 +1309,7 @@ describe("владельческие операции billing: платежи, �
   test("отзыв доступа исполняется только по подтверждённому возврату и только для оплаченного основания", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const decided = asRefundDecision(
       await s.operations.execute(owner, {
         operation: "refunds.decide",
@@ -1317,8 +1343,8 @@ describe("владельческие операции billing: платежи, �
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
       "materials",
+      `product:${s.productId}`,
       "support",
     ]);
     expect(
@@ -1355,7 +1381,10 @@ describe("владельческие операции billing: платежи, �
     ).toMatchObject({ state: "executed" });
     value(await s.payments.recover());
     // Отзывается ровно оплаченное основание этой покупки; независимое бессрочное право остаётся.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     const paid = await db.prisma.accessGrant.findMany({
       where: { accountId: s.buyer, source: "paid" },
     });
@@ -1365,7 +1394,7 @@ describe("владельческие операции billing: платежи, �
     ).toBe(true);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null });
     expect(
@@ -1492,6 +1521,213 @@ describe("владельческие операции billing: платежи, �
     ).toBe("invalid_request");
   });
 
+  test("межсемейная гонка одного operationId применяет только одну команду", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const operationId = randomUUID();
+    const offerId = randomUUID();
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const manage = pricing.manage.bind(pricing);
+    const gate = vi
+      .spyOn(pricing, "manage")
+      .mockImplementation(async (actor, input) => {
+        entered();
+        await resume;
+        return manage(actor, input);
+      });
+    const saving = db.run(() =>
+      s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId,
+        value: { id: offerId, name: "Тариф гонки", benefits: ["community"] },
+      }),
+    );
+    try {
+      await started;
+      expect(
+        await s.operations.execute(owner, {
+          ...classifyNew(recipient),
+          operationId,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    } finally {
+      release();
+      gate.mockRestore();
+      await saving;
+    }
+    expect(await saving).toMatchObject({ ok: true });
+    expect(
+      asClassification(
+        await s.operations.execute(owner, readClassification(recipient)),
+      ).value,
+    ).toMatchObject({ classification: "unknown" });
+  });
+
+  test("конкурентный повтор каталога возвращает один результат и один аудит", async () => {
+    const s = await scenario();
+    const command = {
+      operation: "offers.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "Повтор тарифа",
+        benefits: ["community"],
+      },
+    };
+    const results = await Promise.all([
+      s.operations.execute(owner, command),
+      s.operations.execute(owner, command),
+    ]);
+    expect(results[0]).toMatchObject({ ok: true });
+    expect(results[1]).toEqual(results[0]);
+    expect(
+      await db.prisma.billingOffer.findUnique({
+        where: { id: command.value.id },
+      }),
+    ).toMatchObject({ revision: 1 });
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+  });
+
+  test("конкурентный повтор возврата присоединяется к сохранённой попытке без второго Cancel", async () => {
+    const s = await scenario();
+    const purchaseRef = await s.buy();
+    const decision = asRefundDecision(
+      await s.operations.execute(owner, {
+        operation: "refunds.decide",
+        operationId: randomUUID(),
+        purchaseRef,
+        amountKopecks: 30_000,
+        basis: "compensation",
+        recurring: "keep",
+        reason: "Конкурентный повтор",
+      }),
+    ).value;
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    s.bank.beforeCancelReturn = async () => {
+      enter();
+      await resume;
+    };
+    const command = {
+      operation: "refunds.execute",
+      operationId: randomUUID(),
+      decisionRef: decision.decisionRef,
+      expectedRevision: 1,
+    };
+    const first = db.run(() => s.operations.execute(owner, command));
+    let repeated: OwnerResult | undefined;
+    try {
+      await entered;
+      repeated = await s.operations.execute(owner, command);
+      expect(repeated).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "refundDecision",
+          value: { state: "executing", attempt: { state: "sent" } },
+        },
+      });
+    } finally {
+      release();
+      await first;
+    }
+    expect(await first).toEqual(repeated);
+    expect(s.bank.cancels).toHaveLength(1);
+    expect(
+      await db.prisma.billingRefund.count({ where: { purchaseRef } }),
+    ).toBe(1);
+    expect(
+      asRefunds(
+        await s.operations.execute(owner, {
+          operation: "refunds.read",
+          operationId: randomUUID(),
+          purchaseRef,
+        }),
+      ).decisions,
+    ).toMatchObject([{ state: "executed" }]);
+  });
+
+  test.each(["audit", "completion"])(
+    "повтор исполненного возврата после отказа %s возвращает результат без второй отправки",
+    async (fault) => {
+      const s = await scenario();
+      const purchaseRef = await s.buy();
+      const decision = asRefundDecision(
+        await s.operations.execute(owner, {
+          operation: "refunds.decide",
+          operationId: randomUUID(),
+          purchaseRef,
+          amountKopecks: 30_000,
+          basis: "compensation",
+          recurring: "keep",
+          reason: "Сбой аудита",
+        }),
+      ).value;
+      const command = {
+        operation: "refunds.execute",
+        operationId: randomUUID(),
+        decisionRef: decision.decisionRef,
+        expectedRevision: 1,
+      };
+      if (fault === "audit")
+        await db.prisma
+          .$executeRaw`ALTER TABLE billing.owner_commands ADD CONSTRAINT reject_owner_audit CHECK (FALSE) NOT VALID`;
+      else
+        await db.prisma
+          .$executeRaw`ALTER TABLE billing.owner_command_keys ADD CONSTRAINT reject_owner_result CHECK (result IS NULL) NOT VALID`;
+      try {
+        expect(await s.operations.execute(owner, command)).toMatchObject({
+          ok: false,
+          error: { code: "dependency_unavailable" },
+        });
+        expect(s.bank.cancels).toHaveLength(1);
+      } finally {
+        if (fault === "audit")
+          await db.prisma
+            .$executeRaw`ALTER TABLE billing.owner_commands DROP CONSTRAINT reject_owner_audit`;
+        else
+          await db.prisma
+            .$executeRaw`ALTER TABLE billing.owner_command_keys DROP CONSTRAINT reject_owner_result`;
+      }
+      const restored = asRefundDecision(
+        await s.operations.execute(owner, command),
+      ).value;
+      expect(restored).toMatchObject({
+        state: "executed",
+        attempt: { state: "confirmed" },
+      });
+      expect(await s.operations.execute(owner, command)).toMatchObject({
+        ok: true,
+        result: { outcome: "refundDecision", value: restored },
+      });
+      expect(s.bank.cancels).toHaveLength(1);
+      expect(
+        await db.prisma.billingRefund.count({ where: { purchaseRef } }),
+      ).toBe(1);
+      expect(
+        await db.prisma.billingOwnerCommand.count({
+          where: { actorId: owner, operationId: command.operationId },
+        }),
+      ).toBe(1);
+    },
+  );
+
   test("повтор команды возвращает исходный результат, изменённая нагрузка конфликтует", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();
@@ -1564,7 +1800,7 @@ describe("владельческие операции billing: платежи, �
 
   test("ручная выдача идёт через preview, продление и отзыв сохраняют другое основание", async () => {
     const s = await scenario();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const supportRef = `support-${randomUUID()}`;
     const preview = asGrantPreview(
       await s.operations.execute(owner, {
@@ -1603,7 +1839,10 @@ describe("владельческие операции billing: платежи, �
       "not_found",
     ]);
     // Предпросмотр ничего не выдаёт.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     const applied = asGrantBatch(
       await s.operations.execute(owner, {
         operation: "grants.applyBatch",
@@ -1616,7 +1855,7 @@ describe("владельческие операции billing: платежи, �
     expect(applied.rows).toHaveLength(1);
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
+      `product:${s.productId}`,
       "support",
     ]);
     const support = asGrants(
@@ -1668,10 +1907,13 @@ describe("владельческие операции billing: платежи, �
     );
     expect(revoked.revision).toBe(3);
     // Отзыв одного основания сохраняет независимое бессрочное право.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null });
     await s.buy();
@@ -1700,11 +1942,14 @@ describe("владельческие операции billing: платежи, �
   test("21 a quote accepted before unpublish cannot start a new purchase afterward", async () => {
     const s = await scenario();
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: s.optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: s.optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consentEvidenceRefs = await s.consentFor(quote.quoteRef, {
       snapshot: quote.snapshot,
@@ -1864,7 +2109,7 @@ describe("владельческие операции billing: платежи, �
             id: s.offerId,
             name: "Материалы и сопровождение",
             benefits: ["materials", "support"],
-            contentScope: { guideIds: [s.guideId], materialIds: [] },
+            coverage: { productIds: [s.productId], materialIds: [] },
           },
         }),
       ),
@@ -1904,6 +2149,393 @@ describe("владельческие операции billing: платежи, �
     });
   });
 
+  test("сбой записи назначения сообщает assignEnrollment и откатывает все записи Membership", async () => {
+    const logged = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      const s = await scenario({
+        operationsPrisma: {
+          ...db.prisma,
+          $transaction: (operation) =>
+            db.prisma.$transaction((transaction) =>
+              operation({
+                ...transaction,
+                accessReceipt: new Proxy(transaction.accessReceipt, {
+                  get(target, property, receiver): unknown {
+                    if (property === "create")
+                      return async (
+                        ...args: Parameters<typeof target.create>
+                      ) => {
+                        await target.create(...args);
+                        // A JavaScript failure leaves SQL valid: swallowing it would commit partial writes.
+                        throw new Error(
+                          "Synthetic failure after assignment receipt write",
+                        );
+                      };
+                    const value: unknown = Reflect.get(
+                      target,
+                      property,
+                      receiver,
+                    );
+                    return value;
+                  },
+                }),
+              }),
+            ),
+        },
+      });
+      const recipient = await account();
+      const command = {
+        operation: "enrollments.assign",
+        operationId: randomUUID(),
+        accountId: recipient,
+        tierId: "62000000-0000-4000-8000-000000000624",
+        tierRevision: 1,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        terms: {
+          startsAt: now.toISOString(),
+          endsAt: null,
+          endPolicy: "fixed",
+        },
+        billingRef: null,
+        reason: "Проверка сбоя записи назначения",
+      };
+      expect(await s.operations.execute(owner, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      expect(logged).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '"module":"account-rights","operation":"assignEnrollment"',
+        ),
+      );
+      expect(value(await grants.listEnrollments(owner, recipient))).toEqual([]);
+      expect(
+        value(await grants.listGrants(owner, { accountId: recipient })).grants,
+      ).toEqual([]);
+      const { operation: _operation, ...assignment } = command;
+      expect(
+        await grants.readEnrollmentAssignmentReceipt(owner, assignment),
+      ).toBe(null);
+      expect(
+        await db.prisma.accessChange.count({ where: { accountId: recipient } }),
+      ).toBe(0);
+      expect(
+        await db.prisma.billingOwnerCommand.findUnique({
+          where: {
+            actorId_operationId: {
+              actorId: owner,
+              operationId: command.operationId,
+            },
+          },
+        }),
+      ).toBe(null);
+    } finally {
+      logged.mockRestore();
+    }
+  });
+
+  test("откат Billing отменяет назначение тарифа, права и receipt Membership", async () => {
+    let assignedBeforeRollback = false;
+    const recipient = await account();
+    const s = await scenario({
+      operationsPrisma: {
+        ...db.prisma,
+        $transaction: (operation) =>
+          db.prisma.$transaction(async (transaction) => {
+            await operation(transaction);
+            expect(
+              await transaction.tariffAssignment.count({
+                where: { accountId: recipient },
+              }),
+            ).toBe(1);
+            assignedBeforeRollback = true;
+            throw new Error("Synthetic failure before Billing commit");
+          }),
+      },
+    });
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId: "62000000-0000-4000-8000-000000000624",
+      tierRevision: 1,
+      origin: "manual",
+      sourceRef: randomUUID(),
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Проверка общего отката",
+    };
+    expect(await s.operations.execute(owner, command)).toMatchObject({
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    });
+    expect(assignedBeforeRollback).toBe(true);
+    expect(value(await grants.listEnrollments(owner, recipient))).toEqual([]);
+    expect(
+      value(await grants.listGrants(owner, { accountId: recipient })).grants,
+    ).toEqual([]);
+    const { operation: _operation, ...assignment } = command;
+    expect(
+      await grants.readEnrollmentAssignmentReceipt(owner, assignment),
+    ).toBe(null);
+    expect(
+      await db.prisma.billingOwnerCommand.findUnique({
+        where: {
+          actorId_operationId: {
+            actorId: owner,
+            operationId: command.operationId,
+          },
+        },
+      }),
+    ).toBe(null);
+    // Повтор после отказа сохраняет исходный operationId и создаёт ровно одно назначение.
+    const retry = await scenario();
+    expect(
+      success(await retry.operations.execute(owner, command)),
+    ).toMatchObject({ outcome: "enrollment" });
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
+  });
+
+  test("параллельные повторы назначения создают одно назначение и сохраняют receipt после архивирования тарифа", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const tierId = randomUUID();
+    asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: tierId,
+          name: "Назначаемый тариф",
+          benefits: ["materials", "community"],
+          availableForAssignment: true,
+          coverage: { productIds: [], materialIds: [], wholePlatform: true },
+        },
+      }),
+    );
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId,
+      tierRevision: 1,
+      origin: "manual",
+      sourceRef: randomUUID(),
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Идемпотентное назначение",
+    };
+    const [first, replay] = await Promise.all([
+      s.operations.execute(owner, command),
+      s.operations.execute(owner, command),
+    ]);
+    expect(success(first)).toMatchObject({ outcome: "enrollment" });
+    expect(replay).toEqual(first);
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
+    asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.archive",
+        operationId: randomUUID(),
+        id: tierId,
+        expectedRevision: 1,
+      }),
+    );
+    expect(await s.operations.execute(owner, command)).toEqual(first);
+    expect(
+      await s.operations.execute(owner, {
+        ...command,
+        reason: "Другая команда",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+  });
+
+  test("course назначается через Billing только текущей привязке Telegram, а receipt сохраняет повтор после перепривязки", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const identityRef = `verified:${recipient}`;
+    await db.prisma.telegramAccountLinkState.create({
+      data: {
+        accountId: recipient,
+        linkRef: randomUUID(),
+        revision: 1,
+        principalRef: `account:${recipient}`,
+        identityRef,
+        updatedAt: now,
+      },
+    });
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId: "62000000-0000-4000-8000-000000000624",
+      tierRevision: 1,
+      origin: "course",
+      sourceRef: randomUUID(),
+      courseSource: {
+        policyRef: "verified-course",
+        verifiedIdentityRef: identityRef,
+      },
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Назначение курса подтверждённому участнику",
+    };
+    const assigned = await s.operations.execute(owner, command);
+    expect(success(assigned)).toMatchObject({
+      outcome: "enrollment",
+      value: { origin: "course" },
+    });
+    await db.prisma.telegramAccountLinkState.update({
+      where: { accountId: recipient },
+      data: { identityRef: `changed:${recipient}`, revision: 2 },
+    });
+    expect(await s.operations.execute(owner, command)).toEqual(assigned);
+    expect(
+      await s.operations.execute(owner, {
+        ...command,
+        operationId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "identity_changed" } });
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
+  });
+
+  test("activationRules.save сохраняет правило, revision и повтор через BillingOperations", async () => {
+    const s = await scenario();
+    const tier = asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: randomUUID(),
+          name: "Курс для активации",
+          benefits: [`product:${s.productId}`, "support"],
+          benefitPeriods: [{ capability: "support", months: 3 }],
+          availableForAssignment: true,
+          coverage: { productIds: [s.productId], materialIds: [] },
+        },
+      }),
+    ).value;
+    const command = {
+      operation: "activationRules.save",
+      operationId: randomUUID(),
+      reason: "Активация курса",
+      value: {
+        id: randomUUID(),
+        code: randomUUID(),
+        name: "Курс",
+        tierId: tier.id,
+        tierRevision: tier.revision,
+        sourceRef: `course:${randomUUID()}`,
+        published: true,
+        startsAt: now.toISOString(),
+        endsAt: null,
+      },
+    };
+    const saved = success(await s.operations.execute(owner, command));
+    expect(saved).toMatchObject({
+      outcome: "activationRule",
+      value: { ...command.value, revision: 1 },
+    });
+    expect(success(await s.operations.execute(owner, command))).toEqual(saved);
+    expect(
+      success(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+          value: { ...command.value, name: "Курс после изменения" },
+        }),
+      ),
+    ).toMatchObject({
+      outcome: "activationRule",
+      value: { revision: 2, name: "Курс после изменения" },
+    });
+    expect(
+      failure(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+        }),
+      ),
+    ).toBe("revision_conflict");
+    expect(
+      failure(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 2,
+          value: { ...command.value, tierRevision: tier.revision + 1 },
+        }),
+      ),
+    ).toBe("revision_conflict");
+    expect(
+      failure(
+        await s.operations.execute(outsider, {
+          ...command,
+          operationId: randomUUID(),
+        }),
+      ),
+    ).toBe("forbidden");
+    // A receipt failure follows the rule update; the caller's transaction must roll both back.
+    await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
+      ADD CONSTRAINT reject_receipt_for_rollback CHECK (FALSE) NOT VALID`;
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      expect(
+        failure(
+          await s.operations.execute(owner, {
+            ...command,
+            operationId: randomUUID(),
+            expectedRevision: 2,
+            value: { ...command.value, name: "Изменение должно откатиться" },
+          }),
+        ),
+      ).toBe("dependency_unavailable");
+      const logRecord = z
+        .object({ module: z.string(), operation: z.string() })
+        .loose();
+      const failures = errors.mock.calls.flatMap(([line]: unknown[]) => {
+        if (typeof line !== "string") return [];
+        const record = logRecord.safeParse(JSON.parse(line));
+        return record.success ? [record.data] : [];
+      });
+      expect(
+        failures.find((record) => record.module === "account-rights"),
+      ).toMatchObject({
+        operation: "manageActivationRule",
+      });
+    } finally {
+      errors.mockRestore();
+      await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
+        DROP CONSTRAINT reject_receipt_for_rollback`;
+    }
+    const listed = success(
+      await s.operations.execute(owner, {
+        operation: "activationRules.list",
+        operationId: randomUUID(),
+      }),
+    );
+    if (listed.outcome !== "activationRules") throw unexpected(listed);
+    expect(
+      listed.items.find((rule) => rule.id === command.value.id),
+    ).toMatchObject({
+      revision: 2,
+      tierRevision: 1,
+      name: "Курс после изменения",
+    });
+  });
+
   test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
     const s = await scenario();
     const recipient = await account();
@@ -1917,7 +2549,7 @@ describe("владельческие операции billing: платежи, �
             name: "Пустой тариф",
             benefits: ["materials", "community"],
             availableForAssignment: true,
-            contentScope: { guideIds: [], materialIds: [] },
+            coverage: { productIds: [], materialIds: [] },
           },
         }),
       ),
@@ -1932,13 +2564,13 @@ describe("владельческие операции billing: платежи, �
           name: "Курс",
           benefits: ["materials", "community", "support"],
           availableForAssignment: true,
-          contentScope: { guideIds: [s.guideId], materialIds: [] },
+          coverage: { productIds: [s.productId], materialIds: [] },
         },
       }),
     );
     await db.prisma.billingOffer.update({
       where: { id: course.value.id },
-      data: { contentScope: { guideIds: [], materialIds: [] } },
+      data: { coverage: { productIds: [], materialIds: [] } },
     });
     const terms = {
       startsAt: now.toISOString(),
@@ -1991,7 +2623,7 @@ describe("владельческие операции billing: платежи, �
     await db.prisma.billingOffer.update({
       where: { id: course.value.id },
       data: {
-        contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] },
+        coverage: { productIds: [s.productId], materialIds: [randomUUID()] },
       },
     });
     expect(
@@ -2004,7 +2636,7 @@ describe("владельческие операции billing: платежи, �
       ),
     ).toBe("state_conflict");
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: recipient },
       }),
     ).toBe(0);
@@ -2020,7 +2652,7 @@ describe("владельческие операции billing: платежи, �
       availableForAssignment: true,
       revision: 1,
       benefits: ["community", "materials", "support"],
-      contentScope: { guideIds: [], materialIds: [], allGuides: true },
+      coverage: { productIds: [], materialIds: [], wholePlatform: true },
     });
     expect(
       success(
@@ -2039,10 +2671,10 @@ describe("владельческие операции billing: платежи, �
       "materials",
       "support",
     ]);
-    expect(issued[0]?.contentScope).toEqual({
-      guideIds: [],
+    expect(issued[0]?.coverage).toEqual({
+      productIds: [],
       materialIds: [],
-      allGuides: true,
+      wholePlatform: true,
     });
   });
 });

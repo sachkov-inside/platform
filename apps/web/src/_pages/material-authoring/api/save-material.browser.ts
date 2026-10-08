@@ -28,8 +28,8 @@ export async function saveMaterial(
   for (const tagId of input.tagIds) formData.append("tagIds", tagId);
   formData.set("title", input.title);
   formData.set("topicId", input.topicId);
-  for (const guideId of input.confirmedGuideRemovals ?? []) {
-    formData.append("confirmedGuideRemovals", guideId);
+  for (const productId of input.confirmedProductRemovals ?? []) {
+    formData.append("confirmedProductRemovals", productId);
   }
 
   const response = await requestSameOriginMutation(

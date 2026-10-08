@@ -10,7 +10,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 export interface TopicCardPresentation {
   readonly cover?: ContentCover | null | undefined;
@@ -97,7 +97,7 @@ export function PlaylistCard({
       href={
         playlist.continuation === undefined
           ? collectionDiscoveryHref("series", playlist.slug, returnHref)
-          : guideProgrammeHref(playlist.slug)
+          : productProgrammeHref(playlist.slug)
       }
     >
       <span className="flex items-start justify-between gap-3">

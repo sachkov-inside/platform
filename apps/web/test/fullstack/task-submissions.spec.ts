@@ -254,7 +254,7 @@ test("the author marks an agent's submission and comments it; the learner reads 
 
   await signInFullStack(context, "NON_MEMBER");
   await page.goto(
-    `/products/${required("FULLSTACK_TASK_GUIDE_SLUG")}/tasks/${code}`,
+    `/products/${required("FULLSTACK_TASK_PRODUCT_SLUG")}/tasks/${code}`,
   );
   await dismissNotices(page);
   const learnerView = page.locator(

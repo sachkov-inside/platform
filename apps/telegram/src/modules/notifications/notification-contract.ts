@@ -1,7 +1,7 @@
 import { isTruthy } from "../../shared/truthiness.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import schema from "./contracts/schema.json" with { type: "json" };
+import schema from "@inside/contracts/notifications-v1/schema.json" with { type: "json" };
 export { canonicalJson, digest } from "../../security/payload-digest.js";
 
 export type Category = "subscription" | "material";

@@ -6,10 +6,10 @@ import {
 } from "../block-definition.js";
 import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
 import {
-  defaultGuideMode,
-  guideModeSchema,
-  isGuideMode,
-} from "../guide-mode.js";
+  defaultProductMode,
+  productModeSchema,
+  isProductMode,
+} from "../product-mode.js";
 import type { JsonObject } from "../json.js";
 import { isJsonArray, isJsonObject } from "../json.js";
 
@@ -24,7 +24,7 @@ function optionNodes(node: JsonObject): readonly JsonObject[] {
 }
 
 /**
- * One step written for both ways of going through a guide. The reader sees the branch of the
+ * One step written for both ways of going through a product. The reader sees the branch of the
  * active mode; a block that carries a single branch belongs to that mode alone.
  */
 export const variantBlock: MaterialBlockDefinition =
@@ -37,7 +37,7 @@ export const variantBlock: MaterialBlockDefinition =
       const modes = optionNodes(node).map(
         (option) => nodeAttributes(option)["mode"],
       );
-      if (!modes.every(isGuideMode)) {
+      if (!modes.every(isProductMode)) {
         report("invalid_variant_mode", "mode");
       }
       if (new Set(modes).size !== modes.length) {
@@ -56,7 +56,7 @@ export const variantBlock: MaterialBlockDefinition =
       attributes: {},
       childNodes: {
         [variantOptionType]: {
-          attributes: { mode: defaultGuideMode },
+          attributes: { mode: defaultProductMode },
           content: "block+",
           defining: true,
           // The mode is both the field and the selector the block is parsed back by, so it travels
@@ -84,8 +84,8 @@ export const variantBlock: MaterialBlockDefinition =
           throw new TypeError("Expected variant option");
         }
         const mode = nodeAttributes(option)["mode"];
-        if (!isGuideMode(mode)) {
-          throw new TypeError("Unsupported guide mode");
+        if (!isProductMode(mode)) {
+          throw new TypeError("Unsupported product mode");
         }
         return { content: tools.blockContent(option), mode };
       }),
@@ -96,7 +96,7 @@ export const variantBlock: MaterialBlockDefinition =
           kind: z.literal("variant"),
           options: z.array(
             z
-              .object({ content: z.array(block), mode: guideModeSchema })
+              .object({ content: z.array(block), mode: productModeSchema })
               .strict(),
           ),
         })

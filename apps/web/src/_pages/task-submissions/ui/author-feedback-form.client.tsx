@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { CircleCheck, Save } from "lucide-react";
 import { useId, useState } from "react";
 
-import { formatSubmissionMoment } from "@/entities/guide-task";
+import { formatSubmissionMoment } from "@/entities/product-task";
 import { Button } from "@/shared/ui/button";
 
 import { saveAuthorFeedback } from "../api/save-author-feedback.browser";

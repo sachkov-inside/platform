@@ -5,7 +5,7 @@
 подготовить на сервере до выкладки, в каком порядке включать процессы вместе с Telegram и как
 проверить результат. Сама выкладка, ротация секретов, реальные платежи и живая приёмка — это
 [Workspace #184](https://github.com/sachkov-inside/workspace/issues/184). Мониторинг и сигналы
-об отказах — [#245](https://github.com/sachkov-inside/platform/issues/245). Порядок деплоя, откат и
+об отказах — [production monitoring](production-monitoring.md). Порядок деплоя, откат и
 readiness описаны в [production delivery](production-delivery.md), восстановление очередей — в
 [queue recovery](queue-recovery.md).
 
@@ -179,9 +179,12 @@ AMQPS на `5671`. Топологию он читает из определен�
   - `Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured`;
   - `Sale is enabled in the billing catalog, but BILLING_CONTACT_* is not configured`;
   - `Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed`;
-- задание `billing.subscription-renewal` без терминала закрывает истёкшие сроки и завершается
-  штатно, если после закрытия не осталось подписки со сроком к продлению. Такая подписка без
-  терминала — сбой: `job_failed` с `method_unavailable`.
+- задание `billing.subscription-renewal` без терминала или подтверждённого recurring сообщает
+  успешный отчёт со статусом `configuration_idle`. Активное расписание с пригодной привязкой
+  сохраняется. Отменённые истёкшие сроки и сроки без пригодной привязки закрываются отдельной
+  выборкой, если нет незавершённой оплаты. Ошибки банка и базы дают `job_failed`; неизвестная
+  попытка оплаты остаётся для сверки. Правило расписания описано в
+  [механике подписки](../product/subscription-billing-v1.md#жизнь-подписки).
 
 Проверка выполняется только при запуске. Продажу включают после проверок выпуска, и снимают её
 («выключить из продажи») раньше, чем убирают настройки оплаты.
@@ -297,6 +300,67 @@ MCP-инструментом `billing_offers_save` со значением `elig
 Команды читают состояние и ничего не меняют. Имена контейнеров следуют `PLATFORM_COMPOSE_PROJECT`
 (`inside-platform-production`).
 
+### Штатная read-only проверка выпуска
+
+После deploy выполните инструмент из проверенного checkout. Он поддерживает текущую Platform schema
+после `0082_domain_names` и Telegram activation contract с `products.v1`.
+Локально нужны toolchain проекта, установленные pnpm dependencies, Python 3.9+ и SSH-доступ оператора.
+На сервере нужны Python 3.9+, Docker, curl,
+psql внутри PostgreSQL-контейнера и доступ к server-owned manifest/state/configuration.
+
+```bash
+pnpm production:verify --host inside-production --application platform --version v22
+pnpm production:verify --host inside-production --application telegram --version v9
+# Опционально: counts действующих credentials существующего access-pass application, без значений.
+pnpm production:verify --host inside-production --application platform --version v22 --logto-app-id TEST_APP_ID
+```
+
+Замените версии фактически выложенными. Version/SHA/digest/schema берутся из выбранного release
+manifest, который проверяется канонической схемой до сравнения фактов. Они сверяются со state, образом и живым readiness. Инструмент передаёт исходник через SSH
+в памяти; серверные файлы не устанавливает. При наличии checkout с toolchain и pnpm dependencies на host используйте
+`python3 scripts/production-verify/verify.py --local --application platform --version v22`.
+
+JSON содержит `passed`, время и список `checks`: `passed`, `failed` или `not_checked` с основанием.
+Exit `0` означает, что выполненные обязательные проверки прошли; `not_checked` остаётся явным
+ограничением. Exit `1` означает отказ проверки либо невозможность собрать обязательные факты.
+Exit `2` означает ошибку аргументов. При первом `failed` инструмент останавливается; оператор
+сообщает координатору до дальнейших действий. Инструмент не делает rollback или forward repair.
+
+Platform проверяет процессы, readiness API/Web/MCP, изображения и ревизии, воркеры, маршруты Caddy,
+очереди, память, timer и текущий доменный каталог. Incompatible rollback запись допустима, когда
+она совпадает с manifest; наличие записи не означает разрешённый откат. `rollback=null` означает,
+что gateway не предлагает откат, и допустим после rollback или forward repair. Колонки индексов не
+считаются колонками таблиц. Формат материалов читается из `materials.materials.format_id`;
+историческая таблица `materials.formats` не используется. Опциональная проверка Logto сравнивает
+`expires_at` с `now()` PostgreSQL и выводит только количества.
+
+Telegram проверяет app/state/operation, digest/revision/migrations identity, readiness, 23 маршрута,
+metrics/logs, текущие webhook и права бота. Числовой Bot ID сверяется с токеном; логическое
+`TELEGRAM_BOT_IDENTITY` не считается числовым ID. Синтетические непривязанные чтения `binding` и
+`own-access` проверяют activation с заголовком `x-inside-domain-names: products.v1`.
+Конфигурация читается через `loadApplicationConfig` из фактического окружения контейнера,
+поэтому пустые значения и комментарии в env-файле не разбираются повторно. Отсутствие cohorts config даёт `not_checked`: приветствие без даты разрешено. Это само по себе
+не доказывает отсутствие регрессии; при подозрении сравните прежнюю конфигурацию. Частичная пара
+настроек даёт отказ.
+
+SQL работает с `default_transaction_read_only=on` и `statement_timeout=15000`. Инструмент не
+создаёт sign-in tokens, binding, activation attempts, покупки или сообщения. Он не меняет webhook,
+настройки, права, процесс или базу. Секреты, персональные строки и stderr команд не включаются в JSON.
+Пять накопительных счётчиков проверяются с момента старта app; `community_effects_unknown`
+показывает текущее значение. Его ноль не доказывает отсутствие прежних неизвестных исходов.
+Ненулевой исторический счётчик требует разбора,
+а не рестарта ради зелёной проверки.
+
+Инструмент дополняет Production access pass и ручные шаги runbook. Он не подтверждает живой
+`/start`, привязку, положительное own-access тестового Account, платежи, восстановление backup
+или сохранность данных между двумя выпусками. Эти критерии проверяются отдельно.
+
+`pnpm test:tooling` выполняет unit-тесты без production credentials и Docker.
+CI job Integration выполняет SQL-контракты на изолированной PostgreSQL.
+С SQL-контрактами выполните `pnpm production:verify:sql-test` только после получения Docker-слота.
+Этот тест запускает отдельный PostgreSQL без опубликованных портов и удаляет только свой контейнер
+и его volumes даже при отказе. Общий stand и его данные он не трогает.
+
 **Доступ глазами тестовых Accounts.** Job `Production access pass` идёт в `deploy.yml` сам; его
 итог и разбор красного результата описаны в разделе
 [Проход доступа после выпуска](#проход-доступа-после-выпуска).
@@ -403,9 +467,9 @@ Actions → `Production access pass` → `Run workflow` на `main`, вход `d
 
 **Что проверяет.** Клетки прохода перечислены в `apps/web/test/production/pass-config.ts`; каждая
 называется строкой матрицы проверок доступа и транспортом: `browser` (Web/BFF под настоящей
-сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Guide A. Account без
+сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Product A. Account без
 entitlement, ученик B, expired и anonymous не получают их закрытых bytes. Materials-only и
-Billing-only открывают свои административные чтения и получают отказ на чужих. Клетки Guide B и
+Billing-only открывают свои административные чтения и получают отказ на чужих. Клетки Product B и
 video отложены решениями владельца в #905 и #906.
 
 **Только чтение.** Раннер проверяет каждый запрос до отправки (`pass-requests.ts`): GET и HEAD, MCP
@@ -429,7 +493,7 @@ SHA, ожидание, факт, уровень и статус каждой к�
    Identity видит экран условий или не находится в Logto — повторите шаг одноразовой настройки
    из [тестовых identities](production-test-identities.md). Иначе откройте issue с меткой
    `needs-triage` и исправьте проход.
-3. **«расхождение», ожидался доступ.** Ученик A потерял доступ к своему Guide. Откройте issue с
+3. **«расхождение», ожидался доступ.** Ученик A потерял доступ к своему Product. Откройте issue с
    меткой `needs-triage` и сообщите владельцу: выпуск закрыл материал оплаченному ученику.
 4. **«расхождение», ожидался отказ.** Identity прочитала закрытый материал без права: это утечка.
    Сразу сообщите владельцу в канале, из которого шёл deploy: клетку, ссылку на run и deployed
@@ -497,7 +561,8 @@ CPU в покое этим smoke не измерен: снимок сделан 
 
 ## Limits
 
-- Брокер — один узел без отказоустойчивости; сигналов об отказах нет до #245.
+- Брокер — один узел без отказоустойчивости; его отказ виден по сигналам
+  [сторожа](production-monitoring.md) о контейнере и outbox уведомлений.
 - Память и CPU оценены по локальному smoke; реальный запас сервера не измерен.
 - Служебные маршруты выпускаются с проверкой по секретам без ограничения адреса отправителя; `remote_ip` добавится позже.
 - Проверки этого runbook и production-smoke локальные; production-сервер они не трогают.

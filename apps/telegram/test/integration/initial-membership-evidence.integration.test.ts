@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -5,7 +6,7 @@ import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { ApplicationConfig } from "../../src/config/application-config.js";
-import evidenceSchema from "../../src/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
+import evidenceSchema from "@inside/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
 import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
@@ -35,6 +36,8 @@ import type {
   TelegramMembership,
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { anyString } from "../support/matchers.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {

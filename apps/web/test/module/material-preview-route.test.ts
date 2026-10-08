@@ -9,8 +9,8 @@ import { buildMaterialPreviewRoute } from "@/_pages/material-authoring/model/pre
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { authoringMaterialPreviewHref } from "@/shared/routing/authoring";
 
-const guideId = "95000000-0000-4000-8000-000000000001";
-const otherGuideId = "95000000-0000-4000-8000-000000000002";
+const productId = "95000000-0000-4000-8000-000000000001";
+const otherProductId = "95000000-0000-4000-8000-000000000002";
 const chapterZero = "95000000-0000-4000-8000-000000000010";
 const chapterOne = "95000000-0000-4000-8000-000000000011";
 const chapterTwo = "95000000-0000-4000-8000-000000000012";
@@ -42,7 +42,7 @@ describe("Material preview route", () => {
       currentMaterialId: harness,
       hrefOf,
       order,
-      otherGuides: [],
+      otherProducts: [],
     });
 
     expect(route?.sections.map(({ name }) => name)).toEqual([
@@ -69,20 +69,20 @@ describe("Material preview route", () => {
       currentMaterialId: intro,
       hrefOf,
       order,
-      otherGuides: [],
+      otherProducts: [],
     });
     const last = buildMaterialPreviewRoute({
       currentMaterialId: glossary,
       hrefOf,
       order,
-      otherGuides: [],
+      otherProducts: [],
     });
 
     expect(first).toMatchObject({ position: 1, previous: null });
     expect(last).toMatchObject({ next: null, position: 4 });
   });
 
-  it("keeps a guide without chapters as one unnamed list", () => {
+  it("keeps a product without chapters as one unnamed list", () => {
     const route = buildMaterialPreviewRoute({
       currentMaterialId: setup,
       hrefOf,
@@ -91,7 +91,7 @@ describe("Material preview route", () => {
         chapters: [],
         items: order.items.map((entry) => ({ ...entry, chapterId: null })),
       },
-      otherGuides: [],
+      otherProducts: [],
     });
 
     expect(route?.sections.map(({ name }) => name)).toEqual([null]);
@@ -104,20 +104,20 @@ describe("Material preview route", () => {
         currentMaterialId: "95000000-0000-4000-8000-000000000099",
         hrefOf,
         order,
-        otherGuides: [],
+        otherProducts: [],
       }),
     ).toBeNull();
   });
 
-  it("keeps the selected guide and the return address in every transition", async () => {
+  it("keeps the selected product and the return address in every transition", async () => {
     const request = successfulOrder();
     const route = await getMaterialPreviewRoute(
       {
         accessToken: "access-token",
-        guideId,
-        guides: [
-          { id: otherGuideId, name: "Другое руководство" },
-          { id: guideId, name: "Inside AI Engineering" },
+        productId,
+        products: [
+          { id: otherProductId, name: "Другое руководство" },
+          { id: productId, name: "Inside AI Engineering" },
         ],
         materialId: setup,
         returnHref,
@@ -125,46 +125,46 @@ describe("Material preview route", () => {
       request,
     );
 
-    expect(request).toHaveBeenCalledWith(guideId, "access-token");
+    expect(request).toHaveBeenCalledWith(productId, "access-token");
     expect(route).toMatchObject({
-      guideName: "Inside AI Engineering",
+      productName: "Inside AI Engineering",
       kind: "ready",
       next: {
-        href: `/authoring/materials/${harness}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Ddraft&guide=${guideId}`,
+        href: `/authoring/materials/${harness}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Ddraft&product=${productId}`,
       },
-      otherGuides: [
+      otherProducts: [
         {
-          href: authoringMaterialPreviewHref(setup, returnHref, otherGuideId),
+          href: authoringMaterialPreviewHref(setup, returnHref, otherProductId),
           name: "Другое руководство",
         },
       ],
     });
   });
 
-  it("falls back to the first guide when the address names a foreign one", async () => {
+  it("falls back to the first product when the address names a foreign one", async () => {
     const request = successfulOrder();
     await getMaterialPreviewRoute(
       {
         accessToken: "access-token",
-        guideId: otherGuideId,
-        guides: [{ id: guideId, name: "Inside AI Engineering" }],
+        productId: otherProductId,
+        products: [{ id: productId, name: "Inside AI Engineering" }],
         materialId: setup,
         returnHref,
       },
       request,
     );
 
-    expect(request).toHaveBeenCalledWith(guideId, "access-token");
+    expect(request).toHaveBeenCalledWith(productId, "access-token");
   });
 
-  it("reads no guide for a material outside every guide", async () => {
+  it("reads no product for a material outside every product", async () => {
     const request = successfulOrder();
 
     await expect(
       getMaterialPreviewRoute(
         {
           accessToken: "access-token",
-          guides: [],
+          products: [],
           materialId: setup,
           returnHref,
         },
@@ -174,10 +174,10 @@ describe("Material preview route", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
-  it("names a failed guide read instead of hiding the material", async () => {
+  it("names a failed product read instead of hiding the material", async () => {
     const input = {
       accessToken: "access-token",
-      guides: [{ id: guideId, name: "Inside AI Engineering" }],
+      products: [{ id: productId, name: "Inside AI Engineering" }],
       materialId: setup,
       returnHref,
     };
@@ -194,7 +194,7 @@ describe("Material preview route", () => {
     ).resolves.toEqual({ kind: "unavailable", reference: "unavailable" });
     await expect(
       getMaterialPreviewRoute(input, response({}, 404)),
-    ).resolves.toEqual({ kind: "unavailable", reference: "guide-not-found" });
+    ).resolves.toEqual({ kind: "unavailable", reference: "product-not-found" });
     await expect(
       getMaterialPreviewRoute(
         { ...input, materialId: "95000000-0000-4000-8000-000000000099" },
@@ -202,7 +202,7 @@ describe("Material preview route", () => {
       ),
     ).resolves.toEqual({
       kind: "unavailable",
-      reference: "guide-order-changed",
+      reference: "product-order-changed",
     });
   });
 
@@ -211,7 +211,7 @@ describe("Material preview route", () => {
       getMaterialPreviewRoute(
         {
           accessToken: "access-token",
-          guides: [{ id: guideId, name: "Inside AI Engineering" }],
+          products: [{ id: productId, name: "Inside AI Engineering" }],
           materialId: setup,
           returnHref,
         },
@@ -222,20 +222,24 @@ describe("Material preview route", () => {
 });
 
 describe("Material preview video", () => {
-  it("names the attached video and whether it is ready", async () => {
+  it("hands the player the attached video and says whether it is ready", async () => {
     await expect(
       getMaterialPreviewVideo(setup, "access-token", current("ready")),
     ).resolves.toEqual({
+      durationSeconds: 754,
       kind: "attached",
       ready: true,
       title: "Запись урока",
+      videoId: "95000000-0000-4000-8000-000000000030",
     });
     await expect(
       getMaterialPreviewVideo(setup, "access-token", current("processing")),
     ).resolves.toEqual({
+      durationSeconds: 754,
       kind: "attached",
       ready: false,
       title: "Запись урока",
+      videoId: "95000000-0000-4000-8000-000000000030",
     });
   });
 
@@ -280,7 +284,7 @@ function item(
 }
 
 function hrefOf(materialId: string): Route {
-  return authoringMaterialPreviewHref(materialId, returnHref, guideId);
+  return authoringMaterialPreviewHref(materialId, returnHref, productId);
 }
 
 function response(body: unknown, status: number) {
@@ -308,7 +312,7 @@ function successfulOrder() {
       })),
       name: order.name,
       orderVersion: "a".repeat(64),
-      seriesId: guideId,
+      seriesId: productId,
     },
     200,
   );
@@ -319,6 +323,7 @@ function current(state: "processing" | "ready") {
     {
       contentVersion: 3,
       primaryVideo: {
+        durationSeconds: 754,
         origin: "platform_upload",
         state,
         title: "Запись урока",

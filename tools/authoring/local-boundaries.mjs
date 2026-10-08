@@ -1,11 +1,15 @@
 // @ts-check
 import { z } from "zod";
 import { canonical, checksum } from "./package.mjs";
+import {
+  canonicalAuthoringRequest,
+  decodeJournalV1,
+} from "./compatibility.mjs";
 
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const text = z.string().min(1);
 const hash = z.hash("sha256");
-const access = z.enum(["free", "membership", "workshop"]);
+const access = z.enum(["free", "closed"]);
 /** @typedef {z.infer<typeof access>} Access */
 // Validate consumed fields, preserving additional wire fields and exact replay bytes.
 const source = z
@@ -40,7 +44,7 @@ const materialSchema = materialReceiptSchema.extend({
   cover: coverSchema.nullable().optional(),
 });
 const topicSchema = z.object({ id: z.uuid(), slug: text }).passthrough();
-const guideSchema = topicSchema.extend({
+const productSchema = topicSchema.extend({
   name: z.string(),
   summary: z.string(),
   version,
@@ -50,7 +54,7 @@ const guideSchema = topicSchema.extend({
   pageRejected: z.boolean().optional(),
   sourceId: z.string().nullable().optional(),
 });
-/** @typedef {z.infer<typeof guideSchema>} StoredGuide */
+/** @typedef {z.infer<typeof productSchema>} StoredProduct */
 const coverChangeSchema = z
   .object({ cover: coverSchema.nullable() })
   .passthrough();
@@ -97,7 +101,7 @@ const videoUploadSchema = z
   })
   .passthrough();
 const orderSchema = z.object({ orderVersion: hash }).passthrough();
-const guideOrderSchema = orderSchema.extend({
+const productOrderSchema = orderSchema.extend({
   items: z.array(
     z
       .object({ materialId: z.uuid(), chapterId: z.uuid().nullable() })
@@ -148,7 +152,7 @@ const validSchema = z.object({ valid: z.literal(true) }).passthrough();
 const homePinSchema = z
   .object({ seriesId: z.uuid().nullable(), version })
   .passthrough();
-const guideArtifactsSchema = z
+const productArtifactsSchema = z
   .object({ artifacts: z.array(artifactSchema) })
   .passthrough();
 
@@ -178,7 +182,11 @@ export const taskReceiptSchema = z
   })
   .strict();
 const taskValidationSchema = z
-  .object({ valid: z.literal(true), current: taskReceiptSchema.nullable() })
+  .object({
+    valid: z.literal(true),
+    current: taskReceiptSchema.nullable(),
+    migration: z.object({ materialId: z.uuid() }).strict().nullish(),
+  })
   .strict();
 
 const localResponseSchemas = {
@@ -188,11 +196,11 @@ const localResponseSchemas = {
   taskValidation: taskValidationSchema,
   environment: environmentSchema,
   topics: z.array(topicSchema),
-  guides: z.array(guideSchema),
+  products: z.array(productSchema),
   topic: topicSchema,
   valid: validSchema,
   materialReceipt: materialReceiptSchema,
-  guide: guideSchema,
+  product: productSchema,
   order: orderSchema,
   homePin: homePinSchema,
   assetReceipt: assetReceiptSchema,
@@ -201,9 +209,9 @@ const localResponseSchemas = {
   material: materialSchema,
   coverChange: coverChangeSchema,
   artifactOutcome: artifactOutcomeSchema,
-  guideArtifacts: guideArtifactsSchema,
+  productArtifacts: productArtifactsSchema,
   artifact: artifactSchema,
-  guideOrder: guideOrderSchema,
+  productOrder: productOrderSchema,
 };
 
 /**
@@ -227,17 +235,17 @@ const localResponseSchemas = {
  *   ? "taskReceipt"
  *   : P extends "/authoring/collections?kind=topic"
  *   ? "topics"
- *   : P extends "/authoring/collections?kind=guide"
- *   ? "guides"
+ *   : P extends "/authoring/collections?kind=product"
+ *   ? "products"
  *   : P extends "/authoring/collections"
  *   ? "topic"
- *   : P extends "/authoring/import/materials/validate" | "/authoring/import/guides/validate"
+ *   : P extends "/authoring/import/materials/validate" | "/authoring/import/products/validate"
  *   ? "valid"
  *   : P extends "/authoring/import/materials/reserve" | "/authoring/import/materials/apply"
  *   ? "materialReceipt"
- *   : P extends "/authoring/import/guides/reserve" | "/authoring/import/guides/update"
- *   ? "guide"
- *   : P extends "/authoring/import/guides/composition"
+ *   : P extends "/authoring/import/products/reserve" | "/authoring/import/products/update"
+ *   ? "product"
+ *   : P extends "/authoring/import/products/composition"
  *   ? "order"
  *   : P extends "/authoring/home-pin"
  *   ? "homePin"
@@ -253,14 +261,14 @@ const localResponseSchemas = {
  *   ? "material"
  *   : P extends `/authoring/import/content-covers/${"material" | "series"}/${string}`
  *   ? "coverChange"
- *   : P extends `/authoring/import/guides/${string}/artifacts`
+ *   : P extends `/authoring/import/products/${string}/artifacts`
  *   ? "artifactOutcome"
- *   : P extends `/authoring/guides/${string}/artifacts`
- *   ? "guideArtifacts"
- *   : P extends `/authoring/guide-artifacts/${string}/materials`
+ *   : P extends `/authoring/products/${string}/artifacts`
+ *   ? "productArtifacts"
+ *   : P extends `/authoring/product-artifacts/${string}/materials`
  *   ? "artifact"
- *   : P extends `/authoring/guides/${string}/order`
- *   ? "guideOrder"
+ *   : P extends `/authoring/products/${string}/order`
+ *   ? "productOrder"
  *   : never} LocalResponseKindOf
  */
 
@@ -291,6 +299,7 @@ const localResponseSchemas = {
  * @returns {LocalResponseKind}
  */
 export function localResponseKind(path) {
+  path = canonicalAuthoringRequest({ path }).path;
   switch (path) {
     case "/authoring/import/practices/validate":
       return "practiceValidation";
@@ -304,20 +313,20 @@ export function localResponseKind(path) {
       return "environment";
     case "/authoring/collections?kind=topic":
       return "topics";
-    case "/authoring/collections?kind=guide":
-      return "guides";
+    case "/authoring/collections?kind=product":
+      return "products";
     case "/authoring/collections":
       return "topic";
     case "/authoring/import/materials/validate":
-    case "/authoring/import/guides/validate":
+    case "/authoring/import/products/validate":
       return "valid";
     case "/authoring/import/materials/reserve":
     case "/authoring/import/materials/apply":
       return "materialReceipt";
-    case "/authoring/import/guides/reserve":
-    case "/authoring/import/guides/update":
-      return "guide";
-    case "/authoring/import/guides/composition":
+    case "/authoring/import/products/reserve":
+    case "/authoring/import/products/update":
+      return "product";
+    case "/authoring/import/products/composition":
       return "order";
     case "/authoring/home-pin":
       return "homePin";
@@ -336,14 +345,14 @@ export function localResponseKind(path) {
         )
       )
         return "coverChange";
-      if (/^\/authoring\/import\/guides\/[^/]+\/artifacts$/u.test(path))
+      if (/^\/authoring\/import\/products\/[^/]+\/artifacts$/u.test(path))
         return "artifactOutcome";
-      if (/^\/authoring\/guides\/[^/]+\/artifacts$/u.test(path))
-        return "guideArtifacts";
-      if (/^\/authoring\/guide-artifacts\/[^/]+\/materials$/u.test(path))
+      if (/^\/authoring\/products\/[^/]+\/artifacts$/u.test(path))
+        return "productArtifacts";
+      if (/^\/authoring\/product-artifacts\/[^/]+\/materials$/u.test(path))
         return "artifact";
-      if (/^\/authoring\/guides\/[^/]+\/order$/u.test(path))
-        return "guideOrder";
+      if (/^\/authoring\/products\/[^/]+\/order$/u.test(path))
+        return "productOrder";
       throw new Error(`Unsupported local response boundary: ${path}`);
   }
 }
@@ -400,11 +409,11 @@ const operationSchema = z.discriminatedUnion("status", [
 const cacheSchema = materialReceiptSchema.extend({
   digest: hash,
   revision: hash.optional(),
-  defaultAccess: z.enum(["free", "membership"]).optional(),
+  defaultAccess: z.enum(["free", "closed"]).optional(),
   primaryVideoId: z.uuid().nullable().optional(),
   coverId: z.uuid().nullable().optional(),
   coverSha256: hash.nullable().optional(),
-  guideSourceIds: z.array(text).optional(),
+  productSourceIds: z.array(text).optional(),
   publicationState: publicationStateSchema.optional(),
   archived: z.boolean().optional(),
   access: access.optional(),
@@ -423,11 +432,11 @@ const journalSchema = z
     schemaVersion: z.literal(1),
     target: text,
     materials: z.record(text, cacheSchema),
-    guides: z.record(
+    products: z.record(
       text,
       z
         .object({
-          guideId: z.uuid(),
+          productId: z.uuid(),
           slug: text,
           version: version.optional(),
           // Обложка продукта, поставленная переносом, и хеш её файла: повтор без изменений не грузит её снова.
@@ -461,7 +470,7 @@ export const pendingCoverReceiptSchema = z.object({
   sha256: hash,
   expectedCoverId: z.uuid().nullable(),
 });
-/** `artifact:<guideId>:<sourceKey>`: a Guide artifact and the Materials it was linked to. */
+/** `artifact:<productId>:<sourceKey>`: a Product artifact and the Materials it was linked to. */
 export const artifactReceiptSchema = z.object({
   artifactId: z.uuid(),
   fingerprint: hash,
@@ -508,7 +517,7 @@ export function parseReceipt(schema, value) {
 }
 
 /**
- * A request operation of the journal; image receipts share the record under their own key prefix.
+ * A request operation of the journal; Material image and Task page asset receipts use their own prefixes.
  *
  * @param {unknown} entry
  * @returns {entry is z.infer<typeof operationSchema>}
@@ -532,21 +541,26 @@ export function materialApplyRequest(request) {
     request !== null &&
     "path" in request &&
     request.path === materialApplyPath
-    ? materialApplyRequestSchema.parse(request)
+    ? materialApplyRequestSchema.parse(canonicalAuthoringRequest(request))
     : undefined;
 }
 
 /** @param {unknown} value */
 export function parseJournal(value) {
-  const journal = journalSchema.parse(value);
+  const journal = journalSchema.parse(decodeJournalV1(value));
+  const requests = new Set();
   for (const [key, entry] of Object.entries(journal.operations)) {
-    if (key.startsWith("image:")) {
+    if (key.startsWith("image:") || key.startsWith("task-page-asset:")) {
       assetReceiptSchema.parse(entry);
       continue;
     }
     const operation = operationSchema.parse(entry);
     if (key !== `authoring:${checksum(canonical(operation.request))}`)
       throw new Error("Journal request fingerprint mismatch");
+    const normalized = canonical(canonicalAuthoringRequest(operation.request));
+    if (requests.has(normalized))
+      throw new Error("Authoring operation alias collision");
+    requests.add(normalized);
     const apply = materialApplyRequest(operation.request);
     if (apply !== undefined) {
       const body = apply.body;

@@ -35,7 +35,7 @@ export class UpdateContentCollectionController {
   @Put(":collectionId")
   @ApiOperation({
     operationId: "updateAuthoringContentCollection",
-    summary: "Update Topic or Guide metadata without changing its slug",
+    summary: "Update Topic or Product metadata without changing its slug",
   })
   @ApiParam({
     name: "collectionId",

@@ -1,9 +1,8 @@
-import { enrollLegacyCohortFixture } from "./enroll-legacy-cohort-fixture.js";
+import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
-import { assembleMembershipEntitlements } from "../modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../modules/workshop/index.js";
+import { assembleAccountRights } from "../modules/account-rights/index.js";
 
 const MEMBERSHIP_FIXTURE_LIFETIME_MS = 5 * 60_000;
 
@@ -29,11 +28,10 @@ async function main() {
       },
       select: { id: true },
     });
-    await enrollLegacyCohortFixture(prisma, account.id);
+    await enrollPriorParticipantsFixture(prisma, account.id);
     const now = new Date();
-    const membership = assembleMembershipEntitlements({
+    const membership = assembleAccountRights({
       prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
     });
     const result = await membership.acceptEvidence({
       accountId: accountId(account.id),

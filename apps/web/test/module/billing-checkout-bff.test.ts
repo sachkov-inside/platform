@@ -26,15 +26,15 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestChangeBillingMethod: vi.fn(),
   requestRevokeBillingMethod: vi.fn(),
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: fakes.token,
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
 }));
 vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
   getOptionalPlatformAccessToken: fakes.readerToken,
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
 }));
 
 import {
@@ -42,7 +42,10 @@ import {
   handleBillingPurchaseStatus,
   handleBillingQuote,
 } from "@/features/billing-checkout.server";
-import { loadBillingOffers } from "@/entities/subscription.server";
+import {
+  loadBillingOffers,
+  loadViewerBillingOffers,
+} from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
 import {
   handleCancelRenewal,
@@ -109,7 +112,7 @@ it("читает каталог от имени вошедшего покупа�
   fakes.offers.mockResolvedValue(
     ok({ items: [materialsOffer], nextCursor: null }),
   );
-  expect(await loadBillingOffers({ mode: "subscription" })).toEqual({
+  expect(await loadViewerBillingOffers({ mode: "subscription" })).toEqual({
     kind: "ready",
     offers: [materialsOffer],
   });
@@ -121,7 +124,7 @@ it("читает каталог от имени вошедшего покупа�
 
 it("сбой чтения сессии не выдаётся за гостевую витрину", async () => {
   fakes.readerToken.mockRejectedValue(new Error("refresh failed"));
-  await expect(loadBillingOffers()).rejects.toThrow("refresh failed");
+  await expect(loadViewerBillingOffers()).rejects.toThrow("refresh failed");
   expect(fakes.offers).not.toHaveBeenCalled();
 });
 
@@ -295,11 +298,11 @@ it("читает состояние покупки только по собст�
 
 it("отвечает 401 на собственный read без действующей сессии", async () => {
   const { LogtoSessionUnavailableError } =
-    await import("@/shared/auth/platform-access-token.server");
+    await import("@/shared/auth/session-adapter.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
   const response = await handleCurrentBilling();
   expect(response.status).toBe(401);
-  expect(await response.json()).toEqual({ ok: false, code: "unauthorized" });
+  expect(await response.json()).toEqual({ kind: "authentication_required" });
   expect(fakes.current).not.toHaveBeenCalled();
 });
 

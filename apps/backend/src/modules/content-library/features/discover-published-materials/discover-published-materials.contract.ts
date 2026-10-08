@@ -2,8 +2,8 @@ import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
 import type {
   ContentCoverProjection,
-  GuideIntroductionDto,
-  GuideProductPageDto,
+  ProductIntroductionDto,
+  ProductLandingPageDto,
 } from "../../../materials/index.js";
 
 export interface DiscoverPublishedMaterialsQuery {
@@ -13,10 +13,10 @@ export interface DiscoverPublishedMaterialsQuery {
   readonly subject: Subject;
 }
 
-export interface GuideChapterTaskDto {
+export interface ProductChapterTaskDto {
   readonly code: string;
   readonly title: string;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly afterMaterialId: string | null;
   readonly availability: "available" | "locked" | "unavailable";
   /** The viewer's own latest submission; `null` for a guest. */
@@ -24,7 +24,7 @@ export interface GuideChapterTaskDto {
 }
 
 export interface PublishedMaterialDiscoveryDto {
-  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
@@ -32,26 +32,26 @@ export interface PublishedMaterialDiscoveryDto {
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;
     /**
-     * Published Guide Tasks of the chapter in author order (#947). Each stands after the Material
+     * Published Product Tasks of the chapter in author order (#947). Each stands after the Material
      * it names, or at the start of the chapter; the main path and its ordinals stay Materials only.
      */
-    readonly tasks: readonly GuideChapterTaskDto[];
+    readonly tasks: readonly ProductChapterTaskDto[];
   }[];
   readonly hasNext: boolean;
   readonly items: readonly PublishedMaterialCatalogItemDto[];
   readonly kind: "related" | "series" | "topic";
   readonly reference: {
     /**
-     * Whether any lesson of this Guide is written for both ways of going through it; false for
+     * Whether any lesson of this Product is written for both ways of going through it; false for
      * every other discovery kind.
      */
     readonly hasModeVariants: boolean;
     readonly id: string;
-    /** Author-written Guide introduction; null for every other discovery kind. */
-    readonly introduction: GuideIntroductionDto | null;
+    /** Author-written Product introduction; null for every other discovery kind. */
+    readonly introduction: ProductIntroductionDto | null;
     readonly name: string;
     /** Product page presentation and description; null for every other discovery kind. */
-    readonly productPage: GuideProductPageDto | null;
+    readonly productPage: ProductLandingPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;

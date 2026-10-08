@@ -18,23 +18,32 @@ export const globalAccessCapabilities = [
 export const accessCapabilitySchema: z.ZodUnion<
   readonly [
     z.ZodEnum<z.core.util.ToEnum<(typeof globalAccessCapabilities)[number]>>,
-    z.ZodTemplateLiteral<`guide:${string}`>,
+    z.ZodTemplateLiteral<`product:${string}`>,
   ]
 > = z.union([
   z.enum(globalAccessCapabilities),
-  z.templateLiteral(["guide:", z.uuid()]),
+  z.templateLiteral(["product:", z.uuid()]),
 ]);
 
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 
 /** Право на одно конкретное руководство; принимает и сырую строку прежней записи. */
-export function isGuideCapability(capability: string): boolean {
-  return capability.startsWith("guide:");
+export function isProductCapability(capability: string): boolean {
+  return capability.startsWith("product:");
 }
 
 /** Право на конкретное руководство: строка права собирается и читается одним владельцем. */
-export function guideCapability(guideId: string): AccessCapability {
-  return `guide:${guideId}`;
+export function productCapability(productId: string): AccessCapability {
+  return `product:${productId}`;
+}
+
+/** Идентификатор продукта из уже проверенного права; глобальное право продукта не называет. */
+export function productIdFromCapability(
+  capability: AccessCapability,
+): string | null {
+  return isProductCapability(capability)
+    ? capability.slice("product:".length)
+    : null;
 }
 
 /**
@@ -44,7 +53,7 @@ export function guideCapability(guideId: string): AccessCapability {
 export function capabilitiesOpenedBy(
   capability: AccessCapability,
 ): readonly AccessCapability[] {
-  return isGuideCapability(capability) || capability === "support"
+  return isProductCapability(capability) || capability === "support"
     ? [capability, "community"]
     : [capability];
 }
@@ -91,16 +100,16 @@ export function accessComposition(
 }
 
 /** Explicit products included by a tier. Legacy promises are frozen by the migration baseline. */
-export const contentScopeSchema: z.ZodObject<
+export const coverageSchema: z.ZodObject<
   {
-    guideIds: z.ZodArray<z.ZodUUID>;
+    productIds: z.ZodArray<z.ZodUUID>;
     materialIds: z.ZodArray<z.ZodUUID>;
-    allGuides: z.ZodExactOptional<z.ZodLiteral<true>>;
+    wholePlatform: z.ZodExactOptional<z.ZodLiteral<true>>;
   },
   z.core.$strict
 > = z
   .strictObject({
-    guideIds: z
+    productIds: z
       .array(z.uuid())
       .max(1000)
       .refine((ids) => new Set(ids).size === ids.length),
@@ -112,22 +121,22 @@ export const contentScopeSchema: z.ZodObject<
      * Все продукты платформы, включая опубликованные позже: состав подписки и стартового тарифа.
      * Отдельные материалы состав не образуют; прежние снимки ещё могут их называть.
      */
-    allGuides: z.literal(true).exactOptional(),
+    wholePlatform: z.literal(true).exactOptional(),
   })
   .refine(
     // «Все продукты» ничего не перечисляет: иначе состав противоречил бы сам себе.
     (scope) =>
-      scope.allGuides !== true ||
-      (scope.guideIds.length === 0 && scope.materialIds.length === 0),
+      scope.wholePlatform !== true ||
+      (scope.productIds.length === 0 && scope.materialIds.length === 0),
   );
-export type ContentScope = z.infer<typeof contentScopeSchema>;
+export type Coverage = z.infer<typeof coverageSchema>;
 
 /** Открывает ли состав продукт: продукт назван явно или состав включает все продукты. */
-export function scopeIncludesGuide(
-  scope: ContentScope,
-  guideId: string,
+export function scopeIncludesProduct(
+  scope: Coverage,
+  productId: string,
 ): boolean {
-  return scope.allGuides === true || scope.guideIds.includes(guideId);
+  return scope.wholePlatform === true || scope.productIds.includes(productId);
 }
 
 /**
@@ -135,14 +144,14 @@ export function scopeIncludesGuide(
  * сам материал.
  */
 export function scopeOpensResource(
-  scope: ContentScope,
+  scope: Coverage,
   resource: {
-    readonly guideIds: readonly string[];
+    readonly productIds: readonly string[];
     readonly materialId?: string | undefined;
   },
 ): boolean {
   return (
-    resource.guideIds.some((id) => scopeIncludesGuide(scope, id)) ||
+    resource.productIds.some((id) => scopeIncludesProduct(scope, id)) ||
     (resource.materialId !== undefined &&
       scope.materialIds.includes(resource.materialId))
   );
@@ -153,23 +162,21 @@ export function scopeOpensResource(
  * руководства и материала. Тариф с таким составом дал бы чат без материалов, поэтому его нельзя
  * ни назначить, ни продать.
  */
-export function isEmptyContentScope(scope: unknown): boolean {
-  const parsed = contentScopeSchema.safeParse(scope);
+export function isEmptyCoverage(scope: unknown): boolean {
+  const parsed = coverageSchema.safeParse(scope);
   return (
     !parsed.success ||
-    (parsed.data.allGuides !== true &&
-      parsed.data.guideIds.length === 0 &&
+    (parsed.data.wholePlatform !== true &&
+      parsed.data.productIds.length === 0 &&
       parsed.data.materialIds.length === 0)
   );
 }
 
-const contentScopeEntryKinds = ["guide", "material"] as const;
+const coverageEntryKinds = ["product", "material"] as const;
 
-export const contentScopeEntrySchema: z.ZodObject<
+export const coverageEntrySchema: z.ZodObject<
   {
-    kind: z.ZodEnum<
-      z.core.util.ToEnum<(typeof contentScopeEntryKinds)[number]>
-    >;
+    kind: z.ZodEnum<z.core.util.ToEnum<(typeof coverageEntryKinds)[number]>>;
     id: z.ZodUUID;
     title: z.ZodString;
     slug: z.ZodNullable<z.ZodString>;
@@ -177,9 +184,47 @@ export const contentScopeEntrySchema: z.ZodObject<
   },
   z.core.$strict
 > = z.strictObject({
-  kind: z.enum(contentScopeEntryKinds),
+  kind: z.enum(coverageEntryKinds),
   id: z.uuid(),
   title: z.string(),
   slug: z.string().nullable(),
   available: z.boolean(),
 });
+
+export const benefitPeriodsSchema: z.ZodArray<
+  z.ZodObject<
+    {
+      capability: typeof accessCapabilitySchema;
+      months: z.ZodNullable<z.ZodNumber>;
+    },
+    z.core.$strict
+  >
+> = z
+  .array(
+    z.strictObject({
+      capability: accessCapabilitySchema,
+      months: z.int().positive().max(1200).nullable(),
+    }),
+  )
+  .max(100);
+
+export { subscriptionPeriodEnd, MOSCOW_OFFSET_MS } from "./calendar-period.js";
+
+/** Состав материалов тарифа учитывает и прямое право на продукт, и явный охват. */
+export function tariffCoverage(
+  benefits: readonly string[],
+  scope: Coverage,
+): Coverage {
+  if (scope.wholePlatform === true) return scope;
+  return {
+    ...scope,
+    productIds: [
+      ...new Set([
+        ...scope.productIds,
+        ...benefits
+          .filter(isProductCapability)
+          .map((capability) => capability.slice("product:".length)),
+      ]),
+    ],
+  };
+}

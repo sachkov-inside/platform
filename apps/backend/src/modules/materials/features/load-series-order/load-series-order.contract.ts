@@ -5,7 +5,7 @@ import type {
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 
-export interface GuideChapterDto {
+export interface ProductChapterDto {
   readonly id: string;
   readonly name: string;
   readonly ordinal: number;
@@ -23,7 +23,7 @@ export interface SeriesOrderMaterialDto {
 
 export interface SeriesOrderDto {
   readonly archived: boolean;
-  readonly chapters: readonly GuideChapterDto[];
+  readonly chapters: readonly ProductChapterDto[];
   readonly items: readonly SeriesOrderMaterialDto[];
   readonly name: string;
   readonly orderVersion: string;

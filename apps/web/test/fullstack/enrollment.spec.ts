@@ -3,7 +3,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
-test("owner assigns scoped course and the open cabinet converges through real BFF and PostgreSQL", async ({
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
+test("owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL", async ({
   page,
   context,
 }, info) => {
@@ -32,12 +33,13 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await expect(
     page.getByRole("heading", { name: "Оплата и права" }),
   ).toBeVisible();
+  const courseCapability = "product:62000000-0000-4000-8000-000000000701";
   const tierName = `Практика ${info.project.name}`;
   await page.getByRole("button", { name: "Новый тариф", exact: true }).click();
   await page.getByLabel("Название", { exact: true }).first().fill(tierName);
   await page
     .getByLabel("Состав", { exact: true })
-    .fill("materials\ncommunity=6");
+    .fill(`${courseCapability}\ncommunity\nsupport=6`);
   await page.getByLabel("Доступен для назначения").check();
   await page
     .getByLabel("Продукт: Инженерная практика", { exact: true })
@@ -50,7 +52,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   ).toBeVisible();
   const rules = page
     .getByRole("heading", {
-      name: "Ссылки активации курса и Tribute",
+      name: "Ссылки активации курса",
       exact: true,
     })
     .locator("..");
@@ -68,7 +70,13 @@ test("owner assigns scoped course and the open cabinet converges through real BF
     .fill(`synthetic-course-${info.project.name}`);
   await rules
     .getByLabel("Начало по Москве")
-    .fill(new Date(Date.now() - 86_400_000).toISOString().slice(0, 16));
+    .fill(
+      new Date(
+        Date.parse(await backendFixtureInstant(page.request)) - 86_400_000,
+      )
+        .toISOString()
+        .slice(0, 16),
+    );
   await rules
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическая публикация правила");
@@ -209,7 +217,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
     .getByRole("button", { name: "Редактировать состав" })
     .click();
   await expect(page.getByLabel("Состав", { exact: true })).toHaveValue(
-    "community=6\nmaterials",
+    `community\n${courseCapability}\nsupport=6`,
   );
   await page
     .getByLabel("Название", { exact: true })
@@ -222,12 +230,12 @@ test("owner assigns scoped course and the open cabinet converges through real BF
     page.getByText("Предложение сохранено, редакция 2.", { exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Состав", { exact: true })).toHaveValue(
-    "community=6\nmaterials",
+    `community\n${courseCapability}\nsupport=6`,
   );
-  // Add support explicitly, then selected expansion must update both open owner windows.
+  // Add scoped materials explicitly; expansion preserves the original support deadline.
   await page
     .getByLabel("Состав", { exact: true })
-    .fill("materials\ncommunity=6\nsupport");
+    .fill(`${courseCapability}\nmaterials\ncommunity\nsupport=6`);
   await page
     .getByRole("button", { name: "Сохранить предложение", exact: true })
     .click();

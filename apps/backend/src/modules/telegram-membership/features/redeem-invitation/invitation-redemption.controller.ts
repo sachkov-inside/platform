@@ -30,7 +30,7 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import { SubscriptionActivation } from "../../../billing/index.js";
-import { redeemInvitationSchema } from "../../../membership-entitlements/index.js";
+import { redeemInvitationSchema } from "../../../account-rights/index.js";
 import { invitationRedeemResponseSchema } from "../../domain/subscription-activation-wire.js";
 
 /**

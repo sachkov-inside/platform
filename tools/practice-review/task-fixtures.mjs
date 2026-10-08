@@ -13,7 +13,7 @@ export const consentedCommand = "node check.mjs";
 /** What the check prints first; a transcript that contains it shows the command ran. */
 export const checkMarker = "TASK_CHECK_EXECUTED";
 
-/** A Guide Task definition, `schemaVersion: 1`, with required and additional criteria. */
+/** A Product Task definition, `schemaVersion: 1`, with required and additional criteria. */
 export function taskDefinition() {
   return {
     schemaVersion: 1,

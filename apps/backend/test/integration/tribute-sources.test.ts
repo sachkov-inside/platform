@@ -1,8 +1,11 @@
+import { sourceIdentityRef } from "../../src/modules/account-rights/domain/source-identity.js";
 import { eventually } from "./setup/eventually.js";
-import { lockAccountEntitlementChanges } from "../../src/infrastructure/prisma/index.js";
-import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
+import {
+  lockBillingPricing,
+  lockAccountEntitlementChanges,
+} from "../../src/infrastructure/prisma/index.js";
+import { changeEnrollmentInTransaction } from "../../src/modules/account-rights/features/change-enrollment/change-enrollment.js";
 import { z } from "zod";
-import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -18,16 +21,15 @@ import {
 } from "../../src/modules/accounts/index.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
+  assembleAccountRights,
   TributeSources,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
 import {
   SubscriptionActivation,
   TributeConvergence,
 } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { ReceiveTributeController } from "../../src/modules/billing/features/receive-tribute/receive-tribute.controller.js";
 import {
   PLATFORM_CONFIG,
@@ -61,7 +63,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   let sources: TributeSources;
   let convergence: TributeConvergence;
   let grants: ReturnType<typeof assembleAccessGrants>;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
+  let membership: ReturnType<typeof assembleAccountRights>;
   let http: NestFastifyApplication;
   let now = new Date("2030-01-01T00:00:00.000Z");
   let subscriptionSequence = 625000;
@@ -93,14 +95,10 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       recipientLinks: links,
       clock: () => now,
     });
-    membership = assembleMembershipEntitlements({
+    membership = assembleAccountRights({
       prisma: db.prisma,
       recipientLinks: links,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     @Module({
       controllers: [ReceiveTributeController, SubscriptionActivationController],
@@ -152,17 +150,18 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   });
   async function setup(
     mode: "confirmed_period" | "temporary_membership" = "confirmed_period",
+    historicalTemporary = true,
   ) {
     now = new Date("2030-01-01T00:00:00.000Z");
     const policyRef = randomUUID(),
       identityRef = randomUUID(),
-      guideId = randomUUID();
+      productId = randomUUID();
     const tier = await db.prisma.billingOffer.create({
       data: {
         id: randomUUID(),
         name: "Подписка Inside",
         benefits: ["materials", "community"],
-        contentScope: { guideIds: [guideId], materialIds: [] },
+        coverage: { productIds: [productId], materialIds: [] },
         availableForAssignment: true,
         revision: 1,
       },
@@ -197,7 +196,42 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       expectedRevision: 0,
       reason: "Подтверждённые даты и identity",
     };
-    return { row, tier, guideId };
+    if (mode === "temporary_membership" && historicalTemporary) {
+      // Historical source issued before #1064: current commands only reconcile it.
+      const policy = await db.prisma.tributePolicy.findUniqueOrThrow({
+        where: { id: policyRef },
+      });
+      await db.prisma.sourceEntitlement.create({
+        data: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef: sourceIdentityRef("tribute", policyRef, identityRef),
+          sourcePolicyRef: policyRef,
+          identityRef,
+          revision: 1,
+          evidence: { historical: true },
+          checkedAt: now,
+          tributeState: {
+            subscriptionId,
+            telegramUserId: row.telegramUserId,
+            verificationRef: row.verificationRef,
+            mode,
+            startsAt: row.startsAt,
+            endsAt: row.endsAt,
+            renewal: row.renewal,
+            tier: policy.tierSnapshot,
+            policyRevision: policy.revision,
+            observation: "pending",
+            observedUntil: null,
+            observationVersion: null,
+            lastEventAt: row.checkedAt,
+            lastEventFingerprint: null,
+          },
+        },
+      });
+      row.expectedRevision = 1;
+    }
+    return { row, tier, productId };
   }
   async function link(identityRef: string) {
     const id = randomUUID();
@@ -279,6 +313,106 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(response.headers["cache-control"]).toBe("private, no-store");
     return response;
   }
+  test("prepared policy shares Billing rollback and refuses an unauthorized actor", async () => {
+    const context = await setup();
+    const policy = (await sources.policies()).find(
+      (policy) => policy.id === context.row.policyRef,
+    );
+    if (!policy) throw new Error("Missing policy");
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: policy.revision,
+      id: policy.id,
+      subscriptionId: policy.subscriptionId,
+      enabled: false,
+      tierId: context.tier.id,
+      tierRevision: context.tier.revision,
+      temporaryUntil: null,
+      reason: "Rollback test",
+    };
+    const customer = await link(randomUUID());
+    expect(await convergence.savePolicy(customer.id, command)).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    const save = value(await sources.preparePolicy(owner, command));
+    await expect(
+      db.prisma.$transaction(async (tx) => {
+        value(await save(tx, policy.tier));
+        throw new Error("Billing aborted");
+      }),
+    ).rejects.toThrow("Billing aborted");
+    expect(
+      (await sources.policies()).find((row) => row.id === policy.id),
+    ).toEqual(policy);
+    expect(value(await convergence.savePolicy(owner, command))).toMatchObject({
+      enabled: false,
+      revision: 2,
+    });
+  });
+  test("prepared import rolls back source, enrollment and receipt with Billing", async () => {
+    const context = await setup();
+    const customer = await link(context.row.identityRef);
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    const command = {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      selectedRows: [context.row.rowRef],
+    };
+    expect(await convergence.apply(customer.id, command)).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    const prepared = value(await sources.prepareApply(owner, command));
+    await expect(
+      db.prisma.$transaction(async (tx) => {
+        value(await prepared.apply(tx));
+        throw new Error("Billing aborted");
+      }),
+    ).rejects.toThrow("Billing aborted");
+    expect(value(await grants.readOwnEnrollments(customer.id))).toEqual([]);
+    const applied = value(await convergence.apply(owner, command));
+    expect(applied.sources[0]).toMatchObject({
+      accountId: customer.id,
+      revision: 1,
+    });
+    expect(value(await grants.readOwnEnrollments(customer.id))).toHaveLength(1);
+    expect(value(await convergence.apply(owner, command))).toEqual(applied);
+  });
+  test("prepared replay reads the committed receipt after the pricing lock even after archival", async () => {
+    const context = await setup();
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    const command = {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      selectedRows: [context.row.rowRef],
+    };
+    // The retry has already been authorized while the original import has not committed.
+    const prepared = value(await sources.prepareApply(owner, command));
+    const applied = value(await convergence.apply(owner, command));
+    await db.prisma.billingOffer.update({
+      where: { id: context.tier.id },
+      data: { archived: true, revision: { increment: 1 } },
+    });
+    const replayed = await db.prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      expect(value(await prepared.previewTiers(tx))).toEqual([]);
+      return value(await prepared.apply(tx));
+    });
+    expect(replayed).toEqual(applied);
+  });
   test("legacy unconfirmed source is visible and imported into the same record; generic Tribute registration is closed", async () => {
     const context = await setup();
     expect(
@@ -331,7 +465,27 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       ),
     ).toBe(false);
     expect(
-      await db.prisma.subscriptionEnrollment.count({ where: { sourceRef } }),
+      await db.prisma.tariffAssignment.count({ where: { sourceRef } }),
+    ).toBe(0);
+  });
+  test("new temporary Tribute source cannot grant unpaid access", async () => {
+    const context = await setup("temporary_membership", false);
+    const customer = await link(context.row.identityRef);
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    expect(preview.rows[0]?.status).toBe("conflict");
+    expect(
+      await db.prisma.sourceEntitlement.count({
+        where: { identityRef: context.row.identityRef },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: customer.id } }),
     ).toBe(0);
   });
   test("temporary owner assignment is rejected and expansion preserves pending grant suspension", async () => {
@@ -342,7 +496,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       revision: 1,
       name: context.tier.name,
       benefits: ["materials", "community"],
-      contentScope: { guideIds: [context.guideId], materialIds: [] },
+      coverage: { productIds: [context.productId], materialIds: [] },
     };
     expect(
       await grants.assignEnrollment(
@@ -372,7 +526,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     const source = imported.result.sources[0];
     if (!hasText(source?.enrollmentId))
       throw new Error("Expected pending enrollment");
-    const row = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+    const row = await db.prisma.tariffAssignment.findUniqueOrThrow({
       where: { id: source.enrollmentId },
     });
     const expanded = {
@@ -426,7 +580,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       status: "pending_identity",
     });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: {
           sourceRef: imported.result.sources[0]?.sourceRef ?? "missing",
         },
@@ -436,14 +590,14 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(await convergence.sweep()).toMatchObject({ attached: 1 });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(value(await convergence.apply(owner, imported.command))).toEqual(
       imported.result,
     );
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -468,7 +622,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       startsAt: "2030-01-01T03:00:00.000+03:00",
       endsAt: "2030-02-01T03:00:00.000+03:00",
     });
-    const before = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+    const before = await db.prisma.tariffAssignment.findFirstOrThrow({
       where: { accountId: customer.id },
     });
     const beforeGrants = await db.prisma.accessGrant.findMany({
@@ -481,11 +635,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         name: "Changed next cohort",
         revision: 2,
         benefits: ["materials", "reviews"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
       },
     });
     expect(
-      await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+      await db.prisma.tariffAssignment.findUniqueOrThrow({
         where: { id: before.id },
       }),
     ).toEqual(before);
@@ -500,25 +654,25 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     now = new Date("2029-12-31T23:59:59.999Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     now = new Date("2030-01-01T00:00:00.000Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date("2030-01-31T23:59:59.999Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date("2030-02-01T00:00:00.000Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
   });
@@ -538,13 +692,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       const [target, untouched] = ordered;
       if (!target || !untouched)
         throw new Error("Expected two independent Accounts");
-      const original = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+      const original = await db.prisma.tariffAssignment.findFirstOrThrow({
         where: { accountId: target.account.id },
       });
-      const otherBefore =
-        await db.prisma.subscriptionEnrollment.findFirstOrThrow({
-          where: { accountId: untouched.account.id },
-        });
+      const otherBefore = await db.prisma.tariffAssignment.findFirstOrThrow({
+        where: { accountId: untouched.account.id },
+      });
       const rows = await Promise.all(
         [...ordered].reverse().map(async ({ context }) => ({
           ...context.row,
@@ -625,11 +778,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         value: { ok: false, error: { code: "revision_conflict" } },
       });
       expect(
-        await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+        await db.prisma.tariffAssignment.findUniqueOrThrow({
           where: { id: otherBefore.id },
         }),
       ).toEqual(otherBefore);
-      const current = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+      const current = await db.prisma.tariffAssignment.findUniqueOrThrow({
         where: { id: original.id },
       });
       expect(current.revision).toBe(original.revision + 1);
@@ -649,7 +802,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       });
     },
   );
-  test("preview flags every period reduction and confirmed-to-temporary downgrade before apply", async () => {
+  test("preview flags period reductions and rejects confirmed-to-temporary downgrade", async () => {
     const context = await setup();
     const customer = await link(context.row.identityRef);
     await apply(context.row);
@@ -684,12 +837,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         }),
       );
       expect(preview.rows[0]).toMatchObject({
-        status: "matched",
+        status: "mode" in patch ? "conflict" : "matched",
         shortens: true,
       });
       expect(
         await membership.resolveForAccess(accountId(customer.id), [
-          context.guideId,
+          context.productId,
         ]),
       ).toMatchObject({ kind: "active" });
     }
@@ -844,12 +997,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         })
       ).json(),
     ).toMatchObject({ status: "pending_reconciliation" });
-    const enrollment = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+    const enrollment = await db.prisma.tariffAssignment.findFirstOrThrow({
       where: { accountId: customer.id },
     });
     expect(enrollment.endsAt?.toISOString()).toBe("2030-03-01T00:00:00.000Z");
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -892,7 +1045,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(preview.rows[0]?.status).toBe("conflict");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     const restored = value(
@@ -917,11 +1070,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -935,7 +1088,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(source.status).toBe("pending_verification");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     async function observe(decision: "member" | "not_member", version: number) {
@@ -962,13 +1115,13 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date(now.getTime() + 300_000);
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     expect(value(await grants.readOwnEnrollments(customer.id))[0]?.state).toBe(
@@ -977,7 +1130,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(await observe("member", 2)).toMatchObject({ ok: true });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date(now.getTime() + 1_000);
@@ -989,12 +1142,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     );
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
-    const enrollment = await db.prisma.subscriptionEnrollment.findUniqueOrThrow(
-      { where: { id: source.enrollmentId ?? "" } },
-    );
+    const enrollment = await db.prisma.tariffAssignment.findUniqueOrThrow({
+      where: { id: source.enrollmentId ?? "" },
+    });
     const changed = value(
       await grants.changeEnrollment(owner, {
         operationId: randomUUID(),
@@ -1012,7 +1165,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(changed.state).toBe("suspended_source");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     const current = await db.prisma.sourceEntitlement.findUniqueOrThrow({
@@ -1027,7 +1180,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     await apply(confirmed);
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(
@@ -1080,184 +1233,32 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(results[0]).toEqual(results[1]);
     expect(results[0]).toMatchObject({ ok: true });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
   });
-  test("23 Tribute activation uses only registry, exact binding and finite source; forwarded links and member proof grant nothing", async () => {
-    const context = await setup();
-    const imported = await apply(context.row);
-    const rule = {
-      id: randomUUID(),
-      code: randomUUID(),
-      name: "Tribute",
-      tierId: context.tier.id,
-      tierRevision: 1,
-      sourceRef: context.row.policyRef,
-      verificationMode: "tribute_registry",
-      published: true,
-      startsAt: now.toISOString(),
-      endsAt: null,
-    };
-    expect(
-      await grants.manageActivationRule(owner, {
-        operationId: randomUUID(),
-        value: rule,
-        reason: "Verified registry rule",
-      }),
-    ).toMatchObject({ ok: true });
-    async function request(
-      path: string,
-      payload: object,
-      credential = "synthetic-activation-625",
-    ) {
-      const response = await http.inject({
-        method: "POST",
-        url: `/integrations/telegram/v1/subscription-activation/${path}`,
-        headers: { authorization: `Bearer ${credential}` },
-        payload,
-      });
-      expect(response.headers["cache-control"]).toBe("private, no-store");
-      return response;
-    }
-    const attemptId = randomUUID();
-    const contractVersion = "inside.subscription-activation.v1";
-    const begin = {
-      contractVersion,
-      attemptId,
-      code: rule.code,
-      identityRef: context.row.identityRef,
-    };
-    expect((await request("attempts", begin)).json()).toMatchObject({
-      ok: true,
+  test("Tribute registry activation cannot be configured", async () => {
+    const result = await grants.manageActivationRule(owner, {
+      operationId: randomUUID(),
+      reason: "Retired Tribute activation",
       value: {
-        state: "needs_account",
-        rule: { verificationMode: "tribute_registry" },
+        id: randomUUID(),
+        code: "tribute_existing",
+        name: "Tribute",
+        tierId: randomUUID(),
+        tierRevision: 1,
+        sourceRef: "tribute-roster",
+        verificationMode: "tribute_registry",
+        published: true,
+        startsAt: now.toISOString(),
+        endsAt: null,
       },
     });
-    expect(
-      await db.prisma.sourceEntitlement.findUnique({
-        where: { id: imported.result.sources[0]?.id ?? "" },
-      }),
-    ).toMatchObject({ accountId: null });
-    const customer = await link(context.row.identityRef);
-    const snapshot = await new TelegramAccountLinks(db.prisma).readBinding({
-      accountId: customer.id,
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_input" },
     });
-    if (!snapshot.ok || !snapshot.binding) throw new Error("Missing binding");
-    const evidence = {
-      contractVersion,
-      audience: "inside.platform.subscription-activation",
-      evidenceRef: randomUUID(),
-      attemptId,
-      sourceRef: context.row.policyRef,
-      identityRef: context.row.identityRef,
-      accountRef: customer.principal,
-      linkRef: snapshot.binding.linkRef,
-      linkRevision: snapshot.binding.linkRevision,
-      ruleId: rule.id,
-      ruleRevision: 1,
-      checkedAt: now.toISOString(),
-      validUntil: "2030-01-01T00:04:00.000Z",
-      decision: "registry_lookup",
-    };
-    expect(
-      (await request("evidence", evidence, "other-source-key")).statusCode,
-    ).toBe(401);
-    expect(
-      (await request("evidence", { ...evidence, decision: "member" })).json(),
-    ).toMatchObject({ ok: false, error: { code: "source_not_confirmed" } });
-    await db.prisma
-      .$executeRaw`ALTER TABLE membership_entitlements.tribute_policies RENAME TO tribute_policies_fault625`;
-    try {
-      const unavailable = await request("evidence", evidence);
-      expect(unavailable.statusCode).toBe(200);
-      expect(unavailable.json()).toEqual({
-        ok: false,
-        error: { code: "unavailable" },
-      });
-      expect(
-        await db.prisma.accessReceipt.count({
-          where: {
-            scope: "source-evidence",
-            operationId: evidence.evidenceRef,
-          },
-        }),
-      ).toBe(0);
-    } finally {
-      await db.prisma
-        .$executeRaw`ALTER TABLE membership_entitlements.tribute_policies_fault625 RENAME TO tribute_policies`;
-    }
-    const accepted = activationResponseSchema.parse(
-      (await request("evidence", evidence)).json(),
-    );
-    expect(accepted).toMatchObject({
-      ok: true,
-      value: {
-        state: "active",
-        enrollment: {
-          origin: "tribute",
-          endsAt: context.row.endsAt,
-          endPolicy: "confirmed_external",
-        },
-      },
-    });
-    expect((await request("evidence", evidence)).json()).toEqual(accepted);
-    const second = activationResponseSchema.parse(
-      (
-        await request("evidence", { ...evidence, evidenceRef: randomUUID() })
-      ).json(),
-    );
-    if (!accepted.ok || accepted.value.enrollment === null)
-      throw new Error("Expected active receipt");
-    expect(second).toMatchObject({
-      ok: true,
-      value: {
-        state: "already_active",
-        enrollment: {
-          id: accepted.value.enrollment.id,
-          revision: accepted.value.enrollment.revision,
-        },
-      },
-    });
-    const strangerIdentity = randomUUID();
-    const stranger = await link(strangerIdentity);
-    const strangerAttempt = randomUUID();
-    await request("attempts", {
-      ...begin,
-      identityRef: strangerIdentity,
-      attemptId: strangerAttempt,
-    });
-    const strangerBinding = await new TelegramAccountLinks(
-      db.prisma,
-    ).readBinding({ accountId: stranger.id });
-    if (!strangerBinding.ok || !strangerBinding.binding)
-      throw new Error("Missing stranger binding");
-    expect(
-      (
-        await request("evidence", {
-          ...evidence,
-          evidenceRef: randomUUID(),
-          attemptId: strangerAttempt,
-          identityRef: strangerIdentity,
-          accountRef: stranger.principal,
-          linkRef: strangerBinding.binding.linkRef,
-          linkRevision: strangerBinding.binding.linkRevision,
-        })
-      ).json(),
-    ).toMatchObject({
-      ok: true,
-      value: { state: "pending_review", enrollment: null },
-    });
-    expect(
-      await db.prisma.accessGrant.count({ where: { accountId: stranger.id } }),
-    ).toBe(0);
-    expect(
-      await db.prisma.billingPurchase.count({
-        where: { accountId: customer.id },
-      }),
-    ).toBe(0);
   });
   test("unknown import rows survive preview expiry until an audited owner disposition", async () => {
     const context = await setup();
@@ -1395,7 +1396,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         id: randomUUID(),
         name: "Replacement",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
         availableForAssignment: true,
         revision: 1,
       },

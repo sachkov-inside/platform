@@ -5,16 +5,16 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 
-import fixtures from "../../src/contracts/inside-membership-evidence-v1/fixtures.json" with { type: "json" };
-import schema from "../../src/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
-import snapshot from "../../src/contracts/inside-membership-evidence-v1/snapshot.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-membership-evidence-v1/fixtures.json" with { type: "json" };
+import schema from "@inside/contracts/inside-membership-evidence-v1/schema.json" with { type: "json" };
+import snapshot from "@inside/contracts/inside-membership-evidence-v1/snapshot.json" with { type: "json" };
 
 const contractRoot = new URL(
-  "../../src/contracts/inside-membership-evidence-v1/",
+  "../../../../docs/contracts/inside-membership-evidence-v1/",
   import.meta.url,
 );
 
-describe("Workspace Membership Evidence snapshot", () => {
+describe("shared Membership Evidence corpus", () => {
   it.each(Object.entries(snapshot.artifacts))(
     "keeps %s at the reviewed Workspace digest",
     async (fileName, artifact) => {

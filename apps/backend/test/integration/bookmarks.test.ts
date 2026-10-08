@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -11,14 +13,15 @@ import {
   assembleMaterials,
   PublishedMaterialSelection,
 } from "../../src/modules/materials/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { Bookmarks } from "../../src/modules/bookmarks/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = randomUUID();
 const accountId = randomUUID();
@@ -30,8 +33,8 @@ describe("Bookmarks on PostgreSQL", () => {
   let second: PlatformPrisma;
   let bookmarks: Bookmarks;
   let materials: ReturnType<typeof assembleMaterials>;
-  let membership: ReturnType<typeof assembleLegacyCohortFixture>;
-  const closedGuideId = randomUUID();
+  let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
+  const closedProductId = randomUUID();
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -40,23 +43,21 @@ describe("Bookmarks on PostgreSQL", () => {
       data: { id: topicId, name: "Bookmarks", slug: "bookmarks" },
     });
     // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: {
-        id: closedGuideId,
-        slug: `bookmarks-${closedGuideId}`,
-        name: "Bookmarks closed guide",
+        id: closedProductId,
+        slug: `bookmarks-${closedProductId}`,
+        name: "Bookmarks closed product",
       },
     });
     materials = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
     });
-    membership = assembleLegacyCohortFixture({
+    membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => new Date(),
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     bookmarks = assembleBookmarks(database.prisma);
   });
@@ -75,7 +76,7 @@ describe("Bookmarks on PostgreSQL", () => {
         accountPermissions: {
           hasMaterialsManage: () => Promise.resolve(false),
         },
-        membershipEntitlements: membership,
+        accountRights: membership,
       }),
       selection: new PublishedMaterialSelection(prisma),
       videos: {
@@ -84,7 +85,7 @@ describe("Bookmarks on PostgreSQL", () => {
       },
     });
   }
-  async function material(access: "free" | "membership" = "free") {
+  async function material(access: "free" | "closed" = "free") {
     const created = await materials.authoring.createDraft({
       actor,
       idempotencyKey: randomUUID(),
@@ -97,7 +98,7 @@ describe("Bookmarks on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: access === "membership" ? [closedGuideId] : [],
+        seriesIds: access === "closed" ? [closedProductId] : [],
       },
       body: representativeDocument("Bookmark me."),
     });
@@ -141,7 +142,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "member",
         reasonCode: "chat_member",
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -160,7 +163,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "not_member",
         reasonCode: "chat_not_member",
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -227,7 +232,7 @@ describe("Bookmarks on PostgreSQL", () => {
   });
 
   test("protected Materials require current access and stay removable after access loss", async () => {
-    const protectedId = await material("membership");
+    const protectedId = await material("closed");
     expect(
       await bookmarks.addBookmark({ accountId, materialId: protectedId }),
     ).toEqual({ ok: false, error: { code: "access_denied" } });
@@ -235,7 +240,7 @@ describe("Bookmarks on PostgreSQL", () => {
     await database.prisma.legacyClassification.update({
       where: { accountId: memberId },
       data: {
-        bridgeContentScope: { guideIds: [], materialIds: [protectedId] },
+        bridgeCoverage: { productIds: [], materialIds: [protectedId] },
       },
     });
     expect(
@@ -276,10 +281,13 @@ describe("Bookmarks on PostgreSQL", () => {
     const firstId = await material();
     const secondId = await material();
     const thirdId = await material();
-    for (const id of [firstId, secondId, thirdId]) {
+    for (const [index, id] of [firstId, secondId, thirdId].entries()) {
       const added = await bookmarks.addBookmark({ accountId, materialId: id });
       if (!added.ok) throw new Error(added.error.code);
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await database.prisma.bookmarkedMaterial.update({
+        where: { accountId_materialId: { accountId, materialId: id } },
+        data: { bookmarkedAt: new Date(Date.UTC(2030, 0, 1, 0, 0, index)) },
+      });
     }
     const page = await bookmarks.listBookmarks({ accountId, first: 2 });
     if (!page.ok) throw new Error(page.error.code);

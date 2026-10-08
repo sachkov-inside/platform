@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}
+  # Reruns have their own group: recovery can race a new commit after its API
+  # freshness check, and must not cancel that commit's first attempt (#1085).
+  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:
@@ -24,7 +26,9 @@ env:
 
 jobs:
   static:
-    name: Static checks
+    # Recovery requires this name so pre-#1085 workflows without rerun isolation
+    # cannot be retried after recovery is enabled on the default branch.
+    name: Static checks (isolated reruns)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -69,6 +73,14 @@ jobs:
           browsers: chromium webkit
       - name: Run Storybook and browser-engine checks
         run: pnpm check:ui
+      - name: Upload browser-engine diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-engines-playwright-${{ github.run_attempt }}
+          path: apps/web/test-results/browser-engines
+          if-no-files-found: ignore
+          retention-days: 7
 
   web-e2e:
     name: Web E2E
@@ -111,6 +123,8 @@ jobs:
         uses: ./.github/actions/setup-platform
         with:
           browsers: chromium
+      - name: Verify production SQL contracts on an isolated PostgreSQL
+        run: pnpm production:verify:sql-test
       - name: Run isolated integration tests
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
@@ -283,7 +297,7 @@ jobs:
         run: pnpm --filter @inside/telegram check:full
       - name: Build and inspect Telegram production image
         run: |
-          docker build --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .
+          docker build --no-cache --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .
           test "$(docker run --rm --network none --entrypoint node inside-telegram-ci:check --version)" = "v$(cat .node-version)"
           docker run --rm --network none --entrypoint sh inside-telegram-ci:check -ec '
             test "$(id -u)" = "1000"
@@ -292,6 +306,8 @@ jobs:
           '
 
   ci-gate:
+    # Keep this fail-closed gate. ci-gate-recovery.yml handles GitHub finishing
+    # a run before creating it despite nine successful prerequisites (#1085).
     name: CI Gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5

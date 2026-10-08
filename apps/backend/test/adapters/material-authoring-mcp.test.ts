@@ -38,8 +38,8 @@ describe("Material authoring MCP adapter", () => {
       "content_collection_set_archive",
       "playlist_load_composition",
       "playlist_save_composition",
-      "guide_load_composition",
-      "guide_save_composition",
+      "product_load_composition",
+      "product_save_composition",
     ]);
     expect(
       tools.find(({ name }) => name === "material_save")?.annotations,
@@ -47,7 +47,7 @@ describe("Material authoring MCP adapter", () => {
     expect(tools.some(({ name }) => name.includes("sql"))).toBe(false);
   });
 
-  test("Guide composition uses the same delegated command as legacy Playlist", async () => {
+  test("Product composition uses the same delegated command as legacy Playlist", async () => {
     const commands: unknown[] = [];
     ({ client, server } = await connect(
       stubMaterialAuthoring({
@@ -57,18 +57,18 @@ describe("Material authoring MCP adapter", () => {
         },
       }),
     ));
-    const guideId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const productId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const canonical = await client.callTool({
-      name: "guide_load_composition",
-      arguments: { guideId },
+      name: "product_load_composition",
+      arguments: { productId },
     });
     const legacy = await client.callTool({
       name: "playlist_load_composition",
-      arguments: { seriesId: guideId },
+      arguments: { seriesId: productId },
     });
     expect(commands).toEqual([
-      { actor: accountId, seriesId: guideId },
-      { actor: accountId, seriesId: guideId },
+      { actor: accountId, seriesId: productId },
+      { actor: accountId, seriesId: productId },
     ]);
     expect(canonical).toEqual(legacy);
     expect(canonical.isError).toBe(true);

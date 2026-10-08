@@ -85,6 +85,64 @@ Playwright does not use Compose. The Playwright checks of `pnpm check` take free
 reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
 `PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 
+## Automatic slots for heavy local checks
+
+Use the checked-in `pnpm` commands for heavy checks. `scripts/heavy-check.sh` admits at most two
+independent command trees across all worktrees on this machine. A third invocation prints
+`heavy-check: waiting for one of two local slots` and waits. No request to the orchestrator is
+needed after #1151 is merged. Existing runs from older worktrees must finish before that handoff;
+update those worktrees from `main` to use the wrappers.
+
+The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
+`test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
+`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
+and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
+The local contract commands also claim slots. `lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+`smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
+and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
+smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
+
+```bash
+bash scripts/heavy-check.sh bash -c 'your-command'
+```
+
+Local admission requires Python 3 and POSIX `flock` from its standard library; no `flock` executable
+is required on macOS. macOS uses `kqueue` and `libproc`; Linux requires Python with `os.pidfd_open`
+and a kernel that supports pidfds (Python 3.9+ and Linux 5.3+). The two persistent slot files,
+`queue.lock` and the `waiters/` ticket directory live in `~/.cache/inside-platform/heavy-check/`.
+Do not remove them while checks run: the kernel owns their locks, and empty files do not mean
+occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
+keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
+
+Nested commands reuse their ancestor's slot. New invocations register tickets under a short queue
+lock; the oldest live ticket claims the next available slot (FIFO). A later invocation cannot
+bypass an older registered waiter. Cancelled or killed waiters release their ticket's kernel lock;
+admission removes unlocked older tickets as the queue advances. Waiting invocations retry admission every 1.5–2.5
+seconds with jitter. Parent exit and cancellation wake them immediately. Slot filenames remain
+compatible with pre-FIFO holders and waiters: they can finish without a restart, but their old
+admission loop cannot participate in FIFO ordering. Update worktrees to get FIFO for new runs.
+A holder waits for process
+events rather than polling `ps`. Process identity and ancestry come from `libproc` on macOS and
+`/proc` on Linux, without external commands. On macOS, fork events trigger descendant tracking;
+on Linux, the supervisor adopts orphaned descendants as a child subreaper. It closes the slot after
+the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
+launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
+five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
+leave a stale kernel lock. On macOS, tracking includes detached groups observed after fork events or during shutdown. A custom
+command that detaches a child and exits before observation must manage that child itself. Linux
+also tracks detached orphans adopted by the supervisor. Use foreground commands for
+heavy checks.
+
+Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
+project. Playwright's default suite sets two workers; the other suites inherit or set one.
+Local backend integration retains its resource budget with a cap of two workers; its serial project
+sets one worker. CI integration retains the resource-based budget.
+Tooling's Node test runner executes at most two files at once within one invocation.
+These bounds limit repository checks; they do not reserve CPU or memory against other applications.
+
+Admission does not grant ownership of the singleton Compose stand. Keep the ownership rules above
+and leave another session's `inside-platform` services and volumes untouched.
+
 ## Start from a fresh clone
 
 From the repository root:
@@ -130,13 +188,16 @@ production recovery are documented in the
 The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
 never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
+This guarded verification needs host Python 3 and Bash, but no host Node.js or pnpm.
+The wrapper holds one slot through build, smoke and shutdown; the trap cleans up on failure too.
+
 ```bash
-(
+bash scripts/heavy-check.sh bash -euc '
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  trap "docker compose down --volumes" EXIT
   docker compose up --detach --build --wait
   bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
+'
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
@@ -195,7 +256,7 @@ so the address must be the same for the browser and for the application inside t
 
 ### Owner order
 
-The catalog is already on sale: the development seed publishes the guide and both subscriptions, so
+The catalog is already on sale: the development seed publishes the product and both subscriptions, so
 no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offer-catalog).
 
 1. Run `pnpm local:stand` and wait for the four addresses.
@@ -206,7 +267,7 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
 4. Sign-in offers to connect Telegram. Close that dialog; the purchase does not need it.
 5. Confirm the receipt address: «Личный кабинет» → «Покупки» → enter the address → «Получить код».
    The second message lands in the same inbox. An unconfirmed contact refuses the purchase.
-6. Buy the guide: open its page, accept the offer, press «Купить». The browser goes to the double's
+6. Buy the product: open its page, accept the offer, press «Купить». The browser goes to the double's
    payment form; choose «Оплата прошла». Back in «Покупки» the granted right is visible and the
    material opens.
 7. Grant yourself the admin surface once. Read the Account identity the sign-in created, then run
@@ -228,7 +289,7 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
    «Состояние», fill «Источник» and «Основание», then press «Записать решение». Without that
    decision the subscription refuses, and the refusal looks like a broken payment although it is
    a sales rule.
-9. Subscribe on the storefront. When the guide is already bought, the larger plan asks to confirm
+9. Subscribe on the storefront. When the product is already bought, the larger plan asks to confirm
    the overlap with a checkbox — that is intended.
 
 ### What to expect
@@ -304,7 +365,7 @@ Owner billing tools `billing_<operation>` are described in
 
 The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;
 `pnpm mcp:check` fails when the registered tools and that snapshot disagree, and `pnpm mcp:generate`
-rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `guide_*` and
+rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `product_*` and
 `playlist_*` tools; the Video tools use the same Videos facet as the editor and its current
 `materials:manage` check.
 `material_save` requires an explicit `primaryVideoId`: preserve the value from `material_load`,
@@ -352,9 +413,34 @@ The API health response is:
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
+Host diagnostic launchers and the production-web browser-test launcher require Python 3 for
+`scripts/owned-process.py`. The supervisor keeps a private pipe to the Node owner and tracks the
+command's process groups. Owner exit, SIGINT, SIGTERM or SIGKILL closes that pipe. Shutdown sends
+SIGTERM, then SIGKILL after a five-second grace period; command completion also clears remaining
+descendants before the supervisor reports its status. `scripts/contracts/owned-process.test.mjs` verifies
+these paths with real signal-resistant child processes.
+The supervisor also observes launching ancestors: a killed test CLI must stop load created by a
+surviving worker. `pnpm test:practice-review` runs the native test CLI through
+`scripts/owned-node.mjs`, which owns the runner and its workers outside their test hooks. For a
+standalone native run, use `node scripts/owned-node.mjs` before the Node arguments too.
+
+The external CLI also accepts `--command <executable> <args...>` for synchronous shell contracts.
+Their deadline sends TERM to this owner. The owner waits for the separate supervisor to clear the
+command tree with bounded TERM/KILL cleanup before it exits.
+
+On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
+descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
+when a nested owner supplies a replacement environment. Commands that construct their own child
+environment must preserve these entries too. A detached descendant that loses both its ancestry
+and its marker cannot be recovered from a later process-table snapshot. Discovery binds the marker
+to the process birth identity before adding its group to cleanup.
+macOS can hide environment entries for restricted processes; discovery then relies on retained
+ancestry and known groups. On Linux, the supervisor becomes a subreaper before launching the
+command, so orphaned detached descendants are adopted and cleaned up even after intermediary exit.
+
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
-Guide on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
+Product on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
 starts the API and a production-built web process whose CSP admits exactly the loopback storage
 origin the API signs image links for (ADR 0028), verifies the published Reader on desktop and
 mobile through Playwright, exercises the server-only adapter against the live API, and uses a
@@ -430,10 +516,11 @@ pnpm check
 ```
 
 This covers formatting, lint, strict typecheck, backend architecture guardrails,
-unit/module/Storybook tests, Playwright, production builds and the Storybook build without
+unit/module/local contract/Storybook tests, Playwright, production builds and the Storybook build without
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
 `check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
-failure to reproduce it. A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
+failure to reproduce it. Local contracts have separate selections under
+[`pnpm check:contracts`](continuous-integration.md#local-contract-tests). A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
 names the generated, pinned and managed files that keep their own bytes. `.git-blame-ignore-revs`
 lists the mechanical formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs`
 once per clone so local `git blame` skips them, as GitHub does.
@@ -452,6 +539,41 @@ run's browser then failed to load the replaced files, and its stories printed `(
 The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` with an empty cache
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
+
+Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
+the run. Storybook loads two large modules lazily: the React renderer imports
+`@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`
+imports `axe-core` (4 MB) on the first accessibility check. The setup file
+`apps/web/test/support/storybook-preload.ts` loads both before the tests of each file, so the
+15-second budget of a story measures the story itself. Without it, the first story of a file paid
+for that load. When parallel heavy checks slowed the Vite server, the load alone took several
+seconds, and first stories exceeded the budget (#1095, #1128). The preload does not make the run
+shorter: a slow Vite server now shows in the `setup` and `import` times of the Vitest `Duration`
+line, not as a failed story. The pinned versions of `axe-core` and `@storybook/react-dom-shim` in
+`apps/web/package.json` must match the versions that `addon-a11y` and Storybook use; update them
+together. `apps/web/test/module/storybook-preload.test.ts` fails when they differ or when the
+`storybook` project loses the setup file.
+
+The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
+process disables `ipcOutput` buffering: live listeners already consume every message, while the
+buffer kept all successive full test-state snapshots until Vitest exited. A full MCP `test-run`
+therefore exhausted the Storybook heap after the tests had passed. The patch also makes Vitest exit
+when its IPC connection closes, including a parent's OOM abort or SIGKILL. Test results and a11y
+reports remain complete; the heap limit is unchanged. `scripts/storybook-runner.test.mjs` exercises
+the installed addon's launch options and disconnect handler. Remove the patch only when an upstream
+version passes both regression cases and the full MCP run. Every Docker dependency stage copies
+`patches/` before the workspace's frozen install.
+
+The pinned `@vitest/browser-playwright@4.1.11` also has a local pnpm patch (#1160).
+Its trace command leaves the internal chunk name to Playwright: story names such as `Mobile`
+repeat across files, while the browser's contexts share one temporary trace directory. Passing
+that repeated name mixed the files and could fail `tracing.stopChunk` while it built an archive.
+The final archive paths and trace titles keep their readable story names.
+`apps/web/test/browser-engines/vitest-tracing.test.ts` creates two real Chromium contexts,
+starts their chunks with the installed Vitest command and checks that each archive contains
+only its own file's marker.
+The fixture uses `unzip`, available on the macOS development host and Ubuntu CI runner.
+Remove the patch when the upstream provider passes this regression without it.
 
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
@@ -514,6 +636,11 @@ theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walk
 `CAPTURE_ISSUE_NNN_EVIDENCE=1` used by the Reader scenarios. Set both when you want a fresh
 snapshot committed.
 
+`pnpm evidence:web` selects `evidence.spec.ts` for desktop and mobile Chromium. It uses the same
+production launcher as `test:e2e`, with test Logto settings, a temporary release identity and the
+`/_health/live` readiness probe. `PLAYWRIGHT_BACKEND_BASE_URL` selects the backend;
+`EVIDENCE_STORAGE_STATE` supplies the browser session for authenticated evidence.
+
 `scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
 Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come
 from `docs/evidence/issue-271/covers`.
@@ -556,8 +683,8 @@ docker compose run --rm seed
 The seed refuses non-development mode, uses stable idempotency keys, and creates 22 free published
 Materials plus one Membership Material whose body remains absent from the public catalog. The free
 fixtures cover catalog pagination, Home formats and one explicit Series-reading scenario:
-`demo-series-harness` orders a shared guide before a final guide,
-`demo-series-review` orders the same shared guide before a video and note, and
+`demo-series-harness` orders a shared product before a final product,
+`demo-series-review` orders the same shared product before a video and note, and
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
 and brings each one back to its definition in `seed-local-development.ts` without resetting the
@@ -595,7 +722,7 @@ or client reports unsafe `any` errors in files the change never touched. `pnpm c
 before lint.
 
 The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
+`account_rights`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
@@ -715,7 +842,7 @@ Pass the purchase in this order:
 1. Confirm the receipt address in Account. The code arrives in the interceptor's inbox on
    <http://127.0.0.1:8025>; nothing reaches a real mailbox. An unconfirmed contact refuses the
    purchase, so this step comes first.
-2. Buy a guide or a subscription. The application redirects the browser to the double's payment
+2. Buy a product or a subscription. The application redirects the browser to the double's payment
    form on <http://127.0.0.1:8090>, which is the address the real hosted form would occupy.
 3. Choose the outcome on that form. Each button answers exactly as the bank would:
 
@@ -738,8 +865,8 @@ Pass the purchase in this order:
 6. Cancelling recurring charges asks the bank nothing: the schedule closes locally, the paid period
    stays, and the next renewal is simply never sent.
 
-Pass the guide and both subscription tariffs the same way: the double receives the same request for
-each published offer, and only what the purchase asks the bank for differs — a one-time guide never
+Pass the product and both subscription tariffs the same way: the double receives the same request for
+each published offer, and only what the purchase asks the bank for differs — a one-time product never
 saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
 themselves differ in price, term or the rights they open, none of which the bank sees. Seeded local offers come from the
 development seed.
@@ -803,7 +930,7 @@ reversed status settles it, and only then are the recorded access and renewal de
 
 The development seed leaves a catalog that can be bought immediately, so a local purchase check
 needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
-one-time purchase of the seeded `platform-inside` Guide. Its prices are deliberately not product
+one-time purchase of the seeded `platform-inside` Product. Its prices are deliberately not product
 prices, and they live in one place at the top of
 `apps/backend/src/development/seed-local-offer-catalog.ts`.
 
@@ -980,7 +1107,7 @@ Run the stand from a worktree only as [Local product view](#local-product-view) 
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
+pnpm authoring:sync-git-local CONTENT_REPOSITORY PRODUCT_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
@@ -998,16 +1125,16 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
-  cover (`guide.yaml` keys `cover` and `cover_alt`) through
+  cover (`product.yaml` keys `cover` and `cover_alt`) through
   `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
   as the `cover_removal_pending` notice and taken down in Platform by hand. Material
-  artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
+  artifacts as authoring-owned Product artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
-- The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
-  product page description (`guide.yaml`, key `page`; see
+- The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed
+  product page description (`product.yaml`, key `page`; see
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
-  page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
+  page description before the transfer's first write, and its refusal names the product. The editor-owned Product introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
@@ -1017,15 +1144,15 @@ editorial `stage` or a missing `access` never publishes or protects anything by 
 `--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
 repeated transfer without the approval keeps drafts private; an approval is not remembered, so a
 later transfer names a published Material again to update it. A private transfer checks every
-Material's own state on the target before its first topic, Guide or Material write and stops when
+Material's own state on the target before its first topic, Product or Material write and stops when
 one is already published or unpublished: it neither takes a public Material back nor replaces its
 public body (Platform itself never returns a Material to draft). An interrupted transfer that was
-publishing a Material resumes only when the next run carries the same approval. A Guide artifact declared only by private drafts
+publishing a Material resumes only when the next run carries the same approval. A Product artifact declared only by private drafts
 waits for a published owner, a practice of a private lesson is imported unpublished, and a published
 body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
 package is never proposed for archive.
 
-Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
+Imported Materials and Products change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
 and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
 Proposals cover Materials previously transferred with the selected product; a standalone original
@@ -1042,23 +1169,30 @@ Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is ac
 provider transfer is refused without a separate owner approval. The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
-A package with `selection.scope: "guide-shell"` releases only a product's page, card, summary and
+A package with `selection.scope: "product-shell"` releases only a product's page, card, summary and
 complete chapter list, without any Material (#803). It keeps the Materials the target already holds
 in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
-that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
+that scope is refused. The [Product shell contract](../contracts/authoring-product-shell-v1/README.md)
 describes the package the Content exporter writes.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]...`
 compares a package with the target without writing and saves a fingerprinted preview. Each Material
 shows its `publication`, a `publicationChange` from draft to published, or the conflict
 `target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
 so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
+Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
+uploads. This importer supports `task-c-v2` and `github-anchors-v1`. A Task with `access: null` is a preview conflict
+until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
+unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes
+no `--task-access` and does not change package bytes. An existing Material with the Task source key
+is a migration conflict; apply does not replace, archive or duplicate it.
+
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
 write the journal left unfinished, with its original idempotency key, then applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
-Material versions, each Guide's version and its programme order, so a page edited on the target
+Material versions, each Product's version and its programme order, so a page edited on the target
 after the review is not overwritten; a preview also lists added and removed chapters. The only
 non-local target is the trusted `production` target, reached with the owner's one-time sign-in; see
 [Content production delivery](content-production-delivery.md). Every other address is refused.

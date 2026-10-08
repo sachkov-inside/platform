@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
@@ -20,12 +22,14 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 const videoFormatId = "video";
 const actor = randomUUID();
 const topicId = randomUUID();
 const formatId = "note";
 /** Закрытый материал публикуется только внутри продукта; доступ здесь решает подменённое членство. */
-const closedGuideId = randomUUID();
+const closedProductId = randomUUID();
 describe("Personal Home on PostgreSQL", () => {
   let database: TestDatabase;
   let materials: ReturnType<typeof assembleMaterials>;
@@ -39,18 +43,18 @@ describe("Personal Home on PostgreSQL", () => {
     await database.prisma.topic.create({
       data: { id: topicId, name: "Home", slug: "home" },
     });
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: {
-        id: closedGuideId,
-        slug: `home-closed-${closedGuideId}`,
-        name: "Home closed guide",
+        id: closedProductId,
+        slug: `home-closed-${closedProductId}`,
+        name: "Home closed product",
       },
     });
 
     videos = assembleVideos({
       prisma: database.prisma,
       canManage: () => Promise.resolve(true),
-      projects: { free: "public", membership: "members" },
+      projects: { free: "public", closed: "members" },
       provider: {
         initUpload: () => Promise.reject(new Error("unused")),
         delete: () => Promise.reject(new Error("unused")),
@@ -76,12 +80,13 @@ describe("Personal Home on PostgreSQL", () => {
       ),
       videoResourceFacts: assembleVideoResourceFacts(videos),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () =>
           Promise.resolve(
             membershipActive
               ? {
                   kind: "active",
+                  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
                   validUntil: new Date(Date.now() + 60_000).toISOString(),
                 }
               : { kind: "expired" },
@@ -111,13 +116,13 @@ describe("Personal Home on PostgreSQL", () => {
     });
   }
   async function material(
-    access: "free" | "membership" = "free",
+    access: "free" | "closed" = "free",
     withVideo = false,
     seriesIds: string[] = [],
   ) {
     const memberships =
-      access === "membership" && seriesIds.length === 0
-        ? [closedGuideId]
+      access === "closed" && seriesIds.length === 0
+        ? [closedProductId]
         : seriesIds;
     const metadata = {
       title: `Home ${randomUUID()}`,
@@ -315,7 +320,7 @@ describe("Personal Home on PostgreSQL", () => {
   });
   test("expiry hides protected cards without removing history and rejoin restores them", async () => {
     const accountId = randomUUID();
-    const item = await material("membership");
+    const item = await material("closed");
     expect(await open(accountId, item)).toMatchObject({
       ok: false,
       error: { code: "access_denied" },
@@ -515,7 +520,7 @@ describe("Personal Home on PostgreSQL", () => {
   async function series() {
     const id = randomUUID();
     const slug = `series-${id}`;
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: { id, slug, name: "Learning series" },
     });
     return { id, slug };
@@ -582,8 +587,9 @@ describe("Personal Home on PostgreSQL", () => {
       ok: true,
       value: { series: { total: 2, read: 1 } },
     });
-    await database.prisma.guide.update({
+    await database.prisma.product.update({
       where: { id: collection.id },
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     expect(await home.getLearning(accountId)).toEqual({
@@ -717,7 +723,7 @@ describe("Personal Home on PostgreSQL", () => {
     const collection = await series();
     const first = await material("free", false, [collection.id]);
     const second = await material("free", true, [collection.id]);
-    const locked = await material("membership", false, [collection.id]);
+    const locked = await material("closed", false, [collection.id]);
     const last = await material("free", false, [collection.id]);
     const order = await materials.authoring.loadSeriesOrder({
       actor,
@@ -804,7 +810,7 @@ describe("Personal Home on PostgreSQL", () => {
   test("series history survives expiry and resumes after rejoining; Videos failure still allows series continuation", async () => {
     const accountId = randomUUID();
     const collection = await series();
-    const item = await material("membership", false, [collection.id]);
+    const item = await material("closed", false, [collection.id]);
     try {
       membershipActive = true;
       await open(accountId, item);

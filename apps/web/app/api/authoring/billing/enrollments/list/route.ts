@@ -1,4 +1,4 @@
-import { handleReadSubscriptionEnrollments } from "@/features/billing-admin.server";
+import { handleReadTariffAssignments } from "@/features/billing-admin.server";
 export function POST(request: Request): Promise<Response> {
-  return handleReadSubscriptionEnrollments(request);
+  return handleReadTariffAssignments(request);
 }

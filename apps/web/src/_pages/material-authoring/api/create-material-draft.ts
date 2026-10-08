@@ -26,7 +26,7 @@ import type {
 } from "../model/create-material-draft";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "closed"]),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
   outcomes: z
     .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
@@ -62,7 +62,7 @@ const problemSchema = z
   .loose();
 
 interface ParsedDraftForm {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly difficulty: MaterialDifficulty | null;
   readonly document: JSONContent;
   readonly outcomes: readonly string[];

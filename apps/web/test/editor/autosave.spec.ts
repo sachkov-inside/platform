@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 const image = {
@@ -12,12 +13,55 @@ async function createDraft(page: Page, suffix: string) {
   await page.goto("/authoring/materials/new");
   await page
     .getByLabel("Название", { exact: true })
-    .fill(`Редактор ${suffix} ${String(Date.now())}`);
+    .fill(`Редактор ${suffix} ${randomUUID()}`);
   await expect(page).toHaveURL(/materials\/[a-f0-9-]{36}/u);
   await saved(page);
 }
 async function saved(page: Page) {
   await expect(page.locator("header [role=status]")).toContainText("Сохранено");
+}
+
+async function selectParagraphEnd(paragraph: Locator) {
+  await paragraph.evaluate(
+    (element) =>
+      new Promise<void>((resolve) => {
+        document.addEventListener(
+          "selectionchange",
+          () => {
+            resolve();
+          },
+          {
+            once: true,
+          },
+        );
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        element.closest<HTMLElement>("[contenteditable]")?.focus();
+      }),
+  );
+}
+
+async function emptyParagraphSelected(body: Locator) {
+  await expect
+    .poll(() =>
+      body.evaluate((element) => {
+        const paragraph = element.lastElementChild;
+        const selection = window.getSelection();
+        return (
+          document.activeElement === element &&
+          paragraph?.tagName === "P" &&
+          paragraph.textContent === "" &&
+          selection !== null &&
+          selection.isCollapsed &&
+          paragraph.contains(selection.anchorNode)
+        );
+      }),
+    )
+    .toBe(true);
 }
 
 test("autosave serializes edits made during a request and replays an uncertain receipt before newer edits", async ({
@@ -87,11 +131,11 @@ test("images, files and ready video persist automatically; fullscreen preserves 
     .setInputFiles(image);
   await expect(page.locator("[contenteditable=true] img")).toBeVisible();
   await page.getByLabel("Выбрать файлы", { exact: true }).setInputFiles({
-    name: "guide.txt",
+    name: "product.txt",
     mimeType: "text/plain",
-    buffer: Buffer.from("Guide attachment"),
+    buffer: Buffer.from("Product attachment"),
   });
-  await expect(page.getByLabel("Название вложения")).toHaveValue("guide.txt");
+  await expect(page.getByLabel("Название вложения")).toHaveValue("product.txt");
   await saved(page);
   await page
     .getByRole("button", { name: "На весь экран", exact: true })
@@ -119,7 +163,7 @@ test("images, files and ready video persist automatically; fullscreen preserves 
   await expect(page.getByLabel("Подпись изображения")).toHaveValue(
     "Подпись в полноэкранном режиме",
   );
-  await expect(page.getByLabel("Название вложения")).toHaveValue("guide.txt");
+  await expect(page.getByLabel("Название вложения")).toHaveValue("product.txt");
   await expect(page.getByText("test-video", { exact: true })).toBeVisible();
   await expect
     .poll(() =>
@@ -148,15 +192,15 @@ test("series picker shows materials before typing and saves composition on the s
   page,
 }) => {
   await createDraft(page, "для продукта");
-  await page.goto("/authoring/guides");
+  await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
-  const name = `Продукт ${String(Date.now())}`;
+  const name = `Продукт ${randomUUID()}`;
   await page.getByLabel("Название", { exact: true }).fill(name);
   await page
     .getByLabel("Адрес", { exact: false })
-    .fill(`series-${String(Date.now())}`);
+    .fill(`series-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await page
     .getByRole("button", { name: "Добавить материал", exact: true })
     .click();
@@ -305,7 +349,7 @@ test("tables, callouts and links survive autosave and reopening", async ({
     .getByRole("button", { name: "Добавить блок", exact: true })
     .click();
   await page.getByRole("button", { name: "Ссылка", exact: true }).click();
-  await page.getByLabel("Адрес ссылки").fill("https://example.com/guide");
+  await page.getByLabel("Адрес ссылки").fill("https://example.com/product");
   await page.getByRole("button", { name: "Добавить", exact: true }).click();
   await saved(page);
   await page.reload();
@@ -315,7 +359,7 @@ test("tables, callouts and links survive autosave and reopening", async ({
   );
   await expect(body.locator("a")).toHaveAttribute(
     "href",
-    "https://example.com/guide",
+    "https://example.com/product",
   );
 });
 
@@ -561,6 +605,7 @@ test("paragraph controls insert at the hovered block without changing content on
     .toBeLessThan(2);
   await plus.click();
   await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await expect(body).toBeFocused();
   await page.keyboard.type("Между абзацами");
   await expect(body.locator(":scope > *")).toHaveText([
     "Первый абзац",
@@ -570,9 +615,9 @@ test("paragraph controls insert at the hovered block without changing content on
   await saved(page);
   await page.reload();
   await expect(body.locator("h2")).toHaveText("Между абзацами");
-  await body.locator("p").last().click();
-  await page.keyboard.press("End");
+  await selectParagraphEnd(body.locator(":scope > p").last());
   await page.keyboard.press("Enter");
+  await emptyParagraphSelected(body);
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Найти блок")).toBeFocused();
   await page.keyboard.press("Escape");
@@ -601,11 +646,13 @@ test("paragraph controls insert at the hovered block without changing content on
   await page
     .getByRole("button", { name: "На весь экран", exact: true })
     .click();
+  await expect(page.locator("dialog:modal")).toHaveAttribute(
+    "aria-label",
+    "Редактор статьи",
+  );
   expect(await typography()).toEqual(smallTypography);
-  await body
-    .locator("p")
-    .last()
-    .click({ position: { x: 2, y: 12 } });
+  await selectParagraphEnd(body.locator(":scope > p").last());
+  await emptyParagraphSelected(body);
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Найти блок")).toBeFocused();
   await page.keyboard.press("Escape");
@@ -718,6 +765,7 @@ test("block insertion follows its paragraph across a pending upload; cancelling 
   release?.();
   await expect(body.locator("img")).toBeVisible();
   await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await expect(body).toBeFocused();
   await page.keyboard.type("После выбранного абзаца");
   expect(
     await body
@@ -901,4 +949,168 @@ test("image block selection keeps its description and size controls readable whi
       for (const color of colors) expect(color.selected).toBe(color.text);
     }
   }
+});
+
+/** Both selections have identical bytes and File metadata, including lastModified. */
+async function selectRepeatVideo(page: Page) {
+  await page.getByLabel("Видео для загрузки").evaluate((input) => {
+    if (!(input instanceof HTMLInputElement))
+      throw new Error("Video input missing");
+    const files = new DataTransfer();
+    files.items.add(
+      new File(["Repeated video bytes"], "repeat.mp4", {
+        lastModified: 123,
+        type: "video/mp4",
+      }),
+    );
+    input.files = files.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+test("reselecting the same file after removing a recovered upload survives another reload", async ({
+  page,
+}) => {
+  await createDraft(page, "повтор восстановленного файла");
+  // Keep the real provider outcome unsettled so reopening must recover the upload.
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  // The removal must survive leaving even before the author chooses the file again.
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("an attachment waits for upload startup instead of abandoning an unremoved upload", async ({
+  page,
+}) => {
+  await createDraft(page, "привязка во время старта");
+  await page
+    .getByText("Выбрать существующее видео Kinescope", { exact: true })
+    .click();
+  await page.getByLabel(/ID видео/u).fill("existing-video");
+  const attach = page.getByRole("button", { name: "Привязать", exact: true });
+  await expect(attach).toBeEnabled();
+  const { promise: gate, resolve: release } =
+    Promise.withResolvers<undefined>();
+  const { promise: initialized, resolve: started } =
+    Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/material-video-uploads", async (route) => {
+    const response = await route.fetch();
+    started(undefined);
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  try {
+    await selectRepeatVideo(page);
+    await initialized;
+    await expect(page.getByText("Загрузка 0%")).toBeVisible();
+    await expect(attach).toBeDisabled();
+  } finally {
+    release(undefined);
+  }
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await expect(attach).toBeEnabled();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("a failed replacement startup cannot keep the retry key of a removed recovered upload", async ({
+  page,
+}) => {
+  await createDraft(page, "снятие после неудачной замены");
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.route("**/api/authoring/material-video-uploads", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  const rejected = page.waitForResponse(
+    "**/api/authoring/material-video-uploads",
+  );
+  await page.getByLabel("Видео для загрузки").setInputFiles({
+    name: "unstarted.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Replacement video bytes"),
+  });
+  await rejected;
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Основное видео")
+      .getByRole("button", { name: "Загрузить", exact: true }),
+  ).toBeEnabled();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.unroute("**/api/authoring/material-video-uploads");
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+});
+
+test("removing an adopted upload after it becomes ready still renews the same-file attempt", async ({
+  page,
+}) => {
+  await createDraft(page, "снятие готовой восстановленной загрузки");
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.unroute("**/api/authoring/material-video-reconciliations");
+  await page.getByRole("button", { name: "Проверить", exact: true }).click();
+  await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 20_000 });
+  await saved(page);
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.route("**/api/authoring/material-video-reconciliations", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  await selectRepeatVideo(page);
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("repeat", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/осталось от незавершённой загрузки/u),
+  ).toBeVisible();
 });

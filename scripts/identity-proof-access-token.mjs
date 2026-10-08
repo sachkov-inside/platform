@@ -25,7 +25,7 @@ export function readAccessTokenTtl(environment = process.env) {
  * Момент, когда токен, выданный не позже `signedInAt`, уже истёк: `exp` в токене — целые секунды,
  * поэтому лишняя секунда покрывает округление.
  *
- * @param {number} signedInAt миллисекунды эпохи
+ * @param {number} signedInAt миллисекунды монотонных часов при завершённом входе
  * @param {NodeJS.ProcessEnv} [environment]
  */
 export function accessTokenExpiredAt(signedInAt, environment = process.env) {

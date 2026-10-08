@@ -59,7 +59,7 @@ function material(
 }
 
 const video = { name: "Видео", slug: "video" } as const;
-const guide = { name: "Гайд", slug: "guide" } as const;
+const product = { name: "Гайд", slug: "guide" } as const;
 const savedMaterials = [
   material(
     5,
@@ -75,7 +75,7 @@ const savedMaterials = [
     video,
     481,
   ),
-  material(1, "granitsy-moduley", "Границы модулей без лишних слоёв", guide),
+  material(1, "granitsy-moduley", "Границы модулей без лишних слоёв", product),
 ];
 
 /** Тот же ответ, что отдаёт BFF `/api/bookmarks` маршруту. */

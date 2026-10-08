@@ -43,7 +43,7 @@ async function fixture(t) {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: null,
+      productId: null,
       chapterIds: [],
       materialIds: ["one"],
       complete: true,
@@ -60,7 +60,7 @@ async function fixture(t) {
         summary: "Summary",
         stage: "draft",
         topicId: null,
-        access: "membership",
+        access: "closed",
         showInFeed: false,
         difficulty: null,
         outcomes: [],
@@ -74,7 +74,7 @@ async function fixture(t) {
         artifacts: [],
       },
     ],
-    guides: [],
+    products: [],
     assets: [],
     diagnostics: [],
   };
@@ -216,7 +216,7 @@ test("editing and moving an original retains its material ID and URL and applies
   assert.equal(current.materialId, materialId);
   assert.equal(current.contentVersion, 3);
   assert.equal(current.metadata.title, "Renamed lesson");
-  assert.equal(current.metadata.access, "membership");
+  assert.equal(current.metadata.access, "closed");
   assert.equal(current.source["path"], "renamed/lesson.md");
   assert.match(JSON.stringify(current.body), /Updated original text/);
   assert.doesNotMatch(JSON.stringify(current.body), /Original text/);
@@ -320,4 +320,24 @@ test("a definitive 422 rejection does not replay ahead of a corrected package", 
   assert.equal(operationAt(recovered, second.key).status, "applied");
   assert.equal((await setup.sync(transport)).unchanged, 1);
   assert.equal(transmitted.length, 2);
+});
+
+test("import preserves Unicode, same-page and missing fragments in published links", async (t) => {
+  const f = await fixture(t);
+  const row = itemAt(f.manifest.materials, 0);
+  row.markdown =
+    "[Раздел](one.md#как-спроектировать-один-этап)\n\n[Повтор](#раздел-1)\n\n[Нет](one.md#нет-раздела)";
+  row.links = {
+    "one.md#как-спроектировать-один-этап": "one",
+    "one.md#нет-раздела": "one",
+  };
+  await f.write();
+  const api = applicationApi();
+  await f.sync(api);
+  const command = materialApplyRequest(itemAt(applyCalls(api), 0));
+  assert.ok(command);
+  const doc = JSON.stringify(command.body);
+  assert.ok(doc.includes("/materials/stable-original-url#%D0%BA%D0%B0%D0%BA-"));
+  assert.ok(doc.includes("#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1"));
+  assert.ok(doc.includes("/materials/stable-original-url#%D0%BD%D0%B5%D1%82-"));
 });

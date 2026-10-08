@@ -26,7 +26,7 @@ const commandSchema = z
     archived: z.boolean(),
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["guide", "series", "topic"]),
+    kind: z.enum(["product", "series", "topic"]),
   })
   .strict();
 
@@ -48,7 +48,7 @@ export function assembleSetContentCollectionArchive(
       async (transaction, rollback) => {
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
-          const source = await transaction.guide.findUnique({
+          const source = await transaction.product.findUnique({
             where: { id: command.collectionId },
             select: { sourceId: true },
           });

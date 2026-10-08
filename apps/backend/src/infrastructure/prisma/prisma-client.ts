@@ -20,21 +20,20 @@ export type MaterialsPrisma = Pick<
   | "materialSearchDocument"
   | "materialTag"
   | "publishedMaterial"
-  | "publishedMaterialGuideMembership"
+  | "publishedMaterialProductMembership"
   | "publishedMaterialTag"
-  | "guide"
-  | "guideArtifact"
-  | "guideArtifactMaterialLink"
-  | "guideArtifactPlacement"
-  | "guideArtifactVersion"
-  | "guideChapter"
-  | "guideMaterialRemoval"
-  | "guideMembership"
+  | "product"
+  | "productArtifact"
+  | "productArtifactMaterialLink"
+  | "productArtifactPlacement"
+  | "productArtifactVersion"
+  | "productChapter"
+  | "productMaterialRemoval"
+  | "productMembership"
   | "tag"
   | "topic"
   | "video"
   | "videoDeletionOperation"
-  | "workshopCaseMaterial"
 >;
 export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
@@ -108,18 +107,18 @@ export type TelegramMembershipPrisma = Pick<
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
 
-export type GuideTasksPrisma = Pick<
+export type ProductTasksPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
-  | "guideTask"
-  | "guideTaskVersion"
-  | "guideTaskImportReceipt"
-  | "guideTaskSubmission"
-  | "guideTaskAuthorFeedback"
+  | "productTask"
+  | "productTaskVersion"
+  | "productTaskImportReceipt"
+  | "productTaskSubmission"
+  | "productTaskAuthorFeedback"
 >;
-export type GuideTasksPrismaClient = GuideTasksPrisma &
-  TransactionClient<GuideTasksPrisma>;
+export type ProductTasksPrismaClient = ProductTasksPrisma &
+  TransactionClient<ProductTasksPrisma>;
 
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
@@ -143,7 +142,8 @@ export type ReadingActivityPrisma = Pick<
   | "readerPreferences"
   // Materials delegates: a reading command rereads Material facts in its own transaction.
   | "material"
-  | "publishedMaterialGuideMembership"
+  | "publishedMaterialProductMembership"
+  | "product"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
   TransactionClient<ReadingActivityPrisma>;
@@ -183,12 +183,27 @@ export type BillingPrisma = Pick<
   | "billingChangeQuote"
   | "billingPaymentMethodFlow"
   | "billingOwnerCommand"
+  | "billingOwnerCommandKey"
   | "billingRefundDecision"
   | "billingRefund"
   | "billingNotice"
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
-  | "billingGuideCohort"
+  | "billingProductCohort"
+  // Membership and Telegram own these delegates; Billing only hands over its transaction.
+  | "activationRule"
+  | "activationAttempt"
+  | "accessReceipt"
+  | "accessBatchPreview"
+  | "tariffAssignment"
+  | "sourceEntitlement"
+  | "accessGrant"
+  | "accessChange"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+  | "tributePolicy"
+  | "tributeImportReview"
+  | "legacyClassification"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;

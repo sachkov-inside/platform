@@ -7,8 +7,9 @@
     "node": "26.x"
   },
   "scripts": {
+    "owner:group-members-report": "tsx src/operations/group-members-report-cli.ts",
     "build": "tsc -p tsconfig.build.json",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm build",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:contracts && pnpm build",
     "check:full": "pnpm check && pnpm test:integration",
     "conformance:communications-provider": "tsx scripts/communications-conformance-provider.ts",
     "conformance:platform-provider": "tsx scripts/platform-conformance-provider.ts",
@@ -33,7 +34,8 @@
     "owner:activation-review": "tsx src/operations/activation-review-cli.ts",
     "owner:activation-announcement": "tsx src/operations/activation-announcement-cli.ts",
     "proof:course:browser": "tsx test/local/course-activation-browser.ts",
-    "proof:course:existing": "node test/local/course-existing-browser.mjs"
+    "proof:course:existing": "node test/local/course-existing-browser.mjs",
+    "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.contract.config.ts"
   },
   "dependencies": {
     "@inside/access-capabilities": "workspace:*",
@@ -48,7 +50,8 @@
     "kysely": "0.29.6",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@inside/contracts": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

@@ -3,7 +3,7 @@ import process from "node:process";
 import { URL } from "node:url";
 import console from "node:console";
 import { chromium, expect } from "@playwright/test";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -50,7 +50,7 @@ const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
 });
 const page = await context.newPage();
-let update = Date.now() % 1_000_000_000;
+let update = randomInt(1, 1_000_000_000);
 /** @param {string} text */
 async function send(text) {
   const response = await context.request.post(
@@ -63,7 +63,7 @@ async function send(text) {
         update_id: ++update,
         message: {
           message_id: update,
-          date: Math.floor(Date.now() / 1000),
+          date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
           from: { id: user, is_bot: false, first_name: "Synthetic" },
           chat: { id: user, type: "private" },
           text,
@@ -170,8 +170,7 @@ async function purchase() {
     );
     expect(result.ok).toBe(true);
   }
-  await page.goto(origin + "/guides/platform-inside/buy");
-  await page.waitForTimeout(700);
+  await page.goto(origin + "/products/platform-inside/buy");
   await page.keyboard.press("Escape");
   await page.locator('input[name="one-time-consent-terms"]').check();
   const dismiss = page.getByRole("button", { name: "Позже", exact: true });
@@ -182,7 +181,7 @@ async function purchase() {
   await page
     .getByRole("button", { name: "Оплата прошла", exact: true })
     .click();
-  await page.waitForTimeout(1500);
+  await page.waitForURL((url) => url.origin === origin, { timeout: 30000 });
 }
 async function activateExisting() {
   await page.goto(origin + "/account");

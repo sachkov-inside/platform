@@ -38,11 +38,11 @@ const fixturesSchema = z
   })
   .loose();
 const contractRoot = new URL(
-  "../../src/modules/telegram-membership/contracts/inside-identity-linking-v1/",
+  "../../../../docs/contracts/inside-identity-linking-v1/",
   import.meta.url,
 );
 
-describe("vendored Telegram identity-linking contract", () => {
+describe("shared Telegram identity-linking contract", () => {
   test("pins the provider-owned v1 artifacts and required Platform messages", async () => {
     const snapshot = snapshotSchema.parse(
       JSON.parse(

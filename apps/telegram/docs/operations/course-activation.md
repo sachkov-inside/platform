@@ -29,7 +29,7 @@ Source chat identifiers, id ботов и списки identity находятс
 
 ## Подтверждение статуса прежних участников
 
-Прежний покупатель курса или подписчик Tribute получает права через бота только по ссылке
+Прежний покупатель курса получает права через бота только по ссылке
 владельца `/start a_<code>` ([#115](https://github.com/sachkov-inside/inside-telegram/issues/115),
 уточнение [#113](https://github.com/sachkov-inside/inside-telegram/issues/113), спецификация
 [Workspace #238](https://github.com/sachkov-inside/workspace/issues/238)). Бот только доказывает
@@ -41,7 +41,8 @@ Source chat identifiers, id ботов и списки identity находятс
 каждом `/start` засорила бы очередь новыми читателями бесплатной главы.
 
 **Ссылка владельца `/start a_<code>`.** Проверяется выбранное правило: членство в группе прежнего
-курса (`course_membership`) или реестр Tribute (`tribute_registry`). Без привязки бот ведёт ко входу
+курса (`course_membership`). Назначается тариф курса: материалы и сообщество без срока,
+сопровождение на шесть календарных месяцев с первого назначения. Без привязки бот ведёт ко входу
 на платформу и продолжает после связывания. Итог:
 
 - основание подтверждено — сообщение о выданных правах с приглашением в общий чат: кнопка «Вступить в
@@ -77,7 +78,7 @@ Telegram недоступны) или в `needs_account` (Account не связ�
 владелец; агент его не отправляет.
 
 Команда принимает `sourceRef` из `TELEGRAM_ACTIVATION_SOURCES` и код опубликованного правила Platform
-для этой группы. Какую группу или реестр проверяет правило, знает только Platform: бот не сверяет код с
+для этой группы. Какую группу проверяет правило, знает только Platform: бот не сверяет код с
 группой, поэтому соответствие кода и группы проверяет владелец перед `--send`. Команда отказывает
 (`refused`), если активация выключена, код неверной формы, источника нет в реестре или его политика не
 `whole_group`: текст обещает доступ каждому участнику.
@@ -273,8 +274,9 @@ COURSE_PROOF_USER=6400104 COURSE_PROOF_OUTPUT=/tmp/course-proof-existing pnpm pr
 3600/API 3601, Telegram 3606, локальный Logto `identity.inside.localhost:3631`, Mailpit 3625/SMTP
 3626, локальный банковский двойник 38090. Они не являются адресами production. Browser runner
 требует published rule `course64`, source `course64`, owner-created tier «Курс 64 · локальная
-практика» со scope seeded guide `platform-inside` и membership материалом
-`developer-pipeline-bez-poteri-konteksta`. Тариф назначается за курс без даты окончания.
+практика» с правом `product:<id>` seeded product `platform-inside`, правом `community` без срока
+и `support` на 6 месяцев. Материал `developer-pipeline-bez-poteri-konteksta` входит в этот продукт.
+Тариф назначается за курс без даты окончания; срок поддержки отсчитывается от активации.
 
 Для `proof:course:existing` дополнительно включить штатный Platform `TBANK_PROVIDER_MODE=test`,
 его loopback API/notification/return URLs и локальный billing-contact SMTP. Seeded разовая покупка
@@ -286,19 +288,17 @@ COURSE_PROOF_USER=6400104 COURSE_PROOF_OUTPUT=/tmp/course-proof-existing pnpm pr
 скриншоты и результаты без auth cookies и токенов.
 
 
-## Tribute activation consumer (#66)
+## Подписчики Tribute после #1064
 
-Один опубликованный `a_<code>` может выбрать Platform `tribute_registry`; absent verificationMode
-сохраняет `course_membership`. Tribute registry не нужно добавлять как Telegram course chat:
-consumer не вызывает source membership и не вычисляет paid period. Период и основание возвращает
-Platform по exact binding. Unknown mode не откатывается на course. При pending_review бот показывает
-nonactive Enrollment, если он есть, и предлагает помощь; явный retry перечитывает registry через
-новое evidence. Source-ended latch не снимается retry/member.
+Бесплатной активации по реестру нет. Владелец выдаёт приглашение `i_<code>` на покупку
+«Подписки Inside». Человек входит, связывает Telegram и оплачивает подписку сам.
+Продажа подписки пока выключена банком; отсутствие возможности оплаты ожидаемо.
+Подарочного режима приглашения нет. Бесплатный курс подписчику Tribute не назначается.
 
-Контракт закреплён в [integration provenance](../integrations/subscription-activation-v1-provenance.json)
-на final portable SHA, без утверждения готовности runtime #625. Regression
-`test/integration/tribute-activation.integration.test.ts` запускает реальный Telegram AppModule,
-HTTP codec и PostgreSQL с контролируемым loopback provider. Проверяются no membership lookup,
-pending-to-confirmed, private recipient после forwarding, exact raw-body replay после 31 дня,
-новый binding после известного результата, nonactive сообщения и legacy course. Это не проверка
-платёжных фактов или registry/grant политики настоящей Platform; такие проверки принадлежат #625.
+При настройке правила курса выберите тариф курса с прямым правом `product:<id>` и сроком
+сопровождения из тарифа. Тариф «Подписка Inside» с охватом всей платформы для этой активации
+не подходит. Регистр источников Telegram продолжает проверять только разрешённую группу курса.
+
+Перед выпуском повторите read-only проверку production на подарочные приглашения.
+Если они появились, сохраните выгрузку вне Git и запросите решение владельца; данные не меняйте.
+Platform #1064 проверила production 07.10.2026: приглашений и назначений `origin=course` нет.

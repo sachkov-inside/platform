@@ -1,17 +1,10 @@
 import { fork, type ChildProcess } from "node:child_process";
-import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import {
-  GenericContainer,
-  Wait,
-  type StartedTestContainer,
-} from "testcontainers";
 import type { ChannelModel } from "amqplib";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -22,8 +15,7 @@ import {
 import { z } from "zod";
 import fixtures from "../../../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import {
-  brokerAdmin,
-  brokerDiagnostics,
+  startNotificationBroker,
   queueConsumers,
   queueDepth,
   queueLimit,
@@ -37,10 +29,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import {
   connectNotificationBroker,
   consumeNotificationLane,
@@ -52,7 +41,7 @@ import {
 } from "../../src/infrastructure/worker-runtime.js";
 import { migrateRuntimeDatabase } from "../../src/migrations/migrate.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
 import {
   assembleNotificationOutbox,
   stageNotification,
@@ -60,14 +49,12 @@ import {
 import {
   encodeNotification,
   lanes,
+  type NotificationPrincipal,
 } from "../../src/infrastructure/notification-transport/wire.js";
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
 import { assembleNotificationTransport } from "../../src/modules/notifications/index.js";
-import {
-  hasText,
-  presentText,
-} from "../../src/infrastructure/contracts/text.js";
+import { presentText } from "../../src/infrastructure/contracts/text.js";
 
 const billingFixture = fixtures.find(
   (f) => f.valid && f.definition === "billingEvent",
@@ -188,6 +175,7 @@ function watchCrashWorker(child: ChildProcess) {
               ),
             );
         };
+        // deterministic-test-allow duration-wait: Deadline bounds a signal barrier; receipt or close settles it first.
         const timer = setTimeout(settle, budgetMs);
         wake = settle;
         if (reached.has(awaited) || departure !== undefined) settle();
@@ -197,25 +185,21 @@ function watchCrashWorker(child: ChildProcess) {
 }
 
 describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
-  let broker: StartedTestContainer;
-  let directory: string;
-  let caFile: string;
+  let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let database: TestDatabase;
-  let host: string;
   const connections: ChannelModel[] = [];
-  const confirmedBeforeOutage: string[] = [];
-  const config = (principal: string, vhost = "inside-test") => ({
-    url: `amqps://local-${principal}:inside-local-only@${host}/${vhost}?heartbeat=5`,
-    caFile,
+  const config = (principal: NotificationPrincipal, vhost = "inside-test") => ({
+    url: broker.url(principal, vhost),
+    ...(broker.caFile === undefined ? {} : { caFile: broker.caFile }),
   });
-  async function connect(principal: string) {
+  async function connect(principal: NotificationPrincipal) {
     const connection = await connectNotificationBroker(config(principal));
     connections.push(connection);
     return connection;
   }
-  const admin = (args: string[]) => brokerAdmin(broker)(args);
+  const admin = (args: string[]) => broker.admin(args);
   async function transportFailure(error: unknown): Promise<Error> {
-    const state = await brokerDiagnostics(broker, "inside-test");
+    const state = await broker.diagnostics();
     return new Error(
       `${error instanceof Error ? error.message : String(error)} | broker: ${state}`,
       { cause: error },
@@ -241,74 +225,27 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     // Fallback outside the body budget: assertions, process failures and test timeouts also get evidence.
     onTestFailed(async () => {
       console.error(
-        `Transport failure after cleanup: ${task.name} | broker: ${await brokerDiagnostics(broker, "inside-test")}`,
+        `Transport failure after cleanup: ${task.name} | broker: ${await broker.diagnostics()}`,
       );
     });
   });
   beforeAll(async () => {
-    directory = await mkdtemp(join(tmpdir(), "platform-435-"));
-    caFile = join(directory, "cert.pem");
-    execFileSync(
-      "openssl",
-      [
-        "req",
-        "-x509",
-        "-newkey",
-        "rsa:2048",
-        "-nodes",
-        "-days",
-        "1",
-        "-subj",
-        "/CN=localhost",
-        "-addext",
-        "subjectAltName=DNS:localhost,IP:127.0.0.1",
-        "-keyout",
-        join(directory, "key.pem"),
-        "-out",
-        caFile,
-      ],
-      { stdio: "ignore" },
-    );
     const topology = localNotificationTopology("inside-test", queueCapacity);
     topology.vhosts.push({ name: "another-environment" });
-    broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-      .withExposedPorts(5671)
-      .withCopyContentToContainer([
-        {
-          content: JSON.stringify(topology),
-          target: "/etc/rabbitmq/definitions.json",
-        },
-        { content: await readFile(caFile, "utf8"), target: "/tmp/cert.pem" },
-        {
-          content: await readFile(join(directory, "key.pem"), "utf8"),
-          target: "/tmp/key.pem",
-        },
-        {
-          content:
-            "listeners.tcp = none\nlisteners.ssl.default = 5671\nssl_options.certfile = /tmp/cert.pem\nssl_options.keyfile = /tmp/key.pem\nssl_options.cacertfile = /tmp/cert.pem\nssl_options.verify = verify_none\nssl_options.fail_if_no_peer_cert = false\ndefinitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-          target: "/etc/rabbitmq/rabbitmq.conf",
-        },
-      ])
-      .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-      .withStartupTimeout(120_000)
-      .start();
-    host = `${broker.getHost()}:${broker.getMappedPort(5671)}`;
+    broker = await startNotificationBroker({ topology, tls: true });
     database = await createMigratedTestDatabase();
   }, 180_000);
-  afterAll(async () => {
+  afterEach(async () => {
     await Promise.allSettled(
-      connections.map((connection) => connection.close()),
+      connections.splice(0).map((connection) => connection.close()),
     );
+  });
+  afterAll(async () => {
     // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
     try {
-      try {
-        await database.dispose();
-      } finally {
-        await broker.stop();
-      }
+      await database.dispose();
     } finally {
-      if (hasText(directory))
-        await rm(directory, { recursive: true, force: true });
+      await broker.stop();
     }
   }, 60_000);
 
@@ -455,6 +392,11 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
           },
         );
         const worker = watchCrashWorker(child);
+        onTestFinished(async () => {
+          if (child.exitCode === null && child.signalCode === null)
+            child.kill("SIGKILL");
+          await worker.kill();
+        });
         async function reaches(
           signal: CrashWorkerSignal,
           budgetMs: number,
@@ -496,6 +438,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
             }
           }
         } finally {
+          if (child.exitCode === null && child.signalCode === null)
+            child.kill("SIGKILL");
           death = await worker.kill();
         }
         // Сценарий проверяет смерть от SIGKILL на барьере; самостоятельный выход — другой сценарий.
@@ -598,14 +542,17 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     );
   }
 
-  test("mandatory return and queue saturation preserve unpublished outbox; other lanes advance", async () => {
+  test("mandatory return and saturation preserve outbox; broker restart retains confirmed messages (singleton, not HA)", async () => {
+    const scenario = await createMigratedTestDatabase();
+    onTestFinished(() => scenario.dispose());
+    const confirmedBeforeOutage: string[] = [];
     const producer = await connect("materials");
     const materialEvent = { ...materialFixture, messageId: randomUUID() };
-    await stageMaterialsNotification(database.prisma, materialEvent);
+    await stageMaterialsNotification(scenario.prisma, materialEvent);
     // Temporarily remove the binding via a deployment authority, not a runtime principal.
     await admin(["delete_queue", "-p", "inside-test", lanes.materials.queue]);
     const relay = assembleNotificationOutbox(
-      database.prisma.materialNotificationOutbox,
+      scenario.prisma.materialNotificationOutbox,
       ["materials"],
     );
     await expect(
@@ -614,7 +561,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       ),
     ).rejects.toThrow("publisher_return");
     expect(
-      await database.prisma.materialNotificationOutbox.findFirst(),
+      await scenario.prisma.materialNotificationOutbox.findFirst(),
     ).toMatchObject({ publishedAt: null, attempts: 1 });
     await admin(["import_definitions", "/etc/rabbitmq/definitions.json"]);
     const billing = await connect("billing");
@@ -653,10 +600,10 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       attempt++
     ) {
       const payload = event();
-      await stageBillingNotification(database.prisma, payload);
+      await stageBillingNotification(scenario.prisma, payload);
       try {
         const published = await assembleNotificationOutbox(
-          database.prisma.billingNotificationOutbox,
+          scenario.prisma.billingNotificationOutbox,
           ["billing"],
         ).relay("billing", (message) => publishNotification(billing, message));
         expect(
@@ -675,7 +622,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       `queue declared with x-max-length ${String(queueCapacity)} accepted ${String(saturationAttempts)} publishes without rejecting`,
     ).toBe("publisher_nack");
     expect(
-      await database.prisma.billingNotificationOutbox.findUniqueOrThrow({
+      await scenario.prisma.billingNotificationOutbox.findUniqueOrThrow({
         where: {
           scope_messageId: { scope: "billing", messageId: rejectedMessageId },
         },
@@ -692,7 +639,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         messageId: randomUUID(),
       }),
     );
-    const transport = assembleNotificationTransport(database.prisma, 100);
+    const transport = assembleNotificationTransport(scenario.prisma, 100);
     const consumer = await consumeNotificationLane(
       await connect("notifications"),
       "materials",
@@ -703,7 +650,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       "materials inbox committed despite billing saturation",
       async () => {
         expect(
-          await database.prisma.notificationInbox.count({
+          await scenario.prisma.notificationInbox.count({
             where: { lane: "materials" },
           }),
         ).toBeGreaterThan(0);
@@ -711,7 +658,79 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       barrierBudgetMs,
     );
     await consumer.stop();
-  }, 45_000);
+
+    expect(confirmedBeforeOutage.length).toBeGreaterThan(0);
+    await admin(["stop_app"]);
+    const duringOutage = { ...materialFixture, messageId: randomUUID() };
+    await stageMaterialsNotification(scenario.prisma, duringOutage);
+    expect(
+      await scenario.prisma.materialNotificationOutbox.count({
+        where: { publishedAt: null },
+      }),
+    ).toBeGreaterThan(0);
+    await admin(["start_app"]);
+    const restartedProducer = await connect("materials");
+    await scenario.prisma.materialNotificationOutbox.updateMany({
+      data: { nextAttemptAt: new Date(0) },
+    });
+    const restartedTransport = assembleNotificationTransport(
+      scenario.prisma,
+      100,
+    );
+    const receiver = await consumeNotificationLane(
+      await connect("notifications"),
+      "materials",
+      restartedTransport,
+      1,
+    );
+    const restartedRelay = assembleNotificationOutbox(
+      scenario.prisma.materialNotificationOutbox,
+      ["materials"],
+    );
+    while (
+      await restartedRelay.relay("materials", (message) =>
+        publishNotification(restartedProducer, message),
+      )
+    ) {
+      /* bounded test fixture backlog */
+    }
+    await transportBarrier(
+      "materials inbox committed after broker restart",
+      async () => {
+        expect(
+          await scenario.prisma.notificationInbox.findUnique({
+            where: {
+              scope_messageId: {
+                scope: "materials",
+                messageId: duringOutage.messageId,
+              },
+            },
+          }),
+        ).not.toBeNull();
+      },
+      barrierBudgetMs,
+    );
+    await receiver.stop();
+    const billingReceiver = await consumeNotificationLane(
+      await connect("notifications"),
+      "billing",
+      restartedTransport,
+      1,
+    );
+    await transportBarrier(
+      "confirmed billing messages committed after broker restart",
+      async () => {
+        for (const messageId of confirmedBeforeOutage)
+          expect(
+            await scenario.prisma.notificationInbox.findUnique({
+              where: { scope_messageId: { scope: "billing", messageId } },
+            }),
+          ).not.toBeNull();
+      },
+      barrierBudgetMs,
+    );
+    await billingReceiver.stop();
+  }, 90_000);
 
   test("poison evidence commits before ack; full quarantine stops reception without dropping the next message", async () => {
     const producer = await connect("email");
@@ -777,72 +796,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     await recovered.stop();
   }, 30_000);
 
-  test("broker node outage retains queue data and PostgreSQL work across restart (singleton, not HA)", async () => {
-    await admin(["stop_app"]);
-    await stageMaterialsNotification(database.prisma, {
-      ...materialFixture,
-      messageId: randomUUID(),
-    });
-    expect(
-      await database.prisma.materialNotificationOutbox.count({
-        where: { publishedAt: null },
-      }),
-    ).toBeGreaterThan(0);
-    await admin(["start_app"]);
-    const producer = await connect("materials");
-    await database.prisma.materialNotificationOutbox.updateMany({
-      data: { nextAttemptAt: new Date(0) },
-    });
-    const transport = assembleNotificationTransport(database.prisma, 100);
-    const receiver = await consumeNotificationLane(
-      await connect("notifications"),
-      "materials",
-      transport,
-      1,
-    );
-    const relay = assembleNotificationOutbox(
-      database.prisma.materialNotificationOutbox,
-      ["materials"],
-    );
-    while (
-      await relay.relay("materials", (message) =>
-        publishNotification(producer, message),
-      )
-    ) {
-      /* bounded test fixture backlog */
-    }
-    await transportBarrier(
-      "materials inbox committed after broker restart",
-      async () => {
-        expect(
-          await database.prisma.notificationInbox.count({
-            where: { lane: "materials" },
-          }),
-        ).toBeGreaterThan(1);
-      },
-      barrierBudgetMs,
-    );
-    await receiver.stop();
-    const billingReceiver = await consumeNotificationLane(
-      await connect("notifications"),
-      "billing",
-      transport,
-      1,
-    );
-    await transportBarrier(
-      "confirmed billing messages committed after broker restart",
-      async () => {
-        for (const messageId of confirmedBeforeOutage)
-          expect(
-            await database.prisma.notificationInbox.findUnique({
-              where: { scope_messageId: { scope: "billing", messageId } },
-            }),
-          ).not.toBeNull();
-      },
-      barrierBudgetMs,
-    );
-    await billingReceiver.stop();
-  }, 45_000);
   test("отказ разбора входящих не останавливает воркер и называет причину", async () => {
     await migrateRuntimeDatabase(database.url);
     const transport = assembleNotificationTransport(database.prisma, 100);
@@ -850,27 +803,15 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     let sweeps = 0;
     // Одна необрабатываемая строка раньше гасила весь процесс: задача разбора не была защищена,
     // а причина подменялась общим именем. Здесь отказ повторяется на каждом круге.
-    const worker = assembleNotificationWorker({
+    const worker = assembleNotificationPipeline({
       config: {
-        urls: {
-          billing: config("billing").url,
-          materials: config("materials").url,
-          notifications: config("notifications").url,
-          email: config("email").url,
-        },
-        caFile,
+        urls: broker.urls,
+        caFile: broker.caFile,
         prefetch: 1,
         quarantineCapacity: 100,
       },
       transport,
-      billing: assembleNotificationOutbox(
-        database.prisma.billingNotificationOutbox,
-        ["billing"],
-      ),
-      materials: assembleNotificationOutbox(
-        database.prisma.materialNotificationOutbox,
-        ["materials"],
-      ),
+      prisma: database.prisma,
       report: (event) => observed.push(event),
       processInbox: () => {
         sweeps += 1;
@@ -909,27 +850,15 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     await migrateRuntimeDatabase(database.url);
     const transport = assembleNotificationTransport(database.prisma, 100);
     const observed: Record<string, unknown>[] = [];
-    const worker = assembleNotificationWorker({
+    const worker = assembleNotificationPipeline({
       config: {
-        urls: {
-          billing: config("billing").url,
-          materials: config("materials").url,
-          notifications: config("notifications").url,
-          email: config("email").url,
-        },
-        caFile,
+        urls: broker.urls,
+        caFile: broker.caFile,
         prefetch: 1,
         quarantineCapacity: 100,
       },
       transport,
-      billing: assembleNotificationOutbox(
-        database.prisma.billingNotificationOutbox,
-        ["billing"],
-      ),
-      materials: assembleNotificationOutbox(
-        database.prisma.materialNotificationOutbox,
-        ["materials"],
-      ),
+      prisma: database.prisma,
       report: (event) => observed.push(event),
     });
     const billing = event();

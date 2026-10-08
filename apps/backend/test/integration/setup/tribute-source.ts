@@ -39,7 +39,7 @@ export async function bindConfirmedTributeSource(
           revision: 1,
           name: "Стартовый тариф",
           benefits: ["community", "materials", "support"],
-          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+          coverage: { productIds: [], materialIds: [], wholePlatform: true },
         },
         policyRevision: 1,
         observation: "pending",
@@ -54,7 +54,7 @@ export async function bindConfirmedTributeSource(
     revoke: async () => {
       await prisma.sourceEntitlement.update({
         where: { id },
-        data: { revokedAt: new Date() },
+        data: { revokedAt: new Date("2026-10-07T09:00:00Z") },
       });
     },
   };

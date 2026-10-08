@@ -1,3 +1,13 @@
+import {
+  loadProductCompositions,
+  productCompositionChapters,
+  readProductCompositionAccess,
+  MAX_PRODUCT_MATERIALS,
+} from "../../../shared/product-composition.js";
+import type {
+  ContentAccess,
+  Subject,
+} from "../../../../content-access/index.js";
 import { materialFormatsSql } from "../material-formats.js";
 import {
   Prisma,
@@ -11,11 +21,11 @@ import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
 import type {
-  GuideIntroductionDto,
-  GuideProductPageDto,
+  ProductIntroductionDto,
+  ProductLandingPageDto,
 } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
-import { readGuidePage } from "../../../shared/guide-page-reader.js";
+import { readProductPage } from "../../../shared/product-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -35,7 +45,7 @@ interface PublishedMaterialProjectionSearchValues {
 }
 
 export interface PublishedMaterialDiscoveryPage {
-  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
@@ -45,17 +55,17 @@ export interface PublishedMaterialDiscoveryPage {
   }[];
   readonly reference: {
     /**
-     * Whether any lesson of this Guide is written for both ways of going through it. The mode
-     * switch belongs to the Guide, so a Guide without such a lesson shows none; false for every
+     * Whether any lesson of this Product is written for both ways of going through it. The mode
+     * switch belongs to the Product, so a Product without such a lesson shows none; false for every
      * other discovery kind.
      */
     readonly hasModeVariants: boolean;
     readonly id: string;
-    /** Author-written Guide introduction; null for every other discovery kind. */
-    readonly introduction: GuideIntroductionDto | null;
+    /** Author-written Product introduction; null for every other discovery kind. */
+    readonly introduction: ProductIntroductionDto | null;
     readonly name: string;
     /** Product page presentation and description; null for every other discovery kind. */
-    readonly productPage: GuideProductPageDto | null;
+    readonly productPage: ProductLandingPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
@@ -79,15 +89,6 @@ export interface PublishedMaterialDiscoveryPage {
   readonly hasNext: boolean;
 }
 
-const guideChapterRowSchema = z
-  .object({
-    id: z.uuid(),
-    material_ids: z.array(z.uuid()),
-    name: z.string(),
-    summary: z.string(),
-  })
-  .strict();
-
 const relatedSeriesRowSchema = z
   .object({
     id: z.uuid(),
@@ -98,10 +99,6 @@ const relatedSeriesRowSchema = z
     total_material_count: z.coerce.number().int().nonnegative(),
     cover_id: z.uuid().nullable(),
   })
-  .strict();
-
-const guideModeRowSchema = z
-  .object({ has_mode_variants: z.boolean() })
   .strict();
 
 const discoveryTopicRowSchema = z
@@ -143,7 +140,7 @@ const publishedMaterialProjectionRowSchema = z.object({
     .optional(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
-  access: z.enum(["free", "membership", "workshop"]),
+  access: z.enum(["free", "closed"]),
   published_at: z.date(),
   primary_video_id: z.uuid().nullable(),
   cover: coverProjectionSchema.nullable(),
@@ -611,7 +608,7 @@ export async function selectPublishedMaterialProjectionsByIds(
       projectionQuery({
         where: Prisma.sql`
           where publication.material_id in (${Prisma.join(uniqueIds)})
-            and publication.access <> 'workshop'
+
         `,
         limit: Prisma.empty,
       }),
@@ -731,7 +728,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
           projectionQuery({
             where: Prisma.sql`
               where topic.slug = ${slug}
-                and publication.access <> 'workshop'
+
             `,
             limit: Prisma.sql`limit ${first + 1}`,
           }),
@@ -750,7 +747,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
           join materials.published_materials as total_publication
             on total_publication.material_id = total_membership.material_id
           where total_membership.series_id = series.id
-            and total_publication.access <> 'workshop'
+
         ) as total_material_count
       from materials.published_material_series_memberships as membership
       join materials.published_materials as publication
@@ -759,7 +756,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       join materials.series as series on series.id = membership.series_id
       where topic.slug = ${slug}
         and series.archived_at is null
-        and publication.access <> 'workshop'
+
       group by series.id, series.name, series.slug, series.summary, series.cover_id
       order by series.name, series.id
     `),
@@ -811,103 +808,60 @@ export async function selectPublishedMaterialProjectionsBySeries(
   prisma: MaterialsPrisma,
   slug: string,
   first: number | null,
-): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const [reference, rawRows, rawTopics, rawChapters, rawGuideModes] =
-    await Promise.all([
-      prisma.guide.findUnique({
-        where: { slug },
-        select: {
-          audience: true,
-          coverId: true,
-          id: true,
-          name: true,
-          outcome: true,
-          page: true,
-          presentation: true,
-          prerequisites: true,
-          scope: true,
-          slug: true,
-          summary: true,
+  reader?: {
+    readonly subject: Subject;
+    readonly contentAccess: Pick<ContentAccess, "checkProductAccess">;
+  },
+): Promise<PublishedMaterialDiscoveryPage | undefined | "unavailable"> {
+  const [reference] = await loadProductCompositions(
+    prisma,
+    { slugs: [slug] },
+    1,
+  );
+  if (reference === undefined) return undefined;
+  const access = await readProductCompositionAccess(reference, reader);
+  if (access === "unavailable") return "unavailable";
+  if (access === "closed") return undefined;
+  if (reference.placements.length > MAX_PRODUCT_MATERIALS)
+    throw new RangeError("Product composition exceeds its bound");
+  const selected =
+    first === null
+      ? reference.materials
+      : reference.materials.slice(0, first + 1);
+  const projections = await selectPublishedMaterialProjectionsByIds(
+    prisma,
+    selected.map((item) => item.materialId),
+  );
+  const byId = new Map(projections.map((item) => [item.materialId, item]));
+  const rows = selected.flatMap((item) => {
+    const projection = byId.get(item.materialId);
+    return projection === undefined ? [] : [projection];
+  });
+  const topics = discoveryTopicRowSchema.array().parse(
+    await prisma.topic
+      .findMany({
+        where: {
+          id: {
+            in: [
+              ...new Set(
+                reference.materials.flatMap((item) =>
+                  item.topicId === null ? [] : [item.topicId],
+                ),
+              ),
+            ],
+          },
+          archivedAt: null,
         },
-      }),
-      prisma.$queryRaw(
-        projectionQuery({
-          joins: Prisma.sql`
-          join materials.published_material_series_memberships as selected_membership
-            on selected_membership.material_id = publication.material_id
-          join materials.series as selected_series
-            on selected_series.id = selected_membership.series_id
-        `,
-          where: Prisma.sql`
-          where selected_series.slug = ${slug}
-            and publication.access <> 'workshop'
-        `,
-          order: Prisma.sql`
-          order by selected_membership.ordinal, publication.material_id
-        `,
-          limit: first === null ? Prisma.empty : Prisma.sql`limit ${first + 1}`,
-        }),
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        select: { id: true, name: true, slug: true, coverId: true },
+      })
+      .then((topics) =>
+        topics.map(({ coverId, ...topic }) => ({
+          ...topic,
+          cover_id: coverId,
+        })),
       ),
-      prisma.$queryRaw(Prisma.sql`
-      select distinct topic.id, topic.name, topic.slug, topic.cover_id
-      from materials.published_material_series_memberships as membership
-      join materials.series as series on series.id = membership.series_id
-      join materials.published_materials as publication
-        on publication.material_id = membership.material_id
-      join materials.topics as topic on topic.id = publication.topic_id
-      where series.slug = ${slug}
-        and topic.archived_at is null
-        and publication.access <> 'workshop'
-      order by topic.name, topic.id
-    `),
-      prisma.$queryRaw(Prisma.sql`
-      select
-        chapter.id,
-        chapter.name,
-        chapter.summary,
-        coalesce(
-          (
-            select json_agg(published.material_id order by published.ordinal)
-            from materials.published_material_series_memberships as published
-            join materials.series_memberships as current_membership
-              on current_membership.series_id = published.series_id
-             and current_membership.material_id = published.material_id
-            join materials.published_materials as publication
-              on publication.material_id = published.material_id
-            where published.series_id = chapter.guide_id
-              and current_membership.chapter_id = chapter.id
-              and publication.access <> 'workshop'
-          ),
-          '[]'::json
-        ) as material_ids
-      from materials.guide_chapters as chapter
-      join materials.series as series on series.id = chapter.guide_id
-      where series.slug = ${slug}
-      order by chapter.ordinal, chapter.id
-    `),
-      // The route is paginated, so the visible page cannot answer this for the whole Guide.
-      prisma.$queryRaw(Prisma.sql`
-      select exists (
-        select 1
-        from materials.published_material_series_memberships as membership
-        join materials.published_materials as publication
-          on publication.material_id = membership.material_id
-        join materials.series as series on series.id = membership.series_id
-        where series.slug = ${slug}
-          and publication.access <> 'workshop'
-          and publication.has_mode_variants
-      ) as has_mode_variants
-    `),
-    ]);
-  if (reference === null) {
-    return undefined;
-  }
-  const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
-  const topics = discoveryTopicRowSchema.array().parse(rawTopics);
-  const chapters = guideChapterRowSchema.array().parse(rawChapters);
-  const guideModes = guideModeRowSchema.array().parse(rawGuideModes)[0] ?? {
-    has_mode_variants: false,
-  };
+  );
   const covers = await loadContentCoverProjections(
     prisma,
     [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
@@ -915,15 +869,17 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
-    chapters: chapters.map(({ id, material_ids, name, summary }) => ({
-      id,
-      materialIds: material_ids,
-      name,
-      summary,
-    })),
+    chapters: productCompositionChapters(reference).map(
+      ({ id, materialIds, name, summary }) => ({
+        id,
+        materialIds,
+        name,
+        summary,
+      }),
+    ),
     reference: {
       id: reference.id,
-      hasModeVariants: guideModes.has_mode_variants,
+      hasModeVariants: reference.materials.some((item) => item.hasModeVariants),
       introduction: {
         audience: reference.audience,
         outcome: reference.outcome,
@@ -933,7 +889,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       name: reference.name,
       productPage: {
         presentation: reference.presentation,
-        page: readGuidePage(reference.page, `Guide ${reference.slug}`),
+        page: readProductPage(reference.page, `Product ${reference.slug}`),
       },
       slug: reference.slug,
       summary: reference.summary,
@@ -947,7 +903,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       ...topic,
       cover: cover_id === null ? null : (covers.get(cover_id) ?? null),
     })),
-    items: (first === null ? rows : rows.slice(0, first)).map(toProjection),
+    items: first === null ? rows : rows.slice(0, first),
     hasNext: first !== null && rows.length > first,
   };
 }
@@ -958,7 +914,7 @@ export async function selectRelatedPublishedMaterialProjections(
   first: number,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
   const source = await selectPublishedMaterialProjectionBySlug(prisma, slug);
-  if (source === undefined || source.access === "workshop") {
+  if (source === undefined) {
     return undefined;
   }
   const rows = publishedMaterialProjectionRowSchema.array().parse(
@@ -971,7 +927,7 @@ export async function selectRelatedPublishedMaterialProjections(
         `,
         where: Prisma.sql`
           where publication.material_id <> ${source.materialId}::uuid
-            and publication.access <> 'workshop'
+
             and (
               related_pin.target_material_id is not null
               or publication.topic_id = ${source.topic.id}::uuid
@@ -1210,9 +1166,9 @@ function projectNoteExcerpt(excerpt: {
 
 function projectionScopeSql(feedOnly: boolean): Prisma.Sql {
   return feedOnly
-    ? Prisma.sql`publication.access <> 'workshop' and exists (
+    ? Prisma.sql`publication.access = 'free' and exists (
         select 1 from materials.materials as original
         where original.id = publication.material_id and original.show_in_feed
       )`
-    : Prisma.sql`publication.access <> 'workshop'`;
+    : Prisma.sql`true`;
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -17,7 +18,7 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
 const snapshots = evidenceDirectory("issue-529");
 
-test("guide product leads to the programme and the programme keeps the Reader return position", async ({
+test("product product leads to the programme and the programme keeps the Reader return position", async ({
   page,
   context,
 }, testInfo) => {
@@ -32,7 +33,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
   await page.goto("/products/demo-series-harness");
   await expect(
-    page.locator('[data-guide-product="demo-series-harness"]:visible'),
+    page.locator('[data-product-landing="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page
@@ -42,7 +43,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
-    page.locator('[data-guide-programme="demo-series-harness"]:visible'),
+    page.locator('[data-product-programme="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(
     page.getByRole("progressbar", { name: "Прогресс продукта" }),
@@ -76,7 +77,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
     page.getByRole("navigation", { name: "Страницы маршрута" }),
   ).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page })
-    .include('[data-guide-programme="demo-series-harness"]')
+    .include('[data-product-programme="demo-series-harness"]')
     .analyze();
   expect(accessibility.violations).toEqual([]);
   await prepareEvidenceDirectory("issue-529");
@@ -100,7 +101,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   });
 });
 
-test("guide programme marks the last opened material as the place to continue", async ({
+test("product programme marks the last opened material as the place to continue", async ({
   page,
   context,
 }) => {
@@ -139,9 +140,10 @@ test("guide programme marks the last opened material as the place to continue", 
   );
 });
 
-test("guide programme appends a real composition and restores Reader return position", async ({
+test("product programme appends a real composition and restores Reader return position", async ({
   page,
   context,
+  request,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(
@@ -151,7 +153,7 @@ test("guide programme appends a real composition and restores Reader return posi
     },
   );
   await page.goto("/account");
-  const slug = `series-journey-${String(Date.now())}`;
+  const slug = `series-journey-${randomUUID()}`;
   const created = await fullStackBrowserRequest(
     page,
     "/api/authoring/collections",
@@ -295,6 +297,30 @@ test("guide programme appends a real composition and restores Reader return posi
       ),
     });
   } finally {
+    // The route borrows published seed Materials. Detach them before archiving the temporary product,
+    // otherwise its archive can hide a standalone Material from the next viewport's guest Reader.
+    const orderResponse = await fullStackBrowserRequest(
+      page,
+      `/api/authoring/series/${collection.id}/order`,
+    );
+    const { order } = z
+      .object({
+        kind: z.literal("ready"),
+        order: z.object({ orderVersion: z.string() }),
+      })
+      .parse(await orderResponse.json());
+    const cleared = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/series/order",
+      "PUT",
+      {
+        seriesId: collection.id,
+        expectedOrderVersion: order.orderVersion,
+        orderedMaterialIds: JSON.stringify([]),
+        confirmedProductRemovals: JSON.stringify([collection.id]),
+      },
+    );
+    expect(await cleared.json()).toMatchObject({ kind: "saved" });
     const archived = await fullStackBrowserRequest(
       page,
       "/api/authoring/collections/archive",
@@ -308,4 +334,14 @@ test("guide programme appends a real composition and restores Reader return posi
     );
     expect(await archived.json()).toMatchObject({ kind: "saved" });
   }
+  const apiBaseUrl =
+    process.env["FULLSTACK_API_BASE_URL"] ?? "http://127.0.0.1:3001";
+  const standalone = await request.get(
+    `${apiBaseUrl}/materials/demo-295-samostoyatelnaya-zametka`,
+  );
+  expect(standalone.status()).toBe(200);
+  expect(await standalone.json()).toMatchObject({
+    kind: "available",
+    projection: { slug: "demo-295-samostoyatelnaya-zametka" },
+  });
 });

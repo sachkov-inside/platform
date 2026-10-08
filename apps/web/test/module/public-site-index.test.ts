@@ -42,7 +42,7 @@ describe("Указатель опубликованных страниц", () =>
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getPublicSiteIndex()).resolves.toEqual({
-      guideSlugs: ["platform-inside", "ci-cd"],
+      productSlugs: ["platform-inside", "ci-cd"],
       kind: "ready",
       materials: [
         { publishedAt: "2026-08-25T05:00:00.000Z", slug: "first" },

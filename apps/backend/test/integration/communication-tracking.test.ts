@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
@@ -11,6 +13,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 const origin = "https://inside.test";
 const token = "a".repeat(43);
 const config = {
@@ -25,7 +29,7 @@ let database: TestDatabase;
 let now: Date;
 let outage = false;
 let loseAck = false;
-let target = `${origin}/materials/test-guide`;
+let target = `${origin}/materials/test-product`;
 const fetcher: typeof fetch = (_url, init) => {
   if (typeof init?.body !== "string")
     throw new Error("Expected serialized envelope");
@@ -76,10 +80,11 @@ beforeEach(async () => {
   await database.prisma.communicationTrackingHit.deleteMany();
   received.clear();
   calls.length = 0;
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   now = new Date();
   outage = false;
   loseAck = false;
-  target = `${origin}/materials/test-guide`;
+  target = `${origin}/materials/test-product`;
 });
 
 test("safe target only, opaque tokens and invalid provider destinations never create events", async () => {
@@ -87,12 +92,12 @@ test("safe target only, opaque tokens and invalid provider destinations never cr
     kind: "invalid",
   });
   for (const value of [
-    "https://evil.test/materials/guide",
+    "https://evil.test/materials/product",
     `${origin}/api/authoring`,
-    `${origin}/materials/guide?redirect=evil`,
+    `${origin}/materials/product?redirect=evil`,
     `${origin}/materials/%2f%2fevil`,
-    `https://user@inside.test/materials/guide`,
-    `${origin}/materials/guide#fragment`,
+    `https://user@inside.test/materials/product`,
+    `${origin}/materials/product#fragment`,
   ]) {
     target = value;
     expect(isSafeTrackingTarget(value, origin)).toBe(false);

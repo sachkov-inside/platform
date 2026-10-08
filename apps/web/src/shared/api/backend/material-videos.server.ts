@@ -10,15 +10,19 @@ import {
 } from "./transport-core.server";
 
 export function requestVideoPlayback(
-  materialId: string,
-  videoId: string,
+  input: {
+    readonly materialId: string;
+    readonly preview: boolean;
+    readonly videoId: string;
+  },
   accessToken?: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
       new VideoPlaybackService(request).createVideoPlaybackSession({
-        materialId,
-        videoId,
+        materialId: input.materialId,
+        videoId: input.videoId,
+        ...(input.preview ? { preview: true } : {}),
       }),
     200,
     { ...(accessToken === undefined ? {} : { accessToken }) },
@@ -51,7 +55,7 @@ export function requestVideoProgress(
 
 export function requestVideoUploadInit(
   input: {
-    readonly access: "free" | "membership";
+    readonly access: "free" | "closed";
     readonly byteSize: number;
     readonly filename: string;
     readonly idempotencyKey: string;
@@ -79,7 +83,7 @@ export function requestVideoUploadInit(
 
 export function requestVideoAttach(
   input: {
-    readonly access: "free" | "membership";
+    readonly access: "free" | "closed";
     readonly materialId: string;
     readonly providerVideoId: string;
   },

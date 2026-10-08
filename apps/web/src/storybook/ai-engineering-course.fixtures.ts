@@ -1,11 +1,11 @@
-import type { GuidePage } from "@/entities/guide-page";
-import type { GuideChapter } from "@/features/library-discovery";
+import type { ProductPage } from "@/entities/product-page";
+import type { ProductChapter } from "@/features/library-discovery";
 
 /**
  * Представительное состояние страницы курса для Storybook: снимок `page` из Inside Content
- * (`guide.yaml`) на 30.09.2026. Оригинал текста живёт там; снимок нужен, чтобы видеть оформление.
+ * (`product.yaml`) на 30.09.2026. Оригинал текста живёт там; снимок нужен, чтобы видеть оформление.
  */
-export const aiEngineeringCoursePage: GuidePage = {
+export const aiEngineeringCoursePage: ProductPage = {
   card: {
     eyebrow: "Курс",
     subtitle: "AI-инжиниринг на практике с менторингом автора",
@@ -302,7 +302,7 @@ const chapterNames = [
 ];
 
 /** Главы 0–7 без уроков: так программа выглядит в анонсе. */
-export const aiEngineeringCourseChapters: readonly GuideChapter[] =
+export const aiEngineeringCourseChapters: readonly ProductChapter[] =
   chapterNames.map((name, index) => ({
     id: `aie-chapter-${String(index)}`,
     materialIds: [],

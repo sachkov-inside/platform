@@ -3,7 +3,10 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { Button } from "@/shared/ui/button";
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+import {
+  authoringMaterialsRootHref,
+  authoringReturnLabel,
+} from "@/shared/routing/authoring";
 
 import type {
   MaterialPreviewPresentation,
@@ -18,6 +21,7 @@ import { publicationStateLabel } from "./publication-state-label";
 
 interface MaterialCurrentPreviewProps {
   readonly editorHref: string;
+  /** Список материалов или редактор продукта, откуда автор открыл предпросмотр. */
   readonly materialsHref?: Route;
   readonly preview: MaterialPreviewPresentation;
   /** Место материала в руководстве; без руководства навигации нет. */
@@ -61,7 +65,9 @@ export function MaterialCurrentPreview({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
-              <Link href={materialsHref}>К материалам</Link>
+              <Link href={materialsHref}>
+                {authoringReturnLabel(materialsHref)}
+              </Link>
             </Button>
             <Button asChild>
               <Link href={editorLink}>Вернуться в редактор</Link>

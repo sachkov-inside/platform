@@ -1,11 +1,11 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type {
-  GuidePageCard,
-  GuidePageHero,
+  ProductPageCard,
+  ProductPageHero,
   PublishedMaterialReader,
 } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { AccountRights } from "../../../account-rights/index.js";
 import type {
   PublishedMaterialCatalogFacetDto,
   PublishedMaterialCatalogItemDto,
@@ -16,8 +16,8 @@ import { listPublishedMaterials } from "../list-published-materials/list-publish
 /** Закреплённый продукт с оформлением его карточки (ADR 0026). */
 export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
-  readonly card: GuidePageCard | null;
-  readonly hero: GuidePageHero | null;
+  readonly card: ProductPageCard | null;
+  readonly hero: ProductPageHero | null;
 }
 
 export interface HomeContentDto {
@@ -47,7 +47,7 @@ export async function readHomeContent(
   >,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
-  membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
+  accountRights: Pick<AccountRights, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentResult> {
@@ -68,6 +68,7 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["video"],
         subject,
         sort: "newest",
@@ -79,6 +80,7 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["guide"],
         subject,
         sort: "newest",
@@ -90,13 +92,14 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["note"],
         subject,
         sort: "newest",
       },
     ),
     publishedMaterialReader.readHomePinnedSeries(),
-    resolveHomeMembership(membershipEntitlements, subscriptionForSale, subject),
+    resolveHomeMembership(accountRights, subscriptionForSale, subject),
   ]);
   for (const result of [catalog, videos, guides, notes]) {
     if (!result.ok) return result;
@@ -140,16 +143,14 @@ export async function readHomeContent(
 }
 
 async function resolveHomeMembership(
-  membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
+  accountRights: Pick<AccountRights, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentDto["membership"]> {
   if (subject.kind === "anonymous") {
     return subscriptionForSale ? { kind: "inactive" } : { kind: "notOffered" };
   }
-  const state = await membershipEntitlements.resolveForAccess(
-    subject.accountId,
-  );
+  const state = await accountRights.resolveForAccess(subject.accountId);
   if (state.kind === "active") return { kind: "active" };
   return state.kind === "required" || state.kind === "expired"
     ? subscriptionForSale

@@ -1,7 +1,12 @@
 import { assertDeclaredResponse } from "../support/declared-api.js";
+import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
-import { bindingLookupResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import {
+  activationResponseSchema,
+  ownSubscriptionAccessResponseSchema,
+  bindingLookupResponseSchema,
+} from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -24,7 +29,7 @@ import {
 import {
   assembleAccessGrants,
   courseSourceRef,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import { SubscriptionActivation } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
@@ -171,10 +176,11 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     const tier = await db.prisma.billingOffer.create({
       data: {
         id: randomUUID(),
-        name: "Подписка Inside",
-        benefits: ["materials", "community"],
+        name: "Inside AI Engineering",
+        benefits: [`product:${randomUUID()}`, "community", "support"],
+        benefitPeriods: [{ capability: "support", months: 6 }],
         availableForAssignment: true,
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [], materialIds: [] },
         revision: 1,
       },
     });
@@ -295,7 +301,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ).json(),
     ).toMatchObject({ value: { state: "unavailable" } });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: context.id },
       }),
     ).toBe(0);
@@ -308,6 +314,18 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ok: true,
       value: { state: "active" },
     });
+    const assigned = await grants.readOwnEnrollments(context.id);
+    if (!assigned.ok) throw new Error(assigned.error.code);
+    expect(assigned.value[0]?.endsAt).toBeNull();
+    expect(assigned.value[0]?.benefitTerms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: "support",
+          endsAt: "2030-07-01T00:00:00.000Z",
+        }),
+        expect.objectContaining({ capability: "community", endsAt: null }),
+      ]),
+    );
     const source = await db.prisma.sourceEntitlement.findUniqueOrThrow({
       where: {
         origin_sourceRef: {
@@ -318,7 +336,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     });
     expect(source.accountId).toBe(context.id);
     expect(source.enrollmentId).not.toBeNull();
-    const row = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+    const row = await db.prisma.tariffAssignment.findUniqueOrThrow({
       where: { id: source.enrollmentId ?? "" },
     });
     const terms = {
@@ -388,7 +406,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       },
     });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: context.id },
       }),
     ).toBe(1);
@@ -525,6 +543,95 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     });
   });
 
+  test("Billing rollback leaves no activation rights or receipt; retry commits once", async () => {
+    const context = await setup();
+    const attemptId = randomUUID();
+    expect(
+      (
+        await send("attempts", {
+          contractVersion: version,
+          attemptId,
+          identityRef: context.identityRef,
+          code: context.rule.code,
+        })
+      ).json(),
+    ).toMatchObject({ ok: true, value: { state: "needs_account" } });
+    await linkTelegramAccount(db.prisma, {
+      accountId: context.id,
+      identityRef: context.identityRef,
+      now,
+    });
+    const binding = await linkedSnapshot(context.identityRef);
+    const evidence = {
+      contractVersion: version,
+      audience: "inside.platform.subscription-activation",
+      evidenceRef: randomUUID(),
+      attemptId,
+      sourceRef: context.policy,
+      ...binding,
+      ruleId: context.rule.id,
+      ruleRevision: 1,
+      checkedAt: now.toISOString(),
+      validUntil: "2030-01-01T00:04:00.000Z",
+      decision: "member",
+    };
+    // Fail Billing after Membership returns success, before the real transaction can commit.
+    const rollbackPrisma: BillingPrismaClient = {
+      ...db.prisma,
+      $transaction: (operation) =>
+        db.prisma.$transaction(async (tx) => {
+          expect(await operation(tx)).toMatchObject({
+            ok: true,
+            value: { state: "active" },
+          });
+          throw new Error("Injected Billing rollback after activation");
+        }),
+    };
+    const rollbackActivation = new SubscriptionActivation({
+      prisma: rollbackPrisma,
+      grants,
+      bindings: new TelegramAccountLinks(db.prisma),
+      readAdmission: () =>
+        Promise.resolve({ state: "checking", admissionRestriction: null }),
+    });
+    expect(await rollbackActivation.accept(evidence)).toMatchObject({
+      ok: false,
+      error: { code: "unavailable" },
+    });
+    const own = ownSubscriptionAccessResponseSchema.parse(
+      (
+        await send("own-access", { contractVersion: version, ...binding })
+      ).json(),
+    );
+    expect(own).toMatchObject({
+      ok: true,
+      value: { enrollments: [], grounds: [] },
+    });
+    expect(await grants.readActivationReceipt(evidence)).toBeNull();
+    expect(
+      await db.prisma.sourceEntitlement.count({
+        where: { accountId: context.id },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessChange.count({ where: { accountId: context.id } }),
+    ).toBe(0);
+    const attempt = await db.prisma.activationAttempt.findUniqueOrThrow({
+      where: { id: attemptId },
+    });
+    expect(attempt.accountId).toBeNull();
+    expect(attempt.result).toMatchObject({ state: "needs_account" });
+    const accepted = activationResponseSchema.parse(
+      (await send("evidence", evidence)).json(),
+    );
+    expect(accepted).toMatchObject({ ok: true, value: { state: "active" } });
+    expect((await send("evidence", evidence)).json()).toEqual(accepted);
+    expect(
+      await db.prisma.tariffAssignment.count({
+        where: { accountId: context.id },
+      }),
+    ).toBe(1);
+  });
   test("binding lookup requires the separate authority and returns only the exact current wire identity", async () => {
     const context = await setup();
     const query = {
@@ -578,7 +685,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     expect(binding.linkRef).not.toBe(browserTransaction.linkRef);
     expect(JSON.stringify(binding)).not.toContain(context.id);
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: context.id },
       }),
     ).toBe(0);
@@ -691,7 +798,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ).json(),
     ).toMatchObject({ ok: false, error: { code: "identity_conflict" } });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: context.id },
       }),
     ).toBe(0);
@@ -732,7 +839,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       granted.json(),
     );
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: context.id },
       }),
     ).toBe(1);

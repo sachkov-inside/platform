@@ -6,8 +6,8 @@ path.
 For Home, Library, Series or Reader changes, read the current
 [product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация),
 [Series composition contract](../specifications/platform-v1.md#series-step-sequences),
-[Guide chapters contract](../specifications/platform-v1.md#guide-chapters) and
-[Guide page contract](../specifications/platform-v1.md#страница-руководства).
+[Product chapters contract](../specifications/platform-v1.md#product-chapters) and
+[Product page contract](../specifications/platform-v1.md#страница-руководства).
 These own the accepted content relationships and presentation; earlier design proofs provide
 history, not an alternative product model.
 
@@ -123,12 +123,24 @@ outside `apps/web`, such as the Telegram sign-in page of the identity service.
 Issue evidence follows [Snapshots as issue evidence](../runbooks/local-development.md#snapshots-as-issue-evidence).
 Two recurring traps affect what a snapshot shows:
 
-- From the `lg` breakpoint the application shell fixes the page height and scrolls `#content`; the
+- From the `lg` breakpoint the application shell fixes the page height and scrolls `[data-application-content]`; the
   authoring shell does the same from `md` with `#authoring-content`. A Playwright `fullPage` capture
   above those widths stops at one screen. Capture a whole page with `screenshotWholePage(page,
   options)` from
   [`apps/web/test/support/whole-page-screenshot.mjs`](../../apps/web/test/support/whole-page-screenshot.mjs)
-  instead of `page.screenshot({ fullPage: true })`. Look at the image before attaching it.
+  instead of `page.screenshot({ fullPage: true })`: it stretches the viewport by the hidden height
+  of the scroll container and restores it after the capture; below those widths it is an ordinary
+  `fullPage` capture. When Chromium answers `Unable to capture screenshot`, the helper takes the
+  capture again, up to three attempts in all, and logs a warning (#1029). Each repeated capture
+  first waits for Chromium to copy a readable compositor frame (`Page.screencastFrame`), with a
+  10-second budget on opening CDP and on receiving the frame and start-command response (#1039).
+  Each cleanup command has a separate 1-second budget, so an unresponsive CDP command fails instead
+  of holding the helper forever. The temporary CDP screencast is stopped and
+  detached before the full-page capture; its frame never replaces the returned image. Before each measurement
+  the helper waits for running CSS transitions to end, so a change such as a larger root font size
+  is measured after the transitioned sizes settle; a transition still running after 10 seconds
+  fails the capture (#1035). Proof scripts in
+  `scripts/` and `apps/telegram/test/local` import it too. Look at the image before attaching it.
 - A single component state needs no live stack: build Storybook with `pnpm build:storybook`, serve
   `apps/web/storybook-static`, and capture
   `iframe.html?id=<kebab-title>--<kebab-export>&viewMode=story` at 390 and 1440 wide. Put the

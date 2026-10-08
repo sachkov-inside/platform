@@ -81,7 +81,7 @@ const conditional = z
   })
   .passthrough();
 
-// This generator covers the vocabulary of the pinned provider schema. Unknown
+// This generator covers the vocabulary of the shared provider schema. Unknown
 // keywords fail generation so a provider upgrade cannot silently weaken validation.
 const root = new URL("../src/modules/communications/", import.meta.url);
 const schema = z
@@ -90,7 +90,10 @@ const schema = z
   .parse(
     JSON.parse(
       await readFile(
-        new URL("contracts/inside-communications-v1/schema.json", root),
+        new URL(
+          "../../../docs/contracts/inside-communications-v1/schema.json",
+          import.meta.url,
+        ),
         "utf8",
       ),
     ),

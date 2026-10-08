@@ -262,6 +262,11 @@
             "moderation",
             "external_unknown"
           ]
+        },
+        "groupUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://t\\.me/c/[1-9][0-9]*/[1-9][0-9]*$"
         }
       },
       "allOf": [
@@ -329,6 +334,37 @@
                     "const": "finite"
                   }
                 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "groupUrl"
+            ],
+            "properties": {
+              "groupUrl": {}
+            }
+          },
+          "then": {
+            "properties": {
+              "access": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "finite",
+                      "lifetime"
+                    ]
+                  }
+                }
+              },
+              "observedMembership": {
+                "const": "member"
+              },
+              "admissionRestriction": {
+                "const": "none"
               }
             }
           }

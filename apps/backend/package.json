@@ -36,22 +36,23 @@
     "mcp:generate": "tsx scripts/mcp-tool-surface.ts && tsx scripts/mcp-tool-surface.ts --learning",
     "mcp:check": "tsx scripts/mcp-tool-surface.ts --check && tsx scripts/mcp-tool-surface.ts --learning --check",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.mts",
-    "test:integration:parallel": "vitest run --config vitest.integration.config.mts --project integration",
-    "test:integration:serial": "vitest run --config vitest.integration.config.mts --project integration-serial",
-    "smoke:mcp-authoring": "tsx scripts/mcp-authoring-smoke.ts",
-    "smoke:health": "vitest run --config vitest.smoke.config.mts",
+    "test:integration": "bash ../../scripts/heavy-check.sh vitest run --config vitest.integration.config.mts",
+    "test:integration:parallel": "bash ../../scripts/heavy-check.sh vitest run --config vitest.integration.config.mts --project integration",
+    "test:integration:serial": "bash ../../scripts/heavy-check.sh vitest run --config vitest.integration.config.mts --project integration-serial",
+    "smoke:mcp-authoring": "bash ../../scripts/heavy-check.sh tsx scripts/mcp-authoring-smoke.ts",
+    "smoke:health": "bash ../../scripts/heavy-check.sh vitest run --config vitest.smoke.config.mts",
     "communications:generate": "node scripts/generate-communications-contract.mjs",
     "communications:check": "node scripts/generate-communications-contract.mjs --check",
     "conformance:communications": "tsx scripts/communications-conformance.ts",
-    "notifications:generate": "node scripts/generate-notification-schema.mjs && tsx scripts/generate-notification-topology.ts",
-    "notifications:check": "node scripts/generate-notification-schema.mjs --check && tsx scripts/generate-notification-topology.ts --check",
+    "notifications:generate": "tsx scripts/generate-notification-topology.ts",
+    "notifications:check": "tsx scripts/generate-notification-topology.ts --check",
     "dev:notifications-worker": "tsx watch src/entrypoints/notifications-worker.ts",
     "start:notifications-worker": "node dist/entrypoints/notifications-worker.js",
     "dev:billing-worker": "tsx watch src/entrypoints/billing-worker.ts",
     "start:billing-worker": "node dist/entrypoints/billing-worker.js",
     "contracts:generate": "tsx scripts/generate-subscription-contracts.ts",
-    "contracts:check": "tsx scripts/generate-subscription-contracts.ts --check"
+    "contracts:check": "tsx scripts/generate-subscription-contracts.ts --check",
+    "test:contracts": "bash ../../scripts/heavy-check.sh bash -c 'pnpm build && vitest run --config vitest.contract.config.mts \"$@\"' --"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1146.0",
@@ -84,7 +85,8 @@
     "rxjs": "7.8.2",
     "sharp": "0.35.5",
     "undici": "8.11.2",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@inside/contracts": "workspace:*"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.0",

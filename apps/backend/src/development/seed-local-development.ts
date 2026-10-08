@@ -28,7 +28,7 @@ const videoFormatId = "video";
 const noteFormatId = "note";
 const localVideoProjects = {
   free: "local-development-free",
-  membership: "local-development-membership",
+  closed: "local-development-membership",
 } as const;
 const localVideoFixtures: ReadonlyMap<
   string,
@@ -330,7 +330,7 @@ export async function seedLocalDevelopment(
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, {
     actor,
-    guideId: seriesId,
+    productId: seriesId,
     onSale: demo === "published",
   });
   if (demo === "hidden") await hideSeededMaterials(seed);
@@ -343,7 +343,7 @@ export async function seedLocalDevelopment(
 }
 
 /**
- * A step written for both ways of going through a guide, so the local platform shows the mode
+ * A step written for both ways of going through a product, so the local platform shows the mode
  * switch, the one-time hint and the link to the branch the reader is not in.
  */
 function modeVariantBlock(step: string, title: string) {
@@ -1007,7 +1007,7 @@ async function ensureMembershipCatalogMaterial(
   const metadata = {
     title: "Developer Pipeline без потери контекста",
     summary: "Закрытый Material с публичным безопасным описанием для каталога.",
-    access: "membership" as const,
+    access: "closed" as const,
     difficulty: null,
     outcomes: [],
     topicId,
@@ -1088,7 +1088,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     },
     update: {},
   });
-  await prisma.guide.upsert({
+  await prisma.product.upsert({
     where: { id: seriesId },
     create: {
       id: seriesId,
@@ -1120,13 +1120,13 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
         "Тот же гайд в другой серии без отметки последовательности шагов.",
     },
   ]) {
-    await prisma.guide.upsert({
+    await prisma.product.upsert({
       where: { id: data.id },
       create: data,
       update: { name: data.name },
     });
   }
-  await prisma.guide.upsert({
+  await prisma.product.upsert({
     where: { id: demoHarnessSeriesId },
     create: {
       id: demoHarnessSeriesId,
@@ -1137,7 +1137,7 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     },
     update: {},
   });
-  await prisma.guide.upsert({
+  await prisma.product.upsert({
     where: { id: demoReviewSeriesId },
     create: {
       id: demoReviewSeriesId,

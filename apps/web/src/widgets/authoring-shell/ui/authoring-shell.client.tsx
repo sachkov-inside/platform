@@ -35,7 +35,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           ? "sales-funnel"
           : pathname.startsWith("/authoring/topics")
             ? "topics"
-            : pathname.startsWith("/authoring/guides") ||
+            : pathname.startsWith("/authoring/products") ||
                 pathname.startsWith("/authoring/playlists")
               ? "playlists"
               : pathname.endsWith("/preview")
@@ -91,7 +91,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             />
             <AuthoringLink
               current={current === "playlists"}
-              href="/authoring/guides"
+              href="/authoring/products"
               icon={<ListOrdered aria-hidden="true" />}
               label="Продукты"
             />
@@ -170,7 +170,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           </MobileLink>
           <MobileLink
             current={current === "playlists"}
-            href="/authoring/guides"
+            href="/authoring/products"
             label="Продукты"
           >
             <ListOrdered aria-hidden="true" />

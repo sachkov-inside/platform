@@ -9,7 +9,7 @@ import {
 import type {
   AccessGrants,
   EnrollmentEnding,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   ACCESS_ENDING_LEAD_MS,
   accessEndingCyclesPrefix,
@@ -48,6 +48,12 @@ import {
 } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
+import {
+  renewalScheduled,
+  scheduledRenewalsWhere,
+  unscheduledSubscriptionsWhere,
+} from "../../shared/renewal-schedule.js";
+
 type NoticeRow = Awaited<
   ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>
 >;
@@ -81,10 +87,7 @@ function chargeableSubscription(row: SubscriptionRow): RenewalReminderSubject {
     subscriptionRef: row.id,
     accountId: row.accountId,
     ended: row.state === "ended",
-    scheduled:
-      row.state === "active" &&
-      row.bindingCiphertext !== null &&
-      row.bindingRevokedAt === null,
+    scheduled: renewalScheduled(row),
     snapshot: row.snapshot,
     pendingChange: row.pendingChange,
     paidUntil: row.paidUntil,
@@ -258,10 +261,8 @@ export class BillingNotices {
     const scheduled =
       await this.dependencies.prisma.billingSubscription.findMany({
         where: {
-          state: "active",
+          ...scheduledRenewalsWhere,
           paidUntil: this.subscriptionWindow(now),
-          bindingCiphertext: { not: null },
-          bindingRevokedAt: null,
           notices: { none: { kind: "renewal_reminder", state: "current" } },
         },
         orderBy: { paidUntil: "asc" },
@@ -297,13 +298,7 @@ export class BillingNotices {
           paidUntil: this.subscriptionWindow(now),
           notices: { none: { kind: "access_ending", state: "current" } },
           AND: [
-            {
-              OR: [
-                { state: "canceled" },
-                { bindingCiphertext: null },
-                { bindingRevokedAt: { not: null } },
-              ],
-            },
+            { ...unscheduledSubscriptionsWhere },
             ...(after === undefined
               ? []
               : [
@@ -390,8 +385,8 @@ export class BillingNotices {
         outcomes.push(
           await prisma.$transaction(async (tx) => {
             await lockBillingEnrollmentNotices(tx, listed.enrollmentId);
-            // Граница читается заново под замком: параллельный пробег не запишет устаревший срок.
-            const ending = await this.readEnding(listed.enrollmentId);
+            // Граница и продолжение читаются на соединении транзакции под замком поводов Enrollment.
+            const ending = await this.readEnding(listed.enrollmentId, tx);
             if (ending === null) return "unchanged";
             const planned =
               ending.endsAt > now
@@ -509,9 +504,12 @@ export class BillingNotices {
 
   private async readEnding(
     enrollmentId: string,
+    transaction?: BillingPrisma,
   ): Promise<EnrollmentEnding | null> {
-    const read =
-      await this.dependencies.enrollments.readEnrollmentEnding(enrollmentId);
+    const read = await this.dependencies.enrollments.readEnrollmentEnding(
+      enrollmentId,
+      transaction,
+    );
     if (!read.ok) throw new Error(read.error.code);
     return read.value;
   }

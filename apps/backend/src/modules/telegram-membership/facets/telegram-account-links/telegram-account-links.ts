@@ -1,5 +1,8 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type {
+  TelegramMembershipPrisma,
+  TelegramMembershipPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
 
@@ -28,11 +31,16 @@ export class TelegramAccountLinks {
   constructor(private readonly prisma: TelegramMembershipPrismaClient) {}
 
   /** Exact current verified identity only; historical links and usernames are never recipients. */
-  async findCurrentByIdentity(identityRef: string) {
+  async findCurrentByIdentity(
+    identityRef: string,
+    transaction?: Pick<TelegramMembershipPrisma, "telegramAccountLinkState">,
+  ) {
     if (!z.string().trim().min(1).max(256).safeParse(identityRef).success)
       return { ok: false as const };
     try {
-      const rows = await this.prisma.telegramAccountLinkState.findMany({
+      const rows = await (
+        transaction ?? this.prisma
+      ).telegramAccountLinkState.findMany({
         where: { identityRef, principalRef: { not: null } },
         take: 2,
       });
@@ -107,10 +115,16 @@ export class TelegramAccountLinks {
   }
 
   /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
-  async readBinding(query: {
-    readonly accountId: string;
-    readonly revision?: number;
-  }) {
+  async readBinding(
+    query: {
+      readonly accountId: string;
+      readonly revision?: number;
+    },
+    transaction?: Pick<
+      TelegramMembershipPrisma,
+      "telegramAccountLinkState" | "telegramAccountLinkHistory"
+    >,
+  ) {
     if (
       !z
         .object({
@@ -122,12 +136,13 @@ export class TelegramAccountLinks {
     )
       return { ok: false as const };
     try {
+      const prisma = transaction ?? this.prisma;
       const row =
         query.revision === undefined
-          ? await this.prisma.telegramAccountLinkState.findUnique({
+          ? await prisma.telegramAccountLinkState.findUnique({
               where: { accountId: query.accountId },
             })
-          : await this.prisma.telegramAccountLinkHistory.findUnique({
+          : await prisma.telegramAccountLinkHistory.findUnique({
               where: {
                 accountId_revision: {
                   accountId: query.accountId,

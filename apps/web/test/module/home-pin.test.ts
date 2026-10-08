@@ -9,13 +9,14 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestHomePinUpdate: fakes.save,
   BackendConnectionError: class extends Error {},
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: fakes.token,
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
+
 import {
   handleHomePinReadRequest,
   handleHomePinWriteRequest,
@@ -48,7 +49,7 @@ it("authenticates selection and removal and keeps both reads and writes private"
     kind: "ready",
     pin: { seriesId: null, version: 1 },
   });
-  expect(read.headers.get("cache-control")).toBe("private, no-store");
+  expect(read.headers.get("cache-control")).toBe("no-store, private");
   for (const id of [seriesId, ""]) {
     fakes.save.mockResolvedValue({
       ok: true,

@@ -1,8 +1,8 @@
 import "server-only";
 
-import { fillGuidePageHero } from "@/entities/guide-page";
+import { fillProductPageHero } from "@/entities/product-page";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
-import { readPublicGuideOfferTerms } from "@/features/billing-checkout.terms.server";
+import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
 import type { HomeResult } from "../model/home-view";
 import { readPublicHome } from "./public-home.public-cache.server";
@@ -27,7 +27,7 @@ export async function fillPinnedOfferTerms(
   const pinned = result.value.pinnedSeries;
   if (pinned === null || (pinned.card === null && pinned.hero === null))
     return result;
-  const read = await readPublicGuideOfferTerms(pinned.id);
+  const read = await readPublicProductOfferTerms(pinned.id);
   const terms = read.kind === "ready" ? read.terms : null;
   const fill = (text: string) => fillOneTimeTerms(text, terms);
   return {
@@ -46,7 +46,7 @@ export async function fillPinnedOfferTerms(
                 subtitle: fill(pinned.card.subtitle),
               },
         hero:
-          pinned.hero === null ? null : fillGuidePageHero(pinned.hero, fill),
+          pinned.hero === null ? null : fillProductPageHero(pinned.hero, fill),
       },
     },
   };

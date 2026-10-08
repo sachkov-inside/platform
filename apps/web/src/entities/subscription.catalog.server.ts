@@ -4,7 +4,7 @@
  * и серверную сессию покупателя из широкого входа `subscription.server`.
  */
 export {
-  loadGuideCohort,
-  loadGuideCohorts,
-  loadGuideOffers,
+  loadProductCohort,
+  loadProductCohorts,
+  loadProductOffers,
 } from "./subscription/api/billing-catalog.server";

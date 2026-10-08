@@ -205,7 +205,7 @@ function assemblePolicyContentAccess(policyCase: PolicyCase) {
       hasMaterialsManage: () =>
         Promise.resolve(policyCase.actor.managesMaterials),
     },
-    membershipEntitlements: {
+    accountRights: {
       resolveForAccess: () => Promise.resolve(policyCase.actor.membership),
     },
     clock: () => new Date(decidedAt),
@@ -255,7 +255,7 @@ describe("ContentAccess availability", () => {
         findMany: () => Promise.resolve([facts]),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () =>
           Promise.resolve({ kind: "active", validUntil: null }),
       },
@@ -307,7 +307,7 @@ describe("ContentAccess availability", () => {
             return Promise.resolve(false);
           },
         },
-        membershipEntitlements: {
+        accountRights: {
           resolveManyForAccess(_accountId, resources) {
             membershipReads += 1;
             return Promise.resolve(
@@ -366,7 +366,7 @@ describe("ContentAccess availability", () => {
         findOne: () => Promise.resolve(null),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () => Promise.resolve({ kind: "required" }),
       },
     });
@@ -421,7 +421,7 @@ describe("ContentAccess availability", () => {
         findOne: () => Promise.resolve(null),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () => Promise.resolve({ kind: "required" }),
       },
     });
@@ -480,7 +480,7 @@ describe("ContentAccess authorization", () => {
         accountPermissions: {
           hasMaterialsManage: () => Promise.resolve(false),
         },
-        membershipEntitlements: {
+        accountRights: {
           resolveForAccess: () =>
             Promise.resolve({ kind: "active", validUntil: activeUntil }),
         },
@@ -514,7 +514,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(referencedFacts),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () =>
           Promise.resolve({ kind: "active", validUntil: activeUntil }),
       },
@@ -546,7 +546,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(facts),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(true) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () =>
           Promise.resolve({ kind: "active", validUntil: activeUntil }),
       },
@@ -609,7 +609,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(facts),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () => Promise.resolve(state),
       },
     });
@@ -628,7 +628,7 @@ describe("ContentAccess authorization", () => {
   test("keeps resource and permission dependency failures ahead of Membership", async () => {
     const facts = membershipMaterial(31);
     let membershipReads = 0;
-    const membershipEntitlements = {
+    const accountRights = {
       resolveForAccess() {
         membershipReads += 1;
         return Promise.resolve({
@@ -650,7 +650,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.reject(new Error("Materials unavailable")),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements,
+      accountRights,
     });
     const missingResource = assembleContentAccess({
       materialResourceFacts: {
@@ -658,7 +658,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(null),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements,
+      accountRights,
     });
     const unavailablePermission = assembleContentAccess({
       materialResourceFacts: {
@@ -669,7 +669,7 @@ describe("ContentAccess authorization", () => {
         hasMaterialsManage: () =>
           Promise.reject(new Error("Accounts unavailable")),
       },
-      membershipEntitlements,
+      accountRights,
     });
 
     await expect(unavailableResource.authorize(request)).resolves.toMatchObject(
@@ -706,7 +706,7 @@ describe("ContentAccess authorization", () => {
           return Promise.resolve(false);
         },
       },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess() {
           membershipReads += 1;
           return Promise.resolve({ kind: "required" });
@@ -747,7 +747,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(resolved),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(true) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () =>
           Promise.resolve({
             kind: "active",
@@ -803,7 +803,7 @@ describe("ContentAccess authorization", () => {
           return Promise.resolve(true);
         },
       },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess() {
           membershipReads += 1;
           return Promise.resolve({ kind: "active", validUntil: activeUntil });
@@ -868,7 +868,7 @@ describe("ContentAccess authorization", () => {
           return Promise.resolve(managesMaterials);
         },
       },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess() {
           membershipReads += 1;
           return Promise.resolve({ kind: "required" });
@@ -913,7 +913,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(facts),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess() {
           membershipReads += 1;
           throw new Error("Membership projection is unavailable");
@@ -955,7 +955,7 @@ describe("ContentAccess authorization", () => {
         findOne: () => Promise.resolve(facts),
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess(accountIdValue) {
           return Promise.resolve(
             accountIdValue === activeAccountId
@@ -989,13 +989,144 @@ describe("ContentAccess authorization", () => {
   });
 });
 
+describe("archived-only Material resources", () => {
+  test.each(
+    policyActors.flatMap((actor) => [
+      { ...actor, batchEntitlements: false },
+      { ...actor, batchEntitlements: true },
+    ]),
+  )(
+    "uses product rights for $name, including free files and video (batch=$batchEntitlements)",
+    async (actor) => {
+      const productId = "85000000-0000-4000-8000-000000000001";
+      const facts = {
+        ...membershipMaterial(90),
+        access: "free" as const,
+        archivedOnly: true,
+        productIds: [productId],
+        primaryVideoId: "84000000-0000-4000-8000-000000000090",
+      };
+      const access = assembleContentAccess({
+        materialResourceFacts: {
+          findOne: () => Promise.resolve(facts),
+          findMany: () => Promise.resolve([facts]),
+        },
+        assetResourceFacts: {
+          findOne: (assetId) =>
+            Promise.resolve({
+              assetId,
+              materialId: facts.materialId,
+              kind: "file" as const,
+            }),
+          findMany: () => Promise.resolve([]),
+        },
+        videoResourceFacts: {
+          findOne: (videoId) =>
+            Promise.resolve({
+              videoId,
+              materialId: facts.materialId,
+              access: "free" as const,
+            }),
+          findMany: () => Promise.resolve([]),
+        },
+        accountPermissions: {
+          hasMaterialsManage: () => Promise.resolve(actor.managesMaterials),
+        },
+        accountRights: {
+          ...(actor.batchEntitlements
+            ? {
+                resolveManyForAccess: (
+                  _accountId: AccountId,
+                  resources: readonly {
+                    productIds: readonly string[];
+                    materialId?: string | undefined;
+                  }[],
+                ) => {
+                  expect(resources).toEqual([
+                    { productIds: [productId], materialId: undefined },
+                  ]);
+                  return Promise.resolve(resources.map(() => actor.membership));
+                },
+              }
+            : {}),
+          resolveForAccess: (_accountId, ids, materialId) => {
+            expect(ids).toEqual([productId]);
+            expect(materialId).toBeUndefined();
+            return Promise.resolve(actor.membership);
+          },
+        },
+      });
+      const expected =
+        actor.membership.kind === "active"
+          ? { effect: "allow", reason: "active_membership" }
+          : { effect: "deny", reason: "resource_not_found" };
+      for (const operation of [
+        {
+          action: "read" as const,
+          resource: { kind: "material" as const, materialId: facts.materialId },
+        },
+        {
+          action: "download" as const,
+          resource: {
+            kind: "asset" as const,
+            assetId: "83000000-0000-4000-8000-000000000090",
+          },
+        },
+        {
+          action: "play" as const,
+          resource: { kind: "video" as const, videoId: facts.primaryVideoId },
+        },
+      ])
+        expect(
+          await access.authorize({
+            ...operation,
+            subject: actor.subject,
+            enforcementPoint: "published_material_read",
+            correlationId: "archive-test",
+          }),
+        ).toMatchObject(expected);
+      expect(
+        await access.checkAvailabilityMany({
+          enforcementPoint: "published_material_read",
+          correlationId: "archive-batch",
+          subject: actor.subject,
+          operations: [
+            {
+              itemId: "lesson",
+              action: "read",
+              resource: { kind: "material", materialId: facts.materialId },
+            },
+            {
+              itemId: "preview",
+              action: "preview",
+              resource: { kind: "material", materialId: facts.materialId },
+            },
+          ],
+        }),
+      ).toMatchObject({
+        ok: true,
+        items: [
+          {
+            availability:
+              actor.membership.kind === "active" ? "available" : "unavailable",
+          },
+          {
+            itemId: "preview",
+            availability: actor.managesMaterials ? "available" : "unavailable",
+          },
+        ],
+      });
+    },
+  );
+});
+
 function membershipMaterial(index: number): MaterialResourceFacts {
   return {
     materialId: materialId(
       `82000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
     ),
     publicationState: "published",
-    access: "membership",
+    access: "closed",
     contentVersion: 1,
     primaryVideoId: null,
   };

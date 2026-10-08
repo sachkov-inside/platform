@@ -70,13 +70,24 @@ not dependency wiring.
 - An operation never awaits another pooled connection while its transaction is open: as many such
   operations as the pool has connections hold all of it and wait for each other. A read of another
   Module that the caller's locks guard takes the caller's transaction, as Save does with
-  `inspectReferences` and a Workshop grant with `resolveForAccessUnderEntitlementLock`; the
+  `inspectReferences`; the
   delegate handoff above applies. The transaction comes first when every caller holds one; a read
   that also serves callers without one takes it as a last optional parameter, and a caller holding
   a transaction always passes it. A read those locks do not guard moves before the transaction and
   is judged inside it, as `recordMaterialOpen` does with its access decision and `authorizeDispatch`
-  with the source and recipient binding. The operation's test runs it on
-  `test/integration/setup/exhausted-pool.ts`, where a second connection fails instead of waiting.
+  with the source and recipient binding. The client of `test/integration/setup/test-database.ts`
+  checks the rule: inside its own `$transaction` callback a query through the root client fails
+  with `SecondConnectionInTransactionError`, and `dispose()` reports a refusal that a facade turned
+  into a failed result. A process started from the database URL uses the production client and is
+  not checked; its operations keep a test on the test database client.
+  `known-transaction-violations.ts` beside it lists the production code that still breaks the rule,
+  each entry with its issue; new code never gets an entry.
+  A new operation's test needs no exhausted pool; `test/integration/setup/exhausted-pool.ts` stays
+  for a test of pool exhaustion itself and for the operations whose tests already run on it.
+- A test that holds a transaction on purpose and starts inside it a concurrent operation the
+  transaction does not await, such as a contender for the same lock, starts that operation through
+  `outsideTransaction`. Work that the transaction awaits never goes through it: that work is the
+  violation the check refuses.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
@@ -141,6 +152,13 @@ not dependency wiring.
   and `src/release` print to their operator.
 
 ## Tests against real infrastructure
+
+- Fix the domain clock per case and share it across producers and consumers. Derive expiry and
+  "today" from that instant. Use monotonic time for latency and polling budgets, not calendar dates.
+- Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
+  Each case owns its rows and double state; put compilation, migrations and large seeds in bounded
+  setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name
+  their real boundary and own its cleanup. Poll committed rows with the helper below.
 
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.

@@ -118,6 +118,16 @@ const nextConfig: NextConfig = {
   redirects: () =>
     Promise.resolve([
       {
+        source: "/subscription/return",
+        destination: "/payment/return",
+        permanent: true,
+      },
+      {
+        source: "/subscription",
+        destination: "/payment/checkout",
+        permanent: true,
+      },
+      {
         source: "/account/email",
         destination: "/account/purchases",
         permanent: true,

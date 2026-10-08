@@ -244,95 +244,100 @@ for (const state of ["authenticated", "unavailable"] as const) {
   });
 }
 
-test("unlinked Account sees centered onboarding once per authenticated session", async ({
-  page,
-}, testInfo) => {
-  let authenticated = true;
-  await page.route("**/auth/status", (route) =>
-    route.fulfill({
-      body: JSON.stringify({
-        canManageMaterials: false,
-        state: authenticated ? "authenticated" : "guest",
+const onboardingReloadTest = test.extend({ video: "retain-on-failure" });
+
+onboardingReloadTest(
+  "unlinked Account sees centered onboarding once per authenticated session",
+  async ({ page }, testInfo) => {
+    let authenticated = true;
+    await page.route("**/auth/status", (route) =>
+      route.fulfill({
+        body: JSON.stringify({
+          canManageMaterials: false,
+          state: authenticated ? "authenticated" : "guest",
+        }),
+        contentType: "application/json",
+        status: 200,
       }),
-      contentType: "application/json",
-      status: 200,
-    }),
-  );
-  await page.route("**/api/account", (route) =>
-    route.fulfill({
-      body: JSON.stringify(unlinkedAccountPresentation()),
-      contentType: "application/json",
-      status: 200,
-    }),
-  );
+    );
+    await page.route("**/api/account", (route) =>
+      route.fulfill({
+        body: JSON.stringify(unlinkedAccountPresentation()),
+        contentType: "application/json",
+        status: 200,
+      }),
+    );
 
-  await page.goto("/");
-  const dialog = page.getByRole("dialog", { name: "Подключите Telegram" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Доступ не активен")).toHaveCount(0);
-  await expect(dialog.getByText("Получить доступ")).toHaveCount(0);
-  await expect(dialog).not.toContainText("Membership");
-  const [dialogBox, viewport] = await Promise.all([
-    dialog.boundingBox(),
-    page.evaluate(() => ({
-      height: window.innerHeight,
-      width: window.innerWidth,
-    })),
-  ]);
-  expect(dialogBox).not.toBeNull();
-  expect(dialogBox?.width).toBeLessThanOrEqual(480);
-  expect(
-    Math.abs(
-      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2,
-    ),
-  ).toBeLessThanOrEqual(1);
-  expect(
-    Math.abs(
-      (dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - viewport.height / 2,
-    ),
-  ).toBeLessThanOrEqual(1);
-
-  await dialog
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
-  await expect(dialog).toHaveCount(0);
-  // Закрытый <dialog> исчезает из дерева доступности сразу, а отметку о закрытии пишет его событие
-  // `close`, которое приходит следующей задачей. Перезагрузка раньше неё проверяла бы не то.
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+    await page.goto("/");
+    const dialog = page.getByRole("dialog", { name: "Подключите Telegram" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("Доступ не активен")).toHaveCount(0);
+    await expect(dialog.getByText("Получить доступ")).toHaveCount(0);
+    await expect(dialog).not.toContainText("Membership");
+    const [dialogBox, viewport] = await Promise.all([
+      dialog.boundingBox(),
+      page.evaluate(() => ({
+        height: window.innerHeight,
+        width: window.innerWidth,
+      })),
+    ]);
+    expect(dialogBox).not.toBeNull();
+    expect(dialogBox?.width).toBeLessThanOrEqual(480);
+    expect(
+      Math.abs(
+        (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2,
       ),
-    )
-    .toBe("true");
-  await page.reload();
-  await expect(dialog).toHaveCount(0);
-
-  authenticated = false;
-  await page.reload();
-  if (navigationMode(testInfo.project.name) === "mobile") {
-    await expect(
-      page
-        .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("link", { name: "Профиль" }),
-    ).toBeVisible();
-  } else {
-    await expect(
-      page.getByRole("button", { name: "Войти", exact: true }),
-    ).toBeEnabled();
-  }
-  await expect
-    .poll(() =>
-      page.evaluate(() =>
-        sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        (dialogBox?.y ?? 0) +
+          (dialogBox?.height ?? 0) / 2 -
+          viewport.height / 2,
       ),
-    )
-    .toBeNull();
+    ).toBeLessThanOrEqual(1);
 
-  authenticated = true;
-  await page.reload();
-  await expect(dialog).toBeVisible();
-});
+    await dialog
+      .getByRole("button", { name: "Закрыть подключение Telegram" })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    // Закрытый <dialog> исчезает из дерева доступности сразу, а отметку о закрытии пишет его событие
+    // `close`, которое приходит следующей задачей. Перезагрузка раньше неё проверяла бы не то.
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+        ),
+      )
+      .toBe("true");
+    await page.reload();
+    await expect(dialog).toHaveCount(0);
+
+    authenticated = false;
+    await page.reload();
+    if (navigationMode(testInfo.project.name) === "mobile") {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Мобильная навигация" })
+          .getByRole("link", { name: "Профиль" }),
+      ).toBeVisible();
+    } else {
+      await expect(
+        page.getByRole("button", { name: "Войти", exact: true }),
+      ).toBeEnabled();
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+        ),
+      )
+      .toBeNull();
+
+    authenticated = true;
+    await page.reload();
+    await expect(dialog).toBeVisible();
+  },
+);
 
 test("Telegram onboarding keeps the final linked result visible without Membership", async ({
   page,
@@ -819,3 +824,43 @@ function linkedAccountPresentation() {
     },
   };
 }
+
+test("old bank return preserves every payment query parameter", async ({
+  request,
+}) => {
+  const query =
+    "OrderId=order-1065&PaymentId=bank-1065&Success=true&from=%2Fproducts%2Fcourse";
+  const response = await request.get(`/subscription/return?${query}`, {
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(308);
+  const destination = new URL(
+    response.headers()["location"] ?? "",
+    response.url(),
+  );
+  expect(destination.pathname).toBe("/payment/return");
+  expect(Object.fromEntries(destination.searchParams)).toEqual({
+    OrderId: "order-1065",
+    PaymentId: "bank-1065",
+    Success: "true",
+    from: "/products/course",
+  });
+});
+
+test("old offer checkout preserves the selected tariff and original page", async ({
+  request,
+}) => {
+  const offerId = "10000000-0000-4000-8000-000000001065";
+  const response = await request.get(
+    `/subscription?offer=${offerId}&from=%2Fmaterials%2Flesson`,
+    { maxRedirects: 0 },
+  );
+  expect(response.status()).toBe(308);
+  const destination = new URL(
+    response.headers()["location"] ?? "",
+    response.url(),
+  );
+  expect(destination.pathname).toBe("/payment/checkout");
+  expect(destination.searchParams.get("offer")).toBe(offerId);
+  expect(destination.searchParams.get("from")).toBe("/materials/lesson");
+});

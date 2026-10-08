@@ -11,7 +11,7 @@ import {
   type LegalAcceptances,
   type VerifiedAccountSignIn,
 } from "../../../accounts/index.js";
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { AccountRights } from "../../../account-rights/index.js";
 import { readConfirmedTelegramLink } from "../../infrastructure/persistence/confirmed-telegram-link.js";
 
 export interface TelegramSignInProvider {
@@ -29,7 +29,7 @@ interface Dependencies {
   readonly accounts: Accounts;
   readonly prisma: TelegramMembershipPrismaClient;
   readonly provider: TelegramSignInProvider;
-  readonly membershipEntitlements: MembershipEntitlements;
+  readonly accountRights: AccountRights;
   /** The first sign-in screen gates the bot link: it completes only once the terms are accepted. */
   readonly terms: Pick<LegalAcceptances, "checkTerms">;
 }
@@ -179,14 +179,13 @@ export class TelegramAccountSignIn {
   ) {
     return this.dependencies.prisma.$transaction(async (transaction) => {
       await lockTelegramMembershipLink(transaction, account.accountId);
-      const principal =
-        await this.dependencies.membershipEntitlements.bindPrincipal(
-          {
-            accountId: accountId(account.accountId),
-            principalRef: link.principalRef,
-          },
-          transaction,
-        );
+      const principal = await this.dependencies.accountRights.bindPrincipal(
+        {
+          accountId: accountId(account.accountId),
+          principalRef: link.principalRef,
+        },
+        transaction,
+      );
       if (!principal.ok)
         return { ok: false, error: { code: "unavailable" } } as const;
       await transaction.telegramLinkTransaction.update({

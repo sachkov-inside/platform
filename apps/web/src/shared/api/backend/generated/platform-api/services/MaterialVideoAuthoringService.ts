@@ -17,11 +17,11 @@ export class MaterialVideoAuthoringService {
   }: {
     materialId: string,
     requestBody: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       providerVideoId: string;
     },
   }): CancelablePromise<{
-    access: 'free' | 'membership' | 'workshop';
+    access: 'free' | 'closed';
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;
@@ -53,7 +53,7 @@ export class MaterialVideoAuthoringService {
     materialId: string,
     idempotencyKey: string,
     requestBody: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       byteSize: number;
       filename: string;
       title: string;
@@ -62,7 +62,7 @@ export class MaterialVideoAuthoringService {
     providerVideoId: string;
     uploadEndpoint: string;
     video: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       durationSeconds?: number;
       failureCode?: string;
       materialId: string;
@@ -95,7 +95,7 @@ export class MaterialVideoAuthoringService {
   }: {
     videoId: string,
   }): CancelablePromise<{
-    access: 'free' | 'membership' | 'workshop';
+    access: 'free' | 'closed';
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;
@@ -122,7 +122,7 @@ export class MaterialVideoAuthoringService {
   }: {
     videoId: string,
   }): CancelablePromise<{
-    access: 'free' | 'membership' | 'workshop';
+    access: 'free' | 'closed';
     durationSeconds?: number;
     failureCode?: string;
     materialId: string;

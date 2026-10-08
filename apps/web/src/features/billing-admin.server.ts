@@ -27,9 +27,9 @@ export {
 
 export {
   handleListSubscriptionTiers,
-  handleReadSubscriptionEnrollments,
-  handleAssignSubscriptionEnrollment,
-  handleChangeSubscriptionEnrollment,
+  handleReadTariffAssignments,
+  handleAssignTariffAssignment,
+  handleChangeTariffAssignment,
 } from "./billing-admin/api/enrollments.server";
 
 export { handleListActivationRules } from "./billing-admin/api/enrollments.server";

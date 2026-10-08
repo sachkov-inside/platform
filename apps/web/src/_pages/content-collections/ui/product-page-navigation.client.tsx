@@ -24,7 +24,7 @@ export function ProductPageNavigation({
       <Button
         onClick={() => {
           void flushPendingEdits().then((ok) => {
-            if (ok) router.push("/authoring/guides");
+            if (ok) router.push("/authoring/products");
           });
         }}
         type="button"

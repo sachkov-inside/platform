@@ -15,7 +15,7 @@ import {
   learningTaskInstructions,
   registerLearningTaskTools,
   type LearningTasks,
-} from "../../../guide-tasks/index.js";
+} from "../../../product-tasks/index.js";
 
 export interface LearnerMcpDependencies {
   readonly reader: PublishedMaterialReader;
@@ -25,7 +25,7 @@ export interface LearnerMcpDependencies {
 }
 
 /**
- * The learner surface reads materials and Guide Tasks and accepts the learner's own task
+ * The learner surface reads materials and Product Tasks and accepts the learner's own task
  * submissions (#946); it has no authoring dependency.
  */
 export function assembleLearnerMcpServer(
@@ -46,7 +46,7 @@ export function assembleLearnerMcpServer(
         "Images, files and video references are not their contents: report unavailable or uninspected media explicitly. " +
         "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content. " +
         learningTaskInstructions +
-        // Lesson practice carries procedure v2 inside its own context; Guide Tasks follow v3.
+        // Lesson practice carries procedure v2 inside its own context; Product Tasks follow v3.
         " Lesson practice (learning_practice_read) returns its own review procedure inside its context; follow that procedure only for lesson practice.",
     },
   );
@@ -60,17 +60,17 @@ export function assembleLearnerMcpServer(
     "learning_materials_list",
     {
       description:
-        "Discover published materials with current access availability, optionally within a Guide. No protected body is included. Follow nextCursor until nextCursor is null; a page can include locked material teasers.",
+        "Discover published materials with current access availability, optionally within a Product. No protected body is included. Follow nextCursor until nextCursor is null; a page can include locked material teasers.",
       inputSchema: z
         .object({
           first: z.number().int().min(1).max(24).default(12),
           after: z.string().min(1).max(512).optional(),
-          guideSlug: z.string().min(1).max(120).optional(),
+          productSlug: z.string().min(1).max(120).optional(),
         })
         .strict(),
       annotations,
     },
-    async ({ first, after, guideSlug }) =>
+    async ({ first, after, productSlug }) =>
       toolResult(
         await listPublishedMaterials(
           dependencies.reader,
@@ -80,9 +80,9 @@ export function assembleLearnerMcpServer(
             subject,
             first,
             ...(after === undefined ? {} : { after }),
-            ...(guideSlug === undefined
+            ...(productSlug === undefined
               ? {}
-              : { seriesSlugs: [guideSlug], sort: "series" }),
+              : { seriesSlugs: [productSlug], sort: "series" }),
           },
         ),
       ),

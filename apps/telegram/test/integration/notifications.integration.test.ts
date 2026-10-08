@@ -19,7 +19,7 @@ import type {
   TelegramTextMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
 import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transport-slots.js";
-import fixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
 const db = createDatabase(required(process.env["DATABASE_URL"]));

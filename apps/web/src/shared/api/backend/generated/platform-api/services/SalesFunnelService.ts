@@ -7,7 +7,7 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class SalesFunnelService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * Read the aggregated sales funnel of one Guide by bot source for the owner
+   * Read the aggregated sales funnel of one Product by bot source for the owner
    * @returns any
    * @throws ApiError
    */
@@ -15,15 +15,20 @@ export class SalesFunnelService {
     to,
     from,
     chapterId,
-    guideId,
+    productId,
   }: {
     to: string,
     from: string,
     chapterId?: string,
-    guideId?: string,
+    productId?: string,
   }): CancelablePromise<{
     generatedAt: string;
-    guides: Array<{
+    lastBotEventReceivedAt: string | null;
+    period: {
+      from: string;
+      to: string;
+    };
+    products: Array<{
       chapters: Array<{
         id: string;
         name: string;
@@ -31,11 +36,6 @@ export class SalesFunnelService {
       id: string;
       name: string;
     }>;
-    lastBotEventReceivedAt: string | null;
-    period: {
-      from: string;
-      to: string;
-    };
     rows: Array<{
       counts: {
         checkout: number | null;
@@ -55,7 +55,7 @@ export class SalesFunnelService {
     }>;
     selection: {
       chapterId: string | null;
-      guideId: string;
+      productId: string;
     } | null;
     surveyRespondents: {
       issued: number;
@@ -75,7 +75,7 @@ export class SalesFunnelService {
       url: '/sales-funnel/report',
       query: {
         'chapterId': chapterId,
-        'guideId': guideId,
+        'productId': productId,
         'to': to,
         'from': from,
       },

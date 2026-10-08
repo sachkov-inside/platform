@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { guidePurchaseHref } from "@/shared/routing/subscription-route";
+import { productPurchaseHref } from "@/shared/routing/subscription-route";
 
 /** Скидка респондентам анкеты (#815): вход и исходы трёх владельческих операций billing. */
 export const importRespondentsInputSchema = z.strictObject({
@@ -26,7 +26,7 @@ export const respondentImportSchema = z.object({
 export const respondentLinkSchema = z.object({
   promotionId: z.uuid(),
   code: z.string().min(1),
-  guideSlug: z.string().nullable(),
+  productSlug: z.string().nullable(),
   alreadyIssued: z.boolean(),
 });
 export const respondentsViewSchema = z.object({
@@ -76,7 +76,10 @@ export function respondentLinkUrl(
   link: RespondentLink,
   origin: string,
 ): string | null {
-  return link.guideSlug === null || origin === ""
+  return link.productSlug === null || origin === ""
     ? null
-    : new URL(guidePurchaseHref(link.guideSlug, link.code), origin).toString();
+    : new URL(
+        productPurchaseHref(link.productSlug, link.code),
+        origin,
+      ).toString();
 }

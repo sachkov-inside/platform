@@ -17,7 +17,7 @@ const { values } = parseArgs({
   options: {
     "owner-email": { type: "string" },
     content: { type: "string" },
-    guide: { type: "string", default: "working-with-agents" },
+    product: { type: "string", default: "working-with-agents" },
     ref: { type: "string", default: "HEAD" },
     "course-preview": { type: "boolean", default: false },
   },
@@ -32,7 +32,7 @@ if (!existsSync(resolve(content, "tools/content.py")))
 const receipt = await withStandGateway(email, (origin) =>
   syncGitLocal(
     content,
-    values.guide,
+    values.product,
     resolve(content, standStateDirectory),
     values.ref,
     // The stand restores the reader view, so this local profile approves every original (#804).
@@ -46,5 +46,5 @@ const receipt = await withStandGateway(email, (origin) =>
 );
 // Уведомления переноса показываются здесь же: иначе «пропажа» продукта осталась бы без объяснения.
 process.stdout.write(
-  `${JSON.stringify({ commit: receipt.commit, coursePreview: receipt.coursePreview, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals, notices: receipt.notices }, null, 2)}\n`,
+  `${JSON.stringify({ commit: receipt.commit, coursePreview: receipt.coursePreview, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.products[0]?.url, archiveProposals: receipt.archiveProposals, notices: receipt.notices }, null, 2)}\n`,
 );

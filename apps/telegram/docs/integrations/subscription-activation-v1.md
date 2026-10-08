@@ -1,30 +1,20 @@
-# Активация тарифа за курс и Tribute
+# Активация тарифа прежних участников курса
 
 Telegram реализует сценарий [#64](https://github.com/sachkov-inside/inside-telegram/issues/64)
 из [Workspace #180](https://github.com/sachkov-inside/workspace/issues/180).
 Platform определяет Account, тариф, Enrollment, состав и срок каждого права. Telegram
-проверяет участника разрешённой группы курса либо запрашивает реестр Tribute на Platform
-по verified identity и продолжает обращение после входа.
+проверяет участника разрешённой группы курса по verified identity и продолжает обращение после входа.
 
 По [ADR 0033](../../../../docs/adr/0033-product-tariff-payment-model.md) активация прежних участников курса назначает тариф курса бессрочно,
 путь Tribute становится приглашением оплатить подписку, а подарочного режима приглашения нет.
-Ниже описан контракт текущего кода; его изменит отдельная задача.
+Этот порядок реализован в Platform #1064.
 
 ## Версии и границы
 
-Переносимые файлы в `docs/contracts/subscription-activation-v1` побайтно скопированы из Platform
-`main` на commit `6ba1571dd62057c94e2bc26ba2229dd7bfdc8269` (Platform PR #914, приглашения) для
-[Telegram #135](https://github.com/sachkov-inside/inside-telegram/issues/135); копия схемы в
-runtime совпадает с ними. Ниже — история первой версии.
-
-Переносимые файлы в `docs/contracts/subscription-activation-v1` обновлены для
-[Telegram #66](https://github.com/sachkov-inside/inside-telegram/issues/66) из неизменяемого
-контракта Platform #625, опубликованного на commit
-`de605c09f2afe5143dd96fb1c37ce5b6bd01e846`. Пять файлов проверены через GitHub по exact SHA
-и побайтно совпадают с final bundle и draft2.
-[Provenance и SHA-256 пяти файлов](subscription-activation-v1-provenance.json) фиксируют
-`contractFinal:true` и `platformAccepted:false`: commit содержит контракт, а не готовый runtime #625.
-Полная приёмка registry/grants и 39 сценариев остаётся у #625; consumer не зависит от его merge.
+Схема и примеры принадлежат корневому `docs/contracts/subscription-activation-v1`.
+После #1054 оба приложения читают этот corpus из `@inside/contracts`; копий Telegram нет.
+Исторический [provenance #66](subscription-activation-v1-provenance.json) описывает прежний контракт,
+который включал активацию Tribute; он не описывает текущую версию.
 
 Shared Enrollment.state добавляет `pending_verification` и `suspended_source` и в
 `ownAccessResponse.value.enrollments[]`, и в non-null `activationResponse.value.enrollment`.
@@ -32,7 +22,7 @@ Activation outcome.state и binding не меняются; additive rule mode и
 что временное основание пока не подтверждено и само доступа не даёт; бот предлагает повторить
 проверку позже или обратиться за помощью. `suspended_source` означает зафиксированное окончание
 источника: повтор/member не восстанавливают его. Бот направляет к владельцу для подтверждения
-нового периода и продолжает показывать независимые действующие Guide/course основания.
+нового периода и продолжает показывать независимые действующие Product/course основания.
 Решения о выдаче и восстановлении принадлежат Platform. Telegram не хранит own-access проекцию
 в отдельной таблице; миграция для расширения transport enum не нужна.
 
@@ -47,31 +37,12 @@ activation credential, отличный от linking/sign-in/community credentia
 отсутствие Account. `identity_conflict` прекращает автоматическую проверку. Никакого внутреннего
 Account UUID, угадывания `linkRef` или увеличения `linkRevision` на стороне Telegram нет.
 
-## Выбор проверки Tribute
+## Прежние подписчики Tribute
 
-Optional `response.rule.verificationMode` имеет значения `course_membership` и `tribute_registry`;
-отсутствующее значение сохраняет legacy course path. Unknown mode отвергается строгим codec.
-Для `tribute_registry` consumer не вызывает course `getChatMember`: он получает актуальный binding
-и сохраняет fresh exact-bound evidence с `decision: registry_lookup`, текущими rule revision,
-checkedAt/validUntil и новым evidenceRef. Begin/binding/own-access query и credentials прежние.
-Эти timestamps ограничивают запрос, а не задают платёжный период. Правило выбирает Platform,
-пересланная ссылка всегда использует private identity получателя и не передаёт paid facts.
-
-Только Platform сопоставляет policy/identity с подтверждённым реестром, проверяет период и
-принимает grant/restore решения. Consumer сохраняет возвращённый Enrollment и срок без изменения.
-Известный `pending_review` ожидает явного retry, не выполняет автоматический registry lookup и
-очищается после 30 дней. Nonactive Enrollment в таком ответе показывается с фактическим состоянием,
-без сообщения об успешной активации. Явный retry известного pending/unavailable начинает свежую
-попытку с новым binding/evidenceRef; запрос с неопределённым исходом сначала повторяется точно.
-JSON keys evidence сериализуются стабильно, поэтому PostgreSQL jsonb не меняет bytes нового
-initial send и его replay. Для исторических receipts сохраняются исходные значения и evidenceRef.
-
-`activation_attempts.state` теперь также использует текстовое `pending_review`; существующая
-колонка text не имеет enum/check constraint, поэтому schema migration не нужна. Retry не меняет
-Platform grant. Срок очистки неизвестного evidence по-прежнему не отменяет его обязательный replay.
-HTTP+PG consumer tests используют настоящие AppModule/codec/storage и loopback authority с
-контролируемыми wire responses. Они проверяют consumer, а не подтверждают registry policy:
-positive/nonpaid/forwarded fixtures — примеры wire, не доказательство выдачи/отказа Platform.
+Активации по реестру нет. `verificationMode` допускает только `course_membership`, если указан;
+`registry_lookup` отвергается схемой. Владелец выдаёт подписчику Tribute личное приглашение
+на оплату «Подписки Inside». Погашение не выдаёт прав: человек оплачивает подписку сам.
+Продажа подписки остаётся выключенной до подтверждения банка.
 
 ## Обращение и доказательство
 
@@ -135,7 +106,6 @@ Worker не начинает новую проверку по истёкшему
 | --- | --- |
 | `needs_account` | прежнее приглашение войти с кнопками кабинета; повторяет тот же запрос раз в минуту и сразу после «Я связал Telegram — проверить» |
 | `purchase_ready`, `already_redeemed` с `mode: purchase` | кнопка «Оплатить» на `checkoutUrl` |
-| `gift_granted`, `already_redeemed` с `mode: gift` | подтверждает подарок и срок, ведёт в сообщество кнопкой «Вступить в сообщество» и командой `/community`; если срок подарка уже прошёл, просит написать автору |
 | `claimed_by_other`, `expired`, `revoked`, `unavailable` | понятный текст «напишите автору», без повторов |
 | ошибка `identity_conflict` или `invalid_input` | текст «напишите автору», без повторов |
 | ошибка `unavailable` или нет ответа | одно сообщение «повторит сам», затем повтор того же запроса: пауза 1, 2, 4… минуты, не больше часа |

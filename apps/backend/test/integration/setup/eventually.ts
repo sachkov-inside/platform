@@ -6,13 +6,14 @@ export async function eventually(
   check: () => Promise<void>,
   budgetMs: number,
 ): Promise<void> {
-  const deadline = Date.now() + budgetMs;
+  const deadline = performance.now() + budgetMs;
   for (;;) {
     try {
       await check();
       return;
     } catch (error) {
-      if (Date.now() >= deadline) throw error;
+      if (performance.now() >= deadline) throw error;
+      // deterministic-test-allow duration-wait: Poll a caller-supplied durable fact; the delay is only the sampling interval.
       await delay(50);
     }
   }

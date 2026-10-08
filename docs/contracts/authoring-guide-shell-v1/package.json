@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "sourceNamespace": "inside-content",
   "selection": {
-    "guideId": "inside-ai-engineering",
+    "productId": "inside-ai-engineering",
     "chapterIds": [],
     "materialIds": [],
     "complete": true,
-    "scope": "guide-shell"
+    "scope": "product-shell"
   },
   "materials": [],
-  "guides": [
+  "products": [
     {
       "sourceId": "inside-ai-engineering",
       "slug": "ai-engineering",

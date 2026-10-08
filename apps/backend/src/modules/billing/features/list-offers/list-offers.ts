@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { productIdFromCapability } from "@inside/access-capabilities";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { accessCapabilitySchema } from "../../../membership-entitlements/index.js";
+import { accessCapabilitySchema } from "../../../account-rights/index.js";
 import {
   failure,
   idSchema,
@@ -10,10 +11,9 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
-import {
-  offerAdmits,
-  type PurchaseGrounds,
-} from "../../shared/offer-eligibility.js";
+import { type PurchaseGrounds } from "../../shared/offer-eligibility.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export const listOffersSchema = z.strictObject({
@@ -36,6 +36,8 @@ export interface ListOffersOptions {
    * Владельческий каталог их не передаёт и видит всё.
    */
   readonly grounds?: PurchaseGrounds;
+  readonly sale?: SaleCapability;
+  readonly recurringAllowed?: boolean;
 }
 export async function listOffers(
   prisma: BillingPrismaClient,
@@ -52,6 +54,8 @@ export async function listOffers(
   if (!parsed.success) return failure("invalid_request");
   try {
     const { cursor, limit, mode, capability } = parsed.data;
+    const productId =
+      capability === undefined ? null : productIdFromCapability(capability);
     const rows = await prisma.billingPaymentOption.findMany({
       where: {
         archived: false,
@@ -60,7 +64,25 @@ export async function listOffers(
           ...(options.publishedOnly === true ? { published: true } : {}),
           ...(capability === undefined
             ? {}
-            : { benefits: { has: capability } }),
+            : productId !== null
+              ? {
+                  OR: [
+                    { benefits: { has: capability } },
+                    {
+                      benefits: { has: "materials" },
+                      OR: [
+                        {
+                          coverage: {
+                            path: ["productIds"],
+                            array_contains: [productId],
+                          },
+                        },
+                        { coverage: { path: ["wholePlatform"], equals: true } },
+                      ],
+                    },
+                  ],
+                }
+              : { benefits: { has: capability } }),
         },
         ...(mode === undefined ? {} : { mode }),
         ...(hasText(cursor) ? { id: { gt: cursor } } : {}),
@@ -78,7 +100,13 @@ export async function listOffers(
       if (
         price.ok &&
         (options.grounds === undefined ||
-          offerAdmits(price.value.offer, options.grounds))
+          paymentAdmission({
+            context: "storefront",
+            snapshot: price.value,
+            grounds: options.grounds,
+            sale: options.sale ?? { payments: false, subscriptions: false },
+            recurringAllowed: options.recurringAllowed ?? true,
+          }).ok)
       )
         items.push(price.value);
     }

@@ -14,6 +14,7 @@ USER node
 FROM toolchain AS dependencies
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
+COPY --chown=node:node patches ./patches
 COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
 COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
@@ -26,6 +27,7 @@ COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
+COPY --chown=node:node docs/contracts ./docs/contracts
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
@@ -70,7 +72,8 @@ FROM development AS billing-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
 
 FROM development AS notifications-worker
-CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
+# Compose owns recovery: watch would keep the container alive after the application exits.
+CMD ["pnpm", "--filter", "@inside/backend", "exec", "tsx", "src/entrypoints/notifications-worker.ts"]
 
 # Двойник банка существует только для стенда: цели production ниже его не собирают и не запускают.
 FROM development AS bank-double
@@ -108,6 +111,10 @@ COPY --from=production-build --chown=node:node /workspace/.production/backend/no
 COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./dist
 
 COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./healthcheck/
+
+# Сторож production (#245): deploy-release копирует его из образа выбранного выпуска на сервер.
+# Приложение его не запускает.
+COPY --chown=root:root --chmod=0555 infra/production/watchdog/ ./ops/watchdog/
 
 EXPOSE 3001
 USER node

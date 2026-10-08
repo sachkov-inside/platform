@@ -6,7 +6,7 @@ import {
   optionSchema,
   promotionSchema,
 } from "../../domain/pricing.js";
-import { cohortValueSchema } from "../../domain/guide-cohort.js";
+import { cohortValueSchema } from "../../domain/product-cohort.js";
 
 const envelope = {
   operationId: idSchema,

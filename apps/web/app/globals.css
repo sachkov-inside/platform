@@ -289,6 +289,25 @@ body:has([data-public-shell]) {
   color-scheme: light;
 }
 
+/* Native target scrolling leaves room for the fixed navigation and storage notice. */
+@media (width < 64rem) {
+  html:has([data-public-shell]) {
+    scroll-padding-bottom: calc(
+      6.5rem + env(safe-area-inset-bottom, 0px) +
+        var(--storage-notice-space, 0px)
+    );
+  }
+}
+
+@media (width >= 64rem) {
+  [data-public-shell] [data-application-content] {
+    scroll-padding-bottom: calc(
+      2.5rem + env(safe-area-inset-bottom, 0px) +
+        var(--storage-notice-space, 0px)
+    );
+  }
+}
+
 .mobile-navigation-items {
   transition: grid-template-columns var(--motion-duration-shell)
     var(--motion-ease-out);

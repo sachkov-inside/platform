@@ -1,11 +1,12 @@
 import {
   expect,
-  test,
+  test as baseTest,
   type Browser,
   type BrowserContext,
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
@@ -14,6 +15,9 @@ import {
   type FullStackRole,
 } from "../support/full-stack-session";
 
+// The context fixture retains video for the helper's page, which closes before the test continues.
+const test = baseTest.extend({ video: "retain-on-failure" });
+
 /**
  * Права через настоящий Web/BFF отдельными identities (#904). У каждой identity одно основание,
  * поэтому отказ доказывает границу права, а не отсутствие сессии. Каждый отказ стоит рядом с
@@ -21,14 +25,14 @@ import {
  * существующему ресурсу, после которого наблюдатель с правом читает то же состояние.
  */
 
-/** Guide A — сидовый продукт «Создание Platform Inside» с закрытым материалом. */
-const guideA = {
+/** Product A — сидовый продукт «Создание Platform Inside» с закрытым материалом. */
+const productA = {
   id: "72000000-0000-4000-8000-000000000007",
   closedSlug: "developer-pipeline-bez-poteri-konteksta",
   closedBody: "Закрытое содержимое для участников.",
 } as const;
-/** Guide B — изолированный «Synthetic practice», который запускатор создаёт для прогона. */
-const guideB = {
+/** Product B — изолированный «Synthetic practice», который запускатор создаёт для прогона. */
+const productB = {
   closedBody: "FULLSTACK_PRIVATE_PRACTICE_BODY",
 } as const;
 /** Сидовое предложение «Материалы»: существующий ресурс для запрещённой Billing mutation. */
@@ -80,6 +84,26 @@ const billingRecordSchema = z.object({
     }),
   }),
 });
+const billingEnrollmentSchema = billingRecordSchema.and(
+  z.object({
+    value: z.object({
+      result: z.object({
+        value: z.object({
+          startsAt: z.iso.datetime(),
+          endsAt: z.iso.datetime().nullable(),
+          endPolicy: z.enum([
+            "fixed",
+            "confirmed_external",
+            "temporary_membership",
+          ]),
+        }),
+      }),
+    }),
+  }),
+);
+type BillingEnrollment = z.infer<
+  typeof billingEnrollmentSchema
+>["value"]["result"]["value"];
 const bookmarkStatesSchema = z.object({
   kind: z.literal("ready"),
   states: z.array(
@@ -106,8 +130,14 @@ interface SignedIn {
 }
 
 /** Отдельный browser context под своей identity; страница уже стоит на origin приложения. */
-async function openAs(browser: Browser, role: FullStackRole) {
-  const context = await browser.newContext({ baseURL: fullStackBaseUrl() });
+async function openAs(
+  browser: Browser,
+  role: FullStackRole,
+  fixtureContext?: BrowserContext,
+) {
+  const context =
+    fixtureContext ??
+    (await browser.newContext({ baseURL: fullStackBaseUrl() }));
   await signInFullStack(context, role);
   const page = await context.newPage();
   await page.goto("/account");
@@ -135,14 +165,14 @@ async function billing(
   return response.json();
 }
 
-/** Значение тарифа «материалы только Guide A»: так устроено и сидовое предложение «Материалы». */
-function guideAOffer(id: string, name: string) {
+/** Значение тарифа «материалы только Product A»: так устроено и сидовое предложение «Материалы». */
+function productAOffer(id: string, name: string) {
   return {
     id,
     name,
     benefits: ["materials"],
     availableForAssignment: true,
-    contentScope: { guideIds: [guideA.id], materialIds: [] },
+    coverage: { productIds: [productA.id], materialIds: [] },
   };
 }
 
@@ -161,7 +191,7 @@ async function seededOffer(observer: Page) {
 function renameSeededOffer(page: Page, offer: { readonly revision: number }) {
   return billing(page, "offers/save", {
     expectedRevision: offer.revision,
-    value: guideAOffer(seededOfferId, "Переименовано без права"),
+    value: productAOffer(seededOfferId, "Переименовано без права"),
   });
 }
 
@@ -261,8 +291,9 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
 
 test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
   browser,
+  context,
 }) => {
-  const billingManager = await openAs(browser, "BILLING_ONLY");
+  const billingManager = await openAs(browser, "BILLING_ONLY", context);
   const observer = await openAs(browser, "MATERIALS_ONLY");
   try {
     await billingManager.page.goto("/authoring/billing");
@@ -289,8 +320,15 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
       billingManager.page,
       "/api/authoring/materials",
     );
-    expect(listed.status()).toBe(200);
+    expect(listed.status()).toBe(403);
     expect(await listed.json()).toEqual(materialsDenial);
+    await billingManager.page.goto("/authoring/materials");
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Нет доступа к материалам",
+        exact: true,
+      }),
+    ).toBeVisible();
     expect(await authoringMaterial(observer.page)).toMatchObject({
       contentVersion: before.contentVersion,
       publicationState: "published",
@@ -330,45 +368,53 @@ test("an ordinary Account is denied Materials and Billing mutations on existing 
   }
 });
 
-test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Guide A on revocation", async ({
+test("a learner scoped to Product A reads Product A, is denied Product B and loses Product A on revocation", async ({
   browser,
 }) => {
-  const guideBSlug = process.env["FULLSTACK_PRACTICE_SLUG"];
-  if (guideBSlug === undefined)
-    throw new Error("Missing Guide B fixture (FULLSTACK_PRACTICE_SLUG)");
-  const learner = await openAs(browser, "GUIDE_A_LEARNER");
+  const productBSlug = process.env["FULLSTACK_PRACTICE_SLUG"];
+  if (productBSlug === undefined)
+    throw new Error("Missing Product B fixture (FULLSTACK_PRACTICE_SLUG)");
+  const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   const terms = {
-    startsAt: new Date().toISOString(),
+    startsAt: await backendFixtureInstant(billingManager.page.request),
     endsAt: null,
     endPolicy: "fixed",
   };
-  const revoke = async (enrollment: { id: string; revision: number }) =>
-    billingRecordSchema.parse(
+  const revoke = async (enrollment: BillingEnrollment) =>
+    billingEnrollmentSchema.parse(
       await billing(billingManager.page, "enrollments/change", {
         enrollmentId: enrollment.id,
         expectedRevision: enrollment.revision,
         action: "revoke",
-        terms,
+        terms: {
+          startsAt: enrollment.startsAt,
+          endsAt: enrollment.endsAt,
+          endPolicy: enrollment.endPolicy,
+        },
         reason: "Scoped learner access check revoked",
       }),
     ).value.result.value;
-  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Guide A
+  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Product A
   // для следующего прогона того же набора.
-  let activeEnrollment: { id: string; revision: number } | undefined;
+  let activeEnrollment: BillingEnrollment | undefined;
   try {
-    // Без назначения Guide A закрыт, а бесплатный материал открыт: доступ к A даст только
+    // Без назначения Product A закрыт, а бесплатный материал открыт: доступ к A даст только
     // назначение ниже, и отказ здесь не следствие сломанной сессии.
     await openMaterial(learner.page, publishedMaterial.slug, "available");
-    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openDeniedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
 
     const tierId = crypto.randomUUID();
     const tier = billingRecordSchema.parse(
       await billing(billingManager.page, "offers/save", {
-        value: guideAOffer(tierId, `Только Guide A ${tierId}`),
+        value: productAOffer(tierId, `Только Product A ${tierId}`),
       }),
     ).value.result.value;
-    const assigned = billingRecordSchema.parse(
+    const assigned = billingEnrollmentSchema.parse(
       await billing(billingManager.page, "enrollments/assign", {
         accountId: await accountIdOf(learner.page),
         origin: "manual",
@@ -383,22 +429,33 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     activeEnrollment = assigned;
     expect(assigned.state).toBe("active");
 
-    await openClosedBody(learner.page, guideA.closedSlug, guideA.closedBody);
-    await openDeniedBody(learner.page, guideBSlug, guideB.closedBody);
+    await openClosedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
+    await openDeniedBody(learner.page, productBSlug, productB.closedBody);
 
     const revoked = await revoke(assigned);
-    activeEnrollment = undefined;
     expect(revoked.state).toBe("revoked");
+    activeEnrollment = undefined;
 
-    // Тело Guide A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
+    // Тело Product A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
     // ответ с телом не вернулся ни из HTTP-кэша браузера, ни из кэшей сервера.
-    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openDeniedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
     await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
-    if (activeEnrollment !== undefined)
-      await revoke(activeEnrollment).catch(() => undefined);
-    await learner.context.close();
-    await billingManager.context.close();
+    try {
+      if (activeEnrollment !== undefined)
+        expect((await revoke(activeEnrollment)).state).toBe("revoked");
+    } finally {
+      await learner.context.close();
+      await billingManager.context.close();
+    }
   }
 });
 

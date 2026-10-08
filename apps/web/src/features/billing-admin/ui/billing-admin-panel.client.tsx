@@ -15,7 +15,7 @@ import {
   billingErrorMessage,
   type BillingCommandResult,
   type BillingFailureCode,
-  type GuideCohort,
+  type ProductCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -68,7 +68,7 @@ interface Task {
 export interface BillingAdminPanelProps {
   readonly offers: readonly PriceSnapshot[];
   /** `null` — потоки прочитать не удалось: раздел говорит об этом, а не показывает пустой список. */
-  readonly cohorts: readonly GuideCohort[] | null;
+  readonly cohorts: readonly ProductCohort[] | null;
 }
 
 /**
@@ -81,7 +81,7 @@ export function BillingAdminPanel({
 }: BillingAdminPanelProps) {
   const queryClient = useQueryClient();
   const content = useQuery({
-    queryKey: ["owner-content-scope"],
+    queryKey: ["owner-coverage"],
     queryFn: async () => {
       const result = await readContentCatalog();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
@@ -100,7 +100,7 @@ export function BillingAdminPanel({
     },
   });
   const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
-  const [cohorts, setCohorts] = useState<readonly GuideCohort[] | null>(
+  const [cohorts, setCohorts] = useState<readonly ProductCohort[] | null>(
     initialCohorts,
   );
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
@@ -504,7 +504,7 @@ export function BillingAdminPanel({
             }),
           (value) => {
             // Список обновляется сразу: следующая правка идёт с новой редакцией без перезагрузки.
-            const saved: GuideCohort = {
+            const saved: ProductCohort = {
               ...input.value,
               revision: value.result.value.revision,
             };
@@ -513,7 +513,7 @@ export function BillingAdminPanel({
                 ? null
                 : [
                     ...current.filter(
-                      (cohort) => cohort.guideId !== saved.guideId,
+                      (cohort) => cohort.productId !== saved.productId,
                     ),
                     saved,
                   ],

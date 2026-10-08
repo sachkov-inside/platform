@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -17,6 +19,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 // Save changes Material references in Assets and Videos; a Save that fails must leave both as they were.
 let database: TestDatabase;
@@ -142,7 +146,7 @@ describe("Material reference change", () => {
 });
 
 describe("Reference reads on an exhausted pool", () => {
-  test("reads Assets, Videos and Workshop in its own transaction", async () => {
+  test("reads Assets and Videos in its own transaction", async () => {
     const actor = randomUUID();
     const materials = assembleMaterials({
       authorPolicy: { canManage: (accountId) => accountId === actor },
@@ -150,16 +154,16 @@ describe("Reference reads on an exhausted pool", () => {
     });
     const created = await materials.authoring.createDraft({
       actor,
-      body: paragraphBody("Workshop draft"),
+      body: paragraphBody("Reference draft"),
       idempotencyKey: "exhausted-pool-draft",
-      metadata: { ...metadata, access: "workshop" },
+      metadata: { ...metadata, access: "free" },
     });
     if (!created.ok) throw new Error(created.error.code);
     const materialId = created.value.materialId;
     const assetId = await insertReadyImage(materialId, actor);
     const videoId = await insertReadyVideo(materialId, actor);
 
-    // Leaving workshop access asks Workshop, a primary Video with chapters asks Videos twice, and
+    // A primary Video with chapters asks Videos twice, and
     // the image asks Assets: every read would wait for a second connection the pool does not have.
     const saved = await withExhaustedPool(database, (prisma) =>
       assembleMaterials({
@@ -172,7 +176,7 @@ describe("Reference reads on an exhausted pool", () => {
         videos: assembleVideos({
           canManage: () => Promise.resolve(true),
           prisma,
-          projects: { free: "public-project", membership: "member-project" },
+          projects: { free: "public-project", closed: "member-project" },
           provider: unusedVideoProvider,
         }),
       }).authoring.saveMaterial({
@@ -305,6 +309,7 @@ describe("Reference reads on an exhausted pool", () => {
       requestVideoDeletion(
         database.prisma,
         { actor, materialId, videoId },
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         new Date(),
       ),
     ).resolves.toMatchObject({ ok: true });
@@ -363,6 +368,7 @@ async function insertReadyImage(
   uploadedBy: string,
 ): Promise<string> {
   const id = randomUUID();
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   const now = new Date();
   await database.prisma.materialAsset.create({
     data: {
@@ -400,6 +406,7 @@ async function insertReadyVideo(
 ): Promise<string> {
   const id = randomUUID();
   const providerVideoId = `reference-change-${id}`;
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   const now = new Date();
   await database.prisma.video.create({
     data: {

@@ -137,7 +137,7 @@ export const NoGrounds: Story = {
     ).toBeInTheDocument();
     await expect(
       page.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toHaveAttribute("href", "/subscription");
+    ).toHaveAttribute("href", "/payment/checkout");
     await expect(
       page.getByText("Карта сохраняется при оформлении подписки."),
     ).toBeInTheDocument();

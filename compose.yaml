@@ -9,7 +9,15 @@ services:
       - notification-broker-data:/var/lib/rabbitmq
       - notification-local-ca:/local-ca
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      test:
+        [
+          "CMD",
+          "su-exec",
+          "rabbitmq",
+          "rabbitmq-diagnostics",
+          "-q",
+          "check_running",
+        ]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -45,6 +53,7 @@ services:
       object-storage:
         condition: service_healthy
     init: true
+    restart: unless-stopped
     stop_grace_period: 15s
 
   object-storage:

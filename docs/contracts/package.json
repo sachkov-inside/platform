@@ -1,0 +1,33 @@
+{
+  "name": "@inside/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./community-members-without-right": {
+      "types": "./dist/members-without-right.d.ts",
+      "default": "./dist/members-without-right.js"
+    },
+    "./*": "./*",
+    "./community-result": {
+      "types": "./dist/codec.d.ts",
+      "default": "./dist/codec.js"
+    }
+  },
+  "files": [
+    "**/*.json",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "postinstall": "pnpm build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.6.5",
+    "ajv-formats": "3.0.1"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

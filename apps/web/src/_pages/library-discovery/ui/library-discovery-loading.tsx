@@ -1,4 +1,4 @@
-import { GuideProductSkeleton, pulse } from "./guide-product-skeletons";
+import { ProductLandingSkeleton, pulse } from "./product-landing-skeletons";
 
 /**
  * Скелеты маршрутов продукта и программы (#670). Каждый собран из рамки своей страницы: та же
@@ -8,13 +8,13 @@ import { GuideProductSkeleton, pulse } from "./guide-product-skeletons";
  */
 
 /** Программа: возврат к продукту, шапка с обложкой и строки уроков по главам. */
-export function GuideProgrammeLoading() {
+export function ProductProgrammeLoading() {
   return (
     <div
       aria-busy="true"
       aria-label="Программа загружается"
       className="@container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
-      data-route-skeleton="guide-programme"
+      data-route-skeleton="product-programme"
     >
       <div className="pt-4" data-programme-part="back">
         <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
@@ -56,6 +56,6 @@ export function GuideProgrammeLoading() {
  * Страница продукта. Оформление приходит из описания продукта (#671), а скелет рисуется до
  * данных, поэтому он один на все продукты: колонка, ряд возврата и шапка с обложкой.
  */
-export function GuideProductLoading() {
-  return <GuideProductSkeleton />;
+export function ProductLandingLoading() {
+  return <ProductLandingSkeleton />;
 }

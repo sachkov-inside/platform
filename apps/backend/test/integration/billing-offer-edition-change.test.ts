@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { pressedPaymentButton } from "./setup/consent-documents.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -8,10 +10,10 @@ import {
 } from "../../src/modules/accounts/index.js";
 import type { LegalDocument } from "../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -49,7 +51,7 @@ const config = syntheticTbankConfig({
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const guidePrice = 290_000;
+const productPrice = 290_000;
 /** Каталог до и после ввода новой редакции оферты разовой покупки: меняется только она. */
 const previousOffer = syntheticConsentDocument("terms", {
   version: "purchase-v1",
@@ -113,7 +115,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       clock: () => now,
     });
     // Процесс с подтверждённым терминалом и адресом для чека: каталог вправе включить разовую продажу.
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -150,7 +152,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       ).ok
     )
       throw new Error("contact");
-    const capability = `guide:${randomUUID()}`;
+    const capability = `product:${randomUUID()}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     value(
@@ -177,7 +179,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: guidePrice,
+          priceKopecks: productPrice,
         },
       }),
     );
@@ -196,7 +198,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       TerminalKey: config.terminalKey,
       OrderId: orderId,
       PaymentId: paymentId,
-      Amount: guidePrice,
+      Amount: productPrice,
       Status: state,
       Success: true,
       ErrorCode: "0",
@@ -234,11 +236,14 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     };
     const quote = async () =>
       value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       ).quoteRef;
     const accept = (
       contact: BillingContact,

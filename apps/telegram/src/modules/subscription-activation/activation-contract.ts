@@ -1,6 +1,6 @@
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import schema from "./contracts/schema.json" with { type: "json" };
+import schema from "@inside/contracts/subscription-activation-v1/schema.json" with { type: "json" };
 
 export const ACTIVATION_VERSION = "inside.subscription-activation.v1";
 export interface ActivationBinding {
@@ -25,8 +25,7 @@ export interface ActivationEvidence extends ActivationBinding {
   readonly ruleRevision: number;
   readonly checkedAt: string;
   readonly validUntil: string;
-  readonly decision:
-    "member" | "not_member" | "unavailable" | "registry_lookup";
+  readonly decision: "member" | "not_member" | "unavailable";
 }
 export type ActivationState =
   | "needs_account"
@@ -82,7 +81,7 @@ export interface ActivationResponse {
     readonly id: string;
     readonly revision: number;
     readonly sourceRef: string;
-    readonly verificationMode?: "course_membership" | "tribute_registry";
+    readonly verificationMode?: "course_membership";
   };
 }
 export interface OwnAccess {
@@ -140,12 +139,6 @@ export interface InvitationRedeem {
   readonly code: string;
   readonly identityRef: string;
 }
-/** The gift Enrollment fields the bot shows; Platform sends the full view. */
-interface InvitationEnrollment {
-  readonly id: string;
-  readonly tier: { readonly name: string };
-  readonly endsAt: string | null;
-}
 export type InvitationRedeemValue =
   | {
       readonly contractVersion: typeof ACTIVATION_VERSION;
@@ -162,14 +155,8 @@ export type InvitationRedeemValue =
       readonly mode: "purchase";
       readonly offerName: string;
       readonly checkoutUrl: string;
-    }
-  | {
-      readonly contractVersion: typeof ACTIVATION_VERSION;
-      readonly state: "gift_granted" | "already_redeemed";
-      readonly mode: "gift";
-      readonly offerName: string;
-      readonly enrollment: InvitationEnrollment;
     };
+
 export type InvitationRedeemResponse =
   | { readonly ok: true; readonly value: InvitationRedeemValue }
   | {

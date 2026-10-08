@@ -129,6 +129,13 @@ describe("application CI workflow contract", () => {
     assert.match(topLevelBlock("concurrency"), /cancel-in-progress: true/u);
   });
 
+  it("isolates reruns from first attempts so stale recovery cannot cancel a newer commit", () => {
+    assert.match(
+      topLevelBlock("concurrency"),
+      /\$\{\{ github\.run_attempt > 1 && format\('-rerun-\{0\}', github\.run_id\) \|\| '' \}\}/u,
+    );
+  });
+
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
     assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
@@ -171,7 +178,7 @@ describe("application CI workflow contract", () => {
   it("runs every stage of pnpm check as its own job", () => {
     assert.equal(
       rootScripts["check"],
-      checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
+      `bash scripts/heavy-check.sh bash -c '${checkStages.map(([, script]) => `pnpm ${script}`).join(" && ")} "$@"' --`,
     );
     for (const [job, script] of checkStages) {
       assert.match(
@@ -196,7 +203,10 @@ describe("application CI workflow contract", () => {
       setupAction,
       /key: playwright-.*steps\.playwright\.outputs\.version/u,
     );
-    assert.match(setupAction, /playwright install --with-deps \$BROWSERS$/mu);
+    assert.match(
+      setupAction,
+      /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
+    );
     assert.doesNotMatch(workflow, /pnpm install/u);
   });
 
@@ -235,7 +245,7 @@ describe("application CI workflow contract", () => {
     );
     assert.notEqual(archivesConfig, -1, "apt must read the cached archives");
     assert.ok(
-      archivesConfig < install.indexOf("playwright install --with-deps"),
+      archivesConfig < install.indexOf("bash scripts/install-playwright-ci.sh"),
       "apt must read the cached archives before Playwright installs system packages",
     );
     assert.match(install, /apt-get autoclean$/mu);
@@ -331,12 +341,12 @@ describe("application CI workflow contract", () => {
   it("uploads only bounded failure diagnostics for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      4,
+      5,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 5);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      5,
+      6,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
@@ -357,6 +367,35 @@ describe("application CI workflow contract", () => {
         productionSmoke.indexOf("down --rmi local --volumes --remove-orphans"),
       "production diagnostics must be captured before cleanup",
     );
+  });
+
+  it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
+    const webE2E = jobBlock("web-e2e");
+    const upload = webE2E.slice(
+      webE2E.indexOf("      - name: Upload Playwright diagnostics\n"),
+    );
+    assert.match(upload, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assert.match(
+      upload,
+      /name: web-e2e-playwright-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
+    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
+    assert.doesNotMatch(upload, /overwrite: true/u);
+  });
+
+  it("uploads WebKit browser-engine diagnostics separately for each CI attempt", () => {
+    const job = jobBlock("ui");
+    assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
+    assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(
+      job,
+      /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(job, /path: apps\/web\/test-results\/browser-engines/u);
+    assert.match(job, /if-no-files-found: ignore/u);
+    assert.match(job, /retention-days: 7/u);
   });
 
   it("exposes one stable gate that fails closed over every required job", () => {
@@ -434,7 +473,7 @@ describe("nightly full-stack workflow contract", () => {
     assert.match(job, /^ {4}timeout-minutes: \d+$/mu);
     const steps = [
       "pnpm install --frozen-lockfile",
-      "playwright install --with-deps chromium",
+      "bash scripts/install-playwright-ci.sh chromium",
       "cp .env.example .env",
       "run: pnpm infra:up",
       "pnpm smoke:fullstack",
@@ -461,6 +500,11 @@ describe("nightly full-stack workflow contract", () => {
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /^ {12}apps\/web\/playwright-report$/mu);
     assert.match(job, /^ {12}apps\/web\/test-results$/mu);
+    assert.match(
+      job,
+      /name: nightly-fullstack-diagnostics-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.doesNotMatch(job, /overwrite: true/u);
     assert.match(job, /^\s+retention-days: 7$/mu);
     assert.equal(job.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 2);
   });

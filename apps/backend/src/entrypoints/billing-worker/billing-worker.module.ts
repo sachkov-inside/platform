@@ -5,7 +5,7 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { BillingModule } from "../../modules/billing/index.js";
-import { ContentScopeCatalogModule } from "../../modules/materials/index.js";
+import { CoverageCatalogModule } from "../../modules/materials/index.js";
 import {
   CommunityEntitlementsModule,
   RecipientLinksModule,
@@ -22,7 +22,7 @@ export class BillingWorkerModule {
         PrismaModule,
         BillingModule,
         CommunityEntitlementsModule,
-        ContentScopeCatalogModule,
+        CoverageCatalogModule,
         RecipientLinksModule,
       ],
       providers: [OperationalReadiness],
