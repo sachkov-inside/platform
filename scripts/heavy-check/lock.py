@@ -206,7 +206,9 @@ def supervise(read_fd, command, parents):
                 track_descendants(process, tracked, known_groups)
                 for pid in tracked:
                     events.watch(pid, forks=True)
-                while process.poll() is None:
+                # Registration can already report exit. NOTE_EXIT can also precede
+                # waitpid readiness: never wait for a second exit event.
+                while process.pid not in events.dead and process.poll() is None:
                     if events.wait():
                         return 143
                     if events.tree_changed:
@@ -214,10 +216,6 @@ def supervise(read_fd, command, parents):
                         track_descendants(process, tracked, known_groups)
                         for pid in tracked:
                             events.watch(pid, forks=True)
-                    if process.pid in events.dead:
-                        # NOTE_EXIT precedes waitpid readiness on macOS. Never wait
-                        # for a second exit event after consuming the first one.
-                        break
                 returncode = process.wait()
                 return returncode if returncode >= 0 else 128 - returncode
             if not waiting:
