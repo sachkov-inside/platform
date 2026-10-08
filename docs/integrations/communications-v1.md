@@ -281,7 +281,8 @@ Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) исп
 `POST /integrations/telegram/v1/communications/validate-content` перед публикацией из бота.
 Контракт `contentValidationRequest/Response` передаёт выбранные сообщения вместе с подтверждённым
 автором. Endpoint проверяет bearer credential, актуальную связь и `communications:manage`, затем
-доступность Material/Series через `PublicContentTargets`. Он не обращается к Telegram; поэтому
+доступность Material и публичных страниц Product через `PublicContentTargets`
+по [контракту публичных целей](#funnel-management-ui). Он не обращается к Telegram; поэтому
 проверка безопасна при удерживаемых ботом блокировках определения. Ошибка конфигурации или базы
 возвращает 503, недоступные цели — структурированные причины. Для установки требуются
 `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в
