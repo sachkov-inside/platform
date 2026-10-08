@@ -267,6 +267,19 @@ trace starts has only the phase file. The UI job uploads these files as
 The test keeps its 30-second budget and does not retry. Inspect the pending step before choosing
 a fix; #1110 remains open until a captured failure establishes the cause.
 
+The full-stack scenario `Billing-only opens billing tools and is denied a Materials mutation
+without a durable effect` (#1136) retains video of the Billing-only context, including the
+first-sign-in helper's page that closes before the scenario continues. The full-stack configuration
+also writes an HTML report with the error's call log. The nightly job uploads it and `test-results`
+as `nightly-fullstack-diagnostics-<run_attempt>` for seven days. Copy local `test-results` and
+`playwright-report` before another invocation replaces them. At a first-sign-in timeout, inspect
+the WelcomeDialog contents in the trace and video: the original #1135 trace showed the terms
+unavailable alert, with no acceptance button. Compare the welcome request time with API/MCP
+restart and readiness logs; that original run also recorded a generated Prisma client change and
+process restart. This timing does not establish the cause of the unavailable terms response.
+Attach the run URL, attempt, head SHA and artifacts to #1136; keep it open until a captured failure
+establishes the cause.
+
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
 images. It embeds a synthetic release identity, supplies the exact local image IDs to production

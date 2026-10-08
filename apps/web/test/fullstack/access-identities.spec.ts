@@ -126,8 +126,14 @@ interface SignedIn {
 }
 
 /** Отдельный browser context под своей identity; страница уже стоит на origin приложения. */
-async function openAs(browser: Browser, role: FullStackRole) {
-  const context = await browser.newContext({ baseURL: fullStackBaseUrl() });
+async function openAs(
+  browser: Browser,
+  role: FullStackRole,
+  fixtureContext?: BrowserContext,
+) {
+  const context =
+    fixtureContext ??
+    (await browser.newContext({ baseURL: fullStackBaseUrl() }));
   await signInFullStack(context, role);
   const page = await context.newPage();
   await page.goto("/account");
@@ -279,54 +285,58 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
   }
 });
 
-test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
-  browser,
-}) => {
-  const billingManager = await openAs(browser, "BILLING_ONLY");
-  const observer = await openAs(browser, "MATERIALS_ONLY");
-  try {
-    await billingManager.page.goto("/authoring/billing");
-    await expect(
-      billingManager.page.getByRole("heading", {
-        name: "Тарифы и назначения",
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(
-      billingManager.page.getByRole("heading", {
-        name: "Назначить тариф",
-        exact: true,
-      }),
-    ).toBeVisible();
-    expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
+// The context fixture retains video for the helper's page, which closes before the test continues.
+const firstSignInTest = test.extend({ video: "retain-on-failure" });
 
-    const before = await authoringMaterial(observer.page);
-    expect(await unpublishMaterial(billingManager.page, before)).toEqual(
-      materialsDenial,
-    );
-    // Кроме mutation закрыто и чтение списка инструментов материалов.
-    const listed = await fullStackBrowserRequest(
-      billingManager.page,
-      "/api/authoring/materials",
-    );
-    expect(listed.status()).toBe(403);
-    expect(await listed.json()).toEqual(materialsDenial);
-    await billingManager.page.goto("/authoring/materials");
-    await expect(
-      billingManager.page.getByRole("heading", {
-        name: "Нет доступа к материалам",
-        exact: true,
-      }),
-    ).toBeVisible();
-    expect(await authoringMaterial(observer.page)).toMatchObject({
-      contentVersion: before.contentVersion,
-      publicationState: "published",
-    });
-  } finally {
-    await billingManager.context.close();
-    await observer.context.close();
-  }
-});
+firstSignInTest(
+  "Billing-only opens billing tools and is denied a Materials mutation without a durable effect",
+  async ({ browser, context }) => {
+    const billingManager = await openAs(browser, "BILLING_ONLY", context);
+    const observer = await openAs(browser, "MATERIALS_ONLY");
+    try {
+      await billingManager.page.goto("/authoring/billing");
+      await expect(
+        billingManager.page.getByRole("heading", {
+          name: "Тарифы и назначения",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        billingManager.page.getByRole("heading", {
+          name: "Назначить тариф",
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
+
+      const before = await authoringMaterial(observer.page);
+      expect(await unpublishMaterial(billingManager.page, before)).toEqual(
+        materialsDenial,
+      );
+      // Кроме mutation закрыто и чтение списка инструментов материалов.
+      const listed = await fullStackBrowserRequest(
+        billingManager.page,
+        "/api/authoring/materials",
+      );
+      expect(listed.status()).toBe(403);
+      expect(await listed.json()).toEqual(materialsDenial);
+      await billingManager.page.goto("/authoring/materials");
+      await expect(
+        billingManager.page.getByRole("heading", {
+          name: "Нет доступа к материалам",
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect(await authoringMaterial(observer.page)).toMatchObject({
+        contentVersion: before.contentVersion,
+        publicationState: "published",
+      });
+    } finally {
+      await billingManager.context.close();
+      await observer.context.close();
+    }
+  },
+);
 
 test("an ordinary Account is denied Materials and Billing mutations on existing resources without a durable effect", async ({
   browser,

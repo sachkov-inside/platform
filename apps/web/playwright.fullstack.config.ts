@@ -8,7 +8,7 @@ export default defineConfig({
   testIgnore: ["**/enrollment.spec.ts", "**/buyer-journey.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
-  reporter: "list",
+  reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
   workers: 1,
   use: {
