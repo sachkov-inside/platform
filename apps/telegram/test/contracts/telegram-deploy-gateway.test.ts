@@ -1,4 +1,3 @@
-// deterministic-test-allow unit-io: Local gateway shell contract; suite separation is tracked in #1154.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {

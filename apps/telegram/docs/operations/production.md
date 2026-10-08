@@ -321,7 +321,7 @@ Unit regression запускает весь shell script с повреждённ
 Команда печатает длительность restart/readiness и убирает только свои контейнеры, network, volume и image tag.
 Workers и все provider modes выключены; real messages, webhook registration и role writes не выполняются.
 
-`pnpm --filter @inside/telegram exec vitest run test/unit/telegram-deploy-gateway.test.ts`
+`pnpm --filter @inside/telegram test:contracts telegram-deploy-gateway.test.ts`
 отдельно запускает настоящий gateway с изолированным host fixture и синтетическими GitHub/Docker/Caddy boundaries.
 Он проверяет обе source families, rejected repository/workflow/tag/SHA, repeats, interrupted guard и отказ при разных миграциях.
 Эти proofs не заменяют publication-run и production-проверки координатора.

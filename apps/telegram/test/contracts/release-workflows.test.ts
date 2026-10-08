@@ -1,5 +1,4 @@
 import { hasText } from "../../src/shared/text.js";
-// deterministic-test-allow unit-io: Local workflow shell contract; suite separation is tracked in #1154.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {

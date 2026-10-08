@@ -24,6 +24,8 @@ contracts/
 !apps/backend/test/contracts/**
 !apps/web/test/contracts/
 !apps/web/test/contracts/**
+!apps/telegram/test/contracts/
+!apps/telegram/test/contracts/**
 docs/contracts/
 apps/backend/src/modules/*/contracts/
 

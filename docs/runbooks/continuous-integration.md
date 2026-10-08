@@ -67,9 +67,12 @@ subprocesses and temporary filesystems, without live providers or production cre
 | Root `pnpm test:contracts` | Release/deploy shell and CLI contracts in `scripts/contracts/*.test.mjs` |
 | Backend `pnpm --filter @inside/backend test:contracts` | Worker startup, bank-double ledger/process/HTTP and SMTP in `test/contracts`; the command builds once before Vitest and launches compiled entrypoints |
 | Web `pnpm --filter @inside/web test:contracts` | Run-scoped Vite cache lifecycle in the `contracts` project |
+| Telegram `pnpm --filter @inside/telegram test:contracts` | Delivery, release workflows, deploy gateway and production smoke shell contracts in `test/contracts` |
 
-These commands use the shared heavy-check slots. Backend unit selection excludes `test/contracts`,
-and Web module selection includes only `test/module`. The timer-only process-failure checks and
+These commands use the shared heavy-check slots. Backend unit selection excludes `test/contracts`.
+Telegram unit selection includes only `test/unit` and `test/architecture`; Web module selection
+includes only `test/module`. Telegram `check:full` also retains its contract selection.
+The timer-only process-failure checks and
 in-memory bank-double behaviour remain unit tests. Synchronous contract commands have explicit
 termination budgets; asynchronous process contracts observe close and register cleanup.
 

@@ -118,8 +118,18 @@ function unitCommands(script = "check:unit") {
           webScript,
         ),
       ];
-    if (command === "pnpm --filter @inside/backend test:contracts")
-      return [vitest("backend-contracts", "apps/backend", "test:contracts")];
+    const contractPackage =
+      /^pnpm --filter @inside\/(backend|telegram) test:contracts$/u.exec(
+        command,
+      )?.[1];
+    if (contractPackage !== undefined)
+      return [
+        vitest(
+          `${contractPackage}-contracts`,
+          `apps/${contractPackage}`,
+          "test:contracts",
+        ),
+      ];
     throw new Error(`Unsupported ${script} stage: ${command}`);
   });
 }

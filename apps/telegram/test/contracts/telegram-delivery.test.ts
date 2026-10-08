@@ -1,4 +1,3 @@
-// deterministic-test-allow unit-io: Local delivery shell contract; suite separation is tracked in #1154.
 import { spawnSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";

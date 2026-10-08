@@ -148,6 +148,7 @@ test("unit samples use workspace package test scripts and the root native launch
   );
   assert.ok(!tooling?.args.some((arg) => arg.includes("scripts/contracts/")));
   assert.ok(commands.some((command) => command.name === "backend-contracts"));
+  assert.ok(commands.some((command) => command.name === "telegram-contracts"));
   assert.ok(
     commands.some(
       (command) =>
