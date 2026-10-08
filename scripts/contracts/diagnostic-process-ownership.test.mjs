@@ -82,10 +82,23 @@ function descendantReady(child) {
  */
 async function fixture(script, mode = "wait") {
   const directory = await mkdtemp(join(tmpdir(), "inside-diagnostic-owner-"));
+  // Evidence helpers find the workspace from cwd, so their output stays in this disposable root.
+  await writeFile(join(directory, "pnpm-workspace.yaml"), "packages: []\n");
+  await writeFile(
+    join(directory, "package.json"),
+    '{"private":true,"type":"module"}\n',
+  );
   const fixtureScripts = join(directory, "scripts");
   await mkdir(fixtureScripts);
   await mkdir(join(directory, "tools/authoring"), { recursive: true });
   await mkdir(join(directory, "apps/web"), { recursive: true });
+  await mkdir(join(directory, "infra/identity/logto"), { recursive: true });
+  await writeFile(join(directory, "infra/identity/logto/compose.env"), "");
+  await writeFile(
+    join(directory, "infra/identity/logto/compose.yaml"),
+    "services: {}\n",
+  );
+  await writeFile(join(directory, "compose.yaml"), "services: {}\n");
   await mkdir(join(directory, ".identity-proof/tls"), { recursive: true });
   await writeFile(join(directory, ".identity-proof/platform.env"), "");
   await writeFile(
@@ -113,6 +126,8 @@ async function fixture(script, mode = "wait") {
   const command = `
     import { spawn } from 'node:child_process';
     import { writeFileSync, existsSync } from 'node:fs';
+    // An isolated Compose project has no running services; ps reports no service names.
+    if (process.argv.includes('compose') && process.argv.includes('ps')) process.exit(0);
     // Cleanup commands are side effects at the fake Docker boundary, not another fixture tree.
     if (${JSON.stringify(mode)} === 'cleanup') {
       if (!process.argv.includes('down')) process.exit(process.argv.includes('compose:up') ? 7 : 0);
