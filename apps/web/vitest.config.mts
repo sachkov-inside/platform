@@ -65,6 +65,7 @@ export default defineConfig({
         test: {
           name: "storybook",
           maxWorkers: 2,
+          setupFiles: ["./test/support/storybook-preload.ts"],
           browser: {
             enabled: true,
             headless: true,
