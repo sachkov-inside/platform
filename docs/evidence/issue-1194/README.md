@@ -23,7 +23,15 @@ Browser verification opened and closed advice with Enter, loaded the diagram, an
 horizontal overflow. Independent visual review checked both complete screenshots. It found no
 serious visible defects. This is reuse under `docs/agents/frontend-delivery.md`, rule 1.
 
-Live-route evidence and final command results are recorded below after the isolated smoke completes.
+- [Live imported Task, desktop Chromium](task-c-live-desktop-chromium.png).
+- [Live imported Task, mobile Chromium](task-c-live-mobile-chromium.png).
+
+The isolated full-stack smoke passed with exit 0 on `cadd898e`: six desktop/mobile checks for
+#1194 and the existing #947 Task flow. It used a fresh disposable PostgreSQL database, RustFS,
+and the real authoring API/importer. Both Task c checks loaded the image, refused the closed asset,
+opened and closed advice with Enter, checked links in both directions and the four Task positions,
+and found no serious/critical axe violations or horizontal overflow. The final repository check
+and CI results are recorded after their completion.
 
 ## Verification boundaries
 
