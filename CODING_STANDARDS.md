@@ -26,41 +26,34 @@ nearest `AGENTS.md` owns task routing and verification commands.
   duplicating environment parsing, transport paths, schemas, policy, or cache state.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
-- Every TypeScript project extends `tsconfig.base.json` through its preset:
-  `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend,
-  `tsconfig.next-app.json` for the web and `tsconfig.scripts.json` for repository `.mjs` scripts.
-  Change shared strictness in the base, not per project; `scripts/toolchain-contract.test.mjs`
-  fails a project that bypasses it. Where `isolatedDeclarations`
-  in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
-  wire type.
-- `strict-boolean-expressions` (#694) rejects strings, numbers and nullable primitives in a boolean
-  context. `hasText` and `presentText` in `apps/backend/src/infrastructure/contracts/text.ts` and
-  `apps/web/src/shared/lib/text.ts` keep the former truthiness of text: `null`, `undefined` and `""`
-  are absent.
-- Repository `.mjs` scripts compile through `tsconfig.scripts.json` in `pnpm typecheck` (#694).
-  Every script starts with `// @ts-check` (#756); `scripts/toolchain-contract.test.mjs` fails for a
-  script without it, outside that project or with `@ts-nocheck`. A script that loads an
-  application's dependency through `createRequire` takes its types from the application's
-  `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
-  resolve the package's own imports.
-- `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
-  `tsconfig.scripts.json` compiles (#763). The root `tsconfig.json` compiles nothing (`files: []`)
-  and only references that project, so type-aware lint resolves script types.
-  `scripts/toolchain-contract.test.mjs` fails when a script directory, a rule or the reference
-  drops out, or when another override or ignore pattern weakens lint for a script. Parse
-  `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown` until an
-  explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`. The
-  `any` that `createRequire` returns is asserted to its `proof-dependencies` type inside an
-  `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
+- Every TypeScript project extends `tsconfig.base.json` through its preset: `tsconfig.node-lib.json`
+  for `packages/`, `tsconfig.nest-app.json` for the Nest applications, `tsconfig.next-app.json` for
+  the web and `tsconfig.scripts.json` for repository `.mjs` scripts. Shared strictness changes only
+  in the base; `scripts/toolchain-contract.test.mjs` fails a project that bypasses the base or
+  overrides it. Where `isolatedDeclarations` in packages asks for an exported Zod schema's type,
+  write its exact Zod type, not a hand-written wire type.
+- Where `strict-boolean-expressions` (#694) rejects a text value, `hasText` and `presentText` keep
+  its former truthiness (`null`, `undefined` and `""` are absent). They live in
+  `apps/backend/src/infrastructure/contracts/text.ts` and `apps/web/src/shared/lib/text.ts`.
+- Repository `.mjs` scripts start with `// @ts-check` (#756) and compile and lint through
+  `tsconfig.scripts.json` with every `typescript/no-unsafe-*` rule of the shared type-aware set
+  (#694, #763); `scripts/toolchain-contract.test.mjs` holds the comment, the project and the rules.
+  Parse `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown`
+  until an explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`.
+- A script that loads an application's dependency through `createRequire` takes its types from the
+  application's `test/support/proof-dependencies`: a type import by a relative path into
+  `node_modules` cannot resolve the package's own imports. Assert the returned `any` to that type
+  inside an `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
   `disable-next-line` comment inside a JSDoc cast does not suppress it.
-- Code that runs at a script's top level calls a module function only after every module `const`,
-  `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
-  the script fails with `ReferenceError` only when it runs (#774).
-  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level statement
-  that calls or passes by name such a function, arrow function or class declaration; a callback the
-  statement runs at once, such as one given to `.map()`, is outside the check.
-- Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
-  not hand-edit generated output.
+- Code at a script's top level calls a module function only after every module `const`, `let` and
+  `class` that function reads is declared: a function is hoisted, its values are not (#774).
+  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level call or
+  pass by name of such a function; a callback that the statement runs at once, such as one given to
+  `.map()`, is outside the check.
+- Scripts pass every failure on through their exit code and run under macOS bash 3.2: they use no
+  `wait -n` and expand no empty array under `set -u`.
+- Keep checked-in generated contracts deterministic: change one through its source and regenerate
+  it, never by hand.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
   Call sites express the policy name, not arithmetic.
 - Derive values that are validated together from one clock reading. A window, a deadline pair, or
