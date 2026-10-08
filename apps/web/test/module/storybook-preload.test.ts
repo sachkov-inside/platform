@@ -18,7 +18,7 @@ function requireFrom(from: NodeJS.Require, name: string): NodeJS.Require {
 // Предзагрузка `test/support/storybook-preload.ts` помогает, только если она подключена к проекту
 // `storybook` и web получает те же пакеты, что Storybook: иначе Vite соберёт вторую копию, а
 // ленивая загрузка останется внутри первой истории файла (#1095).
-it("runs the preload before the stories of each file", () => {
+it("wires the preload into the storybook project", () => {
   const config = readFileSync(
     new URL("../../vitest.config.mts", import.meta.url),
     "utf8",
