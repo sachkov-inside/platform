@@ -212,6 +212,9 @@ export async function seedFullStackTaskC(origin, accessToken) {
       code: "c-first",
       closedCode: "c-closed",
       closedAssetId,
+      materialIds: Object.values(journal.materials).map(
+        ({ materialId }) => materialId,
+      ),
     };
   } finally {
     await rm(directory, { recursive: true, force: true });
