@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
@@ -20,6 +22,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 const videoFormatId = "video";
 const actor = randomUUID();
 const topicId = randomUUID();
@@ -82,7 +86,7 @@ describe("Personal Home on PostgreSQL", () => {
             membershipActive
               ? {
                   kind: "active",
-                  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+                  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
                   validUntil: new Date(Date.now() + 60_000).toISOString(),
                 }
               : { kind: "expired" },
@@ -585,7 +589,7 @@ describe("Personal Home on PostgreSQL", () => {
     });
     await database.prisma.product.update({
       where: { id: collection.id },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     expect(await home.getLearning(accountId)).toEqual({

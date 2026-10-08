@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import {
   migrateToLatest,
@@ -13,6 +15,8 @@ import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = randomUUID();
 const topicId = randomUUID();
@@ -236,7 +240,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(await home()).toMatchObject({ id: pinnedId });
   await database.prisma.product.update({
     where: { id: pinnedId },
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     data: { archivedAt: new Date() },
   });
   expect(await home()).toBeNull();

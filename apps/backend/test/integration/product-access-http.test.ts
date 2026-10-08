@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
@@ -12,6 +14,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -95,7 +99,7 @@ describe("Product access HTTP", () => {
         source: "paid",
         sourceRef: randomUUID(),
         capabilities: [`product:${productId}`],
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         startsAt: new Date(Date.now() - 60_000),
         validUntil: null,
         revision: 1,
@@ -122,7 +126,7 @@ describe("Product access HTTP", () => {
   });
 
   async function signToken(subject: string, email: string): Promise<string> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ inside_verified_email: email })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash } from "node:crypto";
 
 import sharp from "sharp";
@@ -23,6 +25,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const ownerAccountId = accountId("81000000-0000-4000-8000-000000000001");
 const secondAccountId = accountId("81000000-0000-4000-8000-000000000002");
@@ -270,7 +274,7 @@ describe("MemberProfiles", () => {
 
     const cleanup = await maintenance.cleanup({
       graceMs: 0,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 1_000),
     });
     expect(cleanup).toEqual({ cleaned: 1, retained: 1 });

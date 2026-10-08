@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
@@ -39,6 +41,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+registerFixedClock();
 
 // Every access read and write uses production facets over real PostgreSQL.
 // No bank payment, Telegram link, public offer or production grant is created.
@@ -200,7 +204,7 @@ describe("independent product, library, support and shared chat rights", () => {
     const subject = { kind: "account" as const, accountId: accountId(buyer) };
     await db.prisma.product.update({
       where: { id: productId },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     for (const denied of [

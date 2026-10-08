@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -26,6 +28,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 /** Защищённые чтения, которые матрица проверок доступа называет поверхностями Product. */
 const surfaces = ["body", "assets", "video", "practice-list"] as const;

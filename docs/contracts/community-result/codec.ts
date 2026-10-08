@@ -114,6 +114,11 @@ export const communityResultSchema: z.ZodObject<{
       ? value.admissionRestriction !== undefined
       : value.admissionRestriction === undefined && value.groupUrl === undefined,
   )
+  .refine((value) => value.groupUrl === undefined || (
+    value.access.kind !== "denied" &&
+    value.observedMembership === "member" &&
+    value.admissionRestriction === "none"
+  ))
   // `applied` claims an observation; `expired` only fits a finite right.
   .refine((value) =>
     value.status === "applied"

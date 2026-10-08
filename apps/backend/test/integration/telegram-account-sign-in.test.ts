@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -31,6 +33,8 @@ import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";
 
+registerFixedClock();
+
 let database: TestDatabase;
 let terms: LegalAcceptances;
 const termsText = "Synthetic terms of use 883, not legal terms";
@@ -45,7 +49,7 @@ function termsJournal(prisma: TestDatabase["prisma"]) {
   return new LegalAcceptances({
     prisma,
     terms: termsEdition,
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     now: () => new Date(),
   });
 }
@@ -164,9 +168,9 @@ test("a lost provider response retains one Account and principal, and a fresh pr
   await database.prisma.telegramLinkTransaction.update({
     where: { principalRef },
     data: {
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(Date.now() - 301000),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() - 1000),
     },
   });
@@ -250,9 +254,9 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   await database.prisma.telegramLinkTransaction.update({
     where: { linkRef: pending.linkRef },
     data: {
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(Date.now() - 301000),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() - 1000),
       status: "expired",
       // v10 left this field empty; the verified original request is still linkRef.
@@ -267,11 +271,11 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
       returnCorrelation: randomUUID(),
       tokenDigest: randomUUID(),
       status: "recovery_required",
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       updatedAt: new Date(),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() + 300000),
     },
   });
@@ -410,9 +414,9 @@ test.each([
     await database.prisma.telegramLinkTransaction.update({
       where: { linkRef: receipt.linkRef },
       data: {
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         createdAt: new Date(Date.now() - 301000),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         expiresAt: new Date(Date.now() - 1000),
         status: "expired",
         providerTransactionRef: null,

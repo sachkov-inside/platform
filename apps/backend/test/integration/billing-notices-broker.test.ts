@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
@@ -29,6 +31,8 @@ import {
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+registerFixedClock();
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -94,7 +98,7 @@ test("подтверждённая оплата доходит до обоих �
       revision: 1,
       principalRef: `principal-${buyer}`,
       identityRef: `identity-${buyer}`,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       updatedAt: new Date(),
     },
   });
@@ -113,7 +117,7 @@ test("подтверждённая оплата доходит до обоих �
     prisma: database.prisma,
     protection,
     documents,
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     now: () => new Date(),
     sendCode: (message) => {
       codes.set(message.challengeRef, message.code);

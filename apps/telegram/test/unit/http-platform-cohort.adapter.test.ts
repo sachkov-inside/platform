@@ -77,6 +77,31 @@ describe("Platform GET /billing/cohorts contract", () => {
       expect(validResponse(invalid)).toBe(false);
   });
 
+  it("rejects the whole response before extracting a date", async () => {
+    const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const { name: _name, ...incomplete } = cohort();
+    for (const invalid of [
+      { items: [cohort({ stage: "sold_out" })] },
+      { items: [cohort({ revision: 0 })] },
+      { items: [incomplete] },
+      { items: [cohort()], total: 1 },
+      { items: [cohort(), cohort({ productId: "invalid" })] },
+      { items: [cohort({ startsOn: "2026-02-30" })] },
+    ]) {
+      expect(validResponse(invalid)).toBe(false);
+      expect(
+        await adapter(() =>
+          Promise.resolve(Response.json(invalid)),
+        ).source.read(),
+      ).toEqual({});
+    }
+    expect(
+      stderr.mock.calls.filter(([line]) =>
+        String(line).includes("platform_response_invalid"),
+      ),
+    ).toHaveLength(6);
+  });
+
   it.each(fixtures.valid)(
     "Platform may answer $name, and the welcome takes its date",
     async (fixture) => {
