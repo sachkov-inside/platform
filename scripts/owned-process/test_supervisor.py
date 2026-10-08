@@ -16,6 +16,7 @@ const load = spawn(process.execPath, ['-e',
   "process.on('SIGTERM',()=>{});setInterval(()=>{},1000);process.send(process.pid)"
 ], {stdio:['ignore','inherit','inherit','ipc']});
 process.on('SIGTERM',()=>{});
+process.once('SIGUSR1',()=>process.exit(19));
 load.once('message', pid => console.log('READY',process.pid,pid));
 setInterval(()=>{},1000);
 """
@@ -59,6 +60,7 @@ class Ownership(unittest.TestCase):
         const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
           {{stdio:['ignore','pipe','inherit']}});
         child.stdout.pipe(process.stdout);
+        child.once('exit',code=>{{process.exitCode=code}});
         child.once('error',error=>{{console.error(error);process.exit(1)}});
         for(const signal of ['SIGINT','SIGTERM']) process.once(signal,async()=>{{
           await stopOwned(child,100);process.exit(signal==='SIGINT'?130:143);
@@ -74,14 +76,17 @@ class Ownership(unittest.TestCase):
         pids = []
         try:
             pids = read_ready(process)
-            if isinstance(action, int):
+            if action == 'command-exit':
+                os.kill(pids[0], signal.SIGUSR1)
+            elif isinstance(action, int):
                 os.kill(process.pid, action)
             else:
                 process.stdin.write((action + '\n').encode())
                 process.stdin.flush()
             _stdout, stderr = process.communicate(timeout=12)
             expected = -action if action == signal.SIGKILL else (
-                128 + action if isinstance(action, int) else 0)
+                128 + action if isinstance(action, int) else
+                19 if action == 'command-exit' else 0)
             self.assertEqual(process.returncode, expected, stderr.decode())
             for pid in pids:
                 self.assertTrue(stopped(pid), f'owned load {pid} survived {action}')
@@ -109,6 +114,9 @@ class Ownership(unittest.TestCase):
 
     def test_owner_sigkill(self):
         self.exercise(signal.SIGKILL)
+
+    def test_completed_command_cleans_remaining_descendants(self):
+        self.exercise('command-exit')
 
     def test_command_failure_preserves_status(self):
         for command, expected in ((['node', '-e', 'process.exit(19)'], 19),
