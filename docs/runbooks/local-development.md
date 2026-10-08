@@ -417,6 +417,10 @@ surviving worker. `pnpm test:practice-review` runs the native test CLI through
 `scripts/owned-node.mjs`, which owns the runner and its workers outside their test hooks. For a
 standalone native run, use `node scripts/owned-node.mjs` before the Node arguments too.
 
+The external CLI also accepts `--command <executable> <args...>` for synchronous shell contracts.
+Their deadline sends TERM to this owner. The owner waits for the separate supervisor to clear the
+command tree with bounded TERM/KILL cleanup before it exits.
+
 On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
 descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
 when a nested owner supplies a replacement environment. Commands that construct their own child

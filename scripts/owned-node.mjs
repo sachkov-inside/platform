@@ -2,9 +2,10 @@
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 
-const child = spawnOwned(process.execPath, process.argv.slice(2), {
-  stdio: "inherit",
-});
+const args = process.argv.slice(2);
+const command =
+  args[0] === "--command" ? args.splice(0, 2)[1] : process.execPath;
+if (command === undefined) throw new Error("--command requires an executable");
 /** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
@@ -13,6 +14,9 @@ for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
     void stopOwned(child);
   });
 }
+const child = spawnOwned(command, args, {
+  stdio: "inherit",
+});
 try {
   const status = await commandExit(child);
   process.exitCode =

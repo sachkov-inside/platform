@@ -73,8 +73,9 @@ These commands use the shared heavy-check slots. Backend unit selection excludes
 Telegram unit selection includes only `test/unit` and `test/architecture`; Web module selection
 includes only `test/module`. Telegram `check:full` also retains its contract selection.
 The timer-only process-failure checks and
-in-memory bank-double behaviour remain unit tests. Synchronous contract commands have explicit
-termination budgets; asynchronous process contracts observe close and register cleanup.
+in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands run through the external owned CLI with a 30-second default deadline;
+the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
+Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
 ## Merge queue
 

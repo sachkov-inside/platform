@@ -187,6 +187,43 @@ class Ownership(unittest.TestCase):
                 os.killpg(process.pid, signal.SIGKILL)
             process.communicate(timeout=5)
 
+    def test_synchronous_owned_cli_deadline_cleans_descendants(self):
+        load = LOAD.replace("console.log('READY',process.pid,pid)",
+                            "console.log('READY',process.pid,pid,process.ppid)")
+        command = ['node', str(ROOT / 'scripts/owned-node.mjs'),
+                   '--command', 'node', '-e', load]
+        source = f"""
+        const {{spawnSync}}=require('node:child_process');
+        const [command,...args]={json.dumps(command)};
+        const result=spawnSync(command,args,
+          {{encoding:'utf8',timeout:2000,killSignal:'SIGTERM'}});
+        process.stdout.write(result.stdout);
+        console.log('RESULT',result.error?.code,result.status,result.signal);
+        """
+        process = subprocess.Popen(['node', '-e', source], cwd=ROOT,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   start_new_session=True)
+        pids = []
+        try:
+            # The outer synchronous call has returned before it forwards captured readiness.
+            pids = read_ready(process, budget_seconds=15)
+            for pid in pids:
+                row = process_row(pid)
+                self.assertTrue(row is None or row[2] == 'Z',
+                                f'owned load {pid} survived sync return: {row}')
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(process.returncode, 0, stderr.decode())
+            self.assertIn(b'RESULT ETIMEDOUT 143 null', stdout)
+        finally:
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
     def test_normal_owner_exit(self):
         self.exercise('exit')
 
