@@ -117,6 +117,7 @@ export function deterministicTestViolations(file, source, testSource = true) {
   const findings = [];
   /** @type {Set<string>} */
   const timers = new Set(["setTimeout", "waitForTimeout"]);
+  const randomCalls = new Set(["randomUUID"]);
   const unit =
     testSource &&
     (/\/(?:unit|module)\//u.test(file) ||
@@ -151,6 +152,10 @@ export function deterministicTestViolations(file, source, testSource = true) {
     const imported = node(statement["source"])
       ? String(statement["source"]["value"])
       : "";
+    if (/^(?:node:)?crypto$/u.test(imported))
+      for (const specifier of nodes(statement["specifiers"]))
+        if (name(specifier["imported"]) === "randomUUID")
+          randomCalls.add(name(specifier["local"]));
     if (/^(?:node:)?timers(?:\/promises)?$/u.test(imported)) {
       for (const specifier of nodes(statement["specifiers"])) {
         if (name(specifier["imported"]) === "setTimeout")
@@ -297,6 +302,63 @@ export function deterministicTestViolations(file, source, testSource = true) {
       ? rootName(value["object"])
       : name(value);
   }
+  /** @param {unknown} value @returns {boolean} */
+  function testRegistration(value) {
+    if (!node(value)) return false;
+    if (value.type === "CallExpression")
+      return testRegistration(value["callee"]);
+    if (value.type === "MemberExpression")
+      return testRegistration(value["object"]);
+    return ["it", "test", "describe"].includes(name(value));
+  }
+  /** @param {Node} expression */
+  function checkRandomName(expression) {
+    walk(expression, (value) => {
+      if (value.type !== "CallExpression") return;
+      const callee = value["callee"];
+      if (
+        randomCalls.has(name(callee)) ||
+        (node(callee) &&
+          name(callee) === "random" &&
+          name(callee["object"]) === "Math")
+      )
+        report(value, "test-name");
+    });
+  }
+  if (testSource)
+    walk(program, (value) => {
+      if (
+        value.type !== "CallExpression" ||
+        !testRegistration(value["callee"]) ||
+        name(value["callee"]) === "each"
+      )
+        return;
+      const title = nodes(value["arguments"])[0];
+      if (title === undefined) return;
+      checkRandomName(title);
+      const each = value["callee"];
+      if (
+        node(each) &&
+        each.type === "CallExpression" &&
+        name(each["callee"]) === "each" &&
+        title.type === "Literal" &&
+        typeof title["value"] === "string" &&
+        /(?<!%)%[sdifjoOcp]/u.test(title["value"])
+      ) {
+        const columns = [
+          ...title["value"].matchAll(/%%|%[sdifjoOcp]/gu),
+        ].filter((match) => match[0] !== "%%").length;
+        for (const table of nodes(each["arguments"])) {
+          if (table.type !== "ArrayExpression") continue;
+          for (const row of nodes(table["elements"])) {
+            if (row.type === "ArrayExpression")
+              for (const column of nodes(row["elements"]).slice(0, columns))
+                checkRandomName(column);
+            else checkRandomName(row);
+          }
+        }
+      }
+    });
   /** A reset applies only in its registration scope, never in a sibling describe. */
   /** @type {Map<SharedBinding, (Node | null)[]>} */
   const resets = new Map();
