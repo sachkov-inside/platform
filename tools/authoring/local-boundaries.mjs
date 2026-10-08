@@ -182,7 +182,11 @@ export const taskReceiptSchema = z
   })
   .strict();
 const taskValidationSchema = z
-  .object({ valid: z.literal(true), current: taskReceiptSchema.nullable() })
+  .object({
+    valid: z.literal(true),
+    current: taskReceiptSchema.nullable(),
+    migration: z.object({ materialId: z.uuid() }).strict().nullish(),
+  })
   .strict();
 
 const localResponseSchemas = {
