@@ -967,9 +967,9 @@ describe("bot sign-in provider", () => {
   });
 
   it("keeps the opaque subject stable and reports an existing link without changing it", async () => {
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const linking = new IdentityLinking(
       database,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       { now: () => new Date() },
       linkEffects,
     );
