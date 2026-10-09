@@ -29,6 +29,64 @@ describe("Learning material reference batches", () => {
         blocks: [
           ...blocks,
           {
+            kind: "quiz",
+            id: "question-1",
+            correctOptionId: "second",
+            prompt: [
+              {
+                kind: "paragraph",
+                content: [{ kind: "text", text: "Full question", marks: [] }],
+              },
+            ],
+            options: [
+              {
+                id: "first",
+                content: [
+                  {
+                    kind: "paragraph",
+                    content: [{ kind: "text", text: "First", marks: [] }],
+                  },
+                ],
+                explanation: [
+                  {
+                    kind: "paragraph",
+                    content: [
+                      { kind: "text", text: "Wrong explanation", marks: [] },
+                    ],
+                  },
+                ],
+              },
+              {
+                id: "second",
+                content: [
+                  {
+                    kind: "paragraph",
+                    content: [{ kind: "text", text: "Second", marks: [] }],
+                  },
+                ],
+                explanation: [
+                  {
+                    kind: "paragraph",
+                    content: [
+                      { kind: "text", text: "Correct explanation", marks: [] },
+                    ],
+                  },
+                ],
+              },
+            ],
+            dontKnow: {
+              explanation: [
+                {
+                  kind: "paragraph",
+                  content: [
+                    { kind: "text", text: "Review explanation", marks: [] },
+                  ],
+                },
+              ],
+              reviewLinks: ["#section"],
+            },
+          },
+          {
             kind: "blockquote" as const,
             content: [
               {

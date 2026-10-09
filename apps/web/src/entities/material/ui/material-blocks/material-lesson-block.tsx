@@ -7,6 +7,7 @@ import { MaterialKeyPoint } from "./material-key-point";
 import { MaterialLabeledList } from "./material-labeled-list";
 import { MaterialModeVariant } from "./material-mode-variant.client";
 import { MaterialResourceCard } from "./material-resource-card";
+import { MaterialQuiz } from "./material-quiz.client";
 import { MaterialTakeaways } from "./material-takeaways";
 
 /** Блоки, внешний вид которых принадлежит этому модулю. */
@@ -20,7 +21,8 @@ export type LessonBlock = Extract<
       | "labeled_list"
       | "resource_card"
       | "takeaways"
-      | "variant";
+      | "variant"
+      | "quiz";
   }
 >;
 
@@ -51,6 +53,29 @@ export function MaterialLessonBlock({
   readonly rendering: LessonBlockRendering;
 }) {
   switch (block.kind) {
+    case "quiz":
+      return (
+        <MaterialQuiz
+          key={block.id}
+          prompt={rendering.renderBlocks(block.prompt, 0)}
+          correctOptionId={block.correctOptionId}
+          options={block.options.map((option, index) => ({
+            id: option.id,
+            content: rendering.renderBlocks(option.content, index * 2 + 1),
+            explanation: rendering.renderBlocks(
+              option.explanation,
+              index * 2 + 2,
+            ),
+          }))}
+          dontKnow={{
+            explanation: rendering.renderBlocks(
+              block.dontKnow.explanation,
+              block.options.length * 2 + 1,
+            ),
+            reviewLinks: block.dontKnow.reviewLinks,
+          }}
+        />
+      );
     case "callout":
       return (
         <MaterialCallout

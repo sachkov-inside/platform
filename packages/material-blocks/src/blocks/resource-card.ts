@@ -19,10 +19,14 @@ import {
 /** The address a reader may open from a lesson: an absolute https link and nothing else. */
 const resourceUrlSchema = z.url({ protocol: /^https$/u });
 
+export function resourceCardUrlValid(value: string): boolean {
+  return resourceUrlSchema.safeParse(value).success;
+}
+
 function urlIssue(value: unknown): boolean {
   if (typeof value !== "string") return true;
   // An address the author has not typed yet is not an error; publishing an unusable one is.
-  return value.length > 0 && !resourceUrlSchema.safeParse(value).success;
+  return value.length > 0 && !resourceCardUrlValid(value);
 }
 
 /** A named external resource the reader opens from the lesson. */

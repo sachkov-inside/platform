@@ -42,7 +42,24 @@ export interface ImageAssetPresentation {
     readonly { readonly height: number; readonly width: number }[] | undefined;
 }
 
+export interface RenderedQuiz {
+  readonly kind: "quiz";
+  readonly id: string;
+  readonly prompt: readonly RenderedBlock[];
+  readonly correctOptionId: string;
+  readonly options: readonly {
+    readonly id: string;
+    readonly content: readonly RenderedBlock[];
+    readonly explanation: readonly RenderedBlock[];
+  }[];
+  readonly dontKnow: {
+    readonly explanation: readonly RenderedBlock[];
+    readonly reviewLinks: readonly string[];
+  };
+}
+
 export type RenderedBlock =
+  | RenderedQuiz
   | { readonly content: readonly RenderedText[]; readonly kind: "paragraph" }
   | {
       readonly content: readonly RenderedText[];
