@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   currentBillingSchema,
-  isProductCapability,
+  productCapability,
 } from "@/entities/subscription";
 import { requestCurrentBilling } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
@@ -27,14 +27,9 @@ export async function readLearningDestination(): Promise<string> {
     const parsed = currentBillingSchema.safeParse(billing.body);
     const pinned = home.value.pinnedSeries;
     if (!parsed.success || pinned === null) return "/";
+    const capability = productCapability(pinned.id);
     const owned = parsed.data.grounds.some(
-      (ground) =>
-        ground.active &&
-        ground.capabilities.some(
-          (capability) =>
-            isProductCapability(capability) &&
-            capability === `product:${pinned.id}`,
-        ),
+      (ground) => ground.active && ground.capabilities.includes(capability),
     );
     return owned ? productProgrammeHref(pinned.slug) : "/";
   } catch {
