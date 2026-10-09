@@ -71,3 +71,12 @@ export type {
   ImageVariants,
   ImageAssetPresentation,
 } from "./rendered-block.js";
+
+export {
+  quizContentSchema,
+  readerBlocksSchema,
+  type QuizContent,
+  type ContentReaderBlock,
+} from "./quiz-content.js";
+export { materialHeadingAnchors } from "./heading-anchors.js";
+export type { RenderedQuiz } from "./rendered-block.js";

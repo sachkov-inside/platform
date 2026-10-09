@@ -3,6 +3,9 @@ import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
+  readerBlocksSchema,
+  renderMaterialBlocks,
+  materialHeadingAnchors,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
 import { createHash } from "node:crypto";
@@ -178,6 +181,7 @@ export function sourceUuid(value) {
  * @param {{
  *   sourcePath: string;
  *   sourceId: string;
+ *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[];
  *   link: (href: string) => string;
  *   image: (src: string) => string;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
@@ -185,7 +189,7 @@ export function sourceUuid(value) {
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image, imageVariants },
+  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
 ) {
   /**
    * @param {Token} token
@@ -359,7 +363,54 @@ export function convertMarkdown(
     }
     return root;
   };
-  const doc = blocks(parser.parse(markdown, {}));
+  const doc =
+    readerBlocks === undefined
+      ? blocks(parser.parse(markdown, {}))
+      : {
+          type: "doc",
+          content: readerBlocksSchema.parse(readerBlocks).flatMap((block) => {
+            if (block.kind === "markdown")
+              return blocks(parser.parse(block.markdown, {})).content;
+            const rich = (/** @type {string} */ value) =>
+              renderMaterialBlocks(blocks(parser.parse(value, {})).content);
+            return [
+              {
+                type: "quiz",
+                attrs: {
+                  quiz: {
+                    kind: "quiz",
+                    id: block.id,
+                    prompt: rich(block.promptMarkdown),
+                    correctOptionId: block.correctOptionId,
+                    options: block.options.map((option) => ({
+                      id: option.id,
+                      content: rich(option.markdown),
+                      explanation: rich(option.explanationMarkdown),
+                    })),
+                    dontKnow: {
+                      explanation: rich(block.dontKnow.explanationMarkdown),
+                      reviewLinks: block.dontKnow.reviewLinks.map(link),
+                    },
+                  },
+                },
+              },
+            ];
+          }),
+        };
+  if (readerBlocks !== undefined) {
+    const anchors = new Set(
+      materialHeadingAnchors(renderMaterialBlocks(doc.content)).values(),
+    );
+    for (const block of readerBlocksSchema.parse(readerBlocks)) {
+      if (block.kind !== "quiz") continue;
+      for (const href of block.dontKnow.reviewLinks) {
+        if (!anchors.has(decodeURIComponent(href.slice(1))))
+          throw new Error(
+            `${sourcePath}: quiz ${block.id}: missing narrative anchor ${href}`,
+          );
+      }
+    }
+  }
   /**
    * IDs are stable for unchanged positions, and are independent of filenames and target
    * environments.

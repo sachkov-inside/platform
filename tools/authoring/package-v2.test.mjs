@@ -162,7 +162,7 @@ test("v2 collapsible advice survives loading and repeated Task page conversion",
 test("unknown features stop load, sync and preview before transport or asset reads", async (t) => {
   const f = await temporary(t);
   const manifest = fixture();
-  manifest.requiredFeatures = ["quiz-v1"];
+  manifest.requiredFeatures = ["unknown-quiz-v99"];
   await f.write({
     ...manifest,
     assets: [
@@ -181,14 +181,17 @@ test("unknown features stop load, sync and preview before transport or asset rea
     calls.push(path);
     throw new Error("transport must not run");
   };
-  await assert.rejects(loadPackage(f.path), /quiz-v1/u);
-  await assert.rejects(syncLocal(f.path, f.state, { request }), /quiz-v1/u);
+  await assert.rejects(loadPackage(f.path), /unknown-quiz-v99/u);
+  await assert.rejects(
+    syncLocal(f.path, f.state, { request }),
+    /unknown-quiz-v99/u,
+  );
   await assert.rejects(
     previewRelease(f.path, f.state, {
       origin: "http://127.0.0.1:3101",
       request,
     }),
-    /quiz-v1/u,
+    /unknown-quiz-v99/u,
   );
   assert.deepEqual(calls, []);
 });
@@ -882,4 +885,44 @@ test("incomplete or undeclared variant sets stop synchronization before its firs
     );
     assert.equal(requests, 0, kind);
   }
+});
+
+test("loadPackage accepts Content quiz-v1 readerBlocks without losing the raw source", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  const page = {
+    ...task.page,
+    readerBlocks: [
+      { kind: "markdown", markdown: "## Section\n\nNarrative" },
+      {
+        kind: "quiz",
+        id: "question-1",
+        promptMarkdown: "Which?",
+        correctOptionId: "second",
+        options: [
+          {
+            id: "first",
+            markdown: "First",
+            explanationMarkdown: "Wrong reason",
+          },
+          {
+            id: "second",
+            markdown: "Second",
+            explanationMarkdown: "Correct reason",
+          },
+        ],
+        dontKnow: {
+          explanationMarkdown: "Review section",
+          reviewLinks: ["#section"],
+        },
+      },
+    ],
+  };
+  const envelope = { ...manifest, tasks: [{ ...task, page }] };
+  await f.write(envelope);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(pkg.manifest.tasks?.[0]?.page, page);
 });
