@@ -106,7 +106,7 @@ describe("production watchdog", () => {
       assert.match(failure, /Рост ошибок web за 10 минут/u);
       assert.match(failure, /Новых digest web за 10 минут: 2/u);
       assert.match(failure, /Телеметрия web достигла 480 MB/u);
-      assert.match(failure, /Отброшено отчётов web за сутки: 15/u);
+      assert.match(failure, /Отброшено метрик и ошибок web за сутки: 15/u);
       fixture.fake("sql", healthySql);
       assert.match(
         assertRun(fixture, now + 60),
