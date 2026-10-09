@@ -75,18 +75,20 @@ export async function withGitSnapshot(repository, ref, use) {
  * @param {string} productId
  * @param {string} stateDirectory
  * @param {string} [ref]
+ * @param {(command: string, args: string[], options: typeof commandOptions & { cwd: string }) => Promise<{ stdout: string; stderr: string }>} [exporter]
  */
 export async function exportCommittedPackage(
   repository,
   productId,
   stateDirectory,
   ref = "HEAD",
+  exporter = execute,
 ) {
   const state = resolve(stateDirectory);
   await mkdir(state, { recursive: true });
   return withGitSnapshot(repository, ref, async ({ snapshot, commit }) => {
     process.stderr.write(`Preparing committed content ${commit}\n`);
-    const { stdout } = await execute(
+    const { stdout } = await exporter(
       "uv",
       [
         "run",
@@ -94,7 +96,7 @@ export async function exportCommittedPackage(
         "python",
         "tools/content.py",
         "export-platform",
-        "--product",
+        "--guide",
         productId,
         "--output",
         join(state, "packages"),

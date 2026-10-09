@@ -55,9 +55,16 @@
 | Вступление в группу | `inside_telegram_community_oldest_due_seconds` больше 600 | 1 |
 | Активация в боте | `inside_telegram_activation_oldest_pending_seconds` больше 600 | 1 |
 | Бот | `update_failed_total` или `delivery_api_rejected_total` выросли за 10 минут | 1 |
-| Webhook банка | ответ 4xx или 5xx на `/billing/tbank/notification` в журнале `api` за 5 минут | 1 |
+| Webhook банка | ответ 4xx или 5xx на `/billing/tbank/notification` в журнале `api` за 5 минут, кроме ожидаемой 400-пробы verify | 1 |
 | Фоновая работа | `"status":"operator_attention"` в журнале процесса Platform за 5 минут | 1 |
 | Вход | 5 и больше событий `authentication_failed` в журнале `web` за 10 минут | 1 |
+
+Отрицательная проба `production:verify` получает в журнале API `probe: "production_verify"`.
+API ставит признак только пустому POST на `/billing/tbank/notification` с точным служебным маркером и ответом 400.
+Caddy удаляет маркер у соединений вне `127.0.0.1` и `::1`; заголовки пересылки не меняют этот выбор.
+Сторож исключает только запись такого POST с HTTP 400. Остальные 4xx и все 5xx вызывают сигнал,
+включая отказ настоящего webhook одновременно с пробой. Окна подавления на время verify нет.
+Проверка опирается на закрытый loopback-порт API и Caddy без внешнего локального reverse proxy.
 
 Почему пороги такие:
 

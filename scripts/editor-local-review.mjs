@@ -8,14 +8,21 @@ import { createServer, request as proxyRequest } from "node:http";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import {
+  editorLocalPorts,
+  editorLocalEndpoints,
+  assertEditorPortsAvailable,
+} from "./editor-local-config.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
 if (!pnpmExecutable) throw new Error("Run pnpm editor:local");
 const pnpmPath = pnpmExecutable;
-const webBaseUrl = "http://127.0.0.1:4396";
-const apiBaseUrl = "http://127.0.0.1:4397";
+const ports = editorLocalPorts();
+await assertEditorPortsAvailable(ports);
+const { gatewayHost, apiHost, webBaseUrl, apiBaseUrl } =
+  editorLocalEndpoints(ports);
 const identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
 // Never inherit production database/provider/identity configuration from the shell.
 const environment = {
@@ -29,7 +36,7 @@ const environment = {
   DATABASE_URL: "postgresql://inside:inside@127.0.0.1:54396/inside",
   OBJECT_STORAGE_ENDPOINT: "http://127.0.0.1:9036",
   API_HOST: "127.0.0.1",
-  API_PORT: "4397",
+  API_PORT: String(ports.api),
   BACKEND_BASE_URL: apiBaseUrl,
   KINESCOPE_PROVIDER_MODE: "test",
   OWNER_PERMISSION: "platform:admin",
@@ -46,7 +53,7 @@ let closePromise;
 /** @type {Set<import("node:net").Socket>} */
 const sockets = new Set();
 const gateway = createServer(async (request, response) => {
-  if (request.headers.host !== "127.0.0.1:4396") {
+  if (request.headers.host !== gatewayHost) {
     response.writeHead(403).end();
     return;
   }
@@ -62,12 +69,12 @@ const gateway = createServer(async (request, response) => {
       const upstream = proxyRequest(
         {
           hostname: "127.0.0.1",
-          port: 4397,
+          port: ports.api,
           path: request.url.slice("/__local-api".length),
           method: request.method,
           headers: {
             ...request.headers,
-            host: "127.0.0.1:4397",
+            host: apiHost,
             authorization: `Bearer ${(await identity.createAccessToken()).token}`,
           },
         },
@@ -88,13 +95,13 @@ const gateway = createServer(async (request, response) => {
     const upstream = proxyRequest(
       {
         hostname: "127.0.0.1",
-        port: 4398,
+        port: ports.web,
         path: request.url,
         method: request.method,
         headers: {
           ...request.headers,
           cookie: `${identity.cookieName}=${session}`,
-          "x-forwarded-host": "127.0.0.1:4396",
+          "x-forwarded-host": gatewayHost,
           "x-forwarded-proto": "http",
         },
       },
@@ -116,11 +123,11 @@ gateway.on("connection", (socket) => {
   socket.once("close", () => sockets.delete(socket));
 });
 gateway.on("upgrade", (request, socket, head) => {
-  if (request.headers.host !== "127.0.0.1:4396") {
+  if (request.headers.host !== gatewayHost) {
     socket.destroy();
     return;
   }
-  const upstream = connect(4398, "127.0.0.1", () => {
+  const upstream = connect(ports.web, "127.0.0.1", () => {
     upstream.write(
       `${request.method} ${request.url} HTTP/1.1\r\n${Object.entries(
         request.headers,
@@ -195,14 +202,18 @@ try {
       "--hostname",
       "127.0.0.1",
       "--port",
-      "4398",
+      String(ports.web),
     ],
     true,
   );
   /** @type {Promise<void>} */
-  const listening = new Promise((done) =>
-    gateway.listen(4396, "127.0.0.1", done),
-  );
+  const listening = new Promise((done, reject) => {
+    gateway.once("error", reject);
+    gateway.listen(ports.gateway, "127.0.0.1", () => {
+      gateway.removeListener("error", reject);
+      done();
+    });
+  });
   await listening;
   process.stdout.write(
     `Local editor: ${webBaseUrl}/authoring/materials — local administrator, synthetic Kinescope provider.\n`,

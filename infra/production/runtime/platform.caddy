@@ -5,6 +5,11 @@ inside.sachkov.dev {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 	route {
+		# Only the host's loopback verification may mark its empty bank rejection probe.
+		# Match the socket peer, never a client-supplied forwarding header.
+		@external_probe not remote_ip 127.0.0.1 ::1
+		request_header @external_probe -X-Inside-Production-Verify
+
 		@private_health path /health /health/* /_health/*
 		respond @private_health 404
 

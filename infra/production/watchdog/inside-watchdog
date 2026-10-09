@@ -398,9 +398,14 @@ check_logs() {
     fi
     case "$service" in
       api)
-        count="$(grep '"event":"request_completed"' <<<"$logs" |
-          grep '"route":"/billing/tbank/notification"' |
-          grep -cE '"statusCode":[45][0-9][0-9]' || true)"
+        # Caddy removes the probe header from non-loopback peers. Only its expected 400 is exempt.
+        count="$(jq --raw-input --slurp '[split("\n")[] | fromjson? |
+          select(type == "object") |
+          select(.event == "request_completed" and .route == "/billing/tbank/notification") |
+          select((.statusCode | type) == "number") |
+          select(.statusCode >= 400 and .statusCode < 600) |
+          select((.method == "POST" and .probe == "production_verify" and .statusCode == 400) | not)
+          ] | length' <<<"$logs")"
         if (( count > 0 )); then
           observe log.bank_webhook 1 "Webhook банка отклонён: $count за 5 минут"
         fi

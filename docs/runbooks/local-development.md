@@ -800,6 +800,26 @@ the committed originals (purchases, accounts and progress are lost).
 
 `pnpm editor:local` runs the real editor and API against isolated PostgreSQL at port 54396 and
 RustFS at 9036. It refuses production configuration by constructing its own local environment.
+Before starting identity, migrations or child processes, the launcher checks that its three
+loopback ports are free. A busy port causes an error naming its environment variable; the launcher
+does not stop the process that owns it. Configure distinct ports when another local runtime uses
+the defaults:
+
+| Environment variable | Default | Listener |
+|---|---|---|
+| `EDITOR_LOCAL_GATEWAY_PORT` | `4396` | Browser gateway |
+| `EDITOR_LOCAL_API_PORT` | `4397` | API |
+| `EDITOR_LOCAL_WEB_PORT` | `4398` | Internal Next.js |
+
+```bash
+EDITOR_LOCAL_GATEWAY_PORT=4496 EDITOR_LOCAL_API_PORT=4497 EDITOR_LOCAL_WEB_PORT=4498 pnpm editor:local
+```
+
+For that example, open `http://127.0.0.1:4496/authoring/materials`. The gateway validates `Host`
+and sets `x-forwarded-host` to the selected gateway host and port. API requests use the selected
+API port. Authoring tools can address a custom gateway by its explicit loopback origin;
+the named `editor` target retains its default port 4396.
+
 Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
@@ -1024,13 +1044,18 @@ Compose project.
 for manual reading and navigation checks; the development server compiles routes on demand.
 Then run `pnpm local:course` (optionally `--owner-email EMAIL` on first use). It uses the same
 owner sign-in/bootstrap and persistent journal as `local:product`, but selects `inside-ai-engineering`
-and an explicit **local preview**. The source repository can be selected with `--content PATH`;
+and an explicit **local preview**. The Platform command retains `--product`; its Content subprocess calls `export-platform --guide`.
+The source repository can be selected with `--content PATH`;
 `--ref COMMIT` pins the chosen content revision.
 
 The local preview leaves the original package and Content files unchanged. It creates a separately
-hashed package with preparation lessons, the first two chapter-one lessons and supplementary
-materials free; the remaining lessons require the product. Practice definitions are published only
-in this local copy, while lesson editorial stages stay drafts. The receipt records both package
+hashed package using the explicit acceptance profile for #1284: all materials in `project-setup`
+are free; materials in `mvp-platform`, `team-agent-infrastructure`, `business-agent`,
+`quality-and-production` and supplementary materials are closed. The profile requires that exact
+five-chapter programme in that order and a nonempty `project-setup`; it refuses an unknown programme
+until its profile is reviewed. Source IDs and chapter composition remain unchanged. Practice definitions are published only
+in this local copy, while lesson editorial stages stay unchanged. Task access and publication state
+remain authored; this profile does not choose access for Tasks. The receipt records both package
 paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
 refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
 
