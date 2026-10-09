@@ -311,6 +311,26 @@ export class BotSignIn {
     browserSecret: string,
     consume = false,
   ): Promise<SignInResult> {
+    return this.readAttempt(
+      requestRef,
+      browserSecret,
+      consume ? "consume" : "status",
+    );
+  }
+
+  /** Recovers a committed result under its original browser binding; never consumes a proof. */
+  async receipt(
+    requestRef: string,
+    browserSecret: string,
+  ): Promise<SignInResult> {
+    return this.readAttempt(requestRef, browserSecret, "receipt");
+  }
+
+  private async readAttempt(
+    requestRef: string,
+    browserSecret: string,
+    mode: "status" | "consume" | "receipt",
+  ): Promise<SignInResult> {
     if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
     if (!isRequestRef(requestRef) || !isDigest(browserSecret))
       return { status: "unavailable" };
@@ -339,13 +359,16 @@ export class BotSignIn {
         )
           return { status: "disabled" };
         if (request.expires_at <= now) return { status: "expired" };
+        if (mode === "receipt" && request.state !== "consumed")
+          return { status: "unavailable" };
         if (
           request.state === "pending" ||
           request.state === "awaiting_approval"
         )
           return { status: "pending" };
-        if (request.state !== "approved") return { status: request.state };
-        if (!consume) return { status: "approved" };
+        if (request.state !== "approved" && mode !== "receipt")
+          return { status: request.state };
+        if (mode === "status") return { status: "approved" };
         if (!hasText(request.telegram_user_id) || !request.approved_at)
           return { status: "unavailable" };
         await lockTelegramIdentity(
@@ -353,15 +376,16 @@ export class BotSignIn {
           request.bot_identity,
           request.telegram_user_id,
         );
-        await transaction
-          .insertInto("sign_in_subjects")
-          .values({
-            subject_ref: randomUUID(),
-            bot_identity: request.bot_identity,
-            telegram_user_id: request.telegram_user_id,
-          })
-          .onConflict((conflict) => conflict.doNothing())
-          .execute();
+        if (mode === "consume")
+          await transaction
+            .insertInto("sign_in_subjects")
+            .values({
+              subject_ref: randomUUID(),
+              bot_identity: request.bot_identity,
+              telegram_user_id: request.telegram_user_id,
+            })
+            .onConflict((conflict) => conflict.doNothing())
+            .execute();
         const subject = await transaction
           .selectFrom("sign_in_subjects")
           .select("subject_ref")
@@ -372,7 +396,7 @@ export class BotSignIn {
           botIdentity: request.bot_identity,
           telegramUserId: request.telegram_user_id,
         });
-        if (!link) {
+        if (!link && mode === "consume") {
           // Approval of independent registration reserves this subject even if the browser loses
           // the consume response. A fresh bot sign-in can repair it; email linking cannot take it.
           await transaction
@@ -381,11 +405,12 @@ export class BotSignIn {
             .where("subject_ref", "=", subject.subject_ref)
             .execute();
         }
-        await transaction
-          .updateTable("sign_in_requests")
-          .set({ state: "consumed", consumed_at: now })
-          .where("request_ref", "=", requestRef)
-          .execute();
+        if (mode === "consume")
+          await transaction
+            .updateTable("sign_in_requests")
+            .set({ state: "consumed", consumed_at: now })
+            .where("request_ref", "=", requestRef)
+            .execute();
         return {
           status: "verified",
           subjectRef: subject.subject_ref,

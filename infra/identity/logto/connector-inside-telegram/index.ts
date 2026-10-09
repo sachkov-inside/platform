@@ -76,7 +76,15 @@ const createConnector: CreateConnector<SocialConnector> = async ({ getConfig }) 
       const callback = z.object({ inside_state: z.string(), code: z.string().uuid() }).parse(data);
       const session = sessionGuard.parse(await getSession());
       if (callback.inside_state !== session.state || callback.code !== session.requestRef || Date.parse(session.expiresAt) <= Date.now()) throw failure();
-      const proof = proofGuard.parse(await request(`/${session.requestRef}/consume`, { contractVersion, browserSecret: session.browserSecret }));
+      const binding = { contractVersion, browserSecret: session.browserSecret };
+      let proof;
+      try {
+        proof = proofGuard.parse(await request(`/${session.requestRef}/consume`, binding));
+      } catch {
+        // A timeout can follow a committed consume. The authenticated receipt only reads that
+        // exact attempt and cannot consume another proof or create a new subject.
+        proof = proofGuard.parse(await request(`/${session.requestRef}/receipt`, binding));
+      }
       return { id: proof.subjectRef, rawData: { requestRef: session.requestRef, existingLink: proof.existingLink } };
     },
   };

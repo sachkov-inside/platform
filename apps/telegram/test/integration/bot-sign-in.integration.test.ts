@@ -123,6 +123,9 @@ describe("bot sign-in provider", () => {
     const challenge = await registerMiniApp(mini);
     const proof = miniAppProof(challenge.requestRef);
     await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
       mini.approveMiniApp(challenge.requestRef, challenge.browserSecret, proof),
     ).resolves.toEqual({ status: "approved" });
     await expect(
@@ -137,8 +140,17 @@ describe("bot sign-in provider", () => {
     if (consumed.status !== "verified")
       throw new Error("Mini App proof was not consumed");
     await expect(
+      mini.receipt(challenge.requestRef, randomBytes(32).toString("base64url")),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual(consumed);
+    await expect(
       mini.inspect(challenge.requestRef, challenge.browserSecret, true),
     ).resolves.toEqual({ status: "consumed" });
+    await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual(consumed);
     const bot = await register();
     await start(bot, 42);
     await callback(bot, 42);
