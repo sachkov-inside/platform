@@ -1488,7 +1488,7 @@ preserve their relation. Ordinary single-asset images retain their delivery path
 
 The Reader and Task c page reuse the existing image and full-screen viewer. They choose the wide
 composition at an image column width of at least 560 CSS pixels, and the tall composition below it.
-They choose light or dark from the column's computed color scheme and react to width and theme
+They choose light or dark from the effective column theme and react to width and theme
 changes. The public application shell currently fixes the light theme; this capability does not add
 a theme switch. The viewer opens the selected composition. `scene.js` and `DURATION` have no
 execution path in this feature; the importer consumes static image assets only.
