@@ -57,6 +57,7 @@ export function observeHttpRequests(
         durationMs: Math.round(reply.elapsedTime),
         // Caddy strips this marker from non-loopback peers; a bank payload is never a probe.
         ...(process === "api" &&
+        reply.statusCode === 400 &&
         request.method === "POST" &&
         route === "/billing/tbank/notification" &&
         request.body === undefined &&

@@ -47,6 +47,7 @@ describe("production verification request log", () => {
   it.each([
     {
       name: "unmarked bank rejection",
+      status: 400,
       method: "POST" as const,
       path: "/billing/tbank/notification",
       marker: undefined,
@@ -54,6 +55,7 @@ describe("production verification request log", () => {
     },
     {
       name: "unknown marker",
+      status: 400,
       method: "POST" as const,
       path: "/billing/tbank/notification",
       marker: "arbitrary-private-value",
@@ -61,6 +63,7 @@ describe("production verification request log", () => {
     },
     {
       name: "bank payload",
+      status: 400,
       method: "POST" as const,
       path: "/billing/tbank/notification",
       marker: "bank-webhook-rejection",
@@ -68,6 +71,7 @@ describe("production verification request log", () => {
     },
     {
       name: "another route",
+      status: 400,
       method: "POST" as const,
       path: "/other",
       marker: "bank-webhook-rejection",
@@ -75,14 +79,31 @@ describe("production verification request log", () => {
     },
     {
       name: "another method",
+      status: 400,
       method: "GET" as const,
+      path: "/billing/tbank/notification",
+      marker: "bank-webhook-rejection",
+      payload: undefined,
+    },
+    {
+      name: "unexpected 401",
+      status: 401,
+      method: "POST" as const,
+      path: "/billing/tbank/notification",
+      marker: "bank-webhook-rejection",
+      payload: undefined,
+    },
+    {
+      name: "unexpected 503",
+      status: 503,
+      method: "POST" as const,
       path: "/billing/tbank/notification",
       marker: "bank-webhook-rejection",
       payload: undefined,
     },
   ])(
     "does not mark $name as a probe",
-    async ({ method, path, marker, payload }) => {
+    async ({ method, path, marker, payload, status }) => {
       const infos = vi
         .spyOn(console, "info")
         .mockImplementation(() => undefined);
@@ -91,7 +112,7 @@ describe("production verification request log", () => {
       server.route({
         method,
         url: path,
-        handler: (_request, reply) => reply.code(400).send(),
+        handler: (_request, reply) => reply.code(status).send(),
       });
       await server.inject({
         method,
