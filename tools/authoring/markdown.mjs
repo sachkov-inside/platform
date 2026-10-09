@@ -8,6 +8,7 @@ import {
   materialHeadingAnchors,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
+import { z } from "zod";
 import { createHash } from "node:crypto";
 
 /**
@@ -181,7 +182,7 @@ export function sourceUuid(value) {
  * @param {{
  *   sourcePath: string;
  *   sourceId: string;
- *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[];
+ *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
@@ -363,6 +364,9 @@ export function convertMarkdown(
     }
     return root;
   };
+  const renderNodes = (/** @type {DocNode[]} */ nodes) => {
+    return renderMaterialBlocks(z.array(z.json()).parse(nodes));
+  };
   const doc =
     readerBlocks === undefined
       ? blocks(parser.parse(markdown, {}))
@@ -372,7 +376,7 @@ export function convertMarkdown(
             if (block.kind === "markdown")
               return blocks(parser.parse(block.markdown, {})).content;
             const rich = (/** @type {string} */ value) =>
-              renderMaterialBlocks(blocks(parser.parse(value, {})).content);
+              renderNodes(blocks(parser.parse(value, {})).content);
             return [
               {
                 type: "quiz",
@@ -389,7 +393,7 @@ export function convertMarkdown(
                     })),
                     dontKnow: {
                       explanation: rich(block.dontKnow.explanationMarkdown),
-                      reviewLinks: block.dontKnow.reviewLinks.map(link),
+                      reviewLinks: block.dontKnow.reviewLinks,
                     },
                   },
                 },
@@ -399,7 +403,7 @@ export function convertMarkdown(
         };
   if (readerBlocks !== undefined) {
     const anchors = new Set(
-      materialHeadingAnchors(renderMaterialBlocks(doc.content)).values(),
+      materialHeadingAnchors(renderNodes(doc.content)).values(),
     );
     for (const block of readerBlocksSchema.parse(readerBlocks)) {
       if (block.kind !== "quiz") continue;

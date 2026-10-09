@@ -253,11 +253,29 @@ production trade-off подтверждён evidence, а не заранее д�
 остаются валидными без миграции: `schemaVersion` остаётся 1, а отсутствующее название не пишется
 в документ. Названия видов принадлежат реестру, потому что их печатает и редактор, и читатель.
 
+Квиз `quiz` (#1283, #940) импортируется из Content `readerBlocks` v2 на месте вопроса.
+Если `readerBlocks` присутствуют, импорт не использует `markdown` для читательского тела.
+Полный Markdown сохраняется в пакете как снимок исходника. Новый авторский синтаксис не вводится.
+Квиз содержит условие, 2–5 вариантов с уникальными ID, один ключ, объяснение каждого варианта
+и объяснение «Не знаю» со ссылками на повествовательные заголовки этого материала.
+Проверка пакета требует `quiz-v1` и `github-anchors-v1`, проверяет форму и якоря до записи assets.
+Якоря распределяются по всем Markdown-фрагментам вместе; условие и разборы не создают
+повествовательных якорей. Неизвестная часть квиза и неподдержанная capability отклоняются.
+
+Реестр сохраняет квиз как атомарный узел с типизированным читательским содержимым в атрибуте.
+Редактор показывает квиз только для чтения и сохраняет его без потерь; автор меняет его в Content.
+Reader и Storybook используют production-owned вариант A из принятого proof
+`6ff382e3b8a9d3ce02b600b5592dc39a1d01903c`. После выбора Reader показывает объяснение;
+«Не знаю» показывает правильный ответ и ссылку для повтора. Повтор и все объяснения доступны
+локально. Ответы не сохраняются, не меняют прогресс и не засчитывают практику.
+Поиск извлекает только условие квиза. Учебный MCP возвращает полный структурированный блок,
+включая варианты, ключ, объяснения и ссылки, при сохранении обычной проверки доступа к body.
+
 Редактор вставляет вариантный шаг сразу с двумя ветками. Имя режима ветки автор читает на самой
 ветке и меняет там же, где меняет вид врезки; там же он убирает лишнюю ветку и заводит недостающую,
 получая односторонний шаг. Предпросмотр показывает то же, что увидит читатель.
 
-Обязательное текстовое поле блока принимается как присутствующая строка, а не как непустая: автор
+Обязательное текстовое поле редактируемого блока принимается как присутствующая строка, а не как непустая: автор
 заполняет поля после вставки, и автосохранение черновика не должно отказывать. Адрес карточки
 ресурса проверяется только когда он заполнен, и тогда он обязан быть абсолютным `https`.
 
@@ -1374,9 +1392,9 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
 The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
-`task-c-v2`, `github-anchors-v1`, `image-variants-v1` and `collapsible-callouts-v1`; unknown features are refused by name.
-Quizzes (#940) remain a separate integration. A Content package that requires that feature is
-refused until the integration supports it.
+`task-c-v2`, `github-anchors-v1`, `image-variants-v1`, `collapsible-callouts-v1` and `quiz-v1`; unknown features are refused by name.
+Quiz integration (#1283, #940) imports Content `readerBlocks`, including the full explanations,
+while the search extraction includes only the question. The Reader never renders the raw key section.
 
 Callout signs survive Markdown import into Materials and Task c pages (#1196). `-` maps to
 `collapse: collapsed`, `+` to `collapse: expanded`; absence of the sign keeps an ordinary callout.

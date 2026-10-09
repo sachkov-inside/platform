@@ -50,8 +50,7 @@ function quizSchema(block: z.ZodType<RenderedBlock>) {
     );
 }
 
-// The recursive registry supplies the rendered schema; this lazy import-free reference is set
-// through renderedSchema before document acceptance invokes field validation.
+// The lazy recursive schema is evaluated only when an accepted node is rendered or validated.
 import { renderedBlockSchema } from "../rendered-block-schema.js";
 
 export const quizBlock: MaterialBlockDefinition = defineMaterialBlock<"quiz">({

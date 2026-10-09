@@ -1185,7 +1185,9 @@ so `apply` publishes exactly what was reviewed. A Material missing from this sta
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
 Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
-uploads. This importer supports `task-c-v2` and `github-anchors-v1`. A Task with `access: null` is a preview conflict
+uploads. This importer supports `task-c-v2`, `github-anchors-v1`, `image-variants-v1`,
+`collapsible-callouts-v1` and `quiz-v1`. Content quiz `readerBlocks` take precedence over raw Markdown;
+quiz shape and narrative review anchors are validated before asset uploads. A Task with `access: null` is a preview conflict
 until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
 unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes
 no `--task-access` and does not change package bytes. An existing Material with the Task source key
@@ -1209,3 +1211,18 @@ listing and stops it afterwards.
 
 `pnpm test:authoring` verifies package checks, conversion, recovery, covers, artifacts, video,
 archive and release decisions. Evidence is in [the checkpoint](../evidence/issue-468/README.md).
+
+### Isolated quiz acceptance (#1283)
+
+After starting the owned `pnpm editor:local` runtime and this worktree's `pnpm storybook`, run:
+
+```bash
+CAPTURE_EVIDENCE=1 pnpm --filter @inside/web test:fullstack --config playwright.quiz.config.ts
+```
+
+The configuration addresses only the editor gateway at `127.0.0.1:4396` and Storybook at `6006`.
+It never starts or resets Compose. The live test imports synthetic Content `readerBlocks`, exercises
+Reader answers/keyboard/anchors, checks axe and editor roundtrip, and keeps the synthetic materials
+for owner review. It does not prove real Logto sign-in or purchases. Screenshots go to
+`docs/evidence/issue-1283`; the console records Reader/editor routes. Resolve internal web port
+conflicts through the editor runtime configuration before launch; leave another session's stand alone.

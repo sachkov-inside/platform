@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-const text = z.string().trim().min(1);
+const text = z
+  .string()
+  .min(1)
+  .refine((value) => value.trim().length > 0, "Expected nonblank quiz text");
 const id = text.refine(
   (value) => value !== "dontKnow",
   "Reserved quiz option ID",

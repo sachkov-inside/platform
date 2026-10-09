@@ -17,7 +17,9 @@ export function convertMarkdown(
   source: {
     sourcePath: string;
     sourceId: string;
-    readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[];
+    readerBlocks?:
+      | readonly import("@inside/material-blocks").ContentReaderBlock[]
+      | undefined;
     link: (href: string) => string;
     image: (src: string) => string;
     imageVariants?: (src: string) => ImageVariantResolution | undefined;

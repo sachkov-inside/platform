@@ -80,3 +80,5 @@ export {
 } from "./quiz-content.js";
 export { materialHeadingAnchors } from "./heading-anchors.js";
 export type { RenderedQuiz } from "./rendered-block.js";
+
+export { materialQuizReferencesValid } from "./quiz-document.js";

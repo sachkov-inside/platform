@@ -13,6 +13,11 @@ function fixture() {
       type: "doc",
       content: [
         {
+          type: "heading",
+          attrs: { nodeId: "92000000-0000-4000-8000-000000001284", level: 2 },
+          content: [{ type: "text", text: "Section" }],
+        },
+        {
           type: "quiz",
           attrs: {
             nodeId: "92000000-0000-4000-8000-000000001283",
@@ -55,10 +60,10 @@ describe("MaterialBody quiz registry", () => {
     const extracted = materialBodyOperations.extract(accepted.value);
     expect(extracted).toMatchObject({
       ok: true,
-      value: { plainText: "Public question" },
+      value: { plainText: "Section\n\nPublic question" },
     });
     if (!rendered.ok) throw new Error("Quiz must render");
-    expect(rendered.value.blocks[0]).toEqual(source.doc.content[0]?.attrs.quiz);
+    expect(rendered.value.blocks[1]).toEqual(source.doc.content[1]?.attrs.quiz);
     const reopened: unknown = materialDocumentSchemaV1
       .nodeFromJSON(source.doc)
       .toJSON();
@@ -71,7 +76,7 @@ describe("MaterialBody quiz registry", () => {
     "unknown-part",
   ])("rejects malformed quiz: %s", (scenario) => {
     const source = fixture();
-    const quiz = source.doc.content[0]?.attrs.quiz;
+    const quiz = source.doc.content[1]?.attrs.quiz;
     if (quiz === undefined) throw new Error("Fixture quiz missing");
     if (scenario === "invalid-key") quiz.correctOptionId = "missing";
     const first = quiz.options[0];
@@ -82,9 +87,69 @@ describe("MaterialBody quiz registry", () => {
     if (scenario === "missing-explanation") first.explanation = [];
     const candidate =
       scenario === "unknown-part" ? { ...quiz, analytics: true } : quiz;
-    const node = source.doc.content[0];
+    const node = source.doc.content[1];
     if (node === undefined) throw new Error("Missing quiz node");
     node.attrs.quiz = candidate;
     expect(materialBodyOperations.accept(source)).toMatchObject({ ok: false });
   });
+});
+
+test("rejects quiz links to absent narrative headings", () => {
+  const source = fixture();
+  const quiz = source.doc.content[1]?.attrs.quiz;
+  if (quiz === undefined) throw new Error("Missing quiz");
+  quiz.dontKnow.reviewLinks = ["#missing"];
+  expect(materialBodyOperations.accept(source)).toMatchObject({ ok: false });
+});
+
+test("rejects unsafe links hidden inside a quiz explanation", () => {
+  const source = fixture();
+  const quiz = source.doc.content[1]?.attrs.quiz;
+  if (quiz === undefined) throw new Error("Missing quiz");
+  const explanation = quiz.options[0]?.explanation[0];
+  if (explanation === undefined) throw new Error("Missing explanation");
+  const node = source.doc.content[1];
+  const second = quiz.options[1];
+  if (node === undefined || second === undefined)
+    throw new Error("Missing fixture");
+  const candidate = {
+    ...source,
+    doc: {
+      ...source.doc,
+      content: [
+        source.doc.content[0],
+        {
+          ...node,
+          attrs: {
+            ...node.attrs,
+            quiz: {
+              ...quiz,
+              options: [
+                {
+                  id: "first",
+                  content: quiz.options[0]?.content ?? [],
+                  explanation: [
+                    {
+                      ...explanation,
+                      content: [
+                        {
+                          kind: "text",
+                          text: "Unsafe",
+                          marks: [
+                            { kind: "link", href: "javascript:alert(1)" },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                second,
+              ],
+            },
+          },
+        },
+      ],
+    },
+  };
+  expect(materialBodyOperations.accept(candidate)).toMatchObject({ ok: false });
 });
