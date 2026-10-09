@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { ComponentProps } from "react";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import { useState, type ComponentProps } from "react";
+import { expect, mocked, userEvent, waitFor, within } from "storybook/test";
 import {
   MaterialReadingScope,
   type MaterialPreview,
@@ -9,6 +10,8 @@ import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { getQueryClient } from "@/shared/api/query-client";
 import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
+import { seriesJourneyCorpus } from "@/storybook/series-journey-corpus.fixtures";
+import { Button } from "@/shared/ui/button";
 import { ProductProgrammeView } from "./product-programme-view";
 import {
   SeriesLearningProvider,
@@ -528,6 +531,106 @@ export const PartiallyGrouped: Story = {
     await expect(
       canvas.queryByRole("heading", { level: 3, name: "Основа продукта" }),
     ).not.toBeInTheDocument();
+  },
+};
+
+export const LargeMaterialCatalogue: Story = {
+  args: { learning: { kind: "guest" }, result: seriesJourneyCorpus() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await openPart(canvasElement, /^Материалы/u);
+    const catalogue = canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
+    await expect(
+      canvas.getByText("120 материалов", { exact: true }),
+    ).toBeVisible();
+    const search = canvas.getByRole("searchbox", {
+      name: "Поиск по материалам курса",
+    });
+    // Совпадение находится в последней порции, которую ещё не открывали.
+    await userEvent.type(search, "Описание материала 120");
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(1);
+    await expect(
+      within(catalogue).getByRole("heading", { name: "Урок 120" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Видео" }));
+    await expect(canvas.getByText(/Ничего не нашлось/u)).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Гайды" }));
+    await expect(
+      canvas.getByRole("heading", { name: "Урок 120" }),
+    ).toBeVisible();
+    await userEvent.clear(search);
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Показать ещё материалы" }),
+    );
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(24);
+  },
+};
+
+export const LargeMaterialCatalogueMobile: Story = {
+  ...LargeMaterialCatalogue,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Серверное обновление состава после возврата из Reader; page markup остаётся production-owned. */
+function CatalogueRefresh() {
+  const [initial] = useState(seriesJourneyCorpus);
+  const [updated, setUpdated] = useState(false);
+  const first = initial.items[0];
+  if (first === undefined) throw new Error("Missing catalogue fixture");
+  const next = {
+    ...first,
+    materialId: "material-121",
+    slug: "material-121",
+    title: "Новый материал",
+    publishedAt: "2026-10-02T12:00:00.000Z",
+  };
+  return (
+    <>
+      <ProductProgrammeView
+        result={
+          updated ? { ...initial, items: [...initial.items, next] } : initial
+        }
+      />
+      <Button
+        onClick={() => {
+          setUpdated(true);
+        }}
+      >
+        Получить новый состав
+      </Button>
+    </>
+  );
+}
+
+export const CatalogueRefreshRestoresMaterial: Story = {
+  args: { learning: { kind: "guest" } },
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("part=materials&at=material-12"),
+    );
+    return () => {
+      mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
+      cleanup?.();
+    };
+  },
+  render: () => <CatalogueRefresh />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const catalogue = canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
+    await expect(
+      within(catalogue).getByRole("heading", { name: "Урок 12" }),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Получить новый состав" }),
+    );
+    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(24);
+    await expect(
+      within(catalogue).getByRole("heading", { name: "Урок 12" }),
+    ).toBeInTheDocument();
   },
 };
 export const PartSwitchStartsAtBeginning: Story = {

@@ -97,6 +97,15 @@ const products = [
   },
 ];
 
+/** Изолированный состав #1292 не меняет данные прежних navigation scenarios. */
+const performanceProduct = {
+  cover: null,
+  hasModeVariants: false,
+  id: "11111111-1111-4111-8111-111111111115",
+  name: "Курс на 120 материалов",
+  slug: "performance-course",
+};
+
 const lessons = [
   {
     n: 1,
@@ -163,11 +172,37 @@ const lessons = [
   title,
   topic,
 }));
+const performanceTemplate = lessons[0];
+if (performanceTemplate === undefined)
+  throw new Error("Missing lesson template");
+const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
+  ...performanceTemplate,
+  materialId: `33333333-3333-4333-8333-${String(index + 201).padStart(12, "0")}`,
+  slug: `performance-lesson-${String(index + 1)}`,
+  title: `Материал ${String(index + 1)}`,
+  summary: `Описание материала ${String(index + 1)}.`,
+  publishedAt: new Date(Date.UTC(2026, 5, index + 1)).toISOString(),
+  format:
+    index % 2 === 0 ? { id: "video", name: "Видео", slug: "video" } : format,
+  seriesMemberships: [
+    {
+      ordinal: index + 1,
+      series: {
+        id: performanceProduct.id,
+        name: performanceProduct.name,
+        slug: performanceProduct.slug,
+      },
+      stepGroup: null,
+    },
+  ],
+}));
 /** @param {Product} product */
 const lessonsOf = (product) =>
-  lessons.filter(
-    (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
-  );
+  product.slug === performanceProduct.slug
+    ? performanceLessons
+    : lessons.filter(
+        (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
+      );
 
 /**
  * @type {{
@@ -415,25 +450,34 @@ function route(method, url, entitled) {
         topics: [],
       });
     }
-    const product = products.find((candidate) => candidate.slug === slug);
+    const product =
+      slug === performanceProduct.slug
+        ? performanceProduct
+        : products.find((candidate) => candidate.slug === slug);
     if (
       product === undefined ||
       (product.slug === archivedProductSlug && !entitled)
     )
       return discoveryNotFound();
     const items = lessonsOf(product);
-    const half = Math.ceil(items.length / 2);
+    const chapterItems =
+      product.slug === performanceProduct.slug ? items.slice(0, 108) : items;
+    const half = Math.ceil(chapterItems.length / 2);
     return json({
       chapters: [
         {
           id: `44444444-4444-4444-8444-44444444${product.id.slice(-4)}`,
-          materialIds: items.slice(0, half).map((lesson) => lesson.materialId),
+          materialIds: chapterItems
+            .slice(0, half)
+            .map((lesson) => lesson.materialId),
           name: "Начало",
           summary: "Первые уроки.",
         },
         {
           id: `44444444-4444-4444-8445-44444444${product.id.slice(-4)}`,
-          materialIds: items.slice(half).map((lesson) => lesson.materialId),
+          materialIds: chapterItems
+            .slice(half)
+            .map((lesson) => lesson.materialId),
           name: "Продолжение",
           summary: "Следующие уроки.",
         },
@@ -442,6 +486,24 @@ function route(method, url, entitled) {
       items: items.map((lesson) => projection(lesson, entitled)),
       kind: "series",
       reference: {
+        ...(product.slug === performanceProduct.slug
+          ? {
+              productPage: {
+                presentation: "ai-engineering-course",
+                page: {
+                  blocks: [
+                    {
+                      id: "hero",
+                      kind: "hero",
+                      badge: "Курс",
+                      lead: "Проверочный состав",
+                      highlights: [],
+                    },
+                  ],
+                },
+              },
+            }
+          : {}),
         cover: product.cover,
         hasModeVariants: product.hasModeVariants,
         id: product.id,
@@ -511,7 +573,9 @@ function route(method, url, entitled) {
     });
   }
   if (material !== null) {
-    const lesson = lessons.find((candidate) => candidate.slug === material[1]);
+    const lesson = [...lessons, ...performanceLessons].find(
+      (candidate) => candidate.slug === material[1],
+    );
     if (
       lesson === undefined ||
       (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&

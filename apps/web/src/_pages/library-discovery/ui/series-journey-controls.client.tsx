@@ -521,7 +521,10 @@ function MaterialCatalog({
   if (reveal.source !== source) setReveal({ source, count: initialCount });
   const count = Math.min(
     shown.length,
-    reveal.source === source ? reveal.count : initialCount,
+    Math.max(
+      initialCount,
+      reveal.source === source ? reveal.count : initialCount,
+    ),
   );
   const chip = (active: boolean) =>
     cn(
