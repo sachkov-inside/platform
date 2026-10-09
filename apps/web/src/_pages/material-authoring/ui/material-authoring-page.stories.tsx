@@ -1301,3 +1301,78 @@ export const NewerEditAfterActivity: Story = {
     await expect(savedField("title")).toBe("Новая правка");
   },
 };
+
+export const ImportedCollapsibleAdvice: Story = {
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        document: {
+          type: "doc",
+          content: [
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Мой совет",
+                collapse: "collapsed",
+                nodeId: "94000000-0000-4000-8000-000000000301",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "94000000-0000-4000-8000-000000000302" },
+                  content: [
+                    { type: "text", text: "Тело импортированного совета" },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Открытый совет",
+                collapse: "expanded",
+                nodeId: "94000000-0000-4000-8000-000000000303",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "94000000-0000-4000-8000-000000000304" },
+                  content: [{ type: "text", text: "Открытое тело" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Тело импортированного совета"),
+    ).toBeVisible();
+    const collapsed = canvasElement.querySelector(
+      'aside[data-callout-collapse="collapsed"]',
+    );
+    const expanded = canvasElement.querySelector(
+      'aside[data-callout-collapse="expanded"]',
+    );
+    await expect(collapsed).not.toBeNull();
+    await expect(expanded).not.toBeNull();
+    await userEvent.type(canvas.getByLabelText("Название"), "!", {
+      delay: null,
+    });
+    await expect(
+      (await canvas.findAllByText(/Сохранено сейчас/u)).length,
+    ).toBeGreaterThan(0);
+    const saved = savedField("document");
+    if (typeof saved !== "string") throw new Error("Autosave must send a body");
+    await expect(saved).toContain('"collapse":"collapsed"');
+    await expect(saved).toContain('"collapse":"expanded"');
+    await expect(saved).toContain("Тело импортированного совета");
+  },
+};

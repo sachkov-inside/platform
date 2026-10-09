@@ -17,6 +17,31 @@ function convert(markdown) {
   return snapshot.doc;
 }
 
+test("callout signs survive document serialization with titles and nested Markdown", () => {
+  const markdown =
+    "> [!tip]- Мой совет\n> **Текст** [ссылка](https://example.com)\n>\n> > [!tip]+ Вложенный совет\n> > Внутренний текст\n>\n> ```markdown\n> > [!tip]- Пример\n> ```\n\n> [!tip]+ Совет\n> Открытый текст\n\n> [!tip] Обычная врезка\n> Старый текст\n\n```markdown\n> [!tip]- Только код\n```";
+  const doc = convert(markdown);
+  const first = doc.content[0];
+  assert.equal(first?.attrs?.["collapse"], "collapsed");
+  assert.equal(first?.attrs?.["title"], "Мой совет");
+  assert.equal(first?.content?.[1]?.attrs?.["collapse"], "expanded");
+  assert.equal(first?.content?.[1]?.attrs?.["title"], "Вложенный совет");
+  assert.equal(first?.content?.[2]?.type, "codeBlock");
+  assert.equal(first?.content?.[2]?.content?.[0]?.text, "> [!tip]- Пример\n");
+  assert.equal(doc.content[1]?.attrs?.["collapse"], "expanded");
+  assert.equal(doc.content[1]?.attrs?.["title"], "Совет");
+  assert.equal(doc.content[2]?.attrs?.["collapse"], null);
+  assert.equal(doc.content[3]?.type, "codeBlock");
+  assert.deepEqual(convert(markdown), doc);
+  /** @type {unknown} */
+  const saved = materialDocumentSchemaV1.nodeFromJSON(doc).toJSON();
+  /** @type {unknown} */
+  const reopened = materialDocumentSchemaV1.nodeFromJSON(saved).toJSON();
+  assert.deepEqual(reopened, saved);
+  assert.match(JSON.stringify(reopened), /"collapse":"collapsed"/u);
+  assert.match(JSON.stringify(reopened), /"collapse":"expanded"/u);
+});
+
 test("real authoring constructs preserve variant placement, bold code, tables and example fences", () => {
   const doc = convert(
     "Introduction **`command`**.\n\n> [!variant-example] Учебный проект\n> Example\n\nShared step.\n\n> [!variant-own] Свой проект\n> Own project\n\n| A | B |\n|---|---|\n| One | Two |\n\n> [!example]- Example\n> ```text\n> literal\n> ```\n",

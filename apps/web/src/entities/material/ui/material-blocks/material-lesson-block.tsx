@@ -53,7 +53,11 @@ export function MaterialLessonBlock({
   switch (block.kind) {
     case "callout":
       return (
-        <MaterialCallout title={block.title} tone={block.tone}>
+        <MaterialCallout
+          collapse={block.collapse}
+          title={block.title}
+          tone={block.tone}
+        >
           {rendering.renderBlocks(block.content)}
         </MaterialCallout>
       );

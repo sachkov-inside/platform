@@ -6,18 +6,43 @@ import { calloutTonePresentation } from "./callout-tone";
 /**
  * Врезка урока. Вид виден словом, значком и цветом; цвет берётся из токена вида, а не из
  * собственной палитры блока.
+ * Temporary semantic UI for #1196.
+ * Replace through #1278 after Storybook acceptance.
  */
 export function MaterialCallout({
   children,
+  collapse,
   title,
   tone,
 }: {
   readonly children?: ReactNode;
+  readonly collapse?: "collapsed" | "expanded" | undefined;
   readonly title?: string | undefined;
   readonly tone: CalloutTone;
 }) {
   const presentation = calloutTonePresentation(tone);
   const label = presentation.label;
+
+  if (collapse !== undefined) {
+    return (
+      <details
+        className="mt-8 rounded-xl border px-5 py-4 text-[0.9375rem] leading-7 sm:px-6"
+        data-callout={tone}
+        data-material-block="callout"
+        open={collapse === "expanded"}
+      >
+        <summary className="min-h-11 cursor-pointer rounded-sm font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+          <presentation.icon
+            aria-hidden="true"
+            className="mx-2 inline size-4"
+            style={{ color: "var(--callout-ink)" }}
+          />
+          {title ?? label}
+        </summary>
+        {children}
+      </details>
+    );
+  }
 
   return (
     <aside
