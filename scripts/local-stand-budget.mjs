@@ -1,31 +1,55 @@
 // @ts-check
+import { isAbsolute } from "node:path";
 const gib = 1024 ** 3;
-const hostReserveBytes = 15 * gib;
-// One backend export plus web, Logto and RabbitMQ. Runtime proof measures this bound; never prune
-// another session's data to obtain it. The monitor also catches unexpected growth after preflight.
-const buildAllowanceBytes = 10 * gib;
+const hostReserveBytes = 10 * gib;
+// Cached stand estimate:3 GiB for source/web/export plus two <=2.261 GB dependency snapshots if
+// cache keys miss, rounded up to8 GiB. Bounded runtime proof must validate actual growth. Shared
+// cache records overlap; their sum is not physical storage. Never prune another session's data.
+const buildAllowanceBytes = 8 * gib;
+// Coordinator's bounded-proof admission keeps2 GiB of stop/cleanup headroom above ceiling+floor.
+const minimumStartingFreeBytes = 20 * gib;
+
+/** @param {string} openFiles lsof file metadata, never file contents */
+export function dockerDesktopStoragePath(openFiles) {
+  const disks = [
+    ...new Set(
+      openFiles
+        .split("\n")
+        .filter((line) => line.startsWith("n") && line.endsWith("/Docker.raw"))
+        .map((line) => line.slice(1)),
+    ),
+  ];
+  const [disk] = disks;
+  if (disks.length !== 1 || disk === undefined || !isAbsolute(disk)) {
+    throw new Error(
+      "Cannot identify the active Docker Desktop data disk; refusing an unmeasured build budget.",
+    );
+  }
+  return disk;
+}
 
 /**
  * @param {() => number} freeBytes measured available bytes on the Docker Desktop host filesystem
  */
 export function createStandBuildBudget(freeBytes) {
   const initialFreeBytes = freeBytes();
-  if (initialFreeBytes < hostReserveBytes + buildAllowanceBytes) {
+  if (initialFreeBytes < minimumStartingFreeBytes) {
     throw new Error(
-      `Local stand needs 25 GiB available before building (10 GiB build allowance and 15 GiB host reserve); measured ${(initialFreeBytes / gib).toFixed(2)} GiB. Keep stand data and arrange disk capacity before retrying.`,
+      `Local stand needs ${minimumStartingFreeBytes / gib} GiB available before building (${buildAllowanceBytes / gib} GiB build ceiling and ${hostReserveBytes / gib} GiB host floor); measured ${(initialFreeBytes / gib).toFixed(2)} GiB. Keep stand data and arrange disk capacity before retrying.`,
     );
   }
   return {
+    initialFreeBytes,
     assertAvailable() {
       const available = freeBytes();
-      if (available < hostReserveBytes) {
+      if (available <= hostReserveBytes) {
         throw new Error(
-          "Local stand stopped to preserve its 15 GiB host reserve.",
+          `Local stand stopped to preserve its ${hostReserveBytes / gib} GiB host floor.`,
         );
       }
-      if (initialFreeBytes - available > buildAllowanceBytes) {
+      if (initialFreeBytes - available >= buildAllowanceBytes) {
         throw new Error(
-          "Local stand stopped after consuming its 10 GiB build allowance.",
+          `Local stand stopped after consuming its ${buildAllowanceBytes / gib} GiB build ceiling.`,
         );
       }
     },

@@ -10,7 +10,10 @@ import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 import { statfsSync } from "node:fs";
 import { z } from "zod";
-import { createStandBuildBudget } from "./local-stand-budget.mjs";
+import {
+  createStandBuildBudget,
+  dockerDesktopStoragePath,
+} from "./local-stand-budget.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
@@ -103,10 +106,31 @@ try {
       "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff, or stop the stand with docker compose --profile identity down before pnpm local:stand.",
     );
   }
+  const storage =
+    process.platform === "darwin"
+      ? dockerDesktopStoragePath(
+          (
+            await run(
+              "lsof",
+              ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
+              {
+                capture: true,
+              },
+            )
+          ).output,
+        )
+      : (
+          await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
+            capture: true,
+          })
+        ).output.trim();
   buildBudget = createStandBuildBudget(() => {
-    const disk = statfsSync(repositoryRoot);
+    const disk = statfsSync(storage);
     return disk.bavail * disk.bsize;
   });
+  process.stdout.write(
+    `Local stand disk: ${(buildBudget.initialFreeBytes / 1024 ** 3).toFixed(2)} GiB available on Docker storage.\n`,
+  );
   // BuildKit checks the current context on every start, including cache hits. Only API exports the
   // shared backend image; exporting ten command-only variants caused parallel layer unpacking.
   for (const service of ["api", "web", "rabbitmq", "logto"]) {
@@ -216,7 +240,7 @@ async function run(
     cwd: repositoryRoot,
     env: { ...environment, ...extraEnvironment },
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    ...(cleanup ? { timeout: 60_000 } : {}),
+    ...(capture ? { timeout: 20_000 } : cleanup ? { timeout: 60_000 } : {}),
   });
   activeProcesses.add(child);
   /** @type {unknown} */

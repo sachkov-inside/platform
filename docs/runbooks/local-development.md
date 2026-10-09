@@ -160,7 +160,8 @@ Node.js commands below.
 The ten backend roles share one development image. Only `api` builds it; each role declares its
 own command and retains its readiness/dependency contract. Rebuild `api` after backend changes,
 then recreate affected roles to use that image. Local diagnostic `.reports` files are excluded
-from the root Docker context; tracked source and `docs/evidence` remain available.
+from the root Docker context; tracked source and `docs/evidence` remain available. The host-generated
+Prisma client is excluded too: dependency installation generates it from the image's own schema.
 
 The checked-in `config/compose/local/*.env` files contain safe container-only development values.
 A root `.env` copied from `.env.example` is optional for host-process overrides and Compose host
@@ -254,11 +255,20 @@ starting containers with `--no-build`. Each invocation asks BuildKit to verify t
 inputs, so cached images never bypass source validation. Production web requires a clean Git
 working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
 
-Before building, the command measures available host disk space. It requires 25 GiB: a 10 GiB
-build allowance plus a 15 GiB reserve. During launch it checks both limits every 250 ms and stops
-its command tree when either limit is crossed. This bounds host disk consumption; it does not
+Before building, the command measures available space on Docker's host storage filesystem. On macOS,
+it locates the open Docker Desktop `Docker.raw` through `lsof` file metadata; on Linux Engine it uses
+the daemon's `DockerRootDir`. It refuses an unidentified data disk. It requires 20 GiB: an 8 GiB
+build ceiling, the mandatory 10 GiB host floor and 2 GiB of stop/cleanup headroom. During launch it checks both limits every 250 ms and stops
+its command tree when either limit is reached. This bounds host disk consumption; it does not
 increase Docker's own storage quota. A refusal leaves existing stand data intact. Arrange disk
 capacity before retrying; the command never prunes caches, reports or volumes.
+
+The cached-stand estimate rounds up 3 GiB for source/web/export growth plus two dependency snapshots
+of at most 2.261 GB each to an 8 GiB ceiling. This uses retained layer/cache measurements, not the
+sum of overlapping cache records. Runtime verification must measure actual peak growth and the
+remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.
+Root diagnostic `*.log` files are ignored by Git as well as the Docker context, so they do not
+prevent production web's source check.
 
 For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/local-build-context-smoke.sh`.
 It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary

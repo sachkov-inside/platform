@@ -4,6 +4,22 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repository_root"
 
+bash scripts/local-build-context-smoke.sh
+
+# One physical backend image serves every command role, including completed migration/seed jobs.
+api_container="$(docker compose ps --all --quiet api)"
+backend_image="$(docker inspect --format '{{.Image}}' "$api_container")"
+for role in migrations seed api mcp material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker bank-double; do
+  role_container="$(docker compose ps --all --quiet "$role")"
+  role_image="$(docker inspect --format '{{.Image}}' "$role_container")"
+  if [[ "$role_image" != "$backend_image" ]]; then
+    echo "$role does not use the shared backend development image" >&2
+    exit 1
+  fi
+done
+docker compose exec -T api test ! -e /workspace/.reports
+docker compose exec -T bank-double test -w /data
+
 api_base_url="${API_BASE_URL:-http://127.0.0.1:3001}"
 web_base_url="${WEB_BASE_URL:-http://127.0.0.1:3000}"
 mcp_server_url="${MCP_SERVER_URL:-http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp}"

@@ -3,6 +3,7 @@
 .env
 .identity-proof
 .reports
+apps/backend/src/infrastructure/prisma/generated
 .env.*
 !.env.example
 config/compose/production/*.env

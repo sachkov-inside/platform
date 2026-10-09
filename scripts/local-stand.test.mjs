@@ -25,7 +25,7 @@ const callsSchema = z.array(
   }),
 );
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
 function launch({
   freeGiB = 50,
   productionWeb = false,
@@ -33,6 +33,7 @@ function launch({
   exhaustDisk = false,
   dirtySource = false,
   runningStand = false,
+  diagnosticLog = false,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "platform-stand-cli-"));
   try {
@@ -48,6 +49,12 @@ function launch({
     mkdirSync(join(root, "tmp"));
     const log = join(root, "calls.jsonl");
     const capacityFile = join(root, "capacity.txt");
+    const dockerStorage = join(root, "docker-storage");
+    mkdirSync(dockerStorage);
+    writeFileSync(
+      join(dockerStorage, "Docker.raw"),
+      "synthetic disk metadata fixture",
+    );
     writeFileSync(capacityFile, String(freeGiB));
     writeFileSync(log, "");
     const adapter = `#!/usr/bin/env node
@@ -55,16 +62,19 @@ import { appendFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA}) + "\\n");
 if(args.includes("build") && args.includes(process.env.FAILED_BUILD)) process.exit(9);
+if(process.argv[1].endsWith("lsof")) process.stdout.write("n" + process.env.DOCKER_STORAGE + "/Docker.raw\\n");
+if(args.includes("info")) process.stdout.write(process.env.DOCKER_STORAGE + "\\n");
 if(args.includes("ps") && process.env.RUNNING_STAND === "true") process.stdout.write("api\\n");
-if(args.includes("build") && process.env.EXHAUST_DISK === "true") { writeFileSync(process.env.CAPACITY_FILE, "14"); setInterval(() => {}, 1000); }
+if(args.includes("build") && process.env.EXHAUST_DISK === "true") { writeFileSync(process.env.CAPACITY_FILE, "9"); setInterval(() => {}, 1000); }
 `;
     writeFileSync(join(root, "bin/docker"), adapter, { mode: 0o755 });
+    writeFileSync(join(root, "bin/lsof"), adapter, { mode: 0o755 });
     writeFileSync(join(root, "bin/pnpm.mjs"), adapter);
     // Filesystem capacity and the temporary-directory root are external system boundaries.
     writeFileSync(
       join(root, "capacity.mjs"),
       `import fs from "node:fs"; import os from "node:os"; import {syncBuiltinESMExports} from "node:module";
-fs.statfsSync = () => ({bavail: Number(fs.readFileSync(${JSON.stringify(capacityFile)}, "utf8")) * 1024 ** 3, bsize: 1});
+fs.statfsSync = (path) => {if(path !== ${JSON.stringify(dockerStorage)} && path !== ${JSON.stringify(join(dockerStorage, "Docker.raw"))}) throw new Error("Budget measured the repository instead of Docker storage"); return {bavail: Number(fs.readFileSync(${JSON.stringify(capacityFile)}, "utf8")) * 1024 ** 3, bsize: 1};};
 os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();`,
     );
     execFileSync("git", ["init", "--quiet"], { cwd: root });
@@ -84,13 +94,19 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       ],
       { cwd: root },
     );
-    writeFileSync(join(root, ".git/info/exclude"), "*\n");
+    cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
+    writeFileSync(
+      join(root, ".git/info/exclude"),
+      "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\n",
+    );
     const sha = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: root,
       encoding: "utf8",
     }).trim();
     if (dirtySource)
       writeFileSync(join(root, "source.txt"), "modified source\n");
+    if (diagnosticLog)
+      writeFileSync(join(root, "diagnostic.log"), "local diagnostic\n");
     const result = spawnSync(
       process.execPath,
       [
@@ -110,6 +126,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
           CALL_LOG: log,
           FAILED_BUILD: failedBuild,
           CAPACITY_FILE: capacityFile,
+          DOCKER_STORAGE: dockerStorage,
           EXHAUST_DISK: String(exhaustDisk),
           RUNNING_STAND: String(runningStand),
           NODE_OPTIONS: "",
@@ -145,9 +162,9 @@ test("standard stand builds one backend payload, then starts roles without rebui
 });
 
 test("insufficient measured disk space refuses before certificates, builds or startup", () => {
-  const { result, calls } = launch({ freeGiB: 24 });
+  const { result, calls } = launch({ freeGiB: 19 });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /25 GiB/u);
+  assert.match(result.stderr, /20 GiB/u);
   assert.ok(
     !calls.some((call) =>
       call.args.some((arg) =>
@@ -183,7 +200,7 @@ test("a failed build cannot start or shut down a stand it never started", () => 
 test("disk exhaustion interrupts an active build before startup", () => {
   const { result, calls } = launch({ exhaustDisk: true });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /15 GiB host reserve/u);
+  assert.match(result.stderr, /10 GiB host floor/u);
   assert.ok(
     !calls.some(
       (call) => call.args.includes("up") || call.args.includes("down"),
@@ -214,4 +231,9 @@ test("another session's running stand is never built, restarted or stopped", () 
         call.args.includes("down"),
     ),
   );
+});
+
+test("production stand accepts an untracked diagnostic log outside its Docker context", () => {
+  const { result } = launch({ productionWeb: true, diagnosticLog: true });
+  assert.equal(result.status, 0, result.stderr);
 });
