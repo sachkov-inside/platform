@@ -18,7 +18,7 @@ export function ProductProgrammeLoading() {
       className="programme-frame @container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
       data-route-skeleton="product-programme"
     >
-      <div className="pt-4" data-programme-part="back">
+      <div className="-mt-3 sm:mt-0 sm:pt-4" data-programme-part="back">
         <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
       </div>
       <div

@@ -96,7 +96,7 @@ export function ProductProgrammeView({
           и случайно уйти на Главную нельзя. Страница продукта — справа, для тех, кто его изучает. */}
       <nav
         aria-label="Путь навигации"
-        className="flex flex-wrap items-center justify-between gap-x-3 pt-4"
+        className="-mt-3 flex flex-wrap items-center justify-between gap-x-3 sm:mt-0 sm:pt-4"
         data-programme-part="back"
       >
         <IntentPrefetchLink
