@@ -94,7 +94,7 @@ export function MaterialQuiz({
               </span>
               <div
                 id={`${quizId}-option-${String(index)}`}
-                className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto"
+                className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto"
               >
                 {option.content}
               </div>

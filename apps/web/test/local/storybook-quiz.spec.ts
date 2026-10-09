@@ -3,6 +3,11 @@ import { expect, test } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { hideDevelopmentFeedback } from "../support/hide-development-feedback";
+
+test.beforeEach(async ({ page }) => {
+  await hideDevelopmentFeedback(page);
+});
 
 for (const state of [
   "unanswered",
@@ -15,6 +20,8 @@ for (const state of [
     await page.goto(
       `http://localhost:6006/iframe.html?id=pages-material-reader-quiz--${state}&viewMode=story`,
     );
+    await expect(page.locator("[data-agentation-root]")).toBeHidden();
+    await expect(page.locator("agentation-toolbar")).toBeHidden();
     const quiz = page.locator("[data-material-quiz]");
     await expect(
       quiz.getByRole("heading", { name: "Проверьте понимание" }),

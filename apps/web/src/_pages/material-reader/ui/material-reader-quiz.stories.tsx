@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { RenderedBlock } from "@inside/material-blocks";
 import { readerBlocks } from "@/storybook/quiz-content";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -117,6 +117,85 @@ export const AllExplanations: Story = {
     await userEvent.click(quiz.getByRole("button", { name: "Все объяснения" }));
     await expect(
       quiz.getByRole("heading", { name: "Разбор всех вариантов" }),
+    ).toBeVisible();
+  },
+};
+
+export const RichOptionContent: Story = {
+  args: {
+    material: {
+      ...meta.args.material,
+      materialId: "02000000-0000-4000-8000-000000000010",
+    },
+    body: body.map((block) =>
+      block.kind !== "quiz"
+        ? block
+        : {
+            ...block,
+            options: block.options.map((option, index) =>
+              index !== 0
+                ? option
+                : {
+                    ...option,
+                    content: [
+                      ...option.content,
+                      {
+                        kind: "callout",
+                        collapse: "collapsed",
+                        title: "Подсказка к варианту",
+                        tone: "tip",
+                        content: prose("Сначала проверьте результат."),
+                      },
+                      {
+                        kind: "image",
+                        assetId: "image-agent-path",
+                        alt: "Схема проверки",
+                        height: 900,
+                        width: 960,
+                        variants: [{ height: 900, width: 960 }],
+                      },
+                    ],
+                  },
+            ),
+          },
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Подсказка к варианту"));
+    await expect(
+      canvas.getByText("Сначала проверьте результат."),
+    ).toBeVisible();
+    const image = await canvas.findByRole("button", {
+      name: "Открыть изображение крупно: Схема проверки",
+    });
+    await userEvent.click(image);
+    await expect(
+      await canvas.findByRole("dialog", {
+        name: "Схема проверки, просмотр крупно",
+      }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    canvas
+      .getByRole("img", { name: "Схема проверки" })
+      .dispatchEvent(new Event("error"));
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Загрузить снова" }),
+    );
+    await expect(
+      await canvas.findByRole("button", {
+        name: "Открыть изображение крупно: Схема проверки",
+      }),
+    ).toBeVisible();
+    await expect(canvas.getByText("Состояние: Без ответа")).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /1\. Форма написана/u }),
+    );
+    await expect(
+      canvas.getByText("Пока неверно", { exact: true }),
     ).toBeVisible();
   },
 };

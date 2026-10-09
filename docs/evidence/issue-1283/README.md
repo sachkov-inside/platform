@@ -4,38 +4,49 @@ Synthetic fixture evidence; no actual Content package was applied.
 
 ## Storybook MCP gate
 
-The writing session owns port 6006 under `/tmp/platform-orchestrator-6006-1283.md`.
-The native Storybook tools were unavailable. The owner explicitly authorized a real HTTP MCP client.
-The untouched session config already addressed 6006.
+The original writing session used the owner-authorized HTTP MCP client on port 6006.
+Its raw server-sent protocol responses remain in [mcp](./mcp/).
 
-Raw server-sent protocol responses are in [mcp](./mcp/): initialize, tools/list,
-docs-list, docs-show Button, docs-show Material Reader, story instructions, changed stories and previews.
-The documentation calls preceded UI implementation. These are protocol responses, not copied source files.
+The cloud continuation on 2026-10-09 used the same real MCP endpoint from this task's
+worktree. Catalog, Reader documentation and story instructions preceded the UI change.
+The raw responses are in [mcp/cloud-2026-10-09](./mcp/cloud-2026-10-09/).
+The new rich-option story failed before the pointer-events fix and passed afterwards;
+all six quiz stories passed the final MCP test-run with accessibility enabled.
 
-Start command: `pnpm storybook` after checking `lsof -nP -iTCP:6006 -sTCP:LISTEN`.
-Only this session's Storybook process may be stopped. Port 6007 and the shared stand remain untouched.
+Start command: `pnpm storybook` after checking that port 6006 is free.
+Only the task session's Storybook process may be stopped.
 
-## Reproduce screenshots
+## Reproduce responsive and live evidence
+
+Start the isolated `pnpm editor:local` runtime with its documented development database
+and object storage, then run:
 
 ```sh
-CAPTURE_EVIDENCE=1 pnpm --filter @inside/web test:fullstack --config playwright.quiz.config.ts storybook-quiz.spec.ts
+CAPTURE_EVIDENCE=1 pnpm --filter @inside/web test:fullstack --config playwright.quiz.config.ts
 ```
 
 This checked-in wrapper enters the shared heavy-check FIFO. The config does not start a web server.
-Ten tests cover five states at 1440 and 390 pixels, keyboard Enter/Space, retry focus,
-review-heading navigation, reload reset, horizontal overflow and axe on the quiz.
-The fixture uses the production Reader and public page shell. Agentation stays enabled.
-Screenshots use `screenshotWholePage`; the page scroll is reset before capture.
-The writing agent opened and inspected all ten final PNG files before committing them.
-The quiz cards and explanations remain readable; no horizontal overflow appeared.
+Twelve tests cover five Storybook states plus the real Reader/editor route at 1440 and 390 pixels.
+They check keyboard Enter/Space, retry focus, review-heading navigation, reload reset,
+horizontal overflow and axe on the quiz. Agentation remains enabled for manual review;
+automation hides both its root and its shadow-DOM toolbar/portals.
+Screenshots use `screenshotWholePage`; the writing agent inspected all twelve final PNG files.
 
-Preview: [Unanswered](http://localhost:6006/?path=/story/pages-material-reader-quiz--unanswered),
-[Don't know](http://localhost:6006/?path=/story/pages-material-reader-quiz--dont-know).
+The live tests reserve and apply a synthetic Content fixture through the real authoring API.
+The imported material stays protected in the editor. A separate editor-owned draft with the same
+quiz allows an adjacent paragraph to be edited, autosaved and reopened; its quiz node remains
+identical before and after saving. The new rich-option Storybook test also checks callout expansion,
+image zoom, Escape and image retry without choosing an answer.
+
+Preview: [Rich option content](http://localhost:6006/?path=/story/pages-material-reader-quiz--rich-option-content),
+[Unanswered](http://localhost:6006/?path=/story/pages-material-reader-quiz--unanswered).
+These local links require Storybook to be running from the PR worktree.
 
 ## Remaining gates
 
-The isolated Reader/editor route awaits #1284's configurable internal web port and current Content receiver.
-No compatibility bypass or actual Content application is allowed here.
-Root owns #56 and the immutable chapters 1–2 package application after runtime handoff.
-Final checks, CI, independent review and production visual GO must precede merge.
-Platform-orchestrator owns the unified candidate. The v32 freeze is lifted; only the coordinator may enqueue this PR after its gates.
+The receiver and configurable internal web port from #1284 are merged and were used by the live test.
+The real immutable chapters 1–2 Content package from #56 has not been applied in this session.
+Its transfer and author acceptance remain separate from synthetic fixture verification.
+Final checks and CI on the final head, independent review and a new production visual GO precede merge.
+The earlier prototype GO does not accept the production implementation.
+Only the coordinator may enqueue this PR after its gates; production deploy is outside this session.

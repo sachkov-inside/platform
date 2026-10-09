@@ -4,6 +4,7 @@ import { expect, test } from "@playwright/test";
 import { z } from "zod";
 import { readerBlocks } from "../../src/storybook/quiz-content";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { hideDevelopmentFeedback } from "../support/hide-development-feedback";
 import { resolve } from "node:path";
 
 const receipt = z.object({
@@ -15,6 +16,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   page,
   request,
 }, testInfo) => {
+  await hideDevelopmentFeedback(page);
   const { convertMarkdown } =
     await import("../../../../tools/authoring/markdown.mjs");
   const { readerBlocksSchema } = await import("@inside/material-blocks");
@@ -53,6 +55,17 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   const topic = topics[0];
   if (topic === undefined)
     throw new Error("Isolated runtime must seed one topic");
+  const metadata = {
+    title: "Задача начинается с результата",
+    summary: "Синтетическая проверка квиза #1283",
+    access: "free",
+    difficulty: "basic",
+    outcomes: [],
+    topicId: topic.id,
+    formatId: "guide",
+    tagIds: [],
+    seriesIds: [],
+  };
   const apply = await request.post(
     "/__local-api/authoring/import/materials/apply",
     {
@@ -65,17 +78,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
         primaryVideoId: null,
         videoChapters: [],
         body,
-        metadata: {
-          title: "Задача начинается с результата",
-          summary: "Синтетическая проверка квиза #1283",
-          access: "free",
-          difficulty: "basic",
-          outcomes: [],
-          topicId: topic.id,
-          formatId: "guide",
-          tagIds: [],
-          seriesIds: [],
-        },
+        metadata,
       },
     },
   );
@@ -93,6 +96,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   await expect(
     quiz.getByRole("heading", { name: "Проверьте понимание" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Понятно", exact: true }).click();
   await expect(quiz).not.toContainText("RAW ANSWER KEY");
   await expect(quiz).not.toContainText("Неверно.");
   const first = quiz.getByRole("button", { name: /1\. Форма написана/u });
@@ -128,7 +132,8 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     (await new AxeBuilder({ page }).include("[data-material-quiz]").analyze())
       .violations,
   ).toEqual([]);
-  if (process.env["CAPTURE_EVIDENCE"] === "1")
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await quiz.getByRole("heading", { name: "Проверьте понимание" }).click();
     await screenshotWholePage(page, {
       animations: "disabled",
       path: resolve(
@@ -136,6 +141,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
         `live-${testInfo.project.name}.png`,
       ),
     });
+  }
   await page.reload();
   await expect(page.locator("[data-material-quiz]")).not.toContainText(
     "Неверно.",
@@ -144,9 +150,19 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   await expect(page.locator("[data-authoring-quiz]")).toContainText(
     "Квиз редактируется в Content",
   );
+  await expect(page.locator('.tiptap[contenteditable="true"]')).toHaveCount(0);
+  await expect(page.getByLabel("Название", { exact: true })).toBeDisabled();
+  const draftResponse = await request.post("/__local-api/authoring/materials", {
+    headers: { "Idempotency-Key": `quiz-editor-${identity}` },
+    data: { metadata, body },
+  });
+  expect(draftResponse.ok(), await draftResponse.text()).toBe(true);
+  const draft = receipt.parse(await draftResponse.json());
+  await page.goto(`/authoring/materials/${draft.materialId}`);
   const editor = page.locator('.tiptap[contenteditable="true"]');
+  await expect(editor).toBeVisible();
   const before = await request.get(
-    `/__local-api/authoring/materials/${saved.materialId}`,
+    `/__local-api/authoring/materials/${draft.materialId}`,
   );
   expect(before.ok()).toBe(true);
   const snapshot = z.object({ body: z.unknown() }).parse(await before.json());
@@ -156,21 +172,32 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     .first()
     .click();
   await page.keyboard.press("End");
+  const savedResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/authoring/materials" &&
+      response.request().method() === "PUT",
+  );
   await page.keyboard.type(" Проверка редактора.");
+  expect((await savedResponse).ok()).toBe(true);
   await expect
     .poll(async () => {
       const response = await request.get(
-        `/__local-api/authoring/materials/${saved.materialId}`,
+        `/__local-api/authoring/materials/${draft.materialId}`,
       );
       if (!response.ok()) return 0;
       return z
         .object({ contentVersion: z.number() })
         .parse(await response.json()).contentVersion;
     })
-    .toBeGreaterThan(saved.contentVersion);
-  await expect(page.getByText(/^Сохранено /u)).toBeVisible();
+    .toBeGreaterThan(draft.contentVersion);
+  await expect(page.locator("header [role=status]")).toContainText("Сохранено");
+  await page.reload();
+  await expect(editor).toContainText("Проверка редактора.");
+  await expect(page.locator("[data-authoring-quiz]")).toContainText(
+    "Квиз редактируется в Content",
+  );
   const after = await request.get(
-    `/__local-api/authoring/materials/${saved.materialId}`,
+    `/__local-api/authoring/materials/${draft.materialId}`,
   );
   expect(after.ok()).toBe(true);
   const reopened = z
@@ -210,6 +237,7 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
     JSON.stringify({
       readerUrl: `/materials/${detail.metadata.slug}`,
       editorUrl: `/authoring/materials/${saved.materialId}`,
+      editorDraftUrl: `/authoring/materials/${draft.materialId}`,
       project: testInfo.project.name,
       materialId: saved.materialId,
     }),
