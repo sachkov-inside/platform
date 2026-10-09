@@ -578,11 +578,19 @@
   box-shadow: none;
 }
 .aie-art-guard-buttons b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.35rem 0.65rem;
   border-radius: 0.5rem;
   background: var(--background);
   font-size: 0.72rem;
   font-weight: 600;
+}
+.aie-art-guard-buttons b svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--callout-good);
 }
 .aie-art-guard-buttons b:last-child {
   background: var(--callout-good);
@@ -1062,51 +1070,104 @@
   color: var(--cover-sand-foreground);
 }
 
-.aie-mock-video {
+/* Задание: карточка с критериями, все отмечены, внизу знак «проверено». */
+.aie-mock-task {
   display: grid;
-  place-items: center;
-  gap: 1rem;
-  width: 100%;
+  gap: 0.4rem;
+  width: 82%;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.7rem;
+  background: var(--background);
+  color: var(--foreground);
 }
-.aie-mock-video span {
+.aie-mock-task small {
+  color: var(--muted-foreground);
+  font-family: var(--font-utility);
+  font-size: 0.62rem;
+}
+.aie-mock-task b {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.aie-mock-task ul {
   display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-mock-task li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+}
+.aie-mock-task li svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--callout-good);
+}
+.aie-mock-task > span {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: var(--callout-good);
+  color: var(--background);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+.aie-mock-task > span svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Решение за учеником: агент спрашивает, выбранный вариант отмечен акцентом. */
+.aie-mock-decision {
+  display: grid;
+  gap: 0.35rem;
+  width: 84%;
+}
+.aie-mock-decision span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.6rem;
+  background: var(--background);
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+.aie-mock-decision .aie-mock-decision-ask {
+  margin-bottom: 0.15rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-family: var(--font-utility);
+}
+.aie-mock-decision span:not([data-chosen]):not(.aie-mock-decision-ask) {
+  color: var(--muted-foreground);
+}
+.aie-mock-decision span[data-chosen="true"] {
+  outline: 1.5px solid var(--accent);
+  font-weight: 650;
+}
+.aie-mock-decision span[data-chosen="true"] svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  color: var(--accent);
+}
+.aie-mock-decision small {
+  justify-self: end;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-foreground);
-}
-.aie-mock-video i {
-  width: 80%;
-  height: 0.3rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-foreground) 20%, var(--primary));
-}
-.aie-mock-video i b {
-  display: block;
-  width: 40%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-bright);
-}
-
-.aie-mock-terminal {
-  display: grid;
-  gap: 0.35rem;
-  width: 86%;
-  padding: 0.8rem 0.9rem;
-  border-radius: 0.7rem;
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.aie-mock-terminal code {
-  font-family: var(--font-utility);
-  font-size: 0.72rem;
-  white-space: nowrap;
-}
-.aie-mock-terminal code[data-ok="true"] {
-  color: color-mix(in srgb, var(--callout-good) 55%, var(--primary-foreground));
+  font-size: 0.62rem;
+  font-weight: 700;
+  transform: rotate(-3deg);
 }
 
 .aie-mock-chat {
@@ -1346,8 +1407,12 @@
     aspect-ratio: 2 / 1;
   }
   .aie-mock-chat span,
-  .aie-mock-terminal code {
+  .aie-mock-decision span {
     font-size: 0.8rem;
+  }
+  .aie-mock-task,
+  .aie-mock-decision {
+    width: min(100%, 18rem);
   }
   .aie-agents ul {
     grid-template-columns: repeat(3, minmax(0, 1fr));

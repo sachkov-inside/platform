@@ -9,6 +9,7 @@ import {
   FileCode2,
   FileText,
   FolderGit2,
+  GitPullRequest,
   Gauge,
   Layers,
   MessagesSquare,
@@ -401,8 +402,11 @@ const topicTiles: readonly {
           Тесты 24/24
         </span>
         <span className="aie-art-guard-buttons">
-          <b>Дифф проверен</b>
-          <b>Принять</b>
+          <b>
+            <GitPullRequest />
+            PR #42 проверен
+          </b>
+          <b>Merge</b>
         </span>
       </div>
     ),
@@ -584,18 +588,39 @@ const formatArt: readonly ReactNode[] = [
     </span>
     <i />
   </div>,
-  <div className="aie-mock-video" key="video">
+  <div className="aie-mock-task" key="task">
+    <small>Задание 2.3</small>
+    <b>Спроектируй вход в систему</b>
+    <ul>
+      <li>
+        <Check />
+        Спецификация
+      </li>
+      <li>
+        <Check />
+        Реализация
+      </li>
+      <li>
+        <Check />
+        Тесты
+      </li>
+    </ul>
     <span>
-      <Play />
+      <ShieldCheck />
+      Проверено
     </span>
-    <i>
-      <b />
-    </i>
   </div>,
-  <div className="aie-mock-terminal" key="terminal">
-    <code>$ pnpm test</code>
-    <code data-ok="true">✓ 24 passed</code>
-    <code data-ok="true">✓ проверка пройдена</code>
+  <div className="aie-mock-decision" key="decision">
+    <span className="aie-mock-decision-ask">
+      <Bot />
+      Как хранить сессии?
+    </span>
+    <span>В памяти сервера</span>
+    <span data-chosen="true">
+      <Check />
+      Токены с ротацией
+    </span>
+    <small>решаешь ты</small>
   </div>,
   <div className="aie-mock-chat" key="chat">
     <span>Проверка не проходит, куда смотреть?</span>
