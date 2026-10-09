@@ -250,17 +250,25 @@ function ProgrammePurchase({
       className={`product-purchase-cta ${billingActionClass}`}
       data-product-offer={offer?.paymentOption.id}
     >
-      <Link href={invitation.href}>
-        {preorder === null ? "Оплатить сейчас" : "Оформить предзаказ"}
-      </Link>
+      <Link href={invitation.href}>Оплатить сейчас</Link>
     </Button>
   );
-  // Пока поток набирается, рядом с кнопкой — цена предзаказа и зачёркнутая цена после старта.
+  // Пока поток набирается, рядом с ценой — компактная оранжевая кнопка предзаказа справа: она не
+  // спорит с широкой тёмной «Начать обучение» в списке уроков (решение владельца 09.10.2026).
   if (preorder === null) return button;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4 [&>a]:w-full @[30rem]/programme:[&>a]:w-auto">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border pt-4">
       <PreorderPriceView note={null} price={preorder} />
-      {button}
+      <Link
+        className="inline-flex min-h-9 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground no-underline transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        aria-label="Оформить предзаказ"
+        data-product-offer={offer?.paymentOption.id}
+        href={invitation.href}
+      >
+        {/* На телефоне коротко, чтобы кнопка встала в строку с ценой. */}
+        <span className="sm:hidden">Предзаказ</span>
+        <span className="max-sm:hidden">Оформить предзаказ</span>
+      </Link>
     </div>
   );
 }

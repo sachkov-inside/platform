@@ -361,3 +361,14 @@
 .programme-sidebar-parts button[data-current="true"] small {
   color: color-mix(in srgb, var(--primary-foreground) 65%, transparent);
 }
+
+/* Телефон: цена предзаказа в шапке программы мельче, чтобы кнопка встала справа от неё. */
+@media (max-width: 39.999rem) {
+  [data-programme-purchase-row] .preorder-price-now {
+    font-size: 1.375rem;
+  }
+  [data-programme-purchase-row] .preorder-price-after {
+    margin-left: 0.35rem;
+    font-size: 0.9375rem;
+  }
+}
