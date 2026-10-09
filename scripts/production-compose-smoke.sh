@@ -73,6 +73,7 @@ foundation_compose=(
   docker compose
   --project-name "$foundation_project"
   --file infra/production/database/compose.yaml
+  --file scripts/fixtures/production-runtime/compose.database-smoke.yaml
 )
 
 cleanup() {
@@ -229,6 +230,7 @@ LOGTO_APP_ID=inside-production-smoke
 LOGTO_APP_SECRET=inside-production-smoke-app-secret
 LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
 WEB_BASE_URL=https://sachkov.dev
+LEARNER_MCP_URL=https://inside.sachkov.dev/mcp/learning
 EOF
 }
 
@@ -786,7 +788,7 @@ assert_redirect() {
     --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
     "https://${host}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
   if [[ "$status" != "$expected_status" ]] ||
-    ! grep -Fqi "location: $target" "$headers" ||
+    ! tr -d '\r' <"$headers" | grep -Fqix "location: $target" ||
     ! grep -qi '^cache-control: no-store' "$headers"; then
     echo "Unexpected redirect for $host$path: $status" >&2
     cat "$headers" >&2
@@ -804,6 +806,12 @@ if grep -Eq 'secret-code|secret-state' "$runtime_config_dir/redirect-headers"; t
   exit 1
 fi
 assert_public_status GET /explore 200 sachkov.dev
+assert_public_status GET /practice-review-setup.txt 200 sachkov.dev
+if ! grep -Fq 'https://inside.sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body" ||
+  grep -Fq 'https://sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body"; then
+  echo 'Web advertised a changed learner MCP resource URL' >&2
+  exit 1
+fi
 for host in sachkov.dev inside.sachkov.dev; do
   for path in /health /health/ready /_health/ready /integrations/unknown; do
     assert_public_status GET "$path" 404 "$host"

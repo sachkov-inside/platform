@@ -24,10 +24,8 @@ API audience и идентификатор Logto application сохраняют�
 Cookie браузера на старом hostname не становится сессией на новом: потребуется повторный вход
 в ту же учётную запись. Вход, начатый до переключения, безопасно начинается заново.
 
-В старом лендинге внутренние ссылки — `/#inside`, `/#pipeline`, `/#levels`, `/#author`, `/#faq`.
-Fragment не отправляется HTTP-серверу: эти URL открывают новую главную; прежние секции лендинга
-не воспроизводятся. Внешние ссылки Tribute, Telegram, YouTube и GitHub остаются рабочими.
-Отдельных пользовательских страниц в текущем Astro `src/pages` нет, кроме главной.
+Fragment (`#...`) не отправляется HTTP-серверу. Браузер сохраняет его при обычном переходе;
+совместимость якорей зависит от целевой страницы, а не от Caddy.
 
 ## Исходное состояние перед применением
 
@@ -54,9 +52,9 @@ IP берётся из действующей конфигурации productio
 4. Получить TLS для apex/www **до переключения**: Caddy HTTP/TLS challenge на VPS не сможет
    проверить имя, пока DNS ведёт на лендинг. Использовать поддерживаемый DNS challenge или
    перенаправление ACME challenge с текущего хостинга, если панель это позволяет. Проверить
-   выбранный способ в живой панели. Если заранее выпустить сертификат невозможно, согласовать
+   выбранный способ в живой панели. Если заранее выпустить сертификат невозможно, координатор фиксирует
    короткое окно недоступности для DNS → ACME; не обещать бесшовное переключение.
-5. Сохранить root-only копии `/etc/inside/runtime/web.env`, активного Caddy fragment и настроек
+5. Сохранить root-only копии `/etc/inside/runtime/{web,api,mcp,notifications-worker}.env`, активного Caddy fragment и настроек
    Logto. Не выводить секреты и не коммитить копии. Записать текущий успешный deployment state.
 
 ## Окно переключения
@@ -87,6 +85,8 @@ IP берётся из действующей конфигурации productio
 4. Подготовить Logto URI из предыдущего раздела. Заменить только `WEB_BASE_URL` в server-owned
    `/etc/inside/runtime/web.env` на `https://sachkov.dev`, сохранив владельца и mode 0600.
    Env-файл сам по себе не меняет работающий контейнер.
+   Явно задать `LEARNER_MCP_URL=https://inside.sachkov.dev/mcp/learning` в `web.env`: иначе
+   Web выводит адрес учебного MCP из нового `WEB_BASE_URL` и показывает закрытый endpoint.
    В `api.env` и `mcp.env` заменить браузерные `PUBLIC_SITE_ORIGIN`,
    `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` на `https://sachkov.dev`;
    в `api.env` и `notifications-worker.env` заменить `NOTIFICATIONS_PLATFORM_ORIGIN`.
@@ -175,6 +175,9 @@ runtime-конфигурации использовать maintenance; не вы
    Проверить `caddy validate`, затем выполнить `systemctl reload caddy`.
 5. Проверить старый вход, доступ участника и apex/www → inside без цикла.
    При необходимости восстановить DNS/binding из снимка; сохранить bridge до истечения TTL.
+
+При возврате удалить `LEARNER_MCP_URL`, если его не было в сохранённом env; прежний
+`WEB_BASE_URL` снова задаёт правильный fallback.
 
 Старые Logto redirect/logout URI остаются на всё окно возврата. Добавленные URI удалить только
 после завершения возврата и проверки старого входа; issuer/application/audience не менять.
