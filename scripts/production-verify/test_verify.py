@@ -106,6 +106,18 @@ class FailureTests(unittest.TestCase):
         self.assertNotIn('private path', str(result))
 
 class HttpBoundaryTests(unittest.TestCase):
+    def test_bank_rejection_probe_carries_its_marker_over_loopback_https(self):
+        from unittest.mock import patch
+        from subprocess import CompletedProcess
+        from verify import http
+        with patch('verify.subprocess.run', return_value=CompletedProcess(['curl'], 0, 'invalid_notification\n400', '')) as execute:
+            self.assertEqual(http('https://inside.sachkov.dev/billing/tbank/notification', 'POST',
+                                  'inside.sachkov.dev', bank_rejection_probe=True), (400, 'invalid_notification'))
+        args = execute.call_args.args[0]
+        self.assertIn('x-inside-production-verify: bank-webhook-rejection', args)
+        self.assertIn('inside.sachkov.dev:443:127.0.0.1', args)
+        self.assertNotIn('--data', args)
+
     def test_empty_404_body_preserves_status_from_the_same_response(self):
         from unittest.mock import patch
         from subprocess import CompletedProcess
@@ -219,7 +231,7 @@ class PublicRouteTests(unittest.TestCase):
     def test_cutover_checks_new_web_and_old_provider_urls(self):
         from unittest.mock import patch
         from verify import verify_public_routes
-        def response(url, method='GET', origin=None, redirect=False):
+        def response(url, method='GET', origin=None, *, redirect=False, bank_rejection_probe=False):
             if '/communications/visit?' in url:
                 if origin == 'sachkov.dev':
                     return 404, 'Ссылка не найдена.'
@@ -234,7 +246,7 @@ class PublicRouteTests(unittest.TestCase):
             verify_public_routes(checks)
         self.assertTrue(all(item['status'] == 'passed' for item in checks))
         read.assert_any_call('https://sachkov.dev/communications/visit?token=' + 'A' * 43, 'GET', 'sachkov.dev')
-        read.assert_any_call('https://inside.sachkov.dev/billing/tbank/notification', 'POST', 'inside.sachkov.dev')
+        read.assert_any_call('https://inside.sachkov.dev/billing/tbank/notification', 'POST', 'inside.sachkov.dev', bank_rejection_probe=True)
         read.assert_any_call('https://inside.sachkov.dev/communications/visit?token=' + 'A' * 43, origin='inside.sachkov.dev', redirect=True)
 
     def test_old_web_redirect_to_wrong_host_fails(self):

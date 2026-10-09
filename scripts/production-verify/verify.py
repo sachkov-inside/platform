@@ -89,14 +89,16 @@ def sql(query, database='inside', container='inside-production-database-postgres
                            '-d', database, '-At'], data=query))
 
 
-def http(url, method='GET', origin=None, redirect=False):
+def http(url, method='GET', origin=None, *, redirect=False, bank_rejection_probe=False):
     output_format = '%{redirect_url}\n%{http_code}' if redirect else '\n%{http_code}'
     args = ['curl', '--silent', '--show-error', '--max-time', '20', '--write-out', output_format,
             '--request', method]
     if redirect:
         args += ['--output', '/dev/null']
     if origin:
-        args += ['--resolve', origin + ':443:127.0.0.1']
+        args += ['--noproxy', '*', '--resolve', origin + ':443:127.0.0.1']
+    if bank_rejection_probe:
+        args += ['--header', 'x-inside-production-verify: bank-webhook-rejection']
     output = run(args + [url], strip=False)
     body, status = output.rsplit('\n', 1)
     return int(status), body
@@ -176,7 +178,8 @@ def verify_public_routes(record):
     routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
                for suffix in ['binding', 'own-access', 'attempts', 'evidence']]
     for method, path, code, needle in routes:
-        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev')
+        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev',
+                            bank_rejection_probe=path == '/billing/tbank/notification')
         record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
 
     browser_path = '/communications/visit?token=' + 'A' * 43

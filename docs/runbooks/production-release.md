@@ -328,7 +328,11 @@ Exit `2` означает ошибку аргументов. При первом
 сообщает координатору до дальнейших действий. Инструмент не делает rollback или forward repair.
 
 Platform проверяет процессы, readiness API/Web/MCP, изображения и ревизии, воркеры, маршруты Caddy,
-очереди, память, timer и текущий доменный каталог. Incompatible rollback запись допустима, когда
+очереди, память, timer и текущий доменный каталог. Пустой POST на `/billing/tbank/notification`
+по-прежнему должен вернуть `400 invalid_notification`. Только эта проба посылает
+`x-inside-production-verify: bank-webhook-rejection`; HTTPS идёт через loopback Caddy без HTTP proxy.
+Правила сигнала и границу доверия маркера описывает [runbook сторожа](production-monitoring.md).
+Incompatible rollback запись допустима, когда
 она совпадает с manifest; наличие записи не означает разрешённый откат. `rollback=null` означает,
 что gateway не предлагает откат, и допустим после rollback или forward repair. Колонки индексов не
 считаются колонками таблиц. Формат материалов читается из `materials.materials.format_id`;
