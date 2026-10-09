@@ -1,0 +1,186 @@
+{
+  "checks": [
+    {
+      "variant": "A",
+      "width": 1440,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 1440,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 1440,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 1440,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 1440,
+      "state": "all",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 1440,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 1440,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 1440,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 1440,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 1440,
+      "state": "all",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 1440,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 1440,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 1440,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 1440,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 1440,
+      "state": "all",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 390,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 390,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 390,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 390,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "A",
+      "width": 390,
+      "state": "all",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 390,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 390,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 390,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 390,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "B",
+      "width": 390,
+      "state": "all",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 390,
+      "state": "unanswered",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 390,
+      "state": "correct",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 390,
+      "state": "incorrect",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 390,
+      "state": "dontKnow",
+      "axeViolations": 0
+    },
+    {
+      "variant": "C",
+      "width": 390,
+      "state": "all",
+      "axeViolations": 0
+    }
+  ],
+  "keyboard": "Enter and Space activate answers; URL switch survives reload",
+  "anchor": "Target heading reaches viewport; no horizontal overflow at 1440 and 390"
+}
