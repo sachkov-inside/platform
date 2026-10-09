@@ -26,6 +26,11 @@
       "file": "context-candidate.json",
       "capturedAtUtc": "2026-10-09T21:48:23.049741+00:00",
       "sha256": "98bc5a4afe328ad2d982e8efe20ab58d314d4f80b5e2f4b8f8f554cf6d5a74c5"
+    },
+    {
+      "file": "inside-platform-web_latest-size.txt",
+      "capturedAtUtc": "2026-10-09T22:00:15.688352+00:00",
+      "sha256": "70c1d2c0432513b0e29437fb6508e1e4bb17a499ab13f8d0282a4c4a366b8d1f"
     }
   ]
 }

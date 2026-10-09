@@ -14,7 +14,8 @@ Compose or live-stand operation ran. Actual peak build growth and successful sta
 | Retained Next build snapshots |[cache-next-build.txt](cache-next-build.txt)|9 records; maximum 447.8 MB|
 | Retained frozen workspace-install snapshots |[cache-workspace-install.txt](cache-workspace-install.txt)|29 records; maximum 2.261 GB|
 | Existing backend layers |[API history](inside-platform-api_latest-history.txt)|install 1.83 GB; old source COPY 2.22 GB|
-| Existing production web layers |[web history](inside-platform-web_latest-history.txt)|payload copies 84.8 MB+3.61 MB+8.59 MB; total existing image 374 MB|
+| Existing production web layers |[web history](inside-platform-web_latest-history.txt)|payload copies 84.8 MB+3.61 MB+8.59 MB|
+| CLI-reported complete web image size |[web image size](inside-platform-web_latest-size.txt)|374 MB; same image ID 539922ada175 as the history capture|
 
 The two context counts describe different trees: the unchanged primary checkout and the task
 worktree with its own branch/local file set. Later evidence artifacts add only kilobytes;165 MB
@@ -22,13 +23,16 @@ remains the planning envelope, not a claimed final build byte count.
 
 Image-history captures print only IDs/sizes, not `CreatedBy` or environment. Cache captures print
 only IDs/sizes/Shared. Shared cache records overlap: adding every record does not measure physical
-storage. Docker inspect's compressed `Size` also does not measure peak unpack storage.
+storage. Docker inspect's compressed `Size` also does not measure peak unpack storage. The CLI-reported
+complete image size is retained separately from individual history-layer sizes; neither is a
+measurement of future growth.
 
 Capture commands:
 
 ```bash
 docker image history --format '{{.ID}} {{.Size}}' inside-platform-api:latest
 docker image history --format '{{.ID}} {{.Size}}' inside-platform-web:latest
+docker image ls inside-platform-web:latest --format '{{.ID}} {{.Size}}'
 docker buildx du --filter 'description~="pnpm --filter @inside/web build"' --format '{{.ID}} {{.Size}} {{.Shared}}'
 docker buildx du --filter 'description~="pnpm install --frozen-lockfile"' --format '{{.ID}} {{.Size}} {{.Shared}}'
 ```
