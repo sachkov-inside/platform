@@ -88,7 +88,7 @@
 .aie-status .aie-cohort-status-intro {
   grid-area: intro;
 }
-.aie-status .aie-cohort-ticket {
+.aie-status .aie-cohort-ticket-wrap {
   grid-area: ticket;
   align-self: center;
 }

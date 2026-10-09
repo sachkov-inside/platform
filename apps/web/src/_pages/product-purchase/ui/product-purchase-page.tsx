@@ -50,6 +50,7 @@ export async function ProductPurchasePage({
       product={{ name: product.reference.name }}
       offers={catalog.kind === "ready" ? catalog.offers : []}
       preorder={catalog.kind === "ready" ? preorderTerms(catalog.cohort) : null}
+      signedIn={accessToken !== undefined}
       {...(offerId === undefined ? {} : { offerId })}
       slug={slug}
       {...(promoCode === undefined ? {} : { promoCode })}

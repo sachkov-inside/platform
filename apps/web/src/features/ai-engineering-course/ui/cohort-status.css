@@ -33,6 +33,10 @@
   background: var(--accent-bright);
 }
 
+/* Обёртка билета держит наклейку «до старта …»: сам билет обрезает края под вырезы. */
+.aie-cohort-ticket-wrap {
+  position: relative;
+}
 /* Билет: светлая карточка с линией отрыва и вырезами по краям, как у посадочного талона. */
 .aie-cohort-ticket {
   position: relative;
@@ -46,10 +50,11 @@
   overflow: hidden;
   isolation: isolate;
 }
+/* Справа над билетом стоит наклейка «до старта …», поэтому скидка — рядом со словом «Предзаказ». */
 .aie-cohort-ticket-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.75rem;
   color: var(--muted-foreground);
   font-size: 0.8rem;

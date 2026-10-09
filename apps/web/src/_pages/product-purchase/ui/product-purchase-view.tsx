@@ -6,6 +6,7 @@ import {
   billingActionClass,
   formatKopecks,
   preorderDiscount,
+  StartCountdownBadge,
   type PreorderTerms,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -139,7 +140,10 @@ function GuestPurchase({
     after !== null && after > offer.firstPriceKopecks ? after : null;
   const discount = preorderDiscount(offer.firstPriceKopecks, struck);
   return (
-    <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:rounded-3xl sm:p-8">
+    <section className="relative rounded-2xl border border-border bg-card p-5 shadow-card sm:rounded-3xl sm:p-8">
+      {preorder === null ? null : (
+        <StartCountdownBadge text={preorder.daysLeft} />
+      )}
       <ol
         aria-label="Шаги покупки"
         className="grid grid-cols-2 gap-2 text-xs font-semibold"
@@ -175,11 +179,6 @@ function GuestPurchase({
           </s>
         )}
       </p>
-      {preorder === null ? null : (
-        <p className="mt-1 text-sm text-muted-foreground">
-          {preorder.daysLeft}
-        </p>
-      )}
 
       <form
         action="/auth/sign-in"

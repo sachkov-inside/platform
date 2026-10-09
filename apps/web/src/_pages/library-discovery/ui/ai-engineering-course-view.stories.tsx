@@ -216,6 +216,7 @@ export const CohortPreorder: Story = {
           productAccess: "closed",
           signedIn: true,
           slug: "ai-engineering",
+          today: "2026-10-09",
         })}
       />
     ),
@@ -242,7 +243,8 @@ export const CohortPreorder: Story = {
       canvas.getByRole("link", { name: /Оформить предзаказ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
-    await expect(canvas.getByText("до старта 31 день")).toBeInTheDocument();
+    // Сколько дней до старта, видно дважды: в метке первого экрана и наклейкой на билете.
+    await expect(canvas.getAllByText("до старта 31 день")).toHaveLength(2);
     // Первый экран в программу не уводит: туда ведёт кнопка под темами курса.
     const hero =
       canvasElement.querySelector<HTMLElement>(".aie-hero") ??

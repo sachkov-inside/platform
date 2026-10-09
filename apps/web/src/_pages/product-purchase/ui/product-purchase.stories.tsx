@@ -204,6 +204,7 @@ export const SignedOut: Story = {
 export const SignedOutPreorder: Story = {
   ...purchaseRoute("guest"),
   args: {
+    signedIn: false,
     offers: [{ ...productOnlyOffer, firstPriceKopecks: 2_990_000 }],
     preorder: {
       startsOn: "9 ноября",

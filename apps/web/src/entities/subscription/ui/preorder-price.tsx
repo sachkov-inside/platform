@@ -12,8 +12,8 @@ export function PreorderPriceView({
   tone = "light",
 }: {
   readonly price: PreorderPrice;
-  /** Подпись под ценой; по умолчанию — день старта. */
-  readonly note?: string | undefined;
+  /** Подпись под ценой; по умолчанию — день старта, `null` — без подписи. */
+  readonly note?: string | null | undefined;
   /** На тёмной плашке подписи светлее. */
   readonly tone?: "light" | "dark";
 }) {
@@ -31,7 +31,7 @@ export function PreorderPriceView({
           </>
         )}
       </p>
-      <p className="preorder-price-note">{note}</p>
+      {note === null ? null : <p className="preorder-price-note">{note}</p>}
     </div>
   );
 }

@@ -30,6 +30,11 @@ export interface ProductPurchaseProps {
   readonly promoCode?: string;
   /** Пока поток набирается: день старта и цена после него, зачёркнутая рядом с ценой. */
   readonly preorder?: PreorderTerms | null;
+  /**
+   * Вошёл ли человек, по мнению сервера. Гость сразу видит приглашение войти, а его браузер не
+   * читает покупки и контакт: ответ 401 был бы ошибкой в консоли и лишним запросом.
+   */
+  readonly signedIn?: boolean;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -41,18 +46,20 @@ export function ProductPurchase({
   promoCode,
   offerId,
   preorder = null,
+  signedIn = true,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
   );
-  const billing = useCurrentBilling();
+  const billing = useCurrentBilling({ enabled: signedIn });
   // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
   // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
-  const contact = useBillingContact();
+  const contact = useBillingContact({ enabled: signedIn });
   const contactState = contact.data?.ok === true ? contact.data : null;
   const signedOut =
     billing.data?.ok === false && billing.data.code === "unauthorized";
-  const viewer = billing.isPending ? "loading" : signedOut ? "guest" : "member";
+  const viewer =
+    !signedIn || signedOut ? "guest" : billing.isPending ? "loading" : "member";
   const failure =
     billing.data?.ok === false && !signedOut ? billing.data.code : undefined;
   const selected =

@@ -28,8 +28,7 @@ describe("cohort recruitment plaque in the course status block", () => {
       today,
     });
     expect(status).toMatchObject({
-      label: "Старт 9 ноября",
-      priceNote: "до старта 31 день",
+      countdown: "до старта 31 день",
       title: "Набор на первый поток",
       text: "До старта курс стоит дешевле. Цена вырастет 9 ноября.",
       // 29 900 ₽ к 39 900 ₽ — 25,06 %, вниз до целого.
@@ -38,6 +37,7 @@ describe("cohort recruitment plaque in the course status block", () => {
       programmeHref: "/products/ai-engineering/programme",
     });
     expect(status?.price?.startsOn).toBe("9 ноября");
+    expect(status?.price?.daysLeft).toBe("до старта 31 день");
     expect(status?.price?.priceAfterStart).not.toBeNull();
   });
 

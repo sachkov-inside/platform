@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   billingActionClass,
   PreorderPriceView,
+  StartCountdownBadge,
   type PreorderPrice,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -107,9 +108,12 @@ export function ProductProgrammeView({
       </nav>
 
       <header
-        className="mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
+        className="relative mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
         data-programme-part="header"
       >
+        {preorder === null || accessPending ? null : (
+          <StartCountdownBadge text={preorder.daysLeft} />
+        )}
         {/* Обложка, название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит
             под название и занимает всю ширину, чтобы до неё было удобно дотянуться. */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
@@ -250,7 +254,7 @@ function ProgrammePurchase({
   if (preorder === null) return button;
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4 [&>a]:w-full @[30rem]/programme:[&>a]:w-auto">
-      <PreorderPriceView price={preorder} />
+      <PreorderPriceView note={null} price={preorder} />
       {button}
     </div>
   );

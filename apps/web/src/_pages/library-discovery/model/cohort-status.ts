@@ -38,27 +38,25 @@ export function cohortStatus({
   if (startsOn === null) return null;
   const date = formatCohortDate(startsOn);
   const programmeHref = productProgrammeHref(slug);
-  // Поток уже назван в заголовке «Набор на первый поток», метка называет только день старта.
-  const label = `Старт ${date}`;
+  // Наклейка на билете называет, сколько дней до старта; дата словами остаётся в тексте.
+  const countdown = formatDaysUntilStart(startsOn, today);
   if (cohort.stage === "announcement")
     return {
-      label,
+      countdown,
       title: "Набор на первый поток",
       text: "Предзаказ откроется скоро. До старта курс будет стоить дешевле.",
       price: null,
-      priceNote: null,
       discount: null,
       purchaseHref: null,
       programmeHref,
     };
   if (cohort.stage !== "preorder") return null;
-  const price = preorderPrice(cohort, offer);
+  const price = preorderPrice(cohort, offer, today);
   return {
-    label,
+    countdown,
     title: "Набор на первый поток",
     text: `До старта курс стоит дешевле. Цена вырастет ${date}.`,
     price,
-    priceNote: formatDaysUntilStart(startsOn, today),
     discount:
       offer === null
         ? null

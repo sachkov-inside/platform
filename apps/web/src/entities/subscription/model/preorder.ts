@@ -53,6 +53,8 @@ export interface PreorderPrice {
   readonly priceAfterStart: string | null;
   /** День старта словами: «9 ноября». */
   readonly startsOn: string;
+  /** Сколько дней до старта: «до старта 31 день». */
+  readonly daysLeft: string;
 }
 
 /**
@@ -64,6 +66,7 @@ export interface PreorderPrice {
 export function preorderPrice(
   cohort: ProductCohort | null,
   offer: PriceSnapshot | null,
+  today: string = cohortToday(),
 ): PreorderPrice | null {
   if (
     cohort?.stage !== "preorder" ||
@@ -79,6 +82,7 @@ export function preorderPrice(
         ? formatKopecks(after)
         : null,
     startsOn: formatCohortDate(cohort.startsOn),
+    daysLeft: formatDaysUntilStart(cohort.startsOn, today),
   };
 }
 

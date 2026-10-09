@@ -294,6 +294,7 @@ export const GuestPreorder: Story = {
       price: "29 900 ₽",
       priceAfterStart: "39 900 ₽",
       startsOn: "9 ноября",
+      daysLeft: "до старта 31 день",
     },
   },
   play: async ({ canvasElement }) => {
@@ -302,7 +303,8 @@ export const GuestPreorder: Story = {
       await canvas.findByRole("link", { name: "Оформить предзаказ" }),
     ).toBeVisible();
     await expect(canvas.getByText("39 900 ₽")).toBeInTheDocument();
-    await expect(canvas.getByText("до старта 9 ноября")).toBeVisible();
+    // Срок — наклейкой на углу шапки: сколько дней до старта, а не дата словами.
+    await expect(canvas.getByText("до старта 31 день")).toBeVisible();
   },
 };
 export const GuestPreorderMobile: Story = {

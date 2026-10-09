@@ -170,7 +170,12 @@ function journeyRun(
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
   const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
-      <ul aria-label={label} className="mt-2 grid gap-2" data-programme-tasks>
+      <ul
+        aria-label={label}
+        className="mt-2 grid gap-2"
+        data-programme-tasks
+        key={`tasks-${label}`}
+      >
         {items.map((task) => (
           <li className="@container/series-entry min-w-0" key={task.code}>
             <ProductTaskRow
@@ -193,7 +198,12 @@ function journeyRun(
         ? null
         : {
             header: (
-              <header className="programme-chapter-head">
+              // Заголовок уходит клиентскому компоненту в массиве глав: React требует ключ и у
+              // элемента, переданного как значение, иначе пишет предупреждение в консоль.
+              <header
+                className="programme-chapter-head"
+                key={`head-${run.chapter.id}`}
+              >
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <h3
                     className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"

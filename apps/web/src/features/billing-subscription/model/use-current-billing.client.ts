@@ -17,14 +17,19 @@ const readServerHydration = () => false;
  * Кроме самого чтения оно слушает команды с соседней поверхности и сбрасывает запомненный ответ в
  * этот момент, а не ждёт повторного открытия страницы.
  */
-export function useCurrentBilling() {
+export function useCurrentBilling({
+  enabled = true,
+}: {
+  /** `false` — сервер уже знает, что человек не вошёл: читать нечего, и запрос не уходит. */
+  readonly enabled?: boolean;
+} = {}) {
   const hydrated = useSyncExternalStore(
     subscribeToHydration,
     readClientHydration,
     readServerHydration,
   );
   const queryClient = useQueryClient();
-  const query = useQuery(currentBillingQueryOptions());
+  const query = useQuery({ ...currentBillingQueryOptions(), enabled });
 
   useEffect(
     () =>

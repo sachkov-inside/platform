@@ -159,8 +159,8 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
-      style={{ width: `calc(${String(totalParts * 2.75)}rem + .5rem + 2px)` }}
-      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.4rem] border border-black/8 bg-white/88 p-1 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
+      style={{ width: `calc(${String(totalParts * 2.75)}rem + .25rem + 2px)` }}
+      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
     >
       <div
         className="mobile-navigation-items relative grid"
@@ -186,7 +186,7 @@ function MobileBottomNavigation({
               aria-current={current ? "page" : undefined}
               aria-label={item.label}
               className={cn(
-                "mobile-navigation-link relative flex min-h-10 min-w-0 items-center justify-center rounded-[1.15rem] px-2 text-xs font-semibold leading-none text-muted-foreground no-underline",
+                "mobile-navigation-link relative flex min-h-11 min-w-0 items-center justify-center rounded-[1.15rem] px-2 text-xs font-semibold leading-none text-muted-foreground no-underline",
                 "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 current && "text-white",
               )}
