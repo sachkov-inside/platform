@@ -402,8 +402,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@mcp path /mcp\n",
-              `${route}\n\t\t@mcp path /mcp\n`,
+              mcpRoute("mcp", "/mcp"),
+              `${route}\n\t\t${mcpRoute("mcp", "/mcp")}`,
             ),
           }),
         /not in a form the runbook route check understands/u,
@@ -976,13 +976,20 @@ function caddyProxiedRoutes(caddy) {
   /** @type {Set<string>} */
   const understood = new Set();
   for (const [, name = "", method = "", paths = ""] of caddy.matchAll(
-    /@([a-z_]+) \{\n(?:\t+host inside\.sachkov\.dev\n)?(?:\t+method ([A-Z]+)\n)?\t+path ([^\n]+)\n\t+\}/gu,
+    /@([a-z_]+) \{\n(?:\t+host inside\.sachkov\.dev\n)?\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
   )) {
     if (!proxied.has(name)) continue;
     understood.add(name);
     routes.push(
       ...paths.split(" ").map((path) => `${method || "ANY"} ${path}`),
     );
+  }
+  for (const [, name = "", paths = ""] of caddy.matchAll(
+    /@([a-z_]+) \{\n\t+host inside\.sachkov\.dev\n\t+path ([^\n]+)\n\t+\}/gu,
+  )) {
+    if (!proxied.has(name)) continue;
+    understood.add(name);
+    routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
   }
   for (const [, name = "", paths = ""] of caddy.matchAll(
     /@([a-z_]+) path ([^\n]+)/gu,
