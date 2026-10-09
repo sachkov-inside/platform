@@ -141,7 +141,13 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 порядок с pull под maintenance; `operation.json` сохраняет прежние ключи и допустимые фазы во всех состояниях.
 Новый `pre-pull` записывается как `preflight` в `operation.json`; фактическая фаза хранится
 в `operation-maintenance.json.phase`. Новый отказ до maintenance не даёт права начать rollback
-после истечения 24 часов. Старый `pull`
+после истечения 24 часов. `operation-maintenance.json.maintenanceConfirmed` подтверждает успешный
+reload текущего интервала maintenance. `operationMaintenanceConfirmed` сохраняет факт начала maintenance
+для всей операции: принятый rollback можно точно повторить после истечения окна, даже если маршруты
+уже восстановлены, а прежнее измерение архивировано. Если процесс прервался до записи подтверждения, точный повтор сверяет живую
+конфигурацию Caddy через локальный admin API с полной конфигурацией, адаптированной из файлов
+хоста с фрагментом immutable выпуска. Отклонённый reload и прерывание до включения maintenance
+не продлевают окно rollback. Старый `pull` без связанного файла измерения
 означает уже начатое maintenance и сохраняет прежнее право на точный повтор.
 
 ## 8. Записать итог
@@ -151,10 +157,10 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 `Maintenance duration: N seconds.` и `state.json.maintenance`: начало и конец в epoch seconds,
 `durationSeconds` с точностью до секунды. Начало записывается перед reload maintenance,
 конец — после успешного reload обычных маршрутов; время reload входит в измерение.
-В незавершённой операции `operation-maintenance.json.maintenance` хранит открытый интервал: конец `null`,
+Пока maintenance продолжается, `operation-maintenance.json.maintenance` хранит открытый интервал: конец `null`,
 длительность на момент последней записи. Точный повтор и repair forward сохраняют начало,
-пока маршруты не восстановлены. При аварийном завершении берите начало из журнала и текущий
-момент: сохранённая длительность может отставать. Завершённый интервал сохраняется в `state.json`,
+пока маршруты не восстановлены. Если после аварийного завершения Caddy всё ещё показывает maintenance,
+берите начало из журнала и текущий момент: сохранённая длительность может отставать. Завершённый интервал сохраняется в `state.json`,
 а `operation.json` сохраняет прежнюю закрытую форму для старых rollback-скриптов во всех состояниях.
 Файл измерения содержит текущую и предыдущую записи `operation.json`: это связывает измерение
 с операцией при прерывании между двумя атомарными записями. Если старый скрипт изменил журнал,
@@ -166,4 +172,12 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 `operation-history/maintenance-<operation>-<version>-run-<id>-ended-<epoch>.json`.
 `state.json.maintenance` описывает последний интервал; архив содержит файл измерения и сохраняет более ранний интервал
 без включения времени, когда обычные маршруты уже работали.
+Если процесс прервался после успешного reload обычных маршрутов до записи конца, живой Caddy
+подтверждает восстановленные маршруты, но не прошлое время их восстановления. Скрипт сохраняет
+такой интервал отдельно в `operation-history/maintenance-<operation>-<version>-run-<id>-started-<epoch>-ended-unknown.json`
+со схемой `inside.platform.deployment-maintenance-uncertain.v1`. Его `maintenance.endedAtEpochSeconds`
+и `maintenance.durationSeconds` равны `null`; `restoration.observedAtEpochSeconds` — момент проверки,
+а не время конца maintenance. Для точного повтора или repair forward начинается новое измерение;
+`state.json` и `operation.json` сохраняют прежние контракты. Если живую конфигурацию нельзя
+подтвердить, восстановление останавливается до изменения журналов и маршрутов.
 Старые журналы не содержат измерения; скрипт не восстанавливает неизвестное начало.
