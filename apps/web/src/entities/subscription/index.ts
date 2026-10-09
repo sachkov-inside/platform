@@ -133,6 +133,7 @@ export {
   cohortToday,
   formatCohortDate,
   formatDaysUntilStart,
+  preorderDiscount,
   preorderPrice,
   preorderTerms,
   type PreorderPrice,

@@ -20,7 +20,7 @@ import { ProductPurchaseView } from "./product-purchase-view";
 const contactHref = internalRoute("/account/email");
 
 export interface ProductPurchaseProps {
-  readonly product: { readonly name: string; readonly summary: string } | null;
+  readonly product: { readonly name: string } | null;
   /** Варианты покупки этого руководства: обычно один, но выбор поддержан с самого начала. */
   readonly offers: readonly PriceSnapshot[];
   readonly slug: string;

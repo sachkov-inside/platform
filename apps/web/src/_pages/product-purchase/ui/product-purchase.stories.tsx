@@ -48,7 +48,6 @@ function requestPath(input: RequestInfo | URL): string {
 
 const product = {
   name: "Создание Platform Inside",
-  summary: "Как устроен продукт: архитектура, границы и порядок поставки.",
 };
 
 /** Что ответил собственный billing BFF на чтение покупок этого человека. */
@@ -184,7 +183,7 @@ export const SignedOut: Story = {
     // Вход есть и в шапке оболочки: проверяем приглашение самой страницы.
     const canvas = routeContent(canvasElement);
     await expect(
-      await canvas.findByRole("button", { name: "Войти" }),
+      await canvas.findByRole("button", { name: "Войти и оплатить" }),
     ).toBeEnabled();
     // Цена в приглашении войти приходит из снимка сервера, а не из разметки.
     await expect(
@@ -196,6 +195,36 @@ export const SignedOut: Story = {
       ),
     ).toBeInTheDocument();
   },
+};
+
+/**
+ * Гость на предзаказе: два шага покупки, цена предложения рядом с зачёркнутой ценой после
+ * старта, скидка, дни до старта и одна кнопка входа.
+ */
+export const SignedOutPreorder: Story = {
+  ...purchaseRoute("guest"),
+  args: {
+    offers: [{ ...productOnlyOffer, firstPriceKopecks: 2_990_000 }],
+    preorder: {
+      startsOn: "9 ноября",
+      daysLeft: "до старта 31 день",
+      priceAfterStartKopecks: 3_990_000,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = routeContent(canvasElement);
+    await expect(
+      await canvas.findByRole("button", { name: "Войти и оплатить" }),
+    ).toBeEnabled();
+    await expect(canvas.getByText("39 900 ₽")).toBeInTheDocument();
+    await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
+    await expect(canvas.getByText("до старта 31 день")).toBeInTheDocument();
+  },
+};
+
+export const SignedOutPreorderMobile: Story = {
+  ...SignedOutPreorder,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 /** Персональная ссылка владельца: код переживает вход, а цену со скидкой назовёт расчёт (#815). */

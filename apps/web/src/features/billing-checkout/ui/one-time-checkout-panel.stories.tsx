@@ -137,6 +137,7 @@ export const Preorder: Story = {
   args: {
     preorder: {
       startsOn: "9 ноября",
+      daysLeft: "до старта 31 день",
       priceAfterStartKopecks:
         productWithSupportOffer.firstPriceKopecks + 1_000_000,
     },

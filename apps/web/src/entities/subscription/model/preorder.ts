@@ -86,16 +86,34 @@ export function preorderPrice(
 export interface PreorderTerms {
   /** День старта словами: «9 ноября». */
   readonly startsOn: string;
+  /** Сколько дней до старта: «до старта 31 день». */
+  readonly daysLeft: string;
   readonly priceAfterStartKopecks: number | null;
 }
 
 /** Условия предзаказа, пока поток на этапе предзаказа; иначе `null`. */
 export function preorderTerms(
   cohort: ProductCohort | null,
+  today: string = cohortToday(),
 ): PreorderTerms | null {
   if (cohort?.stage !== "preorder" || cohort.startsOn === null) return null;
   return {
     startsOn: formatCohortDate(cohort.startsOn),
+    daysLeft: formatDaysUntilStart(cohort.startsOn, today),
     priceAfterStartKopecks: cohort.priceAfterStartKopecks,
   };
+}
+
+/**
+ * Скидка предзаказа к цене после старта, округлённая вниз, чтобы не обещать больше, чем есть:
+ * 29 900 ₽ к 39 900 ₽ — «−25 %». Без большей цены после старта сравнивать не с чем.
+ */
+export function preorderDiscount(
+  priceKopecks: number,
+  afterStartKopecks: number | null,
+): string | null {
+  if (afterStartKopecks === null || afterStartKopecks <= priceKopecks)
+    return null;
+  const percent = Math.floor((1 - priceKopecks / afterStartKopecks) * 100);
+  return percent < 1 ? null : `−${String(percent)}\u00a0%`;
 }

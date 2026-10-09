@@ -47,10 +47,7 @@ export async function ProductPurchasePage({
   return (
     <ProductPurchase
       key={`${slug}:${offerId ?? ""}`}
-      product={{
-        name: product.reference.name,
-        summary: product.reference.summary,
-      }}
+      product={{ name: product.reference.name }}
       offers={catalog.kind === "ready" ? catalog.offers : []}
       preorder={catalog.kind === "ready" ? preorderTerms(catalog.cohort) : null}
       {...(offerId === undefined ? {} : { offerId })}

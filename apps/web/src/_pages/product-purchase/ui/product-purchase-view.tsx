@@ -1,10 +1,11 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 
 import {
   billingActionClass,
   formatKopecks,
+  preorderDiscount,
   type PreorderTerms,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -19,7 +20,7 @@ import { Button } from "@/shared/ui/button";
 export type ProductPurchaseViewer = "loading" | "guest" | "member";
 
 export interface ProductPurchaseViewProps {
-  readonly product: { readonly name: string; readonly summary: string } | null;
+  readonly product: { readonly name: string } | null;
   readonly offer: PriceSnapshot | null;
   readonly slug: string;
   readonly viewer: ProductPurchaseViewer;
@@ -76,11 +77,6 @@ export function ProductPurchaseView({
       >
         {product?.name ?? "Продукт"}
       </h1>
-      {product === null || product.summary === "" ? null : (
-        <p className="mt-3 break-words text-sm leading-6 text-muted-foreground md:text-base">
-          {product.summary}
-        </p>
-      )}
 
       <div className="mt-6">
         {unavailable ? (
@@ -103,31 +99,12 @@ export function ProductPurchaseView({
             Проверяем ваши покупки…
           </p>
         ) : viewer === "guest" ? (
-          <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
-            <h2 className="text-xl font-semibold">
-              {preorder === null
-                ? "Войдите, чтобы купить"
-                : "Войдите, чтобы оформить предзаказ"}
-            </h2>
-            {preorder === null || promoCode !== undefined ? null : (
-              <GuestPreorderPrice offer={offer} preorder={preorder} />
-            )}
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              {promoCode === undefined
-                ? `После входа вы вернётесь сюда и продолжите покупку за ${formatKopecks(offer.firstPriceKopecks)}.`
-                : "После входа вы вернётесь сюда, и скидка по ссылке применится к цене."}
-            </p>
-            <form action="/auth/sign-in" className="mt-4" method="post">
-              <input
-                name="returnTo"
-                type="hidden"
-                value={productPurchaseHref(slug, promoCode, offerId)}
-              />
-              <Button className={billingActionClass} type="submit">
-                Войти
-              </Button>
-            </form>
-          </section>
+          <GuestPurchase
+            offer={offer}
+            preorder={preorder}
+            promoCode={promoCode}
+            returnTo={productPurchaseHref(slug, promoCode, offerId)}
+          />
         ) : (
           children
         )}
@@ -143,33 +120,85 @@ export function ProductPurchaseView({
 }
 
 /**
- * Цена предзаказа для гостя: сумма, зачёркнутая цена после старта, если она больше, и срок. Так
- * скидку видно ещё до входа, а не только в оформлении покупки.
+ * Гостю — одна карточка: два шага покупки, цена и кнопка входа. Описание продукта и условия здесь
+ * не повторяются: их человек уже видел на странице курса, а оформление покажет после входа.
  */
-function GuestPreorderPrice({
+function GuestPurchase({
   offer,
   preorder,
+  promoCode,
+  returnTo,
 }: {
   readonly offer: PriceSnapshot;
-  readonly preorder: PreorderTerms;
+  readonly preorder: PreorderTerms | null;
+  readonly promoCode: string | undefined;
+  readonly returnTo: string;
 }) {
-  const after = preorder.priceAfterStartKopecks;
+  const after = preorder?.priceAfterStartKopecks ?? null;
+  const struck =
+    after !== null && after > offer.firstPriceKopecks ? after : null;
+  const discount = preorderDiscount(offer.firstPriceKopecks, struck);
   return (
-    <div className="mt-4">
-      <p className="flex flex-wrap items-baseline gap-x-3">
-        <span className="text-3xl font-bold tracking-[-0.02em]">
+    <section className="rounded-3xl border border-border bg-card p-6 shadow-card sm:p-8">
+      <ol
+        aria-label="Шаги покупки"
+        className="flex items-center gap-2 text-xs font-semibold"
+      >
+        <li className="flex items-center gap-2">
+          <span className="grid size-6 place-items-center rounded-full bg-foreground text-background">
+            1
+          </span>
+          Вход
+        </li>
+        <li aria-hidden="true" className="h-px w-8 bg-border" />
+        <li className="flex items-center gap-2 text-muted-foreground">
+          <span className="grid size-6 place-items-center rounded-full border border-border">
+            2
+          </span>
+          Оплата
+        </li>
+      </ol>
+
+      <p className="mt-7 text-sm font-medium text-muted-foreground">
+        {preorder === null ? "Цена" : "Предзаказ"}
+      </p>
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-4xl font-bold tracking-[-0.03em]">
           {formatKopecks(offer.firstPriceKopecks)}
         </span>
-        {after === null || after <= offer.firstPriceKopecks ? null : (
+        {struck === null ? null : (
           <s className="text-lg text-muted-foreground">
             <span className="sr-only">Цена после старта: </span>
-            {formatKopecks(after)}
+            {formatKopecks(struck)}
           </s>
         )}
+        {discount === null ? null : (
+          <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
+            {discount}
+          </span>
+        )}
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Цена предзаказа действует до старта потока {preorder.startsOn}.
+      {preorder === null ? null : (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {preorder.daysLeft}
+        </p>
+      )}
+
+      <form action="/auth/sign-in" className="mt-7" method="post">
+        <input name="returnTo" type="hidden" value={returnTo} />
+        <Button
+          className={`${billingActionClass} min-h-12 w-full gap-2 text-base font-semibold`}
+          type="submit"
+        >
+          Войти и оплатить
+          <ArrowRight aria-hidden="true" />
+        </Button>
+      </form>
+      <p className="mt-3 text-center text-xs text-muted-foreground">
+        {promoCode === undefined
+          ? "После входа вы сразу вернётесь к оплате"
+          : "После входа скидка по ссылке применится к цене"}
       </p>
-    </div>
+    </section>
   );
 }
