@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { finished } from "node:stream/promises";
 import { test } from "node:test";
 
 import { commandExit } from "../diagnostic-command.mjs";
@@ -82,7 +83,7 @@ test("production probe retains nonempty API rejections and empty fail-closed rou
 });
 
 for (const cancellation of ["timeout", "interruption"]) {
-  test(`production probe ${cancellation} leaves no blocked curl descendant`, async () => {
+  test(`production probe ${cancellation} leaves no blocked curl descendant`, async (t) => {
     const directory = mkdtempSync(
       join(tmpdir(), "production-probe-cancellation-"),
     );
@@ -92,43 +93,47 @@ for (const cancellation of ["timeout", "interruption"]) {
     let watcher;
     /** @type {number | undefined} */
     let pid;
-    try {
-      if (cancellation === "interruption") {
-        // Interrupt only after the curl fixture has committed its listening descendant's PID.
-        watcher = watch(directory, () => {
-          if (!existsSync(pidPath)) return;
-          const value = readFileSync(pidPath, "utf8");
-          if (!/^[1-9][0-9]*$/.test(value)) return;
-          controller.abort();
-        });
-      }
-      await assert.rejects(
-        runProbe({ descendantPidPath: pidPath }, { signal: controller.signal }),
-        { name: "AbortError" },
-      );
-      const childPid = Number(readFileSync(pidPath, "utf8"));
-      pid = childPid;
-      assert.ok(Number.isSafeInteger(childPid) && childPid > 0);
-      assert.throws(() => process.kill(childPid, 0), { code: "ESRCH" });
-    } finally {
+    t.after(() => {
       watcher?.close();
-      // Rescue only this fixture's descendant if a regression leaves it alive.
-      if (pid === undefined && existsSync(pidPath))
-        pid = Number(readFileSync(pidPath, "utf8"));
-      if (pid !== undefined && Number.isSafeInteger(pid) && pid > 0) {
-        try {
-          process.kill(pid, "SIGKILL");
-        } catch (error) {
-          if (!(
-            error instanceof Error &&
-            "code" in error &&
-            error.code === "ESRCH"
-          ))
-            throw error;
+      try {
+        // Rescue only this fixture's descendant if a regression leaves it alive.
+        if (pid === undefined && existsSync(pidPath))
+          pid = Number(readFileSync(pidPath, "utf8"));
+        if (pid !== undefined && Number.isSafeInteger(pid) && pid > 0) {
+          try {
+            process.kill(pid, "SIGKILL");
+          } catch (error) {
+            if (!(
+              error instanceof Error &&
+              "code" in error &&
+              error.code === "ESRCH"
+            ))
+              throw error;
+          }
         }
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
       }
-      rmSync(directory, { recursive: true, force: true });
+    });
+    if (cancellation === "interruption") {
+      // Interrupt only after the curl fixture has committed its listening descendant's PID.
+      watcher = watch(directory, () => {
+        if (!existsSync(pidPath)) return;
+        const value = readFileSync(pidPath, "utf8");
+        if (!/^[1-9][0-9]*$/.test(value)) return;
+        controller.abort();
+      });
     }
+    await assert.rejects(
+      runProbe({ descendantPidPath: pidPath }, { signal: controller.signal }),
+      { name: "AbortError" },
+    );
+    if (cancellation === "interruption")
+      assert.equal(controller.signal.aborted, true);
+    const childPid = Number(readFileSync(pidPath, "utf8"));
+    pid = childPid;
+    assert.ok(Number.isSafeInteger(childPid) && childPid > 0);
+    assert.throws(() => process.kill(childPid, 0), { code: "ESRCH" });
   });
 }
 
@@ -191,11 +196,18 @@ printf '%s' "$PROBE_STATUS"
     );
     /** @type {string[]} */
     const output = [];
-    for (const stream of [child.stdout, child.stderr])
-      stream?.on("data", (/** @type {Buffer} */ chunk) =>
+    const streams = [child.stdout, child.stderr].filter(
+      (stream) => stream !== null,
+    );
+    for (const stream of streams)
+      stream.on("data", (/** @type {Buffer} */ chunk) =>
         output.push(chunk.toString()),
       );
-    return { status: await commandExit(child), output: output.join("") };
+    const [status] = await Promise.all([
+      commandExit(child),
+      Promise.all(streams.map((stream) => finished(stream, { cleanup: true }))),
+    ]);
+    return { status, output: output.join("") };
   } finally {
     try {
       if (child !== undefined) await stopOwned(child);
