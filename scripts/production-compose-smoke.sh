@@ -63,6 +63,8 @@ export PRODUCTION_SMOKE_HTTP_PORT="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 export PRODUCTION_SMOKE_HTTPS_PORT="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
 export PLATFORM_BROKER_NETWORK="${project_name}-broker"
 
+source scripts/production-public-probe.sh
+
 application_compose=(
   docker compose
   --project-name "$project_name"
@@ -362,37 +364,6 @@ read_schema_marker() {
   ' "$1"
 }
 
-assert_public_status() {
-  local method=$1
-  local path=$2
-  local expected=$3
-  local host=${4:-inside.sachkov.dev}
-  if (($# >= 4)); then shift 4; else shift 3; fi
-  local actual
-  local body_path="$runtime_config_dir/public-response-body"
-  actual="$(curl \
-    --cacert "$runtime_config_dir/caddy-root.crt" \
-    --noproxy '*' \
-    --output "$body_path" \
-    --request "$method" \
-    --resolve "${host}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
-    --silent \
-    --write-out '%{http_code}' \
-    "$@" "https://${host}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
-  if [[ "$actual" != "$expected" ]]; then
-    echo "Expected $method $path to return $expected, received $actual" >&2
-    exit 1
-  fi
-  if [[ "$expected" == "404" ]]; then
-    if [[ -s "$body_path" ]]; then
-      echo "Expected $method $path to return an empty fail-closed body" >&2
-      exit 1
-    fi
-  elif [[ ! -s "$body_path" ]]; then
-    echo "Expected $method $path to return a non-empty response body" >&2
-    exit 1
-  fi
-}
 
 wait_for_worker_health() {
   local expected=$1
