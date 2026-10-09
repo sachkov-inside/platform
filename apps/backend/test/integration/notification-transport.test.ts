@@ -187,6 +187,8 @@ function watchCrashWorker(child: ChildProcess) {
 describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let database: TestDatabase;
+  // deterministic-test-allow shared-mutation: beforeAll registers owned resources; afterAll drains cleanup once, including partial setup.
+  const cleanup: (() => Promise<void>)[] = [];
   const connections: ChannelModel[] = [];
   const config = (principal: NotificationPrincipal, vhost = "inside-test") => ({
     url: broker.url(principal, vhost),
@@ -233,7 +235,9 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     const topology = localNotificationTopology("inside-test", queueCapacity);
     topology.vhosts.push({ name: "another-environment" });
     broker = await startNotificationBroker({ topology, tls: true });
+    cleanup.unshift(() => broker.stop());
     database = await createMigratedTestDatabase();
+    cleanup.unshift(() => database.dispose());
   }, 180_000);
   afterEach(async () => {
     await Promise.allSettled(
@@ -241,12 +245,19 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     );
   });
   afterAll(async () => {
-    // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
-    try {
-      await database.dispose();
-    } finally {
-      await broker.stop();
+    const errors: unknown[] = [];
+    for (const close of cleanup.splice(0)) {
+      try {
+        await close();
+      } catch (error) {
+        errors.push(error);
+      }
     }
+    if (errors.length > 0)
+      throw new AggregateError(
+        errors,
+        "Notifications transport cleanup failed",
+      );
   }, 60_000);
 
   test("TLS trust, environment isolation, publish/read/configure ACLs and bounded quorum topology", async () => {
