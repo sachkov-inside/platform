@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  House,
   Library,
   ListOrdered,
   RefreshCw,
   Shapes,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -83,6 +83,9 @@ export function SeriesJourneyControls({
   const learning = useSeriesLearning();
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
+  // Колонка слева на широком экране — вариант для проверки владельцем (09.10.2026): включается
+  // адресом `?layout=sidebar`, без него программа остаётся с вкладками.
+  const sidebar = search.get("layout") === "sidebar";
   const routeRef = useRef<HTMLElement>(null);
   const [selection, setSelection] = useState(() => ({
     id:
@@ -177,6 +180,15 @@ export function SeriesJourneyControls({
     if (id === part?.id) return;
     setSelection({ id, explicit: true });
   }
+  /** Глава из колонки: открывается программа, и страница прокручивается к заголовку главы. */
+  function openChapter(chapterId: string) {
+    selectPart("programme");
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`chapter-${chapterId}`)
+        ?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
     selectPart(id);
@@ -197,7 +209,10 @@ export function SeriesJourneyControls({
       </h2>
       {parts.length > 1 ? (
         <div
-          className="flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border max-lg:hidden"
+          className={cn(
+            "flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border max-lg:hidden",
+            sidebar && "lg:hidden",
+          )}
           role="tablist"
           aria-label="Разделы продукта"
         >
@@ -420,6 +435,14 @@ export function SeriesJourneyControls({
           </Button>
         </div>
       ) : null}
+      {sidebar && parts.length > 1 ? (
+        <ProgrammeSidebar
+          activeId={part?.id ?? "programme"}
+          onOpenChapter={openChapter}
+          onOpenPart={openPart}
+          parts={parts}
+        />
+      ) : null}
       {parts.length > 1 ? (
         <ProductBottomBar
           activeId={part?.id ?? "programme"}
@@ -484,9 +507,9 @@ const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
 
 /**
  * Нижняя панель продукта на телефоне и планшете (решение владельца 09.10.2026), только значки, как
- * в общей навигации: подписи на узком экране не помещаются. Внутри программы
- * она заменяет общую навигацию. Первый пункт ведёт на Главную, остальные — разделы продукта, те же,
- * что вкладки на широком экране; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
+ * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
+ * навигацию: разделы продукта — те же, что вкладки на широком экране, — и профиль. Главной здесь
+ * нет: выход на витрину стоит вверху слева, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
  * Атрибут `data-hide-mobile-navigation` убирает общую панель, её место занимает эта.
  */
 function ProductBottomBar({
@@ -504,9 +527,6 @@ function ProductBottomBar({
       className="product-bottom-bar lg:hidden"
       data-hide-mobile-navigation
     >
-      <Link aria-label="Главная" className="product-bottom-bar-item" href="/">
-        <House aria-hidden="true" />
-      </Link>
       {parts.map((entry) => {
         const Icon = partIcons[entry.id];
         const current = entry.id === activeId;
@@ -526,6 +546,97 @@ function ProductBottomBar({
           </button>
         );
       })}
+      <Link
+        aria-label="Профиль"
+        className="product-bottom-bar-item"
+        href="/account"
+      >
+        <UserRound aria-hidden="true" />
+      </Link>
     </nav>
+  );
+}
+
+/**
+ * Колонка программы на широком экране: разделы продукта со счётчиками и оглавление глав. Она
+ * прилипает к верху и остаётся на месте, пока читатель листает главы. Вариант для проверки
+ * владельцем рядом с вкладками; на телефоне её роль играет нижняя панель.
+ */
+function ProgrammeSidebar({
+  activeId,
+  onOpenChapter,
+  onOpenPart,
+  parts,
+}: {
+  readonly activeId: JourneyPart["id"];
+  readonly onOpenChapter: (chapterId: string) => void;
+  readonly onOpenPart: (id: JourneyPart["id"]) => void;
+  readonly parts: readonly JourneyPart[];
+}) {
+  const programme = parts.find((entry) => entry.id === "programme");
+  const chapters =
+    programme?.kind === "materials"
+      ? programme.runs.flatMap((run) =>
+          run.chapter === null
+            ? []
+            : [{ ...run.chapter, lessons: run.rows.length }],
+        )
+      : [];
+  return (
+    <aside className="programme-sidebar" data-programme-sidebar>
+      <div className="programme-sidebar-inner">
+        <nav aria-label="Разделы продукта">
+          <ul className="programme-sidebar-parts">
+            {parts.map((entry) => {
+              const Icon = partIcons[entry.id];
+              const current = entry.id === activeId;
+              return (
+                <li key={entry.id}>
+                  <button
+                    aria-current={current ? "page" : undefined}
+                    data-current={current}
+                    onClick={() => {
+                      onOpenPart(entry.id);
+                    }}
+                    type="button"
+                  >
+                    <Icon aria-hidden="true" />
+                    <span>{partBarLabels[entry.id]}</span>
+                    {partCount(entry) > 0 ? (
+                      <small>{partCount(entry)}</small>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        {chapters.length === 0 ? null : (
+          <nav aria-label="Главы программы">
+            <p className="programme-sidebar-title">Главы</p>
+            <ol className="programme-sidebar-chapters">
+              {chapters.map((chapter, index) => (
+                <li key={chapter.id}>
+                  <button
+                    onClick={() => {
+                      onOpenChapter(chapter.id);
+                    }}
+                    type="button"
+                  >
+                    <b>{String(index + 1)}</b>
+                    <span>{chapter.name}</span>
+                    {chapter.lessons === 0 ? (
+                      <small>скоро</small>
+                    ) : (
+                      <small>{chapter.lessons}</small>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+      </div>
+    </aside>
   );
 }

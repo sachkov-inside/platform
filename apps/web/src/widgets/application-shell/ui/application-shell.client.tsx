@@ -2,6 +2,7 @@
 
 import {
   Bookmark,
+  GraduationCap,
   Home,
   LibraryBig,
   Map,
@@ -18,7 +19,7 @@ import { InsideBrand } from "./inside-brand";
 import { PublicFooter } from "./public-footer";
 
 type ApplicationNavigationIcon =
-  "bookmark" | "home" | "library" | "map" | "pen" | "profile";
+  "bookmark" | "course" | "home" | "library" | "map" | "pen" | "profile";
 
 export interface ApplicationNavigationItem {
   readonly href: Route;
@@ -40,6 +41,7 @@ export interface ApplicationShellProps {
 
 const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
   bookmark: Bookmark,
+  course: GraduationCap,
   home: Home,
   library: LibraryBig,
   map: Map,
