@@ -162,7 +162,7 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 Сторож читает `status` и `recordedAt` из `operation.json`; Platform `production:verify` читает
 `state.json`. Оба инструмента не читают `operation-maintenance.json`.
 Если reload maintenance отклонён, новый интервал не сохраняется. Если `journal` упал после
-возврата маршрутов, повтор сохраняет завершённое измерение предыдущей попытки в
+возврата маршрутов, точный повтор или repair forward сохраняет завершённое измерение предыдущей попытки в
 `operation-history/maintenance-<operation>-<version>-run-<id>-ended-<epoch>.json`.
 `state.json.maintenance` описывает последний интервал; архив содержит файл измерения и сохраняет более ранний интервал
 без включения времени, когда обычные маршруты уже работали.

@@ -629,12 +629,15 @@ if jq --exit-status --arg operation "$operation" --arg version "$version" '
   maintenance_started_epoch="$(jq --raw-output '.maintenance.startedAtEpochSeconds // empty' <<<"$last_maintenance_json")"
   maintenance_ended_epoch="$(jq --raw-output '.maintenance.endedAtEpochSeconds // empty' <<<"$last_maintenance_json")"
 fi
-# A retry can open another interval after routes succeeded but state publication failed.
-# Preserve the completed attempt before its operation journal is replaced.
-if [[ -n "$maintenance_ended_epoch" ]] &&
+# A retry or repair can open another interval after routes succeeded but state failed.
+# Archive the previous closed measurement even when repair does not carry it forward.
+closed_interval_epoch="$(jq --raw-output '.maintenance.endedAtEpochSeconds // empty' <<<"$last_maintenance_json")"
+if [[ -n "$closed_interval_epoch" ]] &&
   [[ "$(jq --raw-output .status <<<"$last_operation_json")" != succeeded ]]; then
   measured_run_id="$(jq --raw-output .githubRunId <<<"$last_operation_json")"
-  measured_history="$operation_history_dir/maintenance-$operation-$version-run-$measured_run_id-ended-$maintenance_ended_epoch.json"
+  measured_operation="$(jq --raw-output .operation <<<"$last_operation_json")"
+  measured_version="$(jq --raw-output .version <<<"$last_operation_json")"
+  measured_history="$operation_history_dir/maintenance-$measured_operation-$measured_version-run-$measured_run_id-ended-$closed_interval_epoch.json"
   if [[ ! -e "$measured_history" ]]; then
     install -m 600 "$maintenance_file" "$measured_history.tmp.$$"
     mv "$measured_history.tmp.$$" "$measured_history"

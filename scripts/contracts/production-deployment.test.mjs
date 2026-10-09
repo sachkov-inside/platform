@@ -397,6 +397,7 @@ describe("production deployment state machine", () => {
           phase === "pre-pull" ? "preflight" : phase,
         );
         assertLegacyOperationKeys(operation);
+        assert.equal(readMaintenance(fixture).phase, phase);
         if (
           phase === "preflight" ||
           phase === "pre-pull" ||
@@ -458,6 +459,7 @@ describe("production deployment state machine", () => {
             ),
           );
           assert.equal(journal.phase, "preflight");
+          assert.equal(readMaintenance(fixture).phase, "pre-pull");
           assertLegacyOperationKeys(journal);
           assert.equal(journal.maintenance, undefined);
           assertGatewaySuccess(fixture, operation, target, 304);
@@ -615,54 +617,56 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
     }
   });
 
-  it("archives a closed maintenance interval before retrying a failed journal", () => {
-    const fixture = createHostFixture();
-    try {
-      assertGatewaySuccess(fixture, "deploy", "v1", 440);
-      const clock = resolve(fixture.root, "clock");
-      writeFileSync(clock, "100\n");
-      writeExecutable(
-        resolve(fixture.bin, "date"),
-        `#!/usr/bin/env bash
+  for (const target of ["v2", "v3"]) {
+    it(`archives a closed maintenance interval before continuing a failed journal with ${target}`, () => {
+      const fixture = createHostFixture();
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 440);
+        const clock = resolve(fixture.root, "clock");
+        writeFileSync(clock, "100\n");
+        writeExecutable(
+          resolve(fixture.bin, "date"),
+          `#!/usr/bin/env bash
 if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/date "$@"; fi
 `,
-      );
-      assert.notEqual(
-        runGateway(fixture, "deploy", "v2", 441, {
-          INSIDE_DEPLOY_FAIL_PHASE: "journal",
-          INSIDE_DEPLOY_TEST_TIMING: "true",
-        }).status,
-        0,
-      );
-      const before = readFileSync(
-        resolve(
-          fixture.root,
-          "var/lib/inside/deployments/operation-maintenance.json",
-        ),
-        "utf8",
-      );
-      assertGatewaySuccess(fixture, "deploy", "v2", 442, {
-        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
-      });
-      assert.equal(
-        readFileSync(
+        );
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v2", 441, {
+            INSIDE_DEPLOY_FAIL_PHASE: "journal",
+            INSIDE_DEPLOY_TEST_TIMING: "true",
+          }).status,
+          0,
+        );
+        const before = readFileSync(
           resolve(
             fixture.root,
-            "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-441-ended-345.json",
+            "var/lib/inside/deployments/operation-maintenance.json",
           ),
           "utf8",
-        ),
-        before,
-      );
-      assert.deepEqual(readState(fixture).maintenance, {
-        startedAtEpochSeconds: 500,
-        endedAtEpochSeconds: 500,
-        durationSeconds: 0,
-      });
-    } finally {
-      fixture.cleanup();
-    }
-  });
+        );
+        assertGatewaySuccess(fixture, "deploy", target, 442, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+        });
+        assert.equal(
+          readFileSync(
+            resolve(
+              fixture.root,
+              "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-441-ended-345.json",
+            ),
+            "utf8",
+          ),
+          before,
+        );
+        assert.deepEqual(readState(fixture).maintenance, {
+          startedAtEpochSeconds: 500,
+          endedAtEpochSeconds: 500,
+          durationSeconds: 0,
+        });
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
 
   it("rejects a database schema mismatch before enabling maintenance", () => {
     const fixture = createHostFixture();
