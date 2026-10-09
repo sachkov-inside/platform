@@ -4,6 +4,7 @@ import {
   Library,
   ListOrdered,
   RefreshCw,
+  Search,
   Shapes,
   UserRound,
   type LucideIcon,
@@ -48,15 +49,34 @@ export interface JourneyRun {
   readonly rows: readonly JourneyRow[];
 }
 
+/** Карточка каталога материалов: готовая карточка сервера и поля для поиска и фильтров. */
+export interface CatalogEntry {
+  readonly card: ReactNode;
+  readonly format: string;
+  readonly formatSlug: string;
+  readonly inProgramme: boolean;
+  /** Дата публикации ISO; пустая строка — без даты, такие карточки стоят в конце. */
+  readonly publishedAt: string;
+  readonly slug: string;
+  /** Название и описание в нижнем регистре для поиска. */
+  readonly text: string;
+}
+
 export type JourneyPart =
   | {
       readonly chapterCount: number;
-      readonly id: "programme" | "supplementary";
+      readonly id: "programme";
       readonly kind: "materials";
       readonly label: string;
       /** Короткое имя вкладки для узкого экрана; полное остаётся для скринридера. */
       readonly shortLabel?: string;
       readonly runs: readonly JourneyRun[];
+    }
+  | {
+      readonly entries: readonly CatalogEntry[];
+      readonly id: "supplementary";
+      readonly kind: "catalog";
+      readonly label: string;
     }
   | {
       readonly count: number;
@@ -200,8 +220,11 @@ export function SeriesJourneyControls({
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
     selectPart(id);
+    // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
+    // владельца 09.10.2026). На широком экране прокручивается оболочка, на телефоне — окно.
     requestAnimationFrame(() => {
-      routeRef.current?.scrollIntoView({ block: "start" });
+      window.scrollTo({ top: 0 });
+      document.getElementById("content")?.scrollTo({ top: 0 });
     });
   }
 
@@ -229,7 +252,15 @@ export function SeriesJourneyControls({
         className="focus-visible:outline-2 focus-visible:outline-ring"
       >
         {part?.kind === "artifacts" ? (
-          part.panel
+          <>
+            <PartHeading
+              text="Файлы, шаблоны и инструменты для работы над проектом."
+              title={part.label}
+            />
+            {part.panel}
+          </>
+        ) : part?.kind === "catalog" ? (
+          <MaterialCatalog entries={part.entries} />
         ) : (
           <>
             {part?.id === "programme" &&
@@ -237,12 +268,6 @@ export function SeriesJourneyControls({
             part.chapterCount === 0 ? (
               <p className="py-10 text-sm leading-6 text-muted-foreground">
                 Программа готовится. Здесь появятся главы и уроки продукта.
-              </p>
-            ) : null}
-            {part?.id === "supplementary" && visible.length === 0 ? (
-              <p className="py-10 text-sm leading-6 text-muted-foreground">
-                Здесь появятся дополнительные разборы и полезные материалы к
-                продукту.
               </p>
             ) : null}
             {visible.length > SERIES_BATCH_SIZE ? (
@@ -406,7 +431,161 @@ function partRows(part: JourneyPart): readonly JourneyRow[] {
 }
 
 function partCount(part: JourneyPart): number {
-  return part.kind === "materials" ? partRows(part).length : part.count;
+  return part.kind === "materials"
+    ? partRows(part).length
+    : part.kind === "catalog"
+      ? part.entries.length
+      : part.count;
+}
+
+/** Заголовок раздела: на странице видно, что открыты «Материалы» или «Артефакты». */
+function PartHeading({
+  text,
+  title,
+}: {
+  readonly text: string;
+  readonly title: string;
+}) {
+  return (
+    <div className="pb-1">
+      <h2 className="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
+        {title}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+const catalogFormats = [
+  { slug: "", label: "Все" },
+  { slug: "video", label: "Видео" },
+  { slug: "guide", label: "Гайды" },
+  { slug: "note", label: "Заметки" },
+] as const;
+const catalogScopes = [
+  { id: "all", label: "Все" },
+  { id: "programme", label: "Из программы" },
+  { id: "extra", label: "Дополнительные" },
+] as const;
+type CatalogScope = (typeof catalogScopes)[number]["id"];
+
+/**
+ * Каталог материалов продукта: поиск по названию и описанию, фильтр формата и источника, новые
+ * материалы сверху. Карточки — те же, что в ленте Главной, с превью (решение владельца
+ * 09.10.2026). Программа остаётся строгим порядком глав в своём разделе.
+ */
+function MaterialCatalog({
+  entries,
+}: {
+  readonly entries: readonly CatalogEntry[];
+}) {
+  const [query, setQuery] = useState("");
+  const [format, setFormat] = useState("");
+  const [scope, setScope] = useState<CatalogScope>("all");
+  const needle = query.trim().toLocaleLowerCase("ru");
+  const formats = catalogFormats.filter(
+    (option) =>
+      option.slug === "" ||
+      entries.some((entry) => entry.formatSlug === option.slug),
+  );
+  const shown = [...entries]
+    .filter(
+      (entry) =>
+        (needle === "" || entry.text.includes(needle)) &&
+        (format === "" || entry.formatSlug === format) &&
+        (scope === "all" || (scope === "programme") === entry.inProgramme),
+    )
+    .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
+  const chip = (active: boolean) =>
+    cn(
+      "inline-flex min-h-9 shrink-0 items-center rounded-full px-3.5 text-[0.8125rem] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm",
+      active
+        ? "bg-primary text-primary-foreground"
+        : "bg-muted text-muted-foreground hover:text-foreground",
+    );
+  return (
+    <div data-material-catalog>
+      <PartHeading
+        text="Все материалы курса: из программы и дополнительные. Новые — сверху."
+        title="Материалы"
+      />
+      <label className="mt-4 flex min-h-11 items-center gap-2.5 rounded-xl bg-muted px-3.5">
+        <Search
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <span className="sr-only">Поиск по материалам курса</span>
+        <input
+          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+          onChange={(event) => {
+            setQuery(event.currentTarget.value);
+          }}
+          placeholder="Найти материал"
+          type="search"
+          value={query}
+        />
+      </label>
+      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2">
+        <div
+          aria-label="Формат материала"
+          className="flex gap-1.5"
+          role="group"
+        >
+          {formats.map((option) => (
+            <button
+              aria-pressed={format === option.slug}
+              className={chip(format === option.slug)}
+              key={option.slug}
+              onClick={() => {
+                setFormat(option.slug);
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <div aria-label="Откуда материал" className="flex gap-1.5" role="group">
+          {catalogScopes.slice(1).map((option) => (
+            <button
+              aria-pressed={scope === option.id}
+              className={chip(scope === option.id)}
+              key={option.id}
+              onClick={() => {
+                setScope(scope === option.id ? "all" : option.id);
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p aria-live="polite" className="mt-4 text-sm text-muted-foreground">
+        {shown.length === entries.length
+          ? formatMaterialCount(entries.length)
+          : `Найдено: ${formatMaterialCount(shown.length)}`}
+      </p>
+      {shown.length === 0 ? (
+        <p className="py-10 text-sm leading-6 text-muted-foreground">
+          {entries.length === 0
+            ? "Здесь появятся материалы курса."
+            : "Ничего не нашлось. Попробуй другой запрос или сними фильтры."}
+        </p>
+      ) : (
+        <ul
+          className="mt-2 grid gap-x-6 lg:grid-cols-2"
+          aria-label="Материалы курса"
+        >
+          {shown.map((entry) => (
+            <li className="min-w-0" key={entry.slug}>
+              {entry.card}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /** «1 артефакт» / «2 артефакта» / «5 артефактов» for the live part announcement. */

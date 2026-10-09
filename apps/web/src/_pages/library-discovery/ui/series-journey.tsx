@@ -65,7 +65,7 @@ export function SeriesJourney({
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
     readonly chapters: readonly ProductChapter[];
-    readonly id: "programme" | "supplementary";
+    readonly id: "programme";
     readonly items: readonly MaterialPreview[];
     readonly label: string;
     readonly shortLabel?: string;
@@ -78,16 +78,6 @@ export function SeriesJourney({
         result.chapters.length === 0
           ? items
           : items.filter((item) => chapterOf(item) !== null),
-    },
-    {
-      id: "supplementary",
-      label: "Дополнительные материалы",
-      shortLabel: "Дополнительно",
-      chapters: [],
-      items:
-        result.chapters.length === 0
-          ? []
-          : items.filter((item) => chapterOf(item) === null),
     },
   ];
   const parts: readonly JourneyPart[] = [
@@ -103,6 +93,32 @@ export function SeriesJourney({
         ),
       }),
     ),
+    {
+      // Материалы — каталог всех материалов продукта карточками: поиск, фильтры, новые сверху
+      // (решение владельца 09.10.2026). Программа остаётся строгим порядком глав.
+      entries: items.map((item) => ({
+        card: (
+          // Карточка уходит клиенту в массиве: ключ нужен и элементу-значению.
+          <MaterialCard
+            accessPending={accessPending}
+            headingLevel="h3"
+            key={item.slug}
+            material={item}
+            returnHref={currentHref}
+            variant="feed"
+          />
+        ),
+        format: item.format,
+        formatSlug: item.formatSlug ?? "",
+        inProgramme: result.chapters.length === 0 || chapterOf(item) !== null,
+        publishedAt: item.publishedAt ?? "",
+        slug: item.slug,
+        text: `${item.title} ${item.summary}`.toLocaleLowerCase("ru"),
+      })),
+      id: "supplementary",
+      kind: "catalog",
+      label: "Материалы",
+    },
     {
       count: productArtifacts.length,
       id: "artifacts",

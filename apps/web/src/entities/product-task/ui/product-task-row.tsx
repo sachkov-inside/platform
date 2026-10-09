@@ -30,14 +30,14 @@ export function ProductTaskRow({
   const submitted = task.lastSubmittedAt;
   return (
     <article
-      className="group/task relative flex min-h-14 min-w-0 items-center gap-2.5 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:gap-3 sm:px-4"
+      className="group/task relative flex min-h-14 min-w-0 items-center gap-2 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:gap-3 sm:px-4"
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
       {/* Та же строка, что у урока: флажок на месте номера, тип словом, название, статус. */}
       <span
         aria-hidden="true"
-        className="grid w-5 shrink-0 place-items-center text-[color:var(--callout-task)] sm:w-7"
+        className="grid w-4 shrink-0 place-items-start text-[color:var(--callout-task)] sm:w-7 sm:place-items-center"
       >
         <Flag className="size-3.5 sm:size-4" />
       </span>

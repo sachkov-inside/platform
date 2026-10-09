@@ -369,11 +369,11 @@ function SeriesMaterialRow({
     >
       {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
           закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
-      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
-            className="w-5 shrink-0 text-center text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-xl sm:leading-6"
+            className="w-4 shrink-0 text-left text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-xl sm:leading-6"
             data-series-preview
           >
             {ordinal}

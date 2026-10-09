@@ -510,8 +510,17 @@ export const PartiallyGrouped: Story = {
       canvas.queryByRole("list", { name: "Материалы продукта" }),
     ).not.toBeInTheDocument();
     await openPart(canvasElement, /^Материалы/u);
-    const other = canvas.getByRole("list", { name: "Материалы продукта" });
-    await expect(within(other).getAllByRole("listitem")).toHaveLength(1);
+    // Каталог показывает все материалы продукта; фильтр оставляет те, что вне программы.
+    const catalog = canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalog).getAllByRole("listitem")).toHaveLength(24);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Дополнительные" }),
+    );
+    await expect(
+      within(
+        canvas.getByRole("list", { name: "Материалы курса" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(1);
     await expect(
       canvas.queryByRole("heading", { level: 3, name: "Основа продукта" }),
     ).not.toBeInTheDocument();
@@ -541,9 +550,12 @@ export const PartSwitchStartsAtBeginning: Story = {
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Дополнительные" }),
+    );
     await expect(
       within(
-        canvas.getByRole("list", { name: "Материалы продукта" }),
+        canvas.getByRole("list", { name: "Материалы курса" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
     await openPart(canvasElement, /Программа/u);
