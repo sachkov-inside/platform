@@ -45,10 +45,6 @@ export function TaskPageBody({
             {block.label}
           </a>
         ),
-        callout: (block, content) =>
-          block.tone === "tip" && block.title === "Мой совет" ? (
-            <TaskAdvice>{content}</TaskAdvice>
-          ) : null,
       }}
     />
   );
@@ -86,17 +82,6 @@ export function TaskPageBody({
       )}
       {materialsIndex === -1 ? children : null}
     </>
-  );
-}
-
-function TaskAdvice({ children }: { readonly children: ReactNode }) {
-  return (
-    <details className="group mt-6 rounded-xl border border-border bg-muted/40 px-4 py-3">
-      <summary className="min-h-8 cursor-pointer font-semibold focus-visible:outline-2 focus-visible:outline-ring">
-        Мой совет
-      </summary>
-      <div className="mt-3">{children}</div>
-    </details>
   );
 }
 

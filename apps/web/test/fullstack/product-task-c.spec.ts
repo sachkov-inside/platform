@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -18,6 +18,45 @@ function fixture() {
   )
     throw new Error("Missing isolated format c fixture");
   return { productSlug, code, closedCode, closedAssetId };
+}
+
+async function verifyImportedAdvice(page: Page) {
+  const summary = page
+    .locator("summary")
+    .filter({ hasText: "Импортированный совет" });
+  const link = page.getByRole("link", { name: "Ссылка внутри совета" });
+  await expect(link).toBeHidden();
+  await expect(page.getByText("Открытое тело", { exact: true })).toBeVisible();
+  await expect(page.getByText("Обычное тело", { exact: true })).toBeVisible();
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(link).toBeVisible();
+  await expect(page.getByText("Вложенное тело", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("> [!tip]- Литеральный пример", { exact: true }),
+  ).toBeVisible();
+  const image = page.getByRole("img", { name: "Схема внутри совета" });
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate(
+        (element: HTMLImageElement) =>
+          element.complete && element.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+  await summary.focus();
+  await page.keyboard.press("Space");
+  await expect(link).toBeHidden();
+  await summary.click();
+  await expect(link).toBeVisible();
+  expect(
+    (
+      await new AxeBuilder({ page }).include("main").analyze()
+    ).violations.filter(
+      (item) => item.impact === "serious" || item.impact === "critical",
+    ),
+  ).toEqual([]);
 }
 
 test("a guest reads an imported c Task with its page, link, image and keyboard advice; protected Task assets remain closed (#1194)", async ({
@@ -52,6 +91,7 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
   await expect(page.getByText("Начни с одного запроса.")).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
+  await verifyImportedAdvice(page);
   const href = await page
     .getByRole("link", { name: "уроку", exact: true })
     .getAttribute("href");
@@ -77,13 +117,18 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
         document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
-  const directory = await prepareEvidenceDirectory("issue-1194");
+  const directory = await prepareEvidenceDirectory("issue-1196");
   await screenshotWholePage(page, {
     path: resolve(directory, `task-c-live-${testInfo.project.name}.png`),
     animations: "disabled",
   });
   if (href === null) throw new Error("Imported lesson link is absent");
   await page.goto(href);
+  await verifyImportedAdvice(page);
+  await screenshotWholePage(page, {
+    path: resolve(directory, `reader-live-${testInfo.project.name}.png`),
+    animations: "disabled",
+  });
   await expect(
     page.getByRole("link", { name: "Открой задание", exact: true }),
   ).toHaveAttribute("href", `/products/${productSlug}/tasks/${code}`);

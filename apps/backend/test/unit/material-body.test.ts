@@ -487,6 +487,69 @@ describe("MaterialBodyOperations", () => {
     ]);
   });
 
+  test("accepts, renders and validates optional callout collapse states", () => {
+    for (const collapse of [
+      "collapsed",
+      "expanded",
+      null,
+      undefined,
+      "invalid",
+      false,
+    ]) {
+      const body = {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Мой совет",
+                nodeId: testNodeId(90),
+                ...(collapse === undefined ? {} : { collapse }),
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: testNodeId(91) },
+                  content: [{ type: "text", text: "Тело совета" }],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      const accepted = materialBodyOperations.accept(body);
+      if (collapse === "invalid" || collapse === false) {
+        expect(accepted).toMatchObject({
+          ok: false,
+          error: { issues: [{ code: "invalid_callout_collapse" }] },
+        });
+        continue;
+      }
+      expect(accepted.ok).toBe(true);
+      if (!accepted.ok) throw new Error("Callout must be accepted");
+      const rendered = materialBodyOperations.render(accepted.value);
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) throw new Error("Callout must render");
+      expect(rendered.value.blocks[0]).toEqual({
+        kind: "callout",
+        tone: "tip",
+        title: "Мой совет",
+        ...(collapse == null ? {} : { collapse }),
+        content: [
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: "Тело совета", marks: [] }],
+          },
+        ],
+      });
+      expect(renderedMaterialBodySchema.safeParse(rendered.value).success).toBe(
+        true,
+      );
+    }
+  });
   test("rejects the removed legacy inline Video node", () => {
     expect(
       materialBodyOperations.accept({

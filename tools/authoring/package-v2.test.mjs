@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import { canonical, loadPackage } from "./package.mjs";
+import { taskPageBody } from "./task-page.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 
@@ -138,6 +139,24 @@ test("a v2 package can require Content source heading anchors", async (t) => {
     "task-c-v2",
     "github-anchors-v1",
   ]);
+});
+
+test("v2 collapsible advice survives loading and repeated Task page conversion", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("collapsible-callouts-v1");
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  task.page.markdown =
+    "> [!tip]- Мой совет\n> [Урок](https://example.com)\n\n> [!tip]+ Открытый совет\n> Текст";
+  await f.write(manifest);
+  const pkg = await loadPackage(f.path);
+  const loaded = pkg.manifest.tasks?.[0];
+  assert.ok(loaded);
+  const body = taskPageBody(loaded, new Map(), new Map());
+  assert.equal(body.doc.content[0]?.attrs?.["collapse"], "collapsed");
+  assert.equal(body.doc.content[1]?.attrs?.["collapse"], "expanded");
+  assert.deepEqual(taskPageBody(loaded, new Map(), new Map()), body);
 });
 
 test("unknown features stop load, sync and preview before transport or asset reads", async (t) => {

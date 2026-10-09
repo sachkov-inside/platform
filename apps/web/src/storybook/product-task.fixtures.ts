@@ -244,6 +244,7 @@ export const openFormatCTask: OpenProductTask = {
             kind: "callout",
             tone: "tip",
             title: "Мой совет",
+            collapse: "collapsed",
             content: [
               {
                 kind: "paragraph",

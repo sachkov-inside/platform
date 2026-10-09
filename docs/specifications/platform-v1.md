@@ -1374,11 +1374,17 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
 The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
-`task-c-v2`, `github-anchors-v1` and `image-variants-v1`; unknown features are refused by name. Quizzes (#940)
-and general collapsible callouts (#1196) remain separate integrations. A Content
-package that requires them is refused until those integrations support their features. In particular,
-Content's generated c advice may also declare `collapsible-callouts-v1`; Task-local folding alone
-does not declare support for that package capability.
+`task-c-v2`, `github-anchors-v1`, `image-variants-v1` and `collapsible-callouts-v1`; unknown features are refused by name.
+Quizzes (#940) remain a separate integration. A Content package that requires that feature is
+refused until the integration supports it.
+
+Callout signs survive Markdown import into Materials and Task c pages (#1196). `-` maps to
+`collapse: collapsed`, `+` to `collapse: expanded`; absence of the sign keeps an ordinary callout.
+The optional document attribute accepts null or absence for old blocks; the rendered block omits
+it in both cases. The editor preserves it through serialization and clipboard HTML. Titles and
+nested Markdown bodies remain in the block; fenced examples stay code. Reader, Task c and author
+preview use native disclosure controls for signed callouts. Temporary semantic UI awaits the
+Storybook visual integration in #1278.
 
 Definition v1 keeps its `situation`, `result`, `freedom` and `requirement` fields. Definition v2 adds
 `format: c`, `intro`, `freedom` and criteria with `id`, `level`, `task`, `explanation`, optional
@@ -1392,7 +1398,7 @@ MaterialBody and source-reference maps. Page changes advance the Task revision, 
 version. Task title comes from the definition's YAML; the page heading uses `page.title`.
 
 The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
-«Что нужно сделать», explanations and «Что решаешь сам», folds Task advice, and inserts the usual
+«Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and inserts the usual
 submission controls before «Материалы к заданию». The current v2 Reader definition excludes
 `acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
 Markdown links through the same source map as the page without rewriting stored authored text.

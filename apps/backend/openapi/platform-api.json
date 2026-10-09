@@ -356,6 +356,13 @@
           {
             "additionalProperties": false,
             "properties": {
+              "collapse": {
+                "enum": [
+                  "collapsed",
+                  "expanded"
+                ],
+                "type": "string"
+              },
               "content": {
                 "items": {
                   "$ref": "#/components/schemas/RecursiveSchema0schema0"
@@ -1311,6 +1318,13 @@
           {
             "additionalProperties": false,
             "properties": {
+              "collapse": {
+                "enum": [
+                  "collapsed",
+                  "expanded"
+                ],
+                "type": "string"
+              },
               "content": {
                 "items": {
                   "$ref": "#/components/schemas/RecursiveSchema1schema0"
@@ -2266,6 +2280,13 @@
           {
             "additionalProperties": false,
             "properties": {
+              "collapse": {
+                "enum": [
+                  "collapsed",
+                  "expanded"
+                ],
+                "type": "string"
+              },
               "content": {
                 "items": {
                   "$ref": "#/components/schemas/RecursiveSchema2schema0"

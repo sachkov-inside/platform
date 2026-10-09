@@ -18,10 +18,6 @@ export interface MaterialBodyRendering {
   readonly file: (block: Extract<RenderedBlock, { kind: "file" }>) => ReactNode;
   /** Existing surface address retained as an alias unless a Content heading owns it. */
   readonly headingId: (path: readonly number[]) => string;
-  readonly callout?: (
-    block: Extract<RenderedBlock, { kind: "callout" }>,
-    content: ReactNode,
-  ) => ReactNode;
 }
 
 interface BodyRendering extends MaterialBodyRendering {
@@ -186,17 +182,6 @@ function BodyBlockView({
     case "resource_card":
     case "takeaways":
     case "variant":
-      if (block.kind === "callout" && rendering.callout !== undefined) {
-        const custom = rendering.callout(
-          block,
-          <BodyBlocks
-            blocks={block.content}
-            path={path}
-            rendering={rendering}
-          />,
-        );
-        if (custom !== null) return custom;
-      }
       return (
         <MaterialLessonBlock
           block={block}
