@@ -83,9 +83,6 @@ export function SeriesJourneyControls({
   const learning = useSeriesLearning();
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
-  // Колонка слева на широком экране — вариант для проверки владельцем (09.10.2026): включается
-  // адресом `?layout=sidebar`, без него программа остаётся с вкладками.
-  const sidebar = search.get("layout") === "sidebar";
   const routeRef = useRef<HTMLElement>(null);
   const [selection, setSelection] = useState(() => ({
     id:
@@ -180,15 +177,6 @@ export function SeriesJourneyControls({
     if (id === part?.id) return;
     setSelection({ id, explicit: true });
   }
-  /** Глава из колонки: открывается программа, и страница прокручивается к заголовку главы. */
-  function openChapter(chapterId: string) {
-    selectPart("programme");
-    requestAnimationFrame(() => {
-      document
-        .getElementById(`chapter-${chapterId}`)
-        ?.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
-  }
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
     selectPart(id);
@@ -208,78 +196,6 @@ export function SeriesJourneyControls({
         Материалы продукта
       </h2>
       {parts.length > 1 ? (
-        <div
-          className={cn(
-            "flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border max-lg:hidden",
-            sidebar && "lg:hidden",
-          )}
-          role="tablist"
-          aria-label="Разделы продукта"
-        >
-          {parts.map((entry) => (
-            <button
-              aria-controls={`series-part-panel-${entry.id}`}
-              aria-selected={entry.id === part?.id}
-              className={cn(
-                "relative min-h-11 max-w-full py-2 text-sm font-semibold whitespace-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                entry.id === part?.id
-                  ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              id={`series-part-${entry.id}`}
-              key={entry.id}
-              onClick={() => {
-                selectPart(entry.id);
-              }}
-              onKeyDown={(event) => {
-                const position = parts.findIndex(({ id }) => id === entry.id);
-                const destination =
-                  event.key === "ArrowRight"
-                    ? (position + 1) % parts.length
-                    : event.key === "ArrowLeft"
-                      ? (position - 1 + parts.length) % parts.length
-                      : event.key === "Home"
-                        ? 0
-                        : event.key === "End"
-                          ? parts.length - 1
-                          : -1;
-                const moved = destination < 0 ? undefined : parts[destination];
-                if (moved === undefined) return;
-                event.preventDefault();
-                selectPart(moved.id);
-                requestAnimationFrame(() => {
-                  document.getElementById(`series-part-${moved.id}`)?.focus();
-                });
-              }}
-              role="tab"
-              tabIndex={entry.id === part?.id ? 0 : -1}
-              type="button"
-            >
-              {entry.kind === "materials" && entry.shortLabel !== undefined ? (
-                <>
-                  <span className="@max-[26rem]/programme:sr-only">
-                    {entry.label}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="hidden @max-[26rem]/programme:inline"
-                  >
-                    {entry.shortLabel}
-                  </span>
-                </>
-              ) : (
-                entry.label
-              )}
-              {partCount(entry) > 0 ? (
-                <span className="ml-1.5 tabular-nums font-normal text-muted-foreground">
-                  {partCount(entry)}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {parts.length > 1 ? (
         <p aria-live="polite" className="sr-only">
           {part?.label}:{" "}
           {part?.kind === "artifacts"
@@ -288,12 +204,8 @@ export function SeriesJourneyControls({
         </p>
       ) : null}
       <div
-        aria-labelledby={
-          part === undefined ? undefined : `series-part-${part.id}`
-        }
+        aria-label={part?.label}
         id={`series-part-panel-${part?.id ?? "programme"}`}
-        role={parts.length > 1 ? "tabpanel" : undefined}
-        tabIndex={parts.length > 1 ? 0 : undefined}
         className="focus-visible:outline-2 focus-visible:outline-ring"
       >
         {part?.kind === "artifacts" ? (
@@ -435,10 +347,9 @@ export function SeriesJourneyControls({
           </Button>
         </div>
       ) : null}
-      {sidebar && parts.length > 1 ? (
+      {parts.length > 1 ? (
         <ProgrammeSidebar
           activeId={part?.id ?? "programme"}
-          onOpenChapter={openChapter}
           onOpenPart={openPart}
           parts={parts}
         />
@@ -558,85 +469,47 @@ function ProductBottomBar({
 }
 
 /**
- * Колонка программы на широком экране: разделы продукта со счётчиками и оглавление глав. Она
- * прилипает к верху и остаётся на месте, пока читатель листает главы. Вариант для проверки
- * владельцем рядом с вкладками; на телефоне её роль играет нижняя панель.
+ * Колонка разделов на широком экране (решение владельца 09.10.2026): программа, материалы,
+ * артефакты со счётчиками. Сама программа остаётся в основной колонке справа; колонка прилипает к
+ * верху и не уходит при прокрутке. На телефоне её роль играет нижняя панель.
  */
 function ProgrammeSidebar({
   activeId,
-  onOpenChapter,
   onOpenPart,
   parts,
 }: {
   readonly activeId: JourneyPart["id"];
-  readonly onOpenChapter: (chapterId: string) => void;
   readonly onOpenPart: (id: JourneyPart["id"]) => void;
   readonly parts: readonly JourneyPart[];
 }) {
-  const programme = parts.find((entry) => entry.id === "programme");
-  const chapters =
-    programme?.kind === "materials"
-      ? programme.runs.flatMap((run) =>
-          run.chapter === null
-            ? []
-            : [{ ...run.chapter, lessons: run.rows.length }],
-        )
-      : [];
   return (
     <aside className="programme-sidebar" data-programme-sidebar>
-      <div className="programme-sidebar-inner">
-        <nav aria-label="Разделы продукта">
-          <ul className="programme-sidebar-parts">
-            {parts.map((entry) => {
-              const Icon = partIcons[entry.id];
-              const current = entry.id === activeId;
-              return (
-                <li key={entry.id}>
-                  <button
-                    aria-current={current ? "page" : undefined}
-                    data-current={current}
-                    onClick={() => {
-                      onOpenPart(entry.id);
-                    }}
-                    type="button"
-                  >
-                    <Icon aria-hidden="true" />
-                    <span>{partBarLabels[entry.id]}</span>
-                    {partCount(entry) > 0 ? (
-                      <small>{partCount(entry)}</small>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-        {chapters.length === 0 ? null : (
-          <nav aria-label="Главы программы">
-            <p className="programme-sidebar-title">Главы</p>
-            <ol className="programme-sidebar-chapters">
-              {chapters.map((chapter, index) => (
-                <li key={chapter.id}>
-                  <button
-                    onClick={() => {
-                      onOpenChapter(chapter.id);
-                    }}
-                    type="button"
-                  >
-                    <b>{String(index + 1)}</b>
-                    <span>{chapter.name}</span>
-                    {chapter.lessons === 0 ? (
-                      <small>скоро</small>
-                    ) : (
-                      <small>{chapter.lessons}</small>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        )}
-      </div>
+      <nav aria-label="Разделы продукта" className="programme-sidebar-inner">
+        <ul className="programme-sidebar-parts">
+          {parts.map((entry) => {
+            const Icon = partIcons[entry.id];
+            const current = entry.id === activeId;
+            return (
+              <li key={entry.id}>
+                <button
+                  aria-current={current ? "page" : undefined}
+                  data-current={current}
+                  onClick={() => {
+                    onOpenPart(entry.id);
+                  }}
+                  type="button"
+                >
+                  <Icon aria-hidden="true" />
+                  <span>{partBarLabels[entry.id]}</span>
+                  {partCount(entry) > 0 ? (
+                    <small>{partCount(entry)}</small>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </aside>
   );
 }

@@ -1,5 +1,7 @@
 import { ProductLandingSkeleton, pulse } from "./product-landing-skeletons";
 
+import "./product-programme-view.css";
+
 /**
  * Скелеты маршрутов продукта и программы (#670). Каждый собран из рамки своей страницы: та же
  * колонка, тот же ряд возврата и та же шапка, поэтому готовая страница встаёт на место скелета.
@@ -13,7 +15,7 @@ export function ProductProgrammeLoading() {
     <div
       aria-busy="true"
       aria-label="Программа загружается"
-      className="@container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
+      className="programme-frame @container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
       data-route-skeleton="product-programme"
     >
       <div className="pt-4" data-programme-part="back">

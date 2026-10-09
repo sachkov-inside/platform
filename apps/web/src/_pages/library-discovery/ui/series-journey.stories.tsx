@@ -110,20 +110,21 @@ type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: SeriesLearningView;
 };
 /**
- * Раздел программы открывается тем, что видно на экране: вкладкой на широком экране или пунктом
- * нижней панели продукта на телефоне, где ряд вкладок спрятан.
+ * Раздел программы открывается тем, что видно на экране: колонкой разделов на широком экране или
+ * нижней панелью продукта на телефоне.
  */
 async function openPart(
   canvasElement: HTMLElement,
   name: RegExp,
 ): Promise<void> {
-  const canvas = within(canvasElement);
-  const tab = canvas.queryByRole("tab", { name });
-  const bar = canvas.queryByRole("navigation", { name: "Разделы продукта" });
-  const target =
-    tab ?? (bar === null ? null : within(bar).getByRole("button", { name }));
-  if (target === null) throw new Error("Раздел программы не найден");
-  await userEvent.click(target);
+  await userEvent.click(partButton(canvasElement, name));
+}
+
+/** Пункт раздела в видимой навигации: колонке на широком экране или нижней панели телефона. */
+function partButton(canvasElement: HTMLElement, name: RegExp): HTMLElement {
+  return within(
+    within(canvasElement).getByRole("navigation", { name: "Разделы продукта" }),
+  ).getByRole("button", { name });
 }
 
 const meta = {
@@ -372,10 +373,11 @@ export const Chapters: Story = {
     await expect(
       canvas.queryByRole("heading", { name: "Программа продукта" }),
     ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("tablist", { name: "Разделы продукта" }),
-    ).toBeVisible();
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
+    const sections = canvas.getByRole("navigation", {
+      name: "Разделы продукта",
+    });
+    await expect(sections).toBeVisible();
+    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -486,14 +488,12 @@ export const PartiallyGrouped: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const programme = canvas.getByRole("tab", { name: /Программа/u });
-    await expect(programme).toHaveAttribute("aria-selected", "true");
+    const programme = partButton(canvasElement, /Программа/u);
+    await expect(programme).toHaveAttribute("aria-current", "page");
     await expect(
       canvas.queryByRole("list", { name: "Материалы продукта" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    );
+    await openPart(canvasElement, /^Материалы/u);
     const other = canvas.getByRole("list", { name: "Материалы продукта" });
     await expect(within(other).getAllByRole("listitem")).toHaveLength(1);
     await expect(
@@ -521,9 +521,7 @@ export const PartSwitchStartsAtBeginning: Story = {
     await expect(
       canvas.getByText("Показано 23 из 23 материалов"),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    );
+    await openPart(canvasElement, /^Материалы/u);
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
@@ -557,10 +555,11 @@ export const OnlyPlannedChapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
-    await expect(
-      canvas.getByRole("tablist", { name: "Разделы продукта" }),
-    ).toBeVisible();
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
+    const sections = canvas.getByRole("navigation", {
+      name: "Разделы продукта",
+    });
+    await expect(sections).toBeVisible();
+    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
   },
 };
 
@@ -833,7 +832,7 @@ export const DesktopRouteDetails: Story = {
       canvasElement
         .querySelector("[data-product-programme]")
         ?.getBoundingClientRect().width,
-    ).toBeLessThanOrEqual(736);
+    ).toBeLessThanOrEqual(960);
   },
 };
 
@@ -983,9 +982,9 @@ export const ProductPageEnlargedText: Story = {
         });
       });
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
-      // The part tabs are the widest new control; a long label wraps inside its pill.
+      // Пункты разделов не выходят за край экрана и при крупном шрифте.
       for (const tab of canvasElement.querySelectorAll<HTMLElement>(
-        '[role="tab"]',
+        "[data-programme-sidebar] button, .product-bottom-bar-item",
       )) {
         await expect(tab.getBoundingClientRect().right).toBeLessThanOrEqual(
           root.clientWidth,
@@ -1013,17 +1012,16 @@ export const ProgrammeProgress: Story = {
     });
     await expect(progress).toHaveAttribute("max", "24");
     await expect(progress).toHaveAttribute("value", "8");
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
+    await openPart(canvasElement, /^Материалы/u);
+    await expect(partButton(canvasElement, /^Материалы/u)).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    await expect(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    ).toHaveAttribute("aria-selected", "true");
-    await userEvent.keyboard("{ArrowRight}");
-    await expect(
-      canvas.getByRole("tab", { name: /Артефакты/u }),
-    ).toHaveAttribute("aria-selected", "true");
+    await openPart(canvasElement, /Артефакты/u);
+    await expect(partButton(canvasElement, /Артефакты/u)).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     await expect(
       canvas.getByText(
         "Здесь появятся файлы, шаблоны и инструменты для работы над проектом.",
@@ -1071,13 +1069,10 @@ export const PartSwitchClearsContinuationPosition: Story = {
     learning: { kind: "ready", read: 8, total: 24, continuation: resume },
   },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     await expect(
       canvasElement.querySelectorAll("[data-series-ordinal]"),
     ).toHaveLength(24);
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    );
+    await openPart(canvasElement, /^Материалы/u);
     await openPart(canvasElement, /Программа/u);
     await expect(
       canvasElement.querySelectorAll("[data-series-ordinal]"),

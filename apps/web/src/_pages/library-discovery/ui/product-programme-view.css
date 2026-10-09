@@ -158,11 +158,12 @@
  */
 .product-bottom-bar {
   position: fixed;
+  max-width: calc(100vw - 1rem);
   bottom: max(1rem, env(safe-area-inset-bottom));
   left: 50%;
   z-index: 40;
   display: grid;
-  grid-auto-columns: 2.75rem;
+  grid-auto-columns: minmax(0, 2.75rem);
   grid-auto-flow: column;
   gap: 0.125rem;
   padding: 0.125rem;
@@ -211,33 +212,30 @@
 }
 
 /*
- * Вариант «колонка» на широком экране (`?layout=sidebar`): программа сдвигается вправо, слева
- * прилипает колонка с разделами и главами. Колонка стоит в той же обёртке программы, поэтому
- * занимает всю её высоту и держится у верха, пока читатель листает.
+ * Колонка разделов на широком экране: программа сдвигается вправо, слева прилипает короткий
+ * список разделов. Колонка стоит в той же обёртке программы и занимает всю её высоту, поэтому
+ * держится у верха, пока читатель листает главы.
  */
 .programme-sidebar {
   display: none;
 }
 @media (min-width: 64rem) {
-  [data-product-programme]:has([data-programme-sidebar]) {
+  /* Место под колонку держат и программа, и её скелет: при загрузке шапка не сдвигается. */
+  .programme-frame {
     position: relative;
-    max-width: 64rem;
-    padding-left: 17.5rem;
+    max-width: 60rem;
+    padding-left: 14rem;
   }
   .programme-sidebar {
     position: absolute;
     inset: 0 auto 0 0;
     display: block;
-    width: 15rem;
+    width: 12rem;
   }
   .programme-sidebar-inner {
     position: sticky;
     top: 1.5rem;
-    display: grid;
-    gap: 1.5rem;
-    max-height: calc(100dvh - 3rem);
     padding-top: 4.25rem;
-    overflow-y: auto;
   }
 }
 .programme-sidebar ul,
@@ -300,30 +298,4 @@
 }
 .programme-sidebar-parts button[data-current="true"] small {
   color: color-mix(in srgb, var(--primary-foreground) 65%, transparent);
-}
-.programme-sidebar-title {
-  margin: 0 0 0.35rem;
-  padding-inline: 0.7rem;
-  color: var(--muted-foreground);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.programme-sidebar-chapters button {
-  align-items: flex-start;
-  font-weight: 550;
-  line-height: 1.35;
-}
-.programme-sidebar-chapters b {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 999px;
-  background: var(--secondary);
-  color: var(--foreground);
-  font-size: 0.7rem;
-  font-variant-numeric: tabular-nums;
 }

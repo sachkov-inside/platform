@@ -90,7 +90,7 @@ export function ProductProgrammeView({
 
   return (
     <div
-      className="@container/programme mx-auto min-w-0 w-full max-w-[46rem]"
+      className="programme-frame @container/programme mx-auto min-w-0 w-full max-w-[46rem]"
       data-product-programme={slug}
     >
       {/* Выход из прохождения — вверху слева, на витрину Inside: снизу у программы свои разделы,

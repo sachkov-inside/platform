@@ -284,10 +284,9 @@ test("product programme appends a real composition and restores Reader return po
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
-    await page
-      .getByRole("tab", { name: "Дополнительные материалы", exact: true })
-      .click();
-    await page.getByRole("tab", { name: /^Программа/u }).click();
+    const sections = page.getByRole("navigation", { name: "Разделы продукта" });
+    await sections.getByRole("button", { name: /^Материалы/u }).click();
+    await sections.getByRole("button", { name: /^Программа/u }).click();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await prepareEvidenceDirectory("issue-529");
     await screenshotWholePage(page, {
