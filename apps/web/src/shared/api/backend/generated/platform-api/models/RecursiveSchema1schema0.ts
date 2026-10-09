@@ -152,4 +152,18 @@ export type RecursiveSchema1schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
+} | {
+  correctOptionId: string;
+  dontKnow: {
+    explanation: Array<RecursiveSchema1schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'quiz';
+  options: Array<{
+    content: Array<RecursiveSchema1schema0>;
+    explanation: Array<RecursiveSchema1schema0>;
+    id: string;
+  }>;
+  prompt: Array<RecursiveSchema1schema0>;
 });

@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":100,"result":{"content":[{"type":"text","text":"## Passing Stories\n\n- pages-material-reader-quiz--unanswered\n- pages-material-reader-quiz--correct\n- pages-material-reader-quiz--incorrect\n- pages-material-reader-quiz--dont-know\n- pages-material-reader-quiz--all-explanations\n- pages-material-reader-quiz--rich-option-content"}]}}
+

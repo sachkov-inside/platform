@@ -1,0 +1,8 @@
+# Temporary host-owned bridge; remove its imported copy immediately before the final deploy.
+# The existing active.caddy continues to serve inside.sachkov.dev during DNS propagation.
+sachkov.dev, www.sachkov.dev {
+	route {
+		header Cache-Control "no-store"
+		redir https://inside.sachkov.dev{uri} 302
+	}
+}

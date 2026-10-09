@@ -187,6 +187,7 @@ function PreviewBlock({
           materialId={materialId}
         />
       );
+    case "quiz":
     case "agent_prompt":
     case "callout":
     case "key_point":

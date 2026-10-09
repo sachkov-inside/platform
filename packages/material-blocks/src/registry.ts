@@ -9,6 +9,7 @@ import { horizontalRuleBlock } from "./blocks/horizontal-rule.js";
 import { keyPointBlock } from "./blocks/key-point.js";
 import { labeledListBlock } from "./blocks/labeled-list.js";
 import { bulletListBlock, orderedListBlock } from "./blocks/lists.js";
+import { quizBlock } from "./blocks/quiz.js";
 import { paragraphBlock } from "./blocks/paragraph.js";
 import { resourceCardBlock } from "./blocks/resource-card.js";
 import { tableBlock } from "./blocks/table.js";
@@ -41,6 +42,7 @@ export const materialBlockDefinitions: readonly [
   variantBlock,
   assetImageBlock,
   assetFileBlock,
+  quizBlock,
 ];
 
 const definitionsByType = new Map(

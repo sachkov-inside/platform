@@ -877,6 +877,7 @@ export async function syncLocal(
      */
     const convert = (row, links, images) =>
       convertMarkdown(row.markdown, {
+        readerBlocks: row.readerBlocks,
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
         link: (href) => {

@@ -4,6 +4,8 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
+import { readerBlocksSchema } from "@inside/material-blocks";
+import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { decodePackageV1, fingerprintAccess } from "./compatibility.mjs";
 
 const identifier = z
@@ -86,6 +88,7 @@ export const materialSchema = z
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
     markdown: z.string(),
+    readerBlocks: readerBlocksSchema.optional(),
     links: z.record(z.string(), identifier),
     images: z.record(z.string(), z.string()),
     imageVariants: z
@@ -462,6 +465,7 @@ export function checkCapabilities(value) {
     if (
       ![
         "task-c-v2",
+        "quiz-v1",
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
@@ -525,6 +529,23 @@ export async function loadPackage(path) {
       task.page === undefined ? [] : [task.page],
     ),
   ]) {
+    if (material.readerBlocks !== undefined) {
+      if (
+        manifest.schemaVersion !== 2 ||
+        !manifest.requiredFeatures?.includes("quiz-v1") ||
+        !manifest.requiredFeatures.includes("github-anchors-v1")
+      )
+        throw new Error(
+          "readerBlocks require package v2, quiz-v1 and github-anchors-v1",
+        );
+      convertMarkdown(material.markdown, {
+        readerBlocks: material.readerBlocks,
+        sourceId: material.sourceId,
+        sourcePath: material.sourcePath,
+        link: (href) => href,
+        image: (src) => sourceUuid(src),
+      });
+    }
     if (material.imageVariants !== undefined) {
       if (
         manifest.schemaVersion !== 2 ||

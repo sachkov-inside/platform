@@ -237,12 +237,12 @@ docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"r
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
-- web at `inside.sachkov.dev`;
+- web at `sachkov.dev`, with temporary no-store redirects from `www.sachkov.dev` and old browser pages;
 - the API and MCP routes listed with method, caller and credential in
   [public API routes](production-release.md#public-api-routes); a contract test keeps that table equal
   to the Caddy fragment.
 
-Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
+Unknown `/integrations/*` and `/internal/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
 validation.
 
@@ -253,6 +253,9 @@ reports; the budget, the trusted `X-Forwarded-For` and the reasons live in
 [ADR 0028](../adr/0028-web-edge-hardening.md). Application containers drop every kernel
 capability, carry memory and process limits, and backend processes run with a read-only root and a
 private `/tmp`; the numbers are in [VPS resources](production-release.md#vps-resources).
+
+The [primary-domain cutover](primary-domain-cutover.md) owns DNS/Logto/env changes and recovery.
+Maintenance covers apex, www and the old domain. MCP resources remain on `inside.sachkov.dev`.
 
 ### Telegram sign-in configuration
 
@@ -332,7 +335,7 @@ operation and digest-bound manifest, back to the first failed deployment after t
 (or failed `v1` without successful state). Missing or conflicting history fails before mutation.
 Before accepting the transition, the failed
 image proves an exact live schema after completed migrations, or a compatible prefix if migration
-execution was interrupted. The new candidate then follows the normal maintenance, pull,
+execution was interrupted. The new candidate then follows the normal pre-pull, maintenance,
 compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
 does not offer rollback to the failed application version. If the repair candidate also fails, its
@@ -362,7 +365,7 @@ Before maintenance, the deployed backend image runs
 `node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the
 server-owned migration connection, with image pulling disabled. This command never creates a table
 or applies a migration: it requires the exact journaled Platform migration prefix and PgBoss schema
-version. After maintenance and exact image pulls, `--verify-schema-compatible` accepts an empty
+version. After exact image pre-pulls and maintenance, `--verify-schema-compatible` accepts an empty
 first-deploy database or an ordered, checksum-valid prefix that the candidate can migrate forward.
 Drift, gaps and migrations unknown to the image are rejected.
 

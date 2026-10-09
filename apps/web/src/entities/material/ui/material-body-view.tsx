@@ -175,6 +175,7 @@ function BodyBlockView({
       return <hr className="my-12 border-border" />;
     case "table":
       return <BodyTable block={block} rendering={rendering} path={path} />;
+    case "quiz":
     case "agent_prompt":
     case "callout":
     case "key_point":

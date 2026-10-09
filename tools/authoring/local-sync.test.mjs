@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { syncLocal } from "./local-sync.mjs";
+import { previewRelease } from "./release.mjs";
 import {
   entryAt,
   itemAt,
@@ -436,5 +437,56 @@ test("v2 imports all four diagram assets once and preserves their relation on re
     api.calls.filter((call) => call.path.endsWith("/assets")).length,
     4,
   );
+  assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
+});
+
+test("v2 quiz survives preview, apply and repeated sync without rendering raw answer keys", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["quiz-v1", "github-anchors-v1"];
+  setup.manifest.selection.taskIds = [];
+  const row = itemAt(setup.manifest.materials, 0);
+  row.markdown = "RAW ANSWER KEY";
+  row.readerBlocks = [
+    { kind: "markdown", markdown: "## Раздел\n\nДо вопроса" },
+    {
+      kind: "quiz",
+      id: "question-1",
+      promptMarkdown: "Какой результат?",
+      correctOptionId: "option-2",
+      options: [
+        {
+          id: "option-1",
+          markdown: "Первый",
+          explanationMarkdown: "Неверно. Причина",
+        },
+        {
+          id: "option-2",
+          markdown: "Второй",
+          explanationMarkdown: "Верно. Причина",
+        },
+      ],
+      dontKnow: {
+        explanationMarkdown: "Повторите раздел",
+        reviewLinks: ["#раздел"],
+      },
+    },
+    { kind: "markdown", markdown: "## Дальше\n\nПосле вопроса" },
+  ];
+  await setup.write();
+  const api = applicationApi();
+  await previewRelease(
+    join(setup.directory, "package.json"),
+    setup.stateDirectory,
+    { origin: "http://127.0.0.1:3101", request: api.request, publish: "all" },
+  );
+  assert.equal(api.materials.size, 0);
+  await setup.sync(api);
+  const saved = valueAt(api.materials, sourceId).body;
+  assert.doesNotMatch(JSON.stringify(saved), /RAW ANSWER KEY/u);
+  assert.match(JSON.stringify(saved), /"type":"quiz"/u);
+  assert.match(JSON.stringify(saved), /"correctOptionId":"option-2"/u);
+  assert.match(JSON.stringify(saved), /После вопроса/u);
+  await setup.sync(api);
   assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
 });

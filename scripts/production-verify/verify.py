@@ -89,11 +89,16 @@ def sql(query, database='inside', container='inside-production-database-postgres
                            '-d', database, '-At'], data=query))
 
 
-def http(url, method='GET', origin=None):
-    args = ['curl', '--silent', '--show-error', '--max-time', '20', '--write-out', '\n%{http_code}',
+def http(url, method='GET', origin=None, *, redirect=False, bank_rejection_probe=False):
+    output_format = '%{redirect_url}\n%{http_code}' if redirect else '\n%{http_code}'
+    args = ['curl', '--silent', '--show-error', '--max-time', '20', '--write-out', output_format,
             '--request', method]
+    if redirect:
+        args += ['--output', '/dev/null']
     if origin:
-        args += ['--resolve', origin + ':443:127.0.0.1']
+        args += ['--noproxy', '*', '--resolve', origin + ':443:127.0.0.1']
+    if bank_rejection_probe:
+        args += ['--header', 'x-inside-production-verify: bank-webhook-rejection']
     output = run(args + [url], strip=False)
     body, status = output.rsplit('\n', 1)
     return int(status), body
@@ -148,19 +153,7 @@ def verify_platform(manifest, state, record):
         record.append(verify_readiness(json.loads(body), manifest, name))
     run(['docker', 'exec', services['mcp']['Id'], 'node', 'healthcheck/http-healthcheck.mjs', 'mcp'])
     record.append(check('MCP readiness', True, 'runtime healthcheck passed'))
-    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 401, 'unauthorized'),
-              ('GET', '/billing/cohorts', 200, '"items"'),
-              ('POST', '/billing/tbank/notification', 400, 'invalid_notification'),
-              ('POST', '/integrations/telegram/v1/communications/authorize', 401, 'unauthorized'),
-              ('POST', '/integrations/telegram/v1/communications/validate-content', 401, 'unauthorized'),
-              ('POST', '/internal/billing-dispatch/authorize', 401, 'unauthorized'),
-              ('POST', '/internal/notifications/dispatch/authorize', 401, 'unauthorized'),
-              ('GET', '/communications/visit?token=' + 'A' * 43, 404, 'Ссылка не найдена.')]
-    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
-               for suffix in ['binding', 'own-access', 'attempts', 'evidence']]
-    for method, path, code, needle in routes:
-        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev')
-        record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
+    verify_public_routes(record)
     queues = run(['docker', 'exec', services['rabbitmq']['Id'], 'rabbitmqctl', 'list_queues', '--vhost', 'inside-production',
                   'name', 'messages', 'consumers'])
     rows = [line.split('\t') for line in queues.splitlines()]
@@ -172,6 +165,31 @@ def verify_platform(manifest, state, record):
     timer = run(['systemctl', 'list-timers', 'inside-watchdog.timer', '--no-pager'])
     record.append(check('watchdog timer', 'inside-watchdog.timer' in timer, 'watchdog timer listed'))
     record.extend(verify_catalog(sql(DOMAIN_CATALOG)))
+
+
+def verify_public_routes(record):
+    routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 401, 'unauthorized'),
+              ('GET', '/billing/cohorts', 200, '"items"'),
+              ('POST', '/billing/tbank/notification', 400, 'invalid_notification'),
+              ('POST', '/integrations/telegram/v1/communications/authorize', 401, 'unauthorized'),
+              ('POST', '/integrations/telegram/v1/communications/validate-content', 401, 'unauthorized'),
+              ('POST', '/internal/billing-dispatch/authorize', 401, 'unauthorized'),
+              ('POST', '/internal/notifications/dispatch/authorize', 401, 'unauthorized')]
+    routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
+               for suffix in ['binding', 'own-access', 'attempts', 'evidence']]
+    for method, path, code, needle in routes:
+        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev',
+                            bank_rejection_probe=path == '/billing/tbank/notification')
+        record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
+
+    browser_path = '/communications/visit?token=' + 'A' * 43
+    status, body = http('https://sachkov.dev' + browser_path, 'GET', 'sachkov.dev')
+    record.append(check('GET /communications/visit', status == 404 and 'Ссылка не найдена.' in body,
+                        'new Web origin rejects an invalid visitor token'))
+    status, location = http('https://inside.sachkov.dev' + browser_path,
+                            origin='inside.sachkov.dev', redirect=True)
+    record.append(check('old Web redirect', status == 302 and location == 'https://sachkov.dev' + browser_path,
+                        'old Web origin redirects with the same path and query'))
 
 
 def read_logs(container):

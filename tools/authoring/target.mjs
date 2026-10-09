@@ -19,7 +19,7 @@ const readerOrigins = Object.freeze({
 export const trustedTargets = Object.freeze({
   production: Object.freeze({
     id: "https://inside.sachkov.dev/authoring-api",
-    reader: "https://inside.sachkov.dev",
+    reader: "https://sachkov.dev",
     environment: /** @type {const} */ ("production"),
     issuer: "https://auth.sachkov.dev/oidc",
     resource: "https://api.inside.sachkov.dev",

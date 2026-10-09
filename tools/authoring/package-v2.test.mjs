@@ -162,7 +162,7 @@ test("v2 collapsible advice survives loading and repeated Task page conversion",
 test("unknown features stop load, sync and preview before transport or asset reads", async (t) => {
   const f = await temporary(t);
   const manifest = fixture();
-  manifest.requiredFeatures = ["quiz-v1"];
+  manifest.requiredFeatures = ["unknown-quiz-v99"];
   await f.write({
     ...manifest,
     assets: [
@@ -181,14 +181,17 @@ test("unknown features stop load, sync and preview before transport or asset rea
     calls.push(path);
     throw new Error("transport must not run");
   };
-  await assert.rejects(loadPackage(f.path), /quiz-v1/u);
-  await assert.rejects(syncLocal(f.path, f.state, { request }), /quiz-v1/u);
+  await assert.rejects(loadPackage(f.path), /unknown-quiz-v99/u);
+  await assert.rejects(
+    syncLocal(f.path, f.state, { request }),
+    /unknown-quiz-v99/u,
+  );
   await assert.rejects(
     previewRelease(f.path, f.state, {
       origin: "http://127.0.0.1:3101",
       request,
     }),
-    /quiz-v1/u,
+    /unknown-quiz-v99/u,
   );
   assert.deepEqual(calls, []);
 });
@@ -883,3 +886,141 @@ test("incomplete or undeclared variant sets stop synchronization before its firs
     assert.equal(requests, 0, kind);
   }
 });
+
+test("loadPackage accepts Content quiz-v1 readerBlocks without losing the raw source", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  const page = {
+    ...task.page,
+    readerBlocks: [
+      { kind: "markdown", markdown: "## Section\n\nNarrative" },
+      {
+        kind: "quiz",
+        id: "question-1",
+        promptMarkdown: "Which?",
+        correctOptionId: "second",
+        options: [
+          {
+            id: "first",
+            markdown: "First",
+            explanationMarkdown: "Wrong reason",
+          },
+          {
+            id: "second",
+            markdown: "Second",
+            explanationMarkdown: "Correct reason",
+          },
+        ],
+        dontKnow: {
+          explanationMarkdown: "Review section",
+          reviewLinks: ["#section"],
+        },
+      },
+    ],
+  };
+  const envelope = { ...manifest, tasks: [{ ...task, page }] };
+  await f.write(envelope);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(pkg.manifest.tasks?.[0]?.page, page);
+});
+
+for (const scenario of [
+  "missing-key",
+  "wrong-key",
+  "two-keys",
+  "missing-explanation",
+  "unknown-field",
+  "duplicate-option-id",
+  "duplicate-quiz-id",
+  "missing-anchor",
+  "question-only-anchor",
+  "explanation-only-anchor",
+]) {
+  test(`quiz preflight rejects ${scenario} before asset reads or transport`, async (t) => {
+    const f = await temporary(t);
+    const manifest = fixture();
+    manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+    const task = manifest.tasks[0];
+    assert.ok(task);
+    /** @type {Record<string, unknown>[]} */
+    const options = [
+      { id: "first", markdown: "First", explanationMarkdown: "Wrong reason" },
+      {
+        id: "second",
+        markdown: "Second",
+        explanationMarkdown: "Correct reason",
+      },
+    ];
+    const first = options[0];
+    const second = options[1];
+    assert.ok(first && second);
+    /** @type {Record<string, unknown>} */
+    const quiz = {
+      kind: "quiz",
+      id: "question-1",
+      promptMarkdown: "Which?",
+      correctOptionId: "second",
+      options,
+      dontKnow: { explanationMarkdown: "Review", reviewLinks: ["#section"] },
+    };
+    if (scenario === "missing-key") delete quiz["correctOptionId"];
+    if (scenario === "wrong-key") quiz["correctOptionId"] = "absent";
+    if (scenario === "two-keys") quiz["correctOptionId"] = ["first", "second"];
+    if (scenario === "missing-explanation") delete first["explanationMarkdown"];
+    if (scenario === "unknown-field") quiz["analytics"] = true;
+    if (scenario === "duplicate-option-id") second["id"] = "first";
+    if (scenario === "question-only-anchor")
+      quiz["promptMarkdown"] = "## Section\n\nWhich?";
+    if (scenario === "explanation-only-anchor")
+      first["explanationMarkdown"] = "## Section\n\nReason";
+    const absentNarrative = scenario.endsWith("anchor");
+    const readerBlocks = [
+      {
+        kind: "markdown",
+        markdown: absentNarrative ? "Narrative" : "## Section\n\nNarrative",
+      },
+      quiz,
+      ...(scenario === "duplicate-quiz-id" ? [structuredClone(quiz)] : []),
+    ];
+    // An absent asset is a sentinel: quiz rejection must precede realpath/checksum/upload.
+    await f.write({
+      ...manifest,
+      tasks: [{ ...task, page: { ...task.page, readerBlocks } }],
+      assets: [
+        {
+          sourceId: "absent",
+          path: "nonexistent.png",
+          sha256: "a".repeat(64),
+          mimeType: "image/png",
+        },
+      ],
+    });
+    /** @type {string[]} */
+    const calls = [];
+    /** @type {import('./target.mjs').LocalTransport} */
+    const request = async (path) => {
+      calls.push(path);
+      throw new Error("unexpected transport");
+    };
+    const expected = absentNarrative
+      ? /tasks\/one.md: quiz question-1: missing narrative anchor #section/u
+      : /key|explanationMarkdown|Unrecognized|Duplicate/u;
+    await assert.rejects(loadPackage(f.path), expected);
+    await assert.rejects(syncLocal(f.path, f.state, { request }), expected);
+    await assert.rejects(
+      previewRelease(f.path, f.state, {
+        origin: "http://127.0.0.1:3101",
+        request,
+      }),
+      expected,
+    );
+    assert.deepEqual(
+      calls,
+      [],
+      "no reserve, upload, apply or receipt requests",
+    );
+  });
+}

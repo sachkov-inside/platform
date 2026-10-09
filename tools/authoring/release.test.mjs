@@ -378,8 +378,5 @@ test("the trusted production target matches the production API configuration", a
   assert.equal(production.issuer, env["LOGTO_ISSUER"]);
   assert.equal(production.resource, env["LOGTO_AUDIENCE"]);
   assert.equal(production.reader, env["PUBLIC_SITE_ORIGIN"]);
-  assert.equal(
-    production.id,
-    `${String(env["PUBLIC_SITE_ORIGIN"])}/authoring-api`,
-  );
+  assert.equal(production.id, "https://inside.sachkov.dev/authoring-api");
 });
