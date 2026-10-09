@@ -1,5 +1,5 @@
 diff --git a/build/container-runtime/clients/image/docker-image-client.js b/build/container-runtime/clients/image/docker-image-client.js
-index 1cb09e340430aa8dbaa36f79d7ae1c13c3278fff..c0c554450031397672453ce87ef4888a3f6f3e40 100644
+index 1cb09e340430aa8dbaa36f79d7ae1c13c3278fff..bf793f634651ee51e8aa3c3bfe7c5aa92aea4bfb 100644
 --- a/build/container-runtime/clients/image/docker-image-client.js
 +++ b/build/container-runtime/clients/image/docker-image-client.js
 @@ -126,6 +126,7 @@ class DockerImageClient {
@@ -10,7 +10,7 @@ index 1cb09e340430aa8dbaa36f79d7ae1c13c3278fff..c0c554450031397672453ce87ef4888a
                  return;
              }
              common_1.log.debug(`Pulling image "${imageName.string}"...`);
-@@ -134,14 +135,22 @@ class DockerImageClient {
+@@ -134,14 +135,35 @@ class DockerImageClient {
                  authconfig,
                  platform: opts?.platform,
              });
@@ -21,7 +21,20 @@ index 1cb09e340430aa8dbaa36f79d7ae1c13c3278fff..c0c554450031397672453ce87ef4888a
 +                    if (err) reject(err);
 +                    else resolve();
 +                }, (event) => {
-+                    const message = event.errorDetail?.message ?? event.error;
++                    if (event === null || typeof event !== "object" || Array.isArray(event)) {
++                        reject(new Error("Invalid Docker pull event: expected an object"));
++                        stream.destroy();
++                        return;
++                    }
++                    const detail = event.errorDetail;
++                    if ((event.error !== undefined && typeof event.error !== "string") ||
++                        (detail !== undefined && (detail === null || typeof detail !== "object" ||
++                            Array.isArray(detail) || (detail.message !== undefined && typeof detail.message !== "string")))) {
++                        reject(new Error("Invalid Docker pull event: expected error text"));
++                        stream.destroy();
++                        return;
++                    }
++                    const message = detail?.message || event.error;
 +                    if (typeof message === "string" && message.length > 0) {
 +                        reject(new Error(message));
 +                        stream.destroy();

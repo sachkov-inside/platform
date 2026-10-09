@@ -11,7 +11,7 @@ overrides:
 patchedDependencies:
   '@storybook/addon-vitest@10.6.1': 6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993
   '@vitest/browser-playwright@4.1.11': 8865e11d2203925baf4366fd8eb09a2ec762a756d5275616ab4be87045687e84
-  testcontainers@12.2.0: 95ce2c941645f93f98b5d9a798e54e9e159c71bd5721de38c461a91f60ce1a86
+  testcontainers@12.2.0: 294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801
 
 importers:
 
@@ -180,7 +180,7 @@ importers:
         version: 7.10.0(@types/node@26.6.4)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@7.0.2)
       testcontainers:
         specifier: 12.2.0
-        version: 12.2.0(patch_hash=95ce2c941645f93f98b5d9a798e54e9e159c71bd5721de38c461a91f60ce1a86)(supports-color@10.2.2)
+        version: 12.2.0(patch_hash=294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801)(supports-color@10.2.2)
       tsx:
         specifier: 4.23.15
         version: 4.23.15
@@ -9539,7 +9539,7 @@ snapshots:
 
   '@testcontainers/postgresql@12.2.0(supports-color@10.2.2)':
     dependencies:
-      testcontainers: 12.2.0(patch_hash=95ce2c941645f93f98b5d9a798e54e9e159c71bd5721de38c461a91f60ce1a86)(supports-color@10.2.2)
+      testcontainers: 12.2.0(patch_hash=294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801)(supports-color@10.2.2)
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -12854,7 +12854,7 @@ snapshots:
 
   temporal-spec@1.0.1: {}
 
-  testcontainers@12.2.0(patch_hash=95ce2c941645f93f98b5d9a798e54e9e159c71bd5721de38c461a91f60ce1a86)(supports-color@10.2.2):
+  testcontainers@12.2.0(patch_hash=294d6dbbddafcb16fa7f3f51c810d1ef0257247ab31a3ca51a2030b682a8d801)(supports-color@10.2.2):
     dependencies:
       '@balena/dockerignore': 1.0.2
       '@types/dockerode': 4.0.1
