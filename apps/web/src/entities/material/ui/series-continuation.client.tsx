@@ -81,11 +81,11 @@ export function SeriesContinuationAction({
   if (continuation?.materialSlug !== slug) return null;
   return (
     <IntentPrefetchLink
-      className="relative z-10 mt-2.5 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="relative z-10 mt-2 flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[0.8125rem] font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm"
       data-series-continuation
       href={href}
     >
-      <Play aria-hidden="true" className="size-3.5 fill-current" />
+      <Play aria-hidden="true" className="size-3 fill-current" />
       {continuation.label}
     </IntentPrefetchLink>
   );
