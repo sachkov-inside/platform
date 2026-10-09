@@ -1,3 +1,4 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
@@ -91,6 +92,8 @@ async function stand(
               replies: new StartResponseDeliveryQueue(
                 db,
                 settleBlockedDelivery,
+                undefined,
+                signInReplyEligibility,
               ),
               text: "Synthetic readmission",
             },
@@ -102,6 +105,8 @@ async function stand(
               replies: new StartResponseDeliveryQueue(
                 db,
                 settleBlockedDelivery,
+                undefined,
+                signInReplyEligibility,
               ),
               text: "Synthetic welcome",
             },

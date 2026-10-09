@@ -1,3 +1,4 @@
+import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isDeepStrictEqual } from "node:util";
 import type { Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
@@ -35,7 +36,7 @@ export async function previewFunnel(
   const participants = await tx
     .selectFrom("communication_enrollments as e")
     .innerJoin("communication_contacts as c", "c.contact_id", "e.contact_id")
-    .innerJoin("bot_contacts as b", (join) =>
+    .innerJoin(botContactRows(tx).as("b"), (join) =>
       join
         .onRef("b.bot_identity", "=", "c.bot_identity")
         .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),

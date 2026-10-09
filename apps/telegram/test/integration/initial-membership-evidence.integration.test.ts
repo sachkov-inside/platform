@@ -1,3 +1,6 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { linkEffects } from "../../src/application/link-effects.js";
+import { contactEffects } from "../../src/application/contact-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
@@ -258,7 +261,12 @@ describe("initial Membership Evidence", () => {
 
     const messages = new ControlledTelegramMessages();
     const responses = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       messages,
       new RuntimeMetrics(),
       config,
@@ -329,7 +337,12 @@ describe("initial Membership Evidence", () => {
 
       const messages = new ControlledTelegramMessages();
       await new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         messages,
         new RuntimeMetrics(),
         config,
@@ -492,7 +505,7 @@ describe("initial Membership Evidence", () => {
 });
 
 async function confirmLink(telegramUserId: string) {
-  const contacts = new BotContacts(database, config);
+  const contacts = new BotContacts(database, config, contactEffects);
   await contacts.observeStart(
     {
       botIdentity: config.botIdentity,
@@ -503,7 +516,7 @@ async function confirmLink(telegramUserId: string) {
     },
     "link-receipt",
   );
-  const linking = new IdentityLinking(database, clock);
+  const linking = new IdentityLinking(database, clock, linkEffects);
   const challenge = await linking.register({
     accountRef: "account-ref-a",
     expiresAt: new Date(now.getTime() + 60_000),

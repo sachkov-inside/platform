@@ -1,3 +1,4 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import {
   registerRuntimeClock,
   useTimeoutClock,
@@ -472,6 +473,7 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
         return { kind: "delivered", providerMessageId: "synthetic" };
       },
     },
+    signInReplyEligibility,
   );
   const worker = new WorkerLoop(
     "dispatch-shutdown",
@@ -777,6 +779,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
         });
       },
     },
+    signInReplyEligibility,
   ).processAvailable(1);
   try {
     await reserving;

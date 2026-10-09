@@ -24,6 +24,7 @@ const networkCall = /(?:\bglobalThis\.|(?<![.\w$]))fetch\s*\(/;
 // A module never depends on the layers that compose or drive it.
 const moduleForbiddenLayers = [
   "adapters",
+  "application",
   "operations",
   "app.module.ts",
   "main.ts",
@@ -32,7 +33,7 @@ const moduleForbiddenLayers = [
 // The shared kernel sits below every module and adapter.
 const sharedForbiddenLayers = ["modules", "adapters", "operations", "config"];
 
-// The owning module reads or writes these tables, except for the exact legacy accesses below.
+// The owning module reads or writes these tables, through owner interfaces.
 // `database/` keeps the schema, migrations and retention for every table.
 const tableOwners = {
   activation_attempts: "modules/subscription-activation",
@@ -94,91 +95,6 @@ const tableOwners = {
   telegram_transport_slots: "modules/outbound",
   telegram_updates: "modules/update-inbox",
 };
-
-// Temporary exact file/table exceptions for existing production code. Each reason is below;
-// removal and owner-interface migration: https://github.com/sachkov-inside/platform/issues/1269.
-// A matching file does not exempt other tables. These entries also permit future access to the
-// same table in that file; review must preserve the reason until the exception is removed.
-const legacyTableAccess = new Map([
-  // Create the communication contact atomically with the first bot contact.
-  ["modules/bot-contacts/bot-contacts.ts", ["communication_contacts"]],
-  // Reserve the identity-link transaction atomically when consuming sign-in approval.
-  ["modules/bot-sign-in/sign-in-account-link.ts", ["link_transactions"]],
-  // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/broadcasts.ts", ["bot_contacts"]],
-  // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/communication-statistics.ts", ["bot_contacts"]],
-  // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-preview.ts", ["bot_contacts"]],
-  // Read private-chat reachability when selecting communication recipients.
-  ["modules/communications/funnel-scheduler.ts", ["bot_contacts"]],
-  // Persist a confirmed transport block under the communication contact lock.
-  ["modules/communications/delivery-contactability.ts", ["bot_contacts"]],
-  // Read private-chat reachability before a community welcome delivery.
-  ["modules/community/community-provider.ts", ["bot_contacts"]],
-  // Queue initial membership evidence atomically with identity recovery.
-  ["modules/identity-linking/identity-link-recovery.ts", ["membership_checks"]],
-  // Queue initial membership evidence atomically with linking; linking also consumes sign-in state.
-  [
-    "modules/identity-linking/identity-linking.ts",
-    ["membership_checks", "sign_in_requests", "sign_in_subjects"],
-  ],
-  // Read the contact destination for membership-check replies.
-  [
-    "modules/membership-evidence/membership-evidence-provider.ts",
-    ["bot_contacts"],
-  ],
-  // Read reachability when authorizing notification delivery.
-  ["modules/notifications/notification-provider.ts", ["bot_contacts"]],
-  // Legacy schema declaration; outbound owns the runtime transport cursor.
-  [
-    "modules/notifications/notification-storage.ts",
-    ["telegram_transport_fairness"],
-  ],
-  // Read sign-in and linking state to suppress stale queued replies.
-  [
-    "modules/outbound/start-response-delivery-queue.ts",
-    ["link_transactions", "sign_in_requests"],
-  ],
-  // Create and read the stable source contact in the event transaction.
-  [
-    "modules/sales-funnel/sales-funnel-events.ts",
-    ["bot_contacts", "communication_contacts"],
-  ],
-  // Legacy schema declaration; identity-linking owns identity reservation.
-  [
-    "modules/subscription-activation/activation-storage.ts",
-    ["telegram_identity_reservations"],
-  ],
-  // Operator readiness counts; no product writes.
-  [
-    "operations/check-readiness.ts",
-    ["bot_contacts", "identity_link_recoveries", "membership_reconciliations"],
-  ],
-  // Operator proof reads persisted evidence; no product writes.
-  [
-    "operations/credentialed-proof.ts",
-    [
-      "bot_contacts",
-      "identity_link_events",
-      "identity_link_recoveries",
-      "link_transactions",
-      "membership_check_results",
-      "membership_checks",
-      "membership_event_audit",
-      "membership_evidence_outbox",
-      "membership_provider_observations",
-      "membership_provider_state",
-      "membership_reconciliations",
-      "telegram_updates",
-    ],
-  ],
-  // Read known contact and community IDs in one repeatable-read snapshot.
-  [
-    "operations/group-report-candidates.ts",
-    ["bot_contacts", "community_bindings"],
-  ],
-]);
 
 // The author dialog decides every transition from its arguments alone; author-admin.ts runs
 // the effects. Its files import no package and no module that reaches I/O; types are free.
@@ -251,7 +167,6 @@ for (const file of files) {
     for (const [table, owner] of Object.entries(tableOwners)) {
       if (
         !file.startsWith(`${owner}/`) &&
-        !legacyTableAccess.get(file)?.includes(table) &&
         new RegExp(`\\b${table}\\b`).test(code)
       )
         violations.push(`${file}: ${table} is owned by ${owner}`);

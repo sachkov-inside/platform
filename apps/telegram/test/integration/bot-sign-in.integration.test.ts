@@ -1,3 +1,5 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { linkEffects } from "../../src/application/link-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import {
   registerFixedClock,
@@ -327,14 +329,24 @@ describe("bot sign-in provider", () => {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const now = new Date();
     const firstWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       messages,
       new RuntimeMetrics(),
       config,
     );
     expect(await firstWorker.processAvailable(1, now)).toBe(1);
     const restartedWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(secondDatabase, settleBlockedDelivery),
+      new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       messages,
       new RuntimeMetrics(),
       config,
@@ -355,6 +367,48 @@ describe("bot sign-in provider", () => {
     expect((await bind()).json()).toMatchObject({ status: "linked" });
     expect(await restartedWorker.processAvailable(1, retryAt)).toBe(0);
     expect(calls).toHaveLength(2);
+  });
+
+  it("rolls back the sign-in link reservation when the completion reply cannot be persisted", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    const accountRef = randomUUID();
+    const bind = () =>
+      request(`/${challenge.requestRef}/account-link`, {
+        contractVersion,
+        accountRef,
+        subjectRef: proof.subjectRef,
+      });
+    await sql`create function synthetic_sign_in_reply_fault() returns trigger language plpgsql as $$
+      begin if new.edit_message_id is not null then raise exception 'synthetic sign-in reply failure'; end if; return new; end $$;
+      create trigger synthetic_sign_in_reply_fault before insert on start_response_deliveries
+      for each row execute function synthetic_sign_in_reply_fault()`.execute(
+      database,
+    );
+    try {
+      expect((await bind()).statusCode).toBe(500);
+      expect(
+        await database
+          .selectFrom("link_transactions")
+          .selectAll()
+          .where("link_transaction_ref", "=", challenge.requestRef)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("start_response_deliveries")
+          .selectAll()
+          .where("edit_message_id", "is not", null)
+          .execute(),
+      ).toEqual([]);
+    } finally {
+      await sql`drop trigger synthetic_sign_in_reply_fault on start_response_deliveries;
+        drop function synthetic_sign_in_reply_fault()`.execute(database);
+    }
+    expect((await bind()).json()).toMatchObject({ status: "linked" });
   });
 
   it.each(["before", "after"] as const)(
@@ -389,6 +443,8 @@ describe("bot sign-in provider", () => {
       const queue = new StartResponseDeliveryQueue(
         secondDatabase,
         settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
       );
       if (failurePoint === "before") {
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
@@ -420,7 +476,12 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           sendText() {
             return Promise.resolve({
@@ -527,7 +588,12 @@ describe("bot sign-in provider", () => {
       expect(response.json()).toMatchObject({ status: "linked" });
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           sendText() {
             return Promise.reject(new Error("Must edit, not send"));
@@ -579,6 +645,8 @@ describe("bot sign-in provider", () => {
     const queue = new StartResponseDeliveryQueue(
       database,
       settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
     );
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), false)).toBeUndefined();
@@ -588,6 +656,8 @@ describe("bot sign-in provider", () => {
       new StartResponseDeliveryQueue(
         secondDatabase,
         settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
       ).claimNext(
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
@@ -740,7 +810,12 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const messages: TelegramTextMessage[] = [];
       const delivery = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           editText() {
             return Promise.reject(new Error("Unexpected message edit"));
@@ -815,7 +890,12 @@ describe("bot sign-in provider", () => {
     ).not.toContain(challenge.browserSecret);
     const messages: TelegramTextMessage[] = [];
     const delivery = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       {
         editText() {
           return Promise.reject(new Error("Unexpected message edit"));
@@ -898,6 +978,8 @@ describe("bot sign-in provider", () => {
     const queue = new StartResponseDeliveryQueue(
       database,
       settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
     );
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), true)).toMatchObject({
@@ -927,8 +1009,12 @@ describe("bot sign-in provider", () => {
   });
 
   it("keeps the opaque subject stable and reports an existing link without changing it", async () => {
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    const linking = new IdentityLinking(database, { now: () => new Date() });
+    const linking = new IdentityLinking(
+      database,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+      { now: () => new Date() },
+      linkEffects,
+    );
     const link = await linking.register({
       accountRef: "existing-account",
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
@@ -998,6 +1084,8 @@ describe("bot sign-in provider", () => {
       await new StartResponseDeliveryQueue(
         database,
         settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
       ).claimNext(
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
@@ -1047,6 +1135,8 @@ describe("bot sign-in provider", () => {
       await new StartResponseDeliveryQueue(
         database,
         settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
       ).claimNext(deadline, true),
     ).toBeUndefined();
     await callback(challenge, 42);

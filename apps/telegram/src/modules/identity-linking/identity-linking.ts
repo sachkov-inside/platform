@@ -1,6 +1,5 @@
-import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
-import { recordAccountLinked } from "../sales-funnel/sales-funnel-events.js";
+import { LINK_EFFECTS, type LinkEffects } from "./link-effects.js";
 import { findPlatformLink } from "./platform-links.js";
 import { reserveTelegramIdentity } from "./stable-telegram-identity.js";
 import { randomUUID } from "node:crypto";
@@ -77,6 +76,7 @@ export class IdentityLinking {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(LINK_EFFECTS) private readonly effects: LinkEffects,
   ) {}
 
   async register(begin: BeginLink): Promise<LinkChallenge> {
@@ -260,7 +260,7 @@ export class IdentityLinking {
           "confirmation_idempotent",
           this.clock.now(),
         );
-        await planInitialMembershipCheck(
+        await this.effects.initialCheck(
           transaction,
           linkTransaction.link_transaction_ref,
           link.telegram_identity_ref,
@@ -306,29 +306,14 @@ export class IdentityLinking {
         linkTransaction.bot_identity,
         linkTransaction.candidate_telegram_user_id,
       );
-      const reservation = await transaction
-        .selectFrom("sign_in_subjects")
-        .select("reserved_for_sign_in")
-        .where("bot_identity", "=", linkTransaction.bot_identity)
-        .where(
-          "telegram_user_id",
-          "=",
+      if (
+        !(await this.effects.signInAllowsLink(
+          transaction,
+          linkTransaction.bot_identity,
           linkTransaction.candidate_telegram_user_id,
-        )
-        .executeTakeFirst();
-      const signInProof = await transaction
-        .selectFrom("sign_in_requests")
-        .select("request_ref")
-        .where("request_ref", "=", linkTransaction.link_transaction_ref)
-        .where("bot_identity", "=", linkTransaction.bot_identity)
-        .where(
-          "telegram_user_id",
-          "=",
-          linkTransaction.candidate_telegram_user_id,
-        )
-        .where("state", "=", "consumed")
-        .executeTakeFirst();
-      if (isTruthy(reservation?.reserved_for_sign_in) && !signInProof) {
+          linkTransaction.link_transaction_ref,
+        ))
+      ) {
         await transaction
           .updateTable("link_transactions")
           .set({ state: "conflict" })
@@ -408,7 +393,7 @@ export class IdentityLinking {
         inserted ? "confirmed" : "confirmation_idempotent",
         this.clock.now(),
       );
-      await planInitialMembershipCheck(
+      await this.effects.initialCheck(
         transaction,
         linkTransaction.link_transaction_ref,
         link.telegram_identity_ref,
@@ -417,7 +402,7 @@ export class IdentityLinking {
       const current = await findPlatformLink(transaction, {
         telegramIdentityRef: link.telegram_identity_ref,
       });
-      if (current) await recordAccountLinked(transaction, current);
+      if (current) await this.effects.accountLinked(transaction, current);
       return {
         ...base,
         status: inserted ? "linked" : "idempotent",
@@ -425,29 +410,6 @@ export class IdentityLinking {
       };
     });
   }
-}
-
-async function planInitialMembershipCheck(
-  transaction: Transaction<DatabaseSchema>,
-  sourceRef: string,
-  telegramIdentityRef: string,
-  createdAt: Date,
-): Promise<void> {
-  await transaction
-    .insertInto("membership_checks")
-    .values({
-      attempt_count: 0,
-      available_at: createdAt,
-      completed_at: null,
-      created_at: createdAt,
-      diagnostic_code: null,
-      locked_at: null,
-      source_ref: sourceRef,
-      state: "pending",
-      telegram_identity_ref: telegramIdentityRef,
-    })
-    .onConflict((conflict) => conflict.column("source_ref").doNothing())
-    .execute();
 }
 
 function assertBeginLink(begin: BeginLink, now: Date): void {

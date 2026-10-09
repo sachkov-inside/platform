@@ -1,3 +1,4 @@
+import { findBotContact } from "../bot-contacts/contact-access.js";
 import { hasText } from "../../shared/text.js";
 import {
   findPlatformLink,
@@ -324,12 +325,11 @@ export class MembershipEvidenceProvider {
     });
     const contact =
       linked &&
-      (await this.database
-        .selectFrom("bot_contacts")
-        .select("private_chat_id")
-        .where("bot_identity", "=", linked.botIdentity)
-        .where("telegram_user_id", "=", linked.telegramUserId)
-        .executeTakeFirst());
+      (await findBotContact(
+        this.database,
+        linked.botIdentity,
+        linked.telegramUserId,
+      ));
     if (!linked || !contact) {
       throw new Error("Membership check has no linked Telegram identity");
     }

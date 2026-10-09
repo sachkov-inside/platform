@@ -1,3 +1,4 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import {
   registerFixedClock,
   fixedTestInstant,
@@ -1228,6 +1229,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
     { ...config, marketingEnabled: true },
     { now: () => new Date(now) },
     transport,
+    signInReplyEligibility,
   );
   for (let i = 0; i < 20; i++)
     await author.processAvailable(new Date((now += 2000)));

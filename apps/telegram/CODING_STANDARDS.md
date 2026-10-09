@@ -41,8 +41,8 @@ Its CLI fixtures accept each owner's access and reject foreign access; the test 
 exhaustive against `keyof DatabaseSchema`. This is a syntax check, not proof of every ownership
 boundary.
 
-`legacyTableAccess` keeps exact existing file/table exceptions with individual reasons. They cover
-cross-module transactions, recipient reads, contactability updates, legacy storage declarations and
-operator diagnostics. [#1269](https://github.com/sachkov-inside/platform/issues/1269) owns their
-removal through owner interfaces. An exception permits that table in that file, including a new
-occurrence; review must preserve its reason. Other tables in the same file remain checked.
+There are no legacy foreign-table exceptions. CLI fixtures retain the former file/table pairs and
+reject every direct access in them. Owner read queries may compose into the caller's SQL statement;
+owner writes execute on the caller's transaction. `src/application/` wires contact and linking
+effects without introducing module cycles. `src/app.module.ts` injects these effects and sign-in
+reply eligibility. Product modules never import this composition layer.
