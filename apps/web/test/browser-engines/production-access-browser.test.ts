@@ -275,11 +275,12 @@ it.each(["learner-product-a", "no-entitlement"] as const)(
           expect(storageRequests).toEqual([]);
         }
         expect(blocked).toEqual([]);
-        // Finish the failed-navigation document before using its execution context.
-        await page.goto("about:blank");
+        // Close the failed navigation before starting the independent write probe.
+        await page.close();
+        const writePage = await context.newPage();
         // A later step cannot relabel a request from a page created by the asset cell.
         currentCellId = `${state}/read-product-a/body@browser`;
-        await page.evaluate(async (url) => {
+        await writePage.evaluate(async (url) => {
           try {
             await fetch(url, { method: "POST", mode: "no-cors" });
           } catch {
@@ -296,7 +297,7 @@ it.each(["learner-product-a", "no-entitlement"] as const)(
               "protected storage only allows a bodyless GET asset redirect",
           },
         ]);
-        await page.close();
+        await writePage.close();
         expect(context.pages()).toHaveLength(0);
       } finally {
         await browser.close();
