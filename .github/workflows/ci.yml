@@ -157,6 +157,8 @@ jobs:
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
       - name: Run broker, crash and process integration tests one file at a time
+        env:
+          DEBUG: testcontainers:pull
         run: pnpm test:integration:serial
 
   compose-development:

@@ -84,7 +84,11 @@ Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/doc
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
-ECR Public has its own quotas; it is not an unlimited registry.
+ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
+The production smoke prints the resolved RabbitMQ/Caddy references and pulls them sequentially
+with Compose `--parallel 1` before application startup. Integration serial enables
+`testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
+missing-image or cleanup error. Neither path retries a failed pull.
 
 Docker publishes this namespace directly ([official announcement](https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/)).
 The [#1306 metadata evidence](../evidence/issue-1306/official-image-manifests.json) records identical
@@ -98,8 +102,9 @@ their existing references. Testcontainers' implicit Ryuk/SSH helper images remai
 pinned Testcontainers dependency; the official-image contract covers the explicit inputs listed
 in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
 
-SQL setup retains Docker stderr in the exception traceback. If cleanup also fails, setup preserves
-the original failure and adds the cleanup failure as a note. The historical SQL setup exit 125 in
+SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
+If cleanup also fails, setup prints that failure and preserves the original exception.
+The historical SQL setup exit 125 in
 [run 37990329163](https://github.com/sachkov-inside/platform/actions/runs/37990329163/job/114022533381)
 ran zero SQL tests and omitted captured stderr. Its precise cause cannot be recovered from that log.
 Read the setup stderr on a new failure; another job's pull failure does not establish the SQL cause.

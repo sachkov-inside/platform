@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 import unittest
 import uuid
 from queries import DOMAIN_CATALOG, logto_secret_inventory
@@ -34,11 +35,11 @@ class SqlContractTests(unittest.TestCase):
             cls.execute(pathlib.Path(__file__).with_name('sql-fixture.sql').read_text(), readonly=False)
         except BaseException as error:
             if isinstance(error, subprocess.CalledProcessError) and error.stderr:
-                error.add_note('SQL setup Docker stderr: ' + error.stderr)
+                print('SQL setup Docker stderr: ' + error.stderr, file=sys.stderr)
             try:
                 cls.tearDownClass()
             except Exception as cleanup_error:
-                error.add_note('SQL setup cleanup failed: ' + str(cleanup_error))
+                print('SQL setup cleanup failed: ' + str(cleanup_error), file=sys.stderr)
             raise
 
     @classmethod
