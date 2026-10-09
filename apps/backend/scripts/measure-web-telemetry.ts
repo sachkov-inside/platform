@@ -169,7 +169,7 @@ async function measure() {
       const cleanupMs = performance.now() - before;
       if (!cleaned.ok) throw new Error(cleaned.error.code);
       const afterCleanupBytes = await size();
-      // Ordinary vacuum models daily autovacuum; it does not shrink heap/index files or reset bloat.
+      // Ordinary vacuum models daily autovacuum, including truncation of empty heap tail pages.
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.vital_samples`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.errors`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.coverage`;

@@ -296,7 +296,7 @@ check_database() {
       web_telemetry_growth) observe db.web_telemetry_growth 1 "Рост ошибок web за 10 минут (не меньше 10 и втрое больше предыдущего окна)" ;;
       web_telemetry_digest) observe db.web_telemetry_digest 1 "Новых digest web за 10 минут: $value" "$value" ;;
       web_telemetry_size) observe db.web_telemetry_size 1 "Телеметрия web достигла 480 MB из бюджета 600 MB" ;;
-      web_telemetry_dropped) observe db.web_telemetry_dropped 1 "Отброшено отчётов web за сутки: $value" "$value" ;;
+      web_telemetry_dropped) observe db.web_telemetry_dropped 1 "Отброшено метрик и ошибок web за сутки: $value" "$value" ;;
       billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
     esac
   done <<<"$rows"
