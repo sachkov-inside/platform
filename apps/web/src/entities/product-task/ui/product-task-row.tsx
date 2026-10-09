@@ -1,7 +1,6 @@
 import { CircleCheck, Flag, LockKeyhole } from "lucide-react";
 import type { Route } from "next";
 
-import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import {
@@ -28,29 +27,29 @@ export function ProductTaskRow({
 }) {
   const pending = accessPending && task.access !== "free";
   const locked = !pending && task.availability === "locked";
+  const submitted = task.lastSubmittedAt;
   return (
     <article
-      className="group/task relative flex min-h-14 min-w-0 items-start gap-2.5 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:min-h-16 sm:gap-3 sm:px-4 sm:py-3"
+      className="group/task relative flex min-h-14 min-w-0 items-center gap-2.5 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:gap-3 sm:px-4"
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
-      {/* Значок задания в той же узкой колонке, где у урока его номер: без плитки. На телефоне
-          колонки нет — название задания получает всю ширину, как у урока. */}
+      {/* Та же строка, что у урока: флажок на месте номера, тип словом, название, статус. */}
       <span
         aria-hidden="true"
-        className="grid w-7 shrink-0 place-items-center pt-0.5 text-[color:var(--callout-task)] max-sm:hidden"
+        className="grid w-6 shrink-0 place-items-center text-[color:var(--callout-task)] sm:w-7"
       >
-        {locked ? (
-          <LockKeyhole className="size-4" />
-        ) : (
-          <Flag className="size-4" />
-        )}
+        <Flag className="size-4" />
+      </span>
+      <span
+        aria-hidden="true"
+        className="shrink-0 border-r border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] pr-2.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[color:var(--callout-task)] sm:pr-3"
+      >
+        Задание
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[0.6875rem] font-semibold uppercase leading-4 tracking-wider text-[color:var(--callout-task)]">
-          Задание
-        </p>
-        <Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
+        <span className="sr-only">Задание. </span>
+        <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
           <IntentPrefetchLink
             className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
             href={href}
@@ -58,38 +57,31 @@ export function ProductTaskRow({
             {task.title}
           </IntentPrefetchLink>
         </Heading>
-        {task.lastSubmittedAt === null ? null : (
+      </div>
+      <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+        {submitted === null ? null : (
           <span
-            className="mt-1 inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--callout-good)_14%,transparent)] px-2 py-0.5 text-xs font-semibold text-[color:var(--callout-good)]"
+            className="inline-flex items-center gap-1 font-semibold text-[color:var(--callout-good)]"
             data-task-submitted
           >
-            <CircleCheck aria-hidden="true" className="size-3.5" />
-            Сдано {formatSubmissionDay(task.lastSubmittedAt)}
+            <CircleCheck aria-hidden="true" className="size-4" />
+            <span className="max-sm:sr-only">
+              Сдано {formatSubmissionDay(submitted)}
+            </span>
           </span>
         )}
-        {task.access === "free" &&
-        task.availability === "available" &&
-        task.lastSubmittedAt === null ? (
-          <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">
-            Бесплатно
-          </span>
-        ) : null}
-      </div>
-      <span
-        className={cn(
-          "flex shrink-0 items-center text-xs text-muted-foreground",
-          pending ? "" : "sr-only",
-        )}
-      >
         {pending ? (
           <span
             aria-hidden="true"
             className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
           />
         ) : locked ? (
-          "Нужен доступ"
+          <>
+            <LockKeyhole aria-hidden="true" className="size-4" />
+            <span className="sr-only">Нужен доступ</span>
+          </>
         ) : task.availability === "unavailable" ? (
-          "Доступ временно не определён"
+          <span className="sr-only">Доступ временно не определён</span>
         ) : null}
       </span>
     </article>

@@ -38,7 +38,10 @@ export {
   MaterialTakeaways,
 } from "./ui/material-blocks";
 export { ContentCoverImage } from "./ui/content-cover-image.client";
-export { SeriesContinuationProvider } from "./ui/series-continuation.client";
+export {
+  SeriesContinuationProvider,
+  type SeriesContinuation,
+} from "./ui/series-continuation.client";
 
 export {
   MaterialReadingStatus,

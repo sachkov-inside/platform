@@ -132,6 +132,24 @@ export function SeriesJourneyControls({
   const next = parts
     .flatMap(partRows)
     .find((row) => row.slug === continuation?.materialSlug && row.available);
+  // Раскрытая строка в списке (решение владельца 09.10.2026): урок продолжения — «Продолжить»;
+  // кто ещё не начинал — гость или читатель без прочитанных уроков — видит «Начать обучение» у
+  // первого открытого урока программы.
+  const notStarted =
+    learning.kind === "guest" ||
+    (learning.kind === "ready" && learning.read === 0);
+  const firstOpen = notStarted
+    ? parts
+        .filter((entry) => entry.id === "programme")
+        .flatMap(partRows)
+        .find((row) => row.available)
+    : undefined;
+  const inlineContinuation =
+    next === undefined
+      ? firstOpen === undefined
+        ? null
+        : { materialSlug: firstOpen.slug, label: "Начать обучение" }
+      : { materialSlug: next.slug, label: "Продолжить" };
 
   useEffect(() => {
     const node = sentinel.current;
@@ -245,7 +263,7 @@ export function SeriesJourneyControls({
                 Повторить проверку доступа
               </Button>
             ) : null}
-            <SeriesContinuationProvider materialSlug={next?.slug ?? null}>
+            <SeriesContinuationProvider continuation={inlineContinuation}>
               <div className="mt-5 grid gap-6">
                 {visibleRuns(
                   part?.kind === "materials" ? part.runs : [],

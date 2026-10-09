@@ -205,19 +205,21 @@ function journeyRun(
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
               >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                {/* Счётчик и метка «Скоро» стоят сразу за названием главы, мелко (референс
+                    владельца 09.10.2026). */}
+                <div className="min-w-0">
                   <h3
-                    className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
+                    className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
                   {preparing ? (
-                    <span className="programme-chapter-soon">Скоро</span>
+                    <span className="programme-chapter-soon ml-2 align-[2px]">
+                      Скоро
+                    </span>
                   ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
-                    // На телефоне счётчик уступает место заголовку главы: число уроков видно в
-                    // самом списке.
-                    <span className="text-xs tabular-nums text-muted-foreground max-sm:hidden">
+                    <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {[
                         run.chapter.materialIds.length > 0
                           ? formatMaterialCount(run.chapter.materialIds.length)

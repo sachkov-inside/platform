@@ -1,13 +1,4 @@
-import {
-  BookOpenText,
-  ChevronRight,
-  CirclePlay,
-  Clock3,
-  FileText,
-  Link2,
-  LockKeyhole,
-  Play,
-} from "lucide-react";
+import { ChevronRight, Clock3, Link2, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 
 import { cn } from "@/shared/lib/utils";
@@ -26,7 +17,7 @@ import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
 import {
-  SeriesContinuationSlot,
+  SeriesContinuationAction,
   SeriesRowArticle,
 } from "./series-continuation.client";
 
@@ -370,62 +361,51 @@ function SeriesMaterialRow({
   const pending = accessPending && material.access !== "free";
   const locked = !pending && material.availability === "locked";
   const unavailable = !pending && material.availability === "unavailable";
-  const free =
-    material.access === "free" && material.availability === "available";
   return (
     <SeriesRowArticle
       availability={pending ? "pending" : material.availability}
-      className="group/row relative flex min-h-14 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:min-h-16 sm:px-4 sm:py-3"
+      className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          {/* Номер урока — мелкая цифра у первой строки названия, без плитки и обложки: на узком
-              экране название получает почти всю ширину (решение владельца 09.10.2026). */}
-          {/* На телефоне номер стоит в начале названия, а не колонкой: перенос строки начинается
-              от левого края, и название получает всю ширину (решение владельца 09.10.2026). */}
-          {ordinal === undefined ? null : (
-            <span
-              aria-hidden="true"
-              className="w-7 shrink-0 pt-px text-base font-semibold leading-6 tabular-nums text-muted-foreground max-sm:hidden"
-              data-series-preview
+      {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
+          закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        {ordinal === undefined ? null : (
+          <span
+            aria-hidden="true"
+            className="w-6 shrink-0 text-center text-lg font-semibold leading-6 tabular-nums text-foreground sm:w-7 sm:text-xl"
+            data-series-preview
+          >
+            {ordinal}
+          </span>
+        )}
+        <span
+          aria-hidden="true"
+          className="shrink-0 border-r border-border pr-2.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-[0.08em] text-muted-foreground sm:pr-3"
+          data-series-format
+        >
+          {material.format}
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="sr-only">
+            {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
+            {material.format}.{" "}
+          </span>
+          <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
+            <IntentPrefetchLink
+              className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+              href={readerHref}
             >
-              {String(ordinal).padStart(2, "0")}
+              {material.title}
+            </IntentPrefetchLink>
+          </Heading>
+        </div>
+        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+          {duration === undefined ? null : (
+            <span className="tabular-nums max-sm:hidden" data-series-duration>
+              {duration}
             </span>
           )}
-          <div className="min-w-0">
-            {ordinal === undefined ? null : (
-              <span className="sr-only">Урок {ordinal}. </span>
-            )}
-            <Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
-              <IntentPrefetchLink
-                className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
-                href={readerHref}
-              >
-                {ordinal === undefined ? null : (
-                  <span
-                    aria-hidden="true"
-                    className="mr-1.5 text-xs font-semibold tabular-nums text-muted-foreground sm:hidden"
-                  >
-                    {String(ordinal).padStart(2, "0")}
-                  </span>
-                )}
-                {material.title}
-              </IntentPrefetchLink>
-              {/* Видимая метка для телефона; скринридер читает «Бесплатно» в строке формата. */}
-              {free ? (
-                <span
-                  aria-hidden="true"
-                  className="ml-1.5 inline-block rounded bg-background px-1 align-[1px] text-[0.625rem] font-semibold leading-4 text-action sm:hidden"
-                >
-                  Бесплатно
-                </span>
-              ) : null}
-            </Heading>
-            <SeriesRowMeta duration={duration} material={material} />
-          </div>
-        </div>
-        <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
           {pending ? (
             <span
               aria-hidden="true"
@@ -440,71 +420,12 @@ function SeriesMaterialRow({
           ) : unavailable ? (
             <span className="sr-only">Доступ временно не определён</span>
           ) : (
-            <>
-              {/* Телефон: формат — значком в конце строки вместо подписи под названием. */}
-              <FormatIcon className="size-4 sm:hidden" material={material} />
-              {readingStatus}
-            </>
+            readingStatus
           )}
-          <SeriesContinuationSlot slug={material.slug} />
         </span>
       </div>
+      <SeriesContinuationAction href={readerHref} slug={material.slug} />
     </SeriesRowArticle>
-  );
-}
-
-/** Значок формата урока: видео, гайд или текст. */
-function FormatIcon({
-  className,
-  material,
-}: {
-  readonly className: string;
-  readonly material: MaterialPreview;
-}) {
-  if (materialPreviewHasVideo(material))
-    return <CirclePlay aria-hidden="true" className={className} />;
-  if (material.formatSlug === "guide")
-    return <BookOpenText aria-hidden="true" className={className} />;
-  return <FileText aria-hidden="true" className={className} />;
-}
-
-/**
- * Строка под названием урока: значок и формат, длительность видео и пометка «Бесплатно». По ней
- * видно, где видео, а где текст, без обложек: в программе номер урока и есть его рисунок
- * (решение владельца 09.10.2026). Задания отмечает своя строка задания.
- */
-function SeriesRowMeta({
-  duration,
-  material,
-}: {
-  readonly duration: string | undefined;
-  readonly material: MaterialPreview;
-}) {
-  const free =
-    material.access === "free" && material.availability === "available";
-  return (
-    // На телефоне строки формата нет: формат — значок в конце строки, «Бесплатно» — метка.
-    <span
-      className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs leading-5 text-muted-foreground max-sm:sr-only"
-      data-series-meta
-    >
-      <FormatIcon className="size-3.5 shrink-0" material={material} />
-      <span>{material.format}</span>
-      {duration === undefined ? null : (
-        <>
-          <span aria-hidden="true">·</span>
-          <span className="tabular-nums" data-series-duration>
-            {duration}
-          </span>
-        </>
-      )}
-      {free ? (
-        <>
-          <span aria-hidden="true">·</span>
-          <span className="font-semibold text-action">Бесплатно</span>
-        </>
-      ) : null}
-    </span>
   );
 }
 

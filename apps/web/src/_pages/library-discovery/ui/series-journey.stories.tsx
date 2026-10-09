@@ -241,7 +241,8 @@ export const Guest: Story = {
   args: { result: lockedResult, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(visible(canvas.getAllByText("Бесплатно"))).toHaveLength(3);
+    // Открытость показывает замок у закрытых уроков, метки «Бесплатно» в строках нет.
+    await expect(canvas.queryAllByText("Бесплатно")).toHaveLength(0);
     await expect(
       canvasElement.querySelectorAll('[data-material-availability="locked"]'),
     ).toHaveLength(9);
@@ -661,8 +662,7 @@ export const LoadingPreservesRoutePosition: Story = {
     );
     if (currentCard === null || nextLesson === null)
       throw new Error("Missing continuation or following lesson");
-    const currentHeight = currentCard.getBoundingClientRect().height;
-    const nextTop = nextLesson.getBoundingClientRect().top;
+    const currentTop = currentCard.getBoundingClientRect().top;
     const top = canvas
       .getByRole("list", { name: "Материалы продукта" })
       .getBoundingClientRect().top;
@@ -683,12 +683,14 @@ export const LoadingPreservesRoutePosition: Story = {
     await expect(
       within(currentCard).getByText("Продолжить", { exact: true }),
     ).toBeVisible();
+    // Строка продолжения раскрывается кнопкой (решение владельца 09.10.2026): сама она и всё выше
+    // неё стоят на месте, уроки ниже сдвигаются на высоту кнопки.
     await expect(
-      Math.abs(currentCard.getBoundingClientRect().height - currentHeight),
+      Math.abs(currentCard.getBoundingClientRect().top - currentTop),
     ).toBeLessThan(1);
-    await expect(
-      Math.abs(nextLesson.getBoundingClientRect().top - nextTop),
-    ).toBeLessThan(1);
+    await expect(nextLesson.getBoundingClientRect().top).toBeGreaterThan(
+      currentCard.getBoundingClientRect().bottom - 1,
+    );
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = {
@@ -782,7 +784,12 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    await expect(visible(rows.getAllByText("Бесплатно"))).toHaveLength(2);
+    await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
+    await expect(
+      visible([
+        ...canvasElement.querySelectorAll<HTMLElement>("[data-series-format]"),
+      ]),
+    ).not.toHaveLength(0);
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(rows.getByText("Продолжить", { exact: true })).toBeVisible();
     await expect(
@@ -791,7 +798,7 @@ export const CompactMobileRoute: Story = {
     await expect(
       route.querySelector('[data-material-availability="locked"]'),
     ).toHaveTextContent("Нужен доступ");
-    await expect(route.querySelector("[data-series-duration]")).toBeVisible();
+    // На телефоне длительность в строке не показывается: место отдано названию.
     await expect(
       route.querySelector("[data-series-duration]"),
     ).toHaveTextContent("21:00");
@@ -813,7 +820,7 @@ export const DesktopRouteDetails: Story = {
     await expect(route.queryByText(videoSummary)).not.toBeInTheDocument();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();
-    await expect(visible(route.getAllByText("Бесплатно"))).toHaveLength(2);
+    await expect(route.queryAllByText("Бесплатно")).toHaveLength(0);
     await expect(route.getByText("Продолжить", { exact: true })).toBeVisible();
     const cards = [
       ...canvasElement.querySelectorAll<HTMLElement>(
@@ -874,8 +881,9 @@ export const CompactMobileEnlargedText: Story = {
       await expect(
         canvasElement.querySelector('[data-material-availability="locked"]'),
       ).toBeVisible();
+      // На телефоне длительность уступает место названию; тип урока виден всегда.
       await expect(
-        canvasElement.querySelector("[data-series-duration]"),
+        canvasElement.querySelector("[data-series-format]"),
       ).toBeVisible();
     } finally {
       root.style.fontSize = fontSize;

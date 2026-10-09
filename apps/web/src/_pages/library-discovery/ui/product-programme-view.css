@@ -112,10 +112,10 @@
 .programme-chapter:last-child::after {
   content: none;
 }
-/* Метка будущей главы рядом с её заголовком. */
+/* Метка будущей главы сразу за её заголовком, в строке текста. */
 .programme-chapter-soon {
   display: inline-flex;
-  flex: none;
+  white-space: nowrap;
   align-items: center;
   gap: 0.4rem;
   border-radius: 999px;
@@ -340,4 +340,19 @@
 }
 .programme-sidebar-parts button[data-current="true"] small {
   color: color-mix(in srgb, var(--primary-foreground) 65%, transparent);
+}
+
+/* Телефон: цена в шапке программы мельче, чтобы кнопка встала справа от неё в одну строку. */
+@media (max-width: 39.999rem) {
+  [data-programme-purchase-row] .preorder-price-now {
+    font-size: 1.25rem;
+  }
+  [data-programme-purchase-row] .preorder-price-after {
+    margin-left: 0.35rem;
+    font-size: 0.875rem;
+  }
+  [data-programme-purchase-row] a {
+    min-height: 2.5rem;
+    padding-inline: 1rem;
+  }
 }
