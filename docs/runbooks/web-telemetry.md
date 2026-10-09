@@ -78,7 +78,8 @@ and after ordinary vacuum. No VACUUM FULL, REINDEX or global setting change rese
 Ordinary vacuum and checkpoints model maintenance during a real day; it retains file high-water
 marks and reusable pages. The command checks the 600 MB budget, p75 query time and daily cleanup
 budget, and removes its database in `finally`. The final Issue/PR records measured values and
-machine conditions; this runbook does not substitute an estimate for that evidence.
+machine conditions. The [resource proof](../verification/web-telemetry-707.md) records the accepted
+corpus, all 32 cycles, timings and API memory method.
 
 Migration `0086_web_telemetry` only adds its own schema. Existing application tables and query
 contracts stay unchanged. The release contract nevertheless compares exact schema identities;
