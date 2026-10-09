@@ -1,0 +1,31 @@
+{
+  "kind": "read-only cached-stand metadata; actual build growth pending",
+  "sourceMain": "de9cf10a90214ea49586059eddcbcc9d33f6cf31",
+  "artifacts": [
+    {
+      "file": "cache-next-build.txt",
+      "capturedAtUtc": "2026-10-09T21:39:28.604025+00:00",
+      "sha256": "03805f64bf1f7b9788fedd4f8f458846af21111f3a28629169d0dc807b8943ed"
+    },
+    {
+      "file": "cache-workspace-install.txt",
+      "capturedAtUtc": "2026-10-09T21:39:28.722030+00:00",
+      "sha256": "5f57a5a3d7f7c43b1c92d6e0aa2ad156855ba18079347ef0ddde1e28ee71b46b"
+    },
+    {
+      "file": "inside-platform-api_latest-history.txt",
+      "capturedAtUtc": "2026-10-09T21:33:53.357314+00:00",
+      "sha256": "3bd3faccd74e2f1a9c70816a40a6876b2d36b2be863e52628101e2e4f10f09c6"
+    },
+    {
+      "file": "inside-platform-web_latest-history.txt",
+      "capturedAtUtc": "2026-10-09T21:33:53.376469+00:00",
+      "sha256": "9fc200f68121f10968429ad2e1e2adb5cf1dfd34bd43b6f9ed913e09396f68d2"
+    },
+    {
+      "file": "context-candidate.json",
+      "capturedAtUtc": "2026-10-09T21:48:23.049741+00:00",
+      "sha256": "98bc5a4afe328ad2d982e8efe20ab58d314d4f80b5e2f4b8f8f554cf6d5a74c5"
+    }
+  ]
+}

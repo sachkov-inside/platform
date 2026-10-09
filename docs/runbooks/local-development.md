@@ -265,7 +265,8 @@ capacity before retrying; the command never prunes caches, reports or volumes.
 
 The cached-stand estimate rounds up 3 GiB for source/web/export growth plus two dependency snapshots
 of at most 2.261 GB each to an 8 GiB ceiling. This uses retained layer/cache measurements, not the
-sum of overlapping cache records. Runtime verification must measure actual peak growth and the
+sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
+were captured on 9 October 2026 UTC / 10 October 2026 MSK. Runtime verification must measure actual peak growth and the
 remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.
 Root diagnostic `*.log` files are ignored by Git as well as the Docker context, so they do not
 prevent production web's source check.

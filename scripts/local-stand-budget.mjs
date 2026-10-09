@@ -5,6 +5,7 @@ const hostReserveBytes = 10 * gib;
 // Cached stand estimate:3 GiB for source/web/export plus two <=2.261 GB dependency snapshots if
 // cache keys miss, rounded up to8 GiB. Bounded runtime proof must validate actual growth. Shared
 // cache records overlap; their sum is not physical storage. Never prune another session's data.
+// Measurement period:2026-10-09 UTC /2026-10-10 MSK. Source/model:docs/evidence/issue-1304/README.md.
 const buildAllowanceBytes = 8 * gib;
 // Coordinator's bounded-proof admission keeps2 GiB of stop/cleanup headroom above ceiling+floor.
 const minimumStartingFreeBytes = 20 * gib;
