@@ -85,10 +85,16 @@ References keep the existing version tags and select immutable SHA-256 digests. 
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
-The production smoke prints the resolved RabbitMQ/Caddy references and pulls them sequentially
-with Compose `--parallel 1` before application startup. Development CI does the same for
-PostgreSQL, RustFS and Mailpit before starting its clean-stack smoke. This bounds each job's own
-acquisition concurrency; it does not identify the origin of an unlabelled rate-limit error.
+The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
+separate Compose command before application startup. It waits one second after RabbitMQ finishes
+before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
+concurrency but leaves admission timing and graph order to Compose. The interval bounds this
+pair's own admission; it cannot reserve a quota shared with other clients or prove the historical
+origin of throttling. Acquisition failures keep their original error and stop startup without a
+retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
+boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
+Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
+smoke; this explicit group contains one ECR Public image, so it has no ECR pair to space.
 Integration serial enables
 `testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
 missing-image or cleanup error. These acquisition paths do not retry a failed pull.

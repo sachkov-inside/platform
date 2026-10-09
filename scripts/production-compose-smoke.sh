@@ -31,6 +31,7 @@ container_exit_poll_attempts=20
 container_log_poll_attempts=30
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
+ecr_public_anonymous_pull_interval_seconds=1
 # pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
 # locally and in CI (#728).
 pgboss_job_poll_attempts=20
@@ -551,10 +552,13 @@ if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; 
   echo "Production runtime resolved a moving image tag" >&2
   exit 1
 fi
-# ECR Public permits one anonymous pull per second. Acquire external runtime dependencies
-# sequentially before starting the already-built application images, and retain resolved sources.
+# ECR Public permits one anonymous pull per second. Separate commands keep Compose graph
+# ordering from admitting both images together; wait a full interval after the first completes.
+# This controls our two pulls, not other clients sharing the provider quota. Do not retry failures.
 "${application_compose[@]}" config --images rabbitmq caddy-smoke
-"${application_compose[@]}" --parallel 1 pull rabbitmq caddy-smoke
+"${application_compose[@]}" --parallel 1 pull rabbitmq
+sleep "$ecr_public_anonymous_pull_interval_seconds"
+"${application_compose[@]}" --parallel 1 pull caddy-smoke
 "${application_compose[@]}" up --detach --wait
 
 docker run --rm \
