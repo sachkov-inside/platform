@@ -329,16 +329,6 @@ body:has([data-public-shell]) {
     .mobile-navigation {
     display: none;
   }
-  /* Над нижней панелью курса уведомление о хранении поднимается, на остальных — у края. */
-  body[data-hide-mobile-navigation] .storage-notice,
-  body:has(
-      [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
-          [style*="display: none"] *
-        )
-    )
-    .storage-notice {
-    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
-  }
   body[data-hide-mobile-navigation] #content > .public-page-container,
   body:has(
       [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
@@ -369,12 +359,16 @@ body:has([data-public-shell]) {
   );
   pointer-events: none;
 }
-/* Над нижними панелями курса — в программе и уроке — уведомление о хранении поднимается. */
+/* Над нижними панелями курса уведомление о хранении поднимается: панель программы видна до
+   48rem, панель урока — до 64rem. */
+@media (max-width: 47.999rem) {
+  body:has(.product-bottom-bar:not([style*="display: none"] *))
+    .storage-notice {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
 @media (max-width: 63.999rem) {
-  body:has(
-      .product-bottom-bar:not([style*="display: none"] *),
-      [data-series-reader-bar]:not([style*="display: none"] *)
-    )
+  body:has([data-series-reader-bar]:not([style*="display: none"] *))
     .storage-notice {
     bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }

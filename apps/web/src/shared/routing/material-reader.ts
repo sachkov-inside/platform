@@ -11,6 +11,7 @@ export interface MaterialReaderReturnTarget {
   readonly label:
     | "Назад на Главную"
     | "Назад в профиль"
+    | "Назад к материалам"
     | "Назад к продукту"
     | "Назад к программе"
     | "Назад к теме";
@@ -144,7 +145,12 @@ function readReturnTarget(
     return {
       href,
       kind: "series",
-      label: match[3] === undefined ? "Назад к продукту" : "Назад к программе",
+      label:
+        match[3] === undefined
+          ? "Назад к продукту"
+          : url.searchParams.get("part") === "materials"
+            ? "Назад к материалам"
+            : "Назад к программе",
       seriesSlug: slug,
     };
   }

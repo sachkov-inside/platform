@@ -174,5 +174,8 @@ describe("Catalog return context", () => {
         "/products/ai-engineering/programme?part=other",
       ).kind,
     ).toBe("home");
+    expect(parseMaterialReaderReturnTarget(href).label).toBe(
+      "Назад к материалам",
+    );
   });
 });

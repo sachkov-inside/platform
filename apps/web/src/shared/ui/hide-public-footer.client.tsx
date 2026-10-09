@@ -19,7 +19,7 @@ export function HidePublicFooter() {
       if (holders === 0) delete document.body.dataset["hidePublicFooter"];
     };
   }, []);
-  // Метка в разметке прячет шапку уже в ответе сервера, до гидратации, без сдвига страницы. CSS
+  // Метка в разметке прячет подвал уже в ответе сервера, до гидратации, без сдвига страницы. CSS
   // пропускает метки в скрытых деревьях ушедших страниц: React помечает их `display: none`.
   return <span hidden data-hide-public-footer-marker="" />;
 }

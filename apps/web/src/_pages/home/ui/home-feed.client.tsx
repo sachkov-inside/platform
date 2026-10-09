@@ -33,15 +33,16 @@ export function HomeFeed() {
   // Поиска на Главной нет (решение владельца 09.10.2026): текст запроса из старой ссылки
   // `/?q=…` не применяется, иначе лента сузилась бы без видимой причины. Синхронизация адреса
   // ниже убирает его из адреса.
-  const initialQuery = useMemo(
-    () => ({
-      ...withoutLibraryCursor(
-        parseLibrarySearchParams(new URLSearchParams(search)).query,
-      ),
+  const initialQuery = useMemo(() => {
+    const query = withoutLibraryCursor(
+      parseLibrarySearchParams(new URLSearchParams(search)).query,
+    );
+    return {
+      ...query,
       q: "",
-    }),
-    [search],
-  );
+      sort: query.sort === "relevance" ? ("newest" as const) : query.sort,
+    };
+  }, [search]);
   return (
     <HomeFeedView
       initialQuery={initialQuery}

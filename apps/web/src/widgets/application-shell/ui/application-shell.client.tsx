@@ -135,7 +135,7 @@ function NavigationLink({
   return (
     <Link
       href={item.href}
-      aria-current={isCurrentPath(currentPath, item.href) ? "page" : undefined}
+      aria-current={currentAria(currentPath, item.href)}
       className={cn(
         "flex min-h-11 items-center gap-3 rounded-[0.875rem] px-3.5 py-2.5 text-sm font-semibold no-underline transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
         isCurrentPath(currentPath, item.href) && "bg-muted text-action",
@@ -178,9 +178,7 @@ function MobileTopNavigation({
       <div className="public-page-container mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3">
         <Link
           aria-current={
-            home !== undefined && isCurrentPath(currentPath, home.href)
-              ? "page"
-              : undefined
+            home === undefined ? undefined : currentAria(currentPath, home.href)
           }
           aria-label="Главная"
           className="flex shrink-0 items-baseline gap-[0.23em] rounded-md text-lg font-extrabold leading-none tracking-[-0.05em] no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -201,7 +199,7 @@ function MobileTopNavigation({
               return (
                 <li key={item.href}>
                   <Link
-                    aria-current={current ? "page" : undefined}
+                    aria-current={currentAria(currentPath, item.href)}
                     aria-label={item.label}
                     className={cn(
                       "mobile-navigation-link relative grid size-11 place-items-center rounded-full text-muted-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
@@ -235,6 +233,18 @@ function MobileTopNavigation({
       </div>
     </header>
   );
+}
+
+/**
+ * Открытая страница раздела — `page`; страница внутри раздела (урок в Главной, программа в
+ * «Курсе») — `true`, чтобы скринридер не называл раздел текущей страницей.
+ */
+function currentAria(
+  pathname: string,
+  route: Route,
+): "page" | "true" | undefined {
+  if (!isCurrentPath(pathname, route)) return undefined;
+  return pathname === (route.split("?")[0] ?? route) ? "page" : "true";
 }
 
 function isCurrentPath(pathname: string, route: Route): boolean {
