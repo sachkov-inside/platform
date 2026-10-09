@@ -49,6 +49,8 @@ repair_forward_phase=
 repair_forward_version=
 repair_forward_run_id=
 repair_forward_manifest=
+maintenance_started_epoch=
+maintenance_ended_epoch=
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -69,7 +71,16 @@ write_private_file_atomically() {
 write_operation() {
   local status="$1"
   local operation_phase="$2"
+  local maintenance_duration=null
+  if [[ -n "$maintenance_started_epoch" ]]; then
+    local measured_end="${maintenance_ended_epoch:-$(now_epoch)}"
+    maintenance_duration=$((measured_end - maintenance_started_epoch))
+    if ((maintenance_duration < 0)); then maintenance_duration=0; fi
+  fi
   jq --null-input \
+    --argjson maintenanceStarted "${maintenance_started_epoch:-null}" \
+    --argjson maintenanceEnded "${maintenance_ended_epoch:-null}" \
+    --argjson maintenanceDuration "$maintenance_duration" \
     --arg schemaVersion inside.platform.deployment-operation.v1 \
     --arg status "$status" \
     --arg operation "$operation" \
@@ -98,9 +109,17 @@ write_operation() {
         }
         end
       ),
+      maintenance: (
+        if $maintenanceStarted == null then null
+        else {
+          startedAtEpochSeconds: $maintenanceStarted,
+          endedAtEpochSeconds: $maintenanceEnded,
+          durationSeconds: $maintenanceDuration
+        } end
+      ),
       githubRunId: $githubRunId,
       recordedAt: $recordedAt
-    }' | write_private_file_atomically "$operation_file"
+    } | if $status == "succeeded" or .maintenance == null then del(.maintenance) else . end' | write_private_file_atomically "$operation_file"
 }
 
 on_exit() {
@@ -330,15 +349,36 @@ archive_repair_forward_operation() {
 
 validate_operation_journal() {
   jq --exit-status '
-    (keys == ["githubRunId", "operation", "phase", "recordedAt", "recoveryPhase", "repairForward", "schemaVersion", "status", "version"]) and
+    ((keys - ["maintenance"]) == ["githubRunId", "operation", "phase", "recordedAt", "recoveryPhase", "repairForward", "schemaVersion", "status", "version"]) and
     .schemaVersion == "inside.platform.deployment-operation.v1" and
+    (
+      .maintenance == null or
+      (
+        (.maintenance | keys == ["durationSeconds", "endedAtEpochSeconds", "startedAtEpochSeconds"]) and
+        (.maintenance.startedAtEpochSeconds | type == "number") and
+        .maintenance.startedAtEpochSeconds >= 0 and
+        (.maintenance.startedAtEpochSeconds | floor) == .maintenance.startedAtEpochSeconds and
+        (.maintenance.durationSeconds | type == "number") and
+        .maintenance.durationSeconds >= 0 and
+        (.maintenance.durationSeconds | floor) == .maintenance.durationSeconds and
+        (
+          .maintenance.endedAtEpochSeconds == null or
+          (
+            (.maintenance.endedAtEpochSeconds | type == "number") and
+            .maintenance.endedAtEpochSeconds >= .maintenance.startedAtEpochSeconds and
+            (.maintenance.endedAtEpochSeconds | floor) == .maintenance.endedAtEpochSeconds and
+            .maintenance.durationSeconds == (.maintenance.endedAtEpochSeconds - .maintenance.startedAtEpochSeconds)
+          )
+        )
+      )
+    ) and
     (.status == "running" or .status == "failed" or .status == "succeeded") and
     (.operation == "deploy" or .operation == "rollback") and
     (.version | test("^v[1-9][0-9]*$")) and
-    (.phase | test("^(preflight|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal|complete)$")) and
+    (.phase | test("^(preflight|pre-pull|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal|complete)$")) and
     (
       .recoveryPhase == null or
-      (.recoveryPhase | test("^(maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal)$"))
+      (.recoveryPhase | test("^(pre-pull|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal)$"))
     ) and
     (
       .repairForward == null or
@@ -535,15 +575,24 @@ recovery_phase="$(jq --raw-output \
        .operation == $operation and
        .version == $version and
        ((.recoveryPhase // .phase) as $phase |
-         ["preflight", "maintenance", "pull", "schema", "workers", "migrations", "start", "readiness", "smoke", "routes", "journal"] |
+         ["preflight", "pre-pull", "maintenance", "pull", "schema", "workers", "migrations", "start", "readiness", "smoke", "routes", "journal"] |
          index($phase) != null)
     then (.recoveryPhase // .phase) else empty end
   ' <<<"$last_operation_json" 2>/dev/null || true)"
 if [[ "$recovery_phase" == preflight ]]; then
   recovery_phase=
 fi
-if [[ "$operation" == rollback && -n "$recovery_phase" ]]; then
+if [[ "$operation" == rollback && -n "$recovery_phase" && "$recovery_phase" != pre-pull ]]; then
   accepted_rollback_recovery=true
+fi
+# Carry an open interval across exact retries and repair forward. Completed measurements
+# remain in state.json so the successful operation keeps the legacy closed shape.
+if jq --exit-status --arg operation "$operation" --arg version "$version" '
+  .operation == $operation and .version == $version
+' <<<"$last_operation_json" >/dev/null 2>&1 ||
+  [[ "$repair_forward" == true && "$(jq --raw-output '.maintenance.endedAtEpochSeconds' <<<"$last_operation_json")" == null ]]; then
+  maintenance_started_epoch="$(jq --raw-output '.maintenance.startedAtEpochSeconds // empty' <<<"$last_operation_json")"
+  maintenance_ended_epoch="$(jq --raw-output '.maintenance.endedAtEpochSeconds // empty' <<<"$last_operation_json")"
 fi
 if [[ "$repair_forward" != true ]]; then
   if [[ "$operation" == rollback && "$recovery_phase" == journal ]]; then
@@ -824,23 +873,36 @@ if [[ "$is_noop" == true ]]; then
   exit 0
 fi
 
-phase=maintenance
+phase=pre-pull
 write_operation running "$phase"
-fail_if_requested maintenance
-activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
-
-phase=pull
-write_operation running "$phase"
-fail_if_requested pull
+fail_if_requested pre-pull
 docker pull "$backend_image"
 docker pull "$web_image"
+for image in "$backend_image" "$web_image"; do
+  if ! docker image inspect --format '{{json .RepoDigests}}' "$image" |
+    jq --exit-status --arg image "$image" 'index($image) != null' >/dev/null; then
+    echo "Pulled image does not match the manifest digest: $image" >&2
+    exit 1
+  fi
+done
 candidate_broker="$(declared_services "$compose_file" rabbitmq)"
 if [[ -n "$candidate_broker" ]]; then
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" pull rabbitmq
 fi
 
+phase=maintenance
+write_operation running "$phase"
+fail_if_requested maintenance
+if [[ -z "$maintenance_started_epoch" || -n "$maintenance_ended_epoch" ]]; then
+  maintenance_started_epoch="$(now_epoch)"
+  maintenance_ended_epoch=
+fi
+write_operation running "$phase"
+activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
+
 phase=schema
 write_operation running "$phase"
+fail_if_requested schema
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
   run --pull never --rm --no-deps migrations \
   node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
@@ -870,7 +932,7 @@ if [[ "$operation" == deploy ]]; then
   write_operation running "$phase"
   fail_if_requested migrations
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-    run --rm migrations
+    run --rm --pull never migrations
 fi
 
 phase=start
@@ -881,7 +943,7 @@ fail_if_requested start
 candidate_broker="$(declared_services "$compose_file" rabbitmq)"
 if [[ -n "$candidate_broker" ]]; then
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-    up --detach --wait --no-deps rabbitmq
+    up --detach --wait --pull never --no-deps rabbitmq
 fi
 # An assignment keeps a failed service listing fatal; an empty list would otherwise start everything.
 candidate_process_list="$(declared_services "$compose_file" "${process_services[@]}")"
@@ -891,7 +953,7 @@ if [[ -z "$candidate_process_list" ]]; then
 fi
 read -r -a candidate_processes <<<"$candidate_process_list"
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-  up --detach --wait --no-deps "${candidate_processes[@]}"
+  up --detach --wait --pull never --no-deps "${candidate_processes[@]}"
 
 phase=readiness
 recovery_phase="$phase"
@@ -927,6 +989,12 @@ recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested routes
 activate_caddy "$release_dir/runtime/caddy/platform.caddy"
+maintenance_ended_epoch="$(now_epoch)"
+if ((maintenance_ended_epoch < maintenance_started_epoch)); then
+  maintenance_ended_epoch="$maintenance_started_epoch"
+fi
+write_operation running "$phase"
+echo "Maintenance duration: $((maintenance_ended_epoch - maintenance_started_epoch)) seconds."
 
 successful_epoch="$(now_epoch)"
 deployed_at="$(format_epoch "$successful_epoch")"
@@ -960,7 +1028,8 @@ jq --null-input \
   --argjson githubRunId "$github_run_id" \
   --argjson previous "$previous_json" \
   --argjson rollback "$rollback_json" \
-  --argjson rolledBackFrom "$rolled_back_from_json" '
+  --argjson rolledBackFrom "$rolled_back_from_json" \
+  --argjson maintenance "$(jq --compact-output .maintenance "$operation_file")" '
     {
       schemaVersion: $schemaVersion,
       status: "succeeded",
@@ -979,7 +1048,8 @@ jq --null-input \
       },
       previous: $previous,
       rollback: $rollback,
-      rolledBackFrom: $rolledBackFrom
+      rolledBackFrom: $rolledBackFrom,
+      maintenance: $maintenance
     }
   ' | write_private_file_atomically "$state_file"
 

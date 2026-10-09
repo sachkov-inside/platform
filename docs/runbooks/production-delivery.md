@@ -332,7 +332,7 @@ operation and digest-bound manifest, back to the first failed deployment after t
 (or failed `v1` without successful state). Missing or conflicting history fails before mutation.
 Before accepting the transition, the failed
 image proves an exact live schema after completed migrations, or a compatible prefix if migration
-execution was interrupted. The new candidate then follows the normal maintenance, pull,
+execution was interrupted. The new candidate then follows the normal pre-pull, maintenance,
 compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
 does not offer rollback to the failed application version. If the repair candidate also fails, its
@@ -362,7 +362,7 @@ Before maintenance, the deployed backend image runs
 `node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the
 server-owned migration connection, with image pulling disabled. This command never creates a table
 or applies a migration: it requires the exact journaled Platform migration prefix and PgBoss schema
-version. After maintenance and exact image pulls, `--verify-schema-compatible` accepts an empty
+version. After exact image pre-pulls and maintenance, `--verify-schema-compatible` accepts an empty
 first-deploy database or an ordered, checksum-valid prefix that the candidate can migrate forward.
 Drift, gaps and migrations unknown to the image are rejected.
 

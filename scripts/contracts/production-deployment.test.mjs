@@ -136,10 +136,10 @@ describe("production deployment state machine", () => {
         "/releases/v2/runtime/compose.production.yaml pull rabbitmq",
       );
       const startBroker = log.indexOf(
-        "/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps rabbitmq\n",
+        "/releases/v2/runtime/compose.production.yaml up --detach --wait --pull never --no-deps rabbitmq\n",
       );
       const startProcesses = log.indexOf(
-        `/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
+        `/releases/v2/runtime/compose.production.yaml up --detach --wait --pull never --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
       );
       assert.ok(
         pullBroker > log.indexOf("docker pull"),
@@ -306,16 +306,16 @@ describe("production deployment state machine", () => {
         /docker compose .* run --pull never --rm --no-deps migrations node dist\/migrations\/migrate\.js --verify-schema-compatible/u,
       );
       assert.ok(
-        firstExternalLog.indexOf("caddy reload") <
+        firstExternalLog.indexOf("caddy reload") >
           firstExternalLog.indexOf("docker pull"),
-        "maintenance must be enabled before exact images are pulled",
+        "exact images must be pulled before maintenance is enabled",
       );
       assertGatewaySuccess(fixture, "deploy", "v1", 102);
       const noOpLog = readExternalLog(fixture).slice(firstExternalLog.length);
       assert.match(noOpLog, /--verify-schema-identity/u);
       assert.doesNotMatch(
         noOpLog,
-        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+        /docker pull|caddy reload| up --detach| run --rm --pull never migrations/u,
       );
 
       assertGatewaySuccess(fixture, "deploy", "v2", 103);
@@ -345,17 +345,18 @@ describe("production deployment state machine", () => {
       assert.doesNotMatch(journals, /test-only-secret-value/u);
       assert.doesNotMatch(
         readExternalLog(fixture).slice(beforeRollback.length),
-        / run --rm migrations/u,
+        / run --rm --pull never migrations/u,
       );
     } finally {
       fixture.cleanup();
     }
   });
 
-  for (const phase of [
+  for (const { operation: action, phase } of [
     "preflight",
     "maintenance",
-    "pull",
+    "pre-pull",
+    "schema",
     "workers",
     "migrations",
     "start",
@@ -363,17 +364,24 @@ describe("production deployment state machine", () => {
     "smoke",
     "routes",
     "journal",
-  ]) {
-    it(`records ${phase} failure and safely repeats the same deployment`, () => {
+  ].flatMap((phase) =>
+    phase === "migrations"
+      ? [{ operation: "deploy", phase }]
+      : ["deploy", "rollback"].map((operation) => ({ operation, phase })),
+  )) {
+    it(`records ${action} ${phase} failure and safely repeats the same operation`, () => {
       const fixture = createHostFixture();
       try {
         assertGatewaySuccess(fixture, "deploy", "v1", 200);
+        if (action === "rollback")
+          assertGatewaySuccess(fixture, "deploy", "v2", 199);
+        const target = action === "deploy" ? "v2" : "v1";
         const activeCaddy = resolve(
           fixture.root,
           "srv/inside/runtime/caddy/active.caddy",
         );
         const previousRoute = readFileSync(activeCaddy, "utf8");
-        const failed = runGateway(fixture, "deploy", "v2", 201, {
+        const failed = runGateway(fixture, action, target, 201, {
           INSIDE_DEPLOY_FAIL_PHASE: phase,
         });
 
@@ -387,6 +395,7 @@ describe("production deployment state machine", () => {
         assert.equal(operation.phase, phase);
         if (
           phase === "preflight" ||
+          phase === "pre-pull" ||
           phase === "maintenance" ||
           phase === "journal"
         ) {
@@ -398,13 +407,96 @@ describe("production deployment state machine", () => {
           );
         }
 
-        assertGatewaySuccess(fixture, "deploy", "v2", 202);
-        assert.equal(readState(fixture).current.version, "v2");
+        assertGatewaySuccess(fixture, action, target, 202);
+        assert.equal(readState(fixture).current.version, target);
       } finally {
         fixture.cleanup();
       }
     });
   }
+
+  for (const operation of ["deploy", "rollback"]) {
+    for (const failure of [
+      "backend-pull",
+      "web-pull",
+      "broker-pull",
+      "digest",
+    ]) {
+      it(`keeps active routes on ${operation} ${failure} failure and retries`, () => {
+        const fixture = createHostFixture();
+        try {
+          assertGatewaySuccess(fixture, "deploy", "v1", 301);
+          if (operation === "rollback") {
+            assertGatewaySuccess(fixture, "deploy", "v2", 302);
+          }
+          const target = operation === "deploy" ? "v2" : "v1";
+          const activeCaddy = resolve(
+            fixture.root,
+            "srv/inside/runtime/caddy/active.caddy",
+          );
+          const previousRoute = readFileSync(activeCaddy, "utf8");
+          const before = readExternalLog(fixture).length;
+          const failed = runGateway(fixture, operation, target, 303, {
+            INSIDE_DEPLOY_TEST_IMAGE_FAILURE: failure,
+          });
+          assert.notEqual(failed.status, 0);
+          assert.equal(readFileSync(activeCaddy, "utf8"), previousRoute);
+          assert.doesNotMatch(
+            readExternalLog(fixture).slice(before),
+            /caddy reload| stop --timeout| up --detach| run --rm --pull never migrations/u,
+          );
+          const journal = deploymentOperationSchema.parse(
+            readJson(
+              resolve(
+                fixture.root,
+                "var/lib/inside/deployments/operation.json",
+              ),
+            ),
+          );
+          assert.equal(journal.phase, "pre-pull");
+          assert.equal(journal.maintenance, undefined);
+          assertGatewaySuccess(fixture, operation, target, 304);
+        } finally {
+          fixture.cleanup();
+        }
+      });
+    }
+  }
+
+  it("records maintenance seconds without pull time and preserves them on a no-op", () => {
+    const fixture = createHostFixture();
+    try {
+      const clock = resolve(fixture.root, "clock");
+      writeFileSync(clock, "100\n");
+      writeExecutable(
+        resolve(fixture.bin, "date"),
+        `#!/usr/bin/env bash
+if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/date "$@"; fi
+`,
+      );
+      assertGatewaySuccess(fixture, "deploy", "v1", 305, {
+        INSIDE_DEPLOY_TEST_TIMING: "true",
+      });
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = readState(fixture);
+      assert.deepEqual(journal.maintenance, {
+        startedAtEpochSeconds: 300,
+        endedAtEpochSeconds: 345,
+        durationSeconds: 45,
+      });
+      assertGatewaySuccess(fixture, "deploy", "v1", 306);
+      assert.deepEqual(readState(fixture).maintenance, journal.maintenance);
+      assert.equal(
+        deploymentOperationSchema.parse(readJson(journalPath)).maintenance,
+        undefined,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
 
   it("rejects a database schema mismatch before enabling maintenance", () => {
     const fixture = createHostFixture();
@@ -769,7 +861,7 @@ describe("production deployment state machine", () => {
       );
       assert.ok(failedSchemaProof >= 0);
       assert.ok(maintenance > failedSchemaProof);
-      assert.ok(targetPull > maintenance);
+      assert.ok(targetPull < maintenance);
       assert.ok(targetCompatibility > targetPull);
     } finally {
       fixture.cleanup();
@@ -908,7 +1000,7 @@ describe("production deployment state machine", () => {
         "/releases/v3/runtime/compose.production.yaml stop --timeout 20",
       );
       const repairMigrations = retryLog.indexOf(
-        "/releases/v3/runtime/compose.production.yaml run --rm migrations",
+        "/releases/v3/runtime/compose.production.yaml run --rm --pull never migrations",
       );
       assert.ok(repairWorkersStop >= 0);
       assert.ok(repairMigrations > repairWorkersStop);
@@ -1008,7 +1100,7 @@ describe("production deployment state machine", () => {
       assert.match(retryLog, /--verify-schema-identity/u);
       assert.doesNotMatch(
         retryLog,
-        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+        /docker pull|caddy reload| up --detach| run --rm --pull never migrations/u,
       );
       const repeated = runGateway(fixture, "rollback", "v1", 251);
       assert.notEqual(repeated.status, 0);
@@ -1098,6 +1190,104 @@ describe("production deployment state machine", () => {
       assert.match(result.stderr, /incompatible or expired/u);
     } finally {
       expired.cleanup();
+    }
+  });
+
+  it("rejects an expired rollback after pre-pull failure but retries legacy pull", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 410, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 411, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 412, {
+          INSIDE_DEPLOY_FAIL_PHASE: "pre-pull",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      const expired = runGateway(fixture, "rollback", "v1", 413, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+      assert.notEqual(expired.status, 0);
+      assert.match(expired.stderr, /incompatible or expired/u);
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = deploymentOperationSchema.parse(readJson(journalPath));
+      writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, phase: "pull", recoveryPhase: null }),
+      );
+      assertGatewaySuccess(fixture, "rollback", "v1", 414, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("keeps the maintenance start across a failed deployment and repair forward", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 420, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 421, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 422, {
+          INSIDE_DEPLOY_FAIL_PHASE: "pre-pull",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "250",
+        }).status,
+        0,
+      );
+      const journal = deploymentOperationSchema.parse(
+        readJson(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        ),
+      );
+      assert.deepEqual(journal.maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: null,
+        durationSeconds: 50,
+      });
+      assertGatewaySuccess(fixture, "deploy", "v3", 423, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "300",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 300,
+        durationSeconds: 100,
+      });
+      const completed = deploymentOperationSchema.parse(
+        readJson(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        ),
+      );
+      assert.equal(completed.maintenance, undefined);
+      assert.deepEqual(Object.keys(completed).sort(), [
+        "githubRunId",
+        "operation",
+        "phase",
+        "recordedAt",
+        "recoveryPhase",
+        "repairForward",
+        "schemaVersion",
+        "status",
+        "version",
+      ]);
+    } finally {
+      fixture.cleanup();
     }
   });
 
@@ -1209,7 +1399,18 @@ function createHostFixture({ compatible = true } = {}) {
     `#!/usr/bin/env bash
 set -euo pipefail
 printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
-if [[ "$1" == create ]]; then
+if [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == backend-pull && "$1" == pull && "$2" == *platform-backend* ]] ||
+   [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == web-pull && "$1" == pull && "$2" == *platform-web* ]] ||
+   [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == broker-pull && "$*" == *"pull rabbitmq"* ]]; then
+  exit 1
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_TIMING:-}" == true && "$1" == pull ]]; then
+  printf '300\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+fi
+if [[ "$1 $2" == "image inspect" ]]; then
+  if [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == digest ]]; then printf '[]\\n';
+  else printf '["%s"]\\n' "\${*: -1}"; fi
+elif [[ "$1" == create ]]; then
   printf 'watchdog-source\\n'
 elif [[ "$1" == cp ]]; then
   # A release image built before #245 has no watchdog to copy.
@@ -1253,7 +1454,17 @@ fi
   );
   writeExecutable(
     resolve(bin, "caddy"),
-    '#!/usr/bin/env bash\nset -euo pipefail\nprintf "caddy %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"\n',
+    `#!/usr/bin/env bash
+set -euo pipefail
+printf "caddy %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
+if [[ "\${INSIDE_DEPLOY_TEST_TIMING:-}" == true ]]; then
+  if grep -q 'Deployment in progress' "$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"; then
+    printf '310\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+  else
+    printf '345\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+  fi
+fi
+`,
   );
   writeExecutable(
     resolve(bin, "curl"),
@@ -1458,9 +1669,22 @@ function createEnvelope(fixture, version) {
  * @param {string} operation
  * @param {string} version
  * @param {number} runId
+ * @param {Record<string, string>} [extraEnvironment]
  */
-function assertGatewaySuccess(fixture, operation, version, runId) {
-  const result = runGateway(fixture, operation, version, runId);
+function assertGatewaySuccess(
+  fixture,
+  operation,
+  version,
+  runId,
+  extraEnvironment = {},
+) {
+  const result = runGateway(
+    fixture,
+    operation,
+    version,
+    runId,
+    extraEnvironment,
+  );
   assert.equal(result.status, 0, result.stderr);
 }
 
@@ -1516,6 +1740,7 @@ const deploymentOperationSchema = z
     phase: z.string(),
     recoveryPhase: z.string().nullish(),
     repairForward: z.unknown(),
+    maintenance: z.unknown().optional(),
   })
   .passthrough();
 
