@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { sql, type Transaction } from "kysely";
+import { type Transaction } from "kysely";
 
 import type { DatabaseSchema } from "../../database/database.js";
 
@@ -97,31 +97,17 @@ export interface ConfirmedLink {
   readonly linkedAt: Date;
 }
 
-/**
- * Reports a confirmed link for the identity's bot contact. Linking needs a `/start`, which
- * creates the contact's communication record; a record missing from older data is created
- * here as `/start` creates it, so no confirmed link goes unreported.
- */
+/** Reports a confirmed link using the stable contact supplied by application composition. */
 export async function recordAccountLinked(
   tx: Transaction<DatabaseSchema>,
   link: ConfirmedLink,
+  contactRef: string,
 ): Promise<void> {
-  await sql`insert into communication_contacts (contact_id, bot_identity, telegram_user_id)
-    select gen_random_uuid(), bot_identity, telegram_user_id from bot_contacts
-    where bot_identity = ${link.botIdentity} and telegram_user_id = ${link.telegramUserId}
-    on conflict (bot_identity, telegram_user_id) do nothing`.execute(tx);
-  const contact = await tx
-    .selectFrom("communication_contacts")
-    .select("contact_id")
-    .where("bot_identity", "=", link.botIdentity)
-    .where("telegram_user_id", "=", link.telegramUserId)
-    .executeTakeFirst();
-  if (!contact) return;
   await record(
     tx,
     link.botIdentity,
     `account_linked:${link.linkTransactionRef}`,
-    contact.contact_id,
+    contactRef,
     link.linkedAt,
     {
       kind: "account_linked",

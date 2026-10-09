@@ -107,7 +107,7 @@ test("production access observes every live cell in one isolated scenario", asyn
 
   async function observeCell(id: string, browser: Browser) {
     const { identity, action, surface, transport } = passCellParts(id);
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: This live production adapter validates its seeded expired-role input against the real UTC grant owned by the remote backend.
     if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
       throw new Error("The expired identity grant has not expired yet");
     }
@@ -304,7 +304,7 @@ test("production access observes every live cell in one isolated scenario", asyn
     const page = await context.newPage();
     await page.goto(`/materials/${slug}`);
     const state = page.locator(
-      "#content [data-material-reader-state='available'], #content [data-material-reader-state='access-required']",
+      "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
     );
     await expect(state.first()).toBeVisible();
     const readerState = await state

@@ -1,3 +1,4 @@
+import { findBotContact } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
@@ -1511,14 +1512,8 @@ export class CommunityProvider {
       false,
     );
     if (!hasText(telegramUserId)) return;
-    const contact = await tx
-      .selectFrom("bot_contacts")
-      .select("private_chat_id")
-      .where("bot_identity", "=", this.bot)
-      .where("telegram_user_id", "=", telegramUserId)
-      .where("contactability", "=", "reachable")
-      .executeTakeFirst();
-    return contact
+    const contact = await findBotContact(tx, this.bot, telegramUserId);
+    return contact?.contactability === "reachable"
       ? { telegramUserId, privateChatId: contact.private_chat_id }
       : undefined;
   }

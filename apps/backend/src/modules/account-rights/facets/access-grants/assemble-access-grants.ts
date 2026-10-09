@@ -451,7 +451,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     revokeInvitation: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
-        revokeInvitation(prisma, input, clock()),
+        revokeInvitation(prisma, actorId, input, clock()),
       ),
     readInvitation: (actorId: string, invitationId: string) =>
       manage(actorId, "billing:manage", () =>

@@ -27,6 +27,21 @@ export interface MaterialLabeledRow {
  * because `defineMaterialBlock` accepts only a `kind` this union declares, and the wire
  * enumeration is built from the registry rather than from a second list.
  */
+export interface ImageVariants<T> {
+  readonly wideLight: T;
+  readonly wideDark: T;
+  readonly tallLight: T;
+  readonly tallDark: T;
+}
+
+export interface ImageAssetPresentation {
+  readonly assetId: string;
+  readonly height?: number | undefined;
+  readonly width?: number | undefined;
+  readonly variants?:
+    readonly { readonly height: number; readonly width: number }[] | undefined;
+}
+
 export type RenderedBlock =
   | { readonly content: readonly RenderedText[]; readonly kind: "paragraph" }
   | {
@@ -36,7 +51,12 @@ export type RenderedBlock =
     }
   | {
       readonly items: readonly (readonly RenderedBlock[])[];
-      readonly kind: "bullet_list" | "ordered_list";
+      readonly kind: "bullet_list";
+    }
+  | {
+      readonly items: readonly (readonly RenderedBlock[])[];
+      readonly kind: "ordered_list";
+      readonly start?: number | undefined;
     }
   | { readonly content: readonly RenderedBlock[]; readonly kind: "blockquote" }
   | { readonly kind: "code_block"; readonly text: string }
@@ -53,6 +73,7 @@ export type RenderedBlock =
   | {
       readonly content: readonly RenderedBlock[];
       readonly kind: "callout";
+      readonly collapse?: "collapsed" | "expanded" | undefined;
       readonly title?: string | undefined;
       readonly tone:
         | "bad"
@@ -99,6 +120,9 @@ export type RenderedBlock =
       readonly displayWidthPercent?: number | undefined;
       readonly height?: number | undefined;
       readonly kind: "image";
+      readonly sourceSrc?: string | undefined;
+      readonly imageVariants?:
+        ImageVariants<ImageAssetPresentation> | undefined;
       readonly variants?:
         | readonly { readonly height: number; readonly width: number }[]
         | undefined;

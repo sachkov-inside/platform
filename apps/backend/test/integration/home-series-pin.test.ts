@@ -73,7 +73,10 @@ beforeAll(async () => {
       "0080_guide_task_placement_and_form",
       "0081_remove_workshop",
       "0082_domain_names",
-      "0085_product_cohort_price_after_start",
+      "0083_task_pages",
+      "0084_owner_command_keys",
+      "0085_community_projection_retries",
+      "0086_product_cohort_price_after_start",
     ],
   });
   await database.prisma.topic.create({

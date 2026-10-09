@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 
-from processes import adopt_orphans, process_row, process_snapshot
+from processes import adopt_orphans, process_row, process_snapshot, darwin_group_exited
 
 OWNER = 'INSIDE_HEAVY_CHECK_OWNER'
 WAIT_SECONDS = 2
@@ -142,6 +142,12 @@ def signal_groups(groups, signum):
             os.killpg(group, signum)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            # Darwin returns EPERM for an extant group with only unreaped zombies.
+            # Exit can race the caller's census. Prove native exit for every member;
+            # missing BSD info alone cannot distinguish zombies from restricted live PIDs.
+            if sys.platform != 'darwin' or not darwin_group_exited(group):
+                raise
 
 
 def stop_groups(process, tracked, known_groups):
@@ -175,6 +181,56 @@ def command_signals():
         signal.signal(signum, signal.SIG_DFL)
 
 
+class AdmissionQueue:
+    """Serialize ticket registration and let only the oldest live ticket claim a slot."""
+    def __init__(self, directory):
+        self.directory = directory / 'waiters'
+        self.directory.mkdir(exist_ok=True)
+        self.mutex = open(directory / 'queue.lock', 'a')
+        self.ticket = None
+
+    def acquire(self, slots):
+        try:
+            fcntl.flock(self.mutex, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return None
+        try:
+            tickets = sorted(self.directory.iterdir(), key=lambda path: int(path.name))
+            if self.ticket is None:
+                number = int(tickets[-1].name) + 1 if tickets else 0
+                self.ticket = open(self.directory / str(number), 'x')
+                fcntl.flock(self.ticket, fcntl.LOCK_EX)
+                tickets.append(Path(self.ticket.name))
+            for path in tickets:
+                if path == Path(self.ticket.name):
+                    break
+                with open(path, 'r') as older:
+                    try:
+                        fcntl.flock(older, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        return None
+                    # The kernel releases ticket ownership even after supervisor SIGKILL.
+                    path.unlink()
+            for slot in slots:
+                try:
+                    fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    continue
+                Path(self.ticket.name).unlink()
+                self.ticket.close()
+                self.ticket = None
+                return slot
+            return None
+        finally:
+            fcntl.flock(self.mutex, fcntl.LOCK_UN)
+
+    def close(self):
+        if self.ticket is not None:
+            # A later admission removes the unlocked ticket under the queue mutex.
+            self.ticket.close()
+        self.mutex.close()
+
+
 def supervise(read_fd, command, parents):
     directory = Path(os.environ.get(
         'INSIDE_HEAVY_CHECK_DIRECTORY',
@@ -183,17 +239,15 @@ def supervise(read_fd, command, parents):
     directory.mkdir(parents=True, exist_ok=True)
     slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
     events = ExitEvents(read_fd, parents)
+    admission = AdmissionQueue(directory)
     process = None
     tracked = {}
     known_groups = set()
     try:
         waiting = False
         while not events.wait(0):
-            for slot in slots:
-                try:
-                    fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    continue
+            slot = admission.acquire(slots)
+            if slot is not None:
                 print(f'heavy-check: acquired {slot.name}', file=sys.stderr, flush=True)
                 environment = dict(os.environ, **{OWNER: str(os.getpid())})
                 adopt_orphans()
@@ -218,7 +272,7 @@ def supervise(read_fd, command, parents):
                             events.watch(pid, forks=True)
                 returncode = process.wait()
                 return returncode if returncode >= 0 else 128 - returncode
-            if not waiting:
+            if not waiting and admission.ticket is not None:
                 print('heavy-check: waiting for one of two local slots', file=sys.stderr, flush=True)
                 waiting = True
             if events.wait(random.uniform(WAIT_SECONDS * 0.75, WAIT_SECONDS * 1.25)):
@@ -228,6 +282,7 @@ def supervise(read_fd, command, parents):
         if process is not None:
             stop_groups(process, tracked, known_groups)
         events.close()
+        admission.close()
         for slot in slots:
             slot.close()
         os.close(read_fd)
@@ -242,18 +297,6 @@ def main():
     if owner_alive(parents):
         os.execvp(command[0], command)
     read_fd, write_fd = os.pipe()
-    child = os.fork()
-    if child == 0:
-        for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            signal.signal(signum, signal.SIG_IGN)
-        os.close(write_fd)
-        try:
-            status = supervise(read_fd, command, parents)
-        except Exception as error:
-            print(f'heavy-check: {error}', file=sys.stderr, flush=True)
-            status = 1
-        os._exit(status)
-    os.close(read_fd)
     interrupted = 0
 
     def interrupt(signum, _frame):
@@ -265,6 +308,20 @@ def main():
 
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, interrupt)
+    # The supervisor may report waiting before the parent returns from fork.
+    child = os.fork()
+    if child == 0:
+        for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            signal.signal(signum, signal.SIG_IGN)
+        if write_fd is not None:
+            os.close(write_fd)
+        try:
+            status = supervise(read_fd, command, parents)
+        except Exception as error:
+            print(f'heavy-check: {error}', file=sys.stderr, flush=True)
+            status = 1
+        os._exit(status)
+    os.close(read_fd)
     _, status = os.waitpid(child, 0)
     if write_fd is not None:
         os.close(write_fd)

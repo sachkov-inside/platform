@@ -1,3 +1,10 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { linkEffects } from "../../src/application/link-effects.js";
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
+import {
+  registerFixedClock,
+  fixedTestInstant,
+} from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
@@ -48,6 +55,8 @@ import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { anyString } from "../support/matchers.js";
 import { required } from "../support/required.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl))
@@ -141,13 +150,13 @@ describe("bot sign-in provider", () => {
         accountRef: emailPrincipal,
         returnCorrelation: "race-return",
         tokenDigest: digestSignInSecret(normalToken),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         expiresAt: new Date(Date.now() + 60_000),
       });
       await linking.acceptStart({
         botIdentity: "inside",
         telegramUserId: "42",
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         observedAt: new Date(),
         linkToken: { kind: "digest", digest: digestSignInSecret(normalToken) },
       });
@@ -317,17 +326,27 @@ describe("bot sign-in provider", () => {
         );
       },
     };
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const now = new Date();
     const firstWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       messages,
       new RuntimeMetrics(),
       config,
     );
     expect(await firstWorker.processAvailable(1, now)).toBe(1);
     const restartedWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(secondDatabase),
+      new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       messages,
       new RuntimeMetrics(),
       config,
@@ -348,6 +367,48 @@ describe("bot sign-in provider", () => {
     expect((await bind()).json()).toMatchObject({ status: "linked" });
     expect(await restartedWorker.processAvailable(1, retryAt)).toBe(0);
     expect(calls).toHaveLength(2);
+  });
+
+  it("rolls back the sign-in link reservation when the completion reply cannot be persisted", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await callback(challenge, 42);
+    const proof = await status(challenge, true);
+    if (proof.status !== "verified") throw new Error("Expected verified proof");
+    const accountRef = randomUUID();
+    const bind = () =>
+      request(`/${challenge.requestRef}/account-link`, {
+        contractVersion,
+        accountRef,
+        subjectRef: proof.subjectRef,
+      });
+    await sql`create function synthetic_sign_in_reply_fault() returns trigger language plpgsql as $$
+      begin if new.edit_message_id is not null then raise exception 'synthetic sign-in reply failure'; end if; return new; end $$;
+      create trigger synthetic_sign_in_reply_fault before insert on start_response_deliveries
+      for each row execute function synthetic_sign_in_reply_fault()`.execute(
+      database,
+    );
+    try {
+      expect((await bind()).statusCode).toBe(500);
+      expect(
+        await database
+          .selectFrom("link_transactions")
+          .selectAll()
+          .where("link_transaction_ref", "=", challenge.requestRef)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("start_response_deliveries")
+          .selectAll()
+          .where("edit_message_id", "is not", null)
+          .execute(),
+      ).toEqual([]);
+    } finally {
+      await sql`drop trigger synthetic_sign_in_reply_fault on start_response_deliveries;
+        drop function synthetic_sign_in_reply_fault()`.execute(database);
+    }
+    expect((await bind()).json()).toMatchObject({ status: "linked" });
   });
 
   it.each(["before", "after"] as const)(
@@ -379,19 +440,24 @@ describe("bot sign-in provider", () => {
       } finally {
         fault.mockRestore();
       }
-      const queue = new StartResponseDeliveryQueue(secondDatabase);
+      const queue = new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      );
       if (failurePoint === "before") {
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         expect(await queue.claimNext(new Date(), true)).toBeUndefined();
         expect((await bind()).json()).toMatchObject({ status: "linked" });
       }
       // After commit no request replay is needed: a fresh worker sees the durable result.
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       expect(await queue.claimNext(new Date(), true)).toMatchObject({
         editMessageId: "100",
         messageText: "Вход подтверждён. Вернитесь на сайт.",
       });
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       expect(await queue.claimNext(new Date(), true)).toBeUndefined();
     },
   );
@@ -410,7 +476,12 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           sendText() {
             return Promise.resolve({
@@ -445,7 +516,7 @@ describe("bot sign-in provider", () => {
             status: "expired",
           });
         } finally {
-          vi.useRealTimers();
+          vi.setSystemTime(fixedTestInstant());
         }
       } else if (outcome === "wrong-identity") {
         await callback(challenge, 43);
@@ -517,7 +588,12 @@ describe("bot sign-in provider", () => {
       expect(response.json()).toMatchObject({ status: "linked" });
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           sendText() {
             return Promise.reject(new Error("Must edit, not send"));
@@ -566,14 +642,24 @@ describe("bot sign-in provider", () => {
         message_text: "Вход отменён.",
       },
     ]);
-    const queue = new StartResponseDeliveryQueue(database);
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), false)).toBeUndefined();
     const claims = await Promise.all([
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       queue.claimNext(new Date(), true),
-      new StartResponseDeliveryQueue(secondDatabase).claimNext(
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ).claimNext(
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
         true,
       ),
@@ -586,7 +672,7 @@ describe("bot sign-in provider", () => {
   });
 
   it("refreshes inbox leases after a delayed callback instead of claiming with batch-start time", async () => {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const current = new Date();
     const later = new Date(current.getTime() + 60_001);
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -651,7 +737,7 @@ describe("bot sign-in provider", () => {
       expect(last).toEqual({ state: "processed", processed_at: later });
     } finally {
       claim.mockRestore();
-      vi.useRealTimers();
+      vi.setSystemTime(fixedTestInstant());
     }
   });
 
@@ -714,7 +800,7 @@ describe("bot sign-in provider", () => {
   });
 
   it("does not send a sign-in prompt that expires behind an earlier delivery", async () => {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const current = new Date();
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(current);
@@ -724,7 +810,12 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const messages: TelegramTextMessage[] = [];
       const delivery = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(
+          database,
+          settleBlockedDelivery,
+          undefined,
+          signInReplyEligibility,
+        ),
         {
           editText() {
             return Promise.reject(new Error("Unexpected message edit"));
@@ -744,7 +835,7 @@ describe("bot sign-in provider", () => {
       expect(await delivery.processAvailable()).toBe(1);
       expect(messages[0]?.buttons).toBeUndefined();
     } finally {
-      vi.useRealTimers();
+      vi.setSystemTime(fixedTestInstant());
     }
   });
 
@@ -772,7 +863,7 @@ describe("bot sign-in provider", () => {
       },
       {
         ...challenge.envelope,
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         expiresAt: new Date(Date.now() + 301_000).toISOString(),
       },
     ]) {
@@ -799,7 +890,12 @@ describe("bot sign-in provider", () => {
     ).not.toContain(challenge.browserSecret);
     const messages: TelegramTextMessage[] = [];
     const delivery = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       {
         editText() {
           return Promise.reject(new Error("Unexpected message edit"));
@@ -879,13 +975,18 @@ describe("bot sign-in provider", () => {
     await callback(challenge, 42, "deny");
     await callback(challenge, 42);
     expect(await status(challenge, true)).toMatchObject({ status: "denied" });
-    const queue = new StartResponseDeliveryQueue(database);
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    );
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), true)).toMatchObject({
       editMessageId: "100",
       messageText: "Вход отменён.",
     });
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), true)).toBeUndefined();
   });
 
@@ -894,7 +995,7 @@ describe("bot sign-in provider", () => {
     await start(challenge, 42);
     await callback(challenge, 42);
     const other = new BotSignIn(secondDatabase, config, {
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       now: () => new Date(),
     });
     const results = await Promise.all([
@@ -908,11 +1009,15 @@ describe("bot sign-in provider", () => {
   });
 
   it("keeps the opaque subject stable and reports an existing link without changing it", async () => {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    const linking = new IdentityLinking(database, { now: () => new Date() });
+    const linking = new IdentityLinking(
+      database,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+      { now: () => new Date() },
+      linkEffects,
+    );
     const link = await linking.register({
       accountRef: "existing-account",
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       expiresAt: new Date(Date.now() + 60_000),
       returnCorrelation: "synthetic-return",
       tokenDigest: digestSignInSecret("synthetic-link-token"),
@@ -920,7 +1025,7 @@ describe("bot sign-in provider", () => {
     await linking.acceptStart({
       botIdentity: "inside",
       telegramUserId: "42",
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       observedAt: new Date(),
       linkToken: {
         kind: "digest",
@@ -957,7 +1062,7 @@ describe("bot sign-in provider", () => {
     const disabled = new BotSignIn(
       database,
       { ...config, signInEnabled: false },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       { now: () => new Date() },
     );
     await disabled.decide({
@@ -976,8 +1081,13 @@ describe("bot sign-in provider", () => {
       }),
     ).toEqual({ status: "disabled" });
     expect(
-      await new StartResponseDeliveryQueue(database).claimNext(
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      await new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ).claimNext(
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
         false,
       ),
@@ -1022,7 +1132,12 @@ describe("bot sign-in provider", () => {
       ),
     ).toEqual({ status: "expired" });
     expect(
-      await new StartResponseDeliveryQueue(database).claimNext(deadline, true),
+      await new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ).claimNext(deadline, true),
     ).toBeUndefined();
     await callback(challenge, 42);
     expect(
@@ -1064,7 +1179,7 @@ function newChallenge() {
       requestRef,
       startTokenDigest: digestSignInSecret(startToken),
       browserSecretDigest: digestSignInSecret(browserSecret),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       expiresAt: new Date(Date.now() + 240_000).toISOString(),
     },
   };

@@ -11,6 +11,7 @@ import {
   seedFullStackPractice,
   startPracticeReadProxy,
 } from "./full-stack-practice.mjs";
+import { seedFullStackTaskC } from "./full-stack-task-c.mjs";
 import { seedFullStackTask } from "./full-stack-task.mjs";
 
 import { z } from "zod";
@@ -284,6 +285,10 @@ try {
     apiBaseUrl,
     browserAccessToken.token,
   );
+  const taskCFixture = await seedFullStackTaskC(
+    apiBaseUrl,
+    browserAccessToken.token,
+  );
   const fullStackSession =
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
@@ -295,6 +300,16 @@ try {
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
+    FULLSTACK_MATERIAL_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.materialImageVariants,
+    ),
+    FULLSTACK_TASK_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.taskImageVariants,
+    ),
+    FULLSTACK_TASK_C_PRODUCT_SLUG: taskCFixture.productSlug,
+    FULLSTACK_TASK_C_CODE: taskCFixture.code,
+    FULLSTACK_TASK_C_CLOSED_CODE: taskCFixture.closedCode,
+    FULLSTACK_TASK_C_CLOSED_ASSET_ID: taskCFixture.closedAssetId,
     // The learner's agent (#948): a refresh token it exchanges for a learner MCP token when it
     // needs one, so the token is fresh however late in the run the scenario starts.
     FULLSTACK_LEARNING_MCP_URL: learningMcpUrl,
@@ -302,10 +317,11 @@ try {
     FULLSTACK_NON_MEMBER_REFRESH_TOKEN: fullStackIdentity.createRefreshToken(
       "fullstack-non-member",
     ),
-    FULLSTACK_PRACTICE_MATERIAL_IDS: [
+    FULLSTACK_IMPORTED_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,
       taskFixture.materialId,
+      ...taskCFixture.materialIds,
     ].join(","),
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,

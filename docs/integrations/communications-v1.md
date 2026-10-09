@@ -149,12 +149,16 @@ Membership or purchase.
 
 Set `TELEGRAM_TRACKING_ORIGIN` to the exact HTTPS public Platform origin. It is optional and disables
 tracking when absent. Configure Telegram's `PLATFORM_TRACKING_REDIRECT_URL` as that origin plus
-`/communications/visit`; its permitted targets must match Platform `/materials/<slug>` and
-`/series/<slug>` routes. The route accepts only an opaque `token`; caller-supplied destination URLs
+`/communications/visit`; its permitted targets match Platform `/materials/<slug>` and
+`/products/<slug>` routes, including the existing `/series/<slug>` and `/guides/<slug>`
+redirect compatibility. The route accepts only an opaque `token`; caller-supplied destination URLs
 are ignored. It resolves through the authenticated provider with `serviceRef: platform-tracking`,
 then independently checks origin, canonical content path, HTTPS, no credentials/query/fragment.
 Invalid or unresolved tokens return a safe 404/503. GET returns private no-store, no-referrer 302;
-HEAD does not create hits. Destination routes still run their normal ContentAccess checks.
+HEAD does not create hits. Product destinations must exist and not be archived; a missing or archived
+Product returns `not_found` before a hit is recorded, and a failed Product lookup returns `unavailable`.
+A public Product page does not promise free access to its programme. Material bodies still run their
+normal ContentAccess checks.
 
 Only named TelegramBot, facebookexternalhit, Twitterbot, Slackbot-LinkExpanding, Discordbot,
 Googlebot and bingbot user agents are marked `known_automation`. Other traffic is `unknown`, never
@@ -215,7 +219,14 @@ compatible revisions, simulated coverage, and the separate credentialed gate.
 
 Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
 `WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
-facet checks linked Materials and Series for publication, free access and complete composition;
+facet owns URL parsing for both validation and tracking. It checks linked Materials for publication
+and free access. `/products/<slug>` and its `/series/<slug>` and `/guides/<slug>` compatibility routes
+name a public Product page: existence and non-archived state are required, regardless of programme
+composition or Material access. The legacy `check({ kind: "series", slug })` interface retains its
+free, complete composition check; these URLs no longer select that legacy check. Public destination
+paths use lowercase alphanumeric slug segments separated by hyphens, with at most 120 characters;
+credentials, query, fragment, trailing slash, extra path segments and encoded slugs are rejected.
+Content validation ignores foreign origins; tracking rejects them.
 Communications validates Platform URLs in plain text, buttons and Telegram URL/text_link entities (including bare-domain entities) before a fresh
 publish and adds URL-specific failures to preview. An already committed publish replay stays owned
 by the provider receipt. Content access is still checked by the public Reader; this point-in-time
@@ -270,7 +281,8 @@ Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) исп
 `POST /integrations/telegram/v1/communications/validate-content` перед публикацией из бота.
 Контракт `contentValidationRequest/Response` передаёт выбранные сообщения вместе с подтверждённым
 автором. Endpoint проверяет bearer credential, актуальную связь и `communications:manage`, затем
-доступность Material/Series через `PublicContentTargets`. Он не обращается к Telegram; поэтому
+доступность Material и публичных страниц Product через `PublicContentTargets`
+по [контракту публичных целей](#funnel-management-ui). Он не обращается к Telegram; поэтому
 проверка безопасна при удерживаемых ботом блокировках определения. Ошибка конфигурации или базы
 возвращает 503, недоступные цели — структурированные причины. Для установки требуются
 `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в

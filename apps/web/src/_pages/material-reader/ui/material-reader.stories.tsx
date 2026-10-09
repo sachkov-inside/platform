@@ -1,3 +1,7 @@
+import {
+  variantDiagram,
+  expectVariantDiagram,
+} from "@/storybook/image-variants";
 import type { ComponentProps, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -32,6 +36,10 @@ import {
 import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import {
+  numberedListBlocks,
+  expectNumberedLists,
+} from "@/storybook/material-list-start";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -573,6 +581,16 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const OrderedListStart: Story = {
+  args: { body: numberedListBlocks },
+  play: async ({ canvasElement }) => expectNumberedLists(canvasElement),
+};
+
+export const OrderedListStartMobile: Story = {
+  ...OrderedListStart,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
 
 export const Mobile: Story = {
   args: {},
@@ -1400,4 +1418,303 @@ export const ProductWithoutModes: Story = {
       canvas.getByText(/Склонируйте учебный репозиторий/u),
     ).toBeVisible();
   },
+};
+
+export const SourceAnchors: Story = {
+  args: {
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Перейти к разделу",
+            marks: [{ kind: "link", href: "#как-спроектировать-один-этап" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Синтетический материал для проверки прокрутки к нужному заголовку.",
+            marks: [],
+          },
+        ],
+      })),
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "Как спроектировать один этап?",
+            marks: [{ kind: "bold" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Продолжение материала после целевого раздела.",
+            marks: [],
+          },
+        ],
+      })),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole("heading", {
+      name: "Как спроектировать один этап?",
+    });
+    await expect(heading).toHaveAttribute("id", "как-спроектировать-один-этап");
+    const link = canvas.getByRole("link", { name: "Перейти к разделу" });
+    // Vitest supplies a base URL; keep fragment navigation inside its tester iframe.
+    link.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        window.location.hash = link.getAttribute("href") ?? "";
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      },
+      { once: true },
+    );
+    const previousUrl = window.location.href;
+    try {
+      await userEvent.click(link);
+      await waitFor(async () => {
+        const y = heading.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
+  },
+};
+export const SourceAnchorsMobile: Story = {
+  ...SourceAnchors,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const SourceAnchorMetadataCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          { kind: "text", text: "material-outcomes-heading", marks: [] },
+        ],
+      },
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "material-outcomes-heading-metadata",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        name: "material-outcomes-heading",
+      }),
+    ).toHaveAttribute("id", "material-outcomes-heading");
+    const ids = Array.from(canvasElement.querySelectorAll("[id]")).map(
+      (node) => node.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    await expect(
+      canvas.getByRole("region", { name: "Чему научишься" }),
+    ).toBeInTheDocument();
+  },
+};
+
+/** The owner chose the Content source address when a legacy alias conflicts. */
+export const SourceAnchorLegacyCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Первый раздел", marks: [] }],
+      },
+      ...(SourceAnchors.args?.body ?? []).slice(1).map((block) =>
+        block.kind === "heading"
+          ? {
+              ...block,
+              content: [
+                {
+                  kind: "text" as const,
+                  text: "material-section-0",
+                  marks: [],
+                },
+              ],
+            }
+          : block,
+      ),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const target = canvas.getByRole("heading", { name: "material-section-0" });
+    await expect(target).toHaveAttribute("id", "material-section-0");
+    await expect(
+      canvas.getByRole("heading", { name: "Первый раздел" }),
+    ).toHaveAttribute("id", "первый-раздел");
+    await expect(
+      canvasElement.querySelectorAll('[id="material-section-0"]'),
+    ).toHaveLength(1);
+    const previousUrl = window.location.href;
+    try {
+      window.location.hash = "material-section-0";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await waitFor(async () => {
+        const y = target.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
+  },
+};
+
+/** Shell IDs use punctuation that Content source slugs cannot produce. */
+export const SourceAnchorShellCollision: Story = {
+  args: {
+    body: (SourceAnchors.args?.body ?? []).map((block, index) =>
+      index === 0
+        ? {
+            kind: "paragraph" as const,
+            content: [
+              {
+                kind: "text" as const,
+                text: "Перейти к Content",
+                marks: [{ kind: "link" as const, href: "#content" }],
+              },
+            ],
+          }
+        : block.kind === "heading"
+          ? {
+              ...block,
+              content: [{ kind: "text" as const, text: "Content", marks: [] }],
+            }
+          : block,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: /^Content$/u }),
+    ).toHaveAttribute("id", "content");
+    await expect(
+      canvasElement.ownerDocument.querySelectorAll('[id="content"]'),
+    ).toHaveLength(1);
+    const main = canvasElement.ownerDocument.querySelector(
+      "[data-application-content]",
+    );
+    await expect(main).toHaveAttribute("id", "app:content");
+    await expect(
+      canvas.getByRole("link", { name: /^Перейти к содержанию$/u }),
+    ).toHaveAttribute("href", "#app:content");
+  },
+};
+
+export const ImageVariants: Story = {
+  args: { body: [variantDiagram], material: { ...material, cover: null } },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, false),
+};
+export const ImageVariantsMobile: Story = {
+  ...ImageVariants,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
+};
+
+export const CollapsibleAdvice: Story = {
+  args: {
+    body: [
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Мой совет",
+        collapse: "collapsed",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Ссылка в раскрытом совете",
+                marks: [{ kind: "link", href: "https://example.com" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Открытый совет",
+        collapse: "expanded",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Совет открыт изначально", marks: [] },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "note",
+        title: "Обычная врезка",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Обычная врезка видна сразу", marks: [] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+    await expect(canvas.getByText("Совет открыт изначально")).toBeVisible();
+    await expect(canvas.getByText("Обычная врезка видна сразу")).toBeVisible();
+    const summary = canvas
+      .getByText("Мой совет", { exact: true })
+      .closest("summary");
+    if (summary === null) throw new Error("Advice must have a summary");
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByRole("link", { name: "Ссылка в раскрытом совете" }),
+    ).toBeVisible();
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+  },
+};
+export const CollapsibleAdviceMobile: Story = {
+  ...CollapsibleAdvice,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

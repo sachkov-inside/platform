@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import type {
-  AccessAvailability,
-  ContentAccess,
-  Subject,
+import {
+  CONTENT_ACCESS_BATCH_SIZE,
+  type AccessAvailability,
+  type ContentAccess,
+  type Subject,
 } from "../../content-access/index.js";
 import {
   materialId as checkedMaterialId,
@@ -11,8 +12,6 @@ import {
 } from "../../materials/index.js";
 import type { Videos } from "../../videos/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../features/list-published-materials/list-published-materials.contract.js";
-
-const CONTENT_ACCESS_BATCH_SIZE = 100;
 
 export type PublishedCatalogItemsResult =
   | {
@@ -35,11 +34,31 @@ export async function projectPublishedCatalogItems(
   if (projections.length === 0) {
     return { ok: true, items: [] };
   }
-  const durations = await videos.loadReadyDurations(
+  const durations = await loadCatalogDurations(
+    videos,
     projections.flatMap(({ primaryVideoId }) =>
       primaryVideoId === null ? [] : [primaryVideoId],
     ),
   );
+  if (!durations.ok) return durations;
+  const projected = await projectPublishedCatalogAvailability(
+    contentAccess,
+    subject,
+    projections,
+  );
+  return projected.ok
+    ? { ok: true, items: withDurations(projected.items, durations.value) }
+    : projected;
+}
+
+async function loadCatalogDurations(
+  videos: Pick<Videos, "loadReadyDurations">,
+  videoIds: readonly string[],
+): Promise<
+  | { readonly ok: true; readonly value: ReadonlyMap<string, number> }
+  | Extract<PublishedCatalogItemsResult, { readonly ok: false }>
+> {
+  const durations = await videos.loadReadyDurations(videoIds);
   if (!durations.ok) {
     return durations.error.code === "dependency_unavailable"
       ? {
@@ -48,12 +67,56 @@ export async function projectPublishedCatalogItems(
         }
       : internalError();
   }
-  const durationByVideoId = new Map(
-    durations.value.map(({ durationSeconds, videoId }) => [
-      videoId,
-      durationSeconds,
-    ]),
-  );
+  return {
+    ok: true as const,
+    value: new Map(
+      durations.value.map(({ durationSeconds, videoId }) => [
+        videoId,
+        durationSeconds,
+      ]),
+    ),
+  };
+}
+
+function withDurations(
+  items: readonly PublishedMaterialCatalogItemDto[],
+  durationByVideoId: ReadonlyMap<string, number>,
+): readonly PublishedMaterialCatalogItemDto[] {
+  return items.map((item) => {
+    const duration =
+      item.primaryVideoId === null
+        ? undefined
+        : durationByVideoId.get(item.primaryVideoId);
+    return duration === undefined
+      ? item
+      : { ...item, primaryVideoDurationSeconds: duration };
+  });
+}
+
+/** Add durations only for the catalog items the caller will show or resume. */
+export async function addPublishedCatalogDurations(
+  videos: Pick<Videos, "loadReadyDurations">,
+  items: readonly PublishedMaterialCatalogItemDto[],
+): Promise<PublishedCatalogItemsResult> {
+  if (items.length === 0) return { ok: true, items: [] };
+  const durations = await loadCatalogDurations(videos, [
+    ...new Set(
+      items.flatMap(({ primaryVideoId }) =>
+        primaryVideoId === null ? [] : [primaryVideoId],
+      ),
+    ),
+  ]);
+  return durations.ok
+    ? { ok: true, items: withDurations(items, durations.value) }
+    : durations;
+}
+
+/** ContentLibrary owns availability and catalog mapping independently of durations. */
+export async function projectPublishedCatalogAvailability(
+  contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+  subject: Subject,
+  projections: readonly PublishedMaterialProjectionDto[],
+): Promise<PublishedCatalogItemsResult> {
   const availabilityItems: AccessAvailability[] = [];
   for (
     let start = 0;
@@ -86,13 +149,7 @@ export async function projectPublishedCatalogItems(
     const itemAvailability = availabilityById.get(projection.materialId);
     return itemAvailability === undefined
       ? undefined
-      : toCatalogItem(
-          projection,
-          itemAvailability.availability,
-          projection.primaryVideoId === null
-            ? undefined
-            : durationByVideoId.get(projection.primaryVideoId),
-        );
+      : toCatalogItem(projection, itemAvailability.availability);
   });
   return items.some((item) => item === undefined)
     ? internalError()
@@ -107,7 +164,6 @@ export async function projectPublishedCatalogItems(
 function toCatalogItem(
   projection: PublishedMaterialProjectionDto,
   availability: AccessAvailability["availability"],
-  primaryVideoDurationSeconds: number | undefined,
 ): PublishedMaterialCatalogItemDto {
   return {
     materialId: projection.materialId,
@@ -124,9 +180,6 @@ function toCatalogItem(
     availability,
     publishedAt: projection.publishedAt,
     primaryVideoId: projection.primaryVideoId,
-    ...(primaryVideoDurationSeconds === undefined
-      ? {}
-      : { primaryVideoDurationSeconds }),
     cover: projection.cover,
     topic: { ...projection.topic },
     format: { ...projection.format },

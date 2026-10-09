@@ -140,8 +140,8 @@ placements; delivery goes through ContentAccess. In Russian product language: «
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
 **Product Task**:
-A large part of a Product Chapter's result that the learner builds and submits: a situation, the
-result a customer should see, required and additional criteria, and the freedom the learner keeps.
+A large part of a Product Chapter's result that the learner builds and submits. Its requirements
+include an introduction or situation, required and additional criteria, and the freedom the learner keeps.
 It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
 access class and a short permanent code. The programme shows it right after the Material of its
 chapter the author names, or at the start of the chapter. It is not a Material and not a step of
@@ -150,7 +150,8 @@ Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
 
 **Task Version**:
-An immutable snapshot of a Product Task's requirements: situation, result, freedom and criteria. A
+An immutable snapshot of a Product Task's requirements, including criterion explanations, advice
+and accepted evidence when the author supplies them. A
 change of the requirements creates the next version; title, access, related Materials and
 publication do not. In Russian product language: «Версия требований».
 _Avoid_: Revision, content version, edition

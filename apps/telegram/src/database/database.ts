@@ -1,3 +1,5 @@
+import type { TransportTables } from "../modules/outbound/transport-storage.js";
+import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
 import type { ActivationTables } from "../modules/subscription-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
 import type { SalesFunnelTables } from "../modules/sales-funnel/sales-funnel-storage.js";
@@ -308,6 +310,8 @@ export type JsonColumn<Value> = ColumnType<Value, string, string>;
 export interface DatabaseSchema
   extends
     ActivationTables,
+    TransportTables,
+    IdentityTables,
     NotificationTables,
     CommunityTables,
     SalesFunnelTables {

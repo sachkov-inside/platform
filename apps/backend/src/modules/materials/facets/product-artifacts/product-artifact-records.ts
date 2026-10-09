@@ -1,4 +1,5 @@
 import type {
+  MaterialsPrisma,
   MaterialsPrismaClient,
   MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
@@ -42,7 +43,7 @@ export async function loadArtifactRow(
 }
 
 export async function loadArtifactsBySource(
-  prisma: MaterialsPrismaClient,
+  prisma: MaterialsPrisma,
   sourceIds: readonly string[],
 ): Promise<readonly ArtifactRow[]> {
   return prisma.productArtifact.findMany({
@@ -56,7 +57,7 @@ export async function loadArtifactsBySource(
 }
 
 export async function loadPlacedArtifacts(
-  prisma: MaterialsPrismaClient,
+  prisma: MaterialsPrisma,
   productId: string,
   options: { readonly state?: "active"; readonly take: number },
 ): Promise<readonly ArtifactRow[]> {

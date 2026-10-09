@@ -91,7 +91,7 @@ Git; зашифруйте файлы для host и отдельного recover
 | Уведомления | `TELEGRAM_NOTIFICATIONS_ENABLED`, `NOTIFICATION_AMQP_URL`, `NOTIFICATION_AUTHORIZE_URL`, `NOTIFICATION_AUTHORIZE_SECRET`, `NOTIFICATION_QUARANTINE_KEY`, `NOTIFICATION_PREFETCH`, `NOTIFICATION_BATCH_SIZE` | AMQPS principal Telegram; `https://<platform>/internal/notifications/dispatch/authorize`; ключ 64 hex | `NOTIFICATIONS_TELEGRAM_SECRET`; principal и vhost из topology Platform |
 | Авторское меню, воронки, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v1/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
 | Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`, `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS`; тексты `TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON`, `TELEGRAM_MARKETING_CONSENT_CONFIRMATION` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`, `30`; тексты согласия — по решению владельца, иначе не заданы | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
-| Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/series/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
+| Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/products/","https://<platform>/series/","https://<platform>/guides/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
 
 Явные отказы при старте:
 
@@ -229,6 +229,12 @@ Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `v
 - создаёт неизменяемый GitHub Release `telegram-vN` с `--latest=false` с target = SHA и тремя ассетами: `compose.yaml` (копия
   `apps/telegram/infra/production/compose.yaml`), `telegram.caddy` (копия `apps/telegram/infra/production/telegram.caddy`) и
   `release-manifest.json`.
+
+При упаковке зависимостей Dockerfile использует `pnpm deploy --prod --ignore-scripts --frozen-lockfile`.
+Builder использует архивы из локального store и разрешает запросы метаданных пакетов в registry.
+Это позволяет pnpm проверить отдельный lockfile Telegram; проверка `minimumReleaseAge: 1440`
+из корневого `pnpm-workspace.yaml` сохраняется. Поэтому этап сборки требует доступа к registry,
+даже когда архивы зависимостей уже присутствуют в cache.
 
 Manifest (`inside.telegram.release-manifest.v1`) связывает версию, SHA, образ
 `ghcr.io/sachkov-inside/inside-telegram@sha256:…`, sha256 файлов `compose.yaml` и `telegram.caddy`,

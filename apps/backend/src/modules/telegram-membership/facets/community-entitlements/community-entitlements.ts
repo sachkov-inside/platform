@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -36,6 +37,7 @@ import {
 import {
   projectCommunityEntitlement,
   readLinkChangedAccounts,
+  readBoundaryChangedAccounts,
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
@@ -222,37 +224,67 @@ export class CommunityEntitlements {
       limit,
     });
     const accounts = new Set<string>(changed.ok ? changed.accountIds : []);
-    const due = await prisma.telegramCommunityDesiredState.findMany({
-      where: { nextBoundary: { lte: now } },
-      orderBy: { nextBoundary: "asc" },
-      take: limit,
-      select: { accountId: true },
-    });
-    for (const row of due) accounts.add(row.accountId);
+    for (const accountId of await readBoundaryChangedAccounts(
+      prisma,
+      limit,
+      now,
+    )) {
+      accounts.add(accountId);
+    }
     for (const accountId of await readLinkChangedAccounts(prisma, limit)) {
       accounts.add(accountId);
     }
+    const retries = await prisma.telegramCommunityProjectionRetry.findMany({
+      where: { nextAttemptAt: { lte: now } },
+      orderBy: [{ nextAttemptAt: "asc" }, { accountId: "asc" }],
+      take: limit,
+      select: { accountId: true },
+    });
+    for (const retry of retries) accounts.add(retry.accountId);
 
-    const inWindow = new Set(changed.ok ? changed.accountIds : []);
     let failed = 0;
-    let windowFailed = false;
     for (const accountId of accounts) {
+      // Persist the responsibility before projection. A crash may repeat work, but
+      // advancing the audit cursor can never forget an unfinished Account.
+      const attemptId = randomUUID();
+      await prisma.telegramCommunityProjectionRetry.upsert({
+        where: { accountId },
+        create: { accountId, attemptId, nextAttemptAt: now, updatedAt: now },
+        update: { attemptId, updatedAt: now },
+      });
       const projection = await projectCommunityEntitlement(
         this.dependencies,
         accountId,
         now,
       );
-      if (projection.ok) continue;
+      if (projection.ok) {
+        await prisma.telegramCommunityProjectionRetry.deleteMany({
+          where: { accountId, attemptId },
+        });
+        continue;
+      }
       failed += 1;
-      // Only a failure inside the cursor's own window may hold the cursor back;
-      // an unrelated boundary or link Account must not stall the audit trail.
-      if (inWindow.has(accountId)) windowFailed = true;
+      await prisma.telegramCommunityProjectionRetry.updateMany({
+        where: { accountId, attemptId },
+        data: {
+          errorCode: projection.error.code,
+          nextAttemptAt: new Date(
+            now.getTime() + COMMUNITY_RECONCILIATION_INTERVAL_MS,
+          ),
+          updatedAt: now,
+        },
+      });
     }
-    if (changed.ok && !windowFailed && changed.cursor > afterRevision) {
+    if (changed.ok && changed.cursor > afterRevision) {
       await prisma.telegramCommunityProjectionCursor.upsert({
         where: { id: 1 },
         create: { id: 1, accessRevision: changed.cursor, updatedAt: now },
-        update: { accessRevision: changed.cursor, updatedAt: now },
+        update: {},
+      });
+      // Concurrent sweeps must not move the shared cursor backwards.
+      await prisma.telegramCommunityProjectionCursor.updateMany({
+        where: { id: 1, accessRevision: { lt: changed.cursor } },
+        data: { accessRevision: changed.cursor, updatedAt: now },
       });
     }
 

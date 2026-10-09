@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -11,6 +11,7 @@ import {
   type BillingFailureCode,
   type PriceSnapshot,
 } from "@/entities/subscription";
+import { refreshAccessRead } from "../model/access-refresh";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
@@ -18,6 +19,10 @@ import {
   listInvitations,
   revokeInvitation,
 } from "../api/invitations.browser";
+import {
+  announceInvitationChange,
+  subscribeInvitationChange,
+} from "../model/invitation-events";
 import {
   accessSummaryQueryKey,
   invitationsQueryKey,
@@ -54,6 +59,13 @@ export function InvitationsPanel({
   readonly offers: readonly PriceSnapshot[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribeInvitationChange((announcementId) => {
+        void refreshAccessRead(cache, invitationsQueryKey, announcementId);
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   const [filter, setFilter] = useState<InvitationStateFilter>("all");
   const [message, setMessage] = useState("");
@@ -76,8 +88,14 @@ export function InvitationsPanel({
     getNextPageParam: (page) => page.nextCursor,
   });
   function refresh() {
-    void cache.invalidateQueries({ queryKey: invitationsQueryKey });
-    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+    void cache.invalidateQueries(
+      { queryKey: invitationsQueryKey },
+      { cancelRefetch: false },
+    );
+    void cache.invalidateQueries(
+      { queryKey: accessSummaryQueryKey },
+      { cancelRefetch: false },
+    );
   }
   function lost() {
     setFailure(
@@ -94,11 +112,13 @@ export function InvitationsPanel({
         );
         return;
       }
+      const announcementId = announceInvitationChange();
+      void refreshAccessRead(cache, invitationsQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       completeOperation("issue");
       setFailure(null);
       setMessage("");
       setIssued(result.value.result.value);
-      refresh();
     },
   });
   const revoking = useMutation({
@@ -120,10 +140,12 @@ export function InvitationsPanel({
         }
         return;
       }
+      const announcementId = announceInvitationChange();
+      void refreshAccessRead(cache, invitationsQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       completeOperation(`revoke:${input.invitationId}`);
       setFailure(null);
       setMessage("Приглашение отозвано.");
-      refresh();
     },
   });
   return (

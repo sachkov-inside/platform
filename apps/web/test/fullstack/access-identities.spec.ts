@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
@@ -266,7 +267,13 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
   const author = await openAs(browser, "MATERIALS_ONLY");
   const observer = await openAs(browser, "BILLING_ONLY");
   try {
+    // Предыдущие сценарии создают материалы и сдвигают сидовую запись на другую страницу.
     await author.page.goto("/authoring/materials");
+    await author.page
+      .getByRole("searchbox", {
+        name: "Поиск по названию, описанию или адресу",
+      })
+      .fill(publishedMaterial.title);
     await expect(
       author.page
         .getByRole("region", { name: "Список материалов" })
@@ -376,8 +383,7 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
   const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   const terms = {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    startsAt: new Date().toISOString(),
+    startsAt: await backendFixtureInstant(billingManager.page.request),
     endsAt: null,
     endPolicy: "fixed",
   };

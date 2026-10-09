@@ -1,7 +1,7 @@
 # Backend coding standards
 
 This file is normative for backend changes and reviews. ADR 0004 owns the feature-first rationale;
-ADR 0005 owns direct Prisma use in application use cases; the nearest `AGENTS.md` owns verification.
+ADR 0005 owns direct Prisma use in application use cases.
 
 ## Capability layout
 
@@ -22,7 +22,7 @@ src/modules/<module>/
 `features/` is navigation, not a runtime seam. Put a new standalone operation in
 `features/<action-subject>/`; keep a deep multi-operation interface under `facets/`. Move code to a
 horizontal folder only after multiple slices use it. Do not add empty layers or an `application/`
-mirror. State-owning infrastructure stays private and cross-module callers import `index.ts`.
+mirror.
 
 Use kebab-case for files and folders, action-subject names for use cases, standard `*.controller.ts`
 and `*.module.ts` suffixes, and `*.contract.ts` only for a slice-owned contract. Prefix dependency
@@ -34,11 +34,9 @@ not dependency wiring.
 
 - Export a provider token only for a current production inter-module or process consumer. Use a
   `Symbol` for exported TypeScript interfaces.
-- `index.ts` exports only what code outside the Module imports from `src`, `test` or `scripts`, and
-  a Module imports its own files directly, never through its `index.ts`. The dependency graph
-  between Modules stays acyclic, counting type-only, re-exported and dynamic imports.
-  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 names the three ways to
-  invert an edge that closes a cycle.
+- `index.ts` exports only what code outside the Module imports, a Module imports its own files
+  directly, and the Module dependency graph stays acyclic; `scripts/check-backend-architecture.mjs`
+  holds all three. ADR 0029 names the three ways to invert an edge that closes a cycle.
 - Keep locally consumed operations as plain functions or concrete providers. Do not create a DI
   token solely to substitute a test double.
 - Register providers that add behaviour or own lifecycle; remove pass-through providers. Use the
@@ -53,8 +51,9 @@ not dependency wiring.
   list and wire block enumeration from that registry and declares no Tiptap node of its own.
 - Framework-agnostic assembly may serve tests, seeds, and non-Nest entrypoints. Nest binds real
   facets directly rather than assembling and immediately splitting an aggregate.
-- Application functions do not import Nest, `pg`, Prisma packages, or the generated Prisma client.
-  They receive the capability-scoped Prisma type from their infrastructure boundary.
+- Application functions receive the capability-scoped Prisma type from their infrastructure
+  boundary; Oxlint and the architecture check keep Nest, `pg`, Prisma packages and the generated
+  Prisma client out of them.
 
 ## Prisma, PostgreSQL, and migrations
 
@@ -68,6 +67,10 @@ not dependency wiring.
   and Assets delegates; the caller's own code reaches them only through that function, which
   `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
   review rule: a nested `$transaction` is also the correct shape for a standalone operation.
+  Reading Activity carries `product`, `material` and `publishedMaterialProductMembership` only to
+  pass its transaction to Materials. The guardrail rejects a named Prisma operation on those
+  foreign delegates, including Product. It does not follow aliases or prove every indirect access;
+  review still checks ownership and transaction handoff.
 - An operation never awaits another pooled connection while its transaction is open: as many such
   operations as the pool has connections hold all of it and wait for each other. A read of another
   Module that the caller's locks guard takes the caller's transaction, as Save does with
@@ -93,37 +96,36 @@ not dependency wiring.
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
 - Prefer Prisma model operations. For PostgreSQL behaviour it cannot express clearly, use
-  parameterized `Prisma.sql` with `$queryRaw`/`$executeRaw`; never use unsafe variants,
-  interpolated identifiers, or unqualified tables.
+  parameterized `Prisma.sql` with `$queryRaw`/`$executeRaw`; the architecture check rejects unsafe
+  variants, interpolated identifiers and unqualified tables.
 - Treat raw-query results as `unknown` and validate their row shape. A TypeScript generic is not
   runtime validation.
 - Prisma is the application ORM. `pg` is limited to the migration runner, the dedicated-session
   worker generation lease, the exact-schema worker health probe, isolated test database
   administration, and a test double that stands in for another application's own database, where
-  no Prisma schema exists in this repository to describe it. The lease and health probe are process lifecycle, not capability data access.
-- Checked-in migrations are append-only and self-contained. The applied ledger is an exact ordered
-  prefix and checksums must match. Change the schema with a new migration; never edit generated
-  Prisma client files or commit them.
+  no Prisma schema exists in this repository to describe it. The lease and health probe are
+  process lifecycle, not capability data access.
+- Checked-in migrations are append-only and self-contained: change the schema with a new
+  migration. The migration runner rejects an applied ledger that is not an exact ordered prefix or
+  whose checksums differ. Never edit generated Prisma client files or commit them.
 
 ## REST and authentication
 
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.
-- A spread into a response body publishes whatever its source gains next. The declared schema and
-  the DTO stay silent, because the excess property check does not apply to a spread, and every
-  strict reader of this API then drops the whole body instead of the one key it did not expect.
-  That emptied two surfaces on 2026-09-12: the learning continuation and the buyer-state response.
-  Name the fields of a response body one by one. `test/support/declared-api.ts` reads live
-  responses against the generated OpenAPI document, so the leak now fails in the test that calls
-  the address.
+- Name the fields of a response body one by one. A spread publishes whatever its source gains next;
+  the declared schema and the DTO stay silent, because the excess property check does not apply to
+  a spread, and every strict reader then drops the whole body instead of the one key it did not
+  expect. That emptied the learning continuation and the buyer-state response on 2026-09-12.
+  `test/support/declared-api.ts` reads live responses against the generated OpenAPI document, so
+  the leak fails in the test that calls the address.
 - Derive actor identity from the trusted authentication adapter. Never accept actor/account IDs,
   permissions, or Membership decisions from a request body.
 - Use shared semantic cache policies. Interceptors and exception filters own wire headers and media
   types; controllers do not duplicate protocol strings.
 - Build a Problem Details body with `problemException` or `problemDetails` from
-  `src/infrastructure/http/problem-details.ts`. Its `type` is `urn:inside:problem:<code>`, the code
-  unchanged; `ProblemDetailsFilter` rewrites any other type to that form, so a handwritten type or
-  prefix never reaches the wire.
+  `src/infrastructure/http/problem-details.ts`; `ProblemDetailsFilter` rewrites its `type` to
+  `urn:inside:problem:<code>` with the code unchanged, so a handwritten type never reaches the wire.
 - Keep authentication adapters narrow. Provider-SDK compatibility code must name a demonstrated
   upstream gap and have a focused contract test.
 - Follow the local
@@ -142,13 +144,9 @@ not dependency wiring.
   the original error only on the branch that still answers with a dependency failure.
 - A `catch` that rejects foreign input rather than a dependency explains itself on its first line
   with `// Not a dependency failure: <reason>`. Prefer a non-throwing parser such as `URL.parse`
-  when one exists. `scripts/check-backend-architecture.mjs` rejects a `catch` clause or promise
-  `.catch` handler in `src/modules` that drops what it caught: the caught value must reach a
-  reporter (`dependencyFailure`, `reportDependencyFailure`, `describeError`, or the notification
-  channel's `loggableFailure`), become the cause of another error, or be rethrown; otherwise the
-  handler carries that marker. A conditional rethrow counts, as in a race handler whose other
-  branches answer; the check cannot tell a race from a failure, so review keeps the replay rule
-  above.
+  when one exists. `scripts/check-backend-architecture.mjs` rejects a handler in `src/modules` that
+  drops what it caught without that marker. A conditional rethrow satisfies the check, which cannot
+  tell a race from a failure, so review keeps the replay rule above.
 - Backend processes (`api`, `mcp` and the workers) log only through `writeLog` and pass errors
   through `describeError`: it keeps the type, code, stack frames and causes, drops the text of
   Prisma, driver and parser errors that restate the query or input, and redacts credentials,
@@ -177,4 +175,4 @@ not dependency wiring.
 
 Keep Oxlint and architecture guardrails aligned with every changed boundary, including negative
 fixtures. Structural refactors preserve behaviour and prove the same domain, adapter, integration,
-and HTTP outcomes. Run the matrix in `AGENTS.md` before handoff.
+and HTTP outcomes.

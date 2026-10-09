@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
+import {
+  isUnknownArray,
+  isUnknownRecord,
+  renderedMaterialBodySchema,
+} from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
@@ -43,6 +47,150 @@ function documentNode(
 }
 
 describe("MaterialBodyOperations", () => {
+  test("rejects malformed list attributes without throwing during acceptance", () => {
+    for (const type of ["orderedList", "bulletList"]) {
+      for (const attrs of [null, "invalid", []]) {
+        for (const assignMissingNodeIds of [false, true]) {
+          const document = {
+            schemaVersion: 1,
+            doc: {
+              type: "doc",
+              content: [
+                {
+                  type,
+                  attrs,
+                  content: [
+                    {
+                      type: "listItem",
+                      content: [
+                        {
+                          type: "paragraph",
+                          attrs: { nodeId: testNodeId(2) },
+                          content: [{ type: "text", text: "Item" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          };
+          expect(
+            materialBodyOperations.accept(document, { assignMissingNodeIds }),
+          ).toMatchObject({
+            ok: false,
+            error: {
+              issues: [
+                {
+                  code: "invalid_node_id",
+                  path: "/doc/content/0/attrs/nodeId",
+                },
+              ],
+            },
+          });
+        }
+      }
+    }
+  });
+
+  test("preserves integer list starts and the existing default numbering", () => {
+    for (const start of [
+      undefined,
+      1,
+      0,
+      -2,
+      5,
+      -2_147_483_648,
+      2_147_483_647,
+    ]) {
+      const list = documentNode(
+        "orderedList",
+        {
+          nodeId: testNodeId(1),
+          ...(start === undefined ? {} : { start }),
+        },
+        [
+          documentNode("listItem", null, [
+            documentNode("paragraph", { nodeId: testNodeId(2) }, [
+              materialDocumentSchemaV1.text("Item"),
+            ]),
+          ]),
+        ],
+      );
+      const doc: unknown = documentNode("doc", null, [list]).toJSON();
+      const accepted = materialBodyOperations.accept({ schemaVersion: 1, doc });
+      if (!accepted.ok) throw new Error(JSON.stringify(accepted.error));
+      const rendered = materialBodyOperations.render(accepted.value);
+      if (!rendered.ok) throw new Error(JSON.stringify(rendered.error));
+      const block = rendered.value.blocks[0];
+      expect(renderedMaterialBodySchema.parse(rendered.value)).toEqual(
+        rendered.value,
+      );
+      if (start === undefined || start === 1)
+        expect(block).not.toHaveProperty("start");
+      else expect(block).toMatchObject({ kind: "ordered_list", start });
+    }
+    expect(
+      renderedMaterialBodySchema.safeParse({
+        schemaVersion: 1,
+        blocks: [{ kind: "bullet_list", start: 5, items: [] }],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("rejects invalid ordered list starts at document and rendered contract boundaries", () => {
+    for (const start of [
+      null,
+      "5",
+      1.5,
+      -2_147_483_649,
+      2_147_483_648,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]) {
+      const doc = {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "orderedList",
+              attrs: { nodeId: testNodeId(1), start },
+              content: [
+                {
+                  type: "listItem",
+                  content: [
+                    {
+                      type: "paragraph",
+                      attrs: { nodeId: testNodeId(2) },
+                      content: [{ type: "text", text: "Item" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      expect(materialBodyOperations.accept(doc)).toMatchObject({
+        ok: false,
+        error: {
+          issues: [
+            {
+              code: "invalid_ordered_list_start",
+              path: "/doc/content/0/attrs/start",
+            },
+          ],
+        },
+      });
+      expect(
+        renderedMaterialBodySchema.safeParse({
+          schemaVersion: 1,
+          blocks: [{ kind: "ordered_list", start, items: [] }],
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   test("accepts decorative image alt as empty text while still rejecting a missing attribute", () => {
     const image = (alt: unknown) => ({
       schemaVersion: 1,
@@ -339,6 +487,69 @@ describe("MaterialBodyOperations", () => {
     ]);
   });
 
+  test("accepts, renders and validates optional callout collapse states", () => {
+    for (const collapse of [
+      "collapsed",
+      "expanded",
+      null,
+      undefined,
+      "invalid",
+      false,
+    ]) {
+      const body = {
+        schemaVersion: 1,
+        doc: {
+          type: "doc",
+          content: [
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Мой совет",
+                nodeId: testNodeId(90),
+                ...(collapse === undefined ? {} : { collapse }),
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: testNodeId(91) },
+                  content: [{ type: "text", text: "Тело совета" }],
+                },
+              ],
+            },
+          ],
+        },
+      };
+      const accepted = materialBodyOperations.accept(body);
+      if (collapse === "invalid" || collapse === false) {
+        expect(accepted).toMatchObject({
+          ok: false,
+          error: { issues: [{ code: "invalid_callout_collapse" }] },
+        });
+        continue;
+      }
+      expect(accepted.ok).toBe(true);
+      if (!accepted.ok) throw new Error("Callout must be accepted");
+      const rendered = materialBodyOperations.render(accepted.value);
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) throw new Error("Callout must render");
+      expect(rendered.value.blocks[0]).toEqual({
+        kind: "callout",
+        tone: "tip",
+        title: "Мой совет",
+        ...(collapse == null ? {} : { collapse }),
+        content: [
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: "Тело совета", marks: [] }],
+          },
+        ],
+      });
+      expect(renderedMaterialBodySchema.safeParse(rendered.value).success).toBe(
+        true,
+      );
+    }
+  });
   test("rejects the removed legacy inline Video node", () => {
     expect(
       materialBodyOperations.accept({
@@ -929,4 +1140,97 @@ describe("MaterialBodyOperations", () => {
       error: { issues: [{ code }] },
     });
   });
+});
+
+test.each(["#раздел", "#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1", "#"])(
+  "accepts same-page fragment %s and preserves it for the reader",
+  (href) => {
+    const accepted = materialBodyOperations.accept({
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            attrs: { nodeId: "92000000-0000-4000-8000-000000000001" },
+            content: [
+              {
+                type: "text",
+                text: "Раздел",
+                marks: [{ type: "link", attrs: { href } }],
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(accepted).toMatchObject({ ok: true });
+    if (!accepted.ok) throw new Error("Fragment rejected");
+    expect(materialBodyOperations.render(accepted.value)).toMatchObject({
+      ok: true,
+      value: { blocks: [{ content: [{ marks: [{ kind: "link", href }] }] }] },
+    });
+  },
+);
+
+test("image variants survive the editor schema and retain every referenced asset", () => {
+  const imageVariants = {
+    wideLight: "92000000-0000-4000-8000-000000000011",
+    wideDark: "92000000-0000-4000-8000-000000000012",
+    tallLight: "92000000-0000-4000-8000-000000000013",
+    tallDark: "92000000-0000-4000-8000-000000000014",
+  };
+  const snapshot = {
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            nodeId: testNodeId(1),
+            assetId: imageVariants.wideLight,
+            alt: "Схема",
+            caption: "Подпись",
+            sourceSrc: "assets/scene-wide-light.png",
+            imageVariants,
+          },
+        },
+      ],
+    },
+  };
+  const accepted = materialBodyOperations.accept(snapshot);
+  expect(accepted.ok).toBe(true);
+  if (!accepted.ok) throw new Error("Rejected image variants");
+  const editorSnapshot = {
+    schemaVersion: 1,
+    doc: materialDocumentSchemaV1
+      .nodeFromJSON(accepted.value.doc)
+      .toJSON() as unknown,
+  };
+  const restored = materialBodyOperations.accept(editorSnapshot);
+  expect(restored.ok).toBe(true);
+  if (!restored.ok) throw new Error("Editor lost variants");
+  expect(materialBodyOperations.render(restored.value)).toMatchObject({
+    ok: true,
+    value: {
+      blocks: [
+        {
+          sourceSrc: "assets/scene-wide-light.png",
+          imageVariants: {
+            wideLight: { assetId: imageVariants.wideLight },
+            wideDark: { assetId: imageVariants.wideDark },
+            tallLight: { assetId: imageVariants.tallLight },
+            tallDark: { assetId: imageVariants.tallDark },
+          },
+        },
+      ],
+    },
+  });
+  const extraction = materialBodyOperations.extract(restored.value);
+  expect(extraction.ok).toBe(true);
+  if (!extraction.ok) throw new Error("No extraction");
+  expect(
+    extraction.value.resources.map((resource) => resource.assetId),
+  ).toEqual(Object.values(imageVariants));
 });

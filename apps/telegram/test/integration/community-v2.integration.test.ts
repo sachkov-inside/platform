@@ -1,3 +1,6 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -36,8 +39,7 @@ async function stand(
   const bot = `v2-${randomUUID()}`;
   const user = "70099";
   const clock = {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    value: new Date(),
+    value: new Date(fixedTestInstant()),
     now() {
       return new Date(this.value);
     },
@@ -87,7 +89,12 @@ async function stand(
         ? {
             tributeBotTelegramUserId: options.tributeBotTelegramUserId,
             readmission: {
-              replies: new StartResponseDeliveryQueue(db),
+              replies: new StartResponseDeliveryQueue(
+                db,
+                settleBlockedDelivery,
+                undefined,
+                signInReplyEligibility,
+              ),
               text: "Synthetic readmission",
             },
           }
@@ -95,7 +102,12 @@ async function stand(
       ...(isTruthy(options.welcome)
         ? {
             welcome: {
-              replies: new StartResponseDeliveryQueue(db),
+              replies: new StartResponseDeliveryQueue(
+                db,
+                settleBlockedDelivery,
+                undefined,
+                signInReplyEligibility,
+              ),
               text: "Synthetic welcome",
             },
           }

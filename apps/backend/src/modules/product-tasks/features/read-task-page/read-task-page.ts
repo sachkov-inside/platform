@@ -1,3 +1,7 @@
+import {
+  taskPageView,
+  type TaskPageView,
+} from "../../shared/task-page-view.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -49,6 +53,7 @@ export type TaskPage =
         readonly access: "free" | "closed";
         readonly version: number;
         readonly definition: TaskDefinition;
+        readonly page?: TaskPageView;
       };
       readonly reviewProtocol: typeof taskReviewProtocol;
       readonly relatedMaterials: readonly {
@@ -114,6 +119,8 @@ export async function readTaskPage(
       return task.publicationState === "published"
         ? { ok: true, value: { access: "closed", task: place } }
         : notFound();
+    const view = await taskPageView(dependencies, task, product.slug);
+    if (!view.ok) return view;
     return {
       ok: true,
       value: {
@@ -122,7 +129,8 @@ export async function readTaskPage(
           ...place,
           access: task.access,
           version: task.version,
-          definition: task.definition,
+          definition: view.value.definition,
+          ...(view.value.page === undefined ? {} : { page: view.value.page }),
         },
         reviewProtocol: taskReviewProtocol,
         relatedMaterials: await readRelatedMaterials(

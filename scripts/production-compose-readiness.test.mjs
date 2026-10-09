@@ -22,6 +22,16 @@ test("production smoke stops and cleans up when PostgreSQL stays Unix-only", () 
   assert.equal((result.events.match(/cleanup/g) ?? []).length, 2);
 });
 
+test("failed smoke saves worker State and health probe output before shutdown", () => {
+  const result = runSmoke("starting");
+  assert.equal(result.status, 42, result.output);
+  assert.match(result.state, /"Status":"unhealthy"/);
+  assert.match(result.state, /startup probe failed/);
+  assert.match(result.workerLogs, /forced worker startup failure/);
+  assert.match(result.output, /startup probe failed/);
+  assert.match(result.events, /inspect-state\nworker-logs\ncleanup\ncleanup\n/);
+});
+
 /** @param {string} scenario */
 function runSmoke(scenario) {
   const fixture = mkdtempSync(join(tmpdir(), "production-readiness-test-"));
@@ -53,6 +63,19 @@ case "$*" in
     touch "$READINESS_FIXTURE/ready"
     echo sql-ready >>"$READINESS_FIXTURE/events"
     echo 1
+    ;;
+  *" ps --all --quiet"*) echo worker-fixture ;;
+  "inspect --format "*)
+    if [[ "$*" == *"json .State"* ]]; then
+      echo inspect-state >>"$READINESS_FIXTURE/events"
+      echo '{"Status":"exited","ExitCode":23,"Health":{"Status":"unhealthy","Log":[{"ExitCode":1,"Output":"startup probe failed"}]}}'
+    else
+      echo exited:unhealthy
+    fi
+    ;;
+  "logs --tail 100 worker-fixture")
+    echo worker-logs >>"$READINESS_FIXTURE/events"
+    echo 'forced worker startup failure'
     ;;
   *" down "*) echo cleanup >>"$READINESS_FIXTURE/events" ;;
   "image inspect "*) echo sha256:fixture ;;
@@ -91,8 +114,23 @@ esac
       status: result.status,
       output: result.stdout + result.stderr,
       events: readFileSync(eventsPath, "utf8"),
+      state: readOptional(
+        join(fixture, "artifacts", "worker-fixture-state.json"),
+      ),
+      workerLogs: readOptional(
+        join(fixture, "artifacts", "worker-fixture.log"),
+      ),
     };
   } finally {
     rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+/** @param {string} path */
+function readOptional(path) {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return "";
   }
 }

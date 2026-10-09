@@ -98,7 +98,8 @@ fitness checks seam; физический transport/schema уточняется 
 цепочку из сохранённых постов и вызывает те же операции. Новый scheduler, второй набор definitions,
 графовый редактор и дополнительные ручные gates после действий агента не вводятся.
 
-Публикация из бота сохраняет проверку обещанных бесплатных Materials/Series в Platform. Telegram
+Публикация из бота проверяет обещанные бесплатные Materials и публичные страницы Product в Platform
+по [контракту публичных целей](../integrations/communications-v1.md#funnel-management-ui). Telegram
 передаёт выбранный snapshot через узкий service-authenticated boundary; Platform проверяет текущего
 автора и доступность targets своим существующим механизмом. Эта проверка не читает определения
 воронки обратно из Telegram во время удержания их транзакционных блокировок. Недоступный validator
@@ -326,7 +327,7 @@ communications поставку и не переписывает историч�
    429, permanent failure, unknown и явный retry/skip без потери evidence.
 7. UI и MCP имеют одинаковые полномочия publish/launch, ordinary user denied; concurrent revision
    conflict, неполный/закрытый free target и безопасная preview/test-send граница.
-8. Реальный free Material/Series route, tracking hit/duplicate/forwarded token, degraded analytics,
+8. Реальный free Material/Public Product route, tracking hit/duplicate/forwarded token, degraded analytics,
    сохраняющаяся content authorization; sent/click/read/purchase не смешиваются.
 
 Для приложения: repository-local full checks, representative/negative seam fixtures и Standards/Spec

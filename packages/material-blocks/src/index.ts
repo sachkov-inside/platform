@@ -25,7 +25,7 @@ export {
   mapMaterialBlockChildren,
   materialBlockChildren,
   materialBlockHeading,
-  materialBlockResource,
+  materialBlockResources,
   materialBlockText,
 } from "./extract.js";
 export type { JsonObject, JsonPrimitive, JsonValue } from "./json.js";
@@ -66,3 +66,8 @@ export {
   renderedBlockSchema,
   renderedMaterialBodySchema,
 } from "./rendered-block-schema.js";
+
+export type {
+  ImageVariants,
+  ImageAssetPresentation,
+} from "./rendered-block.js";

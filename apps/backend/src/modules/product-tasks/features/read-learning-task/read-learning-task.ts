@@ -1,3 +1,7 @@
+import {
+  taskPageView,
+  type TaskPageView,
+} from "../../shared/task-page-view.js";
 import { z } from "zod";
 
 import {
@@ -73,6 +77,7 @@ export function serializeLearningTaskContext(input: {
     readonly availability: string;
   }[];
   readonly submissionsEnabled: boolean;
+  readonly page?: TaskPageView;
 }): string {
   const { task } = input;
   const contextVersion = learningTaskContextVersion(task);
@@ -87,6 +92,7 @@ export function serializeLearningTaskContext(input: {
         chapter: input.chapter,
         version: task.version,
         definition: task.definition,
+        ...(input.page === undefined ? {} : { page: input.page }),
       },
       reviewProtocol: taskReviewProtocol,
       relatedMaterials: input.relatedMaterials,
@@ -149,8 +155,11 @@ export async function readLearningTask(
       subject,
       task.relatedMaterialSourceIds,
     );
+    const view = await taskPageView(dependencies, task, product.slug);
+    if (!view.ok) return view;
     const serialized = serializeLearningTaskContext({
-      task,
+      task: { ...task, definition: view.value.definition },
+      ...(view.value.page === undefined ? {} : { page: view.value.page }),
       product: { slug: product.slug, name: product.name },
       chapter: { name: chapter.name },
       relatedMaterials,

@@ -1,7 +1,19 @@
 import {
   name as productCohortPriceAfterStartName,
   statement as productCohortPriceAfterStartStatement,
-} from "../modules/billing/infrastructure/postgres/migrations/0085-product-cohort-price-after-start.js";
+} from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
+import {
+  name as communityProjectionRetriesName,
+  statement as communityProjectionRetriesStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0085-community-projection-retries.js";
+import {
+  name as ownerCommandKeysName,
+  statement as ownerCommandKeysStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0084-owner-command-keys.js";
+import {
+  name as taskPagesName,
+  statement as taskPagesStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0083-task-pages.js";
 import {
   name as domainNamesName,
   statement as domainNamesStatement,
@@ -547,6 +559,12 @@ export const platformMigrations = [
   },
   { name: removeWorkshopName, statement: removeWorkshopStatement },
   { name: domainNamesName, statement: domainNamesStatement },
+  { name: taskPagesName, statement: taskPagesStatement },
+  { name: ownerCommandKeysName, statement: ownerCommandKeysStatement },
+  {
+    name: communityProjectionRetriesName,
+    statement: communityProjectionRetriesStatement,
+  },
   {
     name: productCohortPriceAfterStartName,
     statement: productCohortPriceAfterStartStatement,

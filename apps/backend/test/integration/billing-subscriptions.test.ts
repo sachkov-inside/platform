@@ -1,3 +1,19 @@
+import { z } from "zod";
+import { lockBillingSubscription } from "../../src/infrastructure/prisma/index.js";
+import { eventually } from "./setup/eventually.js";
+import { Client } from "@modelcontextprotocol/client";
+import { McpServer, InMemoryTransport } from "@modelcontextprotocol/server";
+import { registerBillingTools } from "../../src/modules/billing/adapters/mcp/register-billing-tools.js";
+import { Module } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
+import { PurchaseSubscriptionController } from "../../src/modules/billing/features/purchase-subscription/purchase-subscription.controller.js";
+import { ManageSubscriptionController } from "../../src/modules/billing/features/manage-subscription/manage-subscription.controller.js";
+import { ACCESS_GRANTS } from "../../src/modules/account-rights/index.js";
+import { declaredServer } from "../support/declared-api.js";
 import {
   subscriptionSnapshotSchema,
   subscriptionConsentSchema,
@@ -16,6 +32,9 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   assembleAccounts,
   BillingContact,
+  ACCOUNTS,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+  LegalAcceptances,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
@@ -40,6 +59,14 @@ import {
   type RenewalSource,
 } from "./setup/consent-documents.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+function deferredValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -222,15 +249,18 @@ describe("подписка: продление, отмена, смена вар�
       enrollments: grants,
       clock: () => now,
     });
-    const subscriptions = new BillingSubscriptions({
-      prisma: db.prisma,
-      bank: client,
-      contact,
-      grants,
-      payments,
-      notices,
-      clock: () => now,
-    });
+    function assembleSubscriptions() {
+      return new BillingSubscriptions({
+        prisma: db.prisma,
+        bank: client,
+        contact,
+        grants,
+        payments,
+        notices,
+        clock: () => now,
+      });
+    }
+    const subscriptions = assembleSubscriptions();
 
     async function consentFor(
       contextRef: string,
@@ -347,6 +377,7 @@ describe("подписка: продление, отмена, смена вар�
       bank,
       payments,
       subscriptions,
+      assembleSubscriptions,
       notices,
       buy,
       offer,
@@ -354,6 +385,194 @@ describe("подписка: продление, отмена, смена вар�
       consentFor,
     };
   }
+
+  // Isolate transport mapping from authentication; the real Billing facets own the result.
+  async function httpFor(s: Awaited<ReturnType<typeof scenario>>) {
+    @Module({
+      controllers: [
+        PurchaseSubscriptionController,
+        ManageSubscriptionController,
+      ],
+      providers: [
+        { provide: BillingPayments, useValue: s.payments },
+        { provide: BillingSubscriptions, useValue: s.subscriptions },
+        { provide: ACCESS_GRANTS, useValue: grants },
+        {
+          provide: ACCOUNTS,
+          useValue: {
+            resolveAccount: () =>
+              Promise.resolve({ ok: true, account: { accountId: s.buyer } }),
+          },
+        },
+        {
+          provide: LOGTO_ACCESS_TOKEN_VERIFIER,
+          useValue: {
+            verifyAccount: () => Promise.resolve({ ok: true, identity: {} }),
+          },
+        },
+        {
+          provide: LegalAcceptances,
+          useValue: {
+            checkTerms: () => Promise.resolve({ ok: true, accepted: true }),
+          },
+        },
+      ],
+    })
+    // oxlint-disable-next-line typescript/no-extraneous-class -- Nest requires a concrete module class for the HTTP fixture.
+    class BillingHttpTestModule {}
+    const app = await NestFactory.create<NestFastifyApplication>(
+      BillingHttpTestModule,
+      new FastifyAdapter(),
+      { logger: false, abortOnError: false },
+    );
+    try {
+      await app.init();
+      const server = declaredServer(app.getHttpAdapter().getInstance());
+      await server.ready();
+      return { app, server };
+    } catch (error) {
+      await app.close();
+      throw error;
+    }
+  }
+
+  test("действующий владельческий MCP сохраняет dependency_unavailable при отказе Accounts", async () => {
+    const s = await scenario();
+    const operations = new BillingOperations({
+      prisma: db.prisma,
+      bank: s.bank.client(),
+      accounts,
+      pricing,
+      payments: s.payments,
+      subscriptions: s.subscriptions,
+      grants,
+      clock: () => now,
+    });
+    const mcp = new McpServer({ name: "billing-consent-test", version: "1" });
+    const client = new Client({ name: "billing-consent-client", version: "1" });
+    registerBillingTools(mcp, { accountId: owner, billing: operations });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    try {
+      await Promise.all([
+        mcp.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      const tools = await client.listTools();
+      // Buyer purchase/resume are HTTP operations, not owner MCP tools.
+      expect(tools.tools.map((tool) => tool.name)).not.toContain(
+        "billing_subscriptions_resume",
+      );
+      expect(tools.tools.map((tool) => tool.name)).not.toContain(
+        "billing_purchase",
+      );
+      await db.prisma
+        .$executeRaw`ALTER TABLE accounts.account_permissions RENAME TO unavailable_account_permissions`;
+      try {
+        const result = await client.callTool({
+          name: "billing_payments_read",
+          arguments: { operationId: randomUUID(), purchaseRef: randomUUID() },
+        });
+        expect(result).toMatchObject({
+          isError: true,
+          structuredContent: {
+            ok: false,
+            error: { code: "dependency_unavailable" },
+          },
+        });
+      } finally {
+        await db.prisma
+          .$executeRaw`ALTER TABLE accounts.unavailable_account_permissions RENAME TO account_permissions`;
+      }
+    } finally {
+      await client.close();
+      await mcp.close();
+    }
+  });
+
+  test("покупка отличает отказ чтения согласия от его отсутствия", async () => {
+    const s = await scenario();
+    const quote = value(
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: s.optionId,
+          optionRevision: 1,
+        }),
+      ),
+    );
+    const command = {
+      operationId: randomUUID(),
+      quoteRef: quote.quoteRef,
+      contactRevision: 1,
+      consentEvidenceRefs: await s.consentFor(quote.quoteRef, {
+        snapshot: quote.snapshot,
+      }),
+      acknowledgeExistingAccess: false,
+    };
+    await db.prisma
+      .$executeRaw`ALTER TABLE accounts.legal_acceptances RENAME TO unavailable_legal_acceptances`;
+    try {
+      expect(await s.payments.purchase(s.buyer, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      const { app, server } = await httpFor(s);
+      try {
+        const response = await server.inject({
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-buyer" },
+          url: "/accounts/current/billing/purchase",
+          payload: command,
+        });
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          code: "dependency_unavailable",
+        });
+      } finally {
+        await app.close();
+      }
+      expect(s.bank.initCalls).toBe(0);
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE accounts.unavailable_legal_acceptances RENAME TO legal_acceptances`;
+    }
+    expect(
+      await s.payments.purchase(s.buyer, {
+        ...command,
+        consentEvidenceRefs: [randomUUID()],
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "consent_required" },
+    });
+    const { app, server } = await httpFor(s);
+    try {
+      const response = await server.inject({
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-buyer" },
+        url: "/accounts/current/billing/purchase",
+        payload: { ...command, consentEvidenceRefs: [randomUUID()] },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toMatchObject({ code: "consent_required" });
+    } finally {
+      await app.close();
+    }
+
+    expect(
+      await s.payments.purchase(s.buyer, {
+        ...command,
+        consentEvidenceRefs: await s.consentFor(randomUUID(), {
+          snapshot: quote.snapshot,
+        }),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "consent_required" } });
+    expect(await s.payments.purchase(s.buyer, command)).toMatchObject({
+      ok: true,
+    });
+  });
 
   test("кабинет показывает собственные основания доступа и историю списаний без операторских полей", async () => {
     const s = await scenario();
@@ -1472,6 +1691,223 @@ describe("подписка: продление, отмена, смена вар�
     });
   });
 
+  test.each(["revision", "ended", "ended_matching_revision"] as const)(
+    "смена карты после ожидания блокировки учитывает %s подписки без попытки и AddCard",
+    async (change) => {
+      const s = await scenario();
+      await s.buy();
+      const active = await s.view();
+      if (!active) throw new Error("Missing synthetic subscription");
+      const locked = deferredValue<number>();
+      const proceed = deferredValue<boolean>();
+      const ownerChange = db.run(() =>
+        db.prisma.$transaction(async (tx) => {
+          await lockBillingSubscription(tx, active.subscriptionRef);
+          const [backend] = z
+            .array(z.object({ pid: z.int().positive() }))
+            .parse(await tx.$queryRaw`SELECT pg_backend_pid() AS pid`);
+          if (!backend) throw new Error("Missing transaction PID");
+          locked.resolve(backend.pid);
+          await proceed.promise;
+          await tx.billingSubscription.update({
+            where: { id: active.subscriptionRef },
+            data: {
+              ...(change === "revision" ? {} : { state: "ended" as const }),
+              revision: active.revision + 1,
+              updatedAt: now,
+            },
+          });
+        }),
+      );
+      const ownerPid = await locked.promise;
+      const changing = db.run(() =>
+        s.subscriptions.changeMethod(s.buyer, {
+          operationId: randomUUID(),
+          // A matching revision must not authorize an ended subscription either.
+          expectedRevision:
+            change === "ended_matching_revision"
+              ? active.revision + 1
+              : active.revision,
+        }),
+      );
+      const results = Promise.allSettled([ownerChange, changing]);
+      try {
+        await eventually(async () => {
+          const rows = z.array(z.object({ waiting: z.boolean() })).parse(
+            await db.prisma.$queryRaw`SELECT EXISTS (
+              SELECT 1 FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock'
+              AND query LIKE '%pg_advisory_xact_lock%'
+              AND ${ownerPid} = ANY(pg_blocking_pids(pid))
+            ) AS waiting`,
+          );
+          expect(rows[0]?.waiting).toBe(true);
+        }, 2_000);
+      } finally {
+        proceed.resolve(true);
+        await results;
+      }
+      await ownerChange;
+      expect(await changing).toMatchObject({
+        ok: false,
+        error: {
+          code: change === "revision" ? "revision_conflict" : "not_found",
+        },
+      });
+      expect(s.bank.addCardCalls).toBe(0);
+      expect(
+        await db.prisma.billingPaymentMethodFlow.count({
+          where: { accountId: s.buyer },
+        }),
+      ).toBe(0);
+      const current = await s.view();
+      if (change === "revision") {
+        expect(current?.revision).toBe(active.revision + 1);
+        expect(current?.pendingMethodChange).toBeNull();
+      } else expect(current).toBeNull();
+    },
+  );
+
+  test("активный AddCard старше 10 секунд переживает worker и поздний ответ даёт рабочую форму", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = await s.view();
+    const gate = s.bank.holdAddCardResponse();
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: active?.revision,
+    };
+    const changing = db.run(() =>
+      s.subscriptions.changeMethod(s.buyer, command),
+    );
+    const settled = Promise.allSettled([changing]);
+    const worker = s.assembleSubscriptions();
+    try {
+      await gate.entered;
+      now = new Date("2030-01-31T10:00:11Z");
+      expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+        inspected: 1,
+        applied: 0,
+      });
+      expect((await s.view())?.pendingMethodChange).toMatchObject({
+        formUrl: null,
+      });
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "started",
+        formUrl: null,
+      });
+    } finally {
+      gate.release();
+      await settled;
+    }
+    const started = value(await changing);
+    expect(started).toMatchObject({
+      state: "started",
+      formUrl: "https://securepay.tinkoff.ru/binding",
+    });
+    expect(value(await s.subscriptions.changeMethod(s.buyer, command))).toEqual(
+      started,
+    );
+    expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+      applied: 1,
+    });
+    expect(await s.view()).toMatchObject({
+      paymentMethod: { methodRef: started.flowRef },
+      pendingMethodChange: null,
+    });
+    expect(s.bank.addCardCalls).toBe(1);
+  });
+
+  test("потеря PostgreSQL-владельца восстанавливает попытку ровно с 10 секунд и поздний ответ не оживляет её", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = await s.view();
+    const gate = s.bank.holdAddCardResponse();
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: active?.revision,
+    };
+    const changing = db.run(() =>
+      s.subscriptions.changeMethod(s.buyer, command),
+    );
+    const settled = Promise.allSettled([changing]);
+    const worker = s.assembleSubscriptions();
+    try {
+      await gate.entered;
+      // A dedicated database proves which live transaction owns this attempt. Terminating that
+      // backend models the lease loss left by a lost Platform process, while retaining a late bank reply.
+      const [owner] = z
+        .array(z.strictObject({ pid: z.int().positive() }))
+        .length(1)
+        .parse(
+          await db.prisma.$queryRaw`SELECT a.pid FROM pg_stat_activity a
+          WHERE a.datname = current_database() AND EXISTS (
+            SELECT 1 FROM pg_locks l WHERE l.pid = a.pid AND l.locktype = 'advisory'
+              AND l.granted AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+          )`,
+        );
+      if (!owner) throw new Error("Missing AddCard lease owner");
+      const terminated = z
+        .array(z.strictObject({ terminated: z.boolean() }))
+        .length(1)
+        .parse(
+          await db.prisma
+            .$queryRaw`SELECT pg_terminate_backend(${owner.pid}) AS terminated`,
+        );
+      expect(terminated[0]?.terminated).toBe(true);
+      await eventually(async () => {
+        const rows = z
+          .array(z.strictObject({ present: z.boolean() }))
+          .length(1)
+          .parse(
+            await db.prisma
+              .$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = ${owner.pid}) AS present`,
+          );
+        expect(rows[0]?.present).toBe(false);
+      }, 2_000);
+      now = new Date("2030-01-31T10:00:09.999Z");
+      expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+        applied: 0,
+      });
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "started",
+        formUrl: null,
+      });
+      now = new Date("2030-01-31T10:00:10Z");
+      value(await worker.reconcileMethodFlows());
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "rejected",
+        formUrl: null,
+      });
+    } finally {
+      gate.release();
+      await settled;
+    }
+    expect(await changing).toMatchObject({
+      ok: false,
+      error: { code: "provider_unavailable" },
+    });
+    expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+      state: "rejected",
+      formUrl: null,
+    });
+    const next = value(
+      await worker.changeMethod(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    expect(next).toMatchObject({
+      state: "started",
+      formUrl: "https://securepay.tinkoff.ru/binding",
+    });
+    expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+      applied: 1,
+    });
+    expect((await s.view())?.paymentMethod?.methodRef).toBe(next.flowRef);
+    expect(s.bank.addCardCalls).toBe(2);
+  });
+
   test("смена карты применяется доказанным token и не включает отменённое продление", async () => {
     const s = await scenario();
     await s.buy();
@@ -1635,6 +2071,101 @@ describe("подписка: продление, отмена, смена вар�
         expectedRevision: active?.revision,
       }),
     ).toMatchObject({ error: { code: "revision_conflict" } });
+  });
+
+  test("возобновление отличает отказ чтения согласия от его отсутствия", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = await s.view();
+    const canceled = value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    const operationId = randomUUID();
+    const command = {
+      operationId,
+      expectedRevision: canceled.revision,
+      consentEvidenceRefs: await s.consentFor(
+        operationId,
+        {
+          snapshot: canceled.snapshot,
+          nextChargeAt: new Date(canceled.paidUntil),
+        },
+        "subscription-resume",
+      ),
+    };
+    await db.prisma
+      .$executeRaw`ALTER TABLE accounts.legal_acceptances RENAME TO unavailable_legal_acceptances`;
+    try {
+      expect(await s.subscriptions.resume(s.buyer, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      const { app, server } = await httpFor(s);
+      try {
+        const response = await server.inject({
+          method: "POST",
+          headers: { authorization: "Bearer synthetic-buyer" },
+          url: "/accounts/current/billing/subscription/resume",
+          payload: command,
+        });
+        expect(response.statusCode).toBe(503);
+        expect(response.json()).toMatchObject({
+          code: "dependency_unavailable",
+        });
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE accounts.unavailable_legal_acceptances RENAME TO legal_acceptances`;
+    }
+    expect(await s.view()).toMatchObject({
+      state: "canceled",
+      revision: canceled.revision,
+    });
+    expect(
+      await s.subscriptions.resume(s.buyer, {
+        ...command,
+        consentEvidenceRefs: [randomUUID()],
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "consent_required" },
+    });
+    const { app, server } = await httpFor(s);
+    try {
+      const response = await server.inject({
+        method: "POST",
+        headers: { authorization: "Bearer synthetic-buyer" },
+        url: "/accounts/current/billing/subscription/resume",
+        payload: { ...command, consentEvidenceRefs: [randomUUID()] },
+      });
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toMatchObject({ code: "consent_required" });
+    } finally {
+      await app.close();
+    }
+
+    expect(
+      await s.subscriptions.resume(s.buyer, {
+        ...command,
+        consentEvidenceRefs: await s.consentFor(
+          randomUUID(),
+          {
+            snapshot: canceled.snapshot,
+            nextChargeAt: new Date(canceled.paidUntil),
+          },
+          "subscription-resume",
+        ),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "consent_required" } });
+    expect(await s.subscriptions.resume(s.buyer, command)).toMatchObject({
+      ok: true,
+      value: { state: "active" },
+    });
   });
 
   test("возобновление требует явного согласия и действует только внутри оплаченного срока", async () => {

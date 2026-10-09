@@ -1,3 +1,7 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -282,5 +286,57 @@ export const KeyboardReorder: Story = {
         .querySelector("li"),
     ).toHaveTextContent("Сборка контейнера");
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+  },
+};
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <SeriesEditorPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", {
+            name: "Название продукта",
+          }),
+          " — правка",
+        );
+      },
+      "Настройки сохранены",
+      () =>
+        Response.json({
+          kind: "saved",
+          collection: { ...collection, version: 2 },
+        }),
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", {
+            name: "Название продукта",
+          }),
+          " — правка",
+        );
+      },
+      "Повторить сохранение",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText("Настройки сохранены"),
+    ).not.toBeInTheDocument();
   },
 };

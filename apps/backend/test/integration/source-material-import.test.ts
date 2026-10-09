@@ -69,7 +69,7 @@ describe("authoring source Material", () => {
         expectedContentVersion: 2,
         idempotencyKey: "ordinary",
       }),
-    ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
       await authoring.deleteDraft({
         actor,
@@ -77,7 +77,7 @@ describe("authoring source Material", () => {
         expectedContentVersion: 2,
         idempotencyKey: "delete-source",
       }),
-    ).toMatchObject({ ok: false, error: { code: "draft_deletion_forbidden" } });
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(
       await authoring.applySourceMaterial({
         ...command,
@@ -200,7 +200,15 @@ describe("authoring source Material", () => {
       metadata: { ...metadata, seriesIds: [product.value.id] },
       body: representativeDocument("Ordinary"),
     });
-    expect(ordinary).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(ordinary).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          { code: "material_source_mismatch", path: "/metadata/seriesIds/0" },
+        ],
+      },
+    });
     const plain = await authoring.createDraft({
       actor,
       idempotencyKey: "ordinary-outside-product",
@@ -219,7 +227,15 @@ describe("authoring source Material", () => {
         metadata: { ...metadata, seriesIds: [product.value.id] },
         body: representativeDocument("Ordinary"),
       }),
-    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          { code: "material_source_mismatch", path: "/metadata/seriesIds/0" },
+        ],
+      },
+    });
     const paidSource = { ...source, id: "paid-feed-lesson", showInFeed: true };
     const reserved = await authoring.reserveSourceMaterial({
       actor,

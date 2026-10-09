@@ -69,6 +69,72 @@ export const sourcePracticeSchema = z
   })
   .strict();
 
+export const materialSchema = z
+  .object({
+    sourceId: identifier,
+    sourcePath: relativePath,
+    sourceIds: z.array(identifier),
+    relatedMaterialIds: z.array(identifier),
+    readingTimeMinutes: z.number().int().positive().nullable(),
+    kind: z.enum(["video", "guide", "note"]),
+    title: z.string().min(1),
+    summary: z.string().min(1),
+    stage: z.enum(["idea", "draft", "review", "ready", "published"]),
+    topicId: identifier.nullable(),
+    access: z.enum(["free", "closed"]).nullable(),
+    showInFeed: z.boolean(),
+    difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
+    outcomes: z.array(z.string()).nullable(),
+    markdown: z.string(),
+    links: z.record(z.string(), identifier),
+    images: z.record(z.string(), z.string()),
+    imageVariants: z
+      .record(
+        z.string(),
+        z
+          .object({
+            wideLight: z.string().min(1),
+            wideDark: z.string().min(1),
+            tallLight: z.string().min(1),
+            tallDark: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
+    coverAssetId: z.string().nullable(),
+    coverAlt: z.string().nullable(),
+    video: z.object({ kinescopeId: z.uuid() }).strict().nullable(),
+    videoChapters: chapters,
+    artifacts: z.array(
+      z
+        .object({
+          sourceId: identifier,
+          title: z.string().min(1),
+          assetId: z.string(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+/** All image assets a page references, including its alternate compositions and themes.
+ * @param {ManifestMaterial} row */
+export function materialImageAssetIds(row) {
+  return [
+    ...new Set([
+      ...Object.values(row.images),
+      ...Object.values(row.imageVariants ?? {}).flatMap(
+        ({ wideLight, wideDark, tallLight, tallDark }) => [
+          wideLight,
+          wideDark,
+          tallLight,
+          tallDark,
+        ],
+      ),
+    ]),
+  ];
+}
+
 /**
  * A Product Task of the package (#946). Its source ID is the task code; Product, chapter and related
  * Materials are named by their source IDs in this namespace. The order of a chapter's tasks in
@@ -83,7 +149,8 @@ export const sourceTaskSchema = z
     productId: identifier,
     chapterId: identifier,
     title: z.string().trim().min(1).max(200),
-    access: z.enum(["free", "closed"]),
+    access: z.enum(["free", "closed"]).nullable(),
+    page: materialSchema.optional(),
     // The owning backend validates the complete authored definition during preflight.
     definition: z.record(z.string(), z.json()),
     relatedMaterialIds: z.array(identifier).max(50),
@@ -107,7 +174,8 @@ export const productShellScope = z.literal("product-shell");
 
 export const manifestSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.union([z.literal(1), z.literal(2)]),
+    requiredFeatures: z.array(z.string().min(1)).optional(),
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
     tasks: z.array(sourceTaskSchema).max(200).optional(),
@@ -116,47 +184,13 @@ export const manifestSchema = z
         productId: identifier.nullable(),
         chapterIds: z.array(identifier),
         materialIds: z.array(identifier),
+        taskIds: z.array(identifier).optional(),
         complete: z.literal(true),
         // An explicit Product shell release (#803): only the product page and programme, no Materials.
         scope: productShellScope.optional(),
       })
       .strict(),
-    materials: z.array(
-      z
-        .object({
-          sourceId: identifier,
-          sourcePath: relativePath,
-          sourceIds: z.array(identifier),
-          relatedMaterialIds: z.array(identifier),
-          readingTimeMinutes: z.number().int().positive().nullable(),
-          kind: z.enum(["video", "guide", "note"]),
-          title: z.string().min(1),
-          summary: z.string().min(1),
-          stage: z.enum(["idea", "draft", "review", "ready", "published"]),
-          topicId: identifier.nullable(),
-          access: z.enum(["free", "closed"]).nullable(),
-          showInFeed: z.boolean(),
-          difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
-          outcomes: z.array(z.string()).nullable(),
-          markdown: z.string(),
-          links: z.record(z.string(), identifier),
-          images: z.record(z.string(), z.string()),
-          coverAssetId: z.string().nullable(),
-          coverAlt: z.string().nullable(),
-          video: z.object({ kinescopeId: z.uuid() }).strict().nullable(),
-          videoChapters: chapters,
-          artifacts: z.array(
-            z
-              .object({
-                sourceId: identifier,
-                title: z.string().min(1),
-                assetId: z.string(),
-              })
-              .strict(),
-          ),
-        })
-        .strict(),
-    ),
+    materials: z.array(materialSchema),
     // slug, presentation and page arrived with #671; packages exported before it describe no product page.
     products: z.array(
       z
@@ -171,6 +205,15 @@ export const manifestSchema = z
             })
             .strict()
             .nullable()
+            .optional(),
+          introduction: z
+            .object({
+              audience: z.string().max(4000),
+              outcome: z.string().max(4000),
+              prerequisites: z.string().max(4000),
+              scope: z.string().max(4000),
+            })
+            .strict()
             .optional(),
           title: z.string().min(1),
           summary: z.string(),
@@ -244,7 +287,7 @@ export function materialRevision(manifest, row) {
       row: { ...row, access: fingerprintAccess(row.access) },
       assets: manifest.assets.filter((asset) =>
         [
-          ...Object.values(row.images),
+          ...materialImageAssetIds(row),
           row.coverAssetId,
           ...row.artifacts.map((item) => item.assetId),
         ].includes(asset.sourceId),
@@ -287,7 +330,10 @@ export const isProductShell = (manifest) =>
  */
 function checkSelectionScope(manifest) {
   if (!isProductShell(manifest)) {
-    if (manifest.selection.materialIds.length === 0)
+    if (
+      manifest.selection.materialIds.length === 0 &&
+      (manifest.tasks ?? []).length === 0
+    )
       throw new Error(
         "Empty selection: a package without Materials must declare selection.scope product-shell",
       );
@@ -395,6 +441,35 @@ export function taskPositions(manifest) {
  * @typedef {{ id: string; manifest: Manifest; directory: string }} AuthoringPackage
  */
 
+/** Refuse unsupported envelope features before any asset or network operation.
+ * @param {unknown} value */
+export function checkCapabilities(value) {
+  const envelope = z
+    .object({
+      schemaVersion: z.number(),
+      requiredFeatures: z.array(z.string()).optional(),
+    })
+    .parse(value);
+  if (![1, 2].includes(envelope.schemaVersion))
+    throw new Error(
+      `Unsupported package schemaVersion: ${envelope.schemaVersion}`,
+    );
+  if (envelope.schemaVersion === 2 && envelope.requiredFeatures === undefined)
+    throw new Error("Package v2 requires requiredFeatures");
+  if (envelope.schemaVersion === 1 && envelope.requiredFeatures !== undefined)
+    throw new Error("Package v1 cannot declare requiredFeatures");
+  for (const feature of envelope.requiredFeatures ?? [])
+    if (
+      ![
+        "task-c-v2",
+        "github-anchors-v1",
+        "image-variants-v1",
+        "collapsible-callouts-v1",
+      ].includes(feature)
+    )
+      throw new Error(`Unsupported requiredFeature: ${feature}`);
+}
+
 /**
  * @param {string} path
  * @returns {Promise<AuthoringPackage>}
@@ -406,6 +481,7 @@ export async function loadPackage(path) {
   const bytes = await readFile(manifestPath);
   /** @type {unknown} */
   const original = JSON.parse(bytes.toString("utf8"));
+  checkCapabilities(original);
   const decoded = decodePackageV1(original);
   const manifest = manifestSchema.parse(decoded);
   if (
@@ -443,9 +519,39 @@ export async function loadPackage(path) {
       !assets.has(product.coverAssetId)
     )
       throw new Error(`${product.sourceId}: missing cover asset`);
-  for (const material of manifest.materials) {
+  for (const material of [
+    ...manifest.materials,
+    ...(manifest.tasks ?? []).flatMap((task) =>
+      task.page === undefined ? [] : [task.page],
+    ),
+  ]) {
+    if (material.imageVariants !== undefined) {
+      if (
+        manifest.schemaVersion !== 2 ||
+        !manifest.requiredFeatures?.includes("image-variants-v1")
+      )
+        throw new Error(
+          "Image variants require package v2 and image-variants-v1",
+        );
+      for (const [src, variants] of Object.entries(material.imageVariants)) {
+        if (!Object.hasOwn(material.images, src))
+          throw new Error(
+            `${material.sourcePath}: variant source is not in images: ${src}`,
+          );
+        if (!Object.values(variants).includes(material.images[src] ?? ""))
+          throw new Error(
+            `${material.sourcePath}: source image is outside its variant set: ${src}`,
+          );
+        if (
+          Object.values(variants).some(
+            (id) => assets.get(id)?.mimeType !== "image/png",
+          )
+        )
+          throw new Error(`${material.sourcePath}: missing PNG variant asset`);
+      }
+    }
     const refs = [
-      ...Object.values(material.images),
+      ...materialImageAssetIds(material),
       ...material.artifacts.map((item) => item.assetId),
       ...(material.coverAssetId === null ? [] : [material.coverAssetId]),
     ];
@@ -500,6 +606,36 @@ export async function loadPackage(path) {
       );
   }
   checkTasks(manifest);
+  if (manifest.schemaVersion === 2) {
+    const taskIds = manifest.selection.taskIds;
+    const tasks = manifest.tasks ?? [];
+    if (taskIds === undefined)
+      throw new Error("Package v2 requires selection.taskIds");
+    unique(taskIds, "selection task identity");
+    if (
+      taskIds.length !== tasks.length ||
+      tasks.some((task) => !taskIds.includes(task.sourceId))
+    )
+      throw new Error("Task selection does not match package contents");
+    for (const task of tasks) {
+      if (task.page === undefined)
+        throw new Error(`${task.sourceId}: missing Task page`);
+      if (
+        task.definition["schemaVersion"] === 2 &&
+        !manifest.requiredFeatures?.includes("task-c-v2")
+      )
+        throw new Error("Task definition v2 requires task-c-v2");
+    }
+  } else if (
+    (manifest.tasks ?? []).some(
+      (task) =>
+        task.page !== undefined ||
+        task.access === null ||
+        task.definition["schemaVersion"] === 2,
+    )
+  ) {
+    throw new Error("Task page and definition v2 require package v2");
+  }
   const directory = dirname(manifestPath);
   for (const asset of assets.values()) {
     const absolute = await realpath(resolve(directory, asset.path));

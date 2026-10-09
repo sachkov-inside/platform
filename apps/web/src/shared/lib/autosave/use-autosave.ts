@@ -45,13 +45,6 @@ export function useAutosave<T>({
   const [revision, setRevision] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
 
   const flush = useCallback(async function flush(
     retry = false,
@@ -71,10 +64,8 @@ export function useAutosave<T>({
     const snapshot =
       failed.current?.result === "failed" ? failed.current : latest.current;
     const execute = async () => {
-      if (mounted.current) {
-        setPending(true);
-        setError(false);
-      }
+      setPending(true);
+      setError(false);
       let result: AutosaveResult;
       try {
         result = await latest.current.save(snapshot.value);
@@ -86,12 +77,11 @@ export function useAutosave<T>({
         failed.current = null;
       } else
         failed.current = { value: snapshot.value, key: snapshot.key, result };
-      if (mounted.current) {
-        setSavedKey(baseline.current);
-        setPending(false);
-        setError(result !== "saved");
-        setRevision((n) => n + 1);
-      }
+      // Activity preserves state while hidden; the completed outcome must survive too.
+      setSavedKey(baseline.current);
+      setPending(false);
+      setError(result !== "saved");
+      setRevision((n) => n + 1);
       return result === "saved";
     };
     running.current = execute();

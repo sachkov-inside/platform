@@ -101,6 +101,7 @@ export type TelegramMembershipPrisma = Pick<
   | "telegramCommunityOperation"
   | "telegramCommunityAuthorization"
   | "telegramCommunityProjectionCursor"
+  | "telegramCommunityProjectionRetry"
   // Membership owns these writes; Telegram hands over its transaction to bindPrincipal.
   | "membershipBinding"
 >;
@@ -123,6 +124,7 @@ export type ProductTasksPrismaClient = ProductTasksPrisma &
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,
+    options?: { readonly timeout: number },
   ): Promise<Result>;
 }
 
@@ -183,6 +185,7 @@ export type BillingPrisma = Pick<
   | "billingChangeQuote"
   | "billingPaymentMethodFlow"
   | "billingOwnerCommand"
+  | "billingOwnerCommandKey"
   | "billingRefundDecision"
   | "billingRefund"
   | "billingNotice"

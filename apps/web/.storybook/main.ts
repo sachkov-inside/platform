@@ -5,6 +5,18 @@ import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   staticDirs: [
+    ...["wideLight", "wideDark", "tallLight", "tallDark"].map((name) => ({
+      from: `./fixtures/image-variants/${name}`,
+      to: `/api/materials/02000000-0000-4000-8000-000000000010/assets/${name}.png/images`,
+    })),
+    {
+      from: "./fixtures/image-variants",
+      to: "/api/products/synthetic-course/tasks/synthetic-c-task/assets",
+    },
+    {
+      from: "./fixtures/reader-images",
+      to: "/api/products/synthetic-course/tasks/synthetic-c-task/assets",
+    },
     "../public",
     {
       from: "./fixtures/reader-images",

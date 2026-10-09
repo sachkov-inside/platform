@@ -80,6 +80,9 @@ gh release view vN --repo sachkov-inside/platform --json isImmutable,targetCommi
 
 ## 4. Выложить Platform
 
+Перед запуском назовите владельцу ожидаемый простой: сайт показывает maintenance от включения
+maintenance route после preflight до возврата маршрутов.
+
 ```bash
 gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field operation=deploy --field version=vN
 ```

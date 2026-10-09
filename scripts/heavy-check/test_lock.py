@@ -1,5 +1,6 @@
 """Exercise the command boundary, using readiness and exit as barriers."""
 import json
+import fcntl
 import os
 import shlex
 from pathlib import Path
@@ -75,6 +76,12 @@ class LockTest(unittest.TestCase):
         except ProcessLookupError:
             pass
 
+    @staticmethod
+    def kill_owned_process(pid, started):
+        row = process_snapshot().get(pid)
+        if row is not None and row[3] == started:
+            LockTest.kill_process(pid)
+
     def assert_stopped(self, pid):
         state = subprocess.run(
             ['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True,
@@ -121,7 +128,7 @@ class LockTest(unittest.TestCase):
         command = shlex.join(['bash', str(WRAPPER), sys.executable, '-c', FIXTURE])
         (cwd / 'package.json').write_text(json.dumps({'scripts': {'check': command}}))
         process = self.start(cwd=cwd, launcher=['pnpm', 'check'])
-        while 'acquired' not in self.line(process, ''):
+        while not self.line(process, '').startswith('heavy-check: acquired '):
             pass
         return process
 
@@ -189,6 +196,175 @@ class LockTest(unittest.TestCase):
             holders.append(process)
         return holders
 
+    def test_three_waiters_receive_slots_in_registration_order(self):
+        holders = self.holders()
+        waiters = []
+        # Gate the oldest retry through stdin. Runner exit closes the writer and
+        # releases the gate, so no stopped supervisor can outlive a killed runner.
+        launcher = """
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+import lock
+wait = lock.ExitEvents.wait
+gated = False
+def gated_wait(events, timeout=None):
+    global gated
+    if timeout is not None and timeout > 0 and not gated:
+        gated = True
+        print('PAUSED', flush=True)
+        sys.stdin.readline()
+    return wait(events, timeout)
+lock.ExitEvents.wait = gated_wait
+sys.exit(lock.main())
+"""
+        for index in range(3):
+            waiter = self.start(launcher=[sys.executable, '-c', launcher,
+                                         str(WRAPPER.parent / 'heavy-check'),
+                                         sys.executable, '-c', FIXTURE]
+                                if index == 0 else None)
+            if index == 0:
+                self.addCleanup(self.release_fork, waiter)
+            self.line(waiter, 'waiting')
+            if index == 0:
+                self.line(waiter, 'PAUSED')
+            waiters.append(waiter)
+        self.release_fork(holders[0])
+        self.assertEqual(holders[0].wait(timeout=10), 0)
+        # Older admission is paused: a younger waiter must not take its free slot.
+        with selectors.DefaultSelector() as selector:
+            for waiter in waiters[1:]:
+                selector.register(waiter.stdout, selectors.EVENT_READ)
+            self.assertFalse(selector.select(timeout=3))
+        self.release_fork(waiters[0])
+        for waiter in waiters:
+            self.line(waiter, 'acquired')
+            self.line(waiter, 'READY')
+            with selectors.DefaultSelector() as selector:
+                for younger in waiters[waiters.index(waiter) + 1:]:
+                    selector.register(younger.stdout, selectors.EVENT_READ)
+                self.assertFalse(selector.select(timeout=0))
+            self.release_fork(waiter)
+            self.assertEqual(waiter.wait(timeout=10), 0)
+
+    def test_cancelled_waiter_does_not_block_followers(self):
+        for cancellation in ('terminate', 'kill-wrapper', 'kill-supervisor'):
+            with self.subTest(cancellation=cancellation):
+                holders = self.holders()
+                cancelled = self.start()
+                self.line(cancelled, 'waiting')
+                follower = self.start()
+                self.line(follower, 'waiting')
+                if cancellation == 'terminate':
+                    cancelled.terminate()
+                elif cancellation == 'kill-wrapper':
+                    cancelled.kill()
+                else:
+                    snapshot = process_snapshot()
+                    supervisor = next(pid for pid, row in snapshot.items()
+                                      if row[0] == cancelled.pid)
+                    os.kill(supervisor, signal.SIGKILL)
+                self.assertNotEqual(cancelled.wait(timeout=10), 0)
+                self.release_fork(holders[0])
+                self.assertEqual(holders[0].wait(timeout=10), 0)
+                self.line(follower, 'acquired')
+                self.line(follower, 'READY')
+                self.release_fork(follower)
+                self.assertEqual(follower.wait(timeout=10), 0)
+                self.release_fork(holders[1])
+                self.assertEqual(holders[1].wait(timeout=10), 0)
+
+    def test_fifo_gate_cleans_up_after_test_runner_termination(self):
+        launcher = """
+import sys, unittest
+sys.path.insert(0, sys.argv[1])
+import test_lock
+test_lock.tempfile.tempdir = sys.argv[2]
+line = test_lock.LockTest.line
+def observed_line(test, process, expected):
+    result = line(test, process, expected)
+    if expected == 'PAUSED':
+        print('GATED', flush=True)
+        sys.stdin.readline()
+    return result
+test_lock.LockTest.line = observed_line
+unittest.main(module=test_lock, argv=['test_lock',
+    'LockTest.test_three_waiters_receive_slots_in_registration_order'])
+"""
+        for signum in (signal.SIGTERM, signal.SIGKILL):
+            with self.subTest(signum=signum.name):
+                runner = self.start(launcher=[sys.executable, '-c', launcher,
+                                             str(WRAPPER.parent / 'heavy-check'),
+                                             self.directory.name])
+                self.line(runner, 'GATED')
+                snapshot = process_snapshot()
+                owned = {runner.pid}
+                while True:
+                    children = {pid for pid, row in snapshot.items() if row[0] in owned}
+                    if children <= owned:
+                        break
+                    owned.update(children)
+                owned.remove(runner.pid)
+                self.assertGreaterEqual(len(owned), 8)
+                for pid in owned:
+                    self.addCleanup(self.kill_owned_process, pid, snapshot[pid][3])
+                runner.send_signal(signum)
+                runner.wait(timeout=10)
+                deadline = time.monotonic() + 10
+                while True:
+                    current = process_snapshot()
+                    live = {pid for pid in owned if pid in current
+                            and current[pid][3] == snapshot[pid][3]
+                            and 'Z' not in current[pid][2]}
+                    if not live:
+                        break
+                    self.assertLess(time.monotonic(), deadline, f'owned processes remain: {live}')
+                    # Poll process exit; the deadline only bounds a failed cleanup.
+                    time.sleep(0.01)
+
+    def test_legacy_waiters_share_slot_locks_with_fifo_waiters(self):
+        # Model the pre-FIFO protocol: the same persistent slot files, no queue files.
+        slots = [open(Path(self.directory.name) / f'slot-{index}.lock', 'a')
+                 for index in range(2)]
+        for slot in slots:
+            self.addCleanup(slot.close)
+            fcntl.flock(slot, fcntl.LOCK_EX)
+        legacy = self.start(launcher=[sys.executable, '-c', """
+import fcntl, os, pathlib, sys, time
+directory = pathlib.Path(os.environ['INSIDE_HEAVY_CHECK_DIRECTORY'])
+slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
+print('waiting', flush=True)
+while True:
+    for slot in slots:
+        try:
+            fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            continue
+        print('acquired', flush=True)
+        print('READY', flush=True)
+        sys.stdin.readline()
+        sys.exit(0)
+    time.sleep(0.05)
+"""])
+        self.line(legacy, 'waiting')
+        waiter = self.start()
+        self.line(waiter, 'waiting')
+        fcntl.flock(slots[0], fcntl.LOCK_UN)
+        with selectors.DefaultSelector() as selector:
+            for process in (legacy, waiter):
+                selector.register(process.stdout, selectors.EVENT_READ, process)
+            ready = selector.select(timeout=10)
+            self.assertTrue(ready, 'waiting for legacy or FIFO admission')
+            first = ready[0][0].data
+        second = waiter if first is legacy else legacy
+        for process in (first, second):
+            self.line(process, 'acquired')
+            self.line(process, 'READY')
+            with self.assertRaises(BlockingIOError):
+                fcntl.flock(slots[0], fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.release_fork(process)
+            self.assertEqual(process.wait(timeout=10), 0)
+        fcntl.flock(slots[0], fcntl.LOCK_EX | fcntl.LOCK_NB)
+
     def test_eight_waiters_use_less_than_point_two_cpu_seconds_over_three_seconds(self):
         holders = self.holders()
         waiters = [self.start([sys.executable, '-c',
@@ -214,10 +390,20 @@ class LockTest(unittest.TestCase):
             holder.stdin.write(b'\n')
             holder.stdin.flush()
             self.assertEqual(holder.wait(timeout=10), 0)
-        for waiter in waiters:
-            self.line(waiter, 'acquired')
-            self.line(waiter, 'READY')
-            self.assertEqual(waiter.wait(timeout=10), 0)
+        # Launch order is not FIFO registration order. Observe whichever waiter
+        # advances, rather than spending one admission budget on the whole queue.
+        with selectors.DefaultSelector() as selector:
+            for waiter in waiters:
+                selector.register(waiter.stdout, selectors.EVENT_READ, waiter)
+            while selector.get_map():
+                ready = selector.select(timeout=10)
+                self.assertTrue(ready, 'waiting for next acquired waiter')
+                for key, _ in ready:
+                    waiter = key.data
+                    self.line(waiter, 'acquired')
+                    self.line(waiter, 'READY')
+                    self.assertEqual(waiter.wait(timeout=10), 0)
+                    selector.unregister(key.fileobj)
         self.assertLess(cpu, 0.2)
 
     def test_nested_command_uses_outer_slot(self):
@@ -239,10 +425,52 @@ class LockTest(unittest.TestCase):
 
     def test_waiter_can_be_cancelled(self):
         self.holders()
-        waiting = self.start()
-        self.line(waiting, 'waiting')
+        # Hold the parent inside fork until the supervisor reports waiting.
+        # This makes cancellation precede any post-fork handler registration.
+        launcher = """
+import os, sys
+sys.path.insert(0, sys.argv.pop(1))
+import lock
+fork = os.fork
+def gated_fork():
+    child = fork()
+    if child:
+        print('FORK_PARENT', flush=True)
+        sys.stdin.readline()
+    return child
+os.fork = gated_fork
+sys.exit(lock.main())
+"""
+        waiting = self.start(launcher=[sys.executable, '-c', launcher,
+                                      str(WRAPPER.parent / 'heavy-check'),
+                                      sys.executable, '-c', FIXTURE])
+        self.addCleanup(self.release_fork, waiting)
+        lines = [self.line(waiting, ''), self.line(waiting, '')]
+        self.assertTrue(any('FORK_PARENT' in line for line in lines))
+        self.assertTrue(any('waiting' in line for line in lines))
+        self.addCleanup(self.resume, waiting.pid)
+        os.kill(waiting.pid, signal.SIGSTOP)
+        deadline = time.monotonic() + 10
+        while True:
+            pid, status = os.waitpid(waiting.pid, os.WUNTRACED | os.WNOHANG)
+            if pid:
+                break
+            self.assertLess(time.monotonic(), deadline, 'waiting for parent SIGSTOP')
+            # Poll the OS stop fact; elapsed time only bounds a stuck barrier.
+            time.sleep(0.01)
+        self.assertTrue(os.WIFSTOPPED(status))
         waiting.terminate()
+        self.release_fork(waiting)
+        self.resume(waiting.pid)
         self.assertEqual(waiting.wait(timeout=10), 143)
+
+    @staticmethod
+    def release_fork(process):
+        try:
+            process.stdin.write(b'\n')
+            process.stdin.flush()
+        except BrokenPipeError:
+            pass
 
     def test_exit_code_and_release_after_failure(self):
         failed = self.start([sys.executable, '-c', 'raise SystemExit(17)'])

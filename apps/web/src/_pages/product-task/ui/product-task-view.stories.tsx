@@ -1,3 +1,7 @@
+import {
+  variantDiagram,
+  expectVariantDiagram,
+} from "@/storybook/image-variants";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
@@ -7,6 +11,7 @@ import {
   learnerMcpUrl,
   notSubmittedYet,
   openProductTask,
+  openFormatCTask,
   submittedTwice,
 } from "@/storybook/product-task.fixtures";
 import {
@@ -264,3 +269,163 @@ function loadsInPlace({
 
 export const LoadsInPlace: Story = { ...loadsInPlace(desktop) };
 export const LoadsInPlaceMobile: Story = { ...loadsInPlace(mobile) };
+
+/** A complete synthetic c page keeps its Markdown and folds advice; agent evidence never enters the reader. */
+export const FormatC: Story = {
+  args: { page: openFormatCTask, submissions: notSubmittedYet },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Задание 1. Собери учебный проект",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Что нужно сделать" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Что решаешь сам" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /^урок$/u })).toHaveAttribute(
+      "href",
+      "/materials/synthetic-lesson",
+    );
+    await expect(page.queryByText("Чем подтвердить")).toBeNull();
+    await expect(
+      page.getAllByRole("heading", { level: 2, name: "Материалы к заданию" }),
+    ).toHaveLength(1);
+    const advice = page
+      .getByText("Мой совет", { exact: true })
+      .closest("summary");
+    if (advice === null)
+      throw new Error("Task advice must use a native summary.");
+    await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
+    await userEvent.click(advice);
+    await expect(page.getByText("Начни с одного запроса.")).toBeVisible();
+    await userEvent.click(advice);
+    await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
+    const image = page.getByRole("img", { name: "Схема учебного проекта" });
+    await expect(image).toBeVisible();
+    await waitFor(async () => {
+      await expect(image).toHaveProperty("complete", true);
+      await expect(image).not.toHaveProperty("naturalWidth", 0);
+    });
+  },
+};
+
+export const FormatCMobile: Story = {
+  ...FormatC,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const SourceAnchors: Story = {
+  args: {
+    submissions: notSubmittedYet,
+    page: {
+      ...openFormatCTask,
+      task: {
+        ...openFormatCTask.task,
+        page: {
+          title: "Задание с исходными якорями",
+          summary: "Синтетическая проверка навигации Content.",
+          cover: null,
+          artifacts: [],
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "heading",
+                level: 2,
+                content: [
+                  {
+                    kind: "text",
+                    text: "Как спроектировать один этап?",
+                    marks: [],
+                  },
+                ],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "task-submit", marks: [] }],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "task-mine", marks: [] }],
+              },
+              {
+                kind: "heading",
+                level: 2,
+                content: [
+                  { kind: "text", text: "task-mine-heading", marks: [] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "Как спроектировать один этап?" }),
+    ).toHaveAttribute("id", "как-спроектировать-один-этап");
+    await expect(
+      canvasElement.querySelectorAll('[id="task-section-0"]'),
+    ).toHaveLength(1);
+    await expect(
+      page.getByRole("heading", { name: /^task-submit$/u }),
+    ).toHaveAttribute("id", "task-submit");
+    const ids = Array.from(canvasElement.querySelectorAll("[id]")).map(
+      (node) => node.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Части задания" })
+        .querySelector('a[href="#task-submit:page"]'),
+    ).not.toBeNull();
+    await expect(
+      page.getByRole("region", { name: "Мои сдачи" }),
+    ).toBeInTheDocument();
+  },
+};
+
+export const ImageVariants: Story = {
+  args: {
+    page: {
+      ...openFormatCTask,
+      task: {
+        ...openFormatCTask.task,
+        page: {
+          title: "Задание со схемой",
+          summary: "Варианты схемы",
+          cover: null,
+          artifacts: [],
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "Схема решения", marks: [] }],
+              },
+              variantDiagram,
+            ],
+          },
+        },
+      },
+    },
+    submissions: notSubmittedYet,
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, false),
+};
+export const ImageVariantsMobile: Story = {
+  ...ImageVariants,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
+};

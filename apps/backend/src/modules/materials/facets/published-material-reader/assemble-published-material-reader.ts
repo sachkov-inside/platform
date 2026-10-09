@@ -1,3 +1,4 @@
+import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
 import {
   assembleReadPublishedPractice,
   assembleListPublishedPractices,
@@ -30,6 +31,7 @@ export function assemblePublishedMaterialReader(dependencies: {
   return Object.freeze({
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
+    readHomeProjections: () => readHomeProjections(dependencies.prisma),
     readHomePinnedSeries: () => readHomePinnedSeries(dependencies.prisma),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(

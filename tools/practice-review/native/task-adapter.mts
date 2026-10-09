@@ -24,6 +24,7 @@ export function syntheticLearningTasks(input: {
 }) {
   const definition = taskDefinitionSchema.parse(input.definition);
   const task: CurrentTask = {
+    page: null,
     id: "00000000-0000-4000-8000-000000000946",
     code: input.code,
     title: "Заявки на консультацию",

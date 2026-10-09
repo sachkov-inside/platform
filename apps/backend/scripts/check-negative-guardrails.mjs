@@ -108,6 +108,22 @@ expectFailure(
   "node",
   [
     "scripts/check-backend-architecture.mjs",
+    "test/guardrails/fixtures/product-delegate-forbidden",
+  ],
+  [
+    "src/modules/reading-activity/features/read-product-by-hand/read-product-by-hand.ts: product belongs to another Module; pass the transaction to its owner's function (product)",
+  ],
+);
+
+expectSuccess("node", [
+  "scripts/check-backend-architecture.mjs",
+  "test/guardrails/fixtures/architecture-allowed",
+]);
+
+expectFailure(
+  "node",
+  [
+    "scripts/check-backend-architecture.mjs",
     "test/guardrails/fixtures/architecture",
   ],
   [

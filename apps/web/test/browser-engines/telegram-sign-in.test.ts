@@ -21,6 +21,7 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 import { hasText } from "../../src/shared/lib/text";
+import { captureWebkitFailureDiagnostics } from "../support/webkit-failure-diagnostics";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 let browser: Browser;
@@ -336,7 +337,10 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
   let tracing = false;
   let traceExport: Promise<void> | undefined;
   let width: number | undefined;
+  const capture = captureWebkitFailureDiagnostics();
+  const initialResources = capture.snapshot();
   let pendingStep = "launch";
+  let pendingStartedMilliseconds = capture.elapsedMilliseconds();
   let lastCompletedStep: string | undefined;
   const steps: {
     name: string;
@@ -346,6 +350,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
   const step: BrowserStep = async (name, operation) => {
     signal.throwIfAborted();
     pendingStep = name;
+    pendingStartedMilliseconds = capture.elapsedMilliseconds();
     const started = performance.now();
     const result = await operation();
     signal.throwIfAborted();
@@ -367,23 +372,61 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
   // Vitest invokes this hook after a timeout too, while the test's await is still pending.
   // Save the phase before attempting trace export, including failures before a context exists.
   onTestFinished(async () => {
-    if (task.result?.state !== "fail") return;
-    await mkdir(diagnostics, { recursive: true });
-    await writeFile(
-      resolve(diagnostics, "failure.json"),
-      JSON.stringify({ pendingStep, lastCompletedStep, width, steps }, null, 2),
-    );
+    // End the global log scope before asynchronous failure cleanup can stall.
+    capture.restore();
     try {
-      if (tracing && context !== undefined) {
-        await exportTrace(context);
+      if (task.result?.state !== "fail") return;
+      try {
+        const failureObservedMilliseconds = capture.elapsedMilliseconds();
+        const failureResources = await capture.snapshot();
+        await mkdir(diagnostics, { recursive: true });
+        await writeFile(
+          resolve(diagnostics, "failure.json"),
+          JSON.stringify(
+            {
+              pendingStep,
+              lastCompletedStep,
+              width,
+              steps,
+              pendingStartedMilliseconds,
+              failureObservedMilliseconds,
+              pendingElapsedMilliseconds:
+                failureObservedMilliseconds - pendingStartedMilliseconds,
+              resources: {
+                initial: await initialResources,
+                failure: failureResources,
+              },
+            },
+            null,
+            2,
+          ),
+        );
+        // Retain the protocol even if trace export or browser shutdown stalls.
+        await writeFile(
+          resolve(diagnostics, "webkit-log.json"),
+          JSON.stringify(capture.logs(), null, 2),
+        );
+        if (tracing && context !== undefined) {
+          await exportTrace(context);
+        }
+      } finally {
+        // A launch may settle just after Vitest's deadline; still close the browser it created.
+        const failedBrowser =
+          mobileBrowser ?? (await launching?.catch(() => undefined));
+        await failedBrowser?.close();
       }
     } finally {
-      // A launch may settle just after Vitest's deadline; still close the browser it created.
-      const failedBrowser =
-        mobileBrowser ?? (await launching?.catch(() => undefined));
-      await failedBrowser?.close();
+      capture.restore();
+      if (task.result?.state === "fail") {
+        await mkdir(diagnostics, { recursive: true });
+        await writeFile(
+          resolve(diagnostics, "webkit-log.json"),
+          JSON.stringify(capture.logs(), null, 2),
+        );
+      }
     }
   });
+  await initialResources;
 
   const currentBrowser = await step("launch", () => {
     launching = webkit.launch();

@@ -101,6 +101,7 @@ const telegramMembershipTables = [
   "community_desired_states",
   "community_operations",
   "community_projection_cursor",
+  "community_projection_retries",
   "link_transactions",
 ] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -244,7 +245,10 @@ describe("Platform migrations", () => {
         "0080_guide_task_placement_and_form",
         "0081_remove_workshop",
         "0082_domain_names",
-        "0085_product_cohort_price_after_start",
+        "0083_task_pages",
+        "0084_owner_command_keys",
+        "0085_community_projection_retries",
+        "0086_product_cohort_price_after_start",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -918,7 +922,10 @@ describe("Platform migrations", () => {
           "0080_guide_task_placement_and_form",
           "0081_remove_workshop",
           "0082_domain_names",
-          "0085_product_cohort_price_after_start",
+          "0083_task_pages",
+          "0084_owner_command_keys",
+          "0085_community_projection_retries",
+          "0086_product_cohort_price_after_start",
         ],
       });
 

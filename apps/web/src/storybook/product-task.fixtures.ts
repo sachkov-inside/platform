@@ -113,7 +113,13 @@ export const openProductTask: OpenProductTask = {
 export const closedProductTask: ProductTaskPlace = place;
 
 const versions = [
-  { version: 2, criteria: openProductTask.task.definition.criteria },
+  {
+    version: 2,
+    criteria: criteriaV2.map((criterion) => ({
+      ...criterion,
+      acceptableEvidence: [...criterion.acceptableEvidence],
+    })),
+  },
   {
     version: 1,
     criteria: criteriaV1.map((criterion) => ({
@@ -166,3 +172,129 @@ export const notSubmittedYet: OwnSubmissionsView = {
 };
 
 export const learnerMcpUrl = "https://inside.sachkov.dev/mcp/learning";
+
+/** Synthetic format c page; no real course import (#1194). */
+export const openFormatCTask: OpenProductTask = {
+  ...openProductTask,
+  task: {
+    ...openProductTask.task,
+    code: "synthetic-c-task",
+    title: "Собери учебный проект",
+    access: "free",
+    product: { slug: "synthetic-course", name: "Тестовый курс" },
+    definition: {
+      schemaVersion: 2,
+      format: "c",
+      intro: "Начни с небольшого проекта.",
+      freedom: "Стек выбираешь сам.",
+      criteria: [
+        {
+          id: "project",
+          level: "required",
+          task: "Собери проект",
+          explanation: "Проверь [урок](/materials/synthetic-lesson).",
+          advice: "Начни с одного запроса.",
+        },
+      ],
+    },
+    page: {
+      title: "Задание 1. Собери учебный проект",
+      summary: "Синтетическая страница задания формата c.",
+      cover: null,
+      artifacts: [],
+      body: {
+        schemaVersion: 1,
+        blocks: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Начни с небольшого проекта.", marks: [] },
+            ],
+          },
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Что нужно сделать", marks: [] }],
+          },
+          {
+            kind: "heading",
+            level: 3,
+            content: [{ kind: "text", text: "1. Собери проект", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Проверь ", marks: [] },
+              {
+                kind: "text",
+                text: "урок",
+                marks: [{ kind: "link", href: "/materials/synthetic-lesson" }],
+              },
+            ],
+          },
+          {
+            kind: "image",
+            assetId: "960",
+            alt: "Схема учебного проекта",
+            width: 960,
+            height: 900,
+            variants: [{ width: 960, height: 900 }],
+          },
+          {
+            kind: "callout",
+            tone: "tip",
+            title: "Мой совет",
+            collapse: "collapsed",
+            content: [
+              {
+                kind: "paragraph",
+                content: [
+                  { kind: "text", text: "Начни с одного запроса.", marks: [] },
+                ],
+              },
+            ],
+          },
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Что решаешь сам", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: "Стек выбираешь сам.", marks: [] }],
+          },
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Сдать", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Передай агенту код задания и проверь отчёт до отправки.",
+                marks: [],
+              },
+            ],
+          },
+          {
+            kind: "heading",
+            level: 2,
+            content: [{ kind: "text", text: "Материалы к заданию", marks: [] }],
+          },
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Учебный материал",
+                marks: [{ kind: "link", href: "/materials/synthetic-lesson" }],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+};

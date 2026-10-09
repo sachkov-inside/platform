@@ -13,11 +13,14 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { materialSourceAnchors } from "@/entities/material";
 import {
   formatSubmissionDay,
   formatSubmissionMoment,
   productTaskAgentPhrase,
 } from "@/entities/product-task";
+import { TaskPageBody } from "./task-page-body";
+
 import { ProductTaskForm } from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -53,19 +56,140 @@ export function ProductTaskView({
   submissions,
 }: ProductTaskViewProps) {
   const { task } = page;
+  const sourceIds = new Set(
+    materialSourceAnchors(task.page?.body.blocks ?? []).values(),
+  );
+  const pageId = (id: string) => (sourceIds.has(id) ? `${id}:page` : id);
   const criteria = task.definition.criteria;
   const additional = criteria.some(({ level }) => level === "additional");
-  const parts = [
-    ["situation", "Ситуация"],
-    ["result", "Результат"],
-    ["required", "Обязательно"],
-    ...(additional ? [["additional", "Дополнительно"] as const] : []),
-    ["freedom", "Свобода"],
-    ["submit", "Сдача"],
-    ["mine", "Мои сдачи"],
-  ] as const;
+  const parts =
+    "format" in task.definition
+      ? ([
+          ["submit", "Сдать"],
+          ["mine", "Мои сдачи"],
+        ] as const)
+      : ([
+          ["situation", "Ситуация"],
+          ["result", "Результат"],
+          ["required", "Обязательно"],
+          ...(additional ? [["additional", "Дополнительно"] as const] : []),
+          ["freedom", "Свобода"],
+          ["submit", "Сдача"],
+          ["mine", "Мои сдачи"],
+        ] as const);
   const latest =
     submissions.kind === "ready" ? submissions.submissions[0] : undefined;
+  const submissionBlock = (
+    <section
+      aria-labelledby={
+        "format" in task.definition ? undefined : pageId("task-submit-heading")
+      }
+      aria-label={"format" in task.definition ? "Сдать" : undefined}
+      className="scroll-mt-6 rounded-2xl bg-muted/60 p-5 sm:p-6"
+      id={pageId("task-submit")}
+    >
+      {"format" in task.definition ? null : (
+        <h2
+          className="text-xl font-semibold tracking-[-0.015em]"
+          id={pageId("task-submit-heading")}
+        >
+          Сдача
+        </h2>
+      )}
+      <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">
+        Сдаёт твой агент: он проверит проект по критериям и отправит отчёт с
+        твоего согласия.
+      </p>
+      {page.submission.accepting ? null : (
+        <p
+          className="mt-4 rounded-xl border border-[color-mix(in_srgb,var(--callout-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--callout-warning)_10%,transparent)] px-4 py-3 text-sm leading-6"
+          role="status"
+        >
+          Приём сдач скоро откроется. Агент уже может проверить проект, но
+          отправить сдачу пока нельзя.
+        </p>
+      )}
+      <ol className="mt-5 grid gap-5 text-base">
+        <SubmitStep number={1} title="Подключи учебный MCP к своему агенту">
+          <p className="text-sm leading-6 text-body-muted">
+            Один раз для всех заданий. Подходит Claude Code, Codex, OpenCode и
+            другой агент с MCP по HTTP. Войди тем же аккаунтом, что и на сайте.
+          </p>
+          <p className="mt-2 rounded-lg bg-card px-3 py-2 font-mono text-[0.8125rem] [overflow-wrap:anywhere]">
+            {learnerMcpUrl}
+          </p>
+          <a
+            className="mt-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
+            href="/practice-review-setup.txt"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Инструкция подключения
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </a>
+        </SubmitStep>
+        <SubmitStep number={2} title="Передай агенту эту фразу">
+          <AgentPhrase text={productTaskAgentPhrase(task.code)} />
+        </SubmitStep>
+        <SubmitStep number={3} title="Проверь отчёт и подтверди отправку">
+          <p className="text-sm leading-6 text-body-muted">
+            Агент прочитает задание и проект, ничего не меняя. Команду он
+            запустит, только если ты разрешишь именно её. Перед отправкой агент
+            покажет весь отчёт и поможет написать заметку в 5–7 строк.
+          </p>
+        </SubmitStep>
+      </ol>
+      <Disclosure
+        className="mt-5"
+        title="Процедура проверки, которую получает агент"
+      >
+        <p className="text-sm leading-6 text-body-muted">
+          Тот же текст отдаёт учебный MCP. Версия процедуры{" "}
+          {page.reviewProtocol.version}.
+        </p>
+        <ol
+          className="mt-3 grid list-decimal gap-2 pl-5 font-mono text-[0.75rem] leading-5 text-body-muted"
+          lang="en"
+        >
+          {page.reviewProtocol.instructions.map((line, index) => (
+            <li key={String(index)}>{line}</li>
+          ))}
+        </ol>
+      </Disclosure>
+      <Disclosure
+        className="mt-3 bg-card"
+        dataAttribute="fallback-form"
+        title="Нет агента с MCP? Сдать через форму"
+      >
+        {submissions.kind === "guest" ? (
+          <SignIn
+            explanation="Сдача сохраняется в твоём аккаунте. Войди, чтобы отправить её."
+            returnTo={returnTo}
+          />
+        ) : (
+          <ProductTaskForm
+            accepting={page.submission.accepting}
+            code={task.code}
+            taskVersion={task.version}
+          />
+        )}
+      </Disclosure>
+    </section>
+  );
+  const mineBlock = (
+    <TaskSection
+      id="mine"
+      sectionId={pageId("task-mine")}
+      headingId={pageId("task-mine-heading")}
+      title="Мои сдачи"
+    >
+      <OwnSubmissions
+        currentVersion={task.version}
+        returnTo={returnTo}
+        submissions={submissions}
+      />
+    </TaskSection>
+  );
   return (
     <div
       className="@container/task mx-auto min-w-0 max-w-[43rem] pb-16"
@@ -76,7 +200,7 @@ export function ProductTaskView({
       <header className="mt-4" data-task-header>
         <TaskEyebrow task={task} />
         <h1 className="mt-4 break-words text-balance text-2xl font-semibold leading-[1.18] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.2]">
-          {task.title}
+          {task.page?.title ?? task.title}
         </h1>
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
           {submissions.kind !== "ready" ? null : latest === undefined ? (
@@ -98,7 +222,7 @@ export function ProductTaskView({
           {parts.map(([id, label]) => (
             <a
               className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-              href={`#task-${id}`}
+              href={`#${pageId(`task-${id}`)}`}
               key={id}
             >
               {label}
@@ -108,150 +232,78 @@ export function ProductTaskView({
       </header>
 
       <div className="mt-10 grid gap-10 text-pretty text-[1.0625rem] leading-[1.7]">
-        <TaskSection id="situation" title="Ситуация">
-          <p className="whitespace-pre-line text-body-muted">
-            {task.definition.situation}
-          </p>
-        </TaskSection>
-        <TaskSection id="result" title="Результат">
-          <p className="mb-3 text-body-muted">В конце работает так:</p>
-          <ul className="grid gap-2.5">
-            {task.definition.result.map((item, index) => (
-              <li className="flex gap-3" key={`${String(index)}-${item}`}>
-                <Check
-                  aria-hidden="true"
-                  className="mt-1.5 size-4 shrink-0 text-[color:var(--callout-good)]"
-                />
-                <span className="min-w-0 [overflow-wrap:anywhere]">{item}</span>
-              </li>
-            ))}
-          </ul>
-        </TaskSection>
-        <TaskSection id="required" title="Обязательно">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Без этого задание не сдано.
-          </p>
-          <CriteriaList criteria={criteria} level="required" />
-        </TaskSection>
-        {additional ? (
-          <TaskSection id="additional" title="Дополнительно">
-            <p className="mb-4 text-sm text-muted-foreground">
-              Глубина для тех, кто хочет больше. На сдачу не влияет.
-            </p>
-            <CriteriaList criteria={criteria} level="additional" />
-          </TaskSection>
+        {task.page === undefined ? (
+          <>
+            <TaskSection id="situation" title="Ситуация">
+              <p className="whitespace-pre-line text-body-muted">
+                {"situation" in task.definition
+                  ? task.definition.situation
+                  : task.definition.intro}
+              </p>
+            </TaskSection>
+            <TaskSection id="result" title="Результат">
+              <p className="mb-3 text-body-muted">В конце работает так:</p>
+              <ul className="grid gap-2.5">
+                {("result" in task.definition
+                  ? task.definition.result
+                  : []
+                ).map((item, index) => (
+                  <li className="flex gap-3" key={`${String(index)}-${item}`}>
+                    <Check
+                      aria-hidden="true"
+                      className="mt-1.5 size-4 shrink-0 text-[color:var(--callout-good)]"
+                    />
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </TaskSection>
+            <TaskSection id="required" title="Обязательно">
+              <p className="mb-4 text-sm text-muted-foreground">
+                Без этого задание не сдано.
+              </p>
+              <CriteriaList criteria={criteria} level="required" />
+            </TaskSection>
+            {additional ? (
+              <TaskSection id="additional" title="Дополнительно">
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Глубина для тех, кто хочет больше. На сдачу не влияет.
+                </p>
+                <CriteriaList criteria={criteria} level="additional" />
+              </TaskSection>
+            ) : null}
+            <TaskSection id="freedom" title="Свобода">
+              <p className="whitespace-pre-line text-body-muted">
+                {task.definition.freedom}
+              </p>
+            </TaskSection>
+          </>
+        ) : (
+          <TaskPageBody
+            page={task.page}
+            code={task.code}
+            productSlug={task.product.slug}
+          >
+            {submissionBlock}
+            {mineBlock}
+          </TaskPageBody>
+        )}
+
+        {task.page === undefined ? (
+          <>
+            {submissionBlock}
+            {mineBlock}
+          </>
         ) : null}
-        <TaskSection id="freedom" title="Свобода">
-          <p className="whitespace-pre-line text-body-muted">
-            {task.definition.freedom}
-          </p>
-        </TaskSection>
 
-        <section
-          aria-labelledby="task-submit-heading"
-          className="scroll-mt-6 rounded-2xl bg-muted/60 p-5 sm:p-6"
-          id="task-submit"
-        >
-          <h2
-            className="text-xl font-semibold tracking-[-0.015em]"
-            id="task-submit-heading"
-          >
-            Сдача
-          </h2>
-          <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">
-            Сдаёт твой агент: он проверит проект по критериям и отправит отчёт с
-            твоего согласия.
-          </p>
-          {page.submission.accepting ? null : (
-            <p
-              className="mt-4 rounded-xl border border-[color-mix(in_srgb,var(--callout-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--callout-warning)_10%,transparent)] px-4 py-3 text-sm leading-6"
-              role="status"
-            >
-              Приём сдач скоро откроется. Агент уже может проверить проект, но
-              отправить сдачу пока нельзя.
-            </p>
-          )}
-          <ol className="mt-5 grid gap-5 text-base">
-            <SubmitStep number={1} title="Подключи учебный MCP к своему агенту">
-              <p className="text-sm leading-6 text-body-muted">
-                Один раз для всех заданий. Подходит Claude Code, Codex, OpenCode
-                и другой агент с MCP по HTTP. Войди тем же аккаунтом, что и на
-                сайте.
-              </p>
-              <p className="mt-2 rounded-lg bg-card px-3 py-2 font-mono text-[0.8125rem] [overflow-wrap:anywhere]">
-                {learnerMcpUrl}
-              </p>
-              <a
-                className="mt-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
-                href="/practice-review-setup.txt"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Инструкция подключения
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </a>
-            </SubmitStep>
-            <SubmitStep number={2} title="Передай агенту эту фразу">
-              <AgentPhrase text={productTaskAgentPhrase(task.code)} />
-            </SubmitStep>
-            <SubmitStep number={3} title="Проверь отчёт и подтверди отправку">
-              <p className="text-sm leading-6 text-body-muted">
-                Агент прочитает задание и проект, ничего не меняя. Команду он
-                запустит, только если ты разрешишь именно её. Перед отправкой
-                агент покажет весь отчёт и поможет написать заметку в 5–7 строк.
-              </p>
-            </SubmitStep>
-          </ol>
-          <Disclosure
-            className="mt-5"
-            title="Процедура проверки, которую получает агент"
-          >
-            <p className="text-sm leading-6 text-body-muted">
-              Тот же текст отдаёт учебный MCP. Версия процедуры{" "}
-              {page.reviewProtocol.version}.
-            </p>
-            <ol
-              className="mt-3 grid list-decimal gap-2 pl-5 font-mono text-[0.75rem] leading-5 text-body-muted"
-              lang="en"
-            >
-              {page.reviewProtocol.instructions.map((line, index) => (
-                <li key={String(index)}>{line}</li>
-              ))}
-            </ol>
-          </Disclosure>
-          <Disclosure
-            className="mt-3 bg-card"
-            dataAttribute="fallback-form"
-            title="Нет агента с MCP? Сдать через форму"
-          >
-            {submissions.kind === "guest" ? (
-              <SignIn
-                explanation="Сдача сохраняется в твоём аккаунте. Войди, чтобы отправить её."
-                returnTo={returnTo}
-              />
-            ) : (
-              <ProductTaskForm
-                accepting={page.submission.accepting}
-                code={task.code}
-                taskVersion={task.version}
-              />
-            )}
-          </Disclosure>
-        </section>
-
-        <TaskSection id="mine" title="Мои сдачи">
-          <OwnSubmissions
-            currentVersion={task.version}
-            returnTo={returnTo}
-            submissions={submissions}
-          />
-        </TaskSection>
-
-        {page.relatedMaterials.length === 0 ? null : (
-          <section aria-labelledby="task-related-heading">
+        {task.page !== undefined ||
+        page.relatedMaterials.length === 0 ? null : (
+          <section aria-labelledby={pageId("task-related-heading")}>
             <h2
               className="text-xl font-semibold tracking-[-0.015em]"
-              id="task-related-heading"
+              id={pageId("task-related-heading")}
             >
               Материалы к заданию
             </h2>
@@ -391,20 +443,20 @@ function TaskSection({
   children,
   id,
   title,
+  sectionId = `task-${id}`,
+  headingId = `task-${id}-heading`,
 }: {
   readonly children: ReactNode;
   readonly id: string;
   readonly title: string;
+  readonly sectionId?: string;
+  readonly headingId?: string;
 }) {
   return (
-    <section
-      aria-labelledby={`task-${id}-heading`}
-      className="scroll-mt-6"
-      id={`task-${id}`}
-    >
+    <section aria-labelledby={headingId} className="scroll-mt-6" id={sectionId}>
       <h2
         className="mb-3 text-xl font-semibold tracking-[-0.015em]"
-        id={`task-${id}-heading`}
+        id={headingId}
       >
         {title}
       </h2>
@@ -428,8 +480,12 @@ function CriteriaList({
         .filter((criterion) => criterion.level === level)
         .map((criterion) => (
           <li className="min-w-0" key={criterion.id}>
-            <p className="[overflow-wrap:anywhere]">{criterion.requirement}</p>
-            {compact ? null : (
+            <p className="[overflow-wrap:anywhere]">
+              {"requirement" in criterion
+                ? criterion.requirement
+                : criterion.task}
+            </p>
+            {compact || !("acceptableEvidence" in criterion) ? null : (
               <details className="group mt-1.5">
                 <InlineSummary className="min-h-8 font-normal">
                   Чем подтвердить

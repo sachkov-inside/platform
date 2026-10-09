@@ -3,10 +3,11 @@ import {
   materialBlockChildren,
   type RenderedBlock,
 } from "@inside/material-blocks";
-import type {
-  AccessAvailability,
-  ContentAccess,
-  Subject,
+import {
+  CONTENT_ACCESS_BATCH_SIZE,
+  type AccessAvailability,
+  type ContentAccess,
+  type Subject,
 } from "../../../content-access/index.js";
 import {
   materialId as checkedMaterialId,
@@ -77,14 +78,20 @@ export async function readLearningMaterial(
   >();
   // ContentAccess bounds each availability batch; large lessons preserve every reference.
   const references = [...assets.values()];
-  for (let start = 0; start < references.length; start += 100) {
+  for (
+    let start = 0;
+    start < references.length;
+    start += CONTENT_ACCESS_BATCH_SIZE
+  ) {
     const batch = await dependencies.contentAccess.checkAvailabilityMany({
       subject,
-      operations: references.slice(start, start + 100).map((asset) => ({
-        itemId: asset.assetId,
-        resource: { kind: "asset", assetId: asset.assetId },
-        action: asset.kind === "file" ? "download" : "read",
-      })),
+      operations: references
+        .slice(start, start + CONTENT_ACCESS_BATCH_SIZE)
+        .map((asset) => ({
+          itemId: asset.assetId,
+          resource: { kind: "asset", assetId: asset.assetId },
+          action: asset.kind === "file" ? "download" : "read",
+        })),
       enforcementPoint: "mcp_material_read",
       correlationId: randomUUID(),
     });

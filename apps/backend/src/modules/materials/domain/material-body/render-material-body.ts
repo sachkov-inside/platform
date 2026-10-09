@@ -2,7 +2,7 @@ import {
   isJsonArray,
   materialBlockChildren,
   materialBlockHeading,
-  materialBlockResource,
+  materialBlockResources,
   materialBlockText,
   renderMaterialBlocks,
 } from "@inside/material-blocks";
@@ -43,10 +43,7 @@ function collect(block: RenderedBlock, into: Collected): void {
   if (heading !== undefined) {
     into.headings.push(heading);
   }
-  const resource = materialBlockResource(block);
-  if (resource !== undefined) {
-    into.resources.push(resource);
-  }
+  into.resources.push(...materialBlockResources(block));
   if (block.kind === "variant") {
     into.modeVariants = true;
   }

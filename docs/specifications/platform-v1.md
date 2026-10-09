@@ -233,6 +233,13 @@ production trade-off подтверждён evidence, а не заранее д�
 ключевая мысль, вариантный шаг, изображение и файл. Новый блок — одна запись в реестре и один
 компонент внешнего вида; приложения блоки не объявляют.
 
+Нумерованный список сохраняет целочисленный `attrs.start` от Markdown-импорта через сохранение
+до общей проекции и отображения в Preview и Reader (#1200). Вложенный список сохраняет своё
+начало. Реестр проверяет начало как целое число от −2147483648 до 2147483647, диапазон HTML `ol.start`;
+`null`, строки, дроби и числа вне диапазона отклоняются.
+В проекции необязательное `ordered_list.start` задаёт начало через HTML `ol.start`; отсутствие
+поля означает 1. Начало 1 не добавляет поле в проекцию. Ненумерованные списки поля не получают.
+
 Запись реестра может объявить и собственные дочерние узлы. Они не входят в группу `block`,
 поэтому их содержит только их блок, у них нет своей записи в реестре и они не адресуются
 прогрессом и закладками — как `listItem` и `tableRow` из китов Tiptap. Вариантный шаг `variant`
@@ -380,6 +387,23 @@ Published membership projection доступна Library/internal search и exte
 Published body читается только для current `published` state; draft/unpublished недоступны через
 обычные read/download/play paths.
 
+### Source heading anchors
+
+Reader and Task c use the Content anchor contract: visible heading text in lowercase, punctuation removed,
+spaces replaced by hyphens, and collision-aware `-1`, `-2` suffixes. Unicode letters and numbers,
+underscores and hyphens remain. One document owns allocation across nested headings; code examples
+create no headings. Import preserves fragments in local Material and Task links, including same-page
+links. Both pages use the shared document renderer.
+The body scrolls to the matching heading after it arrives. An unknown fragment opens the page from
+the top without an error. Legacy `material-section-*` addresses remain aliases unless a source
+heading occupies that exact name. The owner chose Content source priority for this ambiguous
+address on 2026-10-08; non-colliding legacy addresses remain valid. Access checks still decide
+whether the body is available. The application skip link has a separate address so a source
+heading named Content keeps its own anchor. Task service sections receive a separate address when
+a source heading occupies their usual name; their navigation and accessible labels follow that address.
+[#1179](https://github.com/sachkov-inside/platform/issues/1179) owns the implementation and Task c
+integration with #1194; author acceptance on real Content chapters belongs to Content #56.
+
 ### Series step sequences
 
 `SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
@@ -460,16 +484,21 @@ membership главу не восстанавливает.
 
 Материал, перенесённый из источника, и материал, созданный в редакторе, не смешиваются в одном
 составе (#841). Добавление материала с другой принадлежностью возвращает `invalid_reference` с
-кодом `material_source_mismatch` и путём `/orderedMaterialIds/<n>`; редактор называет автору этот
+кодом `material_source_mismatch` и путём `/orderedMaterialIds/<n>` для reorder или
+`/metadata/seriesIds/<n>` для Create/Save; снятие membership в Save указывает `/metadata/seriesIds`. Редактор называет автору этот
 материал. Запись состава перенесённого Product через редактор остаётся `forbidden`; редактор
 отличает этот отказ от завершившейся сессии и не предлагает войти заново.
 
 Страница перенесённого Product в редакторе такую запись не отправляет (#844, решение владельца
 02.10.2026). Product с непустым `sourceId` она показывает для чтения: название, описание, блок
-«О продукте» и состав выводятся текстом, действия архива нет. Это ровно то, что backend для
-перенесённого Product из редактора отклоняет как `forbidden`: `updateContentCollection`,
-`setContentCollectionArchive` и `reorderSeries`. Обложка, закреп на главной и артефакты остаются
-действиями редактора.
+«О продукте» и состав выводятся текстом, действия архива нет. Backend отклоняет как `forbidden` обычную правку импортированного Material или Product,
+включая введение, обложку, артефакты и состав. `content-write-policy` в Materials владеет правилом:
+операции проверяют принадлежность отдельно от прав Account. Изменение чужого объекта даёт
+`forbidden`; несовместимое размещение материала даёт `invalid_reference/material_source_mismatch`.
+Архив импортированного Product меняет Platform через `setContentCollectionArchive` (REST/MCP),
+с проверкой версии; импорт этого полномочия не получает (#845, решение 08.10.2026).
+Закрепление на Главной остаётся действием Platform. Страница продукта из #844 по-прежнему
+не предлагает архив: решение #845 добавляет API/MCP, но не меняет её интерфейс.
 
 Локальный идентификатор главы в авторском пакете (`chapters[].id`) не является идентификатором
 главы Platform. Импорт разрешает его в постоянный Platform ID и хранит соответствие так же, как
@@ -576,7 +605,11 @@ Account без права получают «не найдено». `ContentAcce
 `prerequisites` — что нужно знать заранее, `scope` — что разбираем и что остаётся за границами.
 Каждое поле — точная строка после `trim()`, до 4000 UTF-16 code units; пустая строка означает
 ненаписанное поле. Имена полей совпадают с `product.yaml` авторской базы Inside Content, поэтому
-импорт переносит авторский текст без перевода. У Topic введения нет.
+импорт переносит авторский текст без перевода. У импортированного Product введение меняет
+только источник через `POST /authoring/import/products/update`; редактор/API/MCP его не пишут.
+Content v1/v2 допускает необязательное `products[].introduction` с этими четырьмя полями.
+Отсутствие поля сохраняет введение; четыре пустые строки явно очищают его.
+Пакеты прежнего экспортёра остаются совместимыми. У Topic введения нет.
 
 `updateContentCollection` / REST `PUT /authoring/collections/:collectionId` /
 MCP `content_collection_update` принимают необязательный объект `introduction` рядом с `name` и
@@ -973,10 +1006,20 @@ Storybook и реальные маршруты используют один pro
 ### MCP
 
 The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at its
-`/learning` subpath exposes only `learning_materials_list` and `learning_material_read`
-([#782](https://github.com/sachkov-inside/platform/issues/782), course source
-[ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105)). Both require a
-user-delegated Account; the learning surface does not grant author permissions. Discovery uses
+`/learning` subpath exposes seven tools, recorded in the generated
+[learner tool surface](../../apps/backend/mcp/learner-tool-surface.json):
+
+- `learning_materials_list` and `learning_material_read` discover and read materials
+  ([#782](https://github.com/sachkov-inside/platform/issues/782), course source
+  [ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105));
+- `learning_practice_read` reads lesson practice context and its review procedure;
+- `learning_tasks_list`, `learning_task_read`, `learning_task_submit` and
+  `learning_task_submissions` list and read Product Tasks, record the learner's submission and
+  read their own submissions ([Product Tasks contract](#product-tasks-on-the-participant-surface)).
+
+These tools require a user-delegated Account; the learning surface does not grant author permissions.
+`PRODUCT_TASK_SUBMISSIONS_ENABLED` gates submission independently of tool registration; production
+keeps it off until the data policy v4 gate is met. Discovery uses
 published catalog projections and current availability; a locked teaser contains no protected body.
 Reading uses the same PublishedMaterialReader and ContentAccess as the reader, then rechecks access
 and contentVersion after loading related presentations. Revocation or a concurrent Save refuses the
@@ -1290,8 +1333,9 @@ only the calling Account's own submission.
 - `learning_tasks_list` (`productSlug` optional): published tasks the Account can open, in Product,
   chapter and in-chapter order, with code, Product, chapter, title, current Task Version and the
   Account's latest submission time.
-- `learning_task_read` (`code`, `part`, pins): the current Task Version definition (`situation`,
-  `result`, `freedom`, `criteria[]` with `level: required | additional`), review procedure v3 and the
+- `learning_task_read` (`code`, `part`, pins): the current Task Version definition (v1 `situation`,
+  `result`, `freedom`, or v2 `intro`, `freedom`, criteria with explanations and optional advice;
+  `criteria[]` keeps `level: required | additional` and `acceptableEvidence`), review procedure v3 and the
   published related Materials with availability, as canonical JSON parts. `contextVersion` pins the
   task, version, definition digest and protocol version; `contentSha256` pins the whole payload.
   Later parts require both; a mismatch answers `task_context_version_mismatch` or
@@ -1322,6 +1366,63 @@ chapter right after which the programme shows the task; `null` or its absence pu
 start of the chapter, and a Material outside the chapter answers `after_material_not_in_chapter`.
 Moving the task advances only the revision.
 
+#### Course package v2 and format c Tasks (#1194)
+
+Source: [Platform #1194](https://github.com/sachkov-inside/platform/issues/1194), paired with
+[Content #55](https://github.com/sachkov-inside/inside-content/issues/55). The exporter contract was
+checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
+
+The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
+`loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
+`task-c-v2`, `github-anchors-v1`, `image-variants-v1` and `collapsible-callouts-v1`; unknown features are refused by name.
+Quizzes (#940) remain a separate integration. A Content package that requires that feature is
+refused until the integration supports it.
+
+Callout signs survive Markdown import into Materials and Task c pages (#1196). `-` maps to
+`collapse: collapsed`, `+` to `collapse: expanded`; absence of the sign keeps an ordinary callout.
+The optional document attribute accepts null or absence for old blocks; the rendered block omits
+it in both cases. The editor preserves it through serialization and clipboard HTML. Titles and
+nested Markdown bodies remain in the block; fenced examples stay code. Reader, Task c and author
+preview use native disclosure controls for signed callouts. Temporary semantic UI awaits the
+Storybook visual integration in #1278.
+
+Definition v1 keeps its `situation`, `result`, `freedom` and `requirement` fields. Definition v2 adds
+`format: c`, `intro`, `freedom` and criteria with `id`, `level`, `task`, `explanation`, optional
+`advice` and `acceptableEvidence`. Criteria have unique IDs, at least one required item, and
+nonempty evidence lists. Unknown definition fields are rejected. A definition change creates a new
+Task Version; earlier submissions keep their original version and criteria.
+
+The package's `tasks[].page` keeps the original Material-shaped page metadata, Markdown, links,
+images, cover and artifacts. The Task stores this source page separately from its rendered
+MaterialBody and source-reference maps. Page changes advance the Task revision, not the requirements
+version. Task title comes from the definition's YAML; the page heading uses `page.title`.
+
+The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
+«Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and inserts the usual
+submission controls before «Материалы к заданию». The current v2 Reader definition excludes
+`acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
+Markdown links through the same source map as the page without rewriting stored authored text.
+Source links may target either a Material or a Task. Asset delivery checks access to the Task and
+its current page reference, then delegates to Assets; it never publishes the technical asset owner.
+
+For existing Materials asset upload and cleanup, each Task page uses a private technical draft
+with the distinct source key `inside-task-page:<namespace>:<code>`. It holds image, cover and file
+references, stays outside Product composition and the feed, and uses closed access. It is an asset
+owner, not a second public course item. Task access determines delivery to the reader.
+
+`selection.taskIds` lists only Tasks, while chapter and Product `materialIds` list only Materials.
+The order in `tasks[]` orders Tasks within their chapter. `afterMaterialId` places a Task immediately
+after that chapter's Material; absence places it at the beginning. Neither placement duplicates a
+Task nor adds a Material ordinal.
+
+A null Task access is a preview conflict until an explicit access decision. Release preview accepts
+repeatable `--task-access CODE=free|closed`, validates codes and choices, and persists the decision
+in its fingerprint. Apply uses only that saved decision; canonical package bytes remain unchanged.
+The Material default never makes it free. If a Material already owns the Task source key, preview reports a
+Material-to-Task migration conflict. Apply refuses that migration, keeps the Material and its
+reading history and links, and creates no Task duplicate. Migration and real course transfer require
+a separate reviewed release decision; #1194 does not delete or archive the old Material.
+
 #### Product Task page and programme (#947)
 
 Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); the owner accepted
@@ -1329,7 +1430,7 @@ the look by prototype on 05.10.2026: the page is variant A «Документ»,
 in author order (variant 2).
 
 - `/products/<product-slug>/tasks/<code>` reads the session before rendering and is never cached. An
-  open task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
+  open v1 task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
   «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
   address, the phrase with the task code and procedure v3, the same text MCP returns, with the
   fallback form folded below. A task the reader cannot open shows only its title and chapter and
@@ -1379,3 +1480,21 @@ accepted look yet: it is temporary semantic UI until
   the learner reads «Автор ещё не смотрел». The learner reads the feedback on the task page and
   through `learning_task_submissions`. The browser reaches it through
   `PUT /api/authoring/product-tasks/feedback`.
+
+
+#### Static course image variants (#1195)
+
+Package v2 `materials[].imageVariants` and `tasks[].page.imageVariants` map the original Markdown
+image source to four PNG assets: `wideLight`, `wideDark`, `tallLight`, `tallDark`. The package requires
+`image-variants-v1`. Before any uploads or writes, load rejects incomplete sets, unknown sources,
+missing PNG asset records and an original image outside its set; package asset checks still verify
+all bytes and checksums. Image blocks keep `sourceSrc`, the four uploaded asset IDs, ALT and caption.
+All four assets remain referenced for access checks and cleanup; editor saves and repeated imports
+preserve their relation. Ordinary single-asset images retain their delivery path.
+
+The Reader and Task c page reuse the existing image and full-screen viewer. They choose the wide
+composition at an image column width of at least 560 CSS pixels, and the tall composition below it.
+They choose light or dark from the effective column theme and react to width and theme
+changes. The public application shell currently fixes the light theme; this capability does not add
+a theme switch. The viewer opens the selected composition. `scene.js` and `DURATION` have no
+execution path in this feature; the importer consumes static image assets only.

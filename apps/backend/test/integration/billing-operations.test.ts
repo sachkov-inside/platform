@@ -157,6 +157,7 @@ class BankFixture {
   failCancel = false;
   cancelStatus = "REFUNDED";
   cancelSucceeds = true;
+  beforeCancelReturn: (() => Promise<void>) | undefined;
 
   event(orderId: string, extra: Record<string, unknown> = {}) {
     const order = this.orders.get(orderId);
@@ -179,9 +180,12 @@ class BankFixture {
     return { ...body, Token: tbankToken(body, config.password) };
   }
   client(): Tbank {
-    return new Tbank(config, (url, init) =>
-      Promise.resolve(this.respond(url, init)),
-    );
+    return new Tbank(config, async (url, init) => {
+      const response = this.respond(url, init);
+      if (typeof url === "string" && url.endsWith("/Cancel"))
+        await this.beforeCancelReturn?.();
+      return response;
+    });
   }
   private respond(
     url: Parameters<typeof fetch>[0],
@@ -1516,6 +1520,213 @@ describe("владельческие операции billing: платежи, �
       ),
     ).toBe("invalid_request");
   });
+
+  test("межсемейная гонка одного operationId применяет только одну команду", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const operationId = randomUUID();
+    const offerId = randomUUID();
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const manage = pricing.manage.bind(pricing);
+    const gate = vi
+      .spyOn(pricing, "manage")
+      .mockImplementation(async (actor, input) => {
+        entered();
+        await resume;
+        return manage(actor, input);
+      });
+    const saving = db.run(() =>
+      s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId,
+        value: { id: offerId, name: "Тариф гонки", benefits: ["community"] },
+      }),
+    );
+    try {
+      await started;
+      expect(
+        await s.operations.execute(owner, {
+          ...classifyNew(recipient),
+          operationId,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    } finally {
+      release();
+      gate.mockRestore();
+      await saving;
+    }
+    expect(await saving).toMatchObject({ ok: true });
+    expect(
+      asClassification(
+        await s.operations.execute(owner, readClassification(recipient)),
+      ).value,
+    ).toMatchObject({ classification: "unknown" });
+  });
+
+  test("конкурентный повтор каталога возвращает один результат и один аудит", async () => {
+    const s = await scenario();
+    const command = {
+      operation: "offers.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "Повтор тарифа",
+        benefits: ["community"],
+      },
+    };
+    const results = await Promise.all([
+      s.operations.execute(owner, command),
+      s.operations.execute(owner, command),
+    ]);
+    expect(results[0]).toMatchObject({ ok: true });
+    expect(results[1]).toEqual(results[0]);
+    expect(
+      await db.prisma.billingOffer.findUnique({
+        where: { id: command.value.id },
+      }),
+    ).toMatchObject({ revision: 1 });
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+  });
+
+  test("конкурентный повтор возврата присоединяется к сохранённой попытке без второго Cancel", async () => {
+    const s = await scenario();
+    const purchaseRef = await s.buy();
+    const decision = asRefundDecision(
+      await s.operations.execute(owner, {
+        operation: "refunds.decide",
+        operationId: randomUUID(),
+        purchaseRef,
+        amountKopecks: 30_000,
+        basis: "compensation",
+        recurring: "keep",
+        reason: "Конкурентный повтор",
+      }),
+    ).value;
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    s.bank.beforeCancelReturn = async () => {
+      enter();
+      await resume;
+    };
+    const command = {
+      operation: "refunds.execute",
+      operationId: randomUUID(),
+      decisionRef: decision.decisionRef,
+      expectedRevision: 1,
+    };
+    const first = db.run(() => s.operations.execute(owner, command));
+    let repeated: OwnerResult | undefined;
+    try {
+      await entered;
+      repeated = await s.operations.execute(owner, command);
+      expect(repeated).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "refundDecision",
+          value: { state: "executing", attempt: { state: "sent" } },
+        },
+      });
+    } finally {
+      release();
+      await first;
+    }
+    expect(await first).toEqual(repeated);
+    expect(s.bank.cancels).toHaveLength(1);
+    expect(
+      await db.prisma.billingRefund.count({ where: { purchaseRef } }),
+    ).toBe(1);
+    expect(
+      asRefunds(
+        await s.operations.execute(owner, {
+          operation: "refunds.read",
+          operationId: randomUUID(),
+          purchaseRef,
+        }),
+      ).decisions,
+    ).toMatchObject([{ state: "executed" }]);
+  });
+
+  test.each(["audit", "completion"])(
+    "повтор исполненного возврата после отказа %s возвращает результат без второй отправки",
+    async (fault) => {
+      const s = await scenario();
+      const purchaseRef = await s.buy();
+      const decision = asRefundDecision(
+        await s.operations.execute(owner, {
+          operation: "refunds.decide",
+          operationId: randomUUID(),
+          purchaseRef,
+          amountKopecks: 30_000,
+          basis: "compensation",
+          recurring: "keep",
+          reason: "Сбой аудита",
+        }),
+      ).value;
+      const command = {
+        operation: "refunds.execute",
+        operationId: randomUUID(),
+        decisionRef: decision.decisionRef,
+        expectedRevision: 1,
+      };
+      if (fault === "audit")
+        await db.prisma
+          .$executeRaw`ALTER TABLE billing.owner_commands ADD CONSTRAINT reject_owner_audit CHECK (FALSE) NOT VALID`;
+      else
+        await db.prisma
+          .$executeRaw`ALTER TABLE billing.owner_command_keys ADD CONSTRAINT reject_owner_result CHECK (result IS NULL) NOT VALID`;
+      try {
+        expect(await s.operations.execute(owner, command)).toMatchObject({
+          ok: false,
+          error: { code: "dependency_unavailable" },
+        });
+        expect(s.bank.cancels).toHaveLength(1);
+      } finally {
+        if (fault === "audit")
+          await db.prisma
+            .$executeRaw`ALTER TABLE billing.owner_commands DROP CONSTRAINT reject_owner_audit`;
+        else
+          await db.prisma
+            .$executeRaw`ALTER TABLE billing.owner_command_keys DROP CONSTRAINT reject_owner_result`;
+      }
+      const restored = asRefundDecision(
+        await s.operations.execute(owner, command),
+      ).value;
+      expect(restored).toMatchObject({
+        state: "executed",
+        attempt: { state: "confirmed" },
+      });
+      expect(await s.operations.execute(owner, command)).toMatchObject({
+        ok: true,
+        result: { outcome: "refundDecision", value: restored },
+      });
+      expect(s.bank.cancels).toHaveLength(1);
+      expect(
+        await db.prisma.billingRefund.count({ where: { purchaseRef } }),
+      ).toBe(1);
+      expect(
+        await db.prisma.billingOwnerCommand.count({
+          where: { actorId: owner, operationId: command.operationId },
+        }),
+      ).toBe(1);
+    },
+  );
 
   test("повтор команды возвращает исходный результат, изменённая нагрузка конфликтует", async () => {
     const s = await scenario();

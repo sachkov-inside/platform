@@ -29,7 +29,6 @@ sale_offer_id=00000000-0000-4000-8000-000000000527
 probe_container_memory=512m
 container_exit_poll_attempts=20
 container_log_poll_attempts=30
-worker_health_poll_attempts=20
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
 # pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
@@ -82,6 +81,8 @@ cleanup() {
   trap - EXIT
 
   if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir" "${application_compose[@]}" || true
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir/foundation" "${foundation_compose[@]}" || true
     "${application_compose[@]}" ps --all >"$artifact_dir/compose-ps.txt" 2>&1 || true
     "${application_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/compose.log" 2>&1 || true
     "${foundation_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/foundation.log" 2>&1 || true
@@ -393,6 +394,18 @@ wait_for_worker_health() {
   local expected=$1
   local worker
   local attempt
+  local worker_health_poll_attempts=0
+  local interval_nanoseconds timeout_nanoseconds retries
+  local transition_attempts
+  # Observe the production policy: two failed probes at 30 s cannot fit in the old 20 s window.
+  # Read the effective container config so this observation bound follows its owning contract.
+  for worker in "${application_workers[@]}"; do
+    read -r interval_nanoseconds timeout_nanoseconds retries <<<"$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.Config.Healthcheck.Interval}} {{.Config.Healthcheck.Timeout}} {{.Config.Healthcheck.Retries}}')"
+    transition_attempts=$(( ((interval_nanoseconds + timeout_nanoseconds) * retries + 999999999) / 1000000000 / production_smoke_poll_interval_seconds + 2 ))
+    if ((transition_attempts > worker_health_poll_attempts)); then
+      worker_health_poll_attempts=$transition_attempts
+    fi
+  done
   for ((attempt = 1; attempt <= worker_health_poll_attempts; attempt += 1)); do
     local all_match=true
     for worker in "${application_workers[@]}"; do

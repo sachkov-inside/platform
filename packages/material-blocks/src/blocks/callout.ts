@@ -62,15 +62,27 @@ export const calloutBlock: MaterialBlockDefinition =
         report("invalid_callout_kind", "kind");
       }
       optionalTextIssue(node, report, "invalid_callout_title");
+      const collapse = nodeAttributes(node)["collapse"];
+      if (
+        collapse !== undefined &&
+        collapse !== null &&
+        collapse !== "collapsed" &&
+        collapse !== "expanded"
+      ) {
+        report("invalid_callout_collapse", "collapse");
+      }
     },
     kind: "callout",
     node: {
-      attributes: { kind: "note", title: null },
+      attributes: { kind: "note", title: null, collapse: null },
       content: "block+",
       defining: true,
       // A plain `title` would turn the whole callout into a native tooltip, so the name travels
       // through its own DOM attribute and comes back from it on paste.
-      domAttributes: { title: "data-callout-title" },
+      domAttributes: {
+        title: "data-callout-title",
+        collapse: "data-callout-collapse",
+      },
       group: "block",
       parseContent: "[data-callout-body]",
       // One DOM contract for both applications: the server's, which writes the real kind. The
@@ -101,9 +113,13 @@ export const calloutBlock: MaterialBlockDefinition =
         throw new TypeError("Unsupported callout tone");
       }
       const title = optionalText(attributes["title"]);
+      const collapse = attributes["collapse"];
       return {
         content: tools.blockContent(node),
         kind: "callout",
+        ...(collapse === "collapsed" || collapse === "expanded"
+          ? { collapse }
+          : {}),
         ...(title === undefined ? {} : { title }),
         tone,
       };
@@ -113,6 +129,7 @@ export const calloutBlock: MaterialBlockDefinition =
         .object({
           content: z.array(block),
           kind: z.literal("callout"),
+          collapse: z.enum(["collapsed", "expanded"]).optional(),
           title: titleAttributeSchema,
           tone: calloutToneSchema,
         })

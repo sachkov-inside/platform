@@ -375,7 +375,9 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     const criteriaOf = (code: string, version: number) =>
       all.value.versions
         .find((item) => item.code === code && item.version === version)
-        ?.criteria.map((criterion) => criterion.requirement);
+        ?.criteria.map((criterion) =>
+          "requirement" in criterion ? criterion.requirement : criterion.task,
+        );
     expect(criteriaOf(first.code, 1)).toEqual([
       "Участник создаёт заявку.",
       "Повтор не создаёт вторую заявку.",

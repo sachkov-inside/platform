@@ -1004,6 +1004,12 @@ export class MaterialAuthoringService {
     requestBody: {
       collectionId: any;
       expectedVersion: number;
+      introduction?: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      };
       name: string;
       source: {
         page: {
@@ -1162,6 +1168,12 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
+      introduction?: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      };
       source: {
         page: {
           blocks: Array<({
@@ -1435,6 +1447,7 @@ export class MaterialAuthoringService {
   }
   /**
    * Atomically Save the complete current Material state
+   * Source-owned Materials return forbidden. Incompatible Product membership changes return invalid_reference with material_source_mismatch at /metadata/seriesIds/<index>; removing a membership uses /metadata/seriesIds.
    * @returns any
    * @throws ApiError
    */

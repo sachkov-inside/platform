@@ -912,6 +912,18 @@ model TelegramCommunityAuthorization {
   @@schema("telegram_membership")
 }
 
+model TelegramCommunityProjectionRetry {
+  accountId     String   @id @map("account_id") @db.Uuid
+  attemptId     String   @map("attempt_id") @db.Uuid
+  nextAttemptAt DateTime @map("next_attempt_at") @db.Timestamptz
+  errorCode     String?  @map("error_code")
+  updatedAt     DateTime @map("updated_at") @db.Timestamptz
+
+  @@index([nextAttemptAt, accountId], map: "community_projection_retries_due_idx")
+  @@map("community_projection_retries")
+  @@schema("telegram_membership")
+}
+
 model TelegramCommunityProjectionCursor {
   id             Int      @id @db.SmallInt
   accessRevision Int      @default(0) @map("access_revision")
@@ -1494,6 +1506,17 @@ model BillingPaymentMethodFlow {
   @@map("payment_method_flows")
   @@schema("billing")
 }
+model BillingOwnerCommandKey {
+  result Json?
+  refundRef String? @map("refund_ref") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  @@id([actorId, operationId])
+  @@map("owner_command_keys")
+  @@schema("billing")
+}
 model BillingOwnerCommand {
   sequence BigInt @default(autoincrement())
   actorId String @map("actor_id") @db.Uuid
@@ -1776,6 +1799,7 @@ model ProductTask {
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
   afterMaterialSourceId    String?  @map("after_material_source_id")
   publicationState         String   @map("publication_state")
+  page                     Json?
   currentVersion           Int      @map("current_version")
   revision                 Int
   createdAt                DateTime @map("created_at") @db.Timestamptz

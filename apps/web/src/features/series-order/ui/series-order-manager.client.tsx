@@ -1,4 +1,6 @@
 "use client";
+
+import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 import type { ReactNode } from "react";
 
 import {
@@ -180,11 +182,12 @@ export function SeriesOrderManager({
     const chapterId = target.chapterId ?? null;
     const next = [...items];
     next.splice(source, 1);
-    next.splice(next.indexOf(target), 0, { ...entry, chapterId });
+    const destination = next.indexOf(target);
+    next.splice(destination, 0, { ...entry, chapterId });
     mutation.reset();
     setItems(next);
     setPositionNotice(
-      `${entry.title}: позиция ${String(next.indexOf(entry) + 1)} из ${String(next.length)}`,
+      `${entry.title}: позиция ${String(destination + 1)} из ${String(next.length)}`,
     );
   };
   const assign = (materialId: string, chapterId: string | null) => {
@@ -802,7 +805,7 @@ function actionMessage(
     const names = result.materialIds
       .map((materialId) => `«${titles.get(materialId) ?? "Без названия"}»`)
       .join(", ");
-    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются. Уберите материал из состава, и изменения сохранятся.`;
+    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. ${CONTENT_SOURCE_MISMATCH_MESSAGE}`;
   }
   if (result?.kind === "removal_confirmation_required") {
     return "Снятие материала из купленного продукта ждёт подтверждения.";

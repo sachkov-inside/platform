@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { renderedMaterialBodySchema } from "@/entities/material.model";
 
 const criterionSchema = z
   .object({
@@ -6,6 +7,35 @@ const criterionSchema = z
     level: z.enum(["required", "additional"]),
     requirement: z.string(),
     acceptableEvidence: z.array(z.string()),
+  })
+  .strict();
+
+const criterionV2Schema = z
+  .object({
+    id: z.string(),
+    level: z.enum(["required", "additional"]),
+    task: z.string(),
+    explanation: z.string(),
+    advice: z.string().optional(),
+  })
+  .strict();
+
+const definitionV1Schema = z
+  .object({
+    situation: z.string(),
+    result: z.array(z.string()),
+    freedom: z.string(),
+    criteria: z.array(criterionSchema),
+  })
+  .strict();
+
+const definitionV2Schema = z
+  .object({
+    schemaVersion: z.literal(2),
+    format: z.literal("c"),
+    intro: z.string(),
+    freedom: z.string(),
+    criteria: z.array(criterionV2Schema),
   })
   .strict();
 
@@ -25,14 +55,28 @@ export const productTaskPageSchema = z.discriminatedUnion("access", [
           ...placeShape,
           access: z.enum(["free", "closed"]),
           version: z.number().int().positive(),
-          definition: z
+          definition: z.union([definitionV1Schema, definitionV2Schema]),
+          page: z
             .object({
-              situation: z.string(),
-              result: z.array(z.string()),
-              freedom: z.string(),
-              criteria: z.array(criterionSchema),
+              title: z.string(),
+              summary: z.string(),
+              body: renderedMaterialBodySchema,
+              cover: z
+                .object({ assetId: z.string(), alt: z.string() })
+                .strict()
+                .nullable(),
+              artifacts: z.array(
+                z
+                  .object({
+                    sourceId: z.string(),
+                    title: z.string(),
+                    assetId: z.string(),
+                  })
+                  .strict(),
+              ),
             })
-            .strict(),
+            .strict()
+            .optional(),
         })
         .strict(),
       reviewProtocol: z
@@ -66,7 +110,7 @@ export const ownTaskSubmissionsSchema = z
       z
         .object({
           version: z.number().int().positive(),
-          criteria: z.array(criterionSchema),
+          criteria: z.array(z.union([criterionSchema, criterionV2Schema])),
         })
         .strict(),
     ),
@@ -93,7 +137,8 @@ export const ownTaskSubmissionsSchema = z
   })
   .strict();
 
-export type TaskCriterion = z.infer<typeof criterionSchema>;
+export type TaskCriterion =
+  z.infer<typeof criterionSchema> | z.infer<typeof criterionV2Schema>;
 export type OpenProductTask = Extract<
   z.infer<typeof productTaskPageSchema>,
   { access: "open" }

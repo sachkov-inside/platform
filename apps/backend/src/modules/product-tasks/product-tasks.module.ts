@@ -1,3 +1,18 @@
+import {
+  AssetsModule,
+  MATERIAL_ASSETS,
+  type MaterialAssets,
+} from "../assets/index.js";
+import {
+  ObjectStorageModule,
+  OBJECT_STORAGE,
+  type ObjectStorage,
+} from "../../infrastructure/object-storage/index.js";
+import {
+  TASK_ASSET_DELIVERY,
+  deliverTaskAsset,
+  type TaskAssetDelivery,
+} from "./features/deliver-task-asset/deliver-task-asset.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -50,6 +65,8 @@ import {
 @Module({
   imports: [
     PrismaModule,
+    AssetsModule,
+    ObjectStorageModule,
     AccountsModule,
     MaterialContentModule,
     MaterialsModule,
@@ -57,36 +74,78 @@ import {
   ],
   providers: [
     {
-      provide: LEARNING_TASKS,
+      provide: TASK_ASSET_DELIVERY,
       inject: [
         PrismaClientProvider,
         ProductDirectory,
         CONTENT_ACCESS,
         PLATFORM_CONFIG,
+        MATERIAL_ASSETS,
+        OBJECT_STORAGE,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: ProductDirectory,
         contentAccess: ContentAccess,
         config: PlatformConfig,
+        assets: MaterialAssets,
+        objectStorage: ObjectStorage,
+      ): TaskAssetDelivery => ({
+        deliver: (input) =>
+          deliverTaskAsset(
+            {
+              prisma,
+              directory,
+              contentAccess,
+              assets,
+              objectStorage,
+              submissionsEnabled: config.productTasks.submissionsEnabled,
+            },
+            input,
+          ),
+      }),
+    },
+    {
+      provide: LEARNING_TASKS,
+      inject: [
+        PrismaClientProvider,
+        ProductDirectory,
+        CONTENT_ACCESS,
+        PLATFORM_CONFIG,
+        MATERIAL_ASSETS,
+      ],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        directory: ProductDirectory,
+        contentAccess: ContentAccess,
+        config: PlatformConfig,
+        materialAssets: MaterialAssets,
       ): LearningTasks =>
         assembleLearningTasks({
           prisma,
           directory,
           contentAccess,
+          materialAssets,
           submissionsEnabled: config.productTasks.submissionsEnabled,
         }),
     },
     {
       provide: PRODUCT_TASK_IMPORT,
-      inject: [PrismaClientProvider, ProductDirectory, ACCOUNTS],
+      inject: [
+        PrismaClientProvider,
+        ProductDirectory,
+        ACCOUNTS,
+        MATERIAL_ASSETS,
+      ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: ProductDirectory,
         accounts: Accounts,
+        assets: MaterialAssets,
       ): ProductTaskImport => {
         const permissions = assembleCurrentAccountPermissions(accounts);
         const dependencies = {
+          assets,
           prisma,
           directory,
           authorPolicy: {
@@ -127,6 +186,11 @@ import {
       },
     },
   ],
-  exports: [LEARNING_TASKS, PRODUCT_TASK_IMPORT, SUBMISSION_REVIEW],
+  exports: [
+    TASK_ASSET_DELIVERY,
+    LEARNING_TASKS,
+    PRODUCT_TASK_IMPORT,
+    SUBMISSION_REVIEW,
+  ],
 })
 export class ProductTasksModule {}

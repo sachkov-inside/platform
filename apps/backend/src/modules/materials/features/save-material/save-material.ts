@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import type { AuthoringSource } from "../../domain/authoring-source.js";
 import { randomUUID } from "node:crypto";
@@ -35,7 +39,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
-import { canChangeProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
+import { loadChangedProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -49,7 +53,6 @@ import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
-import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
 import {
   heldProductRemovals,
@@ -154,21 +157,11 @@ export function assembleSaveMaterial(
           },
           rollback,
           async () => {
-            await lockMaterialSeries(
+            const memberships = await loadChangedProductMemberships(
               transaction,
               command.materialId,
               selection.value.toValues().seriesIds,
             );
-            if (
-              !(await canChangeProductMemberships(
-                transaction,
-                command.materialId,
-                selection.value.toValues().seriesIds,
-                source?.id ?? null,
-              ))
-            ) {
-              return rollback({ code: "forbidden" });
-            }
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
             ]);
@@ -179,14 +172,19 @@ export function assembleSaveMaterial(
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
             }
-            if (locked.sourceId !== (source?.id ?? null)) {
-              return rollback({
-                code: "invalid_reference",
-                issues: [
-                  { code: "authoring_source_required", path: "/materialId" },
-                ],
-              });
-            }
+            const sourceError = checkContentWrite(
+              contentWriter(source?.id ?? null),
+              [
+                {
+                  kind: "material",
+                  sourceId: locked.sourceId,
+                  path: "/materialId",
+                },
+                ...memberships,
+              ],
+            );
+            if (sourceError !== null) return rollback(sourceError);
+
             if (source !== undefined && command.deleteVideoId !== null) {
               return rollback({
                 code: "invalid_reference",

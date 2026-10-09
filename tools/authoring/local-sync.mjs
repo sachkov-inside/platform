@@ -1,4 +1,7 @@
 // @ts-check
+import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
+import { materialImageAssetIds } from "./package.mjs";
+import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
 import {
   practicesFollowLessons,
@@ -8,6 +11,8 @@ import {
 } from "./practice-import.mjs";
 import {
   replayTaskImports,
+  assertTaskReplayAccess,
+  resolveTaskAccess,
   syncSourceTasks,
   validateSourceTasks,
 } from "./task-import.mjs";
@@ -96,6 +101,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {boolean} [pinHome]
  * @property {PublishSelection} [publish]
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
+ * @property {string[]} [reviewedTaskAccess] Explicit Task access from the reviewed release only.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -341,6 +347,16 @@ export function productDetails(product, current) {
     slug: product.slug ?? current?.slug ?? product.sourceId,
     presentation: product.presentation ?? current?.presentation ?? "default",
     page,
+    ...(product.introduction === undefined
+      ? {}
+      : {
+          introduction: {
+            audience: product.introduction.audience.trim(),
+            outcome: product.introduction.outcome.trim(),
+            prerequisites: product.introduction.prerequisites.trim(),
+            scope: product.introduction.scope.trim(),
+          },
+        }),
   };
 }
 /**
@@ -352,6 +368,8 @@ export function productDetails(product, current) {
 export function productDetailsMatch(current, details) {
   // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
   return (
+    (details.introduction === undefined ||
+      canonical(current.introduction) === canonical(details.introduction)) &&
     current.pageRejected !== true &&
     current.name === details.name &&
     current.summary === details.summary &&
@@ -385,6 +403,9 @@ export async function validateProductPages(manifest, send) {
         path,
         await send(path, {
           sourceId: sourceKey(manifest, product.sourceId),
+          ...(details.introduction === undefined
+            ? {}
+            : { introduction: details.introduction }),
           source,
         }),
       );
@@ -535,7 +556,9 @@ export function archiveProposalKeys(journal, manifest) {
   // A Product shell names no Material, so its absent Materials say nothing about removal.
   if (isProductShell(manifest)) return [];
   const present = new Set(
-    manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
+    [...manifest.materials, ...(manifest.tasks ?? [])].map((row) =>
+      sourceKey(manifest, row.sourceId),
+    ),
   );
   const selected = new Set(
     manifest.products.map((product) => sourceKey(manifest, product.sourceId)),
@@ -575,6 +598,7 @@ export async function syncLocal(
     publish = [],
     accessToken,
     reviewed = false,
+    reviewedTaskAccess = [],
     reconcileOnly = false,
   } = {},
 ) {
@@ -596,7 +620,19 @@ export async function syncLocal(
   };
   if (!["free", "closed"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
-  const pkg = await loadPackage(packagePath);
+  if (!reviewed && reviewedTaskAccess.length > 0)
+    throw new Error("Task access choices require a reviewed release preview");
+  const original = await loadPackage(packagePath);
+  const pkg = {
+    ...original,
+    manifest: resolveTaskAccess(original.manifest, reviewedTaskAccess).manifest,
+  };
+  for (const task of pkg.manifest.tasks ?? [])
+    if (task.access === null)
+      throw new Error(
+        `${task.sourceId}: Task access requires a preview decision`,
+      );
+  preflightTaskPages(pkg);
   const shell = isProductShell(pkg.manifest);
   if (shell && archive.length)
     throw new Error("A Product shell release never archives Materials");
@@ -610,10 +646,20 @@ export async function syncLocal(
   if (!reconcileOnly) {
     await validateProductPages(pkg.manifest, send);
     await validateSourcePractices(manifest, request);
-    await validateSourceTasks(pkg.manifest, request);
   }
+  if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
+    await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    if (pkg.manifest.schemaVersion === 2)
+      assertTaskReplayAccess(pkg.manifest, journal);
+    for (const task of pkg.manifest.tasks ?? [])
+      if (
+        journal.materials[sourceKey(pkg.manifest, task.sourceId)] !== undefined
+      )
+        throw new Error(
+          `${task.sourceId}: material_to_task_migration requires a release decision`,
+        );
     const resources = (journal.resources ??= {});
     /** @type {SyncReport} */
     const report = {
@@ -746,7 +792,7 @@ export async function syncLocal(
      */
     const currentMaterials = new Map();
     /** @type {Map<string, string>} */
-    const links = new Map();
+    const links = taskLinks(pkg.manifest);
     for (const row of rows.values()) {
       const previous = journal.materials[sourceId(row.sourceId)];
       const reserved =
@@ -846,16 +892,21 @@ export async function syncLocal(
           if (/^(https?:|mailto:|#)/u.test(href)) return href;
           throw new Error(`${row.sourcePath}: undeclared local link: ${href}`);
         },
+        imageVariants: (href) => resolveImageVariants(row, href, images),
         image: (href) => {
-          const id = row.images[href] ?? row.images[decodeURI(href)];
+          const key = imageSourceKey(row.images, href);
+          const id = key === undefined ? undefined : row.images[key];
           if (id === undefined || !images.has(id))
             throw new Error(`${row.sourcePath}: unresolved image: ${href}`);
           return valueAt(images, id);
         },
       });
+    /** @type {Map<string,string>} */
     const placeholderLinks = new Map(
       [...rows.keys()].map((id) => [id, `/materials/${id}`]),
     );
+    for (const [id, url] of taskLinks(pkg.manifest))
+      placeholderLinks.set(id, url);
     const placeholderImages = new Map(
       pkg.manifest.assets.map((asset) => [
         asset.sourceId,
@@ -1002,6 +1053,9 @@ export async function syncLocal(
             sourceId: key,
             collectionId: current.id,
             expectedVersion: current.version,
+            ...(details.introduction === undefined
+              ? {}
+              : { introduction: details.introduction }),
             name: details.name,
             summary: details.summary,
             source: {
@@ -1025,6 +1079,12 @@ export async function syncLocal(
         });
       }
     }
+
+    for (const task of pkg.manifest.tasks ?? [])
+      links.set(
+        task.sourceId,
+        `/products/${valueAt(products, task.productId).slug}/tasks/${task.sourceId}`,
+      );
 
     if (shell) {
       for (const product of pkg.manifest.products) {
@@ -1106,6 +1166,8 @@ export async function syncLocal(
     for (const row of rows.values()) {
       if (publicationOf(row) !== "published") continue;
       const drafts = [...new Set(Object.values(row.links))].filter((id) => {
+        if ((pkg.manifest.tasks ?? []).some((task) => task.sourceId === id))
+          return false;
         const linked = rows.get(id);
         return linked !== undefined && publicationOf(linked) === "draft";
       });
@@ -1201,7 +1263,7 @@ export async function syncLocal(
       } else {
         /** @type {Map<string, string>} */
         const images = new Map();
-        for (const assetId of new Set(Object.values(row.images))) {
+        for (const assetId of materialImageAssetIds(row)) {
           const asset = valueAt(assets, assetId);
           const upload = await imageUpload(await readAsset(asset), asset);
           const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;
@@ -1475,6 +1537,7 @@ export async function syncLocal(
     if ((pkg.manifest.tasks ?? []).length)
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
         productIdOf: (id) => valueAt(products, id).id,
+        pageOf: (task) => importTaskPage(pkg, task, context, request, links),
         selected: (key) => publicationOfKey(key) === "published",
       });
 

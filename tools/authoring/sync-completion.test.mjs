@@ -22,6 +22,14 @@ import { z } from "zod";
 /** @param {number} n */
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const productId = uuid(900);
+const productIntroductionSchema = z
+  .object({
+    audience: z.string(),
+    outcome: z.string(),
+    prerequisites: z.string(),
+    scope: z.string(),
+  })
+  .strict();
 const productPage = {
   card: null,
   blocks: [{ id: "hero", kind: "hero", lead: "Лид продукта.", highlights: [] }],
@@ -163,6 +171,7 @@ async function fixture(t) {
  * @typedef {object} FakeProduct
  * @property {string} id
  * @property {string} slug
+ * @property {{ audience: string; outcome: string; prerequisites: string; scope: string } | null} [introduction]
  * @property {string} sourceId
  * @property {string} name
  * @property {string} summary
@@ -292,12 +301,14 @@ function applicationApi() {
       if (path === "/authoring/import/products/update") {
         const update = productUpdateBodySchema.parse(body);
         assert.equal(update.expectedVersion, product.version);
-        assert.equal(
-          update.introduction,
-          undefined,
-          "The editor-owned introduction is never imported",
-        );
         Object.assign(product, {
+          ...(update.introduction === undefined
+            ? {}
+            : {
+                introduction: productIntroductionSchema.parse(
+                  update.introduction,
+                ),
+              }),
           name: update.name,
           summary: update.summary,
           slug: update.source.slug,
@@ -1523,4 +1534,46 @@ test("Product Tasks travel after their Product in sync and in an exact release, 
   assert.equal(tasks.get("task-one")?.publicationState, "published");
   assert.equal(tasks.get("task-two")?.publicationState, "unpublished");
   assert.equal(applied.length, writes + 1);
+});
+
+test("imports source introduction and preserves it when an older package omits the field", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = [];
+  setup.manifest.selection.taskIds = [];
+  const product = itemAt(setup.manifest.products, 0);
+  product.introduction = {
+    audience: "Инженерам",
+    outcome: "Рабочий проект",
+    prerequisites: "TypeScript",
+    scope: "Практика",
+  };
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  const update = api.calls.find(
+    ({ path }) => path === "/authoring/import/products/update",
+  );
+  assert.deepEqual(
+    productUpdateBodySchema.parse(update?.body).introduction,
+    product.introduction,
+  );
+  const calls = api.calls.length;
+  await run(setup, api);
+  assert.equal(
+    api.calls
+      .slice(calls)
+      .some(({ path }) => path === "/authoring/import/products/update"),
+    false,
+  );
+  delete product.introduction;
+  product.title = "Старый пакет меняет название";
+  await setup.write();
+  await run(setup, api);
+  assert.deepEqual(api.product.introduction, {
+    audience: "Инженерам",
+    outcome: "Рабочий проект",
+    prerequisites: "TypeScript",
+    scope: "Практика",
+  });
 });

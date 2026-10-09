@@ -385,8 +385,17 @@ natural failure establishes the cause.
 
 The narrow WebKit Telegram geometry test also saves `failure.json` with its pending step, last
 completed step, viewport width and completed step durations (#1110). It exports a Playwright trace
-for each viewport reached before the failure, including test timeouts. A failure before the first
-trace starts has only the phase file. The UI job uploads these files as
+for each viewport reached before the failure, including test timeouts. The phase file also records
+the pending step's start and failure observation on one monotonic clock, plus initial/failure
+runner CPU counters, load and memory, worker CPU/memory usage, and
+best-effort Linux `/proc` and cgroup readings. Missing Linux readings carry their errors rather
+than suppressing the other diagnostics. `webkit-log.json` retains `pw:browser` (including browser
+stderr) and `pw:protocol` output only from the geometry scenario. Collection stops when the test
+finishes, before asynchronous failure cleanup. The collector uses Playwright
+1.63.0's exported `utilsBundle.debug` instance; its runtime shape and real browser output are
+checked by `webkit-failure-diagnostics.test.ts`. The log keeps up to 2 MiB of initial messages and
+2 MiB of final messages; it reports omitted entries. A failure before the first trace starts
+still retains the phase file and browser log. The UI job uploads these files as
 `browser-engines-playwright-<run_attempt>`; a successful test removes its diagnostic directory.
 The test keeps its 30-second budget and does not retry. Inspect the pending step before choosing
 a fix; #1110 remains open until a captured failure establishes the cause.
