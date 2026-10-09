@@ -86,9 +86,12 @@ use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also
 This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
 The production smoke prints the resolved RabbitMQ/Caddy references and pulls them sequentially
-with Compose `--parallel 1` before application startup. Integration serial enables
+with Compose `--parallel 1` before application startup. Development CI does the same for
+PostgreSQL, RustFS and Mailpit before starting its clean-stack smoke. This bounds each job's own
+acquisition concurrency; it does not identify the origin of an unlabelled rate-limit error.
+Integration serial enables
 `testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
-missing-image or cleanup error. Neither path retries a failed pull.
+missing-image or cleanup error. These acquisition paths do not retry a failed pull.
 
 Docker publishes this namespace directly ([official announcement](https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/)).
 The [#1306 metadata evidence](../evidence/issue-1306/official-image-manifests.json) records identical

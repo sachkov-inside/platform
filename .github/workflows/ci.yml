@@ -180,6 +180,8 @@ jobs:
           docker compose --profile storybook build
       - name: Run clean stack smoke and write persistence probes
         run: |
+          docker compose config --images postgres object-storage mailpit
+          docker compose --parallel 1 pull postgres object-storage mailpit
           docker compose up --detach --wait
           bash scripts/compose-stack-smoke.sh
           docker compose exec -T postgres psql \
