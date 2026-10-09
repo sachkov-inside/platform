@@ -28,7 +28,7 @@ describe("production verification request log", () => {
         authorization: "private-value-must-not-be-logged",
       },
     });
-    const line = infos.mock.calls[0]?.[0];
+    const line: unknown = infos.mock.calls[0]?.[0];
     expect(typeof line).toBe("string");
     if (typeof line !== "string") throw new Error("request log missing");
     expect(
@@ -100,7 +100,7 @@ describe("production verification request log", () => {
           marker === undefined ? {} : { "x-inside-production-verify": marker },
         ...(payload === undefined ? {} : { payload }),
       });
-      const line = infos.mock.calls[0]?.[0];
+      const line: unknown = infos.mock.calls[0]?.[0];
       if (typeof line !== "string") throw new Error("request log missing");
       expect(
         z.record(z.string(), z.unknown()).parse(JSON.parse(line)),
