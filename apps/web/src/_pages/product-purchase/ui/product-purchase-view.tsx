@@ -142,40 +142,37 @@ function GuestPurchase({
     <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:rounded-3xl sm:p-8">
       <ol
         aria-label="Шаги покупки"
-        className="flex items-center gap-2 text-xs font-semibold"
+        className="grid grid-cols-2 gap-2 text-xs font-semibold"
       >
-        <li className="flex items-center gap-2">
-          <span className="grid size-6 place-items-center rounded-full bg-foreground text-background">
-            1
-          </span>
-          Вход
+        <li aria-current="step" className="grid gap-1.5">
+          <span aria-hidden="true" className="h-1 rounded-full bg-foreground" />
+          1. Вход
         </li>
-        <li aria-hidden="true" className="h-px w-8 bg-border" />
-        <li className="flex items-center gap-2 text-muted-foreground">
-          <span className="grid size-6 place-items-center rounded-full border border-border">
-            2
-          </span>
-          Оплата
+        <li className="grid gap-1.5 text-muted-foreground">
+          <span aria-hidden="true" className="h-1 rounded-full bg-muted" />
+          2. Оплата
         </li>
       </ol>
 
-      <p className="mt-6 text-sm font-medium text-muted-foreground sm:mt-7">
-        {preorder === null ? "Цена" : "Предзаказ"}
-      </p>
-      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-3xl font-bold tracking-[-0.03em] sm:text-4xl">
-          {formatKopecks(offer.firstPriceKopecks)}
-        </span>
-        {struck === null ? null : (
-          <s className="text-lg text-muted-foreground">
-            <span className="sr-only">Цена после старта: </span>
-            {formatKopecks(struck)}
-          </s>
-        )}
+      <div className="mt-6 flex items-center justify-between gap-3 sm:mt-7">
+        <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">
+          {preorder === null ? "Цена" : "Предзаказ"}
+        </p>
         {discount === null ? null : (
           <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
             {discount}
           </span>
+        )}
+      </div>
+      <p className="mt-2 flex flex-wrap items-baseline gap-x-2.5">
+        <span className="text-3xl font-bold tracking-[-0.03em] sm:text-4xl">
+          {formatKopecks(offer.firstPriceKopecks)}
+        </span>
+        {struck === null ? null : (
+          <s className="text-base text-muted-foreground sm:text-lg">
+            <span className="sr-only">Цена после старта: </span>
+            {formatKopecks(struck)}
+          </s>
         )}
       </p>
       {preorder === null ? null : (
@@ -184,7 +181,11 @@ function GuestPurchase({
         </p>
       )}
 
-      <form action="/auth/sign-in" className="mt-6 sm:mt-7" method="post">
+      <form
+        action="/auth/sign-in"
+        className="mt-5 border-t border-border pt-5 sm:mt-6 sm:pt-6"
+        method="post"
+      >
         <input name="returnTo" type="hidden" value={returnTo} />
         <Button
           className={`${billingActionClass} w-full gap-2 text-[0.9375rem] font-semibold sm:min-h-12 sm:text-base`}
