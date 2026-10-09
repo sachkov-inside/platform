@@ -960,6 +960,102 @@
               "label"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "correctOptionId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dontKnow": {
+                "additionalProperties": false,
+                "properties": {
+                  "explanation": {
+                    "items": {
+                      "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "reviewLinks": {
+                    "items": {
+                      "format": "starts_with",
+                      "minLength": 2,
+                      "pattern": "^#.*",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "explanation",
+                  "reviewLinks"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "quiz"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "explanation": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "id": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "content",
+                    "explanation"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 5,
+                "minItems": 2,
+                "type": "array"
+              },
+              "prompt": {
+                "items": {
+                  "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "prompt",
+              "correctOptionId",
+              "options",
+              "dontKnow"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -1922,6 +2018,102 @@
               "label"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "correctOptionId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dontKnow": {
+                "additionalProperties": false,
+                "properties": {
+                  "explanation": {
+                    "items": {
+                      "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "reviewLinks": {
+                    "items": {
+                      "format": "starts_with",
+                      "minLength": 2,
+                      "pattern": "^#.*",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "explanation",
+                  "reviewLinks"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "quiz"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "explanation": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "id": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "content",
+                    "explanation"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 5,
+                "minItems": 2,
+                "type": "array"
+              },
+              "prompt": {
+                "items": {
+                  "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "prompt",
+              "correctOptionId",
+              "options",
+              "dontKnow"
+            ],
+            "type": "object"
           }
         ]
       },
@@ -2882,6 +3074,102 @@
               "assetId",
               "kind",
               "label"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "correctOptionId": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dontKnow": {
+                "additionalProperties": false,
+                "properties": {
+                  "explanation": {
+                    "items": {
+                      "$ref": "#/components/schemas/RecursiveSchema2schema0"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "reviewLinks": {
+                    "items": {
+                      "format": "starts_with",
+                      "minLength": 2,
+                      "pattern": "^#.*",
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "explanation",
+                  "reviewLinks"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "quiz"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema2schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "explanation": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema2schema0"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "id": {
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "content",
+                    "explanation"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 5,
+                "minItems": 2,
+                "type": "array"
+              },
+              "prompt": {
+                "items": {
+                  "$ref": "#/components/schemas/RecursiveSchema2schema0"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "prompt",
+              "correctOptionId",
+              "options",
+              "dontKnow"
             ],
             "type": "object"
           }

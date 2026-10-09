@@ -18,12 +18,47 @@ const watchdog = "infra/production/watchdog/inside-watchdog";
 const now = 1_800_000_000;
 
 describe("production watchdog", () => {
+  it("stays silent for the expected production verification rejection", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "logs-inside-platform-production-api-1",
+        '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":400,"probe":"production_verify"}\n',
+      );
+      assertRun(fixture);
+      assert.equal(fixture.signals(), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent on a healthy server", () => {
     const fixture = createFixture();
     try {
       assertRun(fixture);
       assert.equal(fixture.signals(), "");
       assert.equal(fixture.sent(), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals real rejections and unexpected probe failures in the same window", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "logs-inside-platform-production-api-1",
+        [
+          "API startup message",
+          '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":400,"probe":"production_verify"}',
+          '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":400}',
+          '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":503,"probe":"production_verify"}',
+          '{"event":"request_completed","route":"/billing/tbank/notification","statusCode":401}',
+          '{"event":"request_completed","method":"POST","route":"/billing/tbank/notification","statusCode":200}',
+          "",
+        ].join("\n"),
+      );
+      assert.match(assertRun(fixture), /Webhook банка отклонён: 3 за 5 минут/u);
     } finally {
       fixture.cleanup();
     }

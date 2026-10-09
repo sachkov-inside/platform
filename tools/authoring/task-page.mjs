@@ -39,6 +39,7 @@ export function taskPageBody(task, links, images, onResolvedLink) {
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
   return convertMarkdown(page.markdown, {
+    readerBlocks: page.readerBlocks,
     sourceId: task.sourceId,
     sourcePath: page.sourcePath,
     link: (href) => {

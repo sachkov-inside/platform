@@ -189,3 +189,40 @@ for (const sourceSrc of [
     assert.deepEqual(body.doc.content[0]?.attrs?.["imageVariants"], variants);
   });
 }
+
+test("readerBlocks preserve narrative and typed quiz instead of the raw answer key", () => {
+  const body = convertMarkdown("RAW ANSWER KEY", {
+    ...options,
+    readerBlocks: [
+      { kind: "markdown", markdown: "## Раздел\n\nДо вопроса" },
+      {
+        kind: "quiz",
+        id: "question-1",
+        promptMarkdown: "Какой результат?",
+        correctOptionId: "option-2",
+        options: [
+          {
+            id: "option-1",
+            markdown: "Первый",
+            explanationMarkdown: "Неверно. Причина",
+          },
+          {
+            id: "option-2",
+            markdown: "Второй",
+            explanationMarkdown: "Верно. Причина",
+          },
+        ],
+        dontKnow: {
+          explanationMarkdown: "Повторите раздел",
+          reviewLinks: ["#раздел"],
+        },
+      },
+      { kind: "markdown", markdown: "## Дальше\n\nПосле вопроса" },
+    ],
+  });
+  assert.deepEqual(
+    body.doc.content.map((node) => node.type),
+    ["heading", "paragraph", "quiz", "heading", "paragraph"],
+  );
+  assert.doesNotMatch(JSON.stringify(body), /RAW ANSWER KEY/u);
+});

@@ -193,7 +193,8 @@ AMQPS на `5671`. Топологию он читает из определен�
 
 `infra/production/runtime/platform.caddy` проксирует в API и MCP ровно эти адреса, по строке на путь.
 Метод «любой» значит, что Caddy метод не ограничивает. На POST- или GET-адресе другой метод получает
-`404`: под `/integrations/` пустой ответ Caddy, на остальных путях страницу web. Остальное поведение
+`404`: под `/integrations/` и `/internal/` пустой ответ Caddy. На остальных путях новый домен
+показывает страницу web; старый hostname сначала возвращает 302 на тот же путь нового домена. Остальное поведение
 edge описано в
 [production delivery](production-delivery.md#проверки-готовности-и-маршрутизация).
 Подлинность проверяет API или MCP, у каждого направления свой credential. Таблицу сверяет с Caddy
@@ -327,7 +328,11 @@ Exit `2` означает ошибку аргументов. При первом
 сообщает координатору до дальнейших действий. Инструмент не делает rollback или forward repair.
 
 Platform проверяет процессы, readiness API/Web/MCP, изображения и ревизии, воркеры, маршруты Caddy,
-очереди, память, timer и текущий доменный каталог. Incompatible rollback запись допустима, когда
+очереди, память, timer и текущий доменный каталог. Пустой POST на `/billing/tbank/notification`
+по-прежнему должен вернуть `400 invalid_notification`. Только эта проба посылает
+`x-inside-production-verify: bank-webhook-rejection`; HTTPS идёт через loopback Caddy без HTTP proxy.
+Правила сигнала и границу доверия маркера описывает [runbook сторожа](production-monitoring.md).
+Incompatible rollback запись допустима, когда
 она совпадает с manifest; наличие записи не означает разрешённый откат. `rollback=null` означает,
 что gateway не предлагает откат, и допустим после rollback или forward repair. Колонки индексов не
 считаются колонками таблиц. Формат материалов читается из `materials.materials.format_id`;
@@ -441,7 +446,7 @@ curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/
     https://inside.sachkov.dev/integrations/telegram/v1/communications/authorize
   # тело с "code":"unauthorized", затем 401
   curl --silent --write-out '\n%{http_code}\n' \
-    "https://inside.sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"
+    "https://sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"
   # Ссылка не найдена., затем 404
   ```
 

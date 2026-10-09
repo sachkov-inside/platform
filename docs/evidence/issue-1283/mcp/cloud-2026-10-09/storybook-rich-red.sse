@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":6,"result":{"content":[{"type":"text","text":"## Failing Stories\n\n### pages-material-reader-quiz--rich-option-content\n\nUnable to perform pointer interaction as the element has `pointer-events: none`:\n\nSUMMARY\n    at play (/workspace/platform.worktrees/1283-reader-quizzes/apps/web/src/_pages/material-reader/ui/material-reader-quiz.stories.tsx:163:8)"}],"isError":true}}
+

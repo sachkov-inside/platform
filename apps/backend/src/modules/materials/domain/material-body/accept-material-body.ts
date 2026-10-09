@@ -4,6 +4,12 @@ import {
   isJsonObject,
   isUnknownRecord,
   materialBlockByType,
+  materialBlockChildren,
+  renderedBlockSchema,
+  resourceCardUrlValid,
+  type RenderedBlock,
+  materialQuizReferencesValid,
+  renderMaterialBlocks,
   stringAttribute,
 } from "@inside/material-blocks";
 import { z } from "zod";
@@ -54,6 +60,33 @@ function validateUrl(url: string): boolean {
     return true;
   }
   return URL.parse(url)?.protocol === "https:";
+}
+
+/** Quiz atoms carry rendered children as data; apply the same URL/asset policy as document nodes. */
+function safeQuizContent(block: RenderedBlock): boolean {
+  if (block.kind === "quiz") return false;
+  if (
+    block.kind === "paragraph" ||
+    block.kind === "heading" ||
+    block.kind === "key_point"
+  ) {
+    if (
+      !block.content.every((text) =>
+        text.marks.every(
+          (mark) => mark.kind !== "link" || validateUrl(mark.href),
+        ),
+      )
+    )
+      return false;
+  }
+  if (block.kind === "resource_card" && !resourceCardUrlValid(block.url))
+    return false;
+  if (
+    (block.kind === "image" || block.kind === "file") &&
+    !isUuid(block.assetId)
+  )
+    return false;
+  return materialBlockChildren(block).every(safeQuizContent);
 }
 
 function validateTree(doc: JsonObject): readonly ValidationIssue[] {
@@ -122,6 +155,21 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         }
       }
 
+      if (type === "quiz") {
+        const quiz = renderedBlockSchema.safeParse(
+          isJsonObject(value["attrs"]) ? value["attrs"]["quiz"] : undefined,
+        );
+        if (
+          quiz.success &&
+          quiz.data.kind === "quiz" &&
+          !materialBlockChildren(quiz.data).every(safeQuizContent)
+        ) {
+          issues.push({
+            code: "unsafe_quiz_content",
+            path: validationIssuePath([...path, "attrs", "quiz"]),
+          });
+        }
+      }
       materialBlockByType(type)?.issues?.(value, (code, attribute) => {
         issues.push({
           code,
@@ -266,6 +314,14 @@ export function acceptMaterialBody(
     }
     if (!isJsonObject(canonicalRoundTrip)) {
       return invalid([{ code: "invalid_prosemirror_document", path: "/doc" }]);
+    }
+    const content = canonicalRoundTrip["content"];
+    if (
+      content !== undefined &&
+      isJsonArray(content) &&
+      !materialQuizReferencesValid(renderMaterialBlocks(content))
+    ) {
+      return invalid([{ code: "invalid_quiz_reference", path: "/doc" }]);
     }
     return {
       ok: true,

@@ -1,0 +1,3 @@
+event: message
+data: {"jsonrpc":"2.0","id":102,"result":{"content":[{"type":"text","text":"http://localhost:6006/?path=/story/pages-material-reader-quiz--rich-option-content"},{"type":"text","text":"http://localhost:6006/?path=/story/pages-material-reader-quiz--unanswered"}],"structuredContent":{"stories":[{"title":"Pages/Material Reader Quiz","name":"Rich Option Content","previewUrl":"http://localhost:6006/?path=/story/pages-material-reader-quiz--rich-option-content"},{"title":"Pages/Material Reader Quiz","name":"Unanswered","previewUrl":"http://localhost:6006/?path=/story/pages-material-reader-quiz--unanswered"}]}}}
+

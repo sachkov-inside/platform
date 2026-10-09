@@ -136,10 +136,10 @@ describe("production deployment state machine", () => {
         "/releases/v2/runtime/compose.production.yaml pull rabbitmq",
       );
       const startBroker = log.indexOf(
-        "/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps rabbitmq\n",
+        "/releases/v2/runtime/compose.production.yaml up --detach --wait --pull never --no-deps rabbitmq\n",
       );
       const startProcesses = log.indexOf(
-        `/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
+        `/releases/v2/runtime/compose.production.yaml up --detach --wait --pull never --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
       );
       assert.ok(
         pullBroker > log.indexOf("docker pull"),
@@ -306,16 +306,16 @@ describe("production deployment state machine", () => {
         /docker compose .* run --pull never --rm --no-deps migrations node dist\/migrations\/migrate\.js --verify-schema-compatible/u,
       );
       assert.ok(
-        firstExternalLog.indexOf("caddy reload") <
+        firstExternalLog.indexOf("caddy reload") >
           firstExternalLog.indexOf("docker pull"),
-        "maintenance must be enabled before exact images are pulled",
+        "exact images must be pulled before maintenance is enabled",
       );
       assertGatewaySuccess(fixture, "deploy", "v1", 102);
       const noOpLog = readExternalLog(fixture).slice(firstExternalLog.length);
       assert.match(noOpLog, /--verify-schema-identity/u);
       assert.doesNotMatch(
         noOpLog,
-        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+        /docker pull|caddy reload| up --detach| run --rm --pull never migrations/u,
       );
 
       assertGatewaySuccess(fixture, "deploy", "v2", 103);
@@ -345,17 +345,18 @@ describe("production deployment state machine", () => {
       assert.doesNotMatch(journals, /test-only-secret-value/u);
       assert.doesNotMatch(
         readExternalLog(fixture).slice(beforeRollback.length),
-        / run --rm migrations/u,
+        / run --rm --pull never migrations/u,
       );
     } finally {
       fixture.cleanup();
     }
   });
 
-  for (const phase of [
+  for (const { operation: action, phase } of [
     "preflight",
     "maintenance",
-    "pull",
+    "pre-pull",
+    "schema",
     "workers",
     "migrations",
     "start",
@@ -363,17 +364,24 @@ describe("production deployment state machine", () => {
     "smoke",
     "routes",
     "journal",
-  ]) {
-    it(`records ${phase} failure and safely repeats the same deployment`, () => {
+  ].flatMap((phase) =>
+    phase === "migrations"
+      ? [{ operation: "deploy", phase }]
+      : ["deploy", "rollback"].map((operation) => ({ operation, phase })),
+  )) {
+    it(`records ${action} ${phase} failure and safely repeats the same operation`, () => {
       const fixture = createHostFixture();
       try {
         assertGatewaySuccess(fixture, "deploy", "v1", 200);
+        if (action === "rollback")
+          assertGatewaySuccess(fixture, "deploy", "v2", 199);
+        const target = action === "deploy" ? "v2" : "v1";
         const activeCaddy = resolve(
           fixture.root,
           "srv/inside/runtime/caddy/active.caddy",
         );
         const previousRoute = readFileSync(activeCaddy, "utf8");
-        const failed = runGateway(fixture, "deploy", "v2", 201, {
+        const failed = runGateway(fixture, action, target, 201, {
           INSIDE_DEPLOY_FAIL_PHASE: phase,
         });
 
@@ -384,9 +392,15 @@ describe("production deployment state machine", () => {
           ),
         );
         assert.equal(operation.status, "failed");
-        assert.equal(operation.phase, phase);
+        assert.equal(
+          operation.phase,
+          phase === "pre-pull" ? "preflight" : phase,
+        );
+        assertLegacyOperationKeys(operation);
+        assert.equal(readMaintenance(fixture).phase, phase);
         if (
           phase === "preflight" ||
+          phase === "pre-pull" ||
           phase === "maintenance" ||
           phase === "journal"
         ) {
@@ -398,8 +412,256 @@ describe("production deployment state machine", () => {
           );
         }
 
-        assertGatewaySuccess(fixture, "deploy", "v2", 202);
-        assert.equal(readState(fixture).current.version, "v2");
+        assertGatewaySuccess(fixture, action, target, 202);
+        assert.equal(readState(fixture).current.version, target);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  for (const operation of ["deploy", "rollback"]) {
+    for (const failure of [
+      "backend-pull",
+      "web-pull",
+      "broker-pull",
+      "digest",
+    ]) {
+      it(`keeps active routes on ${operation} ${failure} failure and retries`, () => {
+        const fixture = createHostFixture();
+        try {
+          assertGatewaySuccess(fixture, "deploy", "v1", 301);
+          if (operation === "rollback") {
+            assertGatewaySuccess(fixture, "deploy", "v2", 302);
+          }
+          const target = operation === "deploy" ? "v2" : "v1";
+          const activeCaddy = resolve(
+            fixture.root,
+            "srv/inside/runtime/caddy/active.caddy",
+          );
+          const previousRoute = readFileSync(activeCaddy, "utf8");
+          const before = readExternalLog(fixture).length;
+          const failed = runGateway(fixture, operation, target, 303, {
+            INSIDE_DEPLOY_TEST_IMAGE_FAILURE: failure,
+          });
+          assert.notEqual(failed.status, 0);
+          assert.equal(readFileSync(activeCaddy, "utf8"), previousRoute);
+          assert.doesNotMatch(
+            readExternalLog(fixture).slice(before),
+            /caddy reload| stop --timeout| up --detach| run --rm --pull never migrations/u,
+          );
+          const journal = deploymentOperationSchema.parse(
+            readJson(
+              resolve(
+                fixture.root,
+                "var/lib/inside/deployments/operation.json",
+              ),
+            ),
+          );
+          assert.equal(journal.phase, "preflight");
+          assert.equal(readMaintenance(fixture).phase, "pre-pull");
+          assertLegacyOperationKeys(journal);
+          assert.equal(journal.maintenance, undefined);
+          assertGatewaySuccess(fixture, operation, target, 304);
+        } finally {
+          fixture.cleanup();
+        }
+      });
+    }
+  }
+
+  for (const status of ["failed", "running"]) {
+    it(`old rollback rejects a ${status} operation with embedded maintenance`, () => {
+      const fixture = createHostFixture({ legacyV1: true });
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 460);
+        assertGatewaySuccess(fixture, "deploy", "v2", 461);
+        const journalPath = resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation.json",
+        );
+        const journal = deploymentOperationSchema.parse(readJson(journalPath));
+        writeFileSync(
+          journalPath,
+          JSON.stringify({
+            ...journal,
+            operation: "rollback",
+            version: "v1",
+            status,
+            phase: "readiness",
+            recoveryPhase: "readiness",
+            maintenance: {
+              startedAtEpochSeconds: 100,
+              endedAtEpochSeconds: null,
+              durationSeconds: 20,
+            },
+          }),
+        );
+        const before = readFileSync(journalPath, "utf8");
+        const result = runGateway(fixture, "rollback", "v1", 462);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /operation journal is invalid/u);
+        assert.equal(readFileSync(journalPath, "utf8"), before);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+
+    for (const phase of ["pre-pull", "schema"]) {
+      it(`old rollback reads a ${status} new deploy journal after ${phase}`, () => {
+        const fixture = createHostFixture({ legacyV1: true });
+        try {
+          assertGatewaySuccess(fixture, "deploy", "v1", 470);
+          assertGatewaySuccess(fixture, "deploy", "v2", 471);
+          assert.notEqual(
+            runGateway(fixture, "deploy", "v3", 472, {
+              INSIDE_DEPLOY_FAIL_PHASE: phase,
+            }).status,
+            0,
+          );
+          const journalPath = resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation.json",
+          );
+          const journal = deploymentOperationSchema.parse(
+            readJson(journalPath),
+          );
+          writeFileSync(journalPath, JSON.stringify({ ...journal, status }));
+          const before = readExternalLog(fixture).length;
+          const result = runGateway(fixture, "rollback", "v1", 473);
+          assert.doesNotMatch(result.stderr, /operation journal is invalid/u);
+          if (phase === "pre-pull") {
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(readState(fixture).current.version, "v1");
+          } else {
+            assert.notEqual(result.status, 0);
+            assert.match(
+              result.stderr,
+              /unfinished deployment operation must be retried/u,
+            );
+            assert.doesNotMatch(
+              readExternalLog(fixture).slice(before),
+              /caddy reload|docker pull| stop --timeout/u,
+            );
+          }
+        } finally {
+          fixture.cleanup();
+        }
+      });
+    }
+  }
+
+  it("records maintenance seconds without pull time and preserves them on a no-op", () => {
+    const fixture = createHostFixture();
+    try {
+      const clock = resolve(fixture.root, "clock");
+      writeFileSync(clock, "100\n");
+      writeExecutable(
+        resolve(fixture.bin, "date"),
+        `#!/usr/bin/env bash
+if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/date "$@"; fi
+`,
+      );
+      assertGatewaySuccess(fixture, "deploy", "v1", 305, {
+        INSIDE_DEPLOY_TEST_TIMING: "true",
+      });
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = readState(fixture);
+      assert.deepEqual(journal.maintenance, {
+        startedAtEpochSeconds: 300,
+        endedAtEpochSeconds: 345,
+        durationSeconds: 45,
+      });
+      assertGatewaySuccess(fixture, "deploy", "v1", 306);
+      assert.deepEqual(readState(fixture).maintenance, journal.maintenance);
+      assert.equal(
+        deploymentOperationSchema.parse(readJson(journalPath)).maintenance,
+        undefined,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("does not count a rejected maintenance reload as an open interval", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 430);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 431, {
+          INSIDE_DEPLOY_TEST_REJECT_MAINTENANCE: "true",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+        }).status,
+        0,
+      );
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = deploymentOperationSchema.parse(readJson(journalPath));
+      assert.equal(journal.phase, "maintenance");
+      assert.equal(journal.maintenance, undefined);
+      assertGatewaySuccess(fixture, "deploy", "v2", 432, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 200,
+        durationSeconds: 0,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const target of ["v2", "v3"]) {
+    it(`archives a closed maintenance interval before continuing a failed journal with ${target}`, () => {
+      const fixture = createHostFixture();
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 440);
+        const clock = resolve(fixture.root, "clock");
+        writeFileSync(clock, "100\n");
+        writeExecutable(
+          resolve(fixture.bin, "date"),
+          `#!/usr/bin/env bash
+if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/date "$@"; fi
+`,
+        );
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v2", 441, {
+            INSIDE_DEPLOY_FAIL_PHASE: "journal",
+            INSIDE_DEPLOY_TEST_TIMING: "true",
+          }).status,
+          0,
+        );
+        const before = readFileSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-maintenance.json",
+          ),
+          "utf8",
+        );
+        assertGatewaySuccess(fixture, "deploy", target, 442, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+        });
+        assert.equal(
+          readFileSync(
+            resolve(
+              fixture.root,
+              "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-441-ended-345.json",
+            ),
+            "utf8",
+          ),
+          before,
+        );
+        assert.deepEqual(readState(fixture).maintenance, {
+          startedAtEpochSeconds: 500,
+          endedAtEpochSeconds: 500,
+          durationSeconds: 0,
+        });
       } finally {
         fixture.cleanup();
       }
@@ -769,7 +1031,7 @@ describe("production deployment state machine", () => {
       );
       assert.ok(failedSchemaProof >= 0);
       assert.ok(maintenance > failedSchemaProof);
-      assert.ok(targetPull > maintenance);
+      assert.ok(targetPull < maintenance);
       assert.ok(targetCompatibility > targetPull);
     } finally {
       fixture.cleanup();
@@ -908,7 +1170,7 @@ describe("production deployment state machine", () => {
         "/releases/v3/runtime/compose.production.yaml stop --timeout 20",
       );
       const repairMigrations = retryLog.indexOf(
-        "/releases/v3/runtime/compose.production.yaml run --rm migrations",
+        "/releases/v3/runtime/compose.production.yaml run --rm --pull never migrations",
       );
       assert.ok(repairWorkersStop >= 0);
       assert.ok(repairMigrations > repairWorkersStop);
@@ -1008,7 +1270,7 @@ describe("production deployment state machine", () => {
       assert.match(retryLog, /--verify-schema-identity/u);
       assert.doesNotMatch(
         retryLog,
-        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+        /docker pull|caddy reload| up --detach| run --rm --pull never migrations/u,
       );
       const repeated = runGateway(fixture, "rollback", "v1", 251);
       assert.notEqual(repeated.status, 0);
@@ -1101,6 +1363,497 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("rejects an expired rollback after pre-pull failure but retries legacy pull", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 410, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 411, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 412, {
+          INSIDE_DEPLOY_FAIL_PHASE: "pre-pull",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      const expired = runGateway(fixture, "rollback", "v1", 413, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+      assert.notEqual(expired.status, 0);
+      assert.match(expired.stderr, /incompatible or expired/u);
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = deploymentOperationSchema.parse(readJson(journalPath));
+      writeFileSync(
+        journalPath,
+        JSON.stringify({ ...journal, phase: "pull", recoveryPhase: null }),
+      );
+      assertGatewaySuccess(fixture, "rollback", "v1", 414, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects an expired rollback after a rejected maintenance reload", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 415, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 416, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 417, {
+          INSIDE_DEPLOY_TEST_REJECT_MAINTENANCE: "true",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      const before = readExternalLog(fixture).length;
+      const expired = runGateway(fixture, "rollback", "v1", 418, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+      assert.notEqual(expired.status, 0);
+      assert.match(expired.stderr, /incompatible or expired/u);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(before),
+        /docker pull|caddy reload| stop --timeout/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects an expired rollback interrupted before maintenance becomes live", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 419, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 424, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 425, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "before-maintenance",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      const before = readExternalLog(fixture).length;
+      const expired = runGateway(fixture, "rollback", "v1", 426, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+      assert.notEqual(expired.status, 0);
+      assert.match(expired.stderr, /incompatible or expired/u);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(before),
+        /docker pull|caddy reload| stop --timeout/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const { target, legacySidecar } of [
+    { target: "v2", legacySidecar: false },
+    { target: "v3", legacySidecar: false },
+    { target: "v2", legacySidecar: true },
+  ]) {
+    it(`starts a new measured interval with ${target} after interrupted routes, legacy sidecar=${legacySidecar}`, () => {
+      const fixture = createHostFixture();
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 450, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+        });
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v2", 451, {
+            INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "after-platform",
+            INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+          }).status,
+          0,
+        );
+        if (legacySidecar) {
+          const sidecarPath = resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-maintenance.json",
+          );
+          const sidecar = z
+            .record(z.string(), z.unknown())
+            .parse(readJson(sidecarPath));
+          delete sidecar["maintenanceConfirmed"];
+          delete sidecar["operationMaintenanceConfirmed"];
+          writeFileSync(sidecarPath, JSON.stringify(sidecar));
+        }
+        assertGatewaySuccess(fixture, "deploy", target, 452, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+        });
+        assert.deepEqual(readState(fixture).maintenance, {
+          startedAtEpochSeconds: 500,
+          endedAtEpochSeconds: 500,
+          durationSeconds: 0,
+        });
+        const archive = z
+          .object({
+            schemaVersion: z.string(),
+            maintenance: z.unknown(),
+            restoration: z.object({ observedAtEpochSeconds: z.number() }),
+          })
+          .parse(
+            readJson(
+              resolve(
+                fixture.root,
+                "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-451-started-200-ended-unknown.json",
+              ),
+            ),
+          );
+        assert.equal(
+          archive.schemaVersion,
+          "inside.platform.deployment-maintenance-uncertain.v1",
+        );
+        assert.deepEqual(archive.maintenance, {
+          startedAtEpochSeconds: 200,
+          endedAtEpochSeconds: null,
+          durationSeconds: null,
+        });
+        assert.equal(archive.restoration.observedAtEpochSeconds, 500);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("finishes an expired rollback interrupted after maintenance became live", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 453, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 454, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 455, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "after-maintenance",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      assertGatewaySuccess(fixture, "rollback", "v1", 456, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+      assert.equal(readState(fixture).current.version, "v1");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("retries an expired rollback after interrupted restored routes", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 467, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 468, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 469, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "after-platform",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 474, {
+          INSIDE_DEPLOY_FAIL_PHASE: "pre-pull",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+        }).status,
+        0,
+      );
+      assertGatewaySuccess(fixture, "rollback", "v1", 478, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86701",
+      });
+      assert.equal(readState(fixture).current.version, "v1");
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 86701,
+        endedAtEpochSeconds: 86701,
+        durationSeconds: 0,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("retries an accepted expired rollback with an older closed timing sidecar", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 463, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assertGatewaySuccess(fixture, "deploy", "v2", 464, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.notEqual(
+        runGateway(fixture, "rollback", "v1", 465, {
+          INSIDE_DEPLOY_FAIL_PHASE: "journal",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "86599",
+        }).status,
+        0,
+      );
+      const sidecarPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation-maintenance.json",
+      );
+      const sidecar = z
+        .record(z.string(), z.unknown())
+        .parse(readJson(sidecarPath));
+      delete sidecar["maintenanceConfirmed"];
+      delete sidecar["operationMaintenanceConfirmed"];
+      writeFileSync(sidecarPath, JSON.stringify(sidecar));
+      assertGatewaySuccess(fixture, "rollback", "v1", 466, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "86601",
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const failure of ["before-platform", "rejected-platform"]) {
+    it(`keeps the interval open when normal routes are not live after ${failure}`, () => {
+      const fixture = createHostFixture();
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 457);
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v2", 458, {
+            INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: failure,
+            INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+          }).status,
+          0,
+        );
+        assertGatewaySuccess(fixture, "deploy", "v2", 459, {
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+        });
+        assert.deepEqual(readState(fixture).maintenance, {
+          startedAtEpochSeconds: 200,
+          endedAtEpochSeconds: 500,
+          durationSeconds: 300,
+        });
+        assert.equal(
+          existsSync(
+            resolve(
+              fixture.root,
+              "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-458-started-200-ended-unknown.json",
+            ),
+          ),
+          false,
+        );
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("preserves interrupted journals when the host Caddy import cannot be proven", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 475);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 476, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "after-platform",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const beforeJournal = readFileSync(journalPath, "utf8");
+      const beforeLog = readExternalLog(fixture).length;
+      const configPath = resolve(fixture.root, "etc/caddy/Caddyfile");
+      writeFileSync(
+        configPath,
+        readFileSync(configPath, "utf8").replace(
+          "import /srv/inside/runtime/caddy/*.caddy",
+          'import "/srv/inside/runtime/caddy/*.caddy"',
+        ),
+      );
+      const rejected = runGateway(fixture, "deploy", "v2", 477, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+      });
+      assert.notEqual(rejected.status, 0);
+      assert.match(rejected.stderr, /Cannot confirm interrupted maintenance/u);
+      assert.equal(readFileSync(journalPath, "utf8"), beforeJournal);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(beforeLog),
+        /docker pull|caddy reload| stop --timeout/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("preserves interrupted journals when the live Caddy proof is unavailable", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 460);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 461, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_CADDY: "after-platform",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const sidecarPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation-maintenance.json",
+      );
+      const beforeJournal = readFileSync(journalPath, "utf8");
+      const beforeSidecar = readFileSync(sidecarPath, "utf8");
+      const beforeLog = readExternalLog(fixture).length;
+      const rejected = runGateway(fixture, "deploy", "v2", 462, {
+        INSIDE_DEPLOY_TEST_CADDY_PROOF_UNAVAILABLE: "true",
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+      });
+      assert.notEqual(rejected.status, 0);
+      assert.match(rejected.stderr, /Cannot confirm interrupted maintenance/u);
+      assert.equal(readFileSync(journalPath, "utf8"), beforeJournal);
+      assert.equal(readFileSync(sidecarPath, "utf8"), beforeSidecar);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(beforeLog),
+        /docker pull|caddy reload| stop --timeout/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("keeps the maintenance start across a failed deployment and repair forward", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 420, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+      });
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 421, {
+          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 422, {
+          INSIDE_DEPLOY_FAIL_PHASE: "pre-pull",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "250",
+        }).status,
+        0,
+      );
+      assert.deepEqual(readMaintenance(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: null,
+        durationSeconds: 50,
+      });
+      assertGatewaySuccess(fixture, "deploy", "v3", 423, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "300",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 300,
+        durationSeconds: 100,
+      });
+      const completed = deploymentOperationSchema.parse(
+        readJson(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        ),
+      );
+      assert.equal(completed.maintenance, undefined);
+      assert.deepEqual(Object.keys(completed).sort(), [
+        "githubRunId",
+        "operation",
+        "phase",
+        "recordedAt",
+        "recoveryPhase",
+        "repairForward",
+        "schemaVersion",
+        "status",
+        "version",
+      ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("preserves timing after interruption between the sidecar and operation renames", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 480);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 481, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_MAINTENANCE: "readiness",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      const sidecar = readMaintenance(fixture);
+      assert.equal(sidecar.journal.phase, "readiness");
+      const journal = deploymentOperationSchema.parse(
+        readJson(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        ),
+      );
+      assert.equal(journal.phase, "start");
+      assertLegacyOperationKeys(journal);
+      assertGatewaySuccess(fixture, "deploy", "v2", 482, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "300",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 300,
+        durationSeconds: 100,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("ignores a timing sidecar replaced by a successful legacy rollback", () => {
+    const fixture = createHostFixture({ legacyV1: true });
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 490);
+      assertGatewaySuccess(fixture, "deploy", "v2", 491);
+      const sidecarPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation-maintenance.json",
+      );
+      const previousSidecar = readFileSync(sidecarPath, "utf8");
+      assertGatewaySuccess(fixture, "rollback", "v1", 492);
+      assert.equal(readFileSync(sidecarPath, "utf8"), previousSidecar);
+      assertGatewaySuccess(fixture, "deploy", "v3", 493, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 500,
+        endedAtEpochSeconds: 500,
+        durationSeconds: 0,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("finishes an accepted rollback after its selection window expires", () => {
     const fixture = createHostFixture();
     try {
@@ -1145,7 +1898,7 @@ describe("production deployment state machine", () => {
   });
 });
 
-function createHostFixture({ compatible = true } = {}) {
+function createHostFixture({ compatible = true, legacyV1 = false } = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-production-host-"));
   const root = resolve(directory, "host");
   const bin = resolve(directory, "bin");
@@ -1153,7 +1906,10 @@ function createHostFixture({ compatible = true } = {}) {
   mkdirSync(resolve(root, "etc/caddy"), { recursive: true });
   mkdirSync(bin);
   writeFileSync(resolve(root, "etc/inside/host-provisioned"), "state=ready\n");
-  writeFileSync(resolve(root, "etc/caddy/Caddyfile"), "test config\n");
+  writeFileSync(
+    resolve(root, "etc/caddy/Caddyfile"),
+    readFileSync("infra/production/host/Caddyfile"),
+  );
   writeFileSync(
     resolve(root, "etc/inside/runtime/compose.env"),
     [
@@ -1209,7 +1965,18 @@ function createHostFixture({ compatible = true } = {}) {
     `#!/usr/bin/env bash
 set -euo pipefail
 printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
-if [[ "$1" == create ]]; then
+if [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == backend-pull && "$1" == pull && "$2" == *platform-backend* ]] ||
+   [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == web-pull && "$1" == pull && "$2" == *platform-web* ]] ||
+   [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == broker-pull && "$*" == *"pull rabbitmq"* ]]; then
+  exit 1
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_TIMING:-}" == true && "$1" == pull ]]; then
+  printf '300\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+fi
+if [[ "$1 $2" == "image inspect" ]]; then
+  if [[ "\${INSIDE_DEPLOY_TEST_IMAGE_FAILURE:-}" == digest ]]; then printf '[]\\n';
+  else printf '["%s"]\\n' "\${*: -1}"; fi
+elif [[ "$1" == create ]]; then
   printf 'watchdog-source\\n'
 elif [[ "$1" == cp ]]; then
   # A release image built before #245 has no watchdog to copy.
@@ -1253,7 +2020,53 @@ fi
   );
   writeExecutable(
     resolve(bin, "caddy"),
-    '#!/usr/bin/env bash\nset -euo pipefail\nprintf "caddy %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"\n',
+    `#!/usr/bin/env bash
+set -euo pipefail
+printf "caddy %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
+active="$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"
+if [[ "$1" == adapt ]]; then
+  adapted_fragment="$active"
+  if grep -Fqx "import $(dirname "$3")/*.caddy" "$3"; then
+    adapted_fragment="$(dirname "$3")/active.caddy"
+  fi
+  printf '{"fragmentDigest":"%s"}\\n' "$(sha256sum "$adapted_fragment" | cut -d' ' -f1)"
+  exit 0
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_INTERRUPT_CADDY:-}" == before-maintenance ]] &&
+  grep -q 'Deployment in progress' "$active"; then
+  kill -KILL "$PPID"
+  exit 0
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_INTERRUPT_CADDY:-}" == before-platform ]] &&
+  ! grep -q 'Deployment in progress' "$active"; then
+  kill -KILL "$PPID"
+  exit 0
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_INTERRUPT_CADDY:-}" == rejected-platform ]] &&
+  ! grep -q 'Deployment in progress' "$active"; then
+  exit 1
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_REJECT_MAINTENANCE:-}" == true ]] &&
+  grep -q 'Deployment in progress' "$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"; then
+  exit 1
+fi
+printf '{"fragmentDigest":"%s"}\\n' "$(sha256sum "$active" | cut -d' ' -f1)" >"$INSIDE_DEPLOY_TEST_ROOT/live-caddy.json"
+if [[ "\${INSIDE_DEPLOY_TEST_TIMING:-}" == true ]]; then
+  if grep -q 'Deployment in progress' "$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"; then
+    printf '310\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+  else
+    printf '345\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
+  fi
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_INTERRUPT_CADDY:-}" == after-platform ]] &&
+  ! grep -q 'Deployment in progress' "$active"; then
+  kill -KILL "$PPID"
+fi
+if [[ "\${INSIDE_DEPLOY_TEST_INTERRUPT_CADDY:-}" == after-maintenance ]] &&
+  grep -q 'Deployment in progress' "$active"; then
+  kill -KILL "$PPID"
+fi
+`,
   );
   writeExecutable(
     resolve(bin, "curl"),
@@ -1261,7 +2074,10 @@ fi
 set -euo pipefail
 printf "curl %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
 url="\${*: -1}"
-if [[ "$url" == */health/ready || "$url" == */_health/ready ]]; then
+if [[ "$url" == http://127.0.0.1:2019/config/ ]]; then
+  [[ "\${INSIDE_DEPLOY_TEST_CADDY_PROOF_UNAVAILABLE:-}" == true ]] && exit 1
+  cat "$INSIDE_DEPLOY_TEST_ROOT/live-caddy.json"
+elif [[ "$url" == */health/ready || "$url" == */_health/ready ]]; then
   printf '{"status":"ready","release":{"release":"%s","sourceSha":"%s"},"schema":{"identity":"%s","migrationCount":1}}\\n' \\
     "$PLATFORM_RELEASE_VERSION" "$PLATFORM_SOURCE_SHA" "$INSIDE_DEPLOY_EXPECTED_SCHEMA"
 else
@@ -1277,10 +2093,44 @@ fi
     { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(build.status, 0, build.stderr);
+  let legacyBundle = bundle;
+  if (legacyV1) {
+    const staging = resolve(directory, "legacy-runtime");
+    mkdirSync(staging);
+    const unpacked = spawnSync("tar", ["-xzf", bundle, "-C", staging], {
+      timeout: 30_000,
+      encoding: "utf8",
+    });
+    assert.equal(unpacked.status, 0, unpacked.stderr);
+    const legacy = readFileSync(
+      "scripts/fixtures/deployment/legacy-deploy-release",
+    );
+    assert.equal(
+      sha256(legacy),
+      "sha256:214d4d68329f02e5a43d4d63f35e598f6354e3e5efead25af2c8cddbaab72a70",
+    );
+    writeFileSync(resolve(staging, "bin/deploy-release"), legacy);
+    legacyBundle = resolve(directory, "legacy-runtime.tar.gz");
+    const packed = spawnSync(
+      "tar",
+      [
+        "-C",
+        staging,
+        "-czf",
+        legacyBundle,
+        "bin/deploy-release",
+        "caddy/maintenance.caddy",
+        "caddy/platform.caddy",
+        "compose.production.yaml",
+      ],
+      { timeout: 30_000, encoding: "utf8" },
+    );
+    assert.equal(packed.status, 0, packed.stderr);
+  }
   const bundleDigest = sha256(readFileSync(bundle));
   const schemaIdentity = `sha256:${"c".repeat(64)}`;
   const v1Manifest = releaseManifest({
-    bundleDigest,
+    bundleDigest: sha256(readFileSync(legacyBundle)),
     runId: 91,
     schemaIdentity,
     sourceSha: "1".repeat(40),
@@ -1343,6 +2193,7 @@ fi
   const fixture = {
     bin,
     bundle,
+    legacyBundle,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
     manifests,
@@ -1437,7 +2288,10 @@ function createEnvelope(fixture, version) {
   const manifest = fixture.manifests[version];
   assert.ok(manifest !== undefined, `missing manifest fixture for ${version}`);
   writeFileSync(resolve(root, "release-manifest.json"), manifest);
-  copyFileSync(fixture.bundle, resolve(root, "production-runtime.tar.gz"));
+  copyFileSync(
+    version === "v1" ? fixture.legacyBundle : fixture.bundle,
+    resolve(root, "production-runtime.tar.gz"),
+  );
   const result = spawnSync(
     "tar",
     [
@@ -1458,9 +2312,22 @@ function createEnvelope(fixture, version) {
  * @param {string} operation
  * @param {string} version
  * @param {number} runId
+ * @param {Record<string, string>} [extraEnvironment]
  */
-function assertGatewaySuccess(fixture, operation, version, runId) {
-  const result = runGateway(fixture, operation, version, runId);
+function assertGatewaySuccess(
+  fixture,
+  operation,
+  version,
+  runId,
+  extraEnvironment = {},
+) {
+  const result = runGateway(
+    fixture,
+    operation,
+    version,
+    runId,
+    extraEnvironment,
+  );
   assert.equal(result.status, 0, result.stderr);
 }
 
@@ -1492,6 +2359,7 @@ const deployedReleaseSchema = z.object({ version: z.string() }).passthrough();
 const deploymentStateSchema = z
   .object({
     operation: z.string(),
+    maintenance: z.unknown().optional(),
     current: deployedReleaseSchema.extend({
       deployedAtEpochSeconds: z.number(),
       githubRunId: z.number(),
@@ -1516,6 +2384,7 @@ const deploymentOperationSchema = z
     phase: z.string(),
     recoveryPhase: z.string().nullish(),
     repairForward: z.unknown(),
+    maintenance: z.unknown().optional(),
   })
   .passthrough();
 
@@ -1552,4 +2421,38 @@ function writeExecutable(path, content) {
 /** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+/** @param {HostFixture} fixture */
+function readMaintenance(fixture) {
+  return z
+    .object({
+      journal: deploymentOperationSchema,
+      phase: z.string(),
+      maintenance: z.unknown(),
+    })
+    .parse(
+      readJson(
+        resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation-maintenance.json",
+        ),
+      ),
+    );
+}
+
+/** @param {unknown} operation */
+function assertLegacyOperationKeys(operation) {
+  const journal = deploymentOperationSchema.parse(operation);
+  assert.deepEqual(Object.keys(journal).sort(), [
+    "githubRunId",
+    "operation",
+    "phase",
+    "recordedAt",
+    "recoveryPhase",
+    "repairForward",
+    "schemaVersion",
+    "status",
+    "version",
+  ]);
 }

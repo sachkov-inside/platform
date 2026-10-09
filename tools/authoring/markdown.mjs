@@ -3,8 +3,12 @@ import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
+  readerBlocksSchema,
+  renderMaterialBlocks,
+  materialQuizReferenceIssue,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
+import { z } from "zod";
 import { createHash } from "node:crypto";
 
 /**
@@ -178,6 +182,7 @@ export function sourceUuid(value) {
  * @param {{
  *   sourcePath: string;
  *   sourceId: string;
+ *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
@@ -185,7 +190,7 @@ export function sourceUuid(value) {
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image, imageVariants },
+  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
 ) {
   /**
    * @param {Token} token
@@ -359,7 +364,47 @@ export function convertMarkdown(
     }
     return root;
   };
-  const doc = blocks(parser.parse(markdown, {}));
+  const renderNodes = (/** @type {DocNode[]} */ nodes) => {
+    return renderMaterialBlocks(z.array(z.json()).parse(nodes));
+  };
+  const doc =
+    readerBlocks === undefined
+      ? blocks(parser.parse(markdown, {}))
+      : {
+          type: "doc",
+          content: readerBlocksSchema.parse(readerBlocks).flatMap((block) => {
+            if (block.kind === "markdown")
+              return blocks(parser.parse(block.markdown, {})).content;
+            const rich = (/** @type {string} */ value) =>
+              renderNodes(blocks(parser.parse(value, {})).content);
+            return [
+              {
+                type: "quiz",
+                attrs: {
+                  quiz: {
+                    kind: "quiz",
+                    id: block.id,
+                    prompt: rich(block.promptMarkdown),
+                    correctOptionId: block.correctOptionId,
+                    options: block.options.map((option) => ({
+                      id: option.id,
+                      content: rich(option.markdown),
+                      explanation: rich(option.explanationMarkdown),
+                    })),
+                    dontKnow: {
+                      explanation: rich(block.dontKnow.explanationMarkdown),
+                      reviewLinks: block.dontKnow.reviewLinks,
+                    },
+                  },
+                },
+              },
+            ];
+          }),
+        };
+  if (readerBlocks !== undefined) {
+    const issue = materialQuizReferenceIssue(renderNodes(doc.content));
+    if (issue !== undefined) throw new Error(`${sourcePath}: ${issue}`);
+  }
   /**
    * IDs are stable for unchanged positions, and are independent of filenames and target
    * environments.
