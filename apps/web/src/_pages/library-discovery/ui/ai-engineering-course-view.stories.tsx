@@ -201,8 +201,9 @@ const preorderOffer = {
 };
 
 /**
- * Предзаказ: плашка потока над кнопкой первого экрана и плашка набора в нижнем блоке. Цена —
- * из предложения, которое видит этот человек, рядом зачёркнутая цена после старта.
+ * Предзаказ: первый экран только сообщает, что набор идёт, и ведёт к нижнему блоку. Там пункты
+ * «что входит» и билет с ценой предложения, которое видит этот человек, рядом зачёркнутая цена
+ * после старта и скидка к ней.
  */
 export const CohortPreorder: Story = {
   parameters: { account: "authenticated" },
@@ -234,11 +235,12 @@ export const CohortPreorder: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText(/Набор на первый поток\. Старт 9 ноября/u),
-    ).toBeVisible();
+      canvas.getByRole("link", { name: /Идёт набор на первый поток/u }),
+    ).toHaveAttribute("href", "#enroll");
     await expect(
-      canvas.getAllByRole("link", { name: /Оформить предзаказ/u })[0],
+      canvas.getByRole("link", { name: /Оформить предзаказ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
+    await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
     await expect(
       canvas.getByRole("heading", { name: "Набор на первый поток" }),
     ).toBeInTheDocument();

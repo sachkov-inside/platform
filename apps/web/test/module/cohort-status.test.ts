@@ -17,7 +17,7 @@ const offer = { ...productWithSupportOffer, firstPriceKopecks: 2_990_000 };
 const slug = "ai-engineering";
 
 describe("cohort recruitment plaque in the course status block", () => {
-  it("sells the pre-order with the price after the start struck through", () => {
+  it("sells the pre-order with the price after the start struck through and the discount to it", () => {
     const status = cohortStatus({
       cohort,
       offer,
@@ -25,9 +25,11 @@ describe("cohort recruitment plaque in the course status block", () => {
       slug,
     });
     expect(status).toMatchObject({
-      label: "Поток 1",
+      label: "Поток 1 · старт 9 ноября",
       title: "Набор на первый поток",
-      text: "Первый поток стартует 9 ноября. После старта цена вырастет.",
+      text: "До старта курс стоит дешевле. Цена вырастет 9 ноября.",
+      // 29 900 ₽ к 39 900 ₽ — 25,06 %, вниз до целого.
+      discount: "−25\u00a0%",
       purchaseHref: "/products/ai-engineering/buy",
       programmeHref: "/products/ai-engineering/programme",
     });
@@ -43,6 +45,7 @@ describe("cohort recruitment plaque in the course status block", () => {
       slug,
     });
     expect(status?.price?.priceAfterStart).toBeNull();
+    expect(status?.discount).toBeNull();
   });
 
   it("announces without a purchase and steps aside once the cohort runs or the product is open", () => {
@@ -53,8 +56,9 @@ describe("cohort recruitment plaque in the course status block", () => {
       slug,
     });
     expect(announcement?.purchaseHref).toBeNull();
+    expect(announcement?.price).toBeNull();
     expect(announcement?.text).toBe(
-      "Старт 9 ноября. Предзаказ откроется скоро.",
+      "Предзаказ откроется скоро. До старта курс будет стоить дешевле.",
     );
     expect(
       cohortStatus({

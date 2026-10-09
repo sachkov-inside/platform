@@ -1,7 +1,6 @@
 import {
   formatCohortDate,
   formatKopecks,
-  preorderPrice,
   type ProductCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -17,6 +16,9 @@ import {
 } from "@/shared/routing/subscription-route";
 
 export { formatCohortDate };
+
+/** Якорь нижнего блока страницы курса, где стоят цена и кнопка предзаказа. */
+export const cohortEnrollAnchor = "enroll";
 
 /**
  * Плашка и кнопка первого экрана по этапу продаж потока. Этап задаёт обещание, но деньги
@@ -62,6 +64,7 @@ export function cohortCall({
     case "announcement":
       return {
         banner: {
+          kind: "card",
           label,
           text: `Старт ${date}. Предзаказ откроется скоро`,
           detail: signedIn
@@ -81,25 +84,23 @@ export function cohortCall({
             },
         compactOnPhone: false,
       };
-    case "preorder": {
-      const preorder = preorderPrice(cohort, offer);
-      const afterStart = preorder?.priceAfterStart ?? null;
+    case "preorder":
+      // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ
+      // оформляют там, когда курс изучен (решение владельца 09.10.2026).
       return {
         banner: {
-          label,
-          text: `Набор на первый поток. Старт ${date}`,
-          detail:
-            afterStart === null
-              ? "Предзаказ до старта дешевле. Сообщество и все опубликованные главы сразу после оплаты"
-              : `До старта — ${price} вместо ${afterStart}. Сообщество и все опубликованные главы сразу после оплаты`,
+          kind: "live",
+          text: "Идёт набор на первый поток",
+          detail: `старт ${date}`,
+          href: `#${cohortEnrollAnchor}`,
         },
-        action: pay("Оформить предзаказ"),
-        compactOnPhone: false,
+        action: openProgramme,
+        compactOnPhone: true,
       };
-    }
     case "running":
       return {
         banner: {
+          kind: "card",
           label,
           text: `Стартовал ${date}. Присоединиться можно в любой момент`,
           detail:
@@ -111,6 +112,7 @@ export function cohortCall({
     case "between":
       return {
         banner: {
+          kind: "card",
           label,
           text: `Курс открыт. Следующий поток: ${cohort.nextEvent}`,
           // Срок сопровождения называет предложение; без него в продаже срок назвать нечем.

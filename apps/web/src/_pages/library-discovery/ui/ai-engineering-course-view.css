@@ -66,9 +66,55 @@
   background: var(--primary);
   color: var(--primary-foreground);
 }
-/* Пока идёт набор на поток, его плашка стоит вместо заголовка и кнопки блока. */
+/*
+ * Пока идёт набор на поток, его вступление стоит вместо заголовка и кнопки блока, пункты блока
+ * читаются как «что входит», а справа на всю высоту стоит билет с ценой.
+ */
 .aie-status:has(.aie-cohort-status) .aie-status-default {
   display: none;
+}
+.aie-status:has(.aie-cohort-status) {
+  grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);
+  grid-template-areas:
+    "intro ticket"
+    "list ticket";
+  gap: 2rem 3.5rem;
+  align-items: start;
+}
+.aie-status:has(.aie-cohort-status) .aie-status-lead,
+.aie-status .aie-cohort-status {
+  display: contents;
+}
+.aie-status .aie-cohort-status-intro {
+  grid-area: intro;
+}
+.aie-status .aie-cohort-ticket {
+  grid-area: ticket;
+  align-self: center;
+}
+.aie-status:has(.aie-cohort-status) > ul {
+  grid-area: list;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.aie-status:has(.aie-cohort-status) li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.aie-status li .aie-icon {
+  --aie-icon-size: 2.25rem;
+  --aie-icon-tile: color-mix(
+    in srgb,
+    var(--primary-foreground) 92%,
+    var(--primary)
+  );
+  flex: none;
 }
 .aie-status h2 {
   color: var(--primary-foreground);
@@ -202,10 +248,27 @@
   .aie-mentoring-points li:nth-child(n) {
     margin-left: 0;
   }
-  .aie-status {
+  .aie-status,
+  .aie-status:has(.aie-cohort-status) {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "intro"
+      "list"
+      "ticket";
+    gap: 1.5rem;
     margin-top: 3rem;
     padding: 1.5rem;
+  }
+  /* На узком экране пункты «что входит» идут строками: значок слева, подпись справа. */
+  .aie-status:has(.aie-cohort-status) > ul {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .aie-status:has(.aie-cohort-status) li {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.75rem;
+    font-size: 0.95rem;
   }
 }
 

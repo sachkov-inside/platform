@@ -66,38 +66,32 @@ describe("first screen call of a product cohort", () => {
     ).toBe("programme");
   });
 
-  it("asks to pre-order before the start and to pay with the price while running", () => {
+  it("only announces the pre-order on the first screen and asks to pay with the price while running", () => {
     const price = new Intl.NumberFormat("ru-RU", {
       style: "currency",
       currency: "RUB",
       maximumFractionDigits: 0,
     }).format(productWithSupportOffer.firstPriceKopecks / 100);
+    // Предзаказ оформляют внизу страницы: первый экран сообщает о наборе и ведёт к цене.
+    expect(call().banner).toEqual({
+      kind: "live",
+      text: "Идёт набор на первый поток",
+      detail: "старт 20 октября",
+      href: "#enroll",
+    });
     expect(call().action).toEqual({
-      kind: "purchase",
-      href: "/products/ai-engineering/buy",
-      label: "Оформить предзаказ",
+      kind: "programme",
+      href: "/products/ai-engineering/programme",
+      label: "Открыть программу",
     });
     expect(call({ cohort: { ...cohort, stage: "running" } }).action).toEqual({
       kind: "purchase",
       href: "/products/ai-engineering/buy",
       label: `Оплатить ${price}`,
     });
-    expect(call().banner?.text).toBe("Набор на первый поток. Старт 20 октября");
     expect(call({ cohort: { ...cohort, stage: "running" } }).banner?.text).toBe(
       "Стартовал 20 октября. Присоединиться можно в любой момент",
     );
-  });
-
-  it("compares the pre-order price with the price after the start only when it is higher", () => {
-    const afterStart = productWithSupportOffer.firstPriceKopecks + 1_000_000;
-    const higher = call({
-      cohort: { ...cohort, priceAfterStartKopecks: afterStart },
-    });
-    expect(higher.banner?.detail).toMatch(/^До старта — .+ вместо .+\./u);
-    const lower = call({
-      cohort: { ...cohort, priceAfterStartKopecks: 100 },
-    });
-    expect(lower.banner?.detail).toMatch(/^Предзаказ до старта дешевле/u);
   });
 
   it("names the next event between cohorts", () => {
@@ -127,9 +121,14 @@ describe("first screen call of a product cohort", () => {
   });
 
   it("hides payment without a sale and from a person the product is open to", () => {
-    expect(call({ offer: null }).action.kind).toBe("programme");
-    expect(call({ productAccess: "unknown" }).action.kind).toBe("purchase");
-    for (const stage of ["preorder", "running", "between"] as const)
+    const running = { ...cohort, stage: "running" } as const;
+    expect(call({ cohort: running, offer: null }).action.kind).toBe(
+      "programme",
+    );
+    expect(
+      call({ cohort: running, productAccess: "unknown" }).action.kind,
+    ).toBe("purchase");
+    for (const stage of ["running", "between"] as const)
       expect(
         call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
           .kind,

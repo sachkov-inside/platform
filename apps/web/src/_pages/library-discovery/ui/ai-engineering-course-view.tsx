@@ -47,6 +47,7 @@ import {
   OpenCodeLogo,
 } from "./agent-logos";
 
+import { cohortEnrollAnchor } from "../model/cohort-call";
 import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
@@ -835,6 +836,17 @@ function withTelegramLinks(text: string): ReactNode[] {
   );
 }
 
+/**
+ * Значки пунктов «что входит» по порядку описания курса: доступ к курсу, менторинг, практика,
+ * сообщество. Лишний пункт получает галочку.
+ */
+const statusIcons: readonly CourseIconName[] = [
+  "materials",
+  "questions",
+  "check",
+  "telegram",
+];
+
 function Status({
   block,
   call,
@@ -849,7 +861,7 @@ function Status({
   readonly programme: Route;
 }) {
   return (
-    <section className="aie-status">
+    <section className="aie-status" id={cohortEnrollAnchor}>
       <div className="aie-status-lead">
         <div className="aie-status-default">
           <h2>{block.title}</h2>
@@ -858,12 +870,19 @@ function Status({
         {call}
       </div>
       <ul>
-        {block.items.map((item, index) => (
-          <li key={`${String(index)}-${item}`}>
-            <Check aria-hidden="true" />
-            {item}
-          </li>
-        ))}
+        {block.items.map((item, index) => {
+          const icon = statusIcons[index];
+          return (
+            <li key={`${String(index)}-${item}`}>
+              {icon === undefined ? (
+                <Check aria-hidden="true" />
+              ) : (
+                <CourseIcon name={icon} />
+              )}
+              {item}
+            </li>
+          );
+        })}
       </ul>
       <IntentPrefetchLink
         className="aie-status-button aie-status-default"
