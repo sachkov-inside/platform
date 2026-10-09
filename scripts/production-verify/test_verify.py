@@ -106,6 +106,18 @@ class FailureTests(unittest.TestCase):
         self.assertNotIn('private path', str(result))
 
 class HttpBoundaryTests(unittest.TestCase):
+    def test_bank_rejection_probe_carries_its_marker_over_loopback_https(self):
+        from unittest.mock import patch
+        from subprocess import CompletedProcess
+        from verify import http
+        with patch('verify.subprocess.run', return_value=CompletedProcess(['curl'], 0, 'invalid_notification\n400', '')) as execute:
+            self.assertEqual(http('https://inside.sachkov.dev/billing/tbank/notification', 'POST',
+                                  'inside.sachkov.dev', bank_rejection_probe=True), (400, 'invalid_notification'))
+        args = execute.call_args.args[0]
+        self.assertIn('x-inside-production-verify: bank-webhook-rejection', args)
+        self.assertIn('inside.sachkov.dev:443:127.0.0.1', args)
+        self.assertNotIn('--data', args)
+
     def test_empty_404_body_preserves_status_from_the_same_response(self):
         from unittest.mock import patch
         from subprocess import CompletedProcess

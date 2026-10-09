@@ -89,11 +89,13 @@ def sql(query, database='inside', container='inside-production-database-postgres
                            '-d', database, '-At'], data=query))
 
 
-def http(url, method='GET', origin=None):
+def http(url, method='GET', origin=None, *, bank_rejection_probe=False):
     args = ['curl', '--silent', '--show-error', '--max-time', '20', '--write-out', '\n%{http_code}',
             '--request', method]
     if origin:
-        args += ['--resolve', origin + ':443:127.0.0.1']
+        args += ['--noproxy', '*', '--resolve', origin + ':443:127.0.0.1']
+    if bank_rejection_probe:
+        args += ['--header', 'x-inside-production-verify: bank-webhook-rejection']
     output = run(args + [url], strip=False)
     body, status = output.rsplit('\n', 1)
     return int(status), body
@@ -159,7 +161,8 @@ def verify_platform(manifest, state, record):
     routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
                for suffix in ['binding', 'own-access', 'attempts', 'evidence']]
     for method, path, code, needle in routes:
-        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev')
+        status, body = http('https://inside.sachkov.dev' + path, method, 'inside.sachkov.dev',
+                            bank_rejection_probe=path == '/billing/tbank/notification')
         record.append(check(method + ' ' + path.split('?')[0], status == code and needle in body, 'expected HTTP/body authentication boundary'))
     queues = run(['docker', 'exec', services['rabbitmq']['Id'], 'rabbitmqctl', 'list_queues', '--vhost', 'inside-production',
                   'name', 'messages', 'consumers'])
