@@ -1,3 +1,8 @@
+interface ImageVariantResolution {
+  sourceSrc: string;
+  imageVariants: import("@inside/material-blocks").ImageVariants<string>;
+}
+
 interface DocNode {
   type: string;
   text?: string;
@@ -14,14 +19,7 @@ export function convertMarkdown(
     sourceId: string;
     link: (href: string) => string;
     image: (src: string) => string;
-    imageVariants?: (
-      src: string,
-    ) =>
-      | {
-          sourceSrc: string;
-          imageVariants: import("@inside/material-blocks").ImageVariants<string>;
-        }
-      | undefined;
+    imageVariants?: (src: string) => ImageVariantResolution | undefined;
   },
 ): { schemaVersion: 1; doc: DocNode & { content: DocNode[] } };
 
