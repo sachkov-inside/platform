@@ -1,7 +1,8 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -57,6 +58,82 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("acquires development runtime images serially before startup and preserves pull failures", () => {
+    const step = jobBlock("compose-development").split(
+      "      - name: Run clean stack smoke and write persistence probes\n        run: |\n",
+    )[1];
+    assert.ok(step);
+    const startup = "docker compose up --detach --wait";
+    const startupIndex = step.indexOf(startup);
+    assert.ok(startupIndex >= 0);
+    const prefix = step
+      .slice(0, startupIndex + startup.length)
+      .replace(/^ {10}/gmu, "");
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-development-pull-"));
+    const calls = resolve(fixture, "calls");
+    const resolvedImages =
+      "ecr-fixture/postgres@sha256:fixed\nhub-fixture/rustfs@sha256:fixed\nhub-fixture/mailpit@sha256:fixed";
+    const adapter = `docker() {
+    printf '%s\\n' "$*" >>"$CALLS";
+    case "$*" in
+      'compose config --images postgres object-storage mailpit') printf '%s\\n' "$RESOLVED_IMAGES" ;;
+      'compose --parallel 1 pull postgres object-storage mailpit')
+        if [ "$PULL_EXIT" != 0 ]; then printf '%s\\n' 'primary registry failure' >&2; return "$PULL_EXIT"; fi ;;
+      'compose up --detach --wait') ;;
+      *) printf '%s\\n' 'unexpected Docker command' >&2; return 55 ;;
+    esac
+  }`;
+    try {
+      for (const pullExit of [0, 29]) {
+        rmSync(calls, { force: true });
+        const result = spawnSync("bash", ["-euc", `${adapter}\n${prefix}`], {
+          env: {
+            ...process.env,
+            CALLS: calls,
+            RESOLVED_IMAGES: resolvedImages,
+            PULL_EXIT: String(pullExit),
+          },
+          encoding: "utf8",
+          timeout: 10_000,
+        });
+        assert.equal(result.status, pullExit, result.stderr);
+        assert.equal(result.stdout.trim(), resolvedImages);
+        assert.deepEqual(readFileSync(calls, "utf8").trim().split("\n"), [
+          "compose config --images postgres object-storage mailpit",
+          "compose --parallel 1 pull postgres object-storage mailpit",
+          ...(pullExit === 0 ? ["compose up --detach --wait"] : []),
+        ]);
+        if (pullExit !== 0)
+          assert.match(result.stderr, /primary registry failure/u);
+      }
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("exports the identical publisher Ryuk image through the setup shell boundary", () => {
+    const command = setupAction.match(
+      /- name: Select Ryuk cleanup image\n\s+shell: bash\n\s+run: (.+)\n/u,
+    )?.[1];
+    assert.ok(command, "shared setup must select the publisher Ryuk image");
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-ryuk-input-"));
+    const environmentFile = resolve(fixture, "github-env");
+    try {
+      const result = spawnSync("bash", ["-euc", command], {
+        env: { ...process.env, GITHUB_ENV: environmentFile },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(environmentFile, "utf8"),
+        "RYUK_CONTAINER_IMAGE=ghcr.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0\n",
+      );
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("checks Telegram on isolated PostgreSQL and non-guest RabbitMQ at the captured source SHA", () => {
     const telegram = jobBlock("telegram");
     assert.match(
@@ -68,8 +145,14 @@ describe("application CI workflow contract", () => {
       telegram,
       /run: pnpm --filter @inside\/telegram check:full$/mu,
     );
-    assert.match(telegram, /image: postgres:18\.4-alpine/u);
-    assert.match(telegram, /image: rabbitmq:4\.3-management-alpine/u);
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/postgres:18\.4-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(
       telegram,

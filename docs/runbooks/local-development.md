@@ -2,6 +2,7 @@
 
 Docker Compose is the primary local-development contract. A fresh clone needs Docker with Compose,
 not host Node.js or a host `node_modules` directory.
+Image inputs follow the [official image acquisition contract](continuous-integration.md#official-image-inputs).
 
 ## What Compose runs
 
@@ -823,7 +824,7 @@ the named `editor` target retains its default port 4396.
 Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
-docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
+docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
 docker run -d --name platform-396-storage -e RUSTFS_ACCESS_KEY=inside-local-access-key -e RUSTFS_SECRET_KEY=inside-local-secret-key -p 127.0.0.1:9036:9000 "$(docker compose config --images object-storage)"
 pnpm editor:local
 ```

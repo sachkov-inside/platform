@@ -9,6 +9,9 @@
 readiness описаны в [production delivery](production-delivery.md), восстановление очередей — в
 [queue recovery](queue-recovery.md).
 
+Источники базовых образов выпуска, PostgreSQL и RabbitMQ закреплены в
+[контракте официальных образов](continuous-integration.md#official-image-inputs).
+
 ## Server-owned configuration
 
 Шаблоны `config/compose/production/*.env.example` копируются в `/etc/inside/runtime` тем же циклом,
