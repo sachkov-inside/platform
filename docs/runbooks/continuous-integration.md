@@ -195,6 +195,14 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
+messages and transport errors, closes a failed pull stream, and inspects the requested image before
+acquisition returns. A completed stream alone does not prove local image availability. The contract
+`apps/backend/test/contracts/postgres-acquisition.test.ts` exercises the real PostgreSQL global setup
+against an owned loopback Docker API, including cached-image disappearance and failed-stream cleanup.
+This preserves primary pull diagnostics; it does not identify or repair the registry/provider cause
+of the historical PostgreSQL failure in #1315. Version and digest remain pinned.
+
 PostgreSQL global setup starts its container only for the root project; child projects inherit
 the setup but receive the root's provided database context without starting another container.
 The full command and either `--project` selection

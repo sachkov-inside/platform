@@ -1,0 +1,39 @@
+diff --git a/build/container-runtime/clients/image/docker-image-client.js b/build/container-runtime/clients/image/docker-image-client.js
+index 1cb09e340430aa8dbaa36f79d7ae1c13c3278fff..c0c554450031397672453ce87ef4888a3f6f3e40 100644
+--- a/build/container-runtime/clients/image/docker-image-client.js
++++ b/build/container-runtime/clients/image/docker-image-client.js
+@@ -126,6 +126,7 @@ class DockerImageClient {
+         try {
+             if (!opts?.force && (await this.exists(imageName))) {
+                 common_1.log.debug(`Image "${imageName.string}" already exists`);
++                await this.inspect(imageName);
+                 return;
+             }
+             common_1.log.debug(`Pulling image "${imageName.string}"...`);
+@@ -134,14 +135,22 @@ class DockerImageClient {
+                 authconfig,
+                 platform: opts?.platform,
+             });
+-            await new Promise((resolve) => {
+-                (0, byline_1.default)(stream).on("data", (line) => {
++            await new Promise((resolve, reject) => {
++                this.dockerode.modem.followProgress(stream, (err) => {
++                    if (err) reject(err);
++                    else resolve();
++                }, (event) => {
++                    const message = event.errorDetail?.message ?? event.error;
++                    if (typeof message === "string" && message.length > 0) {
++                        reject(new Error(message));
++                        stream.destroy();
++                    }
+                     if (common_1.pullLog.enabled()) {
+-                        common_1.pullLog.trace(line, { imageName: imageName.string });
++                        common_1.pullLog.trace(JSON.stringify(event), { imageName: imageName.string });
+                     }
+                 });
+-                stream.on("end", resolve);
+             });
++            await this.inspect(imageName);
+             common_1.log.debug(`Pulled image "${imageName.string}"`);
+         }
+         catch (err) {
