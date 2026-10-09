@@ -29,8 +29,7 @@ rewrites the server-owned files. A no-secret journal records the successful curr
 identity and the last operation phase. Before maintenance, preflight uses the already deployed
 immutable image without pulling to prove that the live database still has the exact recorded
 runtime schema identity. That identity covers both the Platform migration registry and the
-PgBoss-managed schema version. Maintenance then precedes exact image pulls as the fixed deployment
-sequence requires; the candidate image performs a read-only compatibility check before workers or
+PgBoss-managed schema version. Since #1279, exact image pulls and local digest verification precede maintenance; the candidate image performs a read-only compatibility check before workers or
 migrations change. A retry after migrations may use a same-operation recovery phase retained in a
 failed or still-running operation journal and the already local candidate image to prove a
 compatible intermediate or exact target schema. This also covers the first deployment and an
@@ -39,7 +38,7 @@ before maintenance. If the immutable candidate cannot be repaired by an exact re
 migrations may have changed the database, the only alternative is a deployment of its immediate
 next ordinal. That release must bind the exact failed manifest. The
 failed image first proves the live schema, its workers are stopped, and the new image proves that it
-can migrate the live schema forward after the normal maintenance and pull steps. The superseded
+can migrate the live schema forward after the normal pre-pull and maintenance steps. The superseded
 operation journal is retained under `operation-history`; repair forward does not create a rollback
 target for an application version that never deployed successfully. The new operation journal
 retains a closed `repairForward` link to that archived version, run and recovery phase, so an exact
