@@ -187,7 +187,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
       request,
       publish: "all",
     });
-    // Re-import the same immutable package: document attributes must survive the journal replay.
+    // Synchronize the same immutable package again; completed imports keep their stored bodies.
     await syncLocal(path, join(directory, "state"), {
       origin,
       request,
