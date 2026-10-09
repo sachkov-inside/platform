@@ -367,10 +367,6 @@ body:has([data-public-shell]) {
   .mobile-scrollbar-hidden::-webkit-scrollbar {
     display: none;
   }
-
-  .platform-agentation {
-    bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
-  }
 }
 
 @media (width >= 48rem) {

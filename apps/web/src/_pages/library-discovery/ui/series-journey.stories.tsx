@@ -109,6 +109,23 @@ const environment = publicPageEnvironment(
 type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: SeriesLearningView;
 };
+/**
+ * Раздел программы открывается тем, что видно на экране: вкладкой на широком экране или пунктом
+ * нижней панели продукта на телефоне, где ряд вкладок спрятан.
+ */
+async function openPart(
+  canvas: ReturnType<typeof within>,
+  name: RegExp,
+): Promise<void> {
+  const tab = canvas.queryByRole("tab", { name });
+  await userEvent.click(
+    tab ??
+      within(
+        canvas.getByRole("navigation", { name: "Разделы продукта" }),
+      ).getByRole("button", { name }),
+  );
+}
+
 const meta = {
   ...environment,
   component: ProductProgrammeView,
@@ -515,7 +532,7 @@ export const PartSwitchStartsAtBeginning: Story = {
         canvas.getByRole("list", { name: "Материалы продукта" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvas, /Программа/u);
     await expect(
       canvas.getByText("Показано 12 из 23 материалов"),
     ).toBeVisible();
@@ -902,7 +919,7 @@ export const ProductPage: Story = {
     await expect(
       canvas.queryByText(introduction.outcome),
     ).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
+    await openPart(canvas, /Артефакты/u);
     const section = within(
       canvas.getByRole("list", { name: "Артефакты продукта" }),
     );
@@ -941,11 +958,11 @@ export const ArtifactSectionUnavailable: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
+    await openPart(canvas, /Артефакты/u);
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Артефакты сейчас не загрузились",
     );
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvas, /Программа/u);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -1061,7 +1078,7 @@ export const PartSwitchClearsContinuationPosition: Story = {
     await userEvent.click(
       canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
     );
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvas, /Программа/u);
     await expect(
       canvasElement.querySelectorAll("[data-series-ordinal]"),
     ).toHaveLength(12);

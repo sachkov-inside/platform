@@ -151,3 +151,71 @@
     left: calc(0.35rem - 1px);
   }
 }
+
+/*
+ * Нижняя панель продукта: тот же плавающий док, что и общая навигация телефона, но с подписями —
+ * пункты продукта новые для читателя, одной иконки мало. Кнопки 44 px в высоту (зона нажатия).
+ */
+.product-bottom-bar {
+  position: fixed;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  grid-auto-columns: minmax(4.75rem, 1fr);
+  grid-auto-flow: column;
+  gap: 0.125rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.125rem;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 1.4rem;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: var(
+    --shadow-floating-nav,
+    0 0.75rem 2rem -0.75rem rgb(0 0 0 / 25%)
+  );
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  transform: translateX(-50%);
+}
+.product-bottom-bar-item {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.15rem;
+  min-height: 2.75rem;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-radius: 1.15rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.product-bottom-bar-item svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.product-bottom-bar-item[data-current="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.product-bottom-bar-item[data-current="true"] svg {
+  color: var(--accent-bright);
+}
+.product-bottom-bar-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (min-width: 64rem) {
+  .product-bottom-bar {
+    display: none;
+  }
+}

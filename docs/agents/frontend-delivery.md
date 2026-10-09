@@ -23,11 +23,6 @@ MCP, and start a new agent session after changing its MCP configuration. Stop th
 started during session cleanup. If port `6006` belongs to another session, wait for its handoff
 before starting Storybook for this worktree.
 
-Use Agentation as the owner-feedback overlay during interactive browser and Storybook review. Keep
-it enabled while the owner reviews the UI; automated tests disable it only when the overlay would
-interfere with assertions. Review is complete when every annotation is resolved or represented by
-a linked follow-up issue.
-
 ## Delivery contract
 
 Every full-stack feature owns a small presentation interface. A server-only production adapter

@@ -6,10 +6,12 @@ import { publicPageMetadata, siteLinkPreview } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
 /**
- * Главная держится в памяти браузера то же окно, что и страницы каталога (ADR 0027). Next.js не
- * даёт объявить его вместе с `instant`, поэтому право блокироваться Главная берёт у раскладки.
+ * Главная блокирующая и объявляет это сама: без `instant = false` режим разработки пишет в
+ * консоль ошибку о непредсобранных данных. Next.js не даёт объявить его вместе с окном памяти
+ * браузера, поэтому Главная окна не держит и на каждый переход читается заново (решение владельца
+ * 09.10.2026, ADR 0027).
  */
-export const unstable_dynamicStaleTime = 60;
+export const instant = false;
 
 export async function generateMetadata(): Promise<Metadata> {
   return publicPageMetadata(

@@ -1,7 +1,15 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import {
+  House,
+  Library,
+  ListOrdered,
+  RefreshCw,
+  Shapes,
+  type LucideIcon,
+} from "lucide-react";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -169,6 +177,13 @@ export function SeriesJourneyControls({
     if (id === part?.id) return;
     setSelection({ id, explicit: true });
   }
+  /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
+  function openPart(id: JourneyPart["id"]) {
+    selectPart(id);
+    requestAnimationFrame(() => {
+      routeRef.current?.scrollIntoView({ block: "start" });
+    });
+  }
 
   return (
     <section
@@ -182,7 +197,7 @@ export function SeriesJourneyControls({
       </h2>
       {parts.length > 1 ? (
         <div
-          className="flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border"
+          className="flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border max-lg:hidden"
           role="tablist"
           aria-label="Разделы продукта"
         >
@@ -405,6 +420,13 @@ export function SeriesJourneyControls({
           </Button>
         </div>
       ) : null}
+      {parts.length > 1 ? (
+        <ProductBottomBar
+          activeId={part?.id ?? "programme"}
+          onOpen={openPart}
+          parts={parts}
+        />
+      ) : null}
     </section>
   );
 }
@@ -446,4 +468,64 @@ function artifactsInWords(count: number): string {
           ? "артефакта"
           : "артефактов";
   return `${String(count)} ${form}`;
+}
+
+const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
+  programme: ListOrdered,
+  supplementary: Library,
+  artifacts: Shapes,
+};
+/** Подписи нижней панели короче вкладок: на панели у каждого пункта своя узкая колонка. */
+const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
+  programme: "Программа",
+  supplementary: "Материалы",
+  artifacts: "Артефакты",
+};
+
+/**
+ * Нижняя панель продукта на телефоне и планшете (решение владельца 09.10.2026): внутри программы
+ * она заменяет общую навигацию. Первый пункт ведёт на Главную, остальные — разделы продукта, те же,
+ * что вкладки на широком экране; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
+ * Атрибут `data-hide-mobile-navigation` убирает общую панель, её место занимает эта.
+ */
+function ProductBottomBar({
+  activeId,
+  onOpen,
+  parts,
+}: {
+  readonly activeId: JourneyPart["id"];
+  readonly onOpen: (id: JourneyPart["id"]) => void;
+  readonly parts: readonly JourneyPart[];
+}) {
+  return (
+    <nav
+      aria-label="Разделы продукта"
+      className="product-bottom-bar lg:hidden"
+      data-hide-mobile-navigation
+    >
+      <Link className="product-bottom-bar-item" href="/">
+        <House aria-hidden="true" />
+        <span>Главная</span>
+      </Link>
+      {parts.map((entry) => {
+        const Icon = partIcons[entry.id];
+        const current = entry.id === activeId;
+        return (
+          <button
+            aria-current={current ? "page" : undefined}
+            className="product-bottom-bar-item"
+            data-current={current}
+            key={entry.id}
+            onClick={() => {
+              onOpen(entry.id);
+            }}
+            type="button"
+          >
+            <Icon aria-hidden="true" />
+            <span>{partBarLabels[entry.id]}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
 }
