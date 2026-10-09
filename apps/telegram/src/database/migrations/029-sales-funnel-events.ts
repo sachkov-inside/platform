@@ -76,7 +76,7 @@ export const salesFunnelEventsMigration: Migration = {
       ) preferences
       order by observed_at, update_id;
 
-      -- Backfill communication records for confirmed links with a known bot contact.
+      -- A confirmed link always has a communication record, as recordAccountLinked() ensures.
       insert into communication_contacts (contact_id, bot_identity, telegram_user_id)
       select gen_random_uuid(), contacts.bot_identity, contacts.telegram_user_id
       from platform_links links
