@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   billingActionClass,
   formatKopecks,
+  type PreorderTerms,
   type PriceSnapshot,
 } from "@/entities/subscription";
 
@@ -28,6 +29,8 @@ export interface ProductPurchaseViewProps {
   /** Промокод персональной ссылки: гость возвращается после входа с тем же кодом. */
   readonly promoCode?: string;
   readonly offerId?: string;
+  /** Условия предзаказа: гость до входа видит цену предзаказа рядом с ценой после старта. */
+  readonly preorder?: PreorderTerms | null;
   /** Оформление покупки участника: страница сама его не собирает. */
   readonly children?: ReactNode;
 }
@@ -46,6 +49,7 @@ export function ProductPurchaseView({
   notice,
   promoCode,
   offerId,
+  preorder = null,
   children,
 }: ProductPurchaseViewProps) {
   const programmeHref = productProgrammeHref(slug);
@@ -100,7 +104,14 @@ export function ProductPurchaseView({
           </p>
         ) : viewer === "guest" ? (
           <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
-            <h2 className="text-xl font-semibold">Войдите, чтобы купить</h2>
+            <h2 className="text-xl font-semibold">
+              {preorder === null
+                ? "Войдите, чтобы купить"
+                : "Войдите, чтобы оформить предзаказ"}
+            </h2>
+            {preorder === null || promoCode !== undefined ? null : (
+              <GuestPreorderPrice offer={offer} preorder={preorder} />
+            )}
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {promoCode === undefined
                 ? `После входа вы вернётесь сюда и продолжите покупку за ${formatKopecks(offer.firstPriceKopecks)}.`
@@ -127,6 +138,38 @@ export function ProductPurchaseView({
           {notice}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Цена предзаказа для гостя: сумма, зачёркнутая цена после старта, если она больше, и срок. Так
+ * скидку видно ещё до входа, а не только в оформлении покупки.
+ */
+function GuestPreorderPrice({
+  offer,
+  preorder,
+}: {
+  readonly offer: PriceSnapshot;
+  readonly preorder: PreorderTerms;
+}) {
+  const after = preorder.priceAfterStartKopecks;
+  return (
+    <div className="mt-4">
+      <p className="flex flex-wrap items-baseline gap-x-3">
+        <span className="text-3xl font-bold tracking-[-0.02em]">
+          {formatKopecks(offer.firstPriceKopecks)}
+        </span>
+        {after === null || after <= offer.firstPriceKopecks ? null : (
+          <s className="text-lg text-muted-foreground">
+            <span className="sr-only">Цена после старта: </span>
+            {formatKopecks(after)}
+          </s>
+        )}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Цена предзаказа действует до старта потока {preorder.startsOn}.
+      </p>
     </div>
   );
 }

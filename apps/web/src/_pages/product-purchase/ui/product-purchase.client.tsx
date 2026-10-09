@@ -65,6 +65,7 @@ export function ProductPurchase({
       product={product}
       offer={selected}
       {...(offerId === undefined ? {} : { offerId })}
+      preorder={preorder}
       slug={slug}
       unavailable={unavailable}
       viewer={viewer}

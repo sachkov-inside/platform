@@ -24,7 +24,10 @@ import {
 import "./product-programme-view.css";
 
 import { formatChapterCount } from "./product-counts";
-import { programmePurchaseRowClass } from "./programme-purchase-row";
+import {
+  programmePreorderRowClass,
+  programmePurchaseRowClass,
+} from "./programme-purchase-row";
 import { SeriesJourney } from "./series-journey";
 import {
   PendingPurchaseRow,
@@ -136,7 +139,11 @@ export function ProductProgrammeView({
             />
           ) : purchase === null ? null : (
             <div
-              className={programmePurchaseRowClass}
+              className={
+                preorder === null
+                  ? programmePurchaseRowClass
+                  : programmePreorderRowClass
+              }
               data-programme-purchase-row
             >
               <ProgrammePurchase
@@ -242,7 +249,7 @@ function ProgrammePurchase({
   // Пока поток набирается, рядом с кнопкой — цена предзаказа и зачёркнутая цена после старта.
   if (preorder === null) return button;
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 @[36rem]/programme:flex-nowrap @[36rem]/programme:justify-end [&>a]:w-full @[36rem]/programme:[&>a]:w-auto">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4 [&>a]:w-full @[30rem]/programme:[&>a]:w-auto">
       <PreorderPriceView price={preorder} />
       {button}
     </div>
