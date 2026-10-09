@@ -1,3 +1,4 @@
+import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
 import { BillingOperations } from "../modules/billing/index.js";
 import { Communications } from "../modules/communications/index.js";
@@ -59,6 +60,7 @@ async function bootstrap(): Promise<void> {
     videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
     billing: application.get(BillingOperations),
+    telemetry: application.get(WebTelemetry),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,
     readiness: application.get(OperationalReadiness),

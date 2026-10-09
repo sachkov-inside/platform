@@ -18,7 +18,7 @@ export function logRequestError(
     readonly routePath: string;
     readonly routeType: string;
   },
-): void {
+) {
   const digest =
     typeof error === "object" &&
     error !== null &&
@@ -26,12 +26,11 @@ export function logRequestError(
     typeof error.digest === "string"
       ? error.digest
       : undefined;
-  writeStructuredLog("error", "request-error", {
+  const report = {
     ...(digest === undefined ? {} : { digest }),
-    message: (error instanceof Error ? error.message : String(error)).slice(
-      0,
-      LOGGED_MESSAGE_LENGTH,
-    ),
+    message: Array.from(error instanceof Error ? error.message : String(error))
+      .slice(0, LOGGED_MESSAGE_LENGTH)
+      .join(""),
     method: request.method,
     name: error instanceof Error ? error.name : typeof error,
     path: request.path.split(/[?#]/u, 1)[0] ?? "/",
@@ -40,5 +39,7 @@ export function logRequestError(
       : { renderSource: context.renderSource }),
     routePath: context.routePath,
     routeType: context.routeType,
-  });
+  };
+  writeStructuredLog("error", "request-error", report);
+  return report;
 }

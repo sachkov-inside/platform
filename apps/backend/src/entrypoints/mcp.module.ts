@@ -1,3 +1,4 @@
+import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
@@ -28,6 +29,7 @@ export class McpModule {
         RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
+        WebTelemetryModule,
         CommunicationsModule,
         MaterialsModule,
         BillingModule,

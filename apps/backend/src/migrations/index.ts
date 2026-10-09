@@ -1,4 +1,8 @@
 import {
+  name as webTelemetryName,
+  statement as webTelemetryStatement,
+} from "../modules/web-telemetry/infrastructure/postgres/migrations/0086-web-telemetry.js";
+import {
   name as communityProjectionRetriesName,
   statement as communityProjectionRetriesStatement,
 } from "../modules/telegram-membership/infrastructure/postgres/migrations/0085-community-projection-retries.js";
@@ -561,6 +565,7 @@ export const platformMigrations = [
     name: communityProjectionRetriesName,
     statement: communityProjectionRetriesStatement,
   },
+  { name: webTelemetryName, statement: webTelemetryStatement },
 ] as const;
 
 export function migrateToLatest(

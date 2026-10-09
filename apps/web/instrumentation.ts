@@ -26,5 +26,8 @@ export const onRequestError: Instrumentation.onRequestError = async (
 
   const { logRequestError } =
     await import("./src/shared/lib/request-error-log.server");
-  logRequestError(error, request, context);
+  const report = logRequestError(error, request, context);
+  const { persistServerError } =
+    await import("./src/features/client-telemetry.server");
+  await persistServerError(report, request.headers);
 };

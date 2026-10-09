@@ -59,6 +59,29 @@ describe("production watchdog", () => {
     }
   });
 
+  it("signals telemetry SQL conditions and reports their recovery", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql +
+          "\nweb_telemetry_growth|1\nweb_telemetry_digest|2\nweb_telemetry_size|1\nweb_telemetry_dropped|15\n",
+      );
+      const failure = assertRun(fixture);
+      assert.match(failure, /Рост ошибок web за 10 минут/u);
+      assert.match(failure, /Новых digest web за 10 минут: 2/u);
+      assert.match(failure, /Телеметрия web достигла 480 MB/u);
+      assert.match(failure, /Отброшено отчётов web за сутки: 15/u);
+      fixture.fake("sql", healthySql);
+      assert.match(
+        assertRun(fixture, now + 60),
+        /Восстановлено: Рост ошибок web за 10 минут/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("confirms a flapping check only after two failed runs in a row", () => {
     const fixture = createFixture();
     try {

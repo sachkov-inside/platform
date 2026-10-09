@@ -104,6 +104,9 @@ inside.sachkov.dev {
 		@learning_mcp_metadata path /.well-known/oauth-protected-resource/mcp/learning
 		reverse_proxy @learning_mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
+		@private_web_telemetry path /internal/web-telemetry /internal/web-telemetry/*
+		respond @private_web_telemetry 404
+
 		@unknown_integration path /integrations/*
 		respond @unknown_integration 404
 

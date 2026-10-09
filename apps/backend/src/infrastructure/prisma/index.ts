@@ -24,6 +24,7 @@ export {
   type MemberProfilesPrisma,
   type MemberProfilesPrismaClient,
   type PlatformPrisma,
+  type WebTelemetryPrisma,
   type TelegramMembershipPrisma,
   type TelegramMembershipPrismaClient,
   type TransactionClient,

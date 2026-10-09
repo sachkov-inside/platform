@@ -1,3 +1,4 @@
+import { WebTelemetry } from "../src/modules/web-telemetry/index.js";
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -144,6 +145,7 @@ const mcp = createMcpHttpServer({
   videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),
   billing: app.get(BillingOperations),
+  telemetry: app.get(WebTelemetry),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,
   config: { host: "127.0.0.1", port: 0, serverUrl: "http://127.0.0.1:0/mcp" },

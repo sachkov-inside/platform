@@ -1,3 +1,4 @@
+import type { WebTelemetry } from "../../modules/web-telemetry/index.js";
 import type { BillingOwnerTools } from "../../modules/billing/index.js";
 import type { VideoAuthoringTools } from "../../modules/videos/index.js";
 import type { Communications } from "../../modules/communications/index.js";
@@ -50,6 +51,7 @@ export function createMcpHttpServer(dependencies: {
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
+  readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
   readonly config: McpConfig;
   readonly identityIssuer: string;
@@ -70,6 +72,7 @@ export function createMcpHttpServer(dependencies: {
         accountId: authenticatedAccountId(authInfo?.extra),
         authoring: dependencies.authoring,
         billing: dependencies.billing,
+        telemetry: dependencies.telemetry,
         communications: dependencies.communications,
         videos: dependencies.videos,
       }),
