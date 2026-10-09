@@ -364,6 +364,7 @@ assert_public_status() {
   local method=$1
   local path=$2
   local expected=$3
+  shift 3
   local actual
   local body_path="$runtime_config_dir/public-response-body"
   actual="$(curl \
@@ -374,7 +375,7 @@ assert_public_status() {
     --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
     --silent \
     --write-out '%{http_code}' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+    "$@" "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected $method $path to return $expected, received $actual" >&2
     exit 1
@@ -754,6 +755,29 @@ assert_public_status GET /integrations/kinescope/v1/unknown 404
 assert_public_status GET /health/ready 404
 # Each payment and Telegram callback reaches the API only as POST and stops at its own credential.
 assert_public_status POST /billing/tbank/notification 400
+# The host reaches containerized Caddy as a non-loopback peer. Forged forwarding headers cannot
+# turn a real external rejection into a verification probe in the API log.
+assert_public_status POST /billing/tbank/notification 400 \
+  --header 'X-Inside-Production-Verify: bank-webhook-rejection' \
+  --header 'X-Forwarded-For: 127.0.0.1' \
+  --header 'Forwarded: for=127.0.0.1'
+for ((attempt = 1; attempt <= container_log_poll_attempts; attempt += 1)); do
+  api_probe_logs="$("${application_compose[@]}" logs --no-color api)"
+  api_probe_rejections="$(grep '"event":"request_completed"' <<<"$api_probe_logs" |
+    grep '"route":"/billing/tbank/notification"' | grep -c '"statusCode":400' || true)"
+  if ((api_probe_rejections >= 2)); then
+    break
+  fi
+  sleep "$production_smoke_poll_interval_seconds"
+done
+if ((api_probe_rejections < 2)); then
+  echo "API did not log both bank rejection requests" >&2
+  exit 1
+fi
+if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
+  echo "Caddy forwarded an external production verification marker" >&2
+  exit 1
+fi
 assert_public_status POST /integrations/tribute/v1/webhook 401
 assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
 assert_public_status POST /integrations/telegram/v1/invitations/redeem 401

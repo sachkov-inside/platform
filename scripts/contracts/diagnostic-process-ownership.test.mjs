@@ -157,6 +157,8 @@ async function fixture(script, mode = "wait") {
   await rm(join(fixtureScripts, "authoring-stand-gateway.mjs"));
   await writeFile(join(fixtureScripts, "authoring-stand-gateway.mjs"), command);
   const stubs = {
+    // Port availability has its own loopback adapter contract. Cleanup tests must not probe shared listeners.
+    "editor-local-config.mjs": `export { editorLocalPorts, editorLocalEndpoints } from ${JSON.stringify(new URL("../editor-local-config.mjs?real-config", import.meta.url).href)}; export async function assertEditorPortsAvailable() {}`,
     "local-setup-lock.mjs":
       "export async function acquireLocalSetupLock() { return async () => {}; }",
     "shared-identity-directory.mjs":
