@@ -97,7 +97,7 @@ docker network create "$network" >/dev/null
 network_created=true
 docker run --detach --name "$database" --network "$network" --network-alias postgres \
   --env POSTGRES_DB=inside_telegram --env POSTGRES_USER=telegram_checks \
-  --env POSTGRES_PASSWORD=telegram_checks postgres:18.4-alpine >/dev/null
+  --env POSTGRES_PASSWORD=telegram_checks public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15 >/dev/null
 database_created=true
 ready=false
 for ((attempt=1; attempt<=40; attempt+=1)); do

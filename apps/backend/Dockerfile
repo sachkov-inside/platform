@@ -1,4 +1,4 @@
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
@@ -92,7 +92,7 @@ RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \

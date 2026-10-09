@@ -1,6 +1,40 @@
 import unittest
 from verify import verify_release
 
+class SqlSetupDiagnosticsTests(unittest.TestCase):
+    def test_setup_failure_reports_captured_docker_stderr(self):
+        import subprocess
+        import contextlib
+        import io
+        from unittest.mock import patch
+        from test_sql import SqlContractTests
+
+        failure = subprocess.CalledProcessError(125, ['docker', 'run'], stderr='registry refused the requested manifest')
+        removed = subprocess.CompletedProcess(['docker', 'rm'], 0)
+        diagnostic = io.StringIO()
+        with contextlib.redirect_stderr(diagnostic), patch('test_sql.subprocess.run', side_effect=[failure, removed]):
+            with self.assertRaises(subprocess.CalledProcessError) as caught:
+                SqlContractTests.setUpClass()
+        self.assertIs(caught.exception, failure)
+        self.assertIn('registry refused the requested manifest', diagnostic.getvalue())
+
+    def test_cleanup_failure_preserves_the_setup_failure(self):
+        import subprocess
+        import contextlib
+        import io
+        from unittest.mock import patch
+        from test_sql import SqlContractTests
+
+        failure = subprocess.CalledProcessError(125, ['docker', 'run'], stderr='manifest download failed')
+        cleanup = subprocess.CalledProcessError(1, ['docker', 'rm'], stderr='No such container')
+        diagnostic = io.StringIO()
+        with contextlib.redirect_stderr(diagnostic), patch('test_sql.subprocess.run', side_effect=[failure, cleanup]):
+            with self.assertRaises(subprocess.CalledProcessError) as caught:
+                SqlContractTests.setUpClass()
+        self.assertIs(caught.exception, failure)
+        self.assertIn('manifest download failed', diagnostic.getvalue())
+        self.assertIn('SQL setup cleanup failed:', diagnostic.getvalue())
+
 class ReleaseTests(unittest.TestCase):
     def test_incompatible_previous_release_is_a_valid_disabled_rollback(self):
         result = verify_release({

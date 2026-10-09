@@ -451,7 +451,7 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           compose: runtime.compose.replace(
-            /image: rabbitmq:[^\n]+/u,
+            /image: public\.ecr\.aws\/docker\/library\/rabbitmq:[^\n]+/u,
             "image: rabbitmq:4.2.4-alpine",
           ),
         }),
@@ -670,7 +670,11 @@ function assertRuntimeContract(files) {
       ?.split(/\n {2}[a-z][a-z0-9-]*:\n/u)[0] ?? "";
   if (/^\s+ports:/mu.test(broker))
     throw new Error("production broker must not publish a port");
-  if (!/image: rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(broker)) {
+  if (
+    !/image: public\.ecr\.aws\/docker\/library\/rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(
+      broker,
+    )
+  ) {
     throw new Error("production broker image must be pinned by digest");
   }
   if (

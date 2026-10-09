@@ -551,6 +551,10 @@ if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; 
   echo "Production runtime resolved a moving image tag" >&2
   exit 1
 fi
+# ECR Public permits one anonymous pull per second. Acquire external runtime dependencies
+# sequentially before starting the already-built application images, and retain resolved sources.
+"${application_compose[@]}" config --images rabbitmq caddy-smoke
+"${application_compose[@]}" --parallel 1 pull rabbitmq caddy-smoke
 "${application_compose[@]}" up --detach --wait
 
 docker run --rm \
