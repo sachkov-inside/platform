@@ -25,19 +25,17 @@ export function CourseHero({
   action,
   heading = "h1",
   headingId,
-  compactActionOnPhone = false,
   call,
 }: {
   readonly name: string;
   readonly badge: string;
   readonly lead: string;
   readonly highlights: readonly string[];
-  readonly action: { readonly href: Route; readonly label: string };
+  /** Кнопка первого экрана; страница курса её не показывает, чтобы не уводить со страницы. */
+  readonly action?: { readonly href: Route; readonly label: string };
   /** Страница курса — h1, карточка Главной — h2 внутри своей секции. */
   readonly heading?: "h1" | "h2";
   readonly headingId?: string;
-  /** На телефоне страница курса ведёт в программу нижней панелью, кнопка в первом экране лишняя. */
-  readonly compactActionOnPhone?: boolean;
   /**
    * Плашка потока и кнопка по этапу продаж вместо обычной кнопки. Страница курса передаёт сюда
    * личную часть, а её запасной вид — ту же обычную кнопку.
@@ -76,16 +74,13 @@ export function CourseHero({
             })}
           </ul>
         )}
-        {call ?? (
-          <IntentPrefetchLink
-            className="aie-hero-action"
-            data-compact-on-phone={compactActionOnPhone}
-            href={action.href}
-          >
-            {action.label}
-            <ArrowRight aria-hidden="true" />
-          </IntentPrefetchLink>
-        )}
+        {call ??
+          (action === undefined ? null : (
+            <IntentPrefetchLink className="aie-hero-action" href={action.href}>
+              {action.label}
+              <ArrowRight aria-hidden="true" />
+            </IntentPrefetchLink>
+          ))}
       </div>
       <div className="aie-hero-film">
         <CourseFilm />

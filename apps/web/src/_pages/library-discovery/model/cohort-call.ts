@@ -47,8 +47,7 @@ export function cohortCall({
     href: programme,
     label: "Открыть программу",
   } as const;
-  if (cohort === null)
-    return { banner: null, action: openProgramme, compactOnPhone: true };
+  if (cohort === null) return { banner: null, action: null };
 
   const date =
     cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
@@ -82,7 +81,6 @@ export function cohortCall({
               returnTo: programme,
               label: "Читать главу 1 бесплатно",
             },
-        compactOnPhone: false,
       };
     case "preorder":
       // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ
@@ -94,8 +92,7 @@ export function cohortCall({
           detail: `старт ${date}`,
           href: `#${cohortEnrollAnchor}`,
         },
-        action: openProgramme,
-        compactOnPhone: true,
+        action: null,
       };
     case "running":
       return {
@@ -107,7 +104,6 @@ export function cohortCall({
             "Все вышедшие главы откроются сразу, следующие выходят по порядку программы",
         },
         action: pay(`Оплатить ${price}`),
-        compactOnPhone: false,
       };
     case "between":
       return {
@@ -123,7 +119,6 @@ export function cohortCall({
               : "Проходи в своём темпе",
         },
         action: pay("Оплатить"),
-        compactOnPhone: false,
       };
   }
 }

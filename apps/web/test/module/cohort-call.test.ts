@@ -36,16 +36,8 @@ const call = (
   });
 
 describe("first screen call of a product cohort", () => {
-  it("keeps the programme button when the product has no cohort", () => {
-    expect(call({ cohort: null })).toEqual({
-      banner: null,
-      action: {
-        kind: "programme",
-        href: "/products/ai-engineering/programme",
-        label: "Открыть программу",
-      },
-      compactOnPhone: true,
-    });
+  it("does not lead away to the programme when the product has no cohort", () => {
+    expect(call({ cohort: null })).toEqual({ banner: null, action: null });
   });
 
   it("never takes money on the announcement", () => {
@@ -62,7 +54,7 @@ describe("first screen call of a product cohort", () => {
       label: "Читать главу 1 бесплатно",
     });
     expect(
-      call({ cohort: { ...cohort, stage: "announcement" } }).action.kind,
+      call({ cohort: { ...cohort, stage: "announcement" } }).action?.kind,
     ).toBe("programme");
   });
 
@@ -79,11 +71,7 @@ describe("first screen call of a product cohort", () => {
       detail: "старт 20 октября",
       href: "#enroll",
     });
-    expect(call().action).toEqual({
-      kind: "programme",
-      href: "/products/ai-engineering/programme",
-      label: "Открыть программу",
-    });
+    expect(call().action).toBeNull();
     expect(call({ cohort: { ...cohort, stage: "running" } }).action).toEqual({
       kind: "purchase",
       href: "/products/ai-engineering/buy",
@@ -122,16 +110,16 @@ describe("first screen call of a product cohort", () => {
 
   it("hides payment without a sale and from a person the product is open to", () => {
     const running = { ...cohort, stage: "running" } as const;
-    expect(call({ cohort: running, offer: null }).action.kind).toBe(
+    expect(call({ cohort: running, offer: null }).action?.kind).toBe(
       "programme",
     );
     expect(
-      call({ cohort: running, productAccess: "unknown" }).action.kind,
+      call({ cohort: running, productAccess: "unknown" }).action?.kind,
     ).toBe("purchase");
     for (const stage of ["running", "between"] as const)
       expect(
         call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
-          .kind,
+          ?.kind,
       ).toBe("programme");
   });
 });

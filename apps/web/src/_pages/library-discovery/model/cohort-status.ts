@@ -1,5 +1,7 @@
 import {
+  cohortToday,
   formatCohortDate,
+  formatDaysUntilStart,
   preorderPrice,
   type PriceSnapshot,
   type ProductCohort,
@@ -21,24 +23,29 @@ export function cohortStatus({
   offer,
   productAccess,
   slug,
+  today = cohortToday(),
 }: {
   readonly cohort: ProductCohort | null;
   readonly offer: PriceSnapshot | null;
   readonly productAccess: ProductAccess;
   readonly slug: string;
+  /** Сегодняшний день `YYYY-MM-DD` по Москве; демо и тесты задают его сами. */
+  readonly today?: string;
 }): CohortStatus | null {
   if (cohort === null || productAccess === "open") return null;
   const { startsOn } = cohort;
   if (startsOn === null) return null;
   const date = formatCohortDate(startsOn);
   const programmeHref = productProgrammeHref(slug);
-  const label = `${cohort.name} · старт ${date}`;
+  // Поток уже назван в заголовке «Набор на первый поток», метка называет только день старта.
+  const label = `Старт ${date}`;
   if (cohort.stage === "announcement")
     return {
       label,
       title: "Набор на первый поток",
       text: "Предзаказ откроется скоро. До старта курс будет стоить дешевле.",
       price: null,
+      priceNote: null,
       discount: null,
       purchaseHref: null,
       programmeHref,
@@ -50,6 +57,7 @@ export function cohortStatus({
     title: "Набор на первый поток",
     text: `До старта курс стоит дешевле. Цена вырастет ${date}.`,
     price,
+    priceNote: formatDaysUntilStart(startsOn, today),
     discount: discountLabel(cohort, offer),
     purchaseHref: offer === null ? null : productPurchaseHref(slug),
     programmeHref,

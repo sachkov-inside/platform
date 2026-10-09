@@ -41,16 +41,18 @@ export type CohortAction =
 
 export interface CohortCall {
   readonly banner: CohortBanner | null;
-  readonly action: CohortAction;
-  /** Без потока на телефоне в программу ведёт нижняя панель, и кнопка первого экрана лишняя. */
-  readonly compactOnPhone: boolean;
+  /**
+   * Кнопка по этапу: вход, оплата или своя программа. `null` — кнопки нет: в программу первый
+   * экран не уводит, человек сначала изучает страницу (решение владельца 09.10.2026).
+   */
+  readonly action: CohortAction | null;
 }
 
 /** Плашка этапа и кнопка по этапу. Текст и адрес решает модель страницы, здесь только вид. */
 export function CohortCallView({ call }: { readonly call: CohortCall }) {
   const { action, banner } = call;
   return (
-    <div className="aie-cohort" data-cohort-action={action.kind}>
+    <div className="aie-cohort" data-cohort-action={action?.kind ?? "none"}>
       {banner === null ? null : banner.kind === "live" ? (
         <a className="aie-cohort-live" href={banner.href}>
           <span className="aie-cohort-live-dot" aria-hidden="true" />
@@ -69,33 +71,21 @@ export function CohortCallView({ call }: { readonly call: CohortCall }) {
           )}
         </div>
       )}
-      {action.kind === "sign-in" ? (
+      {action === null ? null : action.kind === "sign-in" ? (
         <form action="/auth/sign-in" method="post">
           <input name="returnTo" type="hidden" value={action.returnTo} />
-          <button
-            className="aie-hero-action"
-            data-compact-on-phone={call.compactOnPhone}
-            type="submit"
-          >
+          <button className="aie-hero-action" type="submit">
             {action.label}
             <ArrowRight aria-hidden="true" />
           </button>
         </form>
       ) : action.kind === "purchase" ? (
-        <Link
-          className="aie-hero-action"
-          data-compact-on-phone={call.compactOnPhone}
-          href={action.href}
-        >
+        <Link className="aie-hero-action" href={action.href}>
           {action.label}
           <ArrowRight aria-hidden="true" />
         </Link>
       ) : (
-        <IntentPrefetchLink
-          className="aie-hero-action"
-          data-compact-on-phone={call.compactOnPhone}
-          href={action.href}
-        >
+        <IntentPrefetchLink className="aie-hero-action" href={action.href}>
           {action.label}
           <ArrowRight aria-hidden="true" />
         </IntentPrefetchLink>

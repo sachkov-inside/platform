@@ -101,10 +101,8 @@ export function AiEngineeringCourseView({
 
       <header className="aie-course-hero">
         <CourseHero
-          action={{ href: programme, label: "Открыть программу" }}
           badge={hero?.badge ?? ""}
           call={heroCall}
-          compactActionOnPhone
           highlights={hero?.highlights ?? []}
           lead={hero?.lead ?? reference.summary}
           name={reference.name}
@@ -146,7 +144,8 @@ function CourseBlock({
     case "hero":
       return null;
     case "cards":
-      if (block.id === "topics") return <TopicGrid block={block} />;
+      if (block.id === "topics")
+        return <TopicGrid block={block} programme={programme} />;
       if (block.id === "audience") return <Audience block={block} />;
       if (block.id === "value") return <ValueGrid block={block} />;
       if (block.id === "faq") return <Faq block={block} />;
@@ -479,7 +478,14 @@ const topicTiles: readonly {
     ),
   },
 ];
-function TopicGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
+/** Темы курса и под ними кнопка в программу: там главы и уроки по этим темам. */
+function TopicGrid({
+  block,
+  programme,
+}: {
+  readonly block: ProductPageBlockOf<"cards">;
+  readonly programme: Route;
+}) {
   return (
     <section className="ai-product-outcomes aie-topics">
       <Eyebrow text={block.eyebrow} />
@@ -513,6 +519,10 @@ function TopicGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
         })}
       </ul>
       <Note text={block.note} />
+      <IntentPrefetchLink className="aie-topics-programme" href={programme}>
+        Открыть программу
+        <ArrowRight aria-hidden="true" />
+      </IntentPrefetchLink>
     </section>
   );
 }

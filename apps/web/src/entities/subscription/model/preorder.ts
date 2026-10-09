@@ -12,6 +12,39 @@ export function formatCohortDate(startsOn: string): string {
   return cohortDate.format(new Date(`${startsOn}T00:00:00Z`));
 }
 
+const moscowDay = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Moscow",
+});
+
+/** Сегодняшний день по Москве, `YYYY-MM-DD`: от него считают, сколько дней до старта. */
+export function cohortToday(now: Date = new Date()): string {
+  return moscowDay.format(now);
+}
+
+/**
+ * Сколько дней осталось до старта, словами: «до старта 31 день», в день старта — «старт
+ * сегодня». Если день старта прошёл, а поток ещё на предзаказе, называется дата.
+ */
+export function formatDaysUntilStart(startsOn: string, today: string): string {
+  const days = Math.round(
+    (Date.parse(`${startsOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) /
+      86_400_000,
+  );
+  if (days < 0 || Number.isNaN(days))
+    return `старт ${formatCohortDate(startsOn)}`;
+  if (days === 0) return "старт сегодня";
+  return `до старта ${String(days)} ${dayWord(days)}`;
+}
+
+function dayWord(days: number): string {
+  const tens = days % 100;
+  const ones = days % 10;
+  if (tens >= 11 && tens <= 14) return "дней";
+  if (ones === 1) return "день";
+  if (ones >= 2 && ones <= 4) return "дня";
+  return "дней";
+}
+
 /** Цена предзаказа рядом с ценой после старта: то, что видят плашка, программа и оплата. */
 export interface PreorderPrice {
   /** Цена, которую человек платит сейчас. */

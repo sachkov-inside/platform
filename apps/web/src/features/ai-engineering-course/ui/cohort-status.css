@@ -141,14 +141,6 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
-.ai-product-page .aie-cohort-ticket-note {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: 0.8rem;
-  line-height: 1.45;
-  text-align: center;
-}
-
 /* Точка набора пульсирует, по билету изредка проходит блик. Без анимации всё стоит. */
 @media (prefers-reduced-motion: no-preference) {
   .aie-cohort-status-dot::after {

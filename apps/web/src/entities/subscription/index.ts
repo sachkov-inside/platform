@@ -130,7 +130,9 @@ export {
 } from "./model/enrollment-events";
 
 export {
+  cohortToday,
   formatCohortDate,
+  formatDaysUntilStart,
   preorderPrice,
   preorderTerms,
   type PreorderPrice,

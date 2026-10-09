@@ -178,9 +178,6 @@
     --aie-icon-size: 2rem;
     --aie-icon-tile: var(--background);
   }
-  .aie-hero-action[data-compact-on-phone="true"] {
-    display: none;
-  }
 }
 
 /*

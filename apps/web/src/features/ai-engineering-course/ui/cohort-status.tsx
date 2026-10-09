@@ -13,11 +13,13 @@ import "./cohort-status.css";
  * предзаказ не открыт, в билете нет цены и кнопки оплаты.
  */
 export interface CohortStatus {
-  /** Поток и день старта: «Поток 1 · старт 9 ноября». */
+  /** День старта: «Старт 9 ноября». */
   readonly label: string;
   readonly title: string;
   readonly text: string;
   readonly price: PreorderPrice | null;
+  /** Подпись под ценой: сколько дней до старта. */
+  readonly priceNote: string | null;
   /** Скидка к цене после старта: «−25 %»; `null` — сравнивать не с чем. */
   readonly discount: string | null;
   /** Страница оплаты; `null` — оплатить сейчас нельзя или продукт уже открыт. */
@@ -52,7 +54,10 @@ export function CohortStatusView({
         {status.price === null ? (
           <p className="aie-cohort-ticket-soon">Откроется скоро</p>
         ) : (
-          <PreorderPriceView price={status.price} />
+          <PreorderPriceView
+            note={status.priceNote ?? undefined}
+            price={status.price}
+          />
         )}
         <div className="aie-cohort-ticket-tear" aria-hidden="true" />
         <div className="aie-cohort-ticket-actions">
@@ -69,11 +74,6 @@ export function CohortStatusView({
             Открыть программу
           </IntentPrefetchLink>
         </div>
-        {status.purchaseHref === null ? null : (
-          <p className="aie-cohort-ticket-note">
-            Опубликованные главы и сообщество откроются сразу после оплаты.
-          </p>
-        )}
       </div>
     </div>
   );

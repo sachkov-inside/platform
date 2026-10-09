@@ -8,9 +8,12 @@ import "./preorder-price.css";
  */
 export function PreorderPriceView({
   price,
+  note = `до старта ${price.startsOn}`,
   tone = "light",
 }: {
   readonly price: PreorderPrice;
+  /** Подпись под ценой; по умолчанию — день старта. */
+  readonly note?: string | undefined;
   /** На тёмной плашке подписи светлее. */
   readonly tone?: "light" | "dark";
 }) {
@@ -28,7 +31,7 @@ export function PreorderPriceView({
           </>
         )}
       </p>
-      <p className="preorder-price-note">до старта {price.startsOn}</p>
+      <p className="preorder-price-note">{note}</p>
     </div>
   );
 }

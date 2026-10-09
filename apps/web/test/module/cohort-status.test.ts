@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ProductCohort } from "@/entities/subscription";
 import { cohortStatus } from "@/_pages/library-discovery/model/cohort-status";
+import { formatDaysUntilStart } from "@/entities/subscription";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
 const cohort: ProductCohort = {
@@ -15,6 +16,7 @@ const cohort: ProductCohort = {
 };
 const offer = { ...productWithSupportOffer, firstPriceKopecks: 2_990_000 };
 const slug = "ai-engineering";
+const today = "2026-10-09";
 
 describe("cohort recruitment plaque in the course status block", () => {
   it("sells the pre-order with the price after the start struck through and the discount to it", () => {
@@ -23,9 +25,11 @@ describe("cohort recruitment plaque in the course status block", () => {
       offer,
       productAccess: "closed",
       slug,
+      today,
     });
     expect(status).toMatchObject({
-      label: "Поток 1 · старт 9 ноября",
+      label: "Старт 9 ноября",
+      priceNote: "до старта 31 день",
       title: "Набор на первый поток",
       text: "До старта курс стоит дешевле. Цена вырастет 9 ноября.",
       // 29 900 ₽ к 39 900 ₽ — 25,06 %, вниз до целого.
@@ -81,5 +85,25 @@ describe("cohort recruitment plaque in the course status block", () => {
       cohortStatus({ cohort, offer: null, productAccess: "closed", slug })
         ?.purchaseHref,
     ).toBeNull();
+  });
+});
+
+describe("days until the cohort start", () => {
+  it("counts calendar days with the Russian plural and names the start day itself", () => {
+    expect(formatDaysUntilStart("2026-11-09", "2026-10-09")).toBe(
+      "до старта 31 день",
+    );
+    expect(formatDaysUntilStart("2026-11-09", "2026-11-07")).toBe(
+      "до старта 2 дня",
+    );
+    expect(formatDaysUntilStart("2026-11-09", "2026-10-28")).toBe(
+      "до старта 12 дней",
+    );
+    expect(formatDaysUntilStart("2026-11-09", "2026-11-09")).toBe(
+      "старт сегодня",
+    );
+    expect(formatDaysUntilStart("2026-11-09", "2026-11-10")).toBe(
+      "старт 9 ноября",
+    );
   });
 });

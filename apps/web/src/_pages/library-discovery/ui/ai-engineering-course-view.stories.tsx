@@ -227,6 +227,7 @@ export const CohortPreorder: Story = {
             offer: preorderOffer,
             productAccess: "closed",
             slug: "ai-engineering",
+            today: "2026-10-09",
           }) ?? fail("Предзаказ рисует плашку набора")
         }
       />
@@ -241,6 +242,20 @@ export const CohortPreorder: Story = {
       canvas.getByRole("link", { name: /Оформить предзаказ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
+    await expect(canvas.getByText("до старта 31 день")).toBeInTheDocument();
+    // Первый экран в программу не уводит: туда ведёт кнопка под темами курса.
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).queryByRole("link", { name: /Открыть программу/u }),
+    ).toBeNull();
+    const topics =
+      canvasElement.querySelector<HTMLElement>(".aie-topics") ??
+      fail("Блок тем курса");
+    await expect(
+      within(topics).getByRole("link", { name: /Открыть программу/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(
       canvas.getByRole("heading", { name: "Набор на первый поток" }),
     ).toBeInTheDocument();
