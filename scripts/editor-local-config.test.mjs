@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { resolve } from "node:path";
 import {
   editorLocalPorts,
+  editorLocalEndpoints,
   assertEditorPortsAvailable,
 } from "./editor-local-config.mjs";
 
@@ -80,4 +81,29 @@ test("occupied editor port refuses launcher before identity or subprocess startu
     },
   );
   assert.equal(server.listening, true);
+});
+
+test("editor origins and forwarded hosts use browser normalization, including HTTP port 80", () => {
+  assert.deepEqual(
+    editorLocalEndpoints({ gateway: 4496, api: 4497, web: 4498 }),
+    {
+      gatewayHost: "127.0.0.1:4496",
+      apiHost: "127.0.0.1:4497",
+      webBaseUrl: "http://127.0.0.1:4496",
+      apiBaseUrl: "http://127.0.0.1:4497",
+    },
+  );
+  assert.deepEqual(
+    editorLocalEndpoints({ gateway: 80, api: 4497, web: 4498 }),
+    {
+      gatewayHost: "127.0.0.1",
+      apiHost: "127.0.0.1:4497",
+      webBaseUrl: "http://127.0.0.1",
+      apiBaseUrl: "http://127.0.0.1:4497",
+    },
+  );
+  assert.equal(
+    editorLocalEndpoints({ gateway: 4496, api: 80, web: 4498 }).apiHost,
+    "127.0.0.1",
+  );
 });

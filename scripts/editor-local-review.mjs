@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import {
   editorLocalPorts,
+  editorLocalEndpoints,
   assertEditorPortsAvailable,
 } from "./editor-local-config.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
@@ -20,10 +21,8 @@ if (!pnpmExecutable) throw new Error("Run pnpm editor:local");
 const pnpmPath = pnpmExecutable;
 const ports = editorLocalPorts();
 await assertEditorPortsAvailable(ports);
-const gatewayHost = `127.0.0.1:${ports.gateway}`;
-const apiHost = `127.0.0.1:${ports.api}`;
-const webBaseUrl = `http://${gatewayHost}`;
-const apiBaseUrl = `http://${apiHost}`;
+const { gatewayHost, apiHost, webBaseUrl, apiBaseUrl } =
+  editorLocalEndpoints(ports);
 const identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
 // Never inherit production database/provider/identity configuration from the shell.
 const environment = {

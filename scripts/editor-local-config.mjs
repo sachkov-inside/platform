@@ -24,6 +24,19 @@ export function editorLocalPorts(environment = process.env) {
   return ports;
 }
 
+/** Browser and authoring transports normalize the default HTTP port in Host/Origin.
+ * @param {ReturnType<typeof editorLocalPorts>} ports */
+export function editorLocalEndpoints(ports) {
+  const gateway = new URL(`http://127.0.0.1:${ports.gateway}`);
+  const api = new URL(`http://127.0.0.1:${ports.api}`);
+  return {
+    gatewayHost: gateway.host,
+    apiHost: api.host,
+    webBaseUrl: gateway.origin,
+    apiBaseUrl: api.origin,
+  };
+}
+
 /** Probe before identity, migrations or child processes; never stop an existing listener.
  * @param {ReturnType<typeof editorLocalPorts>} ports */
 export async function assertEditorPortsAvailable(ports) {
