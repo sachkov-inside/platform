@@ -10,7 +10,6 @@ import {
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { ContentCoverImage } from "@/entities/material";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
@@ -122,20 +121,10 @@ export function ProductProgrammeView({
         {preorder === null || accessPending ? null : (
           <StartCountdownBadge text={preorder.daysLeft} />
         )}
-        {/* Обложка, название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит
-            под название и занимает всю ширину, чтобы до неё было удобно дотянуться. */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
-          <div className="w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-border @[36rem]/programme:w-36">
-            <ContentCoverImage
-              alt=""
-              className="aspect-[3/2] min-h-0 w-full"
-              cover={result.reference.cover ?? null}
-              fallbackKind="playlist"
-              fallbackSeed={slug}
-              priority
-              sizes="9rem"
-            />
-          </div>
+        {/* Название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит под
+            название. Обложки в шапке программы нет (решение владельца 09.10.2026): это рабочий
+            экран курса, картинка в маленьком размере ничего не сообщает. */}
+        <div className="grid grid-cols-1 items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 [overflow-wrap:anywhere]">
             <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
               {result.reference.name}

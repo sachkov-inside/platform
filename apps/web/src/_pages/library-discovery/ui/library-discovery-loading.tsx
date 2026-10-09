@@ -26,7 +26,6 @@ export function ProductProgrammeLoading() {
         data-programme-part="header"
       >
         <div className={`flex items-center gap-4 ${pulse}`}>
-          <div className="aspect-square w-16 shrink-0 rounded-lg bg-muted sm:w-20" />
           <div className="min-w-0 flex-1">
             <div className="h-6 w-3/5 rounded-lg bg-muted sm:h-7" />
             <div className="mt-2 h-5 w-2/5 rounded-md bg-muted/80" />
