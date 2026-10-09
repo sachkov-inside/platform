@@ -8,7 +8,7 @@ import type { PassCell, PassIdentity, PassOutcome } from "./pass-cells";
  * `docs/runbooks/production-test-identities.md`.
  */
 export const productionTarget = {
-  web: "https://inside.sachkov.dev",
+  web: "https://sachkov.dev",
   logto: "https://auth.sachkov.dev",
   learnerMcp: "https://inside.sachkov.dev/mcp/learning",
   ownerMcp: "https://inside.sachkov.dev/mcp",

@@ -41,6 +41,7 @@ import {
   recordProblem,
 } from "./pass-report";
 import { guardPassContext, passContextGet } from "./pass-requests";
+import { observeBodyPage as observeMaterialBody } from "./pass-browser";
 
 /**
  * Production-проход по ролям (#905, #906). Один сценарий наблюдает живые клетки `passCells` и
@@ -318,20 +319,13 @@ test("production access observes every live cell in one isolated scenario", asyn
     actor: Actor,
   ): Promise<Observation> {
     const snippet = required(learnerA.bodySnippet, "Protected body snippet");
-    const { page, available } = await openMaterial(
+    const observation = await observeMaterialBody(
       context,
       productA.bodyMaterialSlug,
+      snippet,
     );
-    try {
-      // Закрытые bytes ищутся во всём документе, включая данные RSC, а не только в видимом тексте.
-      if ((await page.content()).includes(snippet))
-        return { observed: "allowed" };
-      if (!available)
-        return await browserDenial(context, actor, "access-required");
-      throw new Error("Material page shows neither the body nor a denial");
-    } finally {
-      await page.close();
-    }
+    if (observation.observed === "denied") await expectSignedIn(context, actor);
+    return observation;
   }
 
   /** Ответ MCP: доступ, если tool ответил `ok` или в ответе есть закрытые bytes. */

@@ -9,6 +9,7 @@ import {
   type PassCell,
 } from "../production/pass-cells";
 import {
+  productionTarget,
   productBDeferred,
   identityEmail,
   passCells,
@@ -349,5 +350,16 @@ describe("test identity email", () => {
     expect(() =>
       identityEmail("owner+x@example.test", "learner-product-a"),
     ).toThrow("plain address");
+  });
+});
+
+describe("production access pass targets", () => {
+  it("uses the primary Web domain and retains MCP and API audience", () => {
+    expect(productionTarget.web).toBe("https://sachkov.dev");
+    expect(productionTarget.learnerMcp).toBe(
+      "https://inside.sachkov.dev/mcp/learning",
+    );
+    expect(productionTarget.ownerMcp).toBe("https://inside.sachkov.dev/mcp");
+    expect(productionTarget.apiResource).toBe("https://api.inside.sachkov.dev");
   });
 });
