@@ -1,5 +1,9 @@
 # Disposable Logto identity proof
 
+For the isolated #461 preparation and its pending runtime slot, use
+[the dedicated proof recipe](../../../docs/verification/461-mini-app-identity-proof.md).
+Its own context, ports, image tag, TLS and PostgreSQL do not use the default launchers below.
+
 This environment proves the application flow for #49 and the pinned-runtime hardening gates for
 #116. It is intentionally separate from the Platform Compose project and is not a production
 deployment template.
