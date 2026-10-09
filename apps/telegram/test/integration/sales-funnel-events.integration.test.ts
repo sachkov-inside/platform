@@ -121,7 +121,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate sales_funnel_event_outbox, communication_funnels, communication_intro, communication_operations, communication_contacts, communication_preferences, communication_entries, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries, identity_link_recoveries, identity_link_events, platform_links, link_transactions, telegram_identity_reservations cascade`.execute(
+  await sql`truncate sales_funnel_event_outbox, communication_funnels, communication_intro, communication_operations, communication_contacts, communication_preferences, communication_entries, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries, membership_checks, identity_link_recoveries, identity_link_events, platform_links, link_transactions, telegram_identity_reservations cascade`.execute(
     database,
   );
   now = new Date("2030-01-01T00:00:00.000Z");
@@ -385,9 +385,19 @@ describe("sales funnel events", () => {
   });
 
   it("rolls back the link, initial check and legacy communication contact when account event persistence fails", async () => {
-    await text("/start");
-    // Simulate a contact from before communication storage existed.
-    await database.deleteFrom("communication_contacts").execute();
+    // Simulate persisted legacy data from before communication storage existed.
+    await database
+      .insertInto("bot_contacts")
+      .values({
+        bot_identity: "inside",
+        telegram_user_id: "42",
+        private_chat_id: "42",
+        contactability: "reachable",
+        first_started_at: now,
+        last_started_at: now,
+        updated_at: now,
+      })
+      .execute();
     await sql`create function synthetic_account_event_fault() returns trigger language plpgsql as $$
       begin if new.kind = 'account_linked' then raise exception 'synthetic account event failure'; end if; return new; end $$;
       create trigger synthetic_account_event_fault before insert on sales_funnel_event_outbox
