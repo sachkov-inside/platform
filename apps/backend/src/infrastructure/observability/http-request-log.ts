@@ -55,6 +55,15 @@ export function observeHttpRequests(
         ...(route === undefined ? {} : { route }),
         statusCode: reply.statusCode,
         durationMs: Math.round(reply.elapsedTime),
+        // Caddy strips this marker from non-loopback peers; a bank payload is never a probe.
+        ...(process === "api" &&
+        request.method === "POST" &&
+        route === "/billing/tbank/notification" &&
+        request.body === undefined &&
+        request.headers["x-inside-production-verify"] ===
+          "bank-webhook-rejection"
+          ? { probe: "production_verify" }
+          : {}),
       });
     }
     done();

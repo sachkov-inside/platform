@@ -89,6 +89,28 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
+  it("rejects a verifier marker that external peers can forward", () => {
+    for (const caddy of [
+      runtime.caddy.replace(
+        "request_header @external_probe -X-Inside-Production-Verify",
+        "",
+      ),
+      runtime.caddy.replace(
+        "not remote_ip 127.0.0.1 ::1",
+        "not client_ip 127.0.0.1 ::1",
+      ),
+      runtime.caddy.replace(
+        "not remote_ip 127.0.0.1 ::1",
+        "not remote_ip private_ranges",
+      ),
+    ]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, caddy }),
+        /probe marker/u,
+      );
+    }
+  });
+
   it("runs nine application processes from manifest-selected images beside a private broker", () => {
     assertRuntimeContract(runtime);
   });
@@ -710,6 +732,16 @@ function assertRuntimeContract(files) {
     }
   }
   // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
+  const probeBoundary =
+    "@external_probe not remote_ip 127.0.0.1 ::1\n\t\trequest_header @external_probe -X-Inside-Production-Verify\n";
+  if (
+    !files.caddy.includes(probeBoundary) ||
+    files.caddy.indexOf(probeBoundary) > files.caddy.indexOf("reverse_proxy")
+  ) {
+    throw new Error(
+      "Caddy must strip the probe marker from non-loopback socket peers before proxying",
+    );
+  }
   for (const [name, caddy] of /** @type {const} */ ([
     ["platform.caddy", files.caddy],
     ["host Caddyfile", files.hostCaddy],
