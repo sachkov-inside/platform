@@ -249,7 +249,7 @@ describe("подписка: продление, отмена, смена вар�
       enrollments: grants,
       clock: () => now,
     });
-    function subscriptionClient() {
+    function assembleSubscriptions() {
       return new BillingSubscriptions({
         prisma: db.prisma,
         bank: client,
@@ -260,7 +260,7 @@ describe("подписка: продление, отмена, смена вар�
         clock: () => now,
       });
     }
-    const subscriptions = subscriptionClient();
+    const subscriptions = assembleSubscriptions();
 
     async function consentFor(
       contextRef: string,
@@ -377,7 +377,7 @@ describe("подписка: продление, отмена, смена вар�
       bank,
       payments,
       subscriptions,
-      subscriptionClient,
+      assembleSubscriptions,
       notices,
       buy,
       offer,
@@ -1781,7 +1781,7 @@ describe("подписка: продление, отмена, смена вар�
       s.subscriptions.changeMethod(s.buyer, command),
     );
     const settled = Promise.allSettled([changing]);
-    const worker = s.subscriptionClient();
+    const worker = s.assembleSubscriptions();
     try {
       await gate.entered;
       now = new Date("2030-01-31T10:00:11Z");
@@ -1831,7 +1831,7 @@ describe("подписка: продление, отмена, смена вар�
       s.subscriptions.changeMethod(s.buyer, command),
     );
     const settled = Promise.allSettled([changing]);
-    const worker = s.subscriptionClient();
+    const worker = s.assembleSubscriptions();
     try {
       await gate.entered;
       // A dedicated database proves which live transaction owns this attempt. Terminating that
