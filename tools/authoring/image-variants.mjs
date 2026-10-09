@@ -1,6 +1,6 @@
 // @ts-check
 /** Resolve source variant IDs with the same upload map as the original image.
- * @param {import('./package.mjs').ManifestMaterial} page
+ * @param {Pick<import('./package.mjs').ManifestMaterial, 'sourcePath' | 'imageVariants'>} page
  * @param {string} href
  * @param {ReadonlyMap<string,string>} images
  */
