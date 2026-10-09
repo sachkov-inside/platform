@@ -22,4 +22,5 @@ export const miniAppBindingSchema = z.strictObject({
   contractVersion: z.literal(miniAppSignInContractVersion),
   oidcContextDigest: browserDigestSchema,
   browserSecretDigest: browserDigestSchema,
+  launchBrowserSecret: browserDigestSchema,
 });

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 export const miniAppRequestParameter = 'inside_mini_app_request';
+export const miniAppBrowserBindingKey = 'insideMiniAppBrowserBinding';
 const scopePrefix = 'inside.mini-app.v1:';
 const parametersGuard = z.object({
   client_id: z.string().min(1).max(256),
@@ -12,9 +13,14 @@ const parametersGuard = z.object({
   response_type: z.literal('code'),
   [miniAppRequestParameter]: z.string().uuid(),
 });
+const browserBindingGuard = z.object({
+  requestRef: z.string().uuid(),
+  oidcContextDigest: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  launchBrowserSecret: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+}).strict();
 
 /** Uses the original normal OIDC request; a social API payload cannot select this binding. */
-export function miniAppConnectorScope(params: unknown): string | undefined {
+export function miniAppConnectorScope(params: unknown, nativeBrowserBinding: unknown): string | undefined {
   if (typeof params !== 'object' || params === null || !(miniAppRequestParameter in params)) {
     return undefined;
   }
@@ -22,5 +28,11 @@ export function miniAppConnectorScope(params: unknown): string | undefined {
   const oidcContextDigest = createHash('sha256').update(JSON.stringify([
     context.client_id, context.redirect_uri, context.state, context.code_challenge,
   ])).digest('base64url');
-  return `${scopePrefix}${JSON.stringify({ requestRef: context[miniAppRequestParameter], oidcContextDigest })}`;
+  // Only the trusted bridge may write this bounded record in the existing native interaction.
+  // The original authorization URL and a client social payload cannot provide this proof.
+  const binding = browserBindingGuard.parse(nativeBrowserBinding);
+  if (binding.requestRef !== context[miniAppRequestParameter] || binding.oidcContextDigest !== oidcContextDigest) {
+    throw new Error('Mini App browser binding unavailable');
+  }
+  return `${scopePrefix}${JSON.stringify(binding)}`;
 }

@@ -185,6 +185,15 @@ describe("bot sign-in provider", () => {
         challenge.requestRef,
         digestSignInSecret("another-context"),
         digestSignInSecret(left),
+        challenge.browserSecret,
+      ),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      first.bindMiniApp(
+        challenge.requestRef,
+        oidcContextDigest,
+        digestSignInSecret(left),
+        randomBytes(32).toString("base64url"),
       ),
     ).resolves.toEqual({ status: "unavailable" });
     const bindings = await Promise.all([
@@ -192,11 +201,13 @@ describe("bot sign-in provider", () => {
         challenge.requestRef,
         oidcContextDigest,
         digestSignInSecret(left),
+        challenge.browserSecret,
       ),
       second.bindMiniApp(
         challenge.requestRef,
         oidcContextDigest,
         digestSignInSecret(right),
+        challenge.browserSecret,
       ),
     ]);
     expect(bindings.map((result) => result.status).sort()).toEqual([
@@ -212,6 +223,7 @@ describe("bot sign-in provider", () => {
         challenge.requestRef,
         oidcContextDigest,
         digestSignInSecret(winner),
+        challenge.browserSecret,
       ),
     ).resolves.toMatchObject({ status: "bound" });
     await expect(
@@ -1394,6 +1406,7 @@ async function bindMiniApp(
       challenge.requestRef,
       digestSignInSecret(`oidc-context:${challenge.requestRef}`),
       digestSignInSecret(browserSecret),
+      challenge.browserSecret,
     ),
   ).resolves.toMatchObject({ status: "bound" });
   return { ...challenge, browserSecret };

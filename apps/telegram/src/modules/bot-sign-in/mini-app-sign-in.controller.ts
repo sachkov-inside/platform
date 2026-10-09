@@ -104,6 +104,7 @@ export class MiniAppSignInController {
         requestRef,
         parsed.data.oidcContextDigest,
         parsed.data.browserSecretDigest,
+        parsed.data.launchBrowserSecret,
       )),
     };
   }

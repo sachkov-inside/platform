@@ -107,12 +107,21 @@
           "format": "base64url",
           "contentEncoding": "base64url",
           "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
+        "launchBrowserSecret": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
         }
       },
       "required": [
         "contractVersion",
         "oidcContextDigest",
-        "browserSecretDigest"
+        "browserSecretDigest",
+        "launchBrowserSecret"
       ],
       "additionalProperties": false
     }

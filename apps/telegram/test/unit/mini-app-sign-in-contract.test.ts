@@ -9,6 +9,17 @@ import {
 } from "../../src/modules/bot-sign-in/mini-app-sign-in.contract.js";
 
 describe("Mini App portable request contract", () => {
+  it("requires the private launch browser secret in addition to the public OIDC digest", () => {
+    const publicTranscript = structuredClone(fixtures.binding);
+    Reflect.deleteProperty(publicTranscript, "launchBrowserSecret");
+    expect(miniAppBindingSchema.safeParse(publicTranscript).success).toBe(
+      false,
+    );
+    const ajv = new Ajv({ validateFormats: false });
+    expect(ajv.compile(schema.definitions.binding)(publicTranscript)).toBe(
+      false,
+    );
+  });
   it("requires the original OIDC state and PKCE context binding on registration", () => {
     const unbound = structuredClone(fixtures.registration);
     Reflect.deleteProperty(unbound, "oidcContextDigest");

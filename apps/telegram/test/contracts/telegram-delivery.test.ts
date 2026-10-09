@@ -74,7 +74,7 @@ describe("Telegram delivery across the repository transition", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       migrations: {
         identity:
-          "sha256:0f73eb1d14fbd2fab3809223ba469154142bdd81c0479b3a5154c124aa8eb1ae",
+          "sha256:77d1d51b18f8fbd464d547c55eb0c32ee0acd7e535ff3d200e61c2fa61c4f385",
         count: 32,
         latest: "031-mini-app-sign-in.ts",
       },

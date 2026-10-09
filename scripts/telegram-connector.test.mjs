@@ -47,8 +47,33 @@ const config = {
   botUsername: "synthetic_bot",
 };
 const scopeGuard = z.function({
-  input: [z.unknown()],
+  input: [z.unknown(), z.unknown().optional()],
   output: z.string().optional(),
+});
+
+test("a public OIDC transcript cannot transfer a launch without the original native browser secret", async () => {
+  const module = await evaluateSource(async () => {
+    throw new Error("No network in OIDC scope adapter");
+  }, "../infra/identity/logto/fork/packages/core/src/libraries/inside-mini-app-binding.ts");
+  /** @type {unknown} */
+  const exported = Reflect.get(module.namespace, "miniAppConnectorScope");
+  const scope = scopeGuard.parse(exported);
+  const params = {
+    client_id: "synthetic-platform-client",
+    redirect_uri: "https://platform.test/callback",
+    state: "synthetic-official-sdk-state",
+    code_challenge: "A".repeat(43),
+    code_challenge_method: "S256",
+    response_type: "code",
+    inside_mini_app_request: "46100000-0000-4000-8000-000000000001",
+  };
+  let rejected = false;
+  try {
+    scope(params);
+  } catch {
+    rejected = true;
+  }
+  assert.equal(rejected, true);
 });
 
 test("connector recovers the same subject after consume committed but its response was lost", async () => {
@@ -96,6 +121,7 @@ test("connector recovers the same subject after consume committed but its respon
 test("Mini App connector binds the transferred OIDC attempt and uses the native social callback", async () => {
   const requestRef = "46100000-0000-4000-8000-000000000002";
   const oidcContextDigest = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+  const launchBrowserSecret = "Z".repeat(43);
   /** @type {string[]} */
   const paths = [];
   const connector = await loadConnector(
@@ -107,9 +133,11 @@ test("Mini App connector binds the transferred OIDC attempt and uses the native 
           .object({
             oidcContextDigest: z.string(),
             browserSecretDigest: z.string(),
+            launchBrowserSecret: z.string(),
           })
           .parse(JSON.parse(String(options.body)));
         assert.equal(body.oidcContextDigest, oidcContextDigest);
+        assert.equal(body.launchBrowserSecret, launchBrowserSecret);
         assert.match(body.browserSecretDigest, /^[A-Za-z0-9_-]{43}$/u);
         return Response.json({
           contractVersion: "inside.mini-app-sign-in.v1",
@@ -125,7 +153,7 @@ test("Mini App connector binds the transferred OIDC attempt and uses the native 
   const session = await authorize(
     connector,
     {
-      scope: `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest })}`,
+      scope: `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest, launchBrowserSecret })}`,
     },
     (url) => {
       callback = url;
@@ -138,10 +166,106 @@ test("Mini App connector binds the transferred OIDC attempt and uses the native 
     true,
   );
   assert.equal(session.requestRef, requestRef);
+  assert.equal(JSON.stringify(session).includes(launchBrowserSecret), false);
+  assert.equal(String(callback).includes(launchBrowserSecret), false);
   assert.equal(new URL(String(callback)).pathname, "/callback");
   assert.equal(
     new URL(String(callback)).searchParams.get("inside_state"),
     session.state,
+  );
+});
+
+test("a lost bind response retries with the same private browser and native interaction secret", async () => {
+  const module = await evaluateSource(async () => {
+    throw new Error("No network in OIDC scope adapter");
+  }, "../infra/identity/logto/fork/packages/core/src/libraries/inside-mini-app-binding.ts");
+  /** @type {unknown} */
+  const exported = Reflect.get(module.namespace, "miniAppConnectorScope");
+  const scope = scopeGuard.parse(exported);
+  const params = {
+    client_id: "synthetic-platform-client",
+    redirect_uri: "https://platform.test/callback",
+    state: "synthetic-official-sdk-state",
+    code_challenge: "A".repeat(43),
+    code_challenge_method: "S256",
+    response_type: "code",
+    inside_mini_app_request: "46100000-0000-4000-8000-000000000002",
+  };
+  const binding = {
+    requestRef: params.inside_mini_app_request,
+    oidcContextDigest: "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4",
+    launchBrowserSecret: "Z".repeat(43),
+  };
+  /** @type {string | undefined} */
+  let boundDigest;
+  let posts = 0;
+  const connector = await loadConnector(
+    async (_url, options) => {
+      const body = z
+        .object({ browserSecretDigest: z.string() })
+        .parse(JSON.parse(String(options.body)));
+      posts += 1;
+      if (posts === 1) {
+        boundDigest = body.browserSecretDigest;
+        throw new TypeError("Synthetic response lost after binding commit");
+      }
+      return Response.json(
+        body.browserSecretDigest === boundDigest
+          ? {
+              contractVersion: "inside.mini-app-sign-in.v1",
+              status: "bound",
+              expiresAt: "2026-10-10T10:05:00Z",
+            }
+          : {
+              contractVersion: "inside.mini-app-sign-in.v1",
+              status: "unavailable",
+            },
+      );
+    },
+    { ...config, miniAppEnabled: true },
+  );
+  /** @type {unknown} */
+  let storage;
+  const payload = {
+    state: "synthetic-logto-social-state",
+    redirectUri: "https://identity.test/callback",
+    connectorId: "synthetic-connector",
+    connectorFactoryId: "inside-telegram",
+    jti: "synthetic-interaction",
+  };
+  await assert.rejects(
+    connector.getAuthorizationUri(
+      { ...payload, scope: String(scope(params, binding)) },
+      async (value) => {
+        storage = value;
+      },
+    ),
+  );
+  const callback = await connector
+    .getAuthorizationUri(
+      { ...payload, scope: String(scope(params, binding)) },
+      async (value) => {
+        storage = value;
+      },
+    )
+    .catch(() => undefined);
+  assert.equal(
+    callback === undefined
+      ? undefined
+      : new URL(callback).searchParams.get("code"),
+    params.inside_mini_app_request,
+  );
+  assert.equal(posts, 2);
+  assert.equal(sessionGuard.safeParse(storage).success, true);
+  await assert.rejects(
+    connector.getAuthorizationUri(
+      {
+        ...payload,
+        jti: "another-native-interaction",
+        scope: String(scope(params, binding)),
+      },
+      async () => {},
+    ),
   );
 });
 
@@ -178,16 +302,23 @@ test("Logto derives the launch binding from original OIDC state and PKCE, using 
   const { parameters, digest } = fixture.oidcContext;
   const requestRef = "46100000-0000-4000-8000-000000000001";
   assert.equal(
-    scope({
-      client_id: parameters.clientId,
-      redirect_uri: parameters.redirectUri,
-      state: parameters.state,
-      code_challenge: parameters.codeChallenge,
-      code_challenge_method: "S256",
-      response_type: "code",
-      inside_mini_app_request: requestRef,
-    }),
-    `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest: digest })}`,
+    scope(
+      {
+        client_id: parameters.clientId,
+        redirect_uri: parameters.redirectUri,
+        state: parameters.state,
+        code_challenge: parameters.codeChallenge,
+        code_challenge_method: "S256",
+        response_type: "code",
+        inside_mini_app_request: requestRef,
+      },
+      {
+        requestRef,
+        oidcContextDigest: digest,
+        launchBrowserSecret: "Z".repeat(43),
+      },
+    ),
+    `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest: digest, launchBrowserSecret: "Z".repeat(43) })}`,
   );
 });
 
@@ -250,6 +381,11 @@ test("a launch reference requires a complete S256 code request and never uses a 
     response_type: "code",
     inside_mini_app_request: "46100000-0000-4000-8000-000000000001",
   };
+  const binding = {
+    requestRef: params.inside_mini_app_request,
+    oidcContextDigest: "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4",
+    launchBrowserSecret: "Z".repeat(43),
+  };
   for (const field of [
     "client_id",
     "redirect_uri",
@@ -263,8 +399,17 @@ test("a launch reference requires a complete S256 code request and never uses a 
           ? "https://other.test/callback"
           : "B".repeat(43),
     };
-    assert.notEqual(scope(changed), scope(params));
+    assert.throws(() => scope(changed, binding));
   }
+  assert.throws(() =>
+    scope({ ...params, insideMiniAppBrowserBinding: binding }),
+  );
+  assert.throws(() =>
+    scope(params, {
+      ...binding,
+      requestRef: "46100000-0000-4000-8000-000000000009",
+    }),
+  );
   assert.throws(() => scope({ ...params, code_challenge_method: "plain" }));
   assert.throws(() => scope({ ...params, response_type: "token" }));
   assert.throws(() =>

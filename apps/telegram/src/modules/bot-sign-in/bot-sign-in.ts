@@ -114,6 +114,8 @@ export class BotSignIn {
         consumed_at: null,
         source,
         mini_app_oidc_context_digest: request.oidcContextDigest ?? null,
+        mini_app_launch_browser_digest:
+          source === "mini-app" ? request.browserSecretDigest : null,
       })
       .onConflict((conflict) => conflict.doNothing())
       .execute();
@@ -333,6 +335,7 @@ export class BotSignIn {
     requestRef: string,
     oidcContextDigest: string,
     browserSecretDigest: string,
+    launchBrowserSecret: string,
   ): Promise<SignInResult> {
     if (
       this.config.signInEnabled !== true ||
@@ -342,7 +345,8 @@ export class BotSignIn {
     if (
       !isRequestRef(requestRef) ||
       !isDigest(oidcContextDigest) ||
-      !isDigest(browserSecretDigest)
+      !isDigest(browserSecretDigest) ||
+      !isDigest(launchBrowserSecret)
     )
       return { status: "unavailable" };
     return this.database
@@ -359,6 +363,11 @@ export class BotSignIn {
           request === undefined ||
           request.bot_identity !== this.config.botIdentity ||
           request.source !== "mini-app" ||
+          request.mini_app_launch_browser_digest === null ||
+          !credentialsMatch(
+            digestSignInSecret(launchBrowserSecret),
+            request.mini_app_launch_browser_digest,
+          ) ||
           request.mini_app_oidc_context_digest === null ||
           !credentialsMatch(
             oidcContextDigest,

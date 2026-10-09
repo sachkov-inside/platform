@@ -24,6 +24,7 @@
   "binding": {
     "contractVersion": "inside.mini-app-sign-in.v1",
     "oidcContextDigest": "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4",
-    "browserSecretDigest": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+    "browserSecretDigest": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "launchBrowserSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
   }
 }

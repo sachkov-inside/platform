@@ -50,7 +50,14 @@ Pinned `oidc/init.ts` содержит whitelist `extraParams: Object.values(Ext
 `inside.8` добавляет только opaque Mini App reference. Helper социальной авторизации читает
 original `provider.interactionDetails(...).params`, а не context из client social payload.
 Provider получает SHA-256 digest штатных state/PKCE/client/redirect; после approval связывает
-attempt ровно с одним новым Logto browser secret. Raw initData не нужен после redirect.
+attempt ровно с одним новым Logto browser secret. Публичные state и PKCE challenge не доказывают
+исходный browser. Draft helper дополнительно требует private record существующей native interaction; provider
+сверяет её secret с неизменным digest первоначального browser. Connector выводит свой secret
+через HMAC с domain separator, request, context и native interaction jti. Поэтому неизвестный
+bind outcome допускает точный повтор, а новый interaction не выбирает другой владельческий proof.
+Raw initData не нужен после redirect. Trusted browser bridge и координация с BFF ещё не подключены.
+Bridge обязан подтвердить штатную BFF session до записи private record в точную native interaction.
+Отдельная Mini App cookie не используется; #461 прямо сохраняет единственную систему сессий Logto.
 Точный draft contract и portable vector принадлежат
 [Mini App protocol](../contracts/mini-app-sign-in-v1/protocol.md). BFF initiation ещё не подключён;
 native cookie/redirect proof **PENDING**. Нельзя считать passing VM adapter tests proof Logto runtime.
