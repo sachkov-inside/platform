@@ -1792,10 +1792,19 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
     applyRelease(unconfirmed.path, setup.state, { request }),
     /interrupted composition requires/u,
   );
+  const callsBeforeReplay = compositionCalls.length;
   await assert.rejects(
     applyRelease(restored.path, setup.state, { request }),
     /environment changed/u,
   );
+  assert.equal(compositionCalls.length, callsBeforeReplay + 1);
+  assert.ok(lost.key);
+  const replayedOperation = entryAt(
+    (await readJournalFile(setup.state)).operations,
+    lost.key,
+  );
+  assert.ok(isJournalOperation(replayedOperation));
+  assert.equal(replayedOperation.status, "applied");
   const replay = itemAt(compositionCalls, compositionCalls.length - 1);
   assert.equal(replay.key, lost.key);
   assert.deepEqual(replay.body, lost.body);
