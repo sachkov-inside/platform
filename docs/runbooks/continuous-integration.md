@@ -98,9 +98,15 @@ still prove service startup, BuildKit builds, Testcontainers and SQL execution.
 
 When changing an image input, verify its tag/digest and required platform manifests against both
 official registries. Keep vendor images at their owning source: RustFS, Logto and Mailpit retain
-their existing references. Testcontainers' implicit Ryuk/SSH helper images remain owned by the
-pinned Testcontainers dependency; the official-image contract covers the explicit inputs listed
-in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
+their existing references. Shared CI setup exports `RYUK_CONTAINER_IMAGE` to select the
+Testcontainers publisher's `ghcr.io/testcontainers/ryuk:0.14.0` by immutable digest. Its
+[publisher workflow](https://github.com/testcontainers/moby-ryuk/blob/0.14.0/.github/workflows/publish-docker-image.yml)
+publishes to Hub and GHCR; the metadata evidence above records identical index bytes and required
+platform manifests. This input addresses the observed
+[Ryuk Hub token timeout](https://github.com/sachkov-inside/platform/actions/runs/37992936027/job/114031539499).
+Local commands retain the dependency's Ryuk default unless `RYUK_CONTAINER_IMAGE` is set explicitly.
+Other implicit helper inputs remain unchanged. The official-image contract covers the explicit
+inputs listed in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
 
 SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
 If cleanup also fails, setup prints that failure and preserves the original exception.

@@ -1,7 +1,8 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -57,6 +58,29 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("exports the identical publisher Ryuk image through the setup shell boundary", () => {
+    const command = setupAction.match(
+      /- name: Select Ryuk cleanup image\n\s+shell: bash\n\s+run: (.+)\n/u,
+    )?.[1];
+    assert.ok(command, "shared setup must select the publisher Ryuk image");
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-ryuk-input-"));
+    const environmentFile = resolve(fixture, "github-env");
+    try {
+      const result = spawnSync("bash", ["-euc", command], {
+        env: { ...process.env, GITHUB_ENV: environmentFile },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(environmentFile, "utf8"),
+        "RYUK_CONTAINER_IMAGE=ghcr.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0\n",
+      );
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("checks Telegram on isolated PostgreSQL and non-guest RabbitMQ at the captured source SHA", () => {
     const telegram = jobBlock("telegram");
     assert.match(
