@@ -18,11 +18,18 @@ import {
   type ReactNode,
 } from "react";
 
-import { SeriesContinuationProvider } from "@/entities/material";
+import {
+  MaterialCard,
+  SeriesContinuationProvider,
+  type MaterialPreview,
+} from "@/entities/material";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import { readSeriesPage } from "@/shared/routing/material-reader";
+import {
+  catalogReaderReturnHref,
+  readSeriesPage,
+} from "@/shared/routing/material-reader";
 
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import { useSeriesLearning } from "./series-learning.client";
@@ -52,17 +59,10 @@ export interface JourneyRun {
   readonly rows: readonly JourneyRow[];
 }
 
-/** Карточка каталога материалов: готовая карточка сервера и поля для поиска и фильтров. */
+/** Данные каталога: карточку рисует браузер только в открытом разделе и видимой порции. */
 export interface CatalogEntry {
-  readonly card: ReactNode;
-  readonly format: string;
-  readonly formatSlug: string;
+  readonly material: MaterialPreview;
   readonly inProgramme: boolean;
-  /** Дата публикации ISO; пустая строка — без даты, такие карточки стоят в конце. */
-  readonly publishedAt: string;
-  readonly slug: string;
-  /** Название и описание в нижнем регистре для поиска. */
-  readonly text: string;
 }
 
 export type JourneyPart =
@@ -76,6 +76,7 @@ export type JourneyPart =
       readonly runs: readonly JourneyRun[];
     }
   | {
+      readonly accessPending: boolean;
       readonly entries: readonly CatalogEntry[];
       readonly id: "supplementary";
       readonly kind: "catalog";
@@ -263,7 +264,12 @@ export function SeriesJourneyControls({
             {part.panel}
           </>
         ) : part?.kind === "catalog" ? (
-          <MaterialCatalog entries={part.entries} />
+          <MaterialCatalog
+            accessPending={part.accessPending}
+            currentHref={currentHref}
+            entries={part.entries}
+            restoredSlug={selection.explicit ? null : requestedMaterial}
+          />
         ) : (
           <>
             {part?.id === "programme" &&
@@ -469,9 +475,15 @@ type CatalogScope = (typeof catalogScopes)[number]["id"];
  * 09.10.2026). Программа остаётся строгим порядком глав в своём разделе.
  */
 function MaterialCatalog({
+  accessPending,
+  currentHref,
   entries,
+  restoredSlug,
 }: {
+  readonly accessPending: boolean;
+  readonly currentHref: Route;
   readonly entries: readonly CatalogEntry[];
+  readonly restoredSlug: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("");
@@ -480,16 +492,37 @@ function MaterialCatalog({
   const formats = catalogFormats.filter(
     (option) =>
       option.slug === "" ||
-      entries.some((entry) => entry.formatSlug === option.slug),
+      entries.some((entry) => entry.material.formatSlug === option.slug),
   );
   const shown = [...entries]
     .filter(
       (entry) =>
-        (needle === "" || entry.text.includes(needle)) &&
-        (format === "" || entry.formatSlug === format) &&
+        (needle === "" ||
+          `${entry.material.title} ${entry.material.summary}`
+            .toLocaleLowerCase("ru")
+            .includes(needle)) &&
+        (format === "" || entry.material.formatSlug === format) &&
         (scope === "all" || (scope === "programme") === entry.inProgramme),
     )
-    .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
+    .sort((left, right) =>
+      (right.material.publishedAt ?? "").localeCompare(
+        left.material.publishedAt ?? "",
+      ),
+    );
+  const restoredIndex = shown.findIndex(
+    (entry) => entry.material.slug === restoredSlug,
+  );
+  const initialCount = Math.max(
+    SERIES_BATCH_SIZE,
+    Math.ceil((restoredIndex + 1) / SERIES_BATCH_SIZE) * SERIES_BATCH_SIZE,
+  );
+  const source = JSON.stringify([needle, format, scope, restoredSlug]);
+  const [reveal, setReveal] = useState({ source, count: initialCount });
+  if (reveal.source !== source) setReveal({ source, count: initialCount });
+  const count = Math.min(
+    shown.length,
+    reveal.source === source ? reveal.count : initialCount,
+  );
   const chip = (active: boolean) =>
     cn(
       "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
@@ -579,17 +612,37 @@ function MaterialCatalog({
           className="mt-2 grid gap-x-6 lg:grid-cols-2"
           aria-label="Материалы курса"
         >
-          {shown.map((entry) => (
+          {shown.slice(0, count).map((entry) => (
             <li
               className="min-w-0"
-              data-route-material={entry.slug}
-              key={entry.slug}
+              data-route-material={entry.material.slug}
+              key={entry.material.slug}
             >
-              {entry.card}
+              <MaterialCard
+                accessPending={accessPending}
+                headingLevel="h3"
+                material={entry.material}
+                returnHref={catalogReaderReturnHref(
+                  currentHref,
+                  entry.material.slug,
+                )}
+                variant="feed"
+              />
             </li>
           ))}
         </ul>
       )}
+      {count < shown.length ? (
+        <Button
+          className="mt-5 min-h-11"
+          onClick={() => {
+            setReveal({ source, count: count + SERIES_BATCH_SIZE });
+          }}
+          variant="outline"
+        >
+          Показать ещё материалы
+        </Button>
+      ) : null}
     </div>
   );
 }

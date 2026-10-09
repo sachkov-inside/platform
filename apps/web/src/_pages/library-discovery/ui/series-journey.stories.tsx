@@ -510,8 +510,12 @@ export const PartiallyGrouped: Story = {
       canvas.queryByRole("list", { name: "Материалы продукта" }),
     ).not.toBeInTheDocument();
     await openPart(canvasElement, /^Материалы/u);
-    // Каталог показывает все материалы продукта; фильтр оставляет те, что вне программы.
+    // Каталог показывает все материалы порциями; фильтр ищет по полному составу.
     const catalog = canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalog).getAllByRole("listitem")).toHaveLength(12);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Показать ещё материалы" }),
+    );
     await expect(within(catalog).getAllByRole("listitem")).toHaveLength(24);
     await userEvent.click(
       canvas.getByRole("button", { name: "Дополнительные" }),
