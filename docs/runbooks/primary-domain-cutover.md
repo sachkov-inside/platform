@@ -119,7 +119,7 @@ for host in sachkov.dev www.sachkov.dev inside.sachkov.dev; do
   dig @8.8.8.8 "$host" A +noall +answer
   dig @1.1.1.1 "$host" AAAA +noall +answer
   curl --fail --silent --show-error --resolve "$host:443:$production_ip" --dump-header - --output /dev/null "https://$host/"
-  curl --fail --silent --show-error --location --max-redirs 5 --output /dev/null "https://$host/explore?q=typescript"
+  curl --fail --silent --show-error --location --max-redirs 5 --output /dev/null "https://$host/map?q=typescript"
 done
 ```
 
@@ -131,7 +131,7 @@ done
 
 - HTTPS apex/www/inside: доверенные сертификаты; apex открывает принятую главную, www и old web
   ведут на соответствующий путь; query сохраняется, цикл redirect отсутствует.
-- Гость: главная → каталог `/explore` → продукт/руководство → открытый материал; поиск и видео.
+- Гость: главная → карта `/map` → продукт/руководство → открытый материал; поиск и видео.
   `/library` удалён (#614) и должен отвечать 404. Проверить `/series/<slug>` и `/guides/<slug>` → `/products/<slug>`
   для существующего продукта (#448, затем #808), включая разрешённые query/hash. Продажи не включать.
 - Реальный вход email и Telegram, callback на apex, выход и повторный вход. Не считать открытие

@@ -193,7 +193,8 @@ AMQPS на `5671`. Топологию он читает из определен�
 
 `infra/production/runtime/platform.caddy` проксирует в API и MCP ровно эти адреса, по строке на путь.
 Метод «любой» значит, что Caddy метод не ограничивает. На POST- или GET-адресе другой метод получает
-`404`: под `/integrations/` пустой ответ Caddy, на остальных путях страницу web. Остальное поведение
+`404`: под `/integrations/` и `/internal/` пустой ответ Caddy. На остальных путях новый домен
+показывает страницу web; старый hostname сначала возвращает 302 на тот же путь нового домена. Остальное поведение
 edge описано в
 [production delivery](production-delivery.md#проверки-готовности-и-маршрутизация).
 Подлинность проверяет API или MCP, у каждого направления свой credential. Таблицу сверяет с Caddy
@@ -441,7 +442,7 @@ curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/
     https://inside.sachkov.dev/integrations/telegram/v1/communications/authorize
   # тело с "code":"unauthorized", затем 401
   curl --silent --write-out '\n%{http_code}\n' \
-    "https://inside.sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"
+    "https://sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"
   # Ссылка не найдена., затем 404
   ```
 

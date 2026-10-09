@@ -491,7 +491,7 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             [key]: runtime[key].replace(
-              /\theader Strict-Transport-Security[^\n]+\n/gu,
+              /\theader(?: @[a-z_]+)? Strict-Transport-Security[^\n]+\n/gu,
               "",
             ),
           }),
@@ -702,7 +702,7 @@ function assertRuntimeContract(files) {
     ["maintenance.caddy", files.maintenanceCaddy],
   ])) {
     if (
-      !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
+      !/^\theader @legacy_hsts Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
         caddy,
       )
     ) {

@@ -710,7 +710,7 @@ fi
 home_headers="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
   --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
   --dump-header - --output /dev/null "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
-if ! grep -qi '^strict-transport-security: max-age=31536000; includeSubDomains' <<<"$home_headers"; then
+if ! tr -d '\r' <<<"$home_headers" | grep -qix 'strict-transport-security: max-age=31536000'; then
   echo "Caddy did not send HSTS" >&2
   exit 1
 fi
@@ -796,7 +796,7 @@ assert_redirect() {
   fi
 }
 for host in inside.sachkov.dev www.sachkov.dev; do
-  assert_redirect "$host" '/explore?q=typescript&topic=testing' 302 'https://sachkov.dev/explore?q=typescript&topic=testing'
+  assert_redirect "$host" '/map?q=typescript&topic=testing' 302 'https://sachkov.dev/map?q=typescript&topic=testing'
   assert_redirect "$host" '/series/inside-ai-engineering?from=legacy' 302 'https://sachkov.dev/series/inside-ai-engineering?from=legacy'
   assert_redirect "$host" '/library' 302 'https://sachkov.dev/library'
 done
@@ -805,7 +805,7 @@ if grep -Eq 'secret-code|secret-state' "$runtime_config_dir/redirect-headers"; t
   echo 'Old callback leaked code/state' >&2
   exit 1
 fi
-assert_public_status GET /explore 200 sachkov.dev
+assert_public_status GET /map 200 sachkov.dev
 assert_public_status GET /practice-review-setup.txt 200 sachkov.dev
 if ! grep -Fq 'https://inside.sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body" ||
   grep -Fq 'https://sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body"; then
@@ -832,7 +832,7 @@ done
 # The DNS bridge must point toward the still-active old app before the final cutover.
 "${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/stage.Caddyfile --adapter caddyfile
 for host in sachkov.dev www.sachkov.dev; do
-  assert_redirect "$host" '/explore?q=typescript' 302 'https://inside.sachkov.dev/explore?q=typescript'
+  assert_redirect "$host" '/map?q=typescript' 302 'https://inside.sachkov.dev/map?q=typescript'
 done
 assert_public_status GET / 200
 "${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile

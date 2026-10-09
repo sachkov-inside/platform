@@ -1,8 +1,11 @@
 sachkov.dev, inside.sachkov.dev {
 	# Браузер год помнит площадку как HTTPS-only, и набранный http:// адрес не уходит в открытую сеть.
-	# includeSubDomains на sachkov.dev требует HTTPS для всех его поддоменов.
+	# includeSubDomains сохраняется только на старом hostname; основной домен не расширяет эту политику.
 	# Preload не включён: его отмена занимает месяцы.
-	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	@legacy_hsts host inside.sachkov.dev
+	header @legacy_hsts Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	@primary_hsts host sachkov.dev www.sachkov.dev
+	header @primary_hsts Strict-Transport-Security "max-age=31536000"
 
 	route {
 		@private_health path /health /health/* /_health/*
@@ -142,7 +145,7 @@ sachkov.dev, inside.sachkov.dev {
 }
 
 www.sachkov.dev {
-	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	header Strict-Transport-Security "max-age=31536000"
 	route {
 		header Cache-Control "no-store"
 		redir https://sachkov.dev{uri} 302

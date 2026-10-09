@@ -214,3 +214,33 @@ class DeployedTelegramProbeTests(unittest.TestCase):
                             cohort_body={'items': [{'productId': product_id}]})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'failed')
+
+class PublicRouteTests(unittest.TestCase):
+    def test_cutover_checks_new_web_and_old_provider_urls(self):
+        from unittest.mock import patch
+        from verify import verify_public_routes
+        def response(url, method='GET', origin=None, redirect=False):
+            if '/communications/visit?' in url:
+                if origin == 'sachkov.dev':
+                    return 404, 'Ссылка не найдена.'
+                return 302, url.replace('https://inside.sachkov.dev', 'https://sachkov.dev')
+            if '/billing/cohorts' in url:
+                return 200, '{"items":[]}'
+            if '/billing/tbank/notification' in url:
+                return 400, 'invalid_notification'
+            return 401, 'unauthorized'
+        checks = []
+        with patch('verify.http', side_effect=response) as read:
+            verify_public_routes(checks)
+        self.assertTrue(all(item['status'] == 'passed' for item in checks))
+        read.assert_any_call('https://sachkov.dev/communications/visit?token=' + 'A' * 43, 'GET', 'sachkov.dev')
+        read.assert_any_call('https://inside.sachkov.dev/billing/tbank/notification', 'POST', 'inside.sachkov.dev')
+        read.assert_any_call('https://inside.sachkov.dev/communications/visit?token=' + 'A' * 43, origin='inside.sachkov.dev', redirect=True)
+
+    def test_old_web_redirect_to_wrong_host_fails(self):
+        from unittest.mock import patch
+        from verify import verify_public_routes
+        checks = []
+        with patch('verify.http', return_value=(302, 'https://landing.invalid/')):
+            verify_public_routes(checks)
+        self.assertEqual(checks[-1]['status'], 'failed')
