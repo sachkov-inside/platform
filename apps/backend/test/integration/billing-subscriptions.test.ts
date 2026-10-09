@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { lockBillingSubscription } from "../../src/infrastructure/prisma/index.js";
+import { eventually } from "./setup/eventually.js";
 import { Client } from "@modelcontextprotocol/client";
 import { McpServer, InMemoryTransport } from "@modelcontextprotocol/server";
 import { registerBillingTools } from "../../src/modules/billing/adapters/mcp/register-billing-tools.js";
@@ -56,6 +59,14 @@ import {
   type RenewalSource,
 } from "./setup/consent-documents.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+function deferredValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -1675,6 +1686,83 @@ describe("подписка: продление, отмена, смена вар�
       paidUntil: "2030-04-10T08:30:00.000Z",
     });
   });
+
+  test.each(["revision", "ended", "ended_matching_revision"] as const)(
+    "смена карты после ожидания блокировки учитывает %s подписки без попытки и AddCard",
+    async (change) => {
+      const s = await scenario();
+      await s.buy();
+      const active = await s.view();
+      if (!active) throw new Error("Missing synthetic subscription");
+      const locked = deferredValue<number>();
+      const proceed = deferredValue<boolean>();
+      const ownerChange = db.run(() =>
+        db.prisma.$transaction(async (tx) => {
+          await lockBillingSubscription(tx, active.subscriptionRef);
+          const [backend] = z
+            .array(z.object({ pid: z.int().positive() }))
+            .parse(await tx.$queryRaw`SELECT pg_backend_pid() AS pid`);
+          if (!backend) throw new Error("Missing transaction PID");
+          locked.resolve(backend.pid);
+          await proceed.promise;
+          await tx.billingSubscription.update({
+            where: { id: active.subscriptionRef },
+            data: {
+              ...(change === "revision" ? {} : { state: "ended" as const }),
+              revision: active.revision + 1,
+              updatedAt: now,
+            },
+          });
+        }),
+      );
+      const ownerPid = await locked.promise;
+      const changing = db.run(() =>
+        s.subscriptions.changeMethod(s.buyer, {
+          operationId: randomUUID(),
+          // A matching revision must not authorize an ended subscription either.
+          expectedRevision:
+            change === "ended_matching_revision"
+              ? active.revision + 1
+              : active.revision,
+        }),
+      );
+      const results = Promise.allSettled([ownerChange, changing]);
+      try {
+        await eventually(async () => {
+          const rows = z.array(z.object({ waiting: z.boolean() })).parse(
+            await db.prisma.$queryRaw`SELECT EXISTS (
+              SELECT 1 FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock'
+              AND query LIKE '%pg_advisory_xact_lock%'
+              AND ${ownerPid} = ANY(pg_blocking_pids(pid))
+            ) AS waiting`,
+          );
+          expect(rows[0]?.waiting).toBe(true);
+        }, 2_000);
+      } finally {
+        proceed.resolve(true);
+        await results;
+      }
+      await ownerChange;
+      expect(await changing).toMatchObject({
+        ok: false,
+        error: {
+          code: change === "revision" ? "revision_conflict" : "not_found",
+        },
+      });
+      expect(s.bank.addCardCalls).toBe(0);
+      expect(
+        await db.prisma.billingPaymentMethodFlow.count({
+          where: { accountId: s.buyer },
+        }),
+      ).toBe(0);
+      const current = await s.view();
+      if (change === "revision") {
+        expect(current?.revision).toBe(active.revision + 1);
+        expect(current?.pendingMethodChange).toBeNull();
+      } else expect(current).toBeNull();
+    },
+  );
 
   test("смена карты применяется доказанным token и не включает отменённое продление", async () => {
     const s = await scenario();

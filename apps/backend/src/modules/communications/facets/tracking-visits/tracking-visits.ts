@@ -1,3 +1,4 @@
+import { PublicContentTargets } from "../../../materials/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -34,7 +35,7 @@ const envelope = {
   expectedRevision: 0,
 } as const;
 
-// Resolve only configured public content routes; visiting them still runs ContentAccess.
+// Resolve configured public destinations; Material bodies retain their normal access checks.
 export function isSafeTrackingTarget(
   value: string,
   origin: string | undefined,
@@ -43,14 +44,12 @@ export function isSafeTrackingTarget(
   const parsed = z.url().safeParse(value);
   if (!parsed.success) return false;
   const url = new URL(parsed.data);
+  const target = PublicContentTargets.parseUrl(url);
   return (
+    target !== null &&
+    target !== "invalid" &&
     url.protocol === "https:" &&
-    url.origin === new URL(origin).origin &&
-    url.username === "" &&
-    url.password === "" &&
-    url.search === "" &&
-    url.hash === "" &&
-    /^\/(?:materials|series)\/[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(url.pathname)
+    url.origin === new URL(origin).origin
   );
 }
 
@@ -59,6 +58,7 @@ export class TrackingVisits {
     private readonly prisma: CommunicationsPrisma,
     private readonly provider: HttpCommunicationsProvider,
     private readonly origin: string | undefined,
+    private readonly targets: PublicContentTargets,
     private readonly reportFailure: () => void = () => {
       /* Optional observer for isolated application tests. */
     },
@@ -84,6 +84,19 @@ export class TrackingVisits {
       !isSafeTrackingTarget(result.value.safeUrl, this.origin)
     )
       return { kind: "unavailable" };
+    const target = PublicContentTargets.parseUrl(new URL(result.value.safeUrl));
+    if (target !== null && target !== "invalid" && target.kind === "product") {
+      try {
+        const checked = await this.targets.check(target);
+        if (checked.reason !== "eligible") return { kind: "not_found" };
+      } catch (error) {
+        return dependencyFailure(
+          { module: "communications", operation: "resolve" },
+          error,
+          { kind: "unavailable" },
+        );
+      }
+    }
     const now = this.now();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
