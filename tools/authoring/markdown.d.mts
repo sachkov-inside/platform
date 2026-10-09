@@ -16,7 +16,12 @@ export function convertMarkdown(
     image: (src: string) => string;
     imageVariants?: (
       src: string,
-    ) => import("@inside/material-blocks").ImageVariants<string> | undefined;
+    ) =>
+      | {
+          sourceSrc: string;
+          imageVariants: import("@inside/material-blocks").ImageVariants<string>;
+        }
+      | undefined;
   },
 ): { schemaVersion: 1; doc: DocNode & { content: DocNode[] } };
 

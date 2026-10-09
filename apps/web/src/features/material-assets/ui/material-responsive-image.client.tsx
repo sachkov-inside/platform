@@ -1,7 +1,9 @@
 "use client";
 
 import type { ImageVariants } from "@inside/material-blocks";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+
+import styles from "./material-responsive-image.module.css";
 
 import { MaterialImageDelivery } from "./material-image-delivery.client";
 import type { ViewerSize } from "../model/image-viewer-view";
@@ -32,8 +34,9 @@ export function MaterialResponsiveImage({
   readonly preview: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const [choice, setChoice] =
-    useState<keyof ImageVariants<MaterialImageSource>>("wideLight");
+  const [choice, setChoice] = useState<
+    keyof ImageVariants<MaterialImageSource> | undefined
+  >(undefined);
   useEffect(() => {
     const element = container.current;
     if (element === null || imageVariants === undefined) return;
@@ -77,16 +80,39 @@ export function MaterialResponsiveImage({
       preference.removeEventListener("change", update);
     };
   }, [imageVariants]);
-  const selected = imageVariants?.[choice] ?? image;
+  const selected =
+    imageVariants === undefined
+      ? image
+      : choice === undefined
+        ? undefined
+        : imageVariants[choice];
+  const ratios: (CSSProperties & Record<string, string>) | undefined =
+    imageVariants === undefined
+      ? undefined
+      : {
+          "--wide-ratio": `${String(imageVariants.wideLight.width)} / ${String(imageVariants.wideLight.height)}`,
+          "--tall-ratio": `${String(imageVariants.tallLight.width)} / ${String(imageVariants.tallLight.height)}`,
+        };
   return (
-    <div className="min-w-0 w-full" ref={container}>
-      <MaterialImageDelivery
-        key={selected.src}
-        {...selected}
-        alt={alt}
-        caption={caption}
-        preview={preview}
-      />
+    <div className={styles["container"]} ref={container} style={ratios}>
+      <div
+        data-image-composition={
+          imageVariants === undefined ? undefined : "variants"
+        }
+        className={
+          imageVariants === undefined ? undefined : styles["composition"]
+        }
+      >
+        {selected === undefined ? null : (
+          <MaterialImageDelivery
+            key={selected.src}
+            {...selected}
+            alt={alt}
+            caption={caption}
+            preview={preview}
+          />
+        )}
+      </div>
     </div>
   );
 }

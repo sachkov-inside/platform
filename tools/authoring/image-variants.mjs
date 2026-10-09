@@ -5,8 +5,9 @@
  * @param {ReadonlyMap<string,string>} images
  */
 export function resolveImageVariants(page, href, images) {
-  const variants =
-    page.imageVariants?.[href] ?? page.imageVariants?.[decodeURI(href)];
+  const sourceSrc =
+    page.imageVariants?.[href] === undefined ? decodeURI(href) : href;
+  const variants = page.imageVariants?.[sourceSrc];
   if (variants === undefined) return undefined;
   /** @param {string} id */
   const resolve = (id) => {
@@ -16,9 +17,12 @@ export function resolveImageVariants(page, href, images) {
     return assetId;
   };
   return {
-    wideLight: resolve(variants.wideLight),
-    wideDark: resolve(variants.wideDark),
-    tallLight: resolve(variants.tallLight),
-    tallDark: resolve(variants.tallDark),
+    sourceSrc,
+    imageVariants: {
+      wideLight: resolve(variants.wideLight),
+      wideDark: resolve(variants.wideDark),
+      tallLight: resolve(variants.tallLight),
+      tallDark: resolve(variants.tallDark),
+    },
   };
 }

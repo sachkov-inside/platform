@@ -405,7 +405,17 @@ export const ImageVariants: Story = {
           summary: "Варианты схемы",
           cover: null,
           artifacts: [],
-          body: { schemaVersion: 1, blocks: [variantDiagram] },
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "Схема решения", marks: [] }],
+              },
+              variantDiagram,
+            ],
+          },
         },
       },
     },

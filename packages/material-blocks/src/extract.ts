@@ -39,9 +39,9 @@ export function materialBlockHeading(
   return materialBlockByKind(block.kind).heading?.(block, tools);
 }
 
-/** Asset the block references, when it references one. */
-export function materialBlockResource(
+/** All assets the block references. */
+export function materialBlockResources(
   block: RenderedBlock,
-): MaterialBodyResourceSummary | undefined {
-  return materialBlockByKind(block.kind).resource?.(block);
+): readonly MaterialBodyResourceSummary[] {
+  return materialBlockByKind(block.kind).resources?.(block) ?? [];
 }

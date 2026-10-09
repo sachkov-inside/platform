@@ -197,12 +197,21 @@ export const assetImageBlock: MaterialBlockDefinition =
           width: z.number().int().positive().optional(),
         })
         .strict(),
-    resource: (block) => ({
-      alt: block.alt,
-      assetId: block.assetId,
-      ...(block.caption === undefined ? {} : { caption: block.caption }),
-      kind: "image",
-    }),
+    resources: (block) => {
+      const ids = new Set([block.assetId]);
+      if (block.imageVariants !== undefined) {
+        const { wideLight, wideDark, tallLight, tallDark } =
+          block.imageVariants;
+        for (const variant of [wideLight, wideDark, tallLight, tallDark])
+          ids.add(variant.assetId);
+      }
+      return [...ids].map((assetId) => ({
+        alt: block.alt,
+        assetId,
+        ...(block.caption === undefined ? {} : { caption: block.caption }),
+        kind: "image" as const,
+      }));
+    },
     text: (block) => [block.alt, block.caption].filter(Boolean).join("\n"),
     type: "assetImage",
   });
@@ -239,11 +248,13 @@ export const assetFileBlock: MaterialBlockDefinition =
           size: z.number().int().nonnegative().optional(),
         })
         .strict(),
-    resource: (block) => ({
-      assetId: block.assetId,
-      kind: "file",
-      label: block.label,
-    }),
+    resources: (block) => [
+      {
+        assetId: block.assetId,
+        kind: "file",
+        label: block.label,
+      },
+    ],
     text: (block) => block.label,
     type: "assetFile",
   });

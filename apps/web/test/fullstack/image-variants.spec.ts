@@ -67,6 +67,48 @@ async function verifyDiagram(
   ).toBe(true);
 }
 
+async function navigateWithHydrationProof(
+  page: Page,
+  href: string,
+  narrow: boolean,
+) {
+  let release = () => {
+    /* Replaced synchronously by the promise executor. */
+  };
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/_next/**/*.js*", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  try {
+    await page.goto(href, { waitUntil: "commit" });
+    // The fixture caption differs by surface; the responsive composition itself is shared.
+    const composition = page
+      .locator('[data-image-composition="variants"]')
+      .first();
+    await expect(composition).toBeVisible();
+    await expect
+      .poll(async () => {
+        const box = await composition.boundingBox();
+        return box === null ? 0 : box.height / box.width;
+      })
+      .toBeCloseTo(narrow ? 900 / 420 : 420 / 960, 2);
+    const before = await composition.boundingBox();
+    release();
+    await expect(
+      page.getByRole("img", { name: "Схема вариантов" }),
+    ).toBeVisible();
+    const after = await composition.boundingBox();
+    expect(after?.height).toBeCloseTo(before?.height ?? 0, 0);
+    expect(after?.y).toBeCloseTo(before?.y ?? 0, 0);
+  } finally {
+    release();
+    await page.unroute("**/_next/**/*.js*");
+  }
+}
+
 test("imported Material and Task c diagrams follow column width and theme with zoom (#1195)", async ({
   page,
 }, testInfo) => {
@@ -85,12 +127,16 @@ test("imported Material and Task c diagrams follow column width and theme with z
     ) as unknown,
   );
   const narrow = (testInfo.project.use.viewport?.width ?? 1440) < 560;
-  await page.goto(`/products/${product}/tasks/${code}`);
+  await navigateWithHydrationProof(
+    page,
+    `/products/${product}/tasks/${code}`,
+    narrow,
+  );
   await verifyDiagram(page, task, narrow);
   const lesson = await page
     .getByRole("link", { name: "уроку", exact: true })
     .getAttribute("href");
   if (lesson === null) throw new Error("Missing lesson link");
-  await page.goto(lesson);
+  await navigateWithHydrationProof(page, lesson, narrow);
   await verifyDiagram(page, material, narrow);
 });

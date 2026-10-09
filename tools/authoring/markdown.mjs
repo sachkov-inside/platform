@@ -176,7 +176,7 @@ export function sourceUuid(value) {
  *   sourceId: string;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
- *   imageVariants?: (src: string) => import("@inside/material-blocks").ImageVariants<string> | undefined;
+ *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
  * }} source
  */
 export function convertMarkdown(
@@ -256,9 +256,7 @@ export function convertMarkdown(
           type: "assetImage",
           attrs: {
             assetId: image(src),
-            ...(variants === undefined
-              ? {}
-              : { sourceSrc: src, imageVariants: variants }),
+            ...(variants === undefined ? {} : variants),
             alt: token.content,
             caption: token.attrGet("title"),
           },

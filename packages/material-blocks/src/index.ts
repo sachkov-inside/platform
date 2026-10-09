@@ -25,7 +25,7 @@ export {
   mapMaterialBlockChildren,
   materialBlockChildren,
   materialBlockHeading,
-  materialBlockResource,
+  materialBlockResources,
   materialBlockText,
 } from "./extract.js";
 export type { JsonObject, JsonPrimitive, JsonValue } from "./json.js";

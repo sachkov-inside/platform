@@ -72,13 +72,13 @@ export async function seedFullStackTaskC(origin, accessToken) {
       showInFeed: false,
       difficulty: null,
       outcomes: null,
-      markdown: `![Схема вариантов](scene.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}`,
+      markdown: `![Схема вариантов](assets/схема.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}`,
       links: {
         "c-first.md": "c-first",
         "c-first.md#как-спроектировать-один-этап": "c-first",
       },
-      images: { "scene.png": imageVariants.wideLight },
-      imageVariants: { "scene.png": imageVariants },
+      images: { "assets/схема.png": imageVariants.wideLight },
+      imageVariants: { "assets/схема.png": imageVariants },
       coverAssetId: null,
       coverAlt: null,
       video: null,
@@ -118,10 +118,13 @@ export async function seedFullStackTaskC(origin, accessToken) {
         sourcePath: `${code}.md`,
         title: `Задание c. ${code}`,
         summary: "Синтетическая страница формата c",
-        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n![Схема вариантов](scene.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
+        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n![Схема вариантов](assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
         images: {
           "diagram.png": "diagram",
-          "scene.png": imageVariants.wideLight,
+          "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png": imageVariants.wideLight,
+        },
+        imageVariants: {
+          "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png": imageVariants,
         },
         links: {
           "lesson.md": "c-lesson",
@@ -245,7 +248,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
     });
     const diagramNode = z.object({
       attrs: z.object({
-        sourceSrc: z.literal("scene.png"),
+        sourceSrc: z.literal("assets/схема.png"),
         imageVariants: variantIdsSchema,
       }),
     });
@@ -288,7 +291,9 @@ export async function seedFullStackTaskC(origin, accessToken) {
           const parsed = z
             .object({
               attrs: z.object({
-                sourceSrc: z.literal("scene.png"),
+                sourceSrc: z.literal(
+                  "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png",
+                ),
                 imageVariants: variantIdsSchema,
               }),
             })
