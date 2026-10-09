@@ -126,7 +126,7 @@ export interface PassProblem {
 export interface BlockedPassRequest {
   readonly identity: PassIdentity | "anonymous";
   /** Клетка страницы, которая начала запрос; фоновые запросы без страницы клетки не имеют. */
-  readonly cellId?: string;
+  readonly cellId?: string | undefined;
   readonly method: string;
   /** Origin и путь без query: в query бывают токены. */
   readonly target: string;
