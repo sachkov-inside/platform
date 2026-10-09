@@ -34,10 +34,11 @@ export function ProductTaskRow({
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
-      {/* Значок задания в той же узкой колонке, где у урока его номер: без плитки. */}
+      {/* Значок задания в той же узкой колонке, где у урока его номер: без плитки. На телефоне
+          колонки нет — название задания получает всю ширину, как у урока. */}
       <span
         aria-hidden="true"
-        className="grid w-6 shrink-0 place-items-center pt-0.5 text-[color:var(--callout-task)] sm:w-7"
+        className="grid w-7 shrink-0 place-items-center pt-0.5 text-[color:var(--callout-task)] max-sm:hidden"
       >
         {locked ? (
           <LockKeyhole className="size-4" />

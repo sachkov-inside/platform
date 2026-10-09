@@ -132,16 +132,23 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--foreground) 35%, transparent);
 }
+/*
+ * Телефон: линии пути нет, строки уроков встают ровно под заголовком главы и получают всю
+ * ширину; главу отмечает точка у её заголовка (решение владельца 09.10.2026).
+ */
 @media (max-width: 39.999rem) {
   .programme-chapter {
-    --chapter-rail: 1.35rem;
+    --chapter-rail: 0;
   }
   .programme-chapter::before {
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.65rem;
+    height: 0.65rem;
   }
   .programme-chapter::after {
-    left: calc(0.35rem - 1px);
+    content: none;
+  }
+  .programme-chapter-head {
+    padding-left: 1.1rem;
   }
 }
 

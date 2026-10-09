@@ -110,6 +110,21 @@ type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: SeriesLearningView;
 };
 /**
+ * Видимые на экране элементы: у строки урока метка «Бесплатно» есть и для телефона, и для
+ * широкого экрана, а показывается одна из них.
+ */
+function visible(elements: readonly HTMLElement[]): readonly HTMLElement[] {
+  // Строка формата на телефоне — текст для скринридера: она проходит checkVisibility, но
+  // сама занимает 1 px.
+  return elements.filter((element) => {
+    const box = (
+      element.closest("[data-series-meta]") ?? element
+    ).getBoundingClientRect();
+    return element.checkVisibility() && box.width > 1;
+  });
+}
+
+/**
  * Раздел программы открывается тем, что видно на экране: колонкой разделов на широком экране или
  * нижней панелью продукта на телефоне.
  */
@@ -226,7 +241,7 @@ export const Guest: Story = {
   args: { result: lockedResult, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Бесплатно")).toHaveLength(3);
+    await expect(visible(canvas.getAllByText("Бесплатно"))).toHaveLength(3);
     await expect(
       canvasElement.querySelectorAll('[data-material-availability="locked"]'),
     ).toHaveLength(9);
@@ -767,7 +782,7 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    await expect(rows.getAllByText("Бесплатно")).toHaveLength(2);
+    await expect(visible(rows.getAllByText("Бесплатно"))).toHaveLength(2);
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(rows.getByText("Продолжить", { exact: true })).toBeVisible();
     await expect(
@@ -798,7 +813,7 @@ export const DesktopRouteDetails: Story = {
     await expect(route.queryByText(videoSummary)).not.toBeInTheDocument();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();
-    await expect(route.getAllByText("Бесплатно")).toHaveLength(2);
+    await expect(visible(route.getAllByText("Бесплатно"))).toHaveLength(2);
     await expect(route.getByText("Продолжить", { exact: true })).toBeVisible();
     const cards = [
       ...canvasElement.querySelectorAll<HTMLElement>(

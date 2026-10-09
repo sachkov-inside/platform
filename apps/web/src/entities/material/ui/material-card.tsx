@@ -7,7 +7,6 @@ import {
   Link2,
   LockKeyhole,
   Play,
-  type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 
@@ -371,6 +370,8 @@ function SeriesMaterialRow({
   const pending = accessPending && material.access !== "free";
   const locked = !pending && material.availability === "locked";
   const unavailable = !pending && material.availability === "unavailable";
+  const free =
+    material.access === "free" && material.availability === "available";
   return (
     <SeriesRowArticle
       availability={pending ? "pending" : material.availability}
@@ -381,10 +382,12 @@ function SeriesMaterialRow({
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           {/* Номер урока — мелкая цифра у первой строки названия, без плитки и обложки: на узком
               экране название получает почти всю ширину (решение владельца 09.10.2026). */}
+          {/* На телефоне номер стоит в начале названия, а не колонкой: перенос строки начинается
+              от левого края, и название получает всю ширину (решение владельца 09.10.2026). */}
           {ordinal === undefined ? null : (
             <span
               aria-hidden="true"
-              className="w-6 shrink-0 pt-px text-sm font-semibold leading-6 tabular-nums text-muted-foreground sm:w-7 sm:text-base"
+              className="w-7 shrink-0 pt-px text-base font-semibold leading-6 tabular-nums text-muted-foreground max-sm:hidden"
               data-series-preview
             >
               {String(ordinal).padStart(2, "0")}
@@ -399,8 +402,25 @@ function SeriesMaterialRow({
                 className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
                 href={readerHref}
               >
+                {ordinal === undefined ? null : (
+                  <span
+                    aria-hidden="true"
+                    className="mr-1.5 text-xs font-semibold tabular-nums text-muted-foreground sm:hidden"
+                  >
+                    {String(ordinal).padStart(2, "0")}
+                  </span>
+                )}
                 {material.title}
               </IntentPrefetchLink>
+              {/* Видимая метка для телефона; скринридер читает «Бесплатно» в строке формата. */}
+              {free ? (
+                <span
+                  aria-hidden="true"
+                  className="ml-1.5 inline-block rounded bg-background px-1 align-[1px] text-[0.625rem] font-semibold leading-4 text-action sm:hidden"
+                >
+                  Бесплатно
+                </span>
+              ) : null}
             </Heading>
             <SeriesRowMeta duration={duration} material={material} />
           </div>
@@ -420,7 +440,11 @@ function SeriesMaterialRow({
           ) : unavailable ? (
             <span className="sr-only">Доступ временно не определён</span>
           ) : (
-            readingStatus
+            <>
+              {/* Телефон: формат — значком в конце строки вместо подписи под названием. */}
+              <FormatIcon className="size-4 sm:hidden" material={material} />
+              {readingStatus}
+            </>
           )}
           <SeriesContinuationSlot slug={material.slug} />
         </span>
@@ -429,10 +453,20 @@ function SeriesMaterialRow({
   );
 }
 
-const formatIcons: Readonly<Record<string, LucideIcon>> = {
-  video: CirclePlay,
-  guide: BookOpenText,
-};
+/** Значок формата урока: видео, гайд или текст. */
+function FormatIcon({
+  className,
+  material,
+}: {
+  readonly className: string;
+  readonly material: MaterialPreview;
+}) {
+  if (materialPreviewHasVideo(material))
+    return <CirclePlay aria-hidden="true" className={className} />;
+  if (material.formatSlug === "guide")
+    return <BookOpenText aria-hidden="true" className={className} />;
+  return <FileText aria-hidden="true" className={className} />;
+}
 
 /**
  * Строка под названием урока: значок и формат, длительность видео и пометка «Бесплатно». По ней
@@ -446,15 +480,15 @@ function SeriesRowMeta({
   readonly duration: string | undefined;
   readonly material: MaterialPreview;
 }) {
-  const Icon =
-    formatIcons[
-      materialPreviewHasVideo(material) ? "video" : (material.formatSlug ?? "")
-    ] ?? FileText;
   const free =
     material.access === "free" && material.availability === "available";
   return (
-    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs leading-5 text-muted-foreground">
-      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+    // На телефоне строки формата нет: формат — значок в конце строки, «Бесплатно» — метка.
+    <span
+      className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs leading-5 text-muted-foreground max-sm:sr-only"
+      data-series-meta
+    >
+      <FormatIcon className="size-3.5 shrink-0" material={material} />
       <span>{material.format}</span>
       {duration === undefined ? null : (
         <>
