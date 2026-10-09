@@ -296,7 +296,8 @@ body:has([data-public-shell]) {
 /* Native target scrolling leaves room for the fixed navigation and storage notice. */
 @media (width < 64rem) {
   html:has([data-public-shell]) {
-    scroll-padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+    /* Высота шапки телефона: якорь не прячется под ней. */
+    scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
     scroll-padding-bottom: calc(
       6.5rem + env(safe-area-inset-bottom, 0px) +
         var(--storage-notice-space, 0px)

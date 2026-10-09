@@ -117,7 +117,9 @@ function readReturnTarget(
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed = toProduct ? ["from", "page", "at"] : ["from"];
+    const part = singleSearchValue(url.searchParams, "part");
+    // `part=materials` — возврат в каталог «Материалы» программы.
+    const allowed = toProduct ? ["from", "page", "at", "part"] : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some(
@@ -130,7 +132,8 @@ function readReturnTarget(
       (url.searchParams.has("page") &&
         (page === undefined || String(readSeriesPage(page)) !== page)) ||
       (url.searchParams.has("at") &&
-        (at === undefined || !slugPattern.test(at)))
+        (at === undefined || !slugPattern.test(at))) ||
+      (url.searchParams.has("part") && part !== "materials")
     ) {
       return undefined;
     }
