@@ -253,8 +253,9 @@ export const CohortPreorder: Story = {
     const topics =
       canvasElement.querySelector<HTMLElement>(".aie-topics") ??
       fail("Блок тем курса");
+    // На телефоне эта кнопка скрыта: в программу там ведёт нижняя панель.
     await expect(
-      within(topics).getByRole("link", { name: /Открыть программу/u }),
+      topics.querySelector("a.aie-topics-programme"),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(
       canvas.getByRole("heading", { name: "Набор на первый поток" }),

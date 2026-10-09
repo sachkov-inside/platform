@@ -248,3 +248,27 @@
     transform: scale(0.6) rotate(-16deg);
   }
 }
+
+/*
+ * Телефон: кнопка первого экрана по мобильной норме — 44 px в высоту (зона нажатия Apple HIG),
+ * текст 15 px; пункты и их значки чуть компактнее, чтобы первый экран не казался крупным.
+ */
+@media (max-width: 47.999rem) {
+  .aie-hero-action {
+    gap: 0.6rem;
+    min-height: 2.75rem;
+    padding: 0 1.1rem;
+    font-size: 0.9375rem;
+  }
+  .aie-hero-action svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .aie-hero-points li {
+    padding: 0.65rem 0;
+    font-size: 0.875rem;
+  }
+  .aie-hero-points .aie-icon {
+    --aie-icon-size: 1.75rem;
+  }
+}

@@ -284,7 +284,7 @@ export const aiEngineeringCoursePage: ProductPage = {
           detail: "",
         },
       ],
-      note: "Остались вопросы? Напиши в Telegram @sachkova_mng.",
+      note: "Остались вопросы? @sachkova_mng",
     },
     {
       id: "status",

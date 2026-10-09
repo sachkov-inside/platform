@@ -139,7 +139,7 @@ function GuestPurchase({
     after !== null && after > offer.firstPriceKopecks ? after : null;
   const discount = preorderDiscount(offer.firstPriceKopecks, struck);
   return (
-    <section className="rounded-3xl border border-border bg-card p-6 shadow-card sm:p-8">
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-card sm:rounded-3xl sm:p-8">
       <ol
         aria-label="Шаги покупки"
         className="flex items-center gap-2 text-xs font-semibold"
@@ -159,11 +159,11 @@ function GuestPurchase({
         </li>
       </ol>
 
-      <p className="mt-7 text-sm font-medium text-muted-foreground">
+      <p className="mt-6 text-sm font-medium text-muted-foreground sm:mt-7">
         {preorder === null ? "Цена" : "Предзаказ"}
       </p>
       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-4xl font-bold tracking-[-0.03em]">
+        <span className="text-3xl font-bold tracking-[-0.03em] sm:text-4xl">
           {formatKopecks(offer.firstPriceKopecks)}
         </span>
         {struck === null ? null : (
@@ -184,10 +184,10 @@ function GuestPurchase({
         </p>
       )}
 
-      <form action="/auth/sign-in" className="mt-7" method="post">
+      <form action="/auth/sign-in" className="mt-6 sm:mt-7" method="post">
         <input name="returnTo" type="hidden" value={returnTo} />
         <Button
-          className={`${billingActionClass} min-h-12 w-full gap-2 text-base font-semibold`}
+          className={`${billingActionClass} w-full gap-2 text-[0.9375rem] font-semibold sm:min-h-12 sm:text-base`}
           type="submit"
         >
           Войти и оплатить

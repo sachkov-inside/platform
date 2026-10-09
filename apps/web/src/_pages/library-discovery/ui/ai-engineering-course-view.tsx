@@ -840,34 +840,44 @@ function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
           </details>
         ))}
       </div>
-      {block.note === "" ? null : (
-        <p className="aie-faq-note">
-          <CourseIcon name="telegram" />
-          <span>{withTelegramLinks(block.note)}</span>
-        </p>
-      )}
+      {block.note === "" ? null : <FaqContact note={block.note} />}
     </section>
   );
 }
 
 /**
- * Ник Telegram в тексте автора становится ссылкой: контакт хранится в описании курса, а не в коде.
- * Правило Telegram: 5–32 символа, латиница, цифры и подчёркивание.
+ * Подпись под вопросами: текст автора и кнопка Telegram. Ник хранится в описании курса, а не в
+ * коде; в тексте он не печатается, его заменяет кнопка (решение владельца 09.10.2026). Правило
+ * Telegram для ника: 5–32 символа, латиница, цифры и подчёркивание.
  */
-function withTelegramLinks(text: string): ReactNode[] {
-  return text.split(/(@[A-Za-z][A-Za-z0-9_]{4,31})/u).map((part, index) =>
-    index % 2 === 1 ? (
-      <a
-        href={`https://t.me/${part.slice(1)}`}
-        key={`${String(index)}-${part}`}
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        {part}
-      </a>
-    ) : (
-      part
-    ),
+function FaqContact({ note }: { readonly note: string }) {
+  const handle = /@([A-Za-z][A-Za-z0-9_]{4,31})/u.exec(note)?.[1];
+  const text =
+    handle === undefined ? note : note.replace(`@${handle}`, "").trim();
+  return (
+    <div className="aie-faq-note">
+      <span>{text}</span>
+      {handle === undefined ? null : (
+        <a
+          className="aie-telegram-button"
+          href={`https://t.me/${handle}`}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <TelegramLogo />
+          Написать в Telegram
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** Знак Telegram (Simple Icons, CC0): бумажный самолёт в круге, цвет задаёт кнопка. */
+function TelegramLogo() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    </svg>
   );
 }
 

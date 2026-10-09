@@ -876,28 +876,54 @@
 }
 .ai-product-page .aie-faq-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
   margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1rem 1rem 1rem 1.25rem;
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--accent) 10%, var(--background));
-  font-weight: 600;
+  background: var(--secondary);
+  font-weight: 650;
 }
-.aie-faq-note .aie-icon {
-  --aie-icon-size: 2.25rem;
-  --aie-icon-tile: var(--background);
+/*
+ * Кнопка Telegram в голубом цвете Telegram: её узнают и хотят нажать, ник печатать не нужно.
+ * Оттенок чуть темнее фирменного #229ed9, чтобы белый текст держал контраст 4.5:1.
+ */
+.aie-telegram-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem 0 0.9rem;
+  border-radius: 999px;
+  background: #1c7cb4;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
 }
-/* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
-.aie-faq-note a {
-  color: var(--foreground);
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
+.aie-telegram-button:hover {
+  background: #166fa5;
+  transform: translateY(-1px);
 }
-.aie-faq-note a:focus-visible {
+.aie-telegram-button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+.aie-telegram-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
+}
+@media (max-width: 47.999rem) {
+  .aie-telegram-button {
+    flex: 1 0 100%;
+    justify-content: center;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
   .aie-faq summary svg {
@@ -1651,5 +1677,61 @@
   }
   .aie-format li:hover .aie-format-art {
     translate: 0 -3px;
+  }
+}
+
+/*
+ * Телефон: тёмные блоки «Что даёт курс» и набора на поток идут во всю ширину экрана без скругления,
+ * поэтому вложенные карточки и билет получают всю ширину, а не теряют её на двойных отступах.
+ */
+@media (max-width: 47.999rem) {
+  .aie-value,
+  .aie-status,
+  .aie-status:has(.aie-cohort-status) {
+    margin-inline: -1rem;
+    padding: 2rem 1rem;
+    border-radius: 0;
+  }
+  .aie-cohort-ticket {
+    padding: 1.25rem;
+  }
+  .aie-cohort-ticket-tear {
+    margin-inline: -1.25rem;
+  }
+  .aie-cohort-ticket-buy {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+  .aie-cohort-ticket-programme {
+    min-height: 2.25rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Под темами кнопка в программу нужна только на широком экране: ниже её несёт нижняя панель. */
+@media (max-width: 63.999rem) {
+  .aie-topics-programme {
+    display: none;
+  }
+  /*
+   * Под нижней кнопкой текст страницы размывается и светлеет к краю экрана: кнопка читается
+   * поверх любого блока. Полоса не ловит нажатия.
+   */
+  .aie-course .ai-product-sticky::before {
+    /* Полоса едет вместе с кнопкой: прилипшая кнопка тянет её до края экрана, а в конце
+       страницы она остаётся вокруг кнопки и не размывает подвал. */
+    position: absolute;
+    inset: -2rem -1rem calc(-1 * max(1rem, env(safe-area-inset-bottom)));
+    z-index: -1;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--background) 92%, transparent) 30%,
+      transparent
+    );
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    mask-image: linear-gradient(to top, #000 45%, transparent);
+    content: "";
+    pointer-events: none;
   }
 }
