@@ -12,6 +12,7 @@ import { deflateSync } from "node:zlib";
 import { z } from "zod";
 
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
+import { performanceProductPage } from "./course-payload.fixtures.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -488,20 +489,7 @@ function route(method, url, entitled) {
       reference: {
         ...(product.slug === performanceProduct.slug
           ? {
-              productPage: {
-                presentation: "ai-engineering-course",
-                page: {
-                  blocks: [
-                    {
-                      id: "hero",
-                      kind: "hero",
-                      badge: "Курс",
-                      lead: "Проверочный состав",
-                      highlights: [],
-                    },
-                  ],
-                },
-              },
+              productPage: performanceProductPage,
             }
           : {}),
         cover: product.cover,

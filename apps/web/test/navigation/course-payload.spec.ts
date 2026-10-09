@@ -113,6 +113,11 @@ for (const version of ["v1", "v2", "v3"] as const) {
     });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`/products/performance-course?film=${version}`);
+    await expect(
+      page.locator(
+        '[data-product-landing="performance-course"][data-product-presentation="ai-engineering-course"]:visible',
+      ),
+    ).toBeVisible();
     const film = page.locator(".aie-film:visible canvas");
     await expect(film).toHaveAccessibleName(
       version === "v1"
