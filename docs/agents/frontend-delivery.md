@@ -21,10 +21,6 @@ implementation, and fetch `get-storybook-story-instructions` before editing stor
 reads the server from `.mcp.json`, Codex from `.codex/config.toml`; a session loads it at start and
 only in the trusted project or worktree. Start a new session after changing that configuration.
 
-Agentation is the owner-feedback overlay of the development server and Storybook; automated test
-runs hide it. Keep it enabled while the owner reviews the UI. Review is complete when every
-annotation is resolved or represented by a linked follow-up issue.
-
 ## Delivery contract
 
 Every full-stack feature owns a small presentation interface. A server-only production adapter

@@ -13,10 +13,6 @@
   .library-topic-rail::-webkit-scrollbar {
     display: none;
   }
-
-  .platform-agentation {
-    bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
-  }
 }
 
 /*

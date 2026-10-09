@@ -6,6 +6,7 @@ import {
   billingErrorMessage,
   formatKopecks,
   offerCompositionLabel,
+  type PreorderTerms,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
@@ -19,7 +20,7 @@ import { ProductPurchaseView } from "./product-purchase-view";
 const contactHref = internalRoute("/account/email");
 
 export interface ProductPurchaseProps {
-  readonly product: { readonly name: string; readonly summary: string } | null;
+  readonly product: { readonly name: string } | null;
   /** Варианты покупки этого руководства: обычно один, но выбор поддержан с самого начала. */
   readonly offers: readonly PriceSnapshot[];
   readonly slug: string;
@@ -27,6 +28,13 @@ export interface ProductPurchaseProps {
   readonly unavailable?: boolean;
   /** Промокод персональной ссылки владельца: переживает вход и уходит в расчёт цены. */
   readonly promoCode?: string;
+  /** Пока поток набирается: день старта и цена после него, зачёркнутая рядом с ценой. */
+  readonly preorder?: PreorderTerms | null;
+  /**
+   * Вошёл ли человек, по мнению сервера. Гость сразу видит приглашение войти, а его браузер не
+   * читает покупки и контакт: ответ 401 был бы ошибкой в консоли и лишним запросом.
+   */
+  readonly signedIn?: boolean;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -37,18 +45,21 @@ export function ProductPurchase({
   unavailable = false,
   promoCode,
   offerId,
+  preorder = null,
+  signedIn = true,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
   );
-  const billing = useCurrentBilling();
+  const billing = useCurrentBilling({ enabled: signedIn });
   // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
   // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
-  const contact = useBillingContact();
+  const contact = useBillingContact({ enabled: signedIn });
   const contactState = contact.data?.ok === true ? contact.data : null;
   const signedOut =
     billing.data?.ok === false && billing.data.code === "unauthorized";
-  const viewer = billing.isPending ? "loading" : signedOut ? "guest" : "member";
+  const viewer =
+    !signedIn || signedOut ? "guest" : billing.isPending ? "loading" : "member";
   const failure =
     billing.data?.ok === false && !signedOut ? billing.data.code : undefined;
   const selected =
@@ -61,6 +72,7 @@ export function ProductPurchase({
       product={product}
       offer={selected}
       {...(offerId === undefined ? {} : { offerId })}
+      preorder={preorder}
       slug={slug}
       unavailable={unavailable}
       viewer={viewer}
@@ -124,6 +136,7 @@ export function ProductPurchase({
             onDocumentsChanged={() => {
               void contact.refetch();
             }}
+            preorder={preorder}
             snapshot={selected}
             {...(promoCode === undefined ? {} : { promoCode })}
           />

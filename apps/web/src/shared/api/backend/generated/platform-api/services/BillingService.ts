@@ -1391,6 +1391,7 @@ export class BillingService {
       value: {
         name: string;
         nextEvent: string;
+        priceAfterStartKopecks: number | null;
         productId: string;
         stage: 'announcement' | 'preorder' | 'running' | 'between';
         startsOn: string | null;
@@ -2783,6 +2784,7 @@ export class BillingService {
       guideId: string;
       name: string;
       nextEvent: string;
+      priceAfterStartKopecks: number | null;
       productId: string;
       revision: number;
       stage: 'announcement' | 'preorder' | 'running' | 'between';

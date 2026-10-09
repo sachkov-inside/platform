@@ -1,5 +1,7 @@
 import { ProductLandingSkeleton, pulse } from "./product-landing-skeletons";
 
+import "./product-programme-view.css";
+
 /**
  * Скелеты маршрутов продукта и программы (#670). Каждый собран из рамки своей страницы: та же
  * колонка, тот же ряд возврата и та же шапка, поэтому готовая страница встаёт на место скелета.
@@ -13,10 +15,10 @@ export function ProductProgrammeLoading() {
     <div
       aria-busy="true"
       aria-label="Программа загружается"
-      className="@container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
+      className="programme-frame @container/programme mx-auto min-h-svh min-w-0 w-full max-w-[46rem]"
       data-route-skeleton="product-programme"
     >
-      <div className="pt-4" data-programme-part="back">
+      <div className="-mt-3 sm:mt-0 sm:pt-4" data-programme-part="back">
         <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
       </div>
       <div
@@ -24,7 +26,6 @@ export function ProductProgrammeLoading() {
         data-programme-part="header"
       >
         <div className={`flex items-center gap-4 ${pulse}`}>
-          <div className="aspect-square w-16 shrink-0 rounded-lg bg-muted sm:w-20" />
           <div className="min-w-0 flex-1">
             <div className="h-6 w-3/5 rounded-lg bg-muted sm:h-7" />
             <div className="mt-2 h-5 w-2/5 rounded-md bg-muted/80" />

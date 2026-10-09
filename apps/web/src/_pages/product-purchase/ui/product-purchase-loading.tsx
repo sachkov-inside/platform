@@ -1,3 +1,5 @@
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
+
 const pulse = "animate-pulse motion-reduce:animate-none";
 
 /**
@@ -14,6 +16,8 @@ export function ProductPurchaseLoading() {
       className="mx-auto min-h-svh w-full min-w-0 max-w-[38rem]"
       data-route-skeleton="product-purchase"
     >
+      {/* Как и готовая страница, скелет обходится без шапки телефона: страница не прыгает. */}
+      <HideMobileNavigation />
       <div className="pt-4" data-purchase-part="back">
         <div className={`h-11 w-36 rounded-full bg-muted ${pulse}`} />
       </div>

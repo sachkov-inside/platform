@@ -35,6 +35,7 @@ import { countFreeLessons } from "../model/free-lessons";
 import { AiEngineeringCourseView } from "./ai-engineering-course-view";
 import { AiFirstProductView } from "./ai-first-product-view";
 import { formatArtifactCount, formatChapterCount } from "./product-counts";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
 type ResolvedSeriesResult = Extract<
   PublishedSeriesResult,
@@ -48,6 +49,8 @@ interface ProductViewProps {
   readonly freeEntryHref: Route | undefined;
   readonly page: ProductPage | null;
   readonly heroCall: ReactNode;
+  readonly statusCall: ReactNode;
+  readonly heroBadge: ReactNode;
 }
 
 /**
@@ -86,6 +89,8 @@ const productViews: Record<
         page={page}
         result={props.result}
         returnTarget={props.returnTarget}
+        statusCall={props.statusCall}
+        heroBadge={props.heroBadge}
       />
     ),
 };
@@ -103,6 +108,8 @@ export function ProductLandingView({
   result,
   freeEntryHref,
   returnTarget,
+  statusCall,
+  heroBadge,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ResolvedSeriesResult;
@@ -112,6 +119,10 @@ export function ProductLandingView({
   readonly freeEntryHref?: Route;
   /** Плашка потока и кнопка по этапу: её рисует оформление курса, остальные её не показывают. */
   readonly heroCall?: ReactNode;
+  /** Плашка набора на поток в нижнем блоке; её рисует оформление курса. */
+  readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на анимации; её рисует оформление курса. */
+  readonly heroBadge?: ReactNode;
   /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
   readonly offerTerms?: OneTimeOfferTerms | null;
 }) {
@@ -123,6 +134,8 @@ export function ProductLandingView({
       artifacts={artifacts}
       freeEntryHref={freeEntryHref}
       heroCall={heroCall}
+      statusCall={statusCall}
+      heroBadge={heroBadge}
       // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
       // готовый текст и не пропускает ни одного поля (ADR 0026).
       page={
@@ -163,6 +176,8 @@ function DefaultProductLandingView({
 
   return (
     <div className="min-w-0" data-product-landing={reference.slug}>
+      {/* Страница продукта — витрина: без шапки телефона, как и её скелет. */}
+      <HideMobileNavigation />
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
         <nav
           aria-label="Хлебные крошки"
@@ -354,7 +369,7 @@ function DefaultProductLandingView({
 
       {/* Липкая, а не фиксированная: панель держится за то, что её прокручивает, и на узком экране
           останавливается над плавающим меню оболочки, а не уходит под него. */}
-      <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
+      <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
         <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card backdrop-blur">
           <Button
             asChild

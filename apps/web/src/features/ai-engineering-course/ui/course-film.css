@@ -1,10 +1,12 @@
+/* Окно анимации само тёмное: без светлой рамки вокруг, радиус и тень — токены страницы. */
 .aie-film {
   position: relative;
   aspect-ratio: 3 / 2;
   min-width: 0;
   overflow: hidden;
   border-radius: 1.25rem;
-  background: #f3f1ed;
+  background: var(--primary);
+  box-shadow: var(--elevation-cover);
 }
 .aie-film canvas {
   display: block;

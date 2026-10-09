@@ -6,4 +6,6 @@ export {
   type CohortCall,
 } from "./ui/cohort-call";
 export { CourseHero } from "./ui/course-hero";
+export { CourseMark } from "./ui/course-mark";
 export { CourseIcon, type CourseIconName } from "./ui/course-icons";
+export { CohortStatusView, type CohortStatus } from "./ui/cohort-status";

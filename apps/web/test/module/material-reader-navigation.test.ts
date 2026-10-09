@@ -2,6 +2,7 @@ import { internalRoute } from "@/shared/routing/internal-route";
 import { describe, expect, it } from "vitest";
 
 import {
+  catalogReaderReturnHref,
   seriesReaderReturnHref,
   collectionDiscoveryHref,
   materialReaderHref,
@@ -150,5 +151,31 @@ describe("Series return context", () => {
     expect(
       parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind,
     ).toBe("home");
+  });
+});
+
+describe("Catalog return context", () => {
+  it("returns from a lesson to the Materials catalog and its card", () => {
+    const href = catalogReaderReturnHref(
+      internalRoute("/products/ai-engineering/programme?page=2"),
+      "how-mcp-works",
+    );
+    expect(href).toBe(
+      "/products/ai-engineering/programme?part=materials&at=how-mcp-works",
+    );
+    const reader = materialReaderHref("how-mcp-works", href);
+    expect(
+      parseMaterialReaderReturnTarget(
+        new URL(reader, "https://x.test").searchParams.get("from") ?? undefined,
+      ).href,
+    ).toBe(href);
+    expect(
+      parseMaterialReaderReturnTarget(
+        "/products/ai-engineering/programme?part=other",
+      ).kind,
+    ).toBe("home");
+    expect(parseMaterialReaderReturnTarget(href).label).toBe(
+      "Назад к материалам",
+    );
   });
 });

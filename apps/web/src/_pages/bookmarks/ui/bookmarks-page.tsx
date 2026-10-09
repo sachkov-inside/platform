@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/shared/ui/button";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export function BookmarksPage({ children }: { readonly children: ReactNode }) {
   return (
@@ -8,6 +9,7 @@ export function BookmarksPage({ children }: { readonly children: ReactNode }) {
       className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6"
       data-bookmarks-page
     >
+      <HidePublicFooter />
       <header>
         <h1 className="text-3xl font-bold tracking-[-0.03em]">Закладки</h1>
         <p className="mt-3 text-muted-foreground">

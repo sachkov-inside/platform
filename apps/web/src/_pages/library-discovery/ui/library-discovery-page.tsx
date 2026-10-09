@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
+import { preorderPrice } from "@/entities/subscription";
 import {
   readGuestProductSale,
   readViewerProductSale,
@@ -26,7 +27,12 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import { PendingCohortCall, PersonalCohortCall } from "./cohort-call.server";
+import {
+  PendingCohortCall,
+  PersonalCohortCall,
+  PersonalCohortCountdown,
+  PersonalCohortStatus,
+} from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
 import { PendingSeries } from "./product-programme-view";
 import {
@@ -113,6 +119,16 @@ export async function PublishedSeriesPage({
           <PersonalCohortCall result={result} />
         </Suspense>
       }
+      statusCall={
+        <Suspense fallback={null}>
+          <PersonalCohortStatus result={result} />
+        </Suspense>
+      }
+      heroBadge={
+        <Suspense fallback={null}>
+          <PersonalCohortCountdown result={result} />
+        </Suspense>
+      }
       offerTerms={offerTerms}
       result={result}
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
@@ -182,6 +198,8 @@ async function PersonalProduct({
       offerTerms={offerTerms}
       result={result}
       heroCall={<PersonalCohortCall result={result} />}
+      statusCall={<PersonalCohortStatus result={result} />}
+      heroBadge={<PersonalCohortCountdown result={result} />}
       returnTarget={returnTarget}
     />
   );
@@ -230,6 +248,11 @@ async function PersonalProgramme({
   return (
     <PersonalSeries
       artifacts={artifacts}
+      preorder={
+        sale?.kind === "ready" && sale.access !== "open"
+          ? preorderPrice(sale.cohort, sale.offers[0] ?? null)
+          : null
+      }
       productOffer={sale?.kind === "ready" ? (sale.offers[0] ?? null) : null}
       result={result}
       subscriptionOffered={false}

@@ -109,6 +109,39 @@ const environment = publicPageEnvironment(
 type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: SeriesLearningView;
 };
+/**
+ * Видимые на экране элементы: у строки урока метка «Бесплатно» есть и для телефона, и для
+ * широкого экрана, а показывается одна из них.
+ */
+function visible(elements: readonly HTMLElement[]): readonly HTMLElement[] {
+  // Строка формата на телефоне — текст для скринридера: она проходит checkVisibility, но
+  // сама занимает 1 px.
+  return elements.filter((element) => {
+    const box = (
+      element.closest("[data-series-meta]") ?? element
+    ).getBoundingClientRect();
+    return element.checkVisibility() && box.width > 1;
+  });
+}
+
+/**
+ * Раздел программы открывается тем, что видно на экране: колонкой разделов на широком экране или
+ * нижней панелью продукта на телефоне.
+ */
+async function openPart(
+  canvasElement: HTMLElement,
+  name: RegExp,
+): Promise<void> {
+  await userEvent.click(partButton(canvasElement, name));
+}
+
+/** Пункт раздела в видимой навигации: колонке на широком экране или нижней панели телефона. */
+function partButton(canvasElement: HTMLElement, name: RegExp): HTMLElement {
+  return within(
+    within(canvasElement).getByRole("navigation", { name: "Разделы продукта" }),
+  ).getByRole("button", { name });
+}
+
 const meta = {
   ...environment,
   component: ProductProgrammeView,
@@ -208,7 +241,8 @@ export const Guest: Story = {
   args: { result: lockedResult, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Бесплатно")).toHaveLength(3);
+    // Открытость показывает замок у закрытых уроков, метки «Бесплатно» в строках нет.
+    await expect(canvas.queryAllByText("Бесплатно")).toHaveLength(0);
     await expect(
       canvasElement.querySelectorAll('[data-material-availability="locked"]'),
     ).toHaveLength(9);
@@ -355,10 +389,11 @@ export const Chapters: Story = {
     await expect(
       canvas.queryByRole("heading", { name: "Программа продукта" }),
     ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("tablist", { name: "Разделы продукта" }),
-    ).toBeVisible();
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
+    const sections = canvas.getByRole("navigation", {
+      name: "Разделы продукта",
+    });
+    await expect(sections).toBeVisible();
+    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -376,7 +411,7 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Материалы готовятся")).toBeVisible();
+    await expect(canvas.getByText("Планируется")).toBeVisible();
   },
 };
 export const ChaptersMobile: Story = {
@@ -469,16 +504,23 @@ export const PartiallyGrouped: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const programme = canvas.getByRole("tab", { name: /Программа/u });
-    await expect(programme).toHaveAttribute("aria-selected", "true");
+    const programme = partButton(canvasElement, /Программа/u);
+    await expect(programme).toHaveAttribute("aria-current", "true");
     await expect(
       canvas.queryByRole("list", { name: "Материалы продукта" }),
     ).not.toBeInTheDocument();
+    await openPart(canvasElement, /^Материалы/u);
+    // Каталог показывает все материалы продукта; фильтр оставляет те, что вне программы.
+    const catalog = canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalog).getAllByRole("listitem")).toHaveLength(24);
     await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
+      canvas.getByRole("button", { name: "Дополнительные" }),
     );
-    const other = canvas.getByRole("list", { name: "Материалы продукта" });
-    await expect(within(other).getAllByRole("listitem")).toHaveLength(1);
+    await expect(
+      within(
+        canvas.getByRole("list", { name: "Материалы курса" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(1);
     await expect(
       canvas.queryByRole("heading", { level: 3, name: "Основа продукта" }),
     ).not.toBeInTheDocument();
@@ -504,18 +546,19 @@ export const PartSwitchStartsAtBeginning: Story = {
     await expect(
       canvas.getByText("Показано 23 из 23 материалов"),
     ).toBeVisible();
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    );
+    await openPart(canvasElement, /^Материалы/u);
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Дополнительные" }),
+    );
     await expect(
       within(
-        canvas.getByRole("list", { name: "Материалы продукта" }),
+        canvas.getByRole("list", { name: "Материалы курса" }),
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvasElement, /Программа/u);
     await expect(
       canvas.getByText("Показано 12 из 23 материалов"),
     ).toBeVisible();
@@ -536,14 +579,15 @@ export const OnlyPlannedChapters: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(5);
+    await expect(canvas.getAllByText("Планируется")).toHaveLength(5);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
-    await expect(
-      canvas.getByRole("tablist", { name: "Разделы продукта" }),
-    ).toBeVisible();
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
+    const sections = canvas.getByRole("navigation", {
+      name: "Разделы продукта",
+    });
+    await expect(sections).toBeVisible();
+    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
   },
 };
 
@@ -630,8 +674,7 @@ export const LoadingPreservesRoutePosition: Story = {
     );
     if (currentCard === null || nextLesson === null)
       throw new Error("Missing continuation or following lesson");
-    const currentHeight = currentCard.getBoundingClientRect().height;
-    const nextTop = nextLesson.getBoundingClientRect().top;
+    const currentTop = currentCard.getBoundingClientRect().top;
     const top = canvas
       .getByRole("list", { name: "Материалы продукта" })
       .getBoundingClientRect().top;
@@ -652,12 +695,14 @@ export const LoadingPreservesRoutePosition: Story = {
     await expect(
       within(currentCard).getByText("Продолжить", { exact: true }),
     ).toBeVisible();
+    // Строка продолжения раскрывается кнопкой (решение владельца 09.10.2026): сама она и всё выше
+    // неё стоят на месте, уроки ниже сдвигаются на высоту кнопки.
     await expect(
-      Math.abs(currentCard.getBoundingClientRect().height - currentHeight),
+      Math.abs(currentCard.getBoundingClientRect().top - currentTop),
     ).toBeLessThan(1);
-    await expect(
-      Math.abs(nextLesson.getBoundingClientRect().top - nextTop),
-    ).toBeLessThan(1);
+    await expect(nextLesson.getBoundingClientRect().top).toBeGreaterThan(
+      currentCard.getBoundingClientRect().bottom - 1,
+    );
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = {
@@ -751,7 +796,12 @@ export const CompactMobileRoute: Story = {
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
     ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
-    await expect(rows.getAllByText("Бесплатно")).toHaveLength(2);
+    await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
+    await expect(
+      visible([
+        ...canvasElement.querySelectorAll<HTMLElement>("[data-series-format]"),
+      ]),
+    ).not.toHaveLength(0);
     await expect(rows.queryByText("По подписке")).not.toBeInTheDocument();
     await expect(rows.getByText("Продолжить", { exact: true })).toBeVisible();
     await expect(
@@ -760,7 +810,7 @@ export const CompactMobileRoute: Story = {
     await expect(
       route.querySelector('[data-material-availability="locked"]'),
     ).toHaveTextContent("Нужен доступ");
-    await expect(route.querySelector("[data-series-duration]")).toBeVisible();
+    // На телефоне длительность в строке не показывается: место отдано названию.
     await expect(
       route.querySelector("[data-series-duration]"),
     ).toHaveTextContent("21:00");
@@ -782,7 +832,7 @@ export const DesktopRouteDetails: Story = {
     await expect(route.queryByText(videoSummary)).not.toBeInTheDocument();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();
-    await expect(route.getAllByText("Бесплатно")).toHaveLength(2);
+    await expect(route.queryAllByText("Бесплатно")).toHaveLength(0);
     await expect(route.getByText("Продолжить", { exact: true })).toBeVisible();
     const cards = [
       ...canvasElement.querySelectorAll<HTMLElement>(
@@ -801,10 +851,16 @@ export const DesktopRouteDetails: Story = {
       const box = element.getBoundingClientRect();
       return box.top + box.height / 2;
     };
-    await expect(Math.abs(center(title) - center(card))).toBeLessThan(1);
-    await expect(Math.abs(center(preview) - center(card))).toBeLessThan(1);
-    await expect(preview.getBoundingClientRect().width).toBe(64);
-    // Номер урока стоит в плитке: цифрами на месте обложки или меткой в её углу.
+    // По центру строки стоит текстовый блок: название и строка формата под ним.
+    const text = title.parentElement ?? title;
+    await expect(Math.abs(center(text) - center(card))).toBeLessThan(1);
+    // Номер урока — мелкая цифра у первой строки названия, без плитки и обложки.
+    await expect(
+      Math.abs(
+        preview.getBoundingClientRect().top - title.getBoundingClientRect().top,
+      ),
+    ).toBeLessThan(2);
+    await expect(preview.getBoundingClientRect().width).toBeLessThanOrEqual(28);
     await expect(preview).toHaveTextContent(/^0?3$/u);
     for (const cover of canvasElement.querySelectorAll(
       "article .public-cover-grid",
@@ -816,7 +872,7 @@ export const DesktopRouteDetails: Story = {
       canvasElement
         .querySelector("[data-product-programme]")
         ?.getBoundingClientRect().width,
-    ).toBeLessThanOrEqual(736);
+    ).toBeLessThanOrEqual(960);
   },
 };
 
@@ -837,8 +893,9 @@ export const CompactMobileEnlargedText: Story = {
       await expect(
         canvasElement.querySelector('[data-material-availability="locked"]'),
       ).toBeVisible();
+      // На телефоне длительность уступает место названию; тип урока виден всегда.
       await expect(
-        canvasElement.querySelector("[data-series-duration]"),
+        canvasElement.querySelector("[data-series-format]"),
       ).toBeVisible();
     } finally {
       root.style.fontSize = fontSize;
@@ -902,7 +959,7 @@ export const ProductPage: Story = {
     await expect(
       canvas.queryByText(introduction.outcome),
     ).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
+    await openPart(canvasElement, /Артефакты/u);
     const section = within(
       canvas.getByRole("list", { name: "Артефакты продукта" }),
     );
@@ -941,11 +998,11 @@ export const ArtifactSectionUnavailable: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
-    await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
+    await openPart(canvasElement, /Артефакты/u);
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Артефакты сейчас не загрузились",
     );
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvasElement, /Программа/u);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -966,9 +1023,9 @@ export const ProductPageEnlargedText: Story = {
         });
       });
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
-      // The part tabs are the widest new control; a long label wraps inside its pill.
+      // Пункты разделов не выходят за край экрана и при крупном шрифте.
       for (const tab of canvasElement.querySelectorAll<HTMLElement>(
-        '[role="tab"]',
+        "[data-programme-sidebar] button, .product-bottom-bar-item",
       )) {
         await expect(tab.getBoundingClientRect().right).toBeLessThanOrEqual(
           root.clientWidth,
@@ -996,17 +1053,16 @@ export const ProgrammeProgress: Story = {
     });
     await expect(progress).toHaveAttribute("max", "24");
     await expect(progress).toHaveAttribute("value", "8");
-    await expect(canvas.getAllByRole("tab")).toHaveLength(3);
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
+    await openPart(canvasElement, /^Материалы/u);
+    await expect(partButton(canvasElement, /^Материалы/u)).toHaveAttribute(
+      "aria-current",
+      "true",
     );
-    await expect(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    ).toHaveAttribute("aria-selected", "true");
-    await userEvent.keyboard("{ArrowRight}");
-    await expect(
-      canvas.getByRole("tab", { name: /Артефакты/u }),
-    ).toHaveAttribute("aria-selected", "true");
+    await openPart(canvasElement, /Артефакты/u);
+    await expect(partButton(canvasElement, /Артефакты/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
     await expect(
       canvas.getByText(
         "Здесь появятся файлы, шаблоны и инструменты для работы над проектом.",
@@ -1054,14 +1110,11 @@ export const PartSwitchClearsContinuationPosition: Story = {
     learning: { kind: "ready", read: 8, total: 24, continuation: resume },
   },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     await expect(
       canvasElement.querySelectorAll("[data-series-ordinal]"),
     ).toHaveLength(24);
-    await userEvent.click(
-      canvas.getByRole("tab", { name: /Дополнительные материалы/u }),
-    );
-    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await openPart(canvasElement, /^Материалы/u);
+    await openPart(canvasElement, /Программа/u);
     await expect(
       canvasElement.querySelectorAll("[data-series-ordinal]"),
     ).toHaveLength(12);

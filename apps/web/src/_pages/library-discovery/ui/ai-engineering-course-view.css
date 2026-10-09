@@ -66,10 +66,60 @@
   background: var(--primary);
   color: var(--primary-foreground);
 }
+/*
+ * Пока идёт набор на поток, его вступление стоит вместо заголовка и кнопки блока, пункты блока
+ * читаются как «что входит», а справа на всю высоту стоит билет с ценой.
+ */
+.aie-status:has(.aie-cohort-status) .aie-status-default {
+  display: none;
+}
+.aie-status:has(.aie-cohort-status) {
+  grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);
+  grid-template-areas:
+    "intro ticket"
+    "list ticket";
+  gap: 2rem 3.5rem;
+  align-items: start;
+}
+.aie-status:has(.aie-cohort-status) .aie-status-lead,
+.aie-status .aie-cohort-status {
+  display: contents;
+}
+.aie-status .aie-cohort-status-intro {
+  grid-area: intro;
+}
+.aie-status .aie-cohort-ticket-wrap {
+  grid-area: ticket;
+  align-self: center;
+}
+.aie-status:has(.aie-cohort-status) > ul {
+  grid-area: list;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.aie-status:has(.aie-cohort-status) li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.aie-status li .aie-icon {
+  --aie-icon-size: 2.25rem;
+  --aie-icon-tile: color-mix(
+    in srgb,
+    var(--primary-foreground) 92%,
+    var(--primary)
+  );
+  flex: none;
+}
 .aie-status h2 {
   color: var(--primary-foreground);
 }
-.ai-product-page .aie-status p {
+.ai-product-page .aie-status-default p {
   margin-top: 0.75rem;
   color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
 }
@@ -123,6 +173,62 @@
 .aie-course .ai-product-sticky {
   margin-top: 2rem;
 }
+/* Назад — маленькая кнопка в самом верху; на широком экране назад ведёт шапка сайта. */
+.aie-back {
+  display: none;
+}
+@media (max-width: 63.999rem) {
+  .aie-back {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    gap: 0.1rem;
+    min-height: 1.875rem;
+    margin: -0.75rem 0 1rem;
+    padding: 0 0.7rem 0 0.4rem;
+    border-radius: 999px;
+    background: var(--secondary);
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  /* Кнопка маленькая, а палец попадает с запасом: зона нажатия не меньше 44 px. */
+  .aie-back::after {
+    content: "";
+    position: absolute;
+    inset: -0.45rem -0.25rem;
+  }
+  .aie-back svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .aie-back:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .aie-course-hero {
+    margin-top: 0;
+  }
+  /* Кнопка в программу стоит на месте нижней навигации, над полосой «Домой» iPhone. */
+  .aie-course .ai-product-sticky {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-top: 0;
+    background: transparent;
+  }
+  .aie-course .ai-product-sticky .ai-product-button {
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+    border-radius: 0.875rem;
+    font-size: 0.875rem;
+    box-shadow: var(--elevation-cover);
+  }
+  .aie-course .ai-product-sticky .ai-product-button svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
 /*
  * Одна кнопка в программу на каждом экране: на широком её несут первый экран и финальная плашка,
  * на планшете и телефоне — нижняя панель, поэтому кнопка в плашке там не повторяется.
@@ -142,16 +248,64 @@
   .aie-mentoring-points li:nth-child(n) {
     margin-left: 0;
   }
-  .aie-status {
+  .aie-status,
+  .aie-status:has(.aie-cohort-status) {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "intro"
+      "list"
+      "ticket";
+    gap: 1.5rem;
     margin-top: 3rem;
     padding: 1.5rem;
+  }
+  /* На узком экране пункты «что входит» идут строками: значок слева, подпись справа. */
+  .aie-status:has(.aie-cohort-status) > ul {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .aie-status:has(.aie-cohort-status) li {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.75rem;
+    font-size: 0.95rem;
   }
 }
 
 /* ---------- Что изучим: bento-сетка тем ---------- */
 .aie-topics {
   --aie-tile-ink: var(--primary);
+}
+/* Под темами кнопка в программу: человек дочитал, что изучим, и хочет увидеть главы. */
+.aie-topics-programme {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: fit-content;
+  min-height: 3rem;
+  margin: 2rem auto 0;
+  padding: 0 1.4rem;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 650;
+  text-decoration: none;
+}
+.aie-topics-programme:hover {
+  background: var(--accent-hover);
+}
+.aie-topics-programme:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.aie-topics-programme svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 200ms ease;
+}
+.aie-topics-programme:hover svg {
+  transform: translateX(3px);
 }
 .aie-bento {
   display: grid;
@@ -424,13 +578,21 @@
   box-shadow: none;
 }
 .aie-art-guard-buttons b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.35rem 0.65rem;
   border-radius: 0.5rem;
   background: var(--background);
   font-size: 0.72rem;
   font-weight: 600;
 }
-.aie-art-guard-buttons b:first-child {
+.aie-art-guard-buttons b svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--callout-good);
+}
+.aie-art-guard-buttons b:last-child {
   background: var(--callout-good);
   color: var(--background);
 }
@@ -714,28 +876,54 @@
 }
 .ai-product-page .aie-faq-note {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
   margin-top: 1.5rem;
-  padding: 1rem 1.25rem;
+  padding: 1rem 1rem 1rem 1.25rem;
   border-radius: 1rem;
-  background: color-mix(in srgb, var(--accent) 10%, var(--background));
-  font-weight: 600;
+  background: var(--secondary);
+  font-weight: 650;
 }
-.aie-faq-note .aie-icon {
-  --aie-icon-size: 2.25rem;
-  --aie-icon-tile: var(--background);
+/*
+ * Кнопка Telegram в голубом цвете Telegram: её узнают и хотят нажать, ник печатать не нужно.
+ * Оттенок чуть темнее фирменного #229ed9, чтобы белый текст держал контраст 4.5:1.
+ */
+.aie-telegram-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem 0 0.9rem;
+  border-radius: 999px;
+  background: #1c7cb4;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
 }
-/* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
-.aie-faq-note a {
-  color: var(--foreground);
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
+.aie-telegram-button:hover {
+  background: #166fa5;
+  transform: translateY(-1px);
 }
-.aie-faq-note a:focus-visible {
+.aie-telegram-button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+.aie-telegram-button svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
+}
+@media (max-width: 47.999rem) {
+  .aie-telegram-button {
+    flex: 1 0 100%;
+    justify-content: center;
+  }
 }
 @media (prefers-reduced-motion: no-preference) {
   .aie-faq summary svg {
@@ -908,51 +1096,104 @@
   color: var(--cover-sand-foreground);
 }
 
-.aie-mock-video {
+/* Задание: карточка с критериями, все отмечены, внизу знак «проверено». */
+.aie-mock-task {
   display: grid;
-  place-items: center;
-  gap: 1rem;
-  width: 100%;
+  gap: 0.4rem;
+  width: 82%;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.7rem;
+  background: var(--background);
+  color: var(--foreground);
 }
-.aie-mock-video span {
+.aie-mock-task small {
+  color: var(--muted-foreground);
+  font-family: var(--font-utility);
+  font-size: 0.62rem;
+}
+.aie-mock-task b {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.aie-mock-task ul {
   display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-mock-task li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+}
+.aie-mock-task li svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--callout-good);
+}
+.aie-mock-task > span {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: var(--callout-good);
+  color: var(--background);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+.aie-mock-task > span svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Решение за учеником: агент спрашивает, выбранный вариант отмечен акцентом. */
+.aie-mock-decision {
+  display: grid;
+  gap: 0.35rem;
+  width: 84%;
+}
+.aie-mock-decision span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.6rem;
+  background: var(--background);
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+.aie-mock-decision .aie-mock-decision-ask {
+  margin-bottom: 0.15rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-family: var(--font-utility);
+}
+.aie-mock-decision span:not([data-chosen]):not(.aie-mock-decision-ask) {
+  color: var(--muted-foreground);
+}
+.aie-mock-decision span[data-chosen="true"] {
+  outline: 1.5px solid var(--accent);
+  font-weight: 650;
+}
+.aie-mock-decision span[data-chosen="true"] svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  color: var(--accent);
+}
+.aie-mock-decision small {
+  justify-self: end;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-foreground);
-}
-.aie-mock-video i {
-  width: 80%;
-  height: 0.3rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-foreground) 20%, var(--primary));
-}
-.aie-mock-video i b {
-  display: block;
-  width: 40%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent-bright);
-}
-
-.aie-mock-terminal {
-  display: grid;
-  gap: 0.35rem;
-  width: 86%;
-  padding: 0.8rem 0.9rem;
-  border-radius: 0.7rem;
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.aie-mock-terminal code {
-  font-family: var(--font-utility);
-  font-size: 0.72rem;
-  white-space: nowrap;
-}
-.aie-mock-terminal code[data-ok="true"] {
-  color: color-mix(in srgb, var(--callout-good) 55%, var(--primary-foreground));
+  font-size: 0.62rem;
+  font-weight: 700;
+  transform: rotate(-3deg);
 }
 
 .aie-mock-chat {
@@ -1192,8 +1433,12 @@
     aspect-ratio: 2 / 1;
   }
   .aie-mock-chat span,
-  .aie-mock-terminal code {
+  .aie-mock-decision span {
     font-size: 0.8rem;
+  }
+  .aie-mock-task,
+  .aie-mock-decision {
+    width: min(100%, 18rem);
   }
   .aie-agents ul {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1432,5 +1677,94 @@
   }
   .aie-format li:hover .aie-format-art {
     translate: 0 -3px;
+  }
+}
+
+/*
+ * Телефон: блоки на цветном фоне — «Курс и менторинг», «Что даёт курс» и набор на поток — идут во
+ * всю ширину экрана без скругления,
+ * поэтому вложенные карточки и билет получают всю ширину, а не теряют её на двойных отступах.
+ */
+@media (max-width: 47.999rem) {
+  .aie-value,
+  .aie-status,
+  .aie-status:has(.aie-cohort-status),
+  .ai-product-page .aie-mentoring {
+    margin-inline: -1rem;
+    padding: 2rem 1rem;
+    border-radius: 0;
+  }
+  .aie-cohort-ticket {
+    padding: 1.25rem;
+  }
+  .aie-cohort-ticket-tear {
+    margin-inline: -1.25rem;
+  }
+  .aie-cohort-ticket-buy {
+    min-height: 2.75rem;
+    font-size: 0.9375rem;
+  }
+  .aie-cohort-ticket-programme {
+    min-height: 2.25rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Под темами кнопка в программу нужна только на широком экране: ниже её несёт нижняя панель. */
+@media (max-width: 63.999rem) {
+  .aie-topics-programme {
+    display: none;
+  }
+  /*
+   * Под нижней кнопкой текст страницы размывается и светлеет к краю экрана: кнопка читается
+   * поверх любого блока. Полоса не ловит нажатия.
+   */
+  .aie-course .ai-product-sticky::before {
+    /* Полоса едет вместе с кнопкой: прилипшая кнопка тянет её до края экрана, а в конце
+       страницы она остаётся вокруг кнопки и не размывает подвал. */
+    position: absolute;
+    inset: -2rem -1rem calc(-1 * max(1rem, env(safe-area-inset-bottom)));
+    z-index: -1;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--background) 92%, transparent) 30%,
+      transparent
+    );
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    mask-image: linear-gradient(to top, #000 45%, transparent);
+    content: "";
+    pointer-events: none;
+  }
+}
+
+/*
+ * Телефон: шкала шрифтов страницы курса на ступень мельче (решение владельца 09.10.2026):
+ * заголовки блоков 20 px, заголовки карточек 15 px, основной текст 14 px, тексты карточек 13,5 px.
+ */
+@media (max-width: 47.999rem) {
+  .ai-product-page.aie-course h2 {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+  .ai-product-page.aie-course h3,
+  .ai-product-page.aie-course .aie-faq summary {
+    font-size: 0.9375rem;
+  }
+  .ai-product-page.aie-course p,
+  .ai-product-page.aie-course .ai-product-section-intro {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+  .ai-product-page.aie-course li p,
+  .ai-product-page.aie-course .aie-bento p,
+  .ai-product-page.aie-course .aie-format li p {
+    font-size: 0.84375rem;
+  }
+  .ai-product-page.aie-course .aie-status li {
+    font-size: 0.875rem;
+  }
+  .aie-cohort-ticket .preorder-price-now {
+    font-size: 2rem;
   }
 }

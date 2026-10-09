@@ -17,7 +17,10 @@ import {
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
-import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
+import {
+  catalogReaderReturnHref,
+  seriesReaderReturnHref,
+} from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 
 import { formatTaskCount } from "./product-counts";
@@ -65,7 +68,7 @@ export function SeriesJourney({
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
     readonly chapters: readonly ProductChapter[];
-    readonly id: "programme" | "supplementary";
+    readonly id: "programme";
     readonly items: readonly MaterialPreview[];
     readonly label: string;
     readonly shortLabel?: string;
@@ -78,16 +81,6 @@ export function SeriesJourney({
         result.chapters.length === 0
           ? items
           : items.filter((item) => chapterOf(item) !== null),
-    },
-    {
-      id: "supplementary",
-      label: "Дополнительные материалы",
-      shortLabel: "Дополнительно",
-      chapters: [],
-      items:
-        result.chapters.length === 0
-          ? []
-          : items.filter((item) => chapterOf(item) === null),
     },
   ];
   const parts: readonly JourneyPart[] = [
@@ -103,6 +96,32 @@ export function SeriesJourney({
         ),
       }),
     ),
+    {
+      // Материалы — каталог всех материалов продукта карточками: поиск, фильтры, новые сверху
+      // (решение владельца 09.10.2026). Программа остаётся строгим порядком глав.
+      entries: items.map((item) => ({
+        card: (
+          // Карточка уходит клиенту в массиве: ключ нужен и элементу-значению.
+          <MaterialCard
+            accessPending={accessPending}
+            headingLevel="h3"
+            key={item.slug}
+            material={item}
+            returnHref={catalogReaderReturnHref(currentHref, item.slug)}
+            variant="feed"
+          />
+        ),
+        format: item.format,
+        formatSlug: item.formatSlug ?? "",
+        inProgramme: result.chapters.length === 0 || chapterOf(item) !== null,
+        publishedAt: item.publishedAt ?? "",
+        slug: item.slug,
+        text: `${item.title} ${item.summary}`.toLocaleLowerCase("ru"),
+      })),
+      id: "supplementary",
+      kind: "catalog",
+      label: "Материалы",
+    },
     {
       count: productArtifacts.length,
       id: "artifacts",
@@ -170,7 +189,12 @@ function journeyRun(
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
   const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
-      <ul aria-label={label} className="mt-2 grid gap-2" data-programme-tasks>
+      <ul
+        aria-label={label}
+        className="mt-2 grid gap-2"
+        data-programme-tasks
+        key={`tasks-${label}`}
+      >
         {items.map((task) => (
           <li className="@container/series-entry min-w-0" key={task.code}>
             <ProductTaskRow
@@ -187,22 +211,34 @@ function journeyRun(
       ? undefined
       : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
+  const preparing = run.items.length === 0 && tasks.length === 0;
   return {
     chapter:
       run.chapter === null
         ? null
         : {
             header: (
-              <header className="programme-chapter-head">
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              // Заголовок уходит клиентскому компоненту в массиве глав: React требует ключ и у
+              // элемента, переданного как значение, иначе пишет предупреждение в консоль.
+              <header
+                className="programme-chapter-head"
+                key={`head-${run.chapter.id}`}
+              >
+                {/* Счётчик и метка «Планируется» стоят сразу за названием главы, мелко (референс
+                    владельца 09.10.2026). */}
+                <div className="min-w-0">
                   <h3
-                    className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
+                    className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
-                  {run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
-                    <span className="text-xs tabular-nums text-muted-foreground">
+                  {preparing ? (
+                    <span className="programme-chapter-soon ml-2 align-[2px]">
+                      Планируется
+                    </span>
+                  ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
+                    <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {[
                         run.chapter.materialIds.length > 0
                           ? formatMaterialCount(run.chapter.materialIds.length)
@@ -216,20 +252,13 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
-                    будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
-                    обычной и её можно проходить. */}
-                {run.items.length === 0 && tasks.length === 0 ? (
-                  <div className="programme-chapter-preview">
-                    {run.chapter.summary === "" ? null : (
-                      <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
-                        {run.chapter.summary}
-                      </p>
-                    )}
-                    <p className="programme-chapter-soon">
-                      Материалы готовятся
-                    </p>
-                  </div>
+                {/* Глава без уроков остаётся частью программы, но коротко: метка «Планируется» и первая
+                    фраза описания (решение владельца 09.10.2026). С первым уроком глава
+                    становится обычной и её можно проходить. */}
+                {preparing && run.chapter.summary !== "" ? (
+                  <p className="mt-1 line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:text-sm">
+                    {firstSentence(run.chapter.summary)}
+                  </p>
                 ) : null}
               </header>
             ),
@@ -302,4 +331,10 @@ function chapterLookup(
     material.materialId === undefined
       ? null
       : (byMaterial.get(material.materialId) ?? null);
+}
+
+/** Первая фраза описания главы: будущая глава в программе называется одной мыслью. */
+function firstSentence(text: string): string {
+  const match = /^.+?[.!?…](?=\s|$)/su.exec(text.trim());
+  return match === null ? text.trim() : match[0];
 }

@@ -44,6 +44,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0083_task_pages",
         "0084_owner_command_keys",
         "0085_community_projection_retries",
+        "0086_product_cohort_price_after_start",
       ],
     });
     expect(

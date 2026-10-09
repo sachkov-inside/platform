@@ -112,17 +112,10 @@
 .programme-chapter:last-child::after {
   content: none;
 }
-.programme-chapter-preview {
-  display: grid;
-  gap: 0.6rem;
-  justify-items: start;
-  margin-top: 0.75rem;
-  padding: 0.9rem 1rem;
-  border: 1px dashed color-mix(in srgb, var(--foreground) 18%, transparent);
-  border-radius: 0.9rem;
-}
+/* Метка будущей главы сразу за её заголовком, в строке текста. */
 .programme-chapter-soon {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.4rem;
   border-radius: 999px;
@@ -139,15 +132,243 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--foreground) 35%, transparent);
 }
+/*
+ * Телефон: линии пути нет, строки уроков встают ровно под заголовком главы и получают всю
+ * ширину; главу отмечает точка у её заголовка (решение владельца 09.10.2026).
+ */
 @media (max-width: 39.999rem) {
   .programme-chapter {
-    --chapter-rail: 1.35rem;
+    --chapter-rail: 0;
   }
   .programme-chapter::before {
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.65rem;
+    height: 0.65rem;
   }
   .programme-chapter::after {
-    left: calc(0.35rem - 1px);
+    content: none;
+  }
+  .programme-chapter-head {
+    padding-left: 1.1rem;
+  }
+  /* Без линии пути главы разделяет тонкая черта: видно, где кончается одна и начинается другая. */
+  .programme-chapter + .programme-chapter {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+  .programme-chapter + .programme-chapter::before {
+    top: calc(1.25rem + 0.45rem);
+  }
+}
+
+/*
+ * Нижняя панель продукта в духе Instagram (решение владельца 09.10.2026): компактная, по центру,
+ * пункты поровну, только значки; подложка выбранного раздела плавно переезжает. Раздел
+ * меняется без перехода между страницами, поэтому панель не перерисовывается и не мигает.
+ */
+.product-bottom-bar {
+  position: fixed;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 50%;
+  width: min(calc(100% - 2rem), calc(var(--bar-count, 3) * 4rem + 0.375rem));
+  transform: translateX(-50%);
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(var(--bar-count, 3), minmax(0, 1fr));
+  padding: 0.1875rem;
+  border: 1px solid rgb(0 0 0 / 8%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 90%);
+  box-shadow: var(--shadow-floating-nav);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+.product-bottom-bar-indicator {
+  position: absolute;
+  top: 0.1875rem;
+  bottom: 0.1875rem;
+  left: 0.1875rem;
+  width: calc((100% - 0.375rem) / var(--bar-count, 3));
+  border-radius: 999px;
+  background: var(--primary);
+  transform: translateX(calc(var(--bar-index, 0) * 100%));
+  transition: transform 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.product-bottom-bar-item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.product-bottom-bar-item svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  transition: transform 200ms ease;
+}
+.product-bottom-bar-item:active svg {
+  transform: scale(0.9);
+}
+.product-bottom-bar-item[data-current="true"] {
+  color: var(--primary-foreground);
+}
+.product-bottom-bar-item[data-current="true"] svg {
+  color: var(--accent-bright);
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-bottom-bar-indicator,
+  .product-bottom-bar-item,
+  .product-bottom-bar-item svg {
+    transition: none;
+  }
+}
+.product-bottom-bar-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (min-width: 48rem) {
+  .product-bottom-bar {
+    display: none;
+  }
+}
+
+/*
+ * Колонка разделов: программа сдвигается вправо, слева прилипает короткий список разделов.
+ * Колонка стоит в той же обёртке программы и занимает всю её высоту, поэтому держится у верха,
+ * пока читатель листает главы. Место под неё держат и программа, и её скелет. На планшете
+ * (48–64 rem) колонка узкая, только значки; с 64 rem — с подписями.
+ */
+.programme-sidebar {
+  display: none;
+}
+@media (min-width: 48rem) {
+  .programme-frame {
+    position: relative;
+    max-width: 52rem;
+    padding-left: 4.5rem;
+  }
+  .programme-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    display: block;
+    width: 3rem;
+  }
+  .programme-sidebar-inner {
+    position: sticky;
+    top: 1.5rem;
+    padding-top: 4.25rem;
+  }
+}
+@media (min-width: 64rem) {
+  .programme-frame {
+    max-width: 60rem;
+    padding-left: 14rem;
+  }
+  .programme-sidebar {
+    width: 12rem;
+  }
+}
+/* Узкая колонка: подписи и счётчики уходят в имя для скринридера, на виду только значок. */
+@media (min-width: 48rem) and (max-width: 63.999rem) {
+  .programme-sidebar button,
+  .programme-sidebar a {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .programme-sidebar button span,
+  .programme-sidebar button small,
+  .programme-sidebar a span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.programme-sidebar ul,
+.programme-sidebar ol {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.programme-sidebar button,
+.programme-sidebar a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.programme-sidebar a {
+  text-decoration: none;
+}
+.programme-sidebar button:hover,
+.programme-sidebar a:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.programme-sidebar button:focus-visible,
+.programme-sidebar a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.programme-sidebar button span {
+  flex: 1;
+  min-width: 0;
+}
+.programme-sidebar button small {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.programme-sidebar-parts svg,
+.programme-sidebar a svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+}
+.programme-sidebar-parts button[data-current="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.programme-sidebar-parts button[data-current="true"] svg {
+  color: var(--accent-bright);
+}
+.programme-sidebar-parts button[data-current="true"] small {
+  color: color-mix(in srgb, var(--primary-foreground) 65%, transparent);
+}
+
+/* Телефон: цена предзаказа в шапке программы мельче, чтобы кнопка встала справа от неё. */
+@media (max-width: 39.999rem) {
+  [data-programme-purchase-row] .preorder-price-now {
+    font-size: 1.375rem;
+  }
+  [data-programme-purchase-row] .preorder-price-after {
+    margin-left: 0.35rem;
+    font-size: 0.9375rem;
   }
 }

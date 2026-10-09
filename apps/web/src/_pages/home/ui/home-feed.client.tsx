@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import {
   InfiniteMaterialCatalog,
-  LibrarySearchControl,
   homeFeedQueryOptions,
   libraryHref,
   parseLibrarySearchParams,
@@ -31,13 +30,19 @@ const formats = [
 
 export function HomeFeed() {
   const search = useSearchParams().toString();
-  const initialQuery = useMemo(
-    () =>
-      withoutLibraryCursor(
-        parseLibrarySearchParams(new URLSearchParams(search)).query,
-      ),
-    [search],
-  );
+  // Поиска на Главной нет (решение владельца 09.10.2026): текст запроса из старой ссылки
+  // `/?q=…` не применяется, иначе лента сузилась бы без видимой причины. Синхронизация адреса
+  // ниже убирает его из адреса.
+  const initialQuery = useMemo(() => {
+    const query = withoutLibraryCursor(
+      parseLibrarySearchParams(new URLSearchParams(search)).query,
+    );
+    return {
+      ...query,
+      q: "",
+      sort: query.sort === "relevance" ? ("newest" as const) : query.sort,
+    };
+  }, [search]);
   return (
     <HomeFeedView
       initialQuery={initialQuery}
@@ -72,11 +77,9 @@ export function HomeFeedView({
     page?.kind === "unavailable";
   return (
     <section className="home-feed" aria-label="Материалы" id="materials">
+      {/* Поиска по материалам на Главной пока нет (решение владельца 09.10.2026): лента и
+          фильтры по формату и теме. Поиск остаётся в каталоге. */}
       <div className="home-feed-toolbar">
-        <LibrarySearchControl
-          query={catalog.searchQuery}
-          onQueryChange={changeQuery}
-        />
         <FeedFilters
           query={catalog.searchQuery}
           topics={page?.kind === "ready" ? page.facets.topics : []}

@@ -1,4 +1,8 @@
 import {
+  name as productCohortPriceAfterStartName,
+  statement as productCohortPriceAfterStartStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
+import {
   name as communityProjectionRetriesName,
   statement as communityProjectionRetriesStatement,
 } from "../modules/telegram-membership/infrastructure/postgres/migrations/0085-community-projection-retries.js";
@@ -560,6 +564,10 @@ export const platformMigrations = [
   {
     name: communityProjectionRetriesName,
     statement: communityProjectionRetriesStatement,
+  },
+  {
+    name: productCohortPriceAfterStartName,
+    statement: productCohortPriceAfterStartStatement,
   },
 ] as const;
 

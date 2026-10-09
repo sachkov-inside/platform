@@ -579,13 +579,14 @@ test("failed authentication returns a visible recoverable state", async ({
   await expect(feedback).toContainText("Вход не завершён. Повторите попытку");
 
   if (navigationMode(testInfo.project.name) === "mobile") {
+    // Шапка телефона наверху: уведомление не должно уходить под неё.
     const [feedbackBox, navigationBox] = await Promise.all([
       feedback.boundingBox(),
       getPrimaryNavigation(page, testInfo.project.name).boundingBox(),
     ]);
-    expect(
-      (feedbackBox?.y ?? 0) + (feedbackBox?.height ?? 0),
-    ).toBeLessThanOrEqual(navigationBox?.y ?? 0);
+    expect(feedbackBox?.y ?? 0).toBeGreaterThanOrEqual(
+      (navigationBox?.y ?? 0) + (navigationBox?.height ?? 0),
+    );
   }
 
   const dismiss = page.getByRole("button", { name: "Закрыть уведомление" });
@@ -640,7 +641,7 @@ test("header stays fixed while desktop content scrolls", async ({
   await expect.poll(() => header.boundingBox()).toEqual(before);
 });
 
-test("mobile uses the bottom dock without a public header", async ({
+test("mobile uses its own top header instead of the desktop header", async ({
   page,
 }, testInfo) => {
   test.skip(navigationMode(testInfo.project.name) !== "mobile");
@@ -649,10 +650,14 @@ test("mobile uses the bottom dock without a public header", async ({
   await expect(page.getByRole("button", { name: "Открыть меню" })).toHaveCount(
     0,
   );
+  // Нижней панели больше нет (решение владельца 09.10.2026): шапка стоит у верхнего края.
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(navigation).toBeInViewport();
   const box = await navigation.boundingBox();
-  expect(box?.y).toBeGreaterThan(700);
+  expect(box?.y).toBe(0);
+  await expect(
+    page.getByRole("navigation", { name: "Мобильная навигация" }),
+  ).toBeVisible();
 });
 
 test("keyboard reaches the visible desktop or mobile navigation", async ({
@@ -770,7 +775,13 @@ function primaryNavigationName(
     : "Основная";
 }
 
+/**
+ * На телефоне навигация — верхняя шапка: логотип «Главная» и значки разделов. Логотип стоит вне
+ * `<nav>`, поэтому мобильная навигация в этих проверках — вся шапка.
+ */
 function getPrimaryNavigation(page: Page, projectName: string) {
+  if (navigationMode(projectName) === "mobile")
+    return page.locator("[data-mobile-header]");
   const navigation = page.getByRole("navigation", {
     name: primaryNavigationName(projectName),
   });

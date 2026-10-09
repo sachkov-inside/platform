@@ -132,6 +132,27 @@ export const FixedTermOffer: Story = {
   },
 };
 
+/** Предзаказ: рядом с ценой — зачёркнутая цена после старта и срок, до которого действует цена. */
+export const Preorder: Story = {
+  args: {
+    preorder: {
+      startsOn: "9 ноября",
+      daysLeft: "до старта 31 день",
+      priceAfterStartKopecks:
+        productWithSupportOffer.firstPriceKopecks + 1_000_000,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        /^Цена предзаказа действует до старта потока 9 ноября\./u,
+      ),
+    ).toBeInTheDocument();
+    await expect(canvas.getByText(/Цена после старта:/u)).toBeInTheDocument();
+  },
+};
+
 export const ContactRequired: Story = {
   args: { contact: null },
   play: async ({ canvasElement }) => {

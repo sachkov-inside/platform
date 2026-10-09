@@ -15,6 +15,7 @@ const cohort: ProductCohort = {
   stage: "preorder",
   startsOn: "2026-10-20",
   nextEvent: "",
+  priceAfterStartKopecks: null,
 };
 const slug = "ai-engineering";
 const call = (
@@ -35,16 +36,8 @@ const call = (
   });
 
 describe("first screen call of a product cohort", () => {
-  it("keeps the programme button when the product has no cohort", () => {
-    expect(call({ cohort: null })).toEqual({
-      banner: null,
-      action: {
-        kind: "programme",
-        href: "/products/ai-engineering/programme",
-        label: "Открыть программу",
-      },
-      compactOnPhone: true,
-    });
+  it("does not lead away to the programme when the product has no cohort", () => {
+    expect(call({ cohort: null })).toEqual({ banner: null, action: null });
   });
 
   it("never takes money on the announcement", () => {
@@ -61,24 +54,29 @@ describe("first screen call of a product cohort", () => {
       label: "Читать главу 1 бесплатно",
     });
     expect(
-      call({ cohort: { ...cohort, stage: "announcement" } }).action.kind,
+      call({ cohort: { ...cohort, stage: "announcement" } }).action?.kind,
     ).toBe("programme");
   });
 
-  it("asks for the price of the offer this person sees on preorder and running", () => {
+  it("only announces the pre-order on the first screen and asks to pay with the price while running", () => {
     const price = new Intl.NumberFormat("ru-RU", {
       style: "currency",
       currency: "RUB",
       maximumFractionDigits: 0,
     }).format(productWithSupportOffer.firstPriceKopecks / 100);
-    for (const stage of ["preorder", "running"] as const) {
-      expect(call({ cohort: { ...cohort, stage } }).action).toEqual({
-        kind: "purchase",
-        href: "/products/ai-engineering/buy",
-        label: `Оплатить ${price}`,
-      });
-    }
-    expect(call().banner?.text).toBe("Предзаказ открыт до 20 октября");
+    // Предзаказ оформляют внизу страницы: первый экран сообщает о наборе и ведёт к цене.
+    expect(call().banner).toEqual({
+      kind: "live",
+      text: "Идёт набор на первый поток",
+      detail: "",
+      href: "#enroll",
+    });
+    expect(call().action).toBeNull();
+    expect(call({ cohort: { ...cohort, stage: "running" } }).action).toEqual({
+      kind: "purchase",
+      href: "/products/ai-engineering/buy",
+      label: `Оплатить ${price}`,
+    });
     expect(call({ cohort: { ...cohort, stage: "running" } }).banner?.text).toBe(
       "Стартовал 20 октября. Присоединиться можно в любой момент",
     );
@@ -111,12 +109,17 @@ describe("first screen call of a product cohort", () => {
   });
 
   it("hides payment without a sale and from a person the product is open to", () => {
-    expect(call({ offer: null }).action.kind).toBe("programme");
-    expect(call({ productAccess: "unknown" }).action.kind).toBe("purchase");
-    for (const stage of ["preorder", "running", "between"] as const)
+    const running = { ...cohort, stage: "running" } as const;
+    expect(call({ cohort: running, offer: null }).action?.kind).toBe(
+      "programme",
+    );
+    expect(
+      call({ cohort: running, productAccess: "unknown" }).action?.kind,
+    ).toBe("purchase");
+    for (const stage of ["running", "between"] as const)
       expect(
         call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
-          .kind,
+          ?.kind,
       ).toBe("programme");
   });
 });
