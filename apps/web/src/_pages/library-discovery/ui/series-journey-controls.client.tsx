@@ -6,11 +6,9 @@ import {
   RefreshCw,
   Search,
   Shapes,
-  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -19,7 +17,6 @@ import { formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { readSeriesPage } from "@/shared/routing/material-reader";
-import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import { useSeriesLearning } from "./series-learning.client";
@@ -618,9 +615,9 @@ const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
 /**
  * Нижняя панель продукта на телефоне (решение владельца 09.10.2026), только значки, как
  * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
- * навигацию: разделы продукта — те же, что вкладки на широком экране, — и профиль. Главной здесь
- * нет: выход на витрину стоит вверху слева, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
- * `HideMobileNavigation` убирает общую панель, её место занимает эта.
+ * панель: разделы продукта — те же, что вкладки на широком экране. Главной здесь нет: на неё
+ * ведут логотип в шапке и ссылка вверху, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
+ * Шапка телефона с профилем и закладками остаётся сверху.
  */
 function ProductBottomBar({
   activeId,
@@ -632,36 +629,35 @@ function ProductBottomBar({
   readonly parts: readonly JourneyPart[];
 }) {
   return (
-    <nav aria-label="Разделы продукта" className="product-bottom-bar md:hidden">
-      <HideMobileNavigation />
-      <HidePublicFooter />
-      {parts.map((entry) => {
-        const Icon = partIcons[entry.id];
-        const current = entry.id === activeId;
-        return (
-          <button
-            aria-current={current ? "page" : undefined}
-            aria-label={partBarLabels[entry.id]}
-            className="product-bottom-bar-item"
-            data-current={current}
-            key={entry.id}
-            onClick={() => {
-              onOpen(entry.id);
-            }}
-            type="button"
-          >
-            <Icon aria-hidden="true" />
-          </button>
-        );
-      })}
-      <Link
-        aria-label="Профиль"
-        className="product-bottom-bar-item"
-        href="/account"
+    <>
+      {/* Место под панель в конце списка: последний урок не прячется за ней. */}
+      <div aria-hidden="true" className="h-20 md:hidden" />
+      <nav
+        aria-label="Разделы продукта"
+        className="product-bottom-bar md:hidden"
       >
-        <UserRound aria-hidden="true" />
-      </Link>
-    </nav>
+        <HidePublicFooter />
+        {parts.map((entry) => {
+          const Icon = partIcons[entry.id];
+          const current = entry.id === activeId;
+          return (
+            <button
+              aria-current={current ? "page" : undefined}
+              aria-label={partBarLabels[entry.id]}
+              className="product-bottom-bar-item"
+              data-current={current}
+              key={entry.id}
+              onClick={() => {
+                onOpen(entry.id);
+              }}
+              type="button"
+            >
+              <Icon aria-hidden="true" />
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }
 
@@ -706,13 +702,6 @@ function ProgrammeSidebar({
               </li>
             );
           })}
-          {/* На планшете у раздела нет шапки сайта и нижней панели: профиль — здесь. */}
-          <li className="programme-sidebar-profile">
-            <Link href="/account">
-              <UserRound aria-hidden="true" />
-              <span>Профиль</span>
-            </Link>
-          </li>
         </ul>
       </nav>
     </aside>

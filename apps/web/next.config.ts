@@ -99,7 +99,9 @@ const nextConfig: NextConfig = {
      */
     catalogUnavailable: { stale: 0, revalidate: 0, expire: 1 },
   },
-  ...(hideDevIndicator ? { devIndicators: false as const } : {}),
+  // С 09.10.2026 общей нижней панели нет, а шапка телефона занимает верхние углы: значок стоит
+  // внизу слева, где свободно и у панели курса — она по центру.
+  devIndicators: hideDevIndicator ? false : { position: "bottom-left" },
   logging: {
     incomingRequests: { ignore: [/^\/callback(?:[/?]|$)/u] },
   },

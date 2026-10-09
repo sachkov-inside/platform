@@ -255,9 +255,6 @@
   .programme-sidebar {
     width: 12rem;
   }
-  .programme-sidebar-profile {
-    display: none;
-  }
 }
 /* Узкая колонка: подписи и счётчики уходят в имя для скринридера, на виду только значок. */
 @media (min-width: 48rem) and (max-width: 63.999rem) {
@@ -275,11 +272,6 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-  .programme-sidebar-profile {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
   }
 }
 .programme-sidebar ul,

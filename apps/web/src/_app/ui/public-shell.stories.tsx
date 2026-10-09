@@ -169,22 +169,29 @@ export const MemberWithoutTelegramMobile: Story = {
 };
 
 /**
- * Телефон 320: шапки нет, нижняя навигация держит цели не меньше 44px, остаётся на месте при
- * прокрутке документа и не даёт странице уйти вбок.
+ * Телефон 320: навигация — шапка сверху (решение владельца 09.10.2026). Логотип ведёт на Главную,
+ * значки разделов держат цели не меньше 44px, шапка прилипает к верху при прокрутке и не даёт
+ * странице уйти вбок. Нижней панели нет.
  */
-export const MobileBottomNavigation: Story = {
+export const MobileTopNavigation: Story = {
   ...publicPageEnvironment("/legal/terms"),
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   render: () => <LongPage />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByRole("banner")).not.toBeInTheDocument();
+    const header = canvasElement.querySelector<HTMLElement>(
+      "[data-mobile-header]",
+    );
+    if (header === null) throw new Error("Нет шапки телефона");
+    await expect(header).toBeVisible();
+    await expect(
+      within(header).getByRole("link", { name: "Главная" }),
+    ).toHaveAttribute("href", "/");
     const navigation = canvas.getByRole("navigation", {
       name: "Мобильная навигация",
     });
     const links = within(navigation).getAllByRole("link");
     await expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
-      "Главная",
       "Закладки",
       "Профиль",
     ]);
@@ -194,10 +201,9 @@ export const MobileBottomNavigation: Story = {
     const document = canvasElement.ownerDocument;
     const scrollRoot = document.scrollingElement;
     if (scrollRoot === null) throw new Error("Документ не прокручивается");
-    const before = navigation.getBoundingClientRect().top;
     scrollRoot.scrollTop = 600;
     await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-    await expect(navigation.getBoundingClientRect().top).toBe(before);
+    await expect(header.getBoundingClientRect().top).toBe(0);
     scrollRoot.scrollTop = 0;
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
   },
@@ -215,7 +221,7 @@ function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
       const view = canvasElement.ownerDocument.defaultView;
       if (view === null) throw new Error("У story нет окна");
       const { bottom } = footer.getBoundingClientRect();
-      // Ниже подвала остаётся только нижний отступ страницы и место под мобильную навигацию.
+      // Ниже подвала остаётся только нижний отступ страницы.
       await expect(bottom).toBeGreaterThan(view.innerHeight - 200);
       await expect(bottom).toBeLessThanOrEqual(view.innerHeight);
     },

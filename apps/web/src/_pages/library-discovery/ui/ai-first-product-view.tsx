@@ -32,6 +32,7 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
 /**
  * Оформление `ai-first-process`: весь текст приходит из описания продукта, а оформление добавляет
@@ -61,6 +62,8 @@ export function AiFirstProductView({
       data-product-landing={result.reference.slug}
       data-product-presentation="ai-first-process"
     >
+      {/* Страница продукта — витрина: без шапки телефона, как и страница курса. */}
+      <HideMobileNavigation />
       <nav aria-label="Хлебные крошки">
         <IntentPrefetchLink
           className="ai-product-back"

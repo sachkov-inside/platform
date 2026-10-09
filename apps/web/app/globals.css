@@ -292,6 +292,7 @@ body:has([data-public-shell]) {
 /* Native target scrolling leaves room for the fixed navigation and storage notice. */
 @media (width < 64rem) {
   html:has([data-public-shell]) {
+    scroll-padding-top: calc(4rem + env(safe-area-inset-top, 0px));
     scroll-padding-bottom: calc(
       6.5rem + env(safe-area-inset-bottom, 0px) +
         var(--storage-notice-space, 0px)
@@ -309,31 +310,33 @@ body:has([data-public-shell]) {
 }
 
 /*
- * Страница может убрать нижнюю навигацию на телефоне и планшете компонентом
- * `HideMobileNavigation`: её место тогда занимает своя панель или главное действие страницы.
+ * На телефоне и планшете навигация — шапка сверху; нижней панели нет, кроме прохождения курса.
+ * Страница курса, покупка, программа и урок убирают шапку компонентом `HideMobileNavigation`:
+ * у них свои верхние элементы, а у прохождения — своя нижняя панель. Тогда страница сама держит
+ * отступ под вырез экрана сверху и место под нижнюю панель или кнопку снизу.
  */
 @media (max-width: 63.999rem) {
   body[data-hide-mobile-navigation] .mobile-navigation {
     display: none;
+  }
+  /* Над нижней панелью курса уведомление о хранении поднимается, на остальных — у края. */
+  body[data-hide-mobile-navigation] .storage-notice {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  body[data-hide-mobile-navigation] #content > .public-page-container {
+    padding-top: calc(1.5rem + env(safe-area-inset-top));
+    padding-bottom: calc(
+      6.25rem + env(safe-area-inset-bottom) + var(--storage-notice-space, 0px)
+    );
   }
 }
 /* Страница убирает подвал с документами компонентом `HidePublicFooter`. */
 body[data-hide-public-footer] .public-footer-slot {
   display: none;
 }
-.mobile-navigation-items {
-  transition: grid-template-columns var(--motion-duration-shell)
-    var(--motion-ease-out);
-}
-
-.mobile-navigation-indicator {
-  transition:
-    transform var(--motion-duration-shell) var(--motion-ease-out),
-    opacity var(--motion-duration-fast);
-}
-
 .mobile-navigation-link {
   transition:
+    background-color var(--motion-duration-fast),
     color var(--motion-duration-fast),
     transform var(--motion-duration-fast) var(--motion-ease-out);
   -webkit-tap-highlight-color: transparent;
