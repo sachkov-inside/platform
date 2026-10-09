@@ -17,8 +17,8 @@ printf 'local diagnostic report\n' > "$proof_directory/context/.reports/proof.tx
 printf 'synthetic credential fixture\n' > "$proof_directory/context/.identity-proof/proof.txt"
 printf 'stale host-generated client\n' > "$proof_directory/context/apps/backend/src/infrastructure/prisma/generated/client.ts"
 printf 'FROM scratch\nCOPY . /\n' > "$proof_directory/context/Dockerfile"
-docker buildx build --network=none --pull=false --progress=plain \
-  --output "type=local,dest=$proof_directory/output" "$proof_directory/context"
+python3 "$repository_root/scripts/local-build-context-smoke.py" \
+  "$proof_directory/context" "$proof_directory/output"
 test -f "$proof_directory/output/package.json"
 test -f "$proof_directory/output/docs/evidence/proof.txt"
 test ! -e "$proof_directory/output/.reports"

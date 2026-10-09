@@ -283,7 +283,8 @@ prevent production web's source check.
 
 For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/local-build-context-smoke.sh`.
 It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary
-files. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
+files. Its execution budget is 60 seconds; the repository Python supervisor force-stops the command
+tree on deadline and returns124. Ordinary Docker failures retain their original status. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it

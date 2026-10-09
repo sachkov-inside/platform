@@ -21,7 +21,9 @@ access; this receipt's image failure is the browser's CSP denial.
 Pre-agreed seam: normal Compose build inputs and `next.config.ts` headers, including the published
 `OBJECT_STORAGE_HOST_PORT`. New `apps/web/test/contracts/local-stand-csp.test.ts` resolves real
 Compose config with service env resolution disabled, an empty project env file and a deliberately
-absent Docker engine. It executes no build, registry or live-stand operation. Resolved CSP input
+absent Docker engine. It executes no build, registry or live-stand operation. The client runs through repository
+`spawnOwned` supervision with20-second execution deadline and cleanup in `finally`; separate
+blocked-plugin tests verify forced termination of descendants after timeout/caller cancellation. Resolved CSP input
 feeds the actual Next config header function. The separate source assertion checks ARG declaration
 in the production-build stage; it does not claim a real Docker build ran.
 

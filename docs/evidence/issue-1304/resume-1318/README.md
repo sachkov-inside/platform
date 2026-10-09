@@ -16,7 +16,7 @@ The original [receipts/model](../README.md) remain unchanged as historical input
 | Retained workspace install snapshots |[cache-workspace-install.txt](cache-workspace-install.txt)|29 records; maximum 2.261 GB|
 | CLI complete image size |[web-image-size.txt](web-image-size.txt)|374 MB; same cached image539922ada175|
 
-The source envelope remains165 MB. Later model prose adds only kilobytes; final context enumeration
+The source envelope remains165 MB. Later prose/process-ownership fixes add only kilobytes; final context enumeration
 is also retained in the writing owner's local handoff. This table names its historical capture
 scope rather than asserting final Docker transfer bytes. Retained cache records overlap; these
 sizes are neither physical host growth nor a future build peak.

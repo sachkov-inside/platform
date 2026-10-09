@@ -1,9 +1,18 @@
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  watch,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../../../..", import.meta.url));
 const environmentSchema = z.record(z.string(), z.string().nullable());
@@ -17,9 +26,17 @@ const standConfigSchema = z.object({
   }),
 });
 
-function standInput(storagePort?: string, productionWeb = true) {
+async function standInput(
+  storagePort?: string,
+  productionWeb = true,
+  adapter: {
+    path?: string;
+    timeoutMilliseconds?: number;
+    signal?: AbortSignal;
+  } = {},
+) {
   const environment: NodeJS.ProcessEnv = {
-    PATH: process.env["PATH"],
+    PATH: adapter.path ?? process.env["PATH"],
     NODE_ENV: "test",
     // Config rendering must work without any engine, live stand or registry operation.
     DOCKER_HOST: "unix:///1304-config-only-no-engine.sock",
@@ -29,7 +46,7 @@ function standInput(storagePort?: string, productionWeb = true) {
       : { OBJECT_STORAGE_HOST_PORT: storagePort }),
   };
   // Compose only resolves checked-in source/config. It cannot read private stand env files.
-  const output = execFileSync(
+  const child = spawnOwned(
     "docker",
     [
       "compose",
@@ -54,11 +71,28 @@ function standInput(storagePort?: string, productionWeb = true) {
     {
       cwd: repositoryRoot,
       env: environment,
-      encoding: "utf8",
-      timeout: 20_000,
+      timeout: adapter.timeoutMilliseconds ?? 20_000,
+      ...(adapter.signal === undefined ? {} : { signal: adapter.signal }),
     },
   );
-  return standConfigSchema.parse(JSON.parse(output)).services;
+  try {
+    let output = "";
+    let diagnostic = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      diagnostic += chunk.toString();
+    });
+    const status = await new Promise<number | null>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", resolve);
+    });
+    if (status !== 0) throw new Error(`Compose config failed: ${diagnostic}`);
+    return standConfigSchema.parse(JSON.parse(output)).services;
+  } finally {
+    await stopOwned(child);
+  }
 }
 
 async function buildHeaders(
@@ -92,7 +126,7 @@ describe("local stand production build input", () => {
   afterEach(() => vi.resetModules());
 
   it("admits exactly the configured storage origin through the real Compose and Next header boundary", async () => {
-    const services = standInput("9157");
+    const services = await standInput("9157");
     const config = await buildHeaders(
       services.web.build.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
@@ -115,7 +149,7 @@ describe("local stand production build input", () => {
   });
 
   it("uses the default local storage port when no override was configured", async () => {
-    const services = standInput();
+    const services = await standInput();
     const config = await buildHeaders(
       services.web.build.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
@@ -125,7 +159,7 @@ describe("local stand production build input", () => {
   });
 
   it("keeps development signed image URLs on the same configured published port", async () => {
-    const services = standInput("9157", false);
+    const services = await standInput("9157", false);
     const config = await buildHeaders(undefined, "development");
     expect(services.api.environment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]).toBe(
       "http://127.0.0.1:9157",
@@ -157,4 +191,66 @@ describe("local stand production build input", () => {
     ).toHaveLength(1);
     expect(dockerfile).not.toMatch(/^ENV .*CSP_LOCAL_OBJECT_STORAGE_ORIGIN/mu);
   });
+});
+
+describe("Compose config process ownership", () => {
+  async function blockedPlugin(interrupt: boolean) {
+    const root = mkdtempSync(join(tmpdir(), "local-csp-process-contract-"));
+    const controller = new AbortController();
+    let running: Promise<unknown> | undefined;
+    const observer = watch(root);
+    try {
+      mkdirSync(join(root, "bin"));
+      const pidFile = join(root, "pid");
+      writeFileSync(
+        join(root, "bin/docker"),
+        `#!/usr/bin/env node
+import {spawn} from "node:child_process"; import {writeFileSync,renameSync} from "node:fs";
+const plugin=spawn(process.execPath,["-e","process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],{stdio:"ignore"});
+writeFileSync(${JSON.stringify(pidFile + ".pending")},String(plugin.pid));renameSync(${JSON.stringify(pidFile + ".pending")},${JSON.stringify(pidFile)});
+process.on("SIGTERM",()=>{});setInterval(()=>{},1000);
+`,
+        { mode: 0o755 },
+      );
+      // deterministic-test-allow duration-wait: bounds observing the fake Compose plugin's committed PID before cancellation.
+      const readinessBudget = AbortSignal.timeout(5_000);
+      const ready = new Promise<void>((resolve, reject) => {
+        observer.on("change", (_event, name) => {
+          if (name === "pid") resolve();
+        });
+        readinessBudget.addEventListener(
+          "abort",
+          () => {
+            reject(new Error("Plugin PID barrier missing"));
+          },
+          { once: true },
+        );
+      });
+      running = standInput(undefined, true, {
+        path: `${join(root, "bin")}:${process.env["PATH"] ?? ""}`,
+        timeoutMilliseconds: interrupt ? 20_000 : 1_000,
+        signal: controller.signal,
+      });
+      // Attach rejection before the deliberately failing adapter can complete.
+      const failure = running.catch((error: unknown) => error);
+      await ready;
+      const pid = Number(readFileSync(pidFile, "utf8"));
+      if (interrupt) controller.abort();
+      expect(await failure).toBeInstanceOf(Error);
+      expect(() => process.kill(pid, 0)).toThrow();
+    } finally {
+      controller.abort();
+      await running?.catch(() => undefined);
+      observer.close();
+      rmSync(root, { force: true, recursive: true });
+    }
+  }
+
+  it("force-stops the Compose plugin tree after config timeout", async () => {
+    await blockedPlugin(false);
+  }, 15_000);
+
+  it("force-stops the Compose plugin tree after caller cancellation", async () => {
+    await blockedPlugin(true);
+  }, 15_000);
 });
