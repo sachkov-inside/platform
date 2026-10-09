@@ -1,8 +1,59 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { expect, onTestFinished, test } from "vitest";
+import { afterAll, beforeAll, expect, onTestFinished, test } from "vitest";
+
+const backendRoot = fileURLToPath(new URL("../..", import.meta.url));
+const supervisor = fileURLToPath(
+  new URL("../../../../scripts/owned-node.mjs", import.meta.url),
+);
+let compiledDirectory: string | undefined;
+afterAll(async () => {
+  if (compiledDirectory !== undefined)
+    await rm(compiledDirectory, { recursive: true, force: true });
+});
+// Prepare one immutable JavaScript corpus before any acquisition case starts.
+beforeAll(async () => {
+  const cache = join(backendRoot, "node_modules/.cache");
+  await mkdir(cache, { recursive: true });
+  compiledDirectory = await mkdtemp(join(cache, "postgres-acquisition-"));
+  const config = join(compiledDirectory, "tsconfig.json");
+  await writeFile(
+    config,
+    JSON.stringify({
+      extends: fileURLToPath(
+        new URL("../../../../tsconfig.nest-app.json", import.meta.url),
+      ),
+      compilerOptions: {
+        incremental: false,
+        sourceMap: false,
+        rootDir: backendRoot,
+        outDir: compiledDirectory,
+      },
+      files: [
+        fileURLToPath(
+          new URL("./fixtures/postgres-acquisition.mts", import.meta.url),
+        ),
+      ],
+      include: [],
+    }),
+  );
+  const compile = spawnSync(
+    process.execPath,
+    [
+      supervisor,
+      join(backendRoot, "node_modules/typescript/bin/tsc"),
+      "--project",
+      config,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  expect(compile.error).toBeUndefined();
+  expect(compile.status, `${compile.stdout}${compile.stderr}`).toBe(0);
+}, 35_000);
 
 type Scenario =
   | "stream-error"
@@ -113,17 +164,16 @@ async function runSetup(
   fixture: Awaited<ReturnType<typeof assembleDockerFixture>>,
   runs = 1,
 ) {
+  if (compiledDirectory === undefined)
+    throw new Error("Fixture compilation did not complete");
   // deterministic-test-allow process-cleanup: owned-node supervises descendants; finally/onTestFinished stop it and await close, including the crashing null-event fixture.
   const child = spawn(
     process.execPath,
     [
-      fileURLToPath(
-        new URL("../../../../scripts/owned-node.mjs", import.meta.url),
-      ),
-      "--import",
-      "tsx",
-      fileURLToPath(
-        new URL("./fixtures/postgres-acquisition.mts", import.meta.url),
+      supervisor,
+      join(
+        compiledDirectory,
+        "test/contracts/fixtures/postgres-acquisition.mjs",
       ),
       String(runs),
     ],
