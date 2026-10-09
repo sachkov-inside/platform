@@ -498,6 +498,84 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
     }
   });
 
+  it("does not count a rejected maintenance reload as an open interval", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 430);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 431, {
+          INSIDE_DEPLOY_TEST_REJECT_MAINTENANCE: "true",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "100",
+        }).status,
+        0,
+      );
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const journal = deploymentOperationSchema.parse(readJson(journalPath));
+      assert.equal(journal.phase, "maintenance");
+      assert.equal(journal.maintenance, undefined);
+      assertGatewaySuccess(fixture, "deploy", "v2", 432, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 200,
+        durationSeconds: 0,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("archives a closed maintenance interval before retrying a failed journal", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 440);
+      const clock = resolve(fixture.root, "clock");
+      writeFileSync(clock, "100\n");
+      writeExecutable(
+        resolve(fixture.bin, "date"),
+        `#!/usr/bin/env bash
+if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/date "$@"; fi
+`,
+      );
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 441, {
+          INSIDE_DEPLOY_FAIL_PHASE: "journal",
+          INSIDE_DEPLOY_TEST_TIMING: "true",
+        }).status,
+        0,
+      );
+      const journalPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
+      const before = readFileSync(journalPath, "utf8");
+      assertGatewaySuccess(fixture, "deploy", "v2", 442, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+      });
+      assert.equal(
+        readFileSync(
+          resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation-history/maintenance-deploy-v2-run-441-ended-345.json",
+          ),
+          "utf8",
+        ),
+        before,
+      );
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 500,
+        endedAtEpochSeconds: 500,
+        durationSeconds: 0,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("rejects a database schema mismatch before enabling maintenance", () => {
     const fixture = createHostFixture();
     try {
@@ -1457,6 +1535,10 @@ fi
     `#!/usr/bin/env bash
 set -euo pipefail
 printf "caddy %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
+if [[ "\${INSIDE_DEPLOY_TEST_REJECT_MAINTENANCE:-}" == true ]] &&
+  grep -q 'Deployment in progress' "$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"; then
+  exit 1
+fi
 if [[ "\${INSIDE_DEPLOY_TEST_TIMING:-}" == true ]]; then
   if grep -q 'Deployment in progress' "$INSIDE_DEPLOY_TEST_ROOT/srv/inside/runtime/caddy/active.caddy"; then
     printf '310\\n' >"$INSIDE_DEPLOY_TEST_ROOT/clock"
@@ -1716,6 +1798,7 @@ const deployedReleaseSchema = z.object({ version: z.string() }).passthrough();
 const deploymentStateSchema = z
   .object({
     operation: z.string(),
+    maintenance: z.unknown().optional(),
     current: deployedReleaseSchema.extend({
       deployedAtEpochSeconds: z.number(),
       githubRunId: z.number(),

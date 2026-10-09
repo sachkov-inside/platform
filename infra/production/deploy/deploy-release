@@ -232,8 +232,8 @@ stop_workers() {
 activate_caddy() {
   local source="$1"
   local temporary="$runtime_dir/caddy/active.caddy.tmp.$$"
-  install -m 644 "$source" "$temporary"
-  mv "$temporary" "$runtime_dir/caddy/active.caddy"
+  install -m 644 "$source" "$temporary" || return 1
+  mv "$temporary" "$runtime_dir/caddy/active.caddy" || return 1
   caddy reload --config "$host_root/etc/caddy/Caddyfile" --adapter caddyfile
 }
 
@@ -594,6 +594,17 @@ if jq --exit-status --arg operation "$operation" --arg version "$version" '
   maintenance_started_epoch="$(jq --raw-output '.maintenance.startedAtEpochSeconds // empty' <<<"$last_operation_json")"
   maintenance_ended_epoch="$(jq --raw-output '.maintenance.endedAtEpochSeconds // empty' <<<"$last_operation_json")"
 fi
+# A retry can open another interval after routes succeeded but state publication failed.
+# Preserve the completed attempt before its operation journal is replaced.
+if [[ -n "$maintenance_ended_epoch" ]] &&
+  [[ "$(jq --raw-output .status <<<"$last_operation_json")" != succeeded ]]; then
+  measured_run_id="$(jq --raw-output .githubRunId <<<"$last_operation_json")"
+  measured_history="$operation_history_dir/maintenance-$operation-$version-run-$measured_run_id-ended-$maintenance_ended_epoch.json"
+  if [[ ! -e "$measured_history" ]]; then
+    install -m 600 "$operation_file" "$measured_history.tmp.$$"
+    mv "$measured_history.tmp.$$" "$measured_history"
+  fi
+fi
 if [[ "$repair_forward" != true ]]; then
   if [[ "$operation" == rollback && "$recovery_phase" == journal ]]; then
     defer_operation_start=true
@@ -893,12 +904,18 @@ fi
 phase=maintenance
 write_operation running "$phase"
 fail_if_requested maintenance
+prior_maintenance_started_epoch="$maintenance_started_epoch"
+prior_maintenance_ended_epoch="$maintenance_ended_epoch"
 if [[ -z "$maintenance_started_epoch" || -n "$maintenance_ended_epoch" ]]; then
   maintenance_started_epoch="$(now_epoch)"
   maintenance_ended_epoch=
 fi
 write_operation running "$phase"
-activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
+if ! activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"; then
+  maintenance_started_epoch="$prior_maintenance_started_epoch"
+  maintenance_ended_epoch="$prior_maintenance_ended_epoch"
+  exit 1
+fi
 
 phase=schema
 write_operation running "$phase"
