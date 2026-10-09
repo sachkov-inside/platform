@@ -17,7 +17,10 @@ import {
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
-import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
+import {
+  catalogReaderReturnHref,
+  seriesReaderReturnHref,
+} from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 
 import { formatTaskCount } from "./product-counts";
@@ -104,7 +107,7 @@ export function SeriesJourney({
             headingLevel="h3"
             key={item.slug}
             material={item}
-            returnHref={currentHref}
+            returnHref={catalogReaderReturnHref(currentHref, item.slug)}
             variant="feed"
           />
         ),

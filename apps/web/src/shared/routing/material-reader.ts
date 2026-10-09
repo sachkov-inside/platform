@@ -172,6 +172,22 @@ export function readSeriesPage(value: string | null): number {
   return Number.isSafeInteger(page) && page > 0 && page <= 10_000 ? page : 1;
 }
 
+/**
+ * Адрес возврата из урока в каталог «Материалы» программы: раздел и карточка, от которой человек
+ * ушёл, — программа откроет каталог и прокрутит к ней.
+ */
+export function catalogReaderReturnHref(
+  href: Route,
+  materialSlug: string,
+): Route {
+  assertSlug(materialSlug);
+  const url = new URL(href, applicationOrigin);
+  url.searchParams.delete("page");
+  url.searchParams.set("part", "materials");
+  url.searchParams.set("at", materialSlug);
+  return internalRoute(`${url.pathname}${url.search}`);
+}
+
 export function seriesReaderReturnHref(
   href: Route,
   page: number,

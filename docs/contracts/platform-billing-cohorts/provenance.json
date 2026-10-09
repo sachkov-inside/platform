@@ -1,5 +1,5 @@
 {
-  "providerCommit": "28b5e6d572854ee4afcffadd88ea9c90b0d0433e",
+  "providerCommit": "4d0709411ee8ecadee547ef55f8cd33a93e8c9a5",
   "pullRequest": "https://github.com/sachkov-inside/platform/pull/1111",
   "source": "apps/backend/openapi/platform-api.json, operation billingProductCohorts (GET /billing/cohorts): 200 response schema",
   "status": "schema.json holds the provider response schema unchanged under \"response\", including sequential-rollout compatibility; fixtures.json is written in Telegram. The directory is pinned by providerCommit instead of a version suffix.",

@@ -505,7 +505,7 @@ export const PartiallyGrouped: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const programme = partButton(canvasElement, /Программа/u);
-    await expect(programme).toHaveAttribute("aria-current", "page");
+    await expect(programme).toHaveAttribute("aria-current", "true");
     await expect(
       canvas.queryByRole("list", { name: "Материалы продукта" }),
     ).not.toBeInTheDocument();
@@ -1056,12 +1056,12 @@ export const ProgrammeProgress: Story = {
     await openPart(canvasElement, /^Материалы/u);
     await expect(partButton(canvasElement, /^Материалы/u)).toHaveAttribute(
       "aria-current",
-      "page",
+      "true",
     );
     await openPart(canvasElement, /Артефакты/u);
     await expect(partButton(canvasElement, /Артефакты/u)).toHaveAttribute(
       "aria-current",
-      "page",
+      "true",
     );
     await expect(
       canvas.getByText(

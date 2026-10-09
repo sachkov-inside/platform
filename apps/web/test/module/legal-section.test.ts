@@ -20,11 +20,9 @@ it("раздел показывает каждый действующий док
   const listed = LEGAL_NAVIGATION.map((entry) => entry.key);
 
   // Снятый с навигации документ назван явно: новый документ не может пропасть из раздела молча.
-  expect([...listed, ...LEGAL_HIDDEN_FROM_NAVIGATION].sort()).toEqual(
-    [...legalDocumentKeys].sort(),
-  );
-  for (const key of LEGAL_HIDDEN_FROM_NAVIGATION)
-    expect(listed).not.toContain(key);
+  const hidden = LEGAL_HIDDEN_FROM_NAVIGATION.map((entry) => entry.key);
+  expect([...listed, ...hidden].sort()).toEqual([...legalDocumentKeys].sort());
+  for (const key of hidden) expect(listed).not.toContain(key);
   expect(new Set(listed).size).toBe(listed.length);
   for (const entry of LEGAL_NAVIGATION) {
     expect(LEGAL_GROUP_ORDER).toContain(entry.group);

@@ -14,6 +14,12 @@ export interface LegalNavigationEntry {
   readonly group: LegalGroup;
 }
 
+/** Название документа без места в навигации: годится и для снятых с неё документов. */
+export type LegalDocumentLabel = Pick<
+  LegalNavigationEntry,
+  "consentLabel" | "key" | "navLabel"
+>;
+
 export type LegalGroup = "agreement" | "data" | "seller";
 
 export const LEGAL_GROUP_TITLES: Readonly<Record<LegalGroup, string>> = {
@@ -58,11 +64,18 @@ export const LEGAL_NAVIGATION: readonly LegalNavigationEntry[] = [
  * списка: Tribute больше не продаёт (решение владельца 09.10.2026). Редакция остаётся по прямому
  * адресу для прежних покупателей.
  */
-export const LEGAL_HIDDEN_FROM_NAVIGATION: readonly LegalDocumentKey[] = [
-  "tribute",
+export const LEGAL_HIDDEN_FROM_NAVIGATION: readonly LegalDocumentLabel[] = [
+  { key: "tribute", navLabel: "Покупки через Tribute" },
 ];
 
-/** Как документ называется в навигации; `null` для ключа вне раздела. */
-export function legalNavigationEntry(key: string): LegalNavigationEntry | null {
-  return LEGAL_NAVIGATION.find((entry) => entry.key === key) ?? null;
+/**
+ * Как документ называется в навигации; `null` для ключа вне раздела. Снятый с навигации документ
+ * сохраняет название: прежний покупатель видит его в своих принятых документах.
+ */
+export function legalNavigationEntry(key: string): LegalDocumentLabel | null {
+  return (
+    LEGAL_NAVIGATION.find((entry) => entry.key === key) ??
+    LEGAL_HIDDEN_FROM_NAVIGATION.find((entry) => entry.key === key) ??
+    null
+  );
 }

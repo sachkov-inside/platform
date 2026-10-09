@@ -109,13 +109,16 @@ export function SeriesJourneyControls({
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
   const routeRef = useRef<HTMLElement>(null);
+  // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
+  const requestedCatalog = search.get("part") === "materials";
   const [selection, setSelection] = useState(() => ({
-    id:
-      (
-        parts.find((entry) =>
-          partRows(entry).some((row) => row.slug === requestedMaterial),
-        ) ?? parts[0]
-      )?.id ?? "programme",
+    id: requestedCatalog
+      ? ("supplementary" as const)
+      : ((
+          parts.find((entry) =>
+            partRows(entry).some((row) => row.slug === requestedMaterial),
+          ) ?? parts[0]
+        )?.id ?? "programme"),
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
   }));
@@ -577,7 +580,11 @@ function MaterialCatalog({
           aria-label="Материалы курса"
         >
           {shown.map((entry) => (
-            <li className="min-w-0" key={entry.slug}>
+            <li
+              className="min-w-0"
+              data-route-material={entry.slug}
+              key={entry.slug}
+            >
               {entry.card}
             </li>
           ))}
@@ -654,7 +661,7 @@ function ProductBottomBar({
           const current = entry.id === activeId;
           return (
             <button
-              aria-current={current ? "page" : undefined}
+              aria-current={current ? "true" : undefined}
               aria-label={partBarLabels[entry.id]}
               className="product-bottom-bar-item"
               data-current={current}
@@ -698,7 +705,7 @@ function ProgrammeSidebar({
             return (
               <li key={entry.id}>
                 <button
-                  aria-current={current ? "page" : undefined}
+                  aria-current={current ? "true" : undefined}
                   data-current={current}
                   onClick={() => {
                     onOpenPart(entry.id);

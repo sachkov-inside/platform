@@ -149,8 +149,8 @@ function NavigationLink({
 /**
  * Шапка телефона и планшета вместо нижней панели (решение владельца 09.10.2026): логотип ведёт на
  * Главную, справа значки разделов — «Курс», «Закладки», «Профиль». Нижняя панель есть только в
- * прохождении курса, у программы и урока своя. Страница курса, покупка и прохождение убирают эту
- * шапку компонентом `HideMobileNavigation`: у них свои верхние элементы.
+ * прохождении курса, у программы и урока своя, а шапка там остаётся. Витрина продуктов и покупка
+ * убирают шапку компонентом `HideMobileNavigation`: у них свои верхние элементы.
  */
 function MobileTopNavigation({
   currentPath,
@@ -177,6 +177,11 @@ function MobileTopNavigation({
     >
       <div className="public-page-container mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3">
         <Link
+          aria-current={
+            home !== undefined && isCurrentPath(currentPath, home.href)
+              ? "page"
+              : undefined
+          }
           aria-label="Главная"
           className="flex shrink-0 items-baseline gap-[0.23em] rounded-md text-lg font-extrabold leading-none tracking-[-0.05em] no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           href={home?.href ?? "/"}

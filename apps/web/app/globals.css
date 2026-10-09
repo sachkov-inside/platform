@@ -315,19 +315,37 @@ body:has([data-public-shell]) {
 
 /*
  * На телефоне и планшете навигация — шапка сверху; нижней панели нет, кроме прохождения курса.
- * Страница курса, покупка, программа и урок убирают шапку компонентом `HideMobileNavigation`:
- * у них свои верхние элементы, а у прохождения — своя нижняя панель. Тогда страница сама держит
- * отступ под вырез экрана сверху и место под нижнюю панель или кнопку снизу.
+ * Витрина продуктов и покупка убирают шапку компонентом `HideMobileNavigation`: у них свои верхние
+ * элементы. Тогда страница сама держит отступ под вырез экрана сверху и место под кнопку снизу.
  */
 @media (max-width: 63.999rem) {
-  body[data-hide-mobile-navigation] .mobile-navigation {
+  body[data-hide-mobile-navigation] .mobile-navigation,
+  body:has(
+      [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
+          [style*="display: none"] *
+        )
+    )
+    .mobile-navigation {
     display: none;
   }
   /* Над нижней панелью курса уведомление о хранении поднимается, на остальных — у края. */
-  body[data-hide-mobile-navigation] .storage-notice {
+  body[data-hide-mobile-navigation] .storage-notice,
+  body:has(
+      [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
+          [style*="display: none"] *
+        )
+    )
+    .storage-notice {
     bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
   }
-  body[data-hide-mobile-navigation] #content > .public-page-container {
+  body[data-hide-mobile-navigation] #content > .public-page-container,
+  body:has(
+      [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
+          [style*="display: none"] *
+        )
+    )
+    #content
+    > .public-page-container {
     padding-top: calc(1.5rem + env(safe-area-inset-top));
     padding-bottom: calc(
       6.25rem + env(safe-area-inset-bottom) + var(--storage-notice-space, 0px)
@@ -350,8 +368,24 @@ body:has([data-public-shell]) {
   );
   pointer-events: none;
 }
+/* Над нижними панелями курса — в программе и уроке — уведомление о хранении поднимается. */
+@media (max-width: 63.999rem) {
+  body:has(
+      .product-bottom-bar:not([style*="display: none"] *),
+      [data-series-reader-bar]:not([style*="display: none"] *)
+    )
+    .storage-notice {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
 /* Страница убирает подвал с документами компонентом `HidePublicFooter`. */
-body[data-hide-public-footer] .public-footer-slot {
+body[data-hide-public-footer] .public-footer-slot,
+body:has(
+    [data-hide-public-footer-marker]:not([style*="display: none"]):not(
+        [style*="display: none"] *
+      )
+  )
+  .public-footer-slot {
   display: none;
 }
 .mobile-navigation-link {

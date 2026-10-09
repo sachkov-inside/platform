@@ -30,11 +30,16 @@ const formats = [
 
 export function HomeFeed() {
   const search = useSearchParams().toString();
+  // Поиска на Главной нет (решение владельца 09.10.2026): текст запроса из старой ссылки
+  // `/?q=…` не применяется, иначе лента сузилась бы без видимой причины. Синхронизация адреса
+  // ниже убирает его из адреса.
   const initialQuery = useMemo(
-    () =>
-      withoutLibraryCursor(
+    () => ({
+      ...withoutLibraryCursor(
         parseLibrarySearchParams(new URLSearchParams(search)).query,
       ),
+      q: "",
+    }),
     [search],
   );
   return (

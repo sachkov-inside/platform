@@ -911,7 +911,11 @@ function Status({
   readonly programme: Route;
 }) {
   return (
-    <section className="aie-status" id={cohortEnrollAnchor}>
+    // Якорь цены — только у блока набора: прочие блоки-списки рисуются тем же компонентом.
+    <section
+      className="aie-status"
+      id={block.id === "status" ? cohortEnrollAnchor : undefined}
+    >
       <div className="aie-status-lead">
         <div className="aie-status-default">
           <h2>{block.title}</h2>

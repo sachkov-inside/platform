@@ -178,16 +178,17 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
-  it("hides the development indicator where the mobile dock is used", () => {
-    // Сторожит звенья проводки: убери любое — и перекрытие дока индикатором вернётся молча,
-    // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
+  it("hides the development indicator where the course bars are used", () => {
+    // Сторожит звенья проводки: убери любое — и перекрытие нижних панелей курса индикатором
+    // вернётся молча, одними лишь плавающими промахами. Причину и выбор держит
+    // `apps/web/next.config.ts`; без переменной индикатор стоит внизу слева.
     const nextConfig = read("apps/web/next.config.ts");
 
     assert.match(
       nextConfig,
       /process\.env\["HIDE_DEV_INDICATOR"\] === "true"/u,
     );
-    assert.match(nextConfig, /devIndicators: false/u);
+    assert.match(nextConfig, /devIndicators: hideDevIndicator \? false/u);
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(
       read("apps/web/playwright.config.ts"),
