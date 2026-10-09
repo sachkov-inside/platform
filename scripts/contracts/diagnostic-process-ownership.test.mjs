@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import fs from "node:fs";
 import { connect } from "node:net";
 import {
   mkdtemp,
@@ -14,8 +15,13 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import {
+  publishDescendantReadiness,
+  reportDescendantReadiness,
+} from "./diagnostic-readiness-fixture.mjs";
 
 const scripts = fileURLToPath(new URL("..", import.meta.url));
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -125,7 +131,8 @@ async function fixture(script, mode = "wait") {
   `;
   const command = `
     import { spawn } from 'node:child_process';
-    import { writeFileSync, existsSync } from 'node:fs';
+    import { existsSync } from 'node:fs';
+    import { reportDescendantReadiness } from ${JSON.stringify(new URL("./diagnostic-readiness-fixture.mjs", import.meta.url).href)};
     // An isolated Compose project has no running services; ps reports no service names.
     if (process.argv.includes('compose') && process.argv.includes('ps')) process.exit(0);
     // Cleanup commands are side effects at the fake Docker boundary, not another fixture tree.
@@ -134,8 +141,7 @@ async function fixture(script, mode = "wait") {
     } else if (process.argv.includes('down')) process.exit(0);
     if (existsSync(${JSON.stringify(record)})) process.exit(${JSON.stringify(mode)} === 'finish' ? 7 : 0);
     const descendant = spawn(process.execPath, ['-e', ${JSON.stringify(descendant)}], { stdio: ['ignore', 'pipe', 'inherit'] });
-    descendant.stdout.once('data', data => {
-      writeFileSync(${JSON.stringify(record)}, String(data));
+    reportDescendantReadiness(descendant.stdout, ${JSON.stringify(record)}, () => {
       if (${JSON.stringify(mode)} !== 'timeout') process.stdout.write('Authoring gateway for the stand\\n');
       if (${JSON.stringify(mode)} === 'finish') process.exit(0);
       if (${JSON.stringify(mode)} === 'fail') process.exit(7);
@@ -310,6 +316,118 @@ async function dispose(running) {
   await running.closed;
   await rm(running.directory, { recursive: true, force: true });
 }
+
+test("descendant readiness stays unpublished until its JSON write completes", async (context) => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-diagnostic-readiness-"),
+  );
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const record = join(directory, "tree.json");
+  const write = fs.writeFileSync;
+  /** @type {typeof fs.writeFileSync} */
+  const interruptedWrite = (file, data, options) => {
+    assert.equal(typeof data, "string");
+    if (typeof data !== "string") throw new Error("Expected a JSON report");
+    write(file, data.slice(0, Math.floor(data.length / 2)), options);
+    // Observe the filesystem at the truncation/write boundary, without a scheduler race.
+    assert.throws(
+      () => fs.readFileSync(record, "utf8"),
+      { code: "ENOENT" },
+      "The owner must not see an incomplete descendant report",
+    );
+    write(file, data, options);
+  };
+  context.mock.method(fs, "writeFileSync", interruptedWrite);
+
+  publishDescendantReadiness(record, '{"pid":123,"port":456}\n', process.pid);
+
+  /** @type {unknown} */
+  const report = JSON.parse(fs.readFileSync(record, "utf8"));
+  assert.deepEqual(report, { pid: 123, port: 456 });
+});
+
+test("descendant readiness waits for its complete stdout report", async (context) => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-diagnostic-readiness-"),
+  );
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const record = join(directory, "tree.json");
+  const stdout = new PassThrough();
+  context.after(() => {
+    stdout.destroy();
+  });
+  const ready = context.mock.fn();
+  reportDescendantReadiness(stdout, record, ready);
+
+  stdout.write('{"pid":123,');
+  assert.equal(fs.existsSync(record), false);
+  assert.equal(ready.mock.callCount(), 0);
+  stdout.write('"port":456}\n');
+
+  /** @type {unknown} */
+  const report = JSON.parse(fs.readFileSync(record, "utf8"));
+  assert.deepEqual(report, { pid: 123, port: 456 });
+  assert.equal(ready.mock.callCount(), 1);
+});
+
+test("descendant readiness rejects an invalid complete stdout report", async (context) => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-diagnostic-readiness-"),
+  );
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const record = join(directory, "tree.json");
+  const stdout = new PassThrough();
+  context.after(() => {
+    stdout.destroy();
+  });
+  const ready = context.mock.fn();
+  reportDescendantReadiness(stdout, record, ready);
+
+  assert.throws(() => stdout.write('{"pid":123,\n'), SyntaxError);
+  assert.equal(fs.existsSync(record), false);
+  assert.equal(ready.mock.callCount(), 0);
+});
+
+test("descendant readiness stays complete when publishers overlap", async (context) => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "inside-diagnostic-readiness-"),
+  );
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const record = join(directory, "tree.json");
+  const write = fs.writeFileSync;
+  const rename = fs.renameSync;
+  let secondPublisher = false;
+  /** @type {import("node:fs").PathLike | undefined} */
+  let firstStaged;
+  /** @type {typeof fs.writeFileSync} */
+  const interruptedWrite = (file, data, options) => {
+    if (!secondPublisher) return write(file, data, options);
+    if (typeof data !== "string" || firstStaged === undefined)
+      throw new Error("Expected a pending descendant report");
+    write(file, data.slice(0, Math.floor(data.length / 2)), options);
+    // Complete publisher A while publisher B is paused halfway through its write.
+    rename(firstStaged, record);
+    /** @type {unknown} */
+    const firstReport = JSON.parse(fs.readFileSync(record, "utf8"));
+    assert.deepEqual(firstReport, { pid: 123, port: 456 });
+    write(file, data, options);
+  };
+  context.mock.method(fs, "writeFileSync", interruptedWrite);
+  /** @type {typeof fs.renameSync} */
+  const interruptedRename = (from, to) => {
+    if (secondPublisher) return rename(from, to);
+    firstStaged = from;
+    secondPublisher = true;
+    publishDescendantReadiness(record, '{"pid":789,"port":654}\n', 789);
+  };
+  context.mock.method(fs, "renameSync", interruptedRename);
+
+  publishDescendantReadiness(record, '{"pid":123,"port":456}\n', 123);
+
+  /** @type {unknown} */
+  const report = JSON.parse(fs.readFileSync(record, "utf8"));
+  assert.deepEqual(report, { pid: 789, port: 654 });
+});
 
 for (const script of diagnostics) {
   for (const signal of /** @type {const} */ ([
