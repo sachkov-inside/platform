@@ -31,7 +31,7 @@ test("unit, browser and local integration runners explicitly bound file workers"
   );
   assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
   const config = configurationsSchema.parse(JSON.parse(result.stdout));
-  assert.deepEqual(config.unit, { backend: 2, telegram: 2 });
+  assert.deepEqual(config.unit, { backend: 1, telegram: 1 });
   assert.deepEqual(
     config.web.map(({ test: project }) => [project.name, project.maxWorkers]),
     [

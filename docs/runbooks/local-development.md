@@ -133,9 +133,10 @@ command that detaches a child and exits before observation must manage that chil
 also tracks detached orphans adopted by the supervisor. Use foreground commands for
 heavy checks.
 
-Backend and Telegram unit suites set `maxWorkers: 2`, so the recursive unit stage does not give
-each application its own machine-sized worker pool. `scripts/heavy-runner-limits.test.mjs` checks
-their configured limits together with the Web and local integration limits.
+Backend and Telegram unit suites set `maxWorkers: 1`, so the recursive unit stage leaves CPU
+headroom for a second admitted check instead of giving each application a machine-sized worker pool.
+`scripts/heavy-runner-limits.test.mjs` checks their configured limits together with the Web and local
+integration limits.
 Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
 project. Playwright's default suite sets two workers; the other suites inherit or set one.
 Local backend integration retains its resource budget with a cap of two workers; its serial project
