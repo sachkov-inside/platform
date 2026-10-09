@@ -8,6 +8,8 @@ import {
 import {
   lockBillingPricing,
   lockBillingSubscription,
+  lockBillingMethodFlow,
+  tryLockBillingMethodFlow,
   type BillingPrisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -51,7 +53,7 @@ import {
   paymentFailure,
   type PaymentResult,
 } from "../../features/purchase-subscription/purchase-subscription.contract.js";
-import type { Tbank } from "../../infrastructure/tbank/tbank.js";
+import { bankTimeoutMs, type Tbank } from "../../infrastructure/tbank/tbank.js";
 import {
   lifecycleWindow,
   renewalCancelledSourceRef,
@@ -75,6 +77,12 @@ import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { saleCapability } from "../../domain/sale-capability.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
+
+// The live-owner transaction covers the unchanged bank timeout plus a database persistence window.
+const methodFlowRecoveryAgeMs = 10_000;
+const methodFlowPersistenceBudgetMs = 5_000;
+const methodFlowTransactionTimeoutMs =
+  bankTimeoutMs + methodFlowPersistenceBudgetMs;
 
 const changeQuoteLifetimeMs = 15 * 60 * 1_000;
 const changeReceiptSchema = z.strictObject({
@@ -686,15 +694,26 @@ export class BillingSubscriptions {
       );
     }
     try {
-      const session = await bank.addCard(accountId);
-      await prisma.billingPaymentMethodFlow.update({
-        where: { id: flowRef },
-        data: {
-          requestKey: session.requestKey,
-          formUrl: session.formUrl,
-          updatedAt: this.clock(),
+      await prisma.$transaction(
+        async (tx) => {
+          await lockBillingMethodFlow(tx, flowRef);
+          const flow = await tx.billingPaymentMethodFlow.findUniqueOrThrow({
+            where: { id: flowRef },
+          });
+          // Recovery can own a lost attempt before this request reaches AddCard.
+          if (flow.state !== "started" || flow.requestKey !== flow.id) return;
+          const session = await bank.addCard(accountId);
+          await tx.billingPaymentMethodFlow.updateMany({
+            where: { id: flowRef, state: "started", requestKey: flowRef },
+            data: {
+              requestKey: session.requestKey,
+              formUrl: session.formUrl,
+              updatedAt: this.clock(),
+            },
+          });
         },
-      });
+        { timeout: methodFlowTransactionTimeoutMs },
+      );
     } catch (error) {
       reportDependencyFailure(
         { module: "billing", operation: "changeMethod" },
@@ -787,14 +806,26 @@ export class BillingSubscriptions {
       for (const row of rows) {
         const now = this.clock();
         if (row.requestKey === row.id) {
-          // Ответ банка потерян: локальная сессия закрывается, новая начинается отдельной командой.
-          await prisma.billingPaymentMethodFlow.updateMany({
-            where: { id: row.id, state: "started" },
-            data: {
-              state: "rejected",
-              observedStatus: "no_bank_session",
-              updatedAt: now,
-            },
+          await prisma.$transaction(async (tx) => {
+            if (!(await tryLockBillingMethodFlow(tx, row.id))) return;
+            const flow = await tx.billingPaymentMethodFlow.findUniqueOrThrow({
+              where: { id: row.id },
+            });
+            if (flow.state !== "started" || flow.requestKey !== flow.id) return;
+            const recoveryTime = this.clock();
+            if (
+              recoveryTime.getTime() - flow.createdAt.getTime() <
+              methodFlowRecoveryAgeMs
+            )
+              return;
+            await tx.billingPaymentMethodFlow.updateMany({
+              where: { id: flow.id, state: "started", requestKey: flow.id },
+              data: {
+                state: "rejected",
+                observedStatus: "no_bank_session",
+                updatedAt: recoveryTime,
+              },
+            });
           });
           continue;
         }
