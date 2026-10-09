@@ -30,18 +30,19 @@ export function ProductTaskRow({
   const locked = !pending && task.availability === "locked";
   return (
     <article
-      className="group/task relative flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3"
+      className="group/task relative flex min-h-14 min-w-0 items-start gap-2.5 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:min-h-16 sm:gap-3 sm:px-4 sm:py-3"
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
+      {/* Значок задания в той же узкой колонке, где у урока его номер: без плитки. */}
       <span
         aria-hidden="true"
-        className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--callout-task)_14%,transparent)] text-[color:var(--callout-task)] @min-[30rem]/series-entry:size-14 @max-[16rem]/series-entry:hidden"
+        className="grid w-6 shrink-0 place-items-center pt-0.5 text-[color:var(--callout-task)] sm:w-7"
       >
         {locked ? (
-          <LockKeyhole className="size-5" />
+          <LockKeyhole className="size-4" />
         ) : (
-          <Flag className="size-5" />
+          <Flag className="size-4" />
         )}
       </span>
       <div className="min-w-0 flex-1">

@@ -820,9 +820,13 @@ export const DesktopRouteDetails: Story = {
     // По центру строки стоит текстовый блок: название и строка формата под ним.
     const text = title.parentElement ?? title;
     await expect(Math.abs(center(text) - center(card))).toBeLessThan(1);
-    await expect(Math.abs(center(preview) - center(card))).toBeLessThan(1);
-    await expect(preview.getBoundingClientRect().width).toBe(56);
-    // Номер урока стоит в плитке: цифрами на месте обложки или меткой в её углу.
+    // Номер урока — мелкая цифра у первой строки названия, без плитки и обложки.
+    await expect(
+      Math.abs(
+        preview.getBoundingClientRect().top - title.getBoundingClientRect().top,
+      ),
+    ).toBeLessThan(2);
+    await expect(preview.getBoundingClientRect().width).toBeLessThanOrEqual(28);
     await expect(preview).toHaveTextContent(/^0?3$/u);
     for (const cover of canvasElement.querySelectorAll(
       "article .public-cover-grid",

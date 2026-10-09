@@ -374,44 +374,22 @@ function SeriesMaterialRow({
   return (
     <SeriesRowArticle
       availability={pending ? "pending" : material.availability}
-      className="group/row relative flex min-h-16 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:min-h-20 sm:px-4 sm:py-3"
+      className="group/row relative flex min-h-14 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:min-h-16 sm:px-4 sm:py-3"
       slug={material.slug}
     >
       <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          {/* Номер урока стоит в плитке: без обложки он и есть её рисунок, с обложкой — метка в углу. */}
-          <span
-            data-series-preview
-            className="relative w-11 shrink-0 overflow-hidden rounded-xl @min-[30rem]/series-entry:w-14 @max-[16rem]/series-entry:hidden"
-          >
-            <ContentCoverImage
-              alt=""
-              className={cn(
-                "aspect-square min-h-0 w-full rounded-xl",
-                locked &&
-                  (material.cover ?? null) !== null &&
-                  "scale-110 blur-[3px]",
-              )}
-              cover={material.cover ?? null}
-              fallbackKind={
-                materialPreviewHasVideo(material) ? "video" : "material"
-              }
-              {...(ordinal === undefined || (material.cover ?? null) !== null
-                ? {}
-                : { fallbackLabel: String(ordinal).padStart(2, "0") })}
-              fallbackSeed={material.slug}
-              sizes="4rem"
-            />
-            {(material.cover ?? null) === null ||
-            ordinal === undefined ? null : (
-              <span
-                aria-hidden="true"
-                className="absolute bottom-1 left-1 rounded-md bg-background/92 px-1 text-[0.625rem] font-semibold leading-4 tabular-nums text-foreground"
-              >
-                {String(ordinal).padStart(2, "0")}
-              </span>
-            )}
-          </span>
+        <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
+          {/* Номер урока — мелкая цифра у первой строки названия, без плитки и обложки: на узком
+              экране название получает почти всю ширину (решение владельца 09.10.2026). */}
+          {ordinal === undefined ? null : (
+            <span
+              aria-hidden="true"
+              className="w-6 shrink-0 pt-px text-sm font-semibold leading-6 tabular-nums text-muted-foreground sm:w-7 sm:text-base"
+              data-series-preview
+            >
+              {String(ordinal).padStart(2, "0")}
+            </span>
+          )}
           <div className="min-w-0">
             {ordinal === undefined ? null : (
               <span className="sr-only">Урок {ordinal}. </span>
