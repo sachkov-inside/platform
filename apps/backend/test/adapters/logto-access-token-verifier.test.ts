@@ -36,6 +36,38 @@ describe("Logto access token verifier", () => {
     };
   });
 
+  test("keeps both same-subject proofs after first email attachment", async () => {
+    const telegram = {
+      subjectRef: "46100000-0000-4000-8000-000000000001",
+      requestRef: "46100000-0000-4000-8000-000000000002",
+    };
+    const verifier = createLogtoAccessTokenVerifier({
+      issuer,
+      audience,
+      jwks: { keys: [publicJwk] },
+      telegramSignInEnabled: true,
+    });
+    const token = await signToken({ inside_telegram_sign_in: telegram });
+    await expect(verifier.verifyAccountSignIn(token)).resolves.toMatchObject({
+      ok: true,
+      identity: {
+        issuer,
+        subject: "human-001",
+        telegram,
+        verifiedEmail: "member@example.test",
+      },
+    });
+    const malformedEmail = await signToken(
+      { inside_telegram_sign_in: telegram },
+      {
+        insideVerifiedEmail: "not-an-email",
+      },
+    );
+    await expect(
+      verifier.verifyAccountSignIn(malformedEmail),
+    ).resolves.toMatchObject({ ok: false });
+  });
+
   test("Telegram proof is explicit, feature-gated, and does not disable already-issued access tokens", async () => {
     const telegram = {
       subjectRef: "29900000-0000-4000-8000-000000000001",

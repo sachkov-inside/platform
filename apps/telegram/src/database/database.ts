@@ -275,6 +275,12 @@ export interface IdentityLinkRecoveriesTable {
 }
 
 export interface SignInRequestsTable {
+  source: Generated<"bot" | "mini-app">;
+  mini_app_proof_digest: ColumnType<
+    string | null,
+    string | null | undefined,
+    string | null
+  >;
   confirmation_message_id: ColumnType<
     string | null,
     string | null | undefined,

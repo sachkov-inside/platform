@@ -17,12 +17,14 @@ import type { VerifiedPrivateStart } from "../../shared/telegram-contact.js";
 import { CLOCK, type Clock } from "../../shared/clock.js";
 
 import { queueSignInResult } from "./queue-sign-in-result.js";
+import { verifyMiniAppLaunch } from "./mini-app-launch.js";
 
 export interface RegisterSignIn {
   readonly requestRef: string;
   readonly startTokenDigest: string;
   readonly browserSecretDigest: string;
   readonly expiresAt: Date;
+  readonly source?: "bot" | "mini-app";
 }
 
 export interface VerifiedSignInDecision {
@@ -73,6 +75,9 @@ export class BotSignIn {
 
   async register(request: RegisterSignIn): Promise<SignInResult> {
     if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
+    const source = request.source ?? "bot";
+    if (source === "mini-app" && this.config.miniAppEnabled !== true)
+      return { status: "disabled" };
     const now = this.clock.now();
     if (
       !isRequestRef(request.requestRef) ||
@@ -100,6 +105,7 @@ export class BotSignIn {
         expires_at: request.expiresAt,
         approved_at: null,
         consumed_at: null,
+        source,
       })
       .onConflict((conflict) => conflict.doNothing())
       .execute();
@@ -111,6 +117,7 @@ export class BotSignIn {
     if (
       !saved ||
       saved.bot_identity !== this.config.botIdentity ||
+      saved.source !== source ||
       saved.start_token_digest !== request.startTokenDigest ||
       saved.browser_secret_digest !== request.browserSecretDigest ||
       saved.expires_at.getTime() !== request.expiresAt.getTime()
@@ -143,7 +150,12 @@ export class BotSignIn {
         .forUpdate()
         .executeTakeFirst();
       const now = this.clock.now();
-      if (request?.state !== "pending" || request.expires_at <= now) return;
+      if (
+        request?.state !== "pending" ||
+        request.source !== "bot" ||
+        request.expires_at <= now
+      )
+        return;
       await transaction
         .updateTable("sign_in_requests")
         .set({
@@ -186,6 +198,7 @@ export class BotSignIn {
       if (
         !request ||
         request.bot_identity !== decision.botIdentity ||
+        request.source !== "bot" ||
         request.telegram_user_id !== decision.telegramUserId ||
         request.private_chat_id !== decision.privateChatId ||
         request.state !== "awaiting_approval" ||
@@ -210,6 +223,87 @@ export class BotSignIn {
         );
       }
     });
+  }
+
+  /** Binds signed launch identity to the existing Logto browser attempt, without bot delivery. */
+  async approveMiniApp(
+    requestRef: string,
+    browserSecret: string,
+    initData: string,
+  ): Promise<SignInResult> {
+    if (
+      this.config.signInEnabled !== true ||
+      this.config.miniAppEnabled !== true ||
+      !hasText(this.config.botToken)
+    )
+      return { status: "disabled" };
+    if (
+      !isRequestRef(requestRef) ||
+      !isDigest(browserSecret) ||
+      initData.length > 16_384
+    )
+      return { status: "unavailable" };
+    const now = this.clock.now();
+    const launch = verifyMiniAppLaunch({
+      initData,
+      botToken: this.config.botToken,
+      now,
+    });
+    if (launch === undefined) return { status: "unavailable" };
+    const proofDigest = digestSignInSecret(
+      `${this.config.botIdentity}:${launch.proofDigest}`,
+    );
+    return this.database
+      .transaction()
+      .execute(async (transaction): Promise<SignInResult> => {
+        const request = await transaction
+          .selectFrom("sign_in_requests")
+          .selectAll()
+          .where("request_ref", "=", requestRef)
+          .forUpdate()
+          .executeTakeFirst();
+        if (
+          request === undefined ||
+          request.bot_identity !== this.config.botIdentity ||
+          request.source !== "mini-app" ||
+          !credentialsMatch(
+            digestSignInSecret(browserSecret),
+            request.browser_secret_digest,
+          )
+        )
+          return { status: "unavailable" };
+        if (request.expires_at <= now) return { status: "expired" };
+        if (request.state !== "pending") {
+          return request.mini_app_proof_digest === proofDigest &&
+            request.telegram_user_id === launch.telegramUserId
+            ? { status: request.state === "consumed" ? "consumed" : "approved" }
+            : { status: "unavailable" };
+        }
+        // The same signed proof has the same user ID. This existing identity lock also serializes
+        // bot consume and ordinary linking; a different request cannot claim the replay key.
+        await lockTelegramIdentity(
+          transaction,
+          this.config.botIdentity,
+          launch.telegramUserId,
+        );
+        const replay = await transaction
+          .selectFrom("sign_in_requests")
+          .select("request_ref")
+          .where("mini_app_proof_digest", "=", proofDigest)
+          .executeTakeFirst();
+        if (replay !== undefined) return { status: "unavailable" };
+        await transaction
+          .updateTable("sign_in_requests")
+          .set({
+            state: "approved",
+            telegram_user_id: launch.telegramUserId,
+            approved_at: now,
+            mini_app_proof_digest: proofDigest,
+          })
+          .where("request_ref", "=", requestRef)
+          .execute();
+        return { status: "approved" };
+      });
   }
 
   async inspect(
@@ -239,6 +333,11 @@ export class BotSignIn {
           )
         )
           return { status: "unavailable" };
+        if (
+          request.source === "mini-app" &&
+          this.config.miniAppEnabled !== true
+        )
+          return { status: "disabled" };
         if (request.expires_at <= now) return { status: "expired" };
         if (
           request.state === "pending" ||

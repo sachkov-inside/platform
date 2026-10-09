@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:inside:mini-app-sign-in:v1",
+  "definitions": {
+    "registration": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.mini-app-sign-in.v1"
+        },
+        "requestRef": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "startTokenDigest": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
+        "browserSecretDigest": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestRef",
+        "startTokenDigest",
+        "browserSecretDigest",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "approval": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.mini-app-sign-in.v1"
+        },
+        "browserSecret": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
+        "initData": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        }
+      },
+      "required": [
+        "contractVersion",
+        "browserSecret",
+        "initData"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

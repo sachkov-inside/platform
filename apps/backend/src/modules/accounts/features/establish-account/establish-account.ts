@@ -25,7 +25,11 @@ export async function establishAccount(
   command: { readonly identity: VerifiedAccountSignIn },
 ): Promise<EstablishAccountResult> {
   if (command.identity.telegram !== undefined) {
-    return establishTelegramAccount(prisma, command.identity);
+    return establishTelegramAccount(
+      prisma,
+      command.identity,
+      emailFingerprintKey,
+    );
   }
   const emailFingerprint = fingerprintEmail(
     command.identity.verifiedEmail,

@@ -825,3 +825,58 @@ test("Telegram establishment claims require the exact fresh social verification 
     {},
   );
 });
+
+test("first email attachment preserves fresh Telegram proof and emits only the verified current email", async () => {
+  const source = (
+    await readFile(new URL("custom-access-token.js", proofRoot), "utf8")
+  ).replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", "telegram-id");
+  const claims = loadCustomJwtClaims(source);
+  const proof = {
+    subjectRef: "46100000-0000-4000-8000-000000000001",
+    requestRef: "46100000-0000-4000-8000-000000000002",
+  };
+  const context = {
+    user: {
+      primaryEmail: "member@example.test",
+      identities: { "inside-telegram": { userId: proof.subjectRef } },
+    },
+    interaction: {
+      verificationRecords: [
+        {
+          type: "Social",
+          connectorId: "telegram-id",
+          socialUserInfo: {
+            id: proof.subjectRef,
+            rawData: { requestRef: proof.requestRef },
+          },
+        },
+        {
+          type: "EmailVerificationCode",
+          verified: true,
+          identifier: { type: "email", value: "member@example.test" },
+        },
+      ],
+    },
+  };
+  assert.deepEqual(
+    await claims({ token: { gty: "authorization_code" }, context }),
+    {
+      inside_telegram_sign_in: proof,
+      inside_verified_email: "member@example.test",
+    },
+  );
+  assert.deepEqual(
+    await claims({ token: { gty: "refresh_token" }, context }),
+    {},
+  );
+  assert.deepEqual(
+    await claims({
+      token: { gty: "authorization_code" },
+      context: {
+        ...context,
+        user: { ...context.user, primaryEmail: "other@example.test" },
+      },
+    }),
+    { inside_telegram_sign_in: proof },
+  );
+});
