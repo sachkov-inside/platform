@@ -116,6 +116,7 @@
   height: 1rem;
 }
 .aie-hero-film {
+  position: relative;
   min-width: 0;
 }
 

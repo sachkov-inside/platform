@@ -1,6 +1,8 @@
 import "server-only";
 import { connection } from "next/server";
 
+import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
+import { loadProductCohort } from "@/entities/subscription.catalog.server";
 import {
   readGuestProductSale,
   readViewerProductSale,
@@ -82,6 +84,23 @@ export async function PersonalCohortStatus({
     slug,
   });
   return status === null ? null : <CohortStatusView status={status} />;
+}
+
+/**
+ * Наклейка «до старта N дней» на анимации первого экрана. Ей нужен только поток — он публичный и
+ * одинаков для всех, поэтому чтение не спрашивает ни цену, ни доступ человека.
+ */
+export async function PersonalCohortCountdown({
+  result,
+}: {
+  readonly result: ResolvedSeries;
+}) {
+  await connection();
+  const productId = result.reference.id;
+  if (productId === undefined) return null;
+  const read = await loadProductCohort(productId);
+  const countdown = read.kind === "ready" ? cohortCountdown(read.cohort) : null;
+  return countdown === null ? null : <StartCountdownBadge text={countdown} />;
 }
 
 function withoutCohort(slug: string): CohortCall {

@@ -14,6 +14,16 @@
   margin: 0;
   color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
 }
+/* Наклейка над заголовком: сколько дней до старта, акцентная и чуть повёрнутая, как «+ менторинг». */
+.aie-cohort-status-countdown {
+  padding: 0.3rem 0.75rem 0.32rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+  rotate: -2deg;
+}
 .aie-cohort-status-label {
   display: inline-flex;
   align-items: center;
@@ -50,7 +60,7 @@
   overflow: hidden;
   isolation: isolate;
 }
-/* Справа над билетом стоит наклейка «до старта …», поэтому скидка — рядом со словом «Предзаказ». */
+/* Скидка стоит рядом со словом «Предзаказ». */
 .aie-cohort-ticket-head {
   display: flex;
   align-items: center;

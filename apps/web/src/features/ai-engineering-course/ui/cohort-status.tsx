@@ -2,11 +2,7 @@ import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
-import {
-  PreorderPriceView,
-  StartCountdownBadge,
-  type PreorderPrice,
-} from "@/entities/subscription";
+import { PreorderPriceView, type PreorderPrice } from "@/entities/subscription";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import "./cohort-status.css";
@@ -17,7 +13,7 @@ import "./cohort-status.css";
  * предзаказ не открыт, в билете нет цены и кнопки оплаты.
  */
 export interface CohortStatus {
-  /** Сколько дней до старта: «до старта 31 день»; наклейка на углу билета. */
+  /** Сколько дней до старта: «до старта 31 день»; наклейка над заголовком блока. */
   readonly countdown: string;
   readonly title: string;
   readonly text: string;
@@ -37,11 +33,11 @@ export function CohortStatusView({
   return (
     <div className="aie-cohort-status">
       <div className="aie-cohort-status-intro">
+        <span className="aie-cohort-status-countdown">{status.countdown}</span>
         <h2>{status.title}</h2>
         <p>{status.text}</p>
       </div>
       <div className="aie-cohort-ticket-wrap">
-        <StartCountdownBadge text={status.countdown} />
         <div className="aie-cohort-ticket">
           <div className="aie-cohort-ticket-head">
             <span>Предзаказ</span>

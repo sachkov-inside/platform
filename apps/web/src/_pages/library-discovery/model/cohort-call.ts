@@ -1,7 +1,5 @@
 import {
-  cohortToday,
   formatCohortDate,
-  formatDaysUntilStart,
   formatKopecks,
   type ProductCohort,
   type PriceSnapshot,
@@ -34,7 +32,6 @@ export function cohortCall({
   productAccess,
   signedIn,
   slug,
-  today = cohortToday(),
 }: {
   readonly cohort: ProductCohort | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
@@ -43,8 +40,6 @@ export function cohortCall({
   readonly productAccess: ProductAccess;
   readonly signedIn: boolean;
   readonly slug: string;
-  /** Сегодняшний день `YYYY-MM-DD` по Москве; демо и тесты задают его сами. */
-  readonly today?: string;
 }): CohortCall {
   const programme = productProgrammeHref(slug);
   const openProgramme = {
@@ -94,10 +89,9 @@ export function cohortCall({
         banner: {
           kind: "live",
           text: "Идёт набор на первый поток",
-          detail:
-            cohort.startsOn === null
-              ? ""
-              : formatDaysUntilStart(cohort.startsOn, today),
+          // Сколько дней до старта, говорит наклейка на анимации; метка остаётся короткой и на
+          // узком телефоне помещается в одну строку.
+          detail: "",
           href: `#${cohortEnrollAnchor}`,
         },
         action: null,

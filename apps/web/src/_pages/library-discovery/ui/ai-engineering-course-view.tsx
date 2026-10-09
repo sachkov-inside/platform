@@ -72,6 +72,7 @@ export function AiEngineeringCourseView({
   page,
   returnTarget,
   statusCall,
+  heroBadge,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
@@ -80,6 +81,8 @@ export function AiEngineeringCourseView({
   readonly returnTarget: MaterialReaderReturnTarget;
   /** Плашка набора на поток вместо заголовка нижнего блока, пока поток не стартовал. */
   readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на углу анимации, пока поток набирается. */
+  readonly heroBadge?: ReactNode;
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
@@ -104,6 +107,7 @@ export function AiEngineeringCourseView({
         <CourseHero
           badge={hero?.badge ?? ""}
           call={heroCall}
+          filmBadge={heroBadge}
           highlights={hero?.highlights ?? []}
           lead={hero?.lead ?? reference.summary}
           name={reference.name}

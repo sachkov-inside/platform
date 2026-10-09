@@ -32,7 +32,6 @@ const call = (
     productAccess: "closed",
     signedIn: true,
     slug,
-    today: "2026-10-09",
     ...overrides,
   });
 
@@ -69,7 +68,7 @@ describe("first screen call of a product cohort", () => {
     expect(call().banner).toEqual({
       kind: "live",
       text: "Идёт набор на первый поток",
-      detail: "до старта 11 дней",
+      detail: "",
       href: "#enroll",
     });
     expect(call().action).toBeNull();

@@ -30,6 +30,7 @@ import {
 import {
   PendingCohortCall,
   PersonalCohortCall,
+  PersonalCohortCountdown,
   PersonalCohortStatus,
 } from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
@@ -123,6 +124,11 @@ export async function PublishedSeriesPage({
           <PersonalCohortStatus result={result} />
         </Suspense>
       }
+      heroBadge={
+        <Suspense fallback={null}>
+          <PersonalCohortCountdown result={result} />
+        </Suspense>
+      }
       offerTerms={offerTerms}
       result={result}
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
@@ -193,6 +199,7 @@ async function PersonalProduct({
       result={result}
       heroCall={<PersonalCohortCall result={result} />}
       statusCall={<PersonalCohortStatus result={result} />}
+      heroBadge={<PersonalCohortCountdown result={result} />}
       returnTarget={returnTarget}
     />
   );

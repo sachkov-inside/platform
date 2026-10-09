@@ -86,6 +86,21 @@ export function preorderPrice(
   };
 }
 
+/**
+ * Наклейка «до старта N дней» для анимации курса: пока поток набирается — на анонсе и на
+ * предзаказе — и день старта известен. После старта и между потоками наклейки нет.
+ */
+export function cohortCountdown(
+  cohort: ProductCohort | null,
+  today: string = cohortToday(),
+): string | null {
+  const startsOn = cohort?.startsOn ?? null;
+  if (startsOn === null) return null;
+  if (cohort?.stage !== "preorder" && cohort?.stage !== "announcement")
+    return null;
+  return formatDaysUntilStart(startsOn, today);
+}
+
 /** Условия предзаказа для страницы оплаты: день старта и цена после него. */
 export interface PreorderTerms {
   /** День старта словами: «9 ноября». */

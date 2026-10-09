@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
 import type { ProductPresentation } from "@/entities/product-page";
+import { StartCountdownBadge } from "@/entities/subscription";
 import { CourseHero } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-product";
 import { formatMaterialCount } from "@/features/library-discovery";
@@ -74,6 +75,12 @@ function AiEngineeringFeaturedProduct({
         highlights={hero.highlights}
         lead={hero.lead}
         name={series.name}
+        filmBadge={
+          series.startCountdown === undefined ||
+          series.startCountdown === null ? null : (
+            <StartCountdownBadge text={series.startCountdown} />
+          )
+        }
       />
     </section>
   );

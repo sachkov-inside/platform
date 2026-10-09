@@ -475,7 +475,7 @@ const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   supplementary: Library,
   artifacts: Shapes,
 };
-/** Подписи нижней панели короче вкладок: на панели у каждого пункта своя узкая колонка. */
+/** Имена пунктов нижней панели для скринридера: на экране у пунктов только значки. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
   programme: "Программа",
   supplementary: "Материалы",
@@ -483,7 +483,8 @@ const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
 };
 
 /**
- * Нижняя панель продукта на телефоне и планшете (решение владельца 09.10.2026): внутри программы
+ * Нижняя панель продукта на телефоне и планшете (решение владельца 09.10.2026), только значки, как
+ * в общей навигации: подписи на узком экране не помещаются. Внутри программы
  * она заменяет общую навигацию. Первый пункт ведёт на Главную, остальные — разделы продукта, те же,
  * что вкладки на широком экране; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
  * Атрибут `data-hide-mobile-navigation` убирает общую панель, её место занимает эта.
@@ -503,9 +504,8 @@ function ProductBottomBar({
       className="product-bottom-bar lg:hidden"
       data-hide-mobile-navigation
     >
-      <Link className="product-bottom-bar-item" href="/">
+      <Link aria-label="Главная" className="product-bottom-bar-item" href="/">
         <House aria-hidden="true" />
-        <span>Главная</span>
       </Link>
       {parts.map((entry) => {
         const Icon = partIcons[entry.id];
@@ -513,6 +513,7 @@ function ProductBottomBar({
         return (
           <button
             aria-current={current ? "page" : undefined}
+            aria-label={partBarLabels[entry.id]}
             className="product-bottom-bar-item"
             data-current={current}
             key={entry.id}
@@ -522,7 +523,6 @@ function ProductBottomBar({
             type="button"
           >
             <Icon aria-hidden="true" />
-            <span>{partBarLabels[entry.id]}</span>
           </button>
         );
       })}

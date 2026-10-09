@@ -26,6 +26,7 @@ export function CourseHero({
   heading = "h1",
   headingId,
   call,
+  filmBadge,
 }: {
   readonly name: string;
   readonly badge: string;
@@ -41,6 +42,8 @@ export function CourseHero({
    * личную часть, а её запасной вид — ту же обычную кнопку.
    */
   readonly call?: ReactNode;
+  /** Наклейка на углу анимации — сколько дней до старта потока; без набора её нет. */
+  readonly filmBadge?: ReactNode;
 }) {
   const Heading = heading;
   return (
@@ -83,6 +86,7 @@ export function CourseHero({
           ))}
       </div>
       <div className="aie-hero-film">
+        {filmBadge}
         <CourseFilm />
       </div>
     </div>

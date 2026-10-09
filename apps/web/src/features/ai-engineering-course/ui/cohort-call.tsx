@@ -57,7 +57,9 @@ export function CohortCallView({ call }: { readonly call: CohortCall }) {
         <a className="aie-cohort-live" href={banner.href}>
           <span className="aie-cohort-live-dot" aria-hidden="true" />
           <span className="aie-cohort-live-text">{banner.text}</span>
-          <span className="aie-cohort-live-detail">{banner.detail}</span>
+          {banner.detail === "" ? null : (
+            <span className="aie-cohort-live-detail">{banner.detail}</span>
+          )}
           <ArrowDown aria-hidden="true" />
         </a>
       ) : (

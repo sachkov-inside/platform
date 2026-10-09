@@ -130,6 +130,7 @@ export {
 } from "./model/enrollment-events";
 
 export {
+  cohortCountdown,
   cohortToday,
   formatCohortDate,
   formatDaysUntilStart,

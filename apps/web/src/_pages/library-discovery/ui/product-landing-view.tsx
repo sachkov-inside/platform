@@ -49,6 +49,7 @@ interface ProductViewProps {
   readonly page: ProductPage | null;
   readonly heroCall: ReactNode;
   readonly statusCall: ReactNode;
+  readonly heroBadge: ReactNode;
 }
 
 /**
@@ -88,6 +89,7 @@ const productViews: Record<
         result={props.result}
         returnTarget={props.returnTarget}
         statusCall={props.statusCall}
+        heroBadge={props.heroBadge}
       />
     ),
 };
@@ -106,6 +108,7 @@ export function ProductLandingView({
   freeEntryHref,
   returnTarget,
   statusCall,
+  heroBadge,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ResolvedSeriesResult;
@@ -117,6 +120,8 @@ export function ProductLandingView({
   readonly heroCall?: ReactNode;
   /** Плашка набора на поток в нижнем блоке; её рисует оформление курса. */
   readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на анимации; её рисует оформление курса. */
+  readonly heroBadge?: ReactNode;
   /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
   readonly offerTerms?: OneTimeOfferTerms | null;
 }) {
@@ -129,6 +134,7 @@ export function ProductLandingView({
       freeEntryHref={freeEntryHref}
       heroCall={heroCall}
       statusCall={statusCall}
+      heroBadge={heroBadge}
       // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
       // готовый текст и не пропускает ни одного поля (ADR 0026).
       page={

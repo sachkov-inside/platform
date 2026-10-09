@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import type { ProductCohort } from "@/entities/subscription";
+import {
+  StartCountdownBadge,
+  type ProductCohort,
+} from "@/entities/subscription";
 import {
   CohortCallView,
   CohortStatusView,
@@ -216,10 +219,10 @@ export const CohortPreorder: Story = {
           productAccess: "closed",
           signedIn: true,
           slug: "ai-engineering",
-          today: "2026-10-09",
         })}
       />
     ),
+    heroBadge: <StartCountdownBadge text="до старта 31 день" />,
     statusCall: (
       <CohortStatusView
         status={
@@ -243,7 +246,7 @@ export const CohortPreorder: Story = {
       canvas.getByRole("link", { name: /Оформить предзаказ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
-    // Сколько дней до старта, видно дважды: в метке первого экрана и наклейкой на билете.
+    // Сколько дней до старта, видно дважды: наклейкой на анимации и над заголовком блока набора.
     await expect(canvas.getAllByText("до старта 31 день")).toHaveLength(2);
     // Первый экран в программу не уводит: туда ведёт кнопка под темами курса.
     const hero =
