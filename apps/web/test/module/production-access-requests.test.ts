@@ -9,9 +9,10 @@ import {
   PassRequestRejected,
 } from "../production/pass-requests";
 
-const web = "https://inside.sachkov.dev";
+const web = "https://sachkov.dev";
+const legacyWeb = "https://inside.sachkov.dev";
 const logto = "https://auth.sachkov.dev";
-const mcp = `${web}/mcp/learning`;
+const mcp = `${legacyWeb}/mcp/learning`;
 
 function toolCall(name: string): string {
   return JSON.stringify({
@@ -24,10 +25,24 @@ function toolCall(name: string): string {
 
 describe("production access pass request allowlist", () => {
   it.each([
+    "https://storage.example.test/signed?token=x",
+    "https://sachkov.dev.example.test/materials/closed",
+    "https://other.sachkov.dev/materials/closed",
+    "https://api.inside.sachkov.dev/materials/closed",
+    "https://sachkov.dev:444/materials/closed",
+  ])("rejects reads outside the three production origins: %s", (url) => {
+    expect(checkPassRequest({ method: "GET", url })).toEqual({
+      allowed: false,
+      reason: `origin ${new URL(url).origin} is not in the pass allowlist`,
+    });
+  });
+
+  it.each([
     ["GET", `${web}/materials/closed`],
     ["GET", `${web}/api/materials/m/assets/a`],
     ["HEAD", `${web}/authoring/billing`],
-    ["GET", "https://storage.example.test/signed?token=x"],
+    ["GET", `${legacyWeb}/materials/closed`],
+    ["HEAD", `${logto}/oidc/auth`],
   ])("allows the read %s %s", (method, url) => {
     expect(checkPassRequest({ method, url })).toMatchObject({
       allowed: true,
@@ -111,14 +126,14 @@ describe("production access pass request allowlist", () => {
     expect(
       checkPassRequest({
         method: "POST",
-        url: `${web}/mcp`,
+        url: `${legacyWeb}/mcp`,
         body: toolCall("learning_material_read"),
       }),
     ).toMatchObject({ allowed: false });
   });
 
   it("allows owner MCP POST only to its named read-only tools", () => {
-    const ownerMcp = `${web}/mcp`;
+    const ownerMcp = `${legacyWeb}/mcp`;
 
     expect(
       checkPassRequest({

@@ -101,7 +101,10 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
   const path = normalizedPath(url.pathname);
   if (path === null) return reject("the path is malformed");
 
-  if (origin === productionTarget.web) {
+  if (
+    origin === productionTarget.web ||
+    origin === new URL(productionTarget.ownerMcp).origin
+  ) {
     if (platformRecordingPaths.includes(path))
       return reject(`${path} records a visit`);
     if (named(platformSignIn, method, path)) return allow("platform-sign-in");
@@ -141,8 +144,7 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     if (method === "GET" || method === "HEAD") return allow("read");
     return reject(`${method} ${path} is not a pass operation`);
   }
-  if (method === "GET" || method === "HEAD") return allow("read");
-  return reject(`${method} to ${origin} is not a read`);
+  return reject(`origin ${origin} is not in the pass allowlist`);
 }
 
 /**
