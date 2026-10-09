@@ -31,6 +31,14 @@
           "contentEncoding": "base64url",
           "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
         },
+        "oidcContextDigest": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
         "expiresAt": {
           "type": "string",
           "format": "date-time",
@@ -42,6 +50,7 @@
         "requestRef",
         "startTokenDigest",
         "browserSecretDigest",
+        "oidcContextDigest",
         "expiresAt"
       ],
       "additionalProperties": false
@@ -72,6 +81,38 @@
         "contractVersion",
         "browserSecret",
         "initData"
+      ],
+      "additionalProperties": false
+    },
+    "binding": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.mini-app-sign-in.v1"
+        },
+        "oidcContextDigest": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        },
+        "browserSecretDigest": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 43,
+          "format": "base64url",
+          "contentEncoding": "base64url",
+          "pattern": "^(?:[A-Za-z0-9_-]{4})*(?:[A-Za-z0-9_-]{2,3})?$"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "oidcContextDigest",
+        "browserSecretDigest"
       ],
       "additionalProperties": false
     }

@@ -7,6 +7,8 @@ export const miniAppSignInMigration: Migration = {
     await db.schema.alterTable("sign_in_requests")
       .addColumn("source", "text", (column) => column.notNull().defaultTo("bot"))
       .addColumn("mini_app_proof_digest", "text")
+      .addColumn("mini_app_oidc_context_digest", "text")
+      .addColumn("mini_app_bound_at", "timestamptz")
       .execute();
     await db.schema.alterTable("sign_in_requests")
       .addCheckConstraint("sign_in_requests_source_check", sql`source in ('bot', 'mini-app')`)
@@ -15,6 +17,13 @@ export const miniAppSignInMigration: Migration = {
       .addCheckConstraint("sign_in_requests_mini_app_proof_check", sql`
         mini_app_proof_digest is null or
         (source = 'mini-app' and mini_app_proof_digest ~ '^[A-Za-z0-9_-]{43}$')
+      `)
+      .execute();
+    await db.schema.alterTable("sign_in_requests")
+      .addCheckConstraint("sign_in_requests_mini_app_context_check", sql`
+        (source = 'bot' and mini_app_oidc_context_digest is null and mini_app_bound_at is null) or
+        (source = 'mini-app' and mini_app_oidc_context_digest is not null
+          and mini_app_oidc_context_digest ~ '^[A-Za-z0-9_-]{43}$')
       `)
       .execute();
     await db.schema.createIndex("sign_in_requests_mini_app_proof_unique")
@@ -29,6 +38,11 @@ export const miniAppSignInMigration: Migration = {
       .dropConstraint("sign_in_requests_source_check")
       .execute();
     await db.schema.alterTable("sign_in_requests")
-      .dropColumn("mini_app_proof_digest").dropColumn("source").execute();
+      .dropConstraint("sign_in_requests_mini_app_context_check")
+      .execute();
+    await db.schema.alterTable("sign_in_requests")
+      .dropColumn("mini_app_proof_digest").dropColumn("mini_app_oidc_context_digest")
+      .dropColumn("mini_app_bound_at")
+      .dropColumn("source").execute();
   },
 };

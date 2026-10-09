@@ -4,11 +4,26 @@
     "requestRef": "46100000-0000-4000-8000-000000000001",
     "startTokenDigest": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     "browserSecretDigest": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-    "expiresAt": "2026-10-09T00:05:00.000Z"
+    "expiresAt": "2026-10-09T00:05:00.000Z",
+    "oidcContextDigest": "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4"
   },
   "approval": {
     "contractVersion": "inside.mini-app-sign-in.v1",
     "browserSecret": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
     "initData": "auth_date=1791504000&query_id=synthetic-mini-app-query&user=%7B%22id%22%3A42%2C%22first_name%22%3A%22Synthetic%22%7D&hash=e505d246e33ae19dc837906656ec994c94d757d90fde6c3dac0911c9084e1ac2"
+  },
+  "oidcContext": {
+    "parameters": {
+      "clientId": "synthetic-platform-client",
+      "redirectUri": "https://platform.test/callback",
+      "state": "synthetic-official-sdk-state",
+      "codeChallenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "digest": "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4"
+  },
+  "binding": {
+    "contractVersion": "inside.mini-app-sign-in.v1",
+    "oidcContextDigest": "fmyAW6qSXNj9bdJGt3speBvZttGXPWD9kywhl1fQVq4",
+    "browserSecretDigest": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
   }
 }

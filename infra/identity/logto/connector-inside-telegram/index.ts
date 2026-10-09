@@ -7,6 +7,7 @@ const requestLifetimeMinutes = 5;
 const providerTimeoutMilliseconds = 5000;
 const configGuard = z.object({
   enabled: z.boolean().default(false),
+  miniAppEnabled: z.boolean().default(false),
   platformUrl: z.string().url(),
   issuer: z.string().url(),
   providerUrl: z.string().url(),
@@ -24,6 +25,10 @@ const proofGuard = z.object({
   status: z.literal('verified'), subjectRef: z.string().uuid(),
   approvedAt: z.string().datetime(),
   existingLink: z.object({ accountRef: z.string().uuid(), telegramIdentityRef: z.string().uuid() }).nullable(),
+}).strict();
+const miniAppScopePrefix = 'inside.mini-app.v1:';
+const miniAppScopeGuard = z.object({
+  requestRef: z.string().uuid(), oidcContextDigest: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 }).strict();
 const digest = (value: string) => createHash('sha256').update(value).digest('base64url');
 const failure = () => new ConnectorError(ConnectorErrorCodes.AuthorizationFailed, 'Telegram sign-in unavailable');
@@ -54,8 +59,25 @@ const createConnector: CreateConnector<SocialConnector> = async ({ getConfig }) 
     configGuard,
     async getAuthorizationUri(payload, setSession) {
       const config = await readConfig();
-      const requestRef = randomUUID();
       const browserSecret = randomBytes(32).toString('base64url');
+      if (payload.scope?.startsWith(miniAppScopePrefix)) {
+        if (!config.miniAppEnabled) throw failure();
+        const context = miniAppScopeGuard.parse(JSON.parse(payload.scope.slice(miniAppScopePrefix.length)));
+        const bound = z.object({
+          contractVersion: z.literal('inside.mini-app-sign-in.v1'), status: z.literal('bound'), expiresAt: z.string().datetime(),
+        }).strict().parse(await request(`/mini-app/${context.requestRef}/bind`, {
+          contractVersion: 'inside.mini-app-sign-in.v1', oidcContextDigest: context.oidcContextDigest,
+          browserSecretDigest: digest(browserSecret),
+        }));
+        if (Date.parse(bound.expiresAt) <= Date.now()) throw failure();
+        await setSession({ ...payload, requestRef: context.requestRef, browserSecret, expiresAt: bound.expiresAt });
+        const callback = new URL(payload.redirectUri);
+        callback.searchParams.set('state', payload.state);
+        callback.searchParams.set('inside_state', payload.state);
+        callback.searchParams.set('code', context.requestRef);
+        return callback.href;
+      }
+      const requestRef = randomUUID();
       const startToken = randomBytes(26).toString('base64url');
       const expiresAt = new Date(Date.now() + requestLifetimeMinutes * 60 * 1000).toISOString();
       const registered = z.object({

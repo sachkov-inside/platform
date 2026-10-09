@@ -18,6 +18,7 @@ import { bearerMatches } from "../../security/credentials.js";
 import { BotSignIn, MalformedSignInRequestError } from "./bot-sign-in.js";
 import {
   miniAppApprovalSchema,
+  miniAppBindingSchema,
   miniAppRegistrationSchema,
   miniAppSignInContractVersion,
 } from "./mini-app-sign-in.contract.js";
@@ -48,6 +49,7 @@ export class MiniAppSignInController {
           requestRef: request.requestRef,
           startTokenDigest: request.startTokenDigest,
           browserSecretDigest: request.browserSecretDigest,
+          oidcContextDigest: request.oidcContextDigest,
           expiresAt: new Date(request.expiresAt),
           source: "mini-app",
         })),
@@ -83,5 +85,26 @@ export class MiniAppSignInController {
   private authenticate(authorization: string | undefined): void {
     if (!bearerMatches(authorization, this.config.signInIntegrationSecret))
       throw new UnauthorizedException();
+  }
+
+  @Post(":requestRef/bind")
+  @Header("Cache-Control", "no-store")
+  @HttpCode(200)
+  async bind(
+    @Headers("authorization") authorization: string | undefined,
+    @Param("requestRef") requestRef: string,
+    @Body() body: unknown,
+  ) {
+    this.authenticate(authorization);
+    const parsed = miniAppBindingSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException();
+    return {
+      contractVersion: miniAppSignInContractVersion,
+      ...(await this.signIn.bindMiniApp(
+        requestRef,
+        parsed.data.oidcContextDigest,
+        parsed.data.browserSecretDigest,
+      )),
+    };
   }
 }

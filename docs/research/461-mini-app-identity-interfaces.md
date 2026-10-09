@@ -9,8 +9,9 @@
 выполнены без запуска Logto, PostgreSQL, Docker, браузера или Storybook. Проверка cookies,
 OAuth callback в Telegram WebView, конкурентных transactions и доставки пока не выполнена.
 
-`infra/identity/logto/versions.json` закрепляет Logto `1.44.0`, upstream
-`79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`, fork `inside.7`, `@logto/next` `5.0.0`,
+Исходный main закреплял Logto `1.44.0`, upstream
+`79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`, fork `inside.7`. Текущий draft в
+`infra/identity/logto/versions.json` готовит fork `inside.8`, сохраняя тот же upstream, `@logto/next` `5.0.0`,
 `@logto/node` `4.0.0`. Чтение upstream всегда использует этот revision.
 
 ## Mini App proof и обычный sign-in
@@ -37,6 +38,27 @@ Mini App использует этот же connector target `inside-telegram`, 
 получает user по connector target и social identity. Существующий Platform patch разрешает
 подтверждённый `existingLink` через Platform, затем прикрепляет identity к этому Logto user.
 Normal OIDC callback и official encrypted BFF cookie остаются владельцами сессии.
+
+Локальные исходники SDK `@logto/client` `3.2.0` (зависимость Node `4.0.0`) показывают:
+`signIn` генерирует state, codeVerifier и S256 challenge; сохраняет их через SDK storage;
+возвращает authorization URL через `@logto/next/server-actions` `handleSignIn`. Поддерживаются
+`directSignIn` и `extraParams`. Официальный
+[direct sign-in](https://docs.logto.io/end-user-flows/authentication-parameters/direct-sign-in)
+использует тот же normal authorization endpoint и social callback, с обычным fallback.
+
+Pinned `oidc/init.ts` содержит whitelist `extraParams: Object.values(ExtraParamsKey)`.
+`inside.8` добавляет только opaque Mini App reference. Helper социальной авторизации читает
+original `provider.interactionDetails(...).params`, а не context из client social payload.
+Provider получает SHA-256 digest штатных state/PKCE/client/redirect; после approval связывает
+attempt ровно с одним новым Logto browser secret. Raw initData не нужен после redirect.
+Точный draft contract и portable vector принадлежат
+[Mini App protocol](../contracts/mini-app-sign-in-v1/protocol.md). BFF initiation ещё не подключён;
+native cookie/redirect proof **PENDING**. Нельзя считать passing VM adapter tests proof Logto runtime.
+
+Upstream `getConnectorSessionResult` удаляет connector storage перед HTTP consume. Draft patch
+сохраняет storage для exact `inside-telegram` до окончания native interaction. Это позволяет
+читать защищённый persisted receipt после неизвестного consume outcome, без второго consume.
+Native callback retry и дальнейший Logto commit после network outage пока не проверены.
 
 Перед implementation WebView continuation требуется Storybook catalog inspection после отдельного
 сигнала координатора. Нельзя предполагать общую cookie Safari/Chrome и Telegram WebView.
@@ -87,10 +109,13 @@ path разрешает тот же user ID. Это ещё не доказате
 
 Native Experience record принадлежит interaction. Account API records отдельно имеют десять минут
 в `queries/verification-records.ts`; этот срок нельзя автоматически приписывать Experience.
-Passcode lifetime задаётся `verificationCodePolicy.expirationDuration` с default из schemas.
+Pinned `schemas/src/consts/verification-code.ts` задаёт default passcode TTL 600 секунд и
+`maxRetryAttempts=10`. `schemas/src/consts/message-rate-limit.ts` задаёт default 10 отправок
+за rolling window 600 секунд на нормализованный recipient. Это policy source facts, не измерения.
+Текущий fork patch #116 делает reserve отправки атомарным и сохраняет его при неизвестном SMTP
+результате. Его применение и runtime enforcement в этой сессии пока не доказаны.
 `libraries/passcode.ts` проверяет срок и одноразовый результат. Message rate guard и Sentinel
-принадлежат Logto. Их точные configured пределы и attempt enforcement будут закреплены после
-чтения соответствующих policy sources и проверены на isolated runtime.
+принадлежат Logto. Configured пределы и attempt enforcement нужно проверить на isolated runtime.
 
 Ошибки pinned profile path включают `session.verification_session_not_found`,
 `user.email_already_in_use`, `user.missing_profile`; точное HTTP mapping проверяется conformance.

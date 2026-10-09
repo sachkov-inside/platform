@@ -46,6 +46,10 @@ const config = {
   integrationSecret: "461-synthetic-integration-secret-not-a-credential",
   botUsername: "synthetic_bot",
 };
+const scopeGuard = z.function({
+  input: [z.unknown()],
+  output: z.string().optional(),
+});
 
 test("connector recovers the same subject after consume committed but its response was lost", async () => {
   /** @type {string[]} */
@@ -89,12 +93,209 @@ test("connector recovers the same subject after consume committed but its respon
   );
 });
 
+test("Mini App connector binds the transferred OIDC attempt and uses the native social callback", async () => {
+  const requestRef = "46100000-0000-4000-8000-000000000002";
+  const oidcContextDigest = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+  /** @type {string[]} */
+  const paths = [];
+  const connector = await loadConnector(
+    async (url, options) => {
+      const path = new URL(url).pathname;
+      paths.push(path);
+      if (path.endsWith("/bind")) {
+        const body = z
+          .object({
+            oidcContextDigest: z.string(),
+            browserSecretDigest: z.string(),
+          })
+          .parse(JSON.parse(String(options.body)));
+        assert.equal(body.oidcContextDigest, oidcContextDigest);
+        assert.match(body.browserSecretDigest, /^[A-Za-z0-9_-]{43}$/u);
+        return Response.json({
+          contractVersion: "inside.mini-app-sign-in.v1",
+          status: "bound",
+          expiresAt: "2026-10-10T10:05:00Z",
+        });
+      }
+      return registered();
+    },
+    { ...config, miniAppEnabled: true },
+  );
+  let callback;
+  const session = await authorize(
+    connector,
+    {
+      scope: `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest })}`,
+    },
+    (url) => {
+      callback = url;
+    },
+  );
+  assert.equal(
+    paths.includes(
+      `/integrations/identity/v1/sign-in/mini-app/${requestRef}/bind`,
+    ),
+    true,
+  );
+  assert.equal(session.requestRef, requestRef);
+  assert.equal(new URL(String(callback)).pathname, "/callback");
+  assert.equal(
+    new URL(String(callback)).searchParams.get("inside_state"),
+    session.state,
+  );
+});
+
+test("Logto derives the launch binding from original OIDC state and PKCE, using the portable vector", async () => {
+  const fixture = z
+    .object({
+      oidcContext: z.object({
+        parameters: z.object({
+          clientId: z.string(),
+          redirectUri: z.string(),
+          state: z.string(),
+          codeChallenge: z.string(),
+        }),
+        digest: z.string(),
+      }),
+    })
+    .parse(
+      JSON.parse(
+        await readFile(
+          new URL(
+            "../docs/contracts/mini-app-sign-in-v1/fixtures.json",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      ),
+    );
+  const module = await evaluateSource(async () => {
+    throw new Error("No network in OIDC scope adapter");
+  }, "../infra/identity/logto/fork/packages/core/src/libraries/inside-mini-app-binding.ts");
+  /** @type {unknown} */
+  const exported = Reflect.get(module.namespace, "miniAppConnectorScope");
+  const scope = scopeGuard.parse(exported);
+  const { parameters, digest } = fixture.oidcContext;
+  const requestRef = "46100000-0000-4000-8000-000000000001";
+  assert.equal(
+    scope({
+      client_id: parameters.clientId,
+      redirect_uri: parameters.redirectUri,
+      state: parameters.state,
+      code_challenge: parameters.codeChallenge,
+      code_challenge_method: "S256",
+      response_type: "code",
+      inside_mini_app_request: requestRef,
+    }),
+    `inside.mini-app.v1:${JSON.stringify({ requestRef, oidcContextDigest: digest })}`,
+  );
+});
+
+test("Mini App mode stays off unless the connector explicitly enables it", async () => {
+  let posts = 0;
+  const connector = await loadConnector(async () => {
+    posts += 1;
+    return registered();
+  });
+  await assert.rejects(
+    authorize(connector, {
+      scope: `inside.mini-app.v1:${JSON.stringify({ requestRef: "46100000-0000-4000-8000-000000000001", oidcContextDigest: "X".repeat(43) })}`,
+    }),
+  );
+  assert.equal(posts, 0);
+});
+
+for (const mismatch of ["state", "request"]) {
+  test(`a different social callback ${mismatch} cannot consume or read a receipt`, async () => {
+    let consumes = 0;
+    const connector = await loadConnector(async (url) => {
+      if (!new URL(url).pathname.endsWith("/sign-in")) consumes += 1;
+      return registered();
+    });
+    const session = await authorize(connector);
+    await assert.rejects(
+      connector.getUserInfo(
+        {
+          inside_state:
+            mismatch === "state" ? "another-social-state" : session.state,
+          code:
+            mismatch === "request"
+              ? "46100000-0000-4000-8000-000000000009"
+              : session.requestRef,
+        },
+        async () => session,
+      ),
+    );
+    assert.equal(consumes, 0);
+  });
+}
+
+test("a launch reference requires a complete S256 code request and never uses a social payload as OIDC context", async () => {
+  const module = await evaluateSource(async () => {
+    throw new Error("No network in OIDC scope adapter");
+  }, "../infra/identity/logto/fork/packages/core/src/libraries/inside-mini-app-binding.ts");
+  /** @type {unknown} */
+  const exported = Reflect.get(module.namespace, "miniAppConnectorScope");
+  const scope = scopeGuard.parse(exported);
+  assert.equal(
+    scope({ scope: "inside.mini-app.v1:client-selected" }),
+    undefined,
+  );
+  const params = {
+    client_id: "synthetic-platform-client",
+    redirect_uri: "https://platform.test/callback",
+    state: "synthetic-official-sdk-state",
+    code_challenge: "A".repeat(43),
+    code_challenge_method: "S256",
+    response_type: "code",
+    inside_mini_app_request: "46100000-0000-4000-8000-000000000001",
+  };
+  for (const field of [
+    "client_id",
+    "redirect_uri",
+    "state",
+    "code_challenge",
+  ]) {
+    const changed = {
+      ...params,
+      [field]:
+        field === "redirect_uri"
+          ? "https://other.test/callback"
+          : "B".repeat(43),
+    };
+    assert.notEqual(scope(changed), scope(params));
+  }
+  assert.throws(() => scope({ ...params, code_challenge_method: "plain" }));
+  assert.throws(() => scope({ ...params, response_type: "token" }));
+  assert.throws(() =>
+    scope({ inside_mini_app_request: params.inside_mini_app_request }),
+  );
+});
+
 /**
  * Adapter contract: actual connector source, synthetic Kit enums/error and supplied HTTP double.
  * This does not exercise pinned Logto, cookies, native interactions or persistent transactions.
  * @param {(url: string, options: RequestInit) => Promise<Response>} post
+ * @param {unknown} [connectorConfig]
  */
-async function loadConnector(post) {
+async function loadConnector(post, connectorConfig = config) {
+  const module = await evaluateSource(
+    post,
+    "../infra/identity/logto/connector-inside-telegram/index.ts",
+  );
+  /** @type {unknown} */
+  const exported = Reflect.get(module.namespace, "default");
+  const factory = factoryGuard.parse(exported);
+  return connectorGuard.parse(
+    await factory({ getConfig: async () => connectorConfig }),
+  );
+}
+
+/**
+ * @param {(url: string, options: RequestInit) => Promise<Response>} post
+ * @param {string} path
+ */
+async function evaluateSource(post, path) {
   const context = createContext({
     fetch: post,
     AbortSignal,
@@ -135,13 +336,7 @@ async function loadConnector(post) {
     ["@logto/connector-kit", external(kit)],
     ["zod", external({ z })],
   ]);
-  const source = await readFile(
-    new URL(
-      "../infra/identity/logto/connector-inside-telegram/index.ts",
-      import.meta.url,
-    ),
-    "utf8",
-  );
+  const source = await readFile(new URL(path, import.meta.url), "utf8");
   const module = new SourceTextModule(stripTypeScriptTypes(source), {
     context,
   });
@@ -151,28 +346,31 @@ async function loadConnector(post) {
     return dependency;
   });
   await module.evaluate();
-  /** @type {unknown} */
-  const exported = Reflect.get(module.namespace, "default");
-  const factory = factoryGuard.parse(exported);
-  return connectorGuard.parse(await factory({ getConfig: async () => config }));
+  return module;
 }
 
-/** @param {z.infer<typeof connectorGuard>} connector */
-async function authorize(connector) {
+/**
+ * @param {z.infer<typeof connectorGuard>} connector
+ * @param {Record<string, string>} [extra]
+ * @param {(url: string) => void} [navigate]
+ */
+async function authorize(connector, extra = {}, navigate = () => {}) {
   /** @type {unknown} */
   let session;
-  await connector.getAuthorizationUri(
+  const url = await connector.getAuthorizationUri(
     {
       state: "synthetic-logto-social-state",
       redirectUri: "https://identity.test/callback",
       connectorId: "synthetic-connector",
       connectorFactoryId: "inside-telegram",
       jti: "synthetic-interaction",
+      ...extra,
     },
     async (/** @type {unknown} */ value) => {
       session = value;
     },
   );
+  navigate(url);
   return sessionGuard.parse(session);
 }
 

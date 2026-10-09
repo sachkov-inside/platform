@@ -25,6 +25,7 @@ export interface RegisterSignIn {
   readonly browserSecretDigest: string;
   readonly expiresAt: Date;
   readonly source?: "bot" | "mini-app";
+  readonly oidcContextDigest?: string;
 }
 
 export interface VerifiedSignInDecision {
@@ -50,6 +51,10 @@ export type SignInResult =
   | {
       readonly status: "registered";
       readonly confirmationCode: string;
+      readonly expiresAt: string;
+    }
+  | {
+      readonly status: "bound";
       readonly expiresAt: string;
     }
   | {
@@ -84,6 +89,8 @@ export class BotSignIn {
       !isDigest(request.startTokenDigest) ||
       !isDigest(request.browserSecretDigest) ||
       request.startTokenDigest === request.browserSecretDigest ||
+      (source === "mini-app" && !isDigest(request.oidcContextDigest ?? "")) ||
+      (source === "bot" && request.oidcContextDigest !== undefined) ||
       !Number.isFinite(request.expiresAt.getTime()) ||
       request.expiresAt <= now ||
       request.expiresAt.getTime() - now.getTime() > 300_000
@@ -106,6 +113,7 @@ export class BotSignIn {
         approved_at: null,
         consumed_at: null,
         source,
+        mini_app_oidc_context_digest: request.oidcContextDigest ?? null,
       })
       .onConflict((conflict) => conflict.doNothing())
       .execute();
@@ -120,6 +128,8 @@ export class BotSignIn {
       saved.source !== source ||
       saved.start_token_digest !== request.startTokenDigest ||
       saved.browser_secret_digest !== request.browserSecretDigest ||
+      saved.mini_app_oidc_context_digest !==
+        (request.oidcContextDigest ?? null) ||
       saved.expires_at.getTime() !== request.expiresAt.getTime()
     ) {
       return { status: "unavailable" };
@@ -318,6 +328,70 @@ export class BotSignIn {
     );
   }
 
+  /** Transfers an approved launch to exactly one normal Logto interaction. */
+  async bindMiniApp(
+    requestRef: string,
+    oidcContextDigest: string,
+    browserSecretDigest: string,
+  ): Promise<SignInResult> {
+    if (
+      this.config.signInEnabled !== true ||
+      this.config.miniAppEnabled !== true
+    )
+      return { status: "disabled" };
+    if (
+      !isRequestRef(requestRef) ||
+      !isDigest(oidcContextDigest) ||
+      !isDigest(browserSecretDigest)
+    )
+      return { status: "unavailable" };
+    return this.database
+      .transaction()
+      .execute(async (transaction): Promise<SignInResult> => {
+        const request = await transaction
+          .selectFrom("sign_in_requests")
+          .selectAll()
+          .where("request_ref", "=", requestRef)
+          .forUpdate()
+          .executeTakeFirst();
+        const now = this.clock.now();
+        if (
+          request === undefined ||
+          request.bot_identity !== this.config.botIdentity ||
+          request.source !== "mini-app" ||
+          request.mini_app_oidc_context_digest === null ||
+          !credentialsMatch(
+            oidcContextDigest,
+            request.mini_app_oidc_context_digest,
+          )
+        )
+          return { status: "unavailable" };
+        if (request.expires_at <= now) return { status: "expired" };
+        if (request.mini_app_bound_at !== null) {
+          return credentialsMatch(
+            browserSecretDigest,
+            request.browser_secret_digest,
+          )
+            ? { status: "bound", expiresAt: request.expires_at.toISOString() }
+            : { status: "unavailable" };
+        }
+        if (
+          request.state !== "approved" ||
+          request.mini_app_proof_digest === null
+        )
+          return { status: "unavailable" };
+        await transaction
+          .updateTable("sign_in_requests")
+          .set({
+            browser_secret_digest: browserSecretDigest,
+            mini_app_bound_at: now,
+          })
+          .where("request_ref", "=", requestRef)
+          .execute();
+        return { status: "bound", expiresAt: request.expires_at.toISOString() };
+      });
+  }
+
   /** Recovers a committed result under its original browser binding; never consumes a proof. */
   async receipt(
     requestRef: string,
@@ -369,6 +443,8 @@ export class BotSignIn {
         if (request.state !== "approved" && mode !== "receipt")
           return { status: request.state };
         if (mode === "status") return { status: "approved" };
+        if (request.source === "mini-app" && request.mini_app_bound_at === null)
+          return { status: "unavailable" };
         if (!hasText(request.telegram_user_id) || !request.approved_at)
           return { status: "unavailable" };
         await lockTelegramIdentity(

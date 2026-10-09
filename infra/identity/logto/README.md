@@ -81,7 +81,16 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
-Fork revision `inside.7` moves the fork to upstream `1.44.0` (#938); the learner access script keeps
+Fork revision `inside.8` prepares the #461 server-side Mini App binding. The same `inside-telegram`
+connector accepts an approved provider attempt only after binding the original normal OIDC state,
+S256 challenge, client and callback to its own browser secret. The fork retains this connector's
+storage for bounded callback recovery. See the owning
+[wire protocol](../../../docs/contracts/mini-app-sign-in-v1/protocol.md). `miniAppEnabled` is off by
+default in the connector; Telegram also requires `TELEGRAM_MINI_APP_ENABLED=true`. Current draft
+evidence is source/static/adapter only. Image build, native interactions, browser cookies and
+first-email attachment remain pending; this paragraph does not claim runtime readiness.
+
+Fork revision `inside.7` moved the fork to upstream `1.44.0` (#938); the learner access script keeps
 its dynamic apps (CIMD) off. The
 four Experience files and the issue #299 patches carry over unchanged in substance. Upstream 1.42
 moved audit redaction from `koa-audit-log.ts` to `utils/sensitive-data.ts`; the issue #116 patch now

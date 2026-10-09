@@ -4,10 +4,16 @@ import fixtures from "@inside/contracts/mini-app-sign-in-v1/fixtures.json" with 
 import schema from "@inside/contracts/mini-app-sign-in-v1/schema.json" with { type: "json" };
 import {
   miniAppApprovalSchema,
+  miniAppBindingSchema,
   miniAppRegistrationSchema,
 } from "../../src/modules/bot-sign-in/mini-app-sign-in.contract.js";
 
 describe("Mini App portable request contract", () => {
+  it("requires the original OIDC state and PKCE context binding on registration", () => {
+    const unbound = structuredClone(fixtures.registration);
+    Reflect.deleteProperty(unbound, "oidcContextDigest");
+    expect(miniAppRegistrationSchema.safeParse(unbound).success).toBe(false);
+  });
   it("accepts portable fixtures at the owning provider boundary and JSON projection", () => {
     // Built-in Zod patterns carry the constraints; base64url is not a standard AJV format.
     const ajv = new Ajv({ validateFormats: false });
@@ -17,10 +23,14 @@ describe("Mini App portable request contract", () => {
     expect(miniAppApprovalSchema.safeParse(fixtures.approval).success).toBe(
       true,
     );
+    expect(miniAppBindingSchema.safeParse(fixtures.binding).success).toBe(true);
     expect(
       ajv.compile(schema.definitions.registration)(fixtures.registration),
     ).toBe(true);
     expect(ajv.compile(schema.definitions.approval)(fixtures.approval)).toBe(
+      true,
+    );
+    expect(ajv.compile(schema.definitions.binding)(fixtures.binding)).toBe(
       true,
     );
   });
@@ -33,15 +43,18 @@ describe("Mini App portable request contract", () => {
         [field]: "client-selected",
       };
       const approval = { ...fixtures.approval, [field]: "client-selected" };
+      const binding = { ...fixtures.binding, [field]: "client-selected" };
       const ajv = new Ajv({ validateFormats: false });
       expect(miniAppRegistrationSchema.safeParse(registration).success).toBe(
         false,
       );
       expect(miniAppApprovalSchema.safeParse(approval).success).toBe(false);
+      expect(miniAppBindingSchema.safeParse(binding).success).toBe(false);
       expect(ajv.compile(schema.definitions.registration)(registration)).toBe(
         false,
       );
       expect(ajv.compile(schema.definitions.approval)(approval)).toBe(false);
+      expect(ajv.compile(schema.definitions.binding)(binding)).toBe(false);
     },
   );
 

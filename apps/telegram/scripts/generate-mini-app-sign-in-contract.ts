@@ -3,6 +3,7 @@ import { z } from "zod";
 import manifest from "@inside/contracts/mini-app-sign-in-v1/manifest.json" with { type: "json" };
 import {
   miniAppApprovalSchema,
+  miniAppBindingSchema,
   miniAppRegistrationSchema,
 } from "../src/modules/bot-sign-in/mini-app-sign-in.contract.js";
 
@@ -19,6 +20,7 @@ const source = `${JSON.stringify(
         target: "draft-7",
       }),
       approval: z.toJSONSchema(miniAppApprovalSchema, { target: "draft-7" }),
+      binding: z.toJSONSchema(miniAppBindingSchema, { target: "draft-7" }),
     },
   },
   null,
