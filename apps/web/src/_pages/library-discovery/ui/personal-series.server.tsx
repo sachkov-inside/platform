@@ -4,7 +4,7 @@ import { resolveAccount } from "@/shared/api/backend/index.server";
 import { getQueryClient } from "@/shared/api/query-client";
 import { getSeriesContinuation } from "@/features/reading-progress.server";
 import { seriesContinuationQueryKey } from "@/features/reading-progress";
-import type { PriceSnapshot } from "@/entities/subscription";
+import type { PreorderPrice, PriceSnapshot } from "@/entities/subscription";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import {
@@ -18,12 +18,15 @@ export async function PersonalSeries({
   artifacts,
   result,
   accessToken,
+  preorder = null,
   productOffer = null,
   subscriptionOffered = false,
 }: {
   readonly artifacts: ReaderProductArtifactsResult;
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly accessToken?: string;
+  /** Цена предзаказа рядом с ценой после старта, пока поток набирается. */
+  readonly preorder?: PreorderPrice | null;
   readonly productOffer?: PriceSnapshot | null;
   readonly subscriptionOffered?: boolean;
 }) {
@@ -53,6 +56,7 @@ export async function PersonalSeries({
       >
         <ProductProgrammeView
           artifacts={artifacts}
+          preorder={preorder}
           productOffer={productOffer}
           result={result}
           subscriptionOffered={subscriptionOffered}

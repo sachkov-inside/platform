@@ -778,6 +778,7 @@ describe("Billing pricing HTTP", () => {
       stage: "announcement",
       startsOn: "2026-10-20",
       nextEvent: "",
+      priceAfterStartKopecks: null,
     };
     // Поток — часть каталога: без права billing:manage его не меняют.
     expect((await save(announcement)).statusCode).toBe(403);
@@ -793,10 +794,11 @@ describe("Billing pricing HTTP", () => {
       },
     });
 
-    const read = async () => {
+    const read = async (requestHeaders: Record<string, string> = {}) => {
       const response = await server.inject({
         method: "GET",
         url: "/billing/cohorts",
+        headers: requestHeaders,
       });
       expect(response.statusCode).toBe(200);
       expect(response.headers["cache-control"]).toBe("private, no-store");
@@ -825,18 +827,51 @@ describe("Billing pricing HTTP", () => {
       (await save({ ...announcement, stage: "preorder" })).statusCode,
     ).toBe(409);
 
-    const between = {
-      name: "Поток 2",
-      stage: "between",
-      startsOn: null,
-      nextEvent: "эфир 15 декабря",
+    // Цена после старта — положительные копейки или null; без поля поток не сохраняется, чтобы
+    // прежняя форма не стёрла цену молча.
+    for (const priceAfterStartKopecks of [-100, 0, 399.5, "39900"])
+      expect(
+        (await save({ ...announcement, priceAfterStartKopecks }, 1)).statusCode,
+      ).toBe(400);
+    const { priceAfterStartKopecks: _omitted, ...withoutPrice } = announcement;
+    expect((await save(withoutPrice, 1)).statusCode).toBe(400);
+
+    // Предзаказ показывает зачёркнутую цену после старта; этап её не ограничивает.
+    const preorder = {
+      ...announcement,
+      stage: "preorder",
+      priceAfterStartKopecks: 3_990_000,
     };
-    expect((await save(between, 1)).statusCode).toBe(200);
+    expect((await save(preorder, 1)).statusCode).toBe(200);
     expect((await read()).find((item) => item.productId === productId)).toEqual(
       {
         productId,
         guideId: productId,
         revision: 2,
+        ...preorder,
+      },
+    );
+    // Бот проверяет ответ целиком по закреплённому контракту: цена ему не приходит.
+    const { priceAfterStartKopecks: _price, ...botPreorder } = preorder;
+    expect(
+      (await read({ "x-inside-domain-names": "products.v1" })).find(
+        (item) => item.productId === productId,
+      ),
+    ).toEqual({ productId, revision: 2, ...botPreorder });
+
+    const between = {
+      name: "Поток 2",
+      stage: "between",
+      startsOn: null,
+      nextEvent: "эфир 15 декабря",
+      priceAfterStartKopecks: null,
+    };
+    expect((await save(between, 2)).statusCode).toBe(200);
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 3,
         ...between,
       },
     );

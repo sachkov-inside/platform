@@ -21,6 +21,8 @@ export interface HomePinnedCollection extends HomeCollection {
   readonly card: ProductPageCard | null;
   /** Первый экран страницы продукта: оформление курса повторяет его на Главной. */
   readonly hero: ProductPageHero | null;
+  /** «до старта N дней» — наклейка на анимации, пока поток набирается; иначе нет. */
+  readonly startCountdown?: string | null;
 }
 
 export interface HomeView {

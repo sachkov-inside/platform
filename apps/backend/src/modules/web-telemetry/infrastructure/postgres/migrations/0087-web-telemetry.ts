@@ -1,4 +1,4 @@
-export const name = "0086_web_telemetry";
+export const name = "0087_web_telemetry";
 export const statement = `
 CREATE SCHEMA web_telemetry;
 CREATE TABLE web_telemetry.route_templates (

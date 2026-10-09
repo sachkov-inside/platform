@@ -18,6 +18,7 @@ export const telemetryRouteTemplates = [
   "/authoring/submissions",
   "/authoring/topics",
   "/bookmarks",
+  "/learning",
   "/legal",
   "/map",
   "/payment/checkout",

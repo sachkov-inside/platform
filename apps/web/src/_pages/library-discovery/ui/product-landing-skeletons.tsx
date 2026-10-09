@@ -1,3 +1,5 @@
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
+
 /** Скелеты страницы продукта: их рисует общая оболочка маршрута до прихода данных. */
 
 /** Пульсация серых блоков; при `prefers-reduced-motion` они стоят неподвижно. */
@@ -12,6 +14,8 @@ export function ProductLandingSkeleton() {
       className="min-h-svh min-w-0"
       data-route-skeleton="product-landing"
     >
+      {/* Страница курса обходится без шапки телефона, скелет тоже: страница не прыгает. */}
+      <HideMobileNavigation />
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
         <div className="pt-4" data-product-part="back">
           <div className={`h-10 w-44 rounded-full bg-secondary ${pulse}`} />

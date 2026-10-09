@@ -1,9 +1,22 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import {
+  LayoutGrid,
+  ListOrdered,
+  Package,
+  RefreshCw,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import { SeriesContinuationProvider } from "@/entities/material";
 import { formatMaterialCount } from "@/features/library-discovery";
@@ -13,6 +26,7 @@ import { readSeriesPage } from "@/shared/routing/material-reader";
 
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import { useSeriesLearning } from "./series-learning.client";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
@@ -38,15 +52,34 @@ export interface JourneyRun {
   readonly rows: readonly JourneyRow[];
 }
 
+/** Карточка каталога материалов: готовая карточка сервера и поля для поиска и фильтров. */
+export interface CatalogEntry {
+  readonly card: ReactNode;
+  readonly format: string;
+  readonly formatSlug: string;
+  readonly inProgramme: boolean;
+  /** Дата публикации ISO; пустая строка — без даты, такие карточки стоят в конце. */
+  readonly publishedAt: string;
+  readonly slug: string;
+  /** Название и описание в нижнем регистре для поиска. */
+  readonly text: string;
+}
+
 export type JourneyPart =
   | {
       readonly chapterCount: number;
-      readonly id: "programme" | "supplementary";
+      readonly id: "programme";
       readonly kind: "materials";
       readonly label: string;
       /** Короткое имя вкладки для узкого экрана; полное остаётся для скринридера. */
       readonly shortLabel?: string;
       readonly runs: readonly JourneyRun[];
+    }
+  | {
+      readonly entries: readonly CatalogEntry[];
+      readonly id: "supplementary";
+      readonly kind: "catalog";
+      readonly label: string;
     }
   | {
       readonly count: number;
@@ -76,13 +109,16 @@ export function SeriesJourneyControls({
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
   const routeRef = useRef<HTMLElement>(null);
+  // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
+  const requestedCatalog = search.get("part") === "materials";
   const [selection, setSelection] = useState(() => ({
-    id:
-      (
-        parts.find((entry) =>
-          partRows(entry).some((row) => row.slug === requestedMaterial),
-        ) ?? parts[0]
-      )?.id ?? "programme",
+    id: requestedCatalog
+      ? ("supplementary" as const)
+      : ((
+          parts.find((entry) =>
+            partRows(entry).some((row) => row.slug === requestedMaterial),
+          ) ?? parts[0]
+        )?.id ?? "programme"),
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
   }));
@@ -124,6 +160,24 @@ export function SeriesJourneyControls({
   const next = parts
     .flatMap(partRows)
     .find((row) => row.slug === continuation?.materialSlug && row.available);
+  // Раскрытая строка в списке (решение владельца 09.10.2026): урок продолжения — «Продолжить»;
+  // кто ещё не начинал — гость или читатель без прочитанных уроков — видит «Начать обучение» у
+  // первого открытого урока программы.
+  const notStarted =
+    learning.kind === "guest" ||
+    (learning.kind === "ready" && learning.read === 0);
+  const firstOpen = notStarted
+    ? parts
+        .filter((entry) => entry.id === "programme")
+        .flatMap(partRows)
+        .find((row) => row.available)
+    : undefined;
+  const inlineContinuation =
+    next === undefined
+      ? firstOpen === undefined
+        ? null
+        : { materialSlug: firstOpen.slug, label: "Начать обучение" }
+      : { materialSlug: next.slug, label: "Продолжить" };
 
   useEffect(() => {
     const node = sentinel.current;
@@ -169,6 +223,16 @@ export function SeriesJourneyControls({
     if (id === part?.id) return;
     setSelection({ id, explicit: true });
   }
+  /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
+  function openPart(id: JourneyPart["id"]) {
+    selectPart(id);
+    // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
+    // владельца 09.10.2026). На широком экране прокручивается оболочка, на телефоне — окно.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0 });
+      document.getElementById("content")?.scrollTo({ top: 0 });
+    });
+  }
 
   return (
     <section
@@ -181,75 +245,6 @@ export function SeriesJourneyControls({
         Материалы продукта
       </h2>
       {parts.length > 1 ? (
-        <div
-          className="flex max-w-full flex-wrap items-center gap-x-4 gap-y-1 border-b border-border"
-          role="tablist"
-          aria-label="Разделы продукта"
-        >
-          {parts.map((entry) => (
-            <button
-              aria-controls={`series-part-panel-${entry.id}`}
-              aria-selected={entry.id === part?.id}
-              className={cn(
-                "relative min-h-11 max-w-full py-2 text-sm font-semibold whitespace-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                entry.id === part?.id
-                  ? "text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              id={`series-part-${entry.id}`}
-              key={entry.id}
-              onClick={() => {
-                selectPart(entry.id);
-              }}
-              onKeyDown={(event) => {
-                const position = parts.findIndex(({ id }) => id === entry.id);
-                const destination =
-                  event.key === "ArrowRight"
-                    ? (position + 1) % parts.length
-                    : event.key === "ArrowLeft"
-                      ? (position - 1 + parts.length) % parts.length
-                      : event.key === "Home"
-                        ? 0
-                        : event.key === "End"
-                          ? parts.length - 1
-                          : -1;
-                const moved = destination < 0 ? undefined : parts[destination];
-                if (moved === undefined) return;
-                event.preventDefault();
-                selectPart(moved.id);
-                requestAnimationFrame(() => {
-                  document.getElementById(`series-part-${moved.id}`)?.focus();
-                });
-              }}
-              role="tab"
-              tabIndex={entry.id === part?.id ? 0 : -1}
-              type="button"
-            >
-              {entry.kind === "materials" && entry.shortLabel !== undefined ? (
-                <>
-                  <span className="@max-[26rem]/programme:sr-only">
-                    {entry.label}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="hidden @max-[26rem]/programme:inline"
-                  >
-                    {entry.shortLabel}
-                  </span>
-                </>
-              ) : (
-                entry.label
-              )}
-              {partCount(entry) > 0 ? (
-                <span className="ml-1.5 tabular-nums font-normal text-muted-foreground">
-                  {partCount(entry)}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {parts.length > 1 ? (
         <p aria-live="polite" className="sr-only">
           {part?.label}:{" "}
           {part?.kind === "artifacts"
@@ -258,16 +253,17 @@ export function SeriesJourneyControls({
         </p>
       ) : null}
       <div
-        aria-labelledby={
-          part === undefined ? undefined : `series-part-${part.id}`
-        }
+        aria-label={part?.label}
         id={`series-part-panel-${part?.id ?? "programme"}`}
-        role={parts.length > 1 ? "tabpanel" : undefined}
-        tabIndex={parts.length > 1 ? 0 : undefined}
         className="focus-visible:outline-2 focus-visible:outline-ring"
       >
         {part?.kind === "artifacts" ? (
-          part.panel
+          <>
+            <PartHeading title={part.label} />
+            {part.panel}
+          </>
+        ) : part?.kind === "catalog" ? (
+          <MaterialCatalog entries={part.entries} />
         ) : (
           <>
             {part?.id === "programme" &&
@@ -275,12 +271,6 @@ export function SeriesJourneyControls({
             part.chapterCount === 0 ? (
               <p className="py-10 text-sm leading-6 text-muted-foreground">
                 Программа готовится. Здесь появятся главы и уроки продукта.
-              </p>
-            ) : null}
-            {part?.id === "supplementary" && visible.length === 0 ? (
-              <p className="py-10 text-sm leading-6 text-muted-foreground">
-                Здесь появятся дополнительные разборы и полезные материалы к
-                продукту.
               </p>
             ) : null}
             {visible.length > SERIES_BATCH_SIZE ? (
@@ -303,7 +293,7 @@ export function SeriesJourneyControls({
                 Повторить проверку доступа
               </Button>
             ) : null}
-            <SeriesContinuationProvider materialSlug={next?.slug ?? null}>
+            <SeriesContinuationProvider continuation={inlineContinuation}>
               <div className="mt-5 grid gap-6">
                 {visibleRuns(
                   part?.kind === "materials" ? part.runs : [],
@@ -405,6 +395,20 @@ export function SeriesJourneyControls({
           </Button>
         </div>
       ) : null}
+      {parts.length > 1 ? (
+        <ProgrammeSidebar
+          activeId={part?.id ?? "programme"}
+          onOpenPart={openPart}
+          parts={parts}
+        />
+      ) : null}
+      {parts.length > 1 ? (
+        <ProductBottomBar
+          activeId={part?.id ?? "programme"}
+          onOpen={openPart}
+          parts={parts}
+        />
+      ) : null}
     </section>
   );
 }
@@ -430,7 +434,164 @@ function partRows(part: JourneyPart): readonly JourneyRow[] {
 }
 
 function partCount(part: JourneyPart): number {
-  return part.kind === "materials" ? partRows(part).length : part.count;
+  return part.kind === "materials"
+    ? partRows(part).length
+    : part.kind === "catalog"
+      ? part.entries.length
+      : part.count;
+}
+
+/** Заголовок раздела: на странице видно, что открыты «Материалы» или «Артефакты». */
+function PartHeading({ title }: { readonly title: string }) {
+  return (
+    <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
+      {title}
+    </h2>
+  );
+}
+
+const catalogFormats = [
+  { slug: "", label: "Все" },
+  { slug: "video", label: "Видео" },
+  { slug: "guide", label: "Гайды" },
+  { slug: "note", label: "Заметки" },
+] as const;
+const catalogScopes = [
+  { id: "all", label: "Все" },
+  { id: "programme", label: "Из программы" },
+  { id: "extra", label: "Дополнительные" },
+] as const;
+type CatalogScope = (typeof catalogScopes)[number]["id"];
+
+/**
+ * Каталог материалов продукта: поиск по названию и описанию, фильтр формата и источника, новые
+ * материалы сверху. Карточки — те же, что в ленте Главной, с превью (решение владельца
+ * 09.10.2026). Программа остаётся строгим порядком глав в своём разделе.
+ */
+function MaterialCatalog({
+  entries,
+}: {
+  readonly entries: readonly CatalogEntry[];
+}) {
+  const [query, setQuery] = useState("");
+  const [format, setFormat] = useState("");
+  const [scope, setScope] = useState<CatalogScope>("all");
+  const needle = query.trim().toLocaleLowerCase("ru");
+  const formats = catalogFormats.filter(
+    (option) =>
+      option.slug === "" ||
+      entries.some((entry) => entry.formatSlug === option.slug),
+  );
+  const shown = [...entries]
+    .filter(
+      (entry) =>
+        (needle === "" || entry.text.includes(needle)) &&
+        (format === "" || entry.formatSlug === format) &&
+        (scope === "all" || (scope === "programme") === entry.inProgramme),
+    )
+    .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
+  const chip = (active: boolean) =>
+    cn(
+      "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
+      active
+        ? "bg-primary text-primary-foreground"
+        : "bg-muted text-muted-foreground hover:text-foreground",
+    );
+  return (
+    <div data-material-catalog>
+      <PartHeading title="Материалы" />
+      {/* Поиск и фильтры компактные (стандарт шкалы 09.10.2026): поле 40 px, текст ввода 16 px,
+          чтобы iPhone не увеличивал страницу, подсказка мельче. */}
+      <label className="mt-3 flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 sm:mt-4 sm:min-h-11 sm:gap-2.5 sm:px-3.5">
+        <Search
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+        <span className="sr-only">Поиск по материалам курса</span>
+        <input
+          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-sm placeholder:text-muted-foreground sm:placeholder:text-base"
+          onChange={(event) => {
+            setQuery(event.currentTarget.value);
+          }}
+          placeholder="Найти материал"
+          type="search"
+          value={query}
+        />
+      </label>
+      {/* Фильтры — один ряд: на узком экране он прокручивается вбок, а не растёт вниз. */}
+      <div className="public-horizontal-rail -mx-4 mt-2.5 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:mt-3 sm:flex-wrap sm:overflow-visible sm:px-0">
+        <div
+          aria-label="Формат материала"
+          className="flex shrink-0 gap-1.5"
+          role="group"
+        >
+          {formats.map((option) => (
+            <button
+              aria-pressed={format === option.slug}
+              className={chip(format === option.slug)}
+              key={option.slug}
+              onClick={() => {
+                setFormat(option.slug);
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+        <div
+          aria-label="Откуда материал"
+          className="flex shrink-0 gap-1.5"
+          role="group"
+        >
+          {catalogScopes.slice(1).map((option) => (
+            <button
+              aria-pressed={scope === option.id}
+              className={chip(scope === option.id)}
+              key={option.id}
+              onClick={() => {
+                setScope(scope === option.id ? "all" : option.id);
+              }}
+              type="button"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p
+        aria-live="polite"
+        className="mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm"
+      >
+        {shown.length === entries.length
+          ? formatMaterialCount(entries.length)
+          : `Найдено: ${formatMaterialCount(shown.length)}`}
+      </p>
+      {shown.length === 0 ? (
+        <p className="py-10 text-sm leading-6 text-muted-foreground">
+          {entries.length === 0
+            ? "Здесь появятся материалы курса."
+            : "Ничего не нашлось. Попробуй другой запрос или сними фильтры."}
+        </p>
+      ) : (
+        <ul
+          className="mt-2 grid gap-x-6 lg:grid-cols-2"
+          aria-label="Материалы курса"
+        >
+          {shown.map((entry) => (
+            <li
+              className="min-w-0"
+              data-route-material={entry.slug}
+              key={entry.slug}
+            >
+              {entry.card}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /** «1 артефакт» / «2 артефакта» / «5 артефактов» for the live part announcement. */
@@ -446,4 +607,128 @@ function artifactsInWords(count: number): string {
           ? "артефакта"
           : "артефактов";
   return `${String(count)} ${form}`;
+}
+
+const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
+  programme: ListOrdered,
+  supplementary: LayoutGrid,
+  artifacts: Package,
+};
+/** Имена пунктов нижней панели для скринридера: на экране у пунктов только значки. */
+const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
+  programme: "Программа",
+  supplementary: "Материалы",
+  artifacts: "Артефакты",
+};
+
+/**
+ * Нижняя панель продукта на телефоне (решение владельца 09.10.2026), только значки, как
+ * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
+ * панель: разделы продукта — те же, что вкладки на широком экране. Главной здесь нет: на неё
+ * ведут логотип в шапке и ссылка вверху, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
+ * Шапка телефона с профилем и закладками остаётся сверху.
+ */
+function ProductBottomBar({
+  activeId,
+  onOpen,
+  parts,
+}: {
+  readonly activeId: JourneyPart["id"];
+  readonly onOpen: (id: JourneyPart["id"]) => void;
+  readonly parts: readonly JourneyPart[];
+}) {
+  return (
+    <>
+      {/* Место под панель в конце списка: последний урок не прячется за ней. */}
+      <div aria-hidden="true" className="h-20 md:hidden" />
+      <div aria-hidden="true" className="course-bar-fade md:hidden" />
+      <nav
+        aria-label="Разделы продукта"
+        className="product-bottom-bar md:hidden"
+        style={barVariables({
+          "--bar-count": parts.length,
+          "--bar-index": Math.max(
+            0,
+            parts.findIndex((entry) => entry.id === activeId),
+          ),
+        })}
+      >
+        {/* Подложка выбранного раздела переезжает к новому пункту, как в приложении. */}
+        <span aria-hidden="true" className="product-bottom-bar-indicator" />
+        <HidePublicFooter />
+        {parts.map((entry) => {
+          const Icon = partIcons[entry.id];
+          const current = entry.id === activeId;
+          return (
+            <button
+              aria-current={current ? "true" : undefined}
+              aria-label={partBarLabels[entry.id]}
+              className="product-bottom-bar-item"
+              data-current={current}
+              key={entry.id}
+              onClick={() => {
+                onOpen(entry.id);
+              }}
+              type="button"
+            >
+              <Icon aria-hidden="true" />
+            </button>
+          );
+        })}
+      </nav>
+    </>
+  );
+}
+
+/**
+ * Колонка разделов (решение владельца 09.10.2026): программа, материалы, артефакты со счётчиками.
+ * Сама программа остаётся в основной колонке справа; колонка прилипает к верху. На компьютере у
+ * пунктов подписи, на планшете колонка сужается до значков и несёт профиль, на телефоне её роль
+ * играет нижняя панель.
+ */
+function ProgrammeSidebar({
+  activeId,
+  onOpenPart,
+  parts,
+}: {
+  readonly activeId: JourneyPart["id"];
+  readonly onOpenPart: (id: JourneyPart["id"]) => void;
+  readonly parts: readonly JourneyPart[];
+}) {
+  return (
+    <aside className="programme-sidebar" data-programme-sidebar>
+      <nav aria-label="Разделы продукта" className="programme-sidebar-inner">
+        <ul className="programme-sidebar-parts">
+          {parts.map((entry) => {
+            const Icon = partIcons[entry.id];
+            const current = entry.id === activeId;
+            return (
+              <li key={entry.id}>
+                <button
+                  aria-current={current ? "true" : undefined}
+                  data-current={current}
+                  onClick={() => {
+                    onOpenPart(entry.id);
+                  }}
+                  type="button"
+                >
+                  <Icon aria-hidden="true" />
+                  <span>{partBarLabels[entry.id]}</span>
+                  {partCount(entry) > 0 ? (
+                    <small>{partCount(entry)}</small>
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </aside>
+  );
+}
+
+type BarVariables = CSSProperties & Record<`--${string}`, number>;
+/** CSS-переменные панели: число пунктов и выбранный — по ним стили ставят подложку. */
+function barVariables(values: Record<`--${string}`, number>): BarVariables {
+  return values;
 }

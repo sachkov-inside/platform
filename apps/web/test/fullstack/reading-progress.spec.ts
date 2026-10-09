@@ -5,6 +5,7 @@ import {
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
+import { homeFeedCard } from "../support/home-feed";
 import { readingStatesResultSchema } from "../../src/features/reading-progress/model/reading-contract";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
@@ -90,13 +91,8 @@ test("reading progress persists for a free non-member, reconciles lost responses
     .include("[data-reading-action-state]")
     .analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.goto(`/?q=${encodeURIComponent("Как устроен Inside Platform")}`);
-  const card = page.getByRole("article").filter({
-    has: page.getByRole("link", {
-      name: "Как устроен Inside Platform",
-      exact: true,
-    }),
-  });
+  await page.goto("/");
+  const card = await homeFeedCard(page, "Как устроен Inside Platform");
   await expect(card.locator("[data-material-reading-status]")).toHaveText(
     "Изучено",
   );
@@ -112,7 +108,12 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await secondButton.click();
     await expect(secondButton).toHaveAttribute("aria-pressed", "false");
     await page.reload();
-    await expect(card.locator("[data-material-reading-status]")).toHaveCount(0);
+    // После перезагрузки лента снова первая страница: карточку находим заново.
+    await expect(
+      (await homeFeedCard(page, "Как устроен Inside Platform")).locator(
+        "[data-material-reading-status]",
+      ),
+    ).toHaveCount(0);
     await other.clearCookies();
     await second.reload();
     await expect(
@@ -259,12 +260,12 @@ test("reading progress appears on Home and Topic for video and other formats", a
       kind: "ready",
       states: [{ materialId, isRead: true, readAt: expect.any(String) }],
     });
-    await page.goto(`/?q=${encodeURIComponent(material.title)}`);
+    await page.goto("/");
     const cardOn = (surface: Page) =>
       surface.getByRole("article").filter({
         has: surface.getByRole("link", { name: material.title, exact: true }),
       });
-    const card = cardOn(page);
+    const card = await homeFeedCard(page, material.title);
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
     );

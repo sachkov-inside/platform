@@ -58,10 +58,16 @@ export function LibraryDiscoveryView({
   offerTerms = null,
   result,
   returnTarget = homeMaterialReaderReturnTarget,
+  statusCall,
+  heroBadge,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
   /** Личная часть первого экрана продукта: плашка потока и кнопка по этапу продаж. */
   readonly heroCall?: ReactNode;
+  /** Личная часть нижнего блока продукта: плашка набора на поток. */
+  readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на анимации первого экрана. */
+  readonly heroBadge?: ReactNode;
   /** Сроки предложения продукта для подстановок в его описании. */
   readonly offerTerms?: OneTimeOfferTerms | null;
   readonly result: ResolvedDiscoveryResult;
@@ -76,6 +82,8 @@ export function LibraryDiscoveryView({
         offerTerms={offerTerms}
         result={result}
         returnTarget={returnTarget}
+        statusCall={statusCall}
+        heroBadge={heroBadge}
         {...(entry === undefined ? {} : { freeEntryHref: entry })}
       />
     );

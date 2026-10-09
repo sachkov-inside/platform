@@ -3,11 +3,13 @@ import Link from "next/link";
 
 import {
   billingActionClass,
+  PreorderPriceView,
+  StartCountdownBadge,
+  type PreorderPrice,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { ContentCoverImage } from "@/entities/material";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
@@ -22,13 +24,17 @@ import {
 import "./product-programme-view.css";
 
 import { formatChapterCount } from "./product-counts";
-import { programmePurchaseRowClass } from "./programme-purchase-row";
+import {
+  programmePreorderRowClass,
+  programmePurchaseRowClass,
+} from "./programme-purchase-row";
 import { SeriesJourney } from "./series-journey";
 import {
   PendingPurchaseRow,
   PendingSeriesLearning,
   ProgrammeProgress,
 } from "./series-learning.client";
+import { CourseMark } from "@/features/ai-engineering-course";
 
 type ResolvedSeriesResult = Extract<
   PublishedSeriesResult,
@@ -43,6 +49,7 @@ type ResolvedSeriesResult = Extract<
 export function ProductProgrammeView({
   artifacts,
   result,
+  preorder = null,
   productOffer = null,
   pending: accessPending = false,
   subscriptionOffered = false,
@@ -50,6 +57,8 @@ export function ProductProgrammeView({
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ResolvedSeriesResult;
   readonly productOffer?: PriceSnapshot | null;
+  /** Цена предзаказа: пока поток набирается, кнопка оплаты становится предзаказом. */
+  readonly preorder?: PreorderPrice | null;
   /**
    * Программа нарисована из общих данных, личная часть ещё идёт (ADR 0027): состав и названия
    * настоящие, а замки, счётчик открытого, приглашение к оплате и прогресс уточняются на месте.
@@ -81,48 +90,56 @@ export function ProductProgrammeView({
 
   return (
     <div
-      className="@container/programme mx-auto min-w-0 w-full max-w-[46rem]"
+      className="programme-frame @container/programme mx-auto min-w-0 w-full max-w-[46rem]"
       data-product-programme={slug}
     >
+      {/* Выход из прохождения — вверху слева, на Главную: снизу у программы свои разделы,
+          и случайно уйти на Главную нельзя. Страница продукта — справа, для тех, кто его изучает. */}
       <nav
         aria-label="Путь навигации"
-        className="pt-4"
+        className="-mt-3 flex flex-wrap items-center justify-between gap-x-3 sm:mt-0 sm:pt-4"
         data-programme-part="back"
       >
         <IntentPrefetchLink
           className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
-          href={productHref}
+          href="/"
         >
           <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-          <span>О продукте</span>
+          <span>Главная</span>
+        </IntentPrefetchLink>
+        <IntentPrefetchLink
+          className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-border underline-offset-4"
+          href={productHref}
+        >
+          О продукте
         </IntentPrefetchLink>
       </nav>
 
       <header
-        className="mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
+        className="relative mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
         data-programme-part="header"
       >
-        {/* Обложка, название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит
-            под название и занимает всю ширину, чтобы до неё было удобно дотянуться. */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
-          <div className="w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-border @[36rem]/programme:w-36">
-            <ContentCoverImage
-              alt=""
-              className="aspect-[3/2] min-h-0 w-full"
-              cover={result.reference.cover ?? null}
-              fallbackKind="playlist"
-              fallbackSeed={slug}
-              priority
-              sizes="9rem"
-            />
-          </div>
-          <div className="min-w-0 [overflow-wrap:anywhere]">
-            <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
-              {result.reference.name}
-            </h1>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground sm:text-sm">
-              {meta.join(" · ")}
-            </p>
+        {preorder === null || accessPending ? null : (
+          <StartCountdownBadge text={preorder.daysLeft} />
+        )}
+        {/* Название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит под
+            название. Обложки в шапке программы нет (решение владельца 09.10.2026): это рабочий
+            экран курса, картинка в маленьком размере ничего не сообщает. */}
+        <div className="grid grid-cols-1 items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex min-w-0 items-center gap-3 [overflow-wrap:anywhere]">
+            {/* У курса AI Engineering рядом с названием его знак (решение владельца 09.10.2026). */}
+            {result.reference.productPage?.presentation ===
+            "ai-engineering-course" ? (
+              <CourseMark className="size-10 shrink-0 sm:size-12" />
+            ) : null}
+            <div className="min-w-0">
+              <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
+                {result.reference.name}
+              </h1>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
+                {meta.join(" · ")}
+              </p>
+            </div>
           </div>
           {accessPending ? (
             <PendingPurchaseRow
@@ -131,10 +148,18 @@ export function ProductProgrammeView({
             />
           ) : purchase === null ? null : (
             <div
-              className={programmePurchaseRowClass}
+              className={
+                preorder === null
+                  ? programmePurchaseRowClass
+                  : programmePreorderRowClass
+              }
               data-programme-purchase-row
             >
-              <ProgrammePurchase invitation={purchase} offer={productOffer} />
+              <ProgrammePurchase
+                invitation={purchase}
+                offer={productOffer}
+                preorder={preorder}
+              />
             </div>
           )}
         </div>
@@ -206,9 +231,11 @@ export function programmePurchase({
 function ProgrammePurchase({
   invitation,
   offer,
+  preorder,
 }: {
   readonly invitation: PurchaseInvitation;
   readonly offer: PriceSnapshot | null;
+  readonly preorder: PreorderPrice | null;
 }) {
   if (invitation.kind === "subscription") {
     return (
@@ -217,7 +244,7 @@ function ProgrammePurchase({
       </Button>
     );
   }
-  return (
+  const button = (
     <Button
       asChild
       className={`product-purchase-cta ${billingActionClass}`}
@@ -225,5 +252,23 @@ function ProgrammePurchase({
     >
       <Link href={invitation.href}>Оплатить сейчас</Link>
     </Button>
+  );
+  // Пока поток набирается, рядом с ценой — компактная оранжевая кнопка предзаказа справа: она не
+  // спорит с широкой тёмной «Начать обучение» в списке уроков (решение владельца 09.10.2026).
+  if (preorder === null) return button;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border pt-4">
+      <PreorderPriceView note={null} price={preorder} />
+      <Link
+        className="inline-flex min-h-9 shrink-0 items-center rounded-full bg-accent px-4 text-sm font-semibold text-accent-foreground no-underline transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        aria-label="Оформить предзаказ"
+        data-product-offer={offer?.paymentOption.id}
+        href={invitation.href}
+      >
+        {/* На телефоне коротко, чтобы кнопка встала в строку с ценой. */}
+        <span className="sm:hidden">Предзаказ</span>
+        <span className="max-sm:hidden">Оформить предзаказ</span>
+      </Link>
+    </div>
   );
 }

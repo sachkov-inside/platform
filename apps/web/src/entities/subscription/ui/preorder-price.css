@@ -1,0 +1,36 @@
+/* Цена предзаказа крупно, рядом зачёркнутая цена после старта, ниже срок. */
+.preorder-price {
+  display: grid;
+  gap: 0.1rem;
+}
+.preorder-price p,
+.ai-product-page .preorder-price p {
+  margin: 0;
+}
+.preorder-price-line {
+  white-space: nowrap;
+}
+.preorder-price-now {
+  font-size: 1.6rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+.preorder-price-after {
+  margin-left: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.preorder-price-note {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+/* На тёмной плашке цена белая, а подписи приглушённые; правила тёмных блоков их не перекрашивают. */
+.preorder-price[data-tone="dark"] .preorder-price-now {
+  color: var(--primary-foreground);
+}
+.preorder-price[data-tone="dark"] .preorder-price-after,
+.ai-product-page .preorder-price[data-tone="dark"] .preorder-price-note {
+  color: color-mix(in srgb, var(--primary-foreground) 62%, transparent);
+}

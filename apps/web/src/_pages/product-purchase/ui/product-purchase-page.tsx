@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { preorderTerms } from "@/entities/subscription";
 import {
   readGuestProductSale,
   readViewerProductSale,
@@ -46,11 +47,10 @@ export async function ProductPurchasePage({
   return (
     <ProductPurchase
       key={`${slug}:${offerId ?? ""}`}
-      product={{
-        name: product.reference.name,
-        summary: product.reference.summary,
-      }}
+      product={{ name: product.reference.name }}
       offers={catalog.kind === "ready" ? catalog.offers : []}
+      preorder={catalog.kind === "ready" ? preorderTerms(catalog.cohort) : null}
+      signedIn={accessToken !== undefined}
       {...(offerId === undefined ? {} : { offerId })}
       slug={slug}
       {...(promoCode === undefined ? {} : { promoCode })}

@@ -13,9 +13,14 @@ import {
  * подтверждение с соседней поверхности и сбрасывает запомненный ответ в этот момент, а не ждёт
  * повторного открытия страницы.
  */
-export function useBillingContact() {
+export function useBillingContact({
+  enabled = true,
+}: {
+  /** `false` — сервер уже знает, что человек не вошёл: контакт читать незачем. */
+  readonly enabled?: boolean;
+} = {}) {
   const queryClient = useQueryClient();
-  const query = useQuery(billingContactQueryOptions());
+  const query = useQuery({ ...billingContactQueryOptions(), enabled });
 
   useEffect(
     () =>

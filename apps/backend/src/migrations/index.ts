@@ -1,7 +1,11 @@
 import {
   name as webTelemetryName,
   statement as webTelemetryStatement,
-} from "../modules/web-telemetry/infrastructure/postgres/migrations/0086-web-telemetry.js";
+} from "../modules/web-telemetry/infrastructure/postgres/migrations/0087-web-telemetry.js";
+import {
+  name as productCohortPriceAfterStartName,
+  statement as productCohortPriceAfterStartStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
 import {
   name as communityProjectionRetriesName,
   statement as communityProjectionRetriesStatement,
@@ -564,6 +568,10 @@ export const platformMigrations = [
   {
     name: communityProjectionRetriesName,
     statement: communityProjectionRetriesStatement,
+  },
+  {
+    name: productCohortPriceAfterStartName,
+    statement: productCohortPriceAfterStartStatement,
   },
   { name: webTelemetryName, statement: webTelemetryStatement },
 ] as const;

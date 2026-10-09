@@ -1,6 +1,6 @@
 import {
-  ArrowLeft,
   ArrowRight,
+  ChevronLeft,
   Bot,
   Check,
   ChevronDown,
@@ -9,6 +9,7 @@ import {
   FileCode2,
   FileText,
   FolderGit2,
+  GitPullRequest,
   Gauge,
   Layers,
   MessagesSquare,
@@ -18,7 +19,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Terminal,
   UserRound,
   Wrench,
 } from "lucide-react";
@@ -38,6 +38,7 @@ import {
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import {
@@ -48,6 +49,7 @@ import {
   OpenCodeLogo,
 } from "./agent-logos";
 
+import { cohortEnrollAnchor } from "../model/cohort-call";
 import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
@@ -61,19 +63,27 @@ type ResolvedSeriesResult = Extract<
  * Оформление `ai-engineering-course`: страница-описание курса. Весь текст приходит из описания
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
- * Программа и прохождение живут на странице программы: туда ведут все кнопки.
+ * Программа и прохождение живут на странице программы: туда ведут все кнопки. На телефоне и
+ * планшете навигации сайта внизу нет: её место занимает кнопка в программу, а назад ведёт
+ * маленькая кнопка в самом верху.
  */
 export function AiEngineeringCourseView({
   heroCall,
   result,
   page,
   returnTarget,
+  statusCall,
+  heroBadge,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
+  /** Плашка набора на поток вместо заголовка нижнего блока, пока поток не стартовал. */
+  readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на углу анимации, пока поток набирается. */
+  readonly heroBadge?: ReactNode;
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
@@ -88,22 +98,17 @@ export function AiEngineeringCourseView({
       data-product-presentation="ai-engineering-course"
       data-product-landing={reference.slug}
     >
-      <nav aria-label="Хлебные крошки">
-        <IntentPrefetchLink
-          className="ai-product-back"
-          href={returnTarget.href}
-        >
-          <ArrowLeft />
-          {returnTarget.label}
-        </IntentPrefetchLink>
-      </nav>
+      <HideMobileNavigation />
+      <IntentPrefetchLink className="aie-back" href={returnTarget.href}>
+        <ChevronLeft aria-hidden="true" />
+        Назад
+      </IntentPrefetchLink>
 
       <header className="aie-course-hero">
         <CourseHero
-          action={{ href: programme, label: "Открыть программу" }}
           badge={hero?.badge ?? ""}
           call={heroCall}
-          compactActionOnPhone
+          filmBadge={heroBadge}
           highlights={hero?.highlights ?? []}
           lead={hero?.lead ?? reference.summary}
           name={reference.name}
@@ -112,6 +117,7 @@ export function AiEngineeringCourseView({
 
       {page.blocks.map((block) => (
         <CourseBlock
+          statusCall={statusCall}
           block={block}
           hasFreeLessons={hasFreeLessons}
           key={block.id}
@@ -133,16 +139,19 @@ function CourseBlock({
   block,
   hasFreeLessons,
   programme,
+  statusCall,
 }: {
   readonly block: ProductPageBlock;
   readonly hasFreeLessons: boolean;
   readonly programme: Route;
+  readonly statusCall?: ReactNode;
 }): ReactNode {
   switch (block.kind) {
     case "hero":
       return null;
     case "cards":
-      if (block.id === "topics") return <TopicGrid block={block} />;
+      if (block.id === "topics")
+        return <TopicGrid block={block} programme={programme} />;
       if (block.id === "audience") return <Audience block={block} />;
       if (block.id === "value") return <ValueGrid block={block} />;
       if (block.id === "faq") return <Faq block={block} />;
@@ -155,7 +164,7 @@ function CourseBlock({
       return <FormatCards block={block} programme={programme} />;
     case "list":
       if (block.id === "status")
-        return <Status block={block} programme={programme} />;
+        return <Status block={block} call={statusCall} programme={programme} />;
       if (block.id === "agents") return <Agents block={block} />;
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
@@ -390,16 +399,19 @@ const topicTiles: readonly {
     art: (
       <div className="aie-art-guard">
         <span className="aie-art-guard-action">
-          <Terminal />
-          git push --force
+          <Bot />
+          Шаг 3 из 5 · auth.ts
         </span>
         <span className="aie-art-guard-gate">
           <ShieldCheck />
-          Нужно подтверждение
+          Тесты 24/24
         </span>
         <span className="aie-art-guard-buttons">
-          <b>Разрешить</b>
-          <b>Отклонить</b>
+          <b>
+            <GitPullRequest />
+            PR #42 проверен
+          </b>
+          <b>Merge</b>
         </span>
       </div>
     ),
@@ -475,7 +487,14 @@ const topicTiles: readonly {
     ),
   },
 ];
-function TopicGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
+/** Темы курса и под ними кнопка в программу: там главы и уроки по этим темам. */
+function TopicGrid({
+  block,
+  programme,
+}: {
+  readonly block: ProductPageBlockOf<"cards">;
+  readonly programme: Route;
+}) {
   return (
     <section className="ai-product-outcomes aie-topics">
       <Eyebrow text={block.eyebrow} />
@@ -509,6 +528,10 @@ function TopicGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
         })}
       </ul>
       <Note text={block.note} />
+      <IntentPrefetchLink className="aie-topics-programme" href={programme}>
+        Открыть программу
+        <ArrowRight aria-hidden="true" />
+      </IntentPrefetchLink>
     </section>
   );
 }
@@ -570,18 +593,39 @@ const formatArt: readonly ReactNode[] = [
     </span>
     <i />
   </div>,
-  <div className="aie-mock-video" key="video">
+  <div className="aie-mock-task" key="task">
+    <small>Задание 2.3</small>
+    <b>Спроектируй вход в систему</b>
+    <ul>
+      <li>
+        <Check />
+        Спецификация
+      </li>
+      <li>
+        <Check />
+        Реализация
+      </li>
+      <li>
+        <Check />
+        Тесты
+      </li>
+    </ul>
     <span>
-      <Play />
+      <ShieldCheck />
+      Проверено
     </span>
-    <i>
-      <b />
-    </i>
   </div>,
-  <div className="aie-mock-terminal" key="terminal">
-    <code>$ pnpm test</code>
-    <code data-ok="true">✓ 24 passed</code>
-    <code data-ok="true">✓ проверка пройдена</code>
+  <div className="aie-mock-decision" key="decision">
+    <span className="aie-mock-decision-ask">
+      <Bot />
+      Как хранить сессии?
+    </span>
+    <span>В памяти сервера</span>
+    <span data-chosen="true">
+      <Check />
+      Токены с ротацией
+    </span>
+    <small>решаешь ты</small>
   </div>,
   <div className="aie-mock-chat" key="chat">
     <span>Проверка не проходит, куда смотреть?</span>
@@ -801,59 +845,103 @@ function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
           </details>
         ))}
       </div>
-      {block.note === "" ? null : (
-        <p className="aie-faq-note">
-          <CourseIcon name="telegram" />
-          <span>{withTelegramLinks(block.note)}</span>
-        </p>
-      )}
+      {block.note === "" ? null : <FaqContact note={block.note} />}
     </section>
   );
 }
 
 /**
- * Ник Telegram в тексте автора становится ссылкой: контакт хранится в описании курса, а не в коде.
- * Правило Telegram: 5–32 символа, латиница, цифры и подчёркивание.
+ * Подпись под вопросами: текст автора и кнопка Telegram. Ник хранится в описании курса, а не в
+ * коде; в тексте он не печатается, его заменяет кнопка (решение владельца 09.10.2026). Правило
+ * Telegram для ника: 5–32 символа, латиница, цифры и подчёркивание.
  */
-function withTelegramLinks(text: string): ReactNode[] {
-  return text.split(/(@[A-Za-z][A-Za-z0-9_]{4,31})/u).map((part, index) =>
-    index % 2 === 1 ? (
-      <a
-        href={`https://t.me/${part.slice(1)}`}
-        key={`${String(index)}-${part}`}
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        {part}
-      </a>
-    ) : (
-      part
-    ),
+function FaqContact({ note }: { readonly note: string }) {
+  const handle = /@([A-Za-z][A-Za-z0-9_]{4,31})/u.exec(note)?.[1];
+  const text =
+    handle === undefined ? note : note.replace(`@${handle}`, "").trim();
+  return (
+    <div className="aie-faq-note">
+      <span>{text}</span>
+      {handle === undefined ? null : (
+        <a
+          className="aie-telegram-button"
+          href={`https://t.me/${handle}`}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <TelegramLogo />
+          Написать в Telegram
+        </a>
+      )}
+    </div>
   );
 }
 
+/** Знак Telegram (Simple Icons, CC0): бумажный самолёт в круге, цвет задаёт кнопка. */
+function TelegramLogo() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    </svg>
+  );
+}
+
+/**
+ * Значки пунктов «что входит» по порядку описания курса: доступ к курсу, менторинг, практика,
+ * сообщество. Лишний пункт получает галочку.
+ */
+const statusIcons: readonly CourseIconName[] = [
+  "materials",
+  "questions",
+  "check",
+  "telegram",
+];
+
 function Status({
   block,
+  call,
   programme,
 }: {
   readonly block: ProductPageBlockOf<"list">;
+  /**
+   * Плашка набора на поток. Пока она есть, она стоит вместо заголовка и кнопки блока; без неё
+   * блок показывает свой текст из описания курса.
+   */
+  readonly call?: ReactNode;
   readonly programme: Route;
 }) {
   return (
-    <section className="aie-status">
-      <div>
-        <h2>{block.title}</h2>
-        {block.text === "" ? null : <p>{block.text}</p>}
+    // Якорь цены — только у блока набора: прочие блоки-списки рисуются тем же компонентом.
+    <section
+      className="aie-status"
+      id={block.id === "status" ? cohortEnrollAnchor : undefined}
+    >
+      <div className="aie-status-lead">
+        <div className="aie-status-default">
+          <h2>{block.title}</h2>
+          {block.text === "" ? null : <p>{block.text}</p>}
+        </div>
+        {call}
       </div>
       <ul>
-        {block.items.map((item, index) => (
-          <li key={`${String(index)}-${item}`}>
-            <Check aria-hidden="true" />
-            {item}
-          </li>
-        ))}
+        {block.items.map((item, index) => {
+          const icon = statusIcons[index];
+          return (
+            <li key={`${String(index)}-${item}`}>
+              {icon === undefined ? (
+                <Check aria-hidden="true" />
+              ) : (
+                <CourseIcon name={icon} />
+              )}
+              {item}
+            </li>
+          );
+        })}
       </ul>
-      <IntentPrefetchLink className="aie-status-button" href={programme}>
+      <IntentPrefetchLink
+        className="aie-status-button aie-status-default"
+        href={programme}
+      >
         Открыть программу
         <ArrowRight />
       </IntentPrefetchLink>

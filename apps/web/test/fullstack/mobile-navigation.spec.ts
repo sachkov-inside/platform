@@ -19,12 +19,25 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
   const response = page.waitForResponse(
     (value) => new URL(value.url()).pathname === "/api/account",
   );
-  await navigation.getByRole("link", { name: "Профиль" }).click();
+  // Нажатие по центру ссылки, как палец: шапка прилипает к верху, а `click()` сперва прокрутил бы
+  // страницу к её месту в документе и унёс позицию ленты.
+  const profile = await navigation
+    .getByRole("link", { name: "Профиль" })
+    .boundingBox();
+  if (profile === null) throw new Error("Profile link is missing");
+  await page.mouse.click(
+    profile.x + profile.width / 2,
+    profile.y + profile.height / 2,
+  );
   expect((await response).status()).toBe(401);
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
   ).toBeVisible();
-  await navigation.getByRole("link", { name: "Главная" }).click();
+  // Логотип «Главная» стоит в шапке вне списка разделов.
+  await page
+    .locator("[data-mobile-header]")
+    .getByRole("link", { name: "Главная", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/\?format=guide$/u);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
   await expect(

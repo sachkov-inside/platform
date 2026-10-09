@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, revisionSchema } from "./pricing.js";
+import { idSchema, moneySchema, revisionSchema } from "./pricing.js";
 
 /**
  * Этап продаж потока продукта. Он выбирает, что обещает страница и куда ведёт её кнопка, но не
@@ -26,6 +26,12 @@ const cohortFields = {
   startsOn: cohortStartSchema.nullable(),
   /** Что ждёт следующих участников между потоками, например «эфир 15 декабря». */
   nextEvent: z.string().trim().max(200),
+  /**
+   * Цена после старта в копейках: страница курса показывает её зачёркнутой рядом с ценой
+   * предзаказа. Это только витрина, списание всегда идёт по цене предложения, а её владелец меняет
+   * в день старта сам. `null` — страница цену после старта не показывает. Этап не ограничивает.
+   */
+  priceAfterStartKopecks: moneySchema.nullable(),
 };
 
 /**

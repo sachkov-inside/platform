@@ -81,7 +81,7 @@ budget, and removes its database in `finally`. The final Issue/PR records measur
 machine conditions. The [resource proof](../verification/web-telemetry-707.md) records the accepted
 corpus, all 32 cycles, timings and API memory method.
 
-Migration `0086_web_telemetry` only adds its own schema. Existing application tables and query
+Migration `0087_web_telemetry` only adds its own schema. Existing application tables and query
 contracts stay unchanged. The release contract nevertheless compares exact schema identities;
 this migration changes that identity. Rollback to the previous application release is therefore
 not allowed by the current release contract, even with compatible old queries. Failure after

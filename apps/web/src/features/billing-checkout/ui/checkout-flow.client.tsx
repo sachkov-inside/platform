@@ -11,6 +11,7 @@ import {
   type BillingQuote,
   type LegalDocument,
   paymentMode,
+  type PreorderTerms,
   type PriceSnapshot,
   type PurchaseStatus,
   type VerifiedContact,
@@ -48,6 +49,8 @@ export interface CheckoutFlowProps {
   readonly onDocumentsChanged?: () => void;
   /** Промокод персональной ссылки владельца: расчёт применяет его, если код действует. */
   readonly promoCode?: string;
+  /** Пока поток набирается: день старта и цена после него для разовой оплаты. */
+  readonly preorder?: PreorderTerms | null;
 }
 
 interface CheckoutSelection {
@@ -100,6 +103,7 @@ export function CheckoutFlow({
   showInclusions = false,
   onDocumentsChanged,
   promoCode,
+  preorder = null,
 }: CheckoutFlowProps) {
   const selectionKey = JSON.stringify([
     snapshot.paymentOption.id,
@@ -328,6 +332,7 @@ export function CheckoutFlow({
   const panel = oneTime ? (
     <OneTimeCheckoutPanel
       {...shared}
+      preorder={preorder}
       showInclusions={showInclusions}
       onRetryQuote={requestQuote}
       promoRejected={promoRejected}

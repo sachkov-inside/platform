@@ -9,16 +9,21 @@ import {
 } from "@/shared/routing/public-page-path";
 
 /**
- * Нижняя часть публичных страниц: кто продаёт и где прочитать условия, обработку данных,
- * хранение в браузере, оплату и отмену. Ссылки ведут на текущие редакции; полный адрес,
- * телефон и порядок обращений живут в документе «Реквизиты и обращения», а не здесь.
+ * Нижняя часть публичных страниц: кто продаёт и где прочитать документы. Подвал короткий
+ * (решение владельца 09.10.2026): данные, хранение в браузере, реквизиты и ссылка на все
+ * документы; условия и оферты — в разделе документов и в самом оформлении покупки. Полный
+ * адрес, телефон и порядок обращений живут в документе «Реквизиты и обращения».
  */
+const FOOTER_DOCUMENTS = new Set(["privacy", "cookies", "contacts"]);
+
 export function PublicFooter() {
   return (
-    <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
+    <footer className="border-t border-border pt-5 text-xs text-muted-foreground sm:text-sm">
       <nav aria-label="Документы Inside">
-        <ul className="flex flex-wrap gap-x-5 gap-y-2">
-          {LEGAL_NAVIGATION.map((entry) => (
+        <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {LEGAL_NAVIGATION.filter((entry) =>
+            FOOTER_DOCUMENTS.has(entry.key),
+          ).map((entry) => (
             <li key={entry.key}>
               <Link
                 className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -38,7 +43,7 @@ export function PublicFooter() {
           </li>
         </ul>
       </nav>
-      <p className="mt-5 text-xs leading-6">
+      <p className="mt-3 text-xs leading-5">
         {legalSeller.name} · ИНН {legalSeller.inn} · ОГРНИП {legalSeller.ogrnip}{" "}
         ·{" "}
         <a

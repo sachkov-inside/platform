@@ -1,6 +1,8 @@
 import "server-only";
 
 import { fillProductPageHero } from "@/entities/product-page";
+import { cohortCountdown } from "@/entities/subscription";
+import { loadProductCohort } from "@/entities/subscription.catalog.server";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
@@ -27,7 +29,11 @@ export async function fillPinnedOfferTerms(
   const pinned = result.value.pinnedSeries;
   if (pinned === null || (pinned.card === null && pinned.hero === null))
     return result;
-  const read = await readPublicProductOfferTerms(pinned.id);
+  // Поток читается рядом со сроками: он нужен наклейке «до старта N дней» на анимации курса.
+  const [read, cohort] = await Promise.all([
+    readPublicProductOfferTerms(pinned.id),
+    pinned.hero === null ? Promise.resolve(null) : loadProductCohort(pinned.id),
+  ]);
   const terms = read.kind === "ready" ? read.terms : null;
   const fill = (text: string) => fillOneTimeTerms(text, terms);
   return {
@@ -47,6 +53,8 @@ export async function fillPinnedOfferTerms(
               },
         hero:
           pinned.hero === null ? null : fillProductPageHero(pinned.hero, fill),
+        startCountdown:
+          cohort?.kind === "ready" ? cohortCountdown(cohort.cohort) : null,
       },
     },
   };

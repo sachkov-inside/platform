@@ -223,12 +223,13 @@ async function installProbe(page: Page) {
         if (!probe.skeletons.includes(name)) probe.skeletons.push(name);
       }
       if (busy.length > 0) {
-        // Подвал площадки, а не подвал урока с соседями по продукту.
+        // Подвал площадки, а не подвал урока с соседями по продукту. В прохождении курса подвал
+        // скрыт (решение владельца 09.10.2026): у скрытого подвала нет положения, и он не считается.
         const footer =
           document
             .querySelector("main nav[aria-label='Документы Inside']")
             ?.closest("footer") ?? null;
-        if (footer !== null) {
+        if (footer !== null && footer.getClientRects().length > 0) {
           const position =
             footer.getBoundingClientRect().top / window.innerHeight;
           probe.highestFooterWhileLoading = Math.min(
@@ -1067,7 +1068,7 @@ test("снимки «до»: те же кадры перехода на коде
   });
 });
 
-test("Главная ↔ продукт: свой скелет продукта, Главная без скелета, повтор без запросов", async ({
+test("Главная ↔ продукт: свой скелет продукта, Главная без скелета, повтор продукта без запросов", async ({
   page,
   shellPrefetched,
 }, testInfo) => {
@@ -1138,10 +1139,18 @@ test("Главная ↔ продукт: свой скелет продукта,
     "повторный переход в продукт не запрашивает RSC",
   ).toBe(0);
   expect(repeatProduct.skeletons).toEqual([]);
+  // Главная объявляет `instant = false` и не держит окно памяти браузера: каждый возврат читает её
+  // заново (решение владельца 09.10.2026, ADR 0027). Без скелета всей страницы, как и в первый раз.
   expect(
     repeatHome.navigationRequests,
-    "повторный возврат на Главную не запрашивает RSC",
-  ).toBe(0);
+    "повторный возврат на Главную читает её заново",
+  ).toBeGreaterThan(0);
+  expect(
+    repeatHome.skeletons.filter(
+      (name) => name !== "Материалы" && name !== "loading",
+    ),
+    "повторный возврат на Главную не показывает чужой скелет",
+  ).toEqual([]);
 });
 
 test("смена режима прохождения сбрасывает страницы, которые браузер помнит в прежнем режиме", async ({

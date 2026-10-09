@@ -27,10 +27,22 @@ const freeBody =
 const paidBody = "Закрытое содержимое для участников.";
 const accessRequired = '[data-material-reader-state="access-required"]';
 
-async function signInWithTelegram(page: Page, telegramUserId: string) {
-  if ((page.viewportSize()?.width ?? 1440) < 768)
-    await page.getByRole("link", { name: "Профиль", exact: true }).click();
-  await page.getByRole("button", { name: "Войти", exact: true }).click();
+async function signInWithTelegram(
+  page: Page,
+  telegramUserId: string,
+  slug: string,
+) {
+  // Витрина продукта на телефоне без шапки (решение владельца 09.10.2026): гость входит со
+  // страницы покупки, куда ведёт кнопка витрины.
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await expect(page.locator("[data-mobile-header]")).toBeHidden();
+    await page.goto(`/products/${slug}/buy`);
+    await page
+      .getByRole("button", { name: "Войти и оплатить", exact: true })
+      .click();
+  } else {
+    await page.getByRole("button", { name: "Войти", exact: true }).click();
+  }
   await expect(
     page.getByRole("heading", { name: "Тестовый провайдер входа" }),
   ).toBeVisible();
@@ -66,7 +78,7 @@ test("покупатель курса проходит путь от стран�
   ).toBeVisible();
 
   // Вход через Telegram.
-  await signInWithTelegram(page, telegramUserId);
+  await signInWithTelegram(page, telegramUserId, slug);
 
   // Бесплатная глава открыта, закрытая — только описание с предложением купить продукт.
   await page.goto(freeChapter);

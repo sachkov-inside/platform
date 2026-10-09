@@ -1,4 +1,10 @@
-import { ArrowLeft, ArrowRight, List } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  List,
+} from "lucide-react";
 import { type ReactNode } from "react";
 
 import type {
@@ -14,6 +20,7 @@ import {
   MaterialBodyView,
   materialSourceAnchors,
 } from "@/entities/material";
+import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import {
@@ -28,6 +35,7 @@ import {
 import { topicPath } from "@/shared/routing/public-page-path";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
@@ -126,6 +134,7 @@ export function MaterialReaderView({
           <MaterialReaderFooter seriesContext={seriesContext} />
         </div>
       </ReaderReturnNavigation>
+      <SeriesReaderBar context={seriesContext} />
     </div>
   );
 }
@@ -180,6 +189,76 @@ export function SeriesReaderNavigation({
         </IntentPrefetchLink>
       )}
     </nav>
+  );
+}
+
+/**
+ * Нижняя панель урока внутри продукта на телефоне и планшете (решение владельца 09.10.2026):
+ * предыдущий урок, программа с номером урока, следующий урок. Внутри курса она заменяет общую
+ * навигацию снизу: Главной там нет, на неё ведёт логотип в шапке, и случайно уйти из курса
+ * нельзя. Кнопки 44 px (зона нажатия); недоступный шаг остаётся на месте приглушённым.
+ */
+export function SeriesReaderBar({
+  context,
+}: {
+  readonly context: SeriesReaderContext | null;
+}) {
+  if (context === null) return null;
+  const step =
+    "grid size-11 place-items-center rounded-[1.15rem] text-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  return (
+    <>
+      {/* Место под панель в конце урока: последние строки не прячутся за ней. */}
+      <div aria-hidden="true" className="h-20 lg:hidden" />
+      <div aria-hidden="true" className="course-bar-fade lg:hidden" />
+      <nav
+        aria-label="Уроки продукта"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 shadow-floating-nav backdrop-blur-xl lg:hidden"
+        data-series-reader-bar
+      >
+        <HidePublicFooter />
+        {context.previous === null ? (
+          <span
+            aria-hidden="true"
+            className={cn(step, "text-muted-foreground/40")}
+          >
+            <ChevronLeft className="size-5" />
+          </span>
+        ) : (
+          <IntentPrefetchLink
+            aria-label="Предыдущий урок"
+            className={step}
+            href={context.previous.href}
+          >
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </IntentPrefetchLink>
+        )}
+        <IntentPrefetchLink
+          aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}`}
+          className="flex min-h-11 items-center gap-2 rounded-[1.15rem] bg-primary px-4 text-sm font-semibold tabular-nums text-primary-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          href={context.series.href}
+        >
+          <List aria-hidden="true" className="size-4 text-accent-bright" />
+          {context.currentPosition} / {context.totalMaterials}
+        </IntentPrefetchLink>
+        {context.next === null ? (
+          <span
+            aria-hidden="true"
+            className={cn(step, "text-muted-foreground/40")}
+          >
+            <ChevronRight className="size-5" />
+          </span>
+        ) : (
+          <IntentPrefetchLink
+            aria-label="Следующий урок"
+            className={step}
+            href={context.next.href}
+          >
+            <ChevronRight aria-hidden="true" className="size-5" />
+          </IntentPrefetchLink>
+        )}
+      </nav>
+    </>
   );
 }
 

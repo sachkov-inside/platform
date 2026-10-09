@@ -25,37 +25,44 @@ export function CourseHero({
   action,
   heading = "h1",
   headingId,
-  compactActionOnPhone = false,
   call,
+  filmBadge,
 }: {
   readonly name: string;
   readonly badge: string;
   readonly lead: string;
   readonly highlights: readonly string[];
-  readonly action: { readonly href: Route; readonly label: string };
+  /** Кнопка первого экрана; страница курса её не показывает, чтобы не уводить со страницы. */
+  readonly action?: { readonly href: Route; readonly label: string };
   /** Страница курса — h1, карточка Главной — h2 внутри своей секции. */
   readonly heading?: "h1" | "h2";
   readonly headingId?: string;
-  /** На телефоне страница курса ведёт в программу нижней панелью, кнопка в первом экране лишняя. */
-  readonly compactActionOnPhone?: boolean;
   /**
    * Плашка потока и кнопка по этапу продаж вместо обычной кнопки. Страница курса передаёт сюда
    * личную часть, а её запасной вид — ту же обычную кнопку.
    */
   readonly call?: ReactNode;
+  /** Наклейка на углу анимации — сколько дней до старта потока; без набора её нет. */
+  readonly filmBadge?: ReactNode;
 }) {
   const Heading = heading;
   return (
     <div className="aie-hero">
       <div className="aie-hero-copy">
-        <Heading className="aie-hero-title" id={headingId}>
-          <span className="aie-hero-name">{name}</span>
-          {badge === "" ? null : (
-            <>
-              {" "}
-              <span className="aie-hero-badge">{badge}</span>
-            </>
-          )}
+        <Heading
+          className="aie-hero-title"
+          data-badge={badge !== ""}
+          id={headingId}
+        >
+          <span className="aie-hero-mark">
+            <span className="aie-hero-name">{name}</span>
+            {badge === "" ? null : (
+              <>
+                {" "}
+                <span className="aie-hero-badge">{badge}</span>
+              </>
+            )}
+          </span>
         </Heading>
         {lead === "" ? null : <p className="aie-hero-lead">{lead}</p>}
         {highlights.length === 0 ? null : (
@@ -70,19 +77,32 @@ export function CourseHero({
             })}
           </ul>
         )}
-        {call ?? (
-          <IntentPrefetchLink
-            className="aie-hero-action"
-            data-compact-on-phone={compactActionOnPhone}
-            href={action.href}
-          >
-            {action.label}
-            <ArrowRight aria-hidden="true" />
-          </IntentPrefetchLink>
-        )}
+        {call ??
+          (action === undefined ? null : (
+            <IntentPrefetchLink className="aie-hero-action" href={action.href}>
+              {action.label}
+              <ArrowRight aria-hidden="true" />
+            </IntentPrefetchLink>
+          ))}
       </div>
       <div className="aie-hero-film">
-        <CourseFilm />
+        {filmBadge}
+        {/* На Главной анимация тоже ведёт на страницу курса, как и кнопка (решение владельца
+            09.10.2026). На самой странице курса ссылки нет. */}
+        {action === undefined ? (
+          <CourseFilm />
+        ) : (
+          // Дубль кнопки для мыши и пальца: клавиатура и скринридер идут по кнопке, второй
+          // одинаковой ссылки в их обходе нет.
+          <IntentPrefetchLink
+            aria-hidden="true"
+            className="aie-hero-film-link"
+            href={action.href}
+            tabIndex={-1}
+          >
+            <CourseFilm />
+          </IntentPrefetchLink>
+        )}
       </div>
     </div>
   );

@@ -173,14 +173,17 @@ export const RealDataReady: Story = {
     await expect(canvas.queryByText("База знаний")).not.toBeInTheDocument();
   },
 };
-/** Search on its own row; formats and topics are one chip row, and a second press clears a topic. */
+/**
+ * Поиска на Главной пока нет (решение владельца 09.10.2026): форматы и темы — один ряд чипов,
+ * повторное нажатие снимает тему.
+ */
 export const FeedFilters: Story = {
   args: { result: { kind: "ready", value: home }, feed: feed() },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      await canvas.findByRole("searchbox", { name: "Поиск по материалам" }),
-    ).toBeVisible();
+      canvas.queryByRole("searchbox", { name: "Поиск по материалам" }),
+    ).not.toBeInTheDocument();
     const topics = within(await canvas.findByRole("group", { name: "Тема" }));
     const agents = topics.getByRole("button", { name: "AI-агенты" });
     await expect(

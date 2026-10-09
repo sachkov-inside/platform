@@ -1,0 +1,30 @@
+/* Наклейка повторяет «+ менторинг» первого экрана: акцентная, слегка повёрнута и чуть парит. */
+.start-countdown-badge {
+  position: absolute;
+  top: -0.7rem;
+  right: 1rem;
+  z-index: 2;
+  padding: 0.3rem 0.7rem 0.32rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  box-shadow: 0 0.4rem 1rem -0.4rem
+    color-mix(in srgb, var(--accent) 70%, transparent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  rotate: 3deg;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .start-countdown-badge {
+    animation: start-countdown-float 5.2s ease-in-out infinite;
+  }
+}
+@keyframes start-countdown-float {
+  50% {
+    translate: 0 -2px;
+    rotate: 1.5deg;
+  }
+}

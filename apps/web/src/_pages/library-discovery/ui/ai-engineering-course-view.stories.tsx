@@ -1,8 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import type { ProductCohort } from "@/entities/subscription";
-import { CohortCallView } from "@/features/ai-engineering-course";
+import {
+  StartCountdownBadge,
+  type ProductCohort,
+} from "@/entities/subscription";
+import {
+  CohortCallView,
+  CohortStatusView,
+} from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
@@ -12,7 +18,12 @@ import {
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
+import { cohortStatus } from "../model/cohort-status";
 import { ProductLandingView } from "./product-landing-view";
+
+function fail(message: string): never {
+  throw new Error(message);
+}
 
 const environment = publicPageEnvironment("/products/ai-engineering");
 
@@ -80,7 +91,7 @@ export const Desktop: Story = {
     const film = canvasElement.querySelector<HTMLElement>(".aie-hero-film");
     if (film === null) throw new Error("Missing course film slot");
     await expect(within(film).getByRole("img")).toHaveAccessibleName(
-      /harness/u,
+      /навыки AI-инженера/u,
     );
     await expect(within(film).queryByRole("button")).toBeNull();
   },
@@ -178,33 +189,83 @@ const cohort: ProductCohort = {
   stage: "preorder",
   startsOn: "2026-10-20",
   nextEvent: "",
+  priceAfterStartKopecks: null,
 };
 
-/** Предзаказ: плашка потока над кнопкой, цена — из предложения, которое видит этот человек. */
+/** Набор на первый поток: предложение продаётся по цене предзаказа, цена после старта — у потока. */
+const preorderCohort: ProductCohort = {
+  ...cohort,
+  startsOn: "2026-11-09",
+  priceAfterStartKopecks: 3_990_000,
+};
+const preorderOffer = {
+  ...productWithSupportOffer,
+  firstPriceKopecks: 2_990_000,
+};
+
+/**
+ * Предзаказ: первый экран только сообщает, что набор идёт, и ведёт к нижнему блоку. Там пункты
+ * «что входит» и билет с ценой предложения, которое видит этот человек, рядом зачёркнутая цена
+ * после старта и скидка к ней.
+ */
 export const CohortPreorder: Story = {
   parameters: { account: "authenticated" },
   args: {
     heroCall: (
       <CohortCallView
         call={cohortCall({
-          cohort,
-          offer: productWithSupportOffer,
+          cohort: preorderCohort,
+          offer: preorderOffer,
           productAccess: "closed",
           signedIn: true,
           slug: "ai-engineering",
         })}
       />
     ),
+    heroBadge: <StartCountdownBadge text="до старта 31 день" />,
+    statusCall: (
+      <CohortStatusView
+        status={
+          cohortStatus({
+            cohort: preorderCohort,
+            offer: preorderOffer,
+            productAccess: "closed",
+            slug: "ai-engineering",
+            today: "2026-10-09",
+          }) ?? fail("Предзаказ рисует плашку набора")
+        }
+      />
+    ),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Поток 1")).toBeVisible();
     await expect(
-      canvas.getByText(/Предзаказ открыт до 20 октября/u),
-    ).toBeVisible();
+      canvas.getByRole("link", { name: /Идёт набор на первый поток/u }),
+    ).toHaveAttribute("href", "#enroll");
     await expect(
-      canvas.getByRole("link", { name: /^Оплатить/u }),
+      canvas.getByRole("link", { name: /Оформить предзаказ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
+    await expect(canvas.getByText(/^−25\s%$/u)).toBeInTheDocument();
+    // Сколько дней до старта, видно дважды: наклейкой на анимации и над заголовком блока набора.
+    await expect(canvas.getAllByText("до старта 31 день")).toHaveLength(2);
+    // Первый экран в программу не уводит: туда ведёт кнопка под темами курса.
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).queryByRole("link", { name: /Открыть программу/u }),
+    ).toBeNull();
+    const topics =
+      canvasElement.querySelector<HTMLElement>(".aie-topics") ??
+      fail("Блок тем курса");
+    // На телефоне эта кнопка скрыта: в программу там ведёт нижняя панель.
+    await expect(
+      topics.querySelector("a.aie-topics-programme"),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      canvas.getByRole("heading", { name: "Набор на первый поток" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getAllByText("39 900 ₽").length).toBeGreaterThan(0);
   },
 };
 

@@ -85,7 +85,7 @@ export function StorageNotice({
     <section
       ref={notice}
       aria-label="Хранение в браузере"
-      className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl lg:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+      className="storage-notice fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl lg:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
     >
       <p className="text-sm leading-6">
         Inside хранит в браузере только то, без чего не работают вход и

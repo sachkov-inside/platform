@@ -1,5 +1,4 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
-import { Agentation } from "agentation";
 import { sb } from "storybook/test";
 
 // Transparent render counters for the authoring performance story; production functions still run.
@@ -29,19 +28,12 @@ import "./story-frame.css";
 
 // Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
 const withStoryFrame: Decorator = (Story) => {
-  const isTestRun = import.meta.env.MODE === "test";
-
   return (
     <QueryProvider>
       <div data-story-frame>
         <div className="contents" data-story-content>
           <Story />
         </div>
-        {!isTestRun ? (
-          <div data-agentation-root>
-            <Agentation className="platform-agentation" />
-          </div>
-        ) : null}
       </div>
     </QueryProvider>
   );
