@@ -49,11 +49,12 @@ export async function readSummary(
       WHERE kind='vitals' AND day>=${from}::date AND day<=${now}::date AND metric IN ('LCP','INP','CLS')
       GROUP BY route_template, device_class, metric
     ) c LEFT JOIN (
-      SELECT route_template, device_class, metric,
-       percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75
-      FROM web_telemetry.vital_samples
-      WHERE occurred_at >= ${from} AND occurred_at <= ${now} AND metric IN ('LCP','INP','CLS')
-      GROUP BY route_template, device_class, metric
+      SELECT r.route_template,s.device_class,s.metric,s.p75 FROM (
+       SELECT route_id,device_class,metric,percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75
+       FROM web_telemetry.vital_samples
+       WHERE occurred_at >= ${from} AND occurred_at <= ${now} AND metric IN ('LCP','INP','CLS')
+       GROUP BY route_id,device_class,metric
+      ) s JOIN web_telemetry.route_templates r ON r.id=s.route_id
     ) p USING(route_template,device_class,metric)
     ORDER BY c.route_template,c.device_class,c.metric
   `);

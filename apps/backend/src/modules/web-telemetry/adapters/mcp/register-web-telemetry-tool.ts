@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { summaryDaysSchema } from "../../features/read-summary/summary-input.js";
 import type { WebTelemetry } from "../../facets/web-telemetry/web-telemetry.js";
 
 export function registerWebTelemetryTool(
@@ -16,7 +17,7 @@ export function registerWebTelemetryTool(
       description:
         "Read UTC-day p75 LCP/INP/CLS, route/device coverage and digest/route error groups for 1–30 days. Requires platform:admin. Any dropped samples mark p75 incomplete. Sends nothing and changes no state.",
       inputSchema: z.strictObject({
-        days: z.number().int().min(1).max(30).default(7),
+        days: summaryDaysSchema.default(7),
       }),
       annotations: {
         readOnlyHint: true,

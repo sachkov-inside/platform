@@ -1,14 +1,17 @@
 export const name = "0086_web_telemetry";
 export const statement = `
 CREATE SCHEMA web_telemetry;
+CREATE TABLE web_telemetry.route_templates (
+ id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY, route_template text NOT NULL UNIQUE
+);
 CREATE TABLE web_telemetry.vital_samples (
- occurred_at timestamptz NOT NULL, route_template text NOT NULL,
+ occurred_at timestamptz NOT NULL, route_id integer NOT NULL REFERENCES web_telemetry.route_templates(id),
  device_class text NOT NULL CHECK (device_class IN ('mobile','desktop')),
  metric text NOT NULL CHECK (metric IN ('LCP','INP','CLS','FCP','TTFB')),
  value double precision NOT NULL CHECK (value >= 0 AND value < 'Infinity'::float8)
 ) WITH (autovacuum_vacuum_scale_factor=0.01, autovacuum_analyze_scale_factor=0.02);
-CREATE INDEX vital_samples_summary ON web_telemetry.vital_samples(route_template,device_class,metric);
-CREATE INDEX vital_samples_retention ON web_telemetry.vital_samples(occurred_at);
+CREATE INDEX vital_samples_summary ON web_telemetry.vital_samples(route_id,device_class,metric) INCLUDE (occurred_at,value);
+CREATE INDEX vital_samples_retention ON web_telemetry.vital_samples USING brin(occurred_at);
 CREATE TABLE web_telemetry.errors (
  occurred_at timestamptz NOT NULL,
  source text NOT NULL CHECK (source IN ('client','server')),
@@ -31,14 +34,21 @@ CREATE TABLE web_telemetry.coverage (
  PRIMARY KEY(day,kind,route_template,device_class,metric)
 );
 CREATE FUNCTION web_telemetry.record_vital(p_at timestamptz,p_route text,p_device text,p_metric text,p_value double precision) RETURNS void LANGUAGE plpgsql AS $$
-DECLARE admitted boolean; p_day date := (p_at AT TIME ZONE 'UTC')::date;
+DECLARE admitted boolean; route_key integer; p_day date := (p_at AT TIME ZONE 'UTC')::date;
 BEGIN
  INSERT INTO web_telemetry.daily_quota(day,kind,saved,dropped) VALUES(p_day,'vitals',1,0)
  ON CONFLICT(day,kind) DO UPDATE SET
   saved=least(web_telemetry.daily_quota.saved+1,20000),
   dropped=web_telemetry.daily_quota.dropped+CASE WHEN web_telemetry.daily_quota.saved<20000 THEN 0 ELSE 1 END
  RETURNING dropped=0 INTO admitted;
- IF admitted THEN INSERT INTO web_telemetry.vital_samples(occurred_at,route_template,device_class,metric,value) VALUES(p_at,p_route,p_device,p_metric,p_value); END IF;
+ IF admitted THEN
+  SELECT id INTO route_key FROM web_telemetry.route_templates WHERE route_template=p_route;
+  IF route_key IS NULL THEN
+   INSERT INTO web_telemetry.route_templates(route_template) VALUES(p_route)
+   ON CONFLICT(route_template) DO UPDATE SET route_template=excluded.route_template RETURNING id INTO route_key;
+  END IF;
+  INSERT INTO web_telemetry.vital_samples(occurred_at,route_id,device_class,metric,value) VALUES(p_at,route_key,p_device,p_metric,p_value);
+ END IF;
  INSERT INTO web_telemetry.coverage(day,kind,route_template,device_class,metric,saved,dropped)
  VALUES(p_day,'vitals',p_route,p_device,p_metric,CASE WHEN admitted THEN 1 ELSE 0 END,CASE WHEN admitted THEN 0 ELSE 1 END)
  ON CONFLICT(day,kind,route_template,device_class,metric) DO UPDATE SET

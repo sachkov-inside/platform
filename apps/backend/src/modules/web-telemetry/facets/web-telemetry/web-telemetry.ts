@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { summaryDaysSchema } from "../../features/read-summary/summary-input.js";
 import { type WebTelemetryPrisma } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Accounts } from "../../../accounts/index.js";
@@ -44,7 +44,7 @@ export class WebTelemetry {
   }
 
   async summary(accountId: string, days: number) {
-    if (!z.number().int().min(1).max(30).safeParse(days).success)
+    if (!summaryDaysSchema.safeParse(days).success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
     const permission = await this.dependencies.accounts.checkPermission({
       accountId,

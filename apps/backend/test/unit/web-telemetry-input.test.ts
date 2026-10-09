@@ -3,8 +3,9 @@ import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 
 it("rejects visitor identifiers before reaching persistence", async () => {
   const query = vi.fn();
+  const execute = vi.fn();
   const telemetry = new WebTelemetry({
-    prisma: { $queryRaw: query, $executeRaw: vi.fn() },
+    prisma: { $queryRaw: query, $executeRaw: execute },
     accounts: {
       checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
     },
@@ -20,4 +21,5 @@ it("rejects visitor identifiers before reaching persistence", async () => {
     }),
   ).toEqual({ ok: false, error: { code: "invalid_input" } });
   expect(query).not.toHaveBeenCalled();
+  expect(execute).not.toHaveBeenCalled();
 });

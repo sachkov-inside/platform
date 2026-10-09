@@ -19,8 +19,11 @@ async function measure() {
   const container = await new PostgreSqlContainer("postgres:18.4-alpine")
     .withResourcesQuota({ cpu: 2, memory: 1 })
     .start();
-  const prisma = createPrismaClient(container.getConnectionUri());
+  const cleanup: (() => Promise<unknown>)[] = [() => container.stop()];
+  let failed = false;
   try {
+    const prisma = createPrismaClient(container.getConnectionUri());
+    cleanup.unshift(() => prisma.$disconnect());
     await migrateToLatest(container.getConnectionUri());
     let random = 707;
     const messages = Array.from({ length: corpusSize }, () =>
@@ -54,13 +57,15 @@ async function measure() {
     });
 
     async function seed(start: Date, days: number) {
+      await prisma.$executeRaw`INSERT INTO web_telemetry.route_templates(route_template) VALUES('/authoring/materials/[materialId]/preview') ON CONFLICT DO NOTHING`;
       await prisma.$executeRaw(Prisma.sql`
         INSERT INTO web_telemetry.vital_samples
         SELECT ${start}::timestamptz + (i/${metricsPerDay})*interval '1 day' + (i%${metricsPerDay})*interval '4 seconds',
-         '/authoring/materials/[materialId]/preview', CASE WHEN i%2=0 THEN 'mobile' ELSE 'desktop' END,
+         (SELECT id FROM web_telemetry.route_templates WHERE route_template='/authoring/materials/[materialId]/preview'), CASE WHEN i%2=0 THEN 'mobile' ELSE 'desktop' END,
          (ARRAY['LCP','INP','CLS'])[1+i%3], (i%1000)::float8
         FROM generate_series(0,${days * metricsPerDay - 1}::int) i
       `);
+      await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.vital_samples`;
       await prisma.$executeRaw(Prisma.sql`
         INSERT INTO web_telemetry.errors
         SELECT ${start}::timestamptz + (i/${errorsPerDay})*interval '1 day' + (i%${errorsPerDay})*interval '16 seconds',
@@ -76,11 +81,29 @@ async function measure() {
       `);
       await prisma.$executeRaw(Prisma.sql`
         INSERT INTO web_telemetry.coverage
-        SELECT (occurred_at AT TIME ZONE 'UTC')::date,'vitals',route_template,device_class,metric,count(*)::int,0
-        FROM web_telemetry.vital_samples WHERE occurred_at>=${start} GROUP BY 1,route_template,device_class,metric
+        SELECT (occurred_at AT TIME ZONE 'UTC')::date,'vitals',r.route_template,v.device_class,v.metric,count(*)::int,0
+        FROM web_telemetry.vital_samples v JOIN web_telemetry.route_templates r ON r.id=v.route_id
+        WHERE occurred_at>=${start} GROUP BY 1,r.route_template,v.device_class,v.metric
         UNION ALL
         SELECT (occurred_at AT TIME ZONE 'UTC')::date,'error',route_template,'desktop','',count(*)::int,0
         FROM web_telemetry.errors WHERE occurred_at>=${start} GROUP BY 1,route_template
+      `);
+    }
+    async function seedCycle(start: Date) {
+      await prisma.$executeRaw(Prisma.sql`
+        SELECT web_telemetry.record_vital(
+         ${start}::timestamptz + i*interval '4 seconds',
+         '/authoring/materials/[materialId]/preview',CASE WHEN i%2=0 THEN 'mobile' ELSE 'desktop' END,
+         (ARRAY['LCP','INP','CLS'])[1+i%3],(i%1000)::float8)
+        FROM generate_series(0,${metricsPerDay - 1}::int) i
+      `);
+      await prisma.$executeRaw(Prisma.sql`
+        SELECT web_telemetry.record_error(
+         ${start}::timestamptz + i*interval '16 seconds',
+         '/authoring/materials/[materialId]/preview',CASE WHEN i%2=0 THEN 'mobile' ELSE 'desktop' END,
+         CASE WHEN i%2=0 THEN 'client' ELSE 'server' END,md5(i::text || ${start.toISOString()}),'Error',c.message)
+        FROM generate_series(0,${errorsPerDay - 1}::int) i
+        JOIN jsonb_array_elements_text(${corpus}::jsonb) WITH ORDINALITY c(message,n) ON c.n=1+i%${corpusSize}
       `);
     }
     async function size() {
@@ -101,8 +124,12 @@ async function measure() {
     const initialBytes = await size();
     const relations: unknown =
       await prisma.$queryRaw`SELECT c.relname,pg_total_relation_size(c.oid)::float8 AS bytes FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid WHERE n.nspname='web_telemetry' AND c.relkind='r'`;
-    // Initialize the extended Prisma connection without reading or warming telemetry data.
-    await measuredPrisma.$queryRaw`SELECT 1`;
+    // Prepare Prisma/query/result adapters against an empty date window, without reading the corpus.
+    const measuredNow = now;
+    now = new Date(from.getTime() - millisecondsPerDay);
+    const prepared = await telemetry.summary("benchmark-owner", 1);
+    if (!prepared.ok) throw new Error(prepared.error.code);
+    now = measuredNow;
     queryTimes.length = 0;
     const summaryTimes: number[] = [];
     for (let run = 0; run < 8; run++) {
@@ -124,7 +151,7 @@ async function measure() {
       now = new Date(now.getTime() + millisecondsPerDay);
       const start = new Date(now);
       start.setUTCHours(0, 0, 0, 0);
-      await seed(start, 1);
+      await seedCycle(start);
       const beforeCleanupBytes = await size();
       const before = performance.now();
       const cleaned = await telemetry.clean(now);
@@ -170,9 +197,26 @@ async function measure() {
       growth.some((row) => row.cleanupMs > 5000)
     )
       throw new Error("Telemetry resource budget exceeded");
+  } catch (error) {
+    failed = true;
+    throw error;
   } finally {
-    await prisma.$disconnect();
-    await container.stop();
+    const failures: unknown[] = [];
+    for (const release of cleanup) {
+      try {
+        await release();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length > 0) {
+      if (!failed)
+        throw new AggregateError(
+          failures,
+          "Telemetry measurement cleanup failed",
+        );
+      process.stderr.write("Telemetry measurement cleanup also failed\n");
+    }
   }
 }
 await measure();

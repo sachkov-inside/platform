@@ -1,3 +1,4 @@
+import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -122,7 +123,7 @@ it("accepts the private API report and rejects visitor fields at the HTTP bounda
       await app.get(WebTelemetry).summary("invalid-account", 30),
     ).toMatchObject({ ok: false });
     const rows: unknown = await database.prisma
-      .$queryRaw`SELECT route_template,device_class,value FROM web_telemetry.vital_samples`;
+      .$queryRaw`SELECT r.route_template,v.device_class,v.value FROM web_telemetry.vital_samples v JOIN web_telemetry.route_templates r ON r.id=v.route_id`;
     expect(rows).toEqual([
       {
         route_template: "/products/[slug]",
@@ -202,4 +203,30 @@ it("enforces the error quota under concurrent recording", async () => {
     ok: true,
     value: { errors: [{ count: 5 }], coverage: [{ saved: 5, dropped: 15 }] },
   });
+});
+
+it("uses UTC quota days even when the database connection has another timezone", async () => {
+  await telemetry.record(vital(10));
+  const url = new URL(database.url);
+  url.searchParams.set("options", "-c timezone=America/Los_Angeles");
+  const prisma = createPrismaClient(url.toString());
+  const nextDay = new WebTelemetry({
+    prisma,
+    accounts: {
+      checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+    },
+    clock: () => new Date("2026-10-10T00:00:00Z"),
+  });
+  try {
+    expect(
+      await prisma.$queryRaw`SELECT current_setting('TimeZone') AS timezone`,
+    ).toEqual([{ timezone: "America/Los_Angeles" }]);
+    await nextDay.record(vital(20));
+    expect(await nextDay.summary("owner", 1)).toMatchObject({
+      ok: true,
+      value: { vitals: [{ saved: 1, p75: 20 }], coverage: [{ saved: 1 }] },
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
 });

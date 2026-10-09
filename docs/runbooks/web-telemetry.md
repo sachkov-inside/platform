@@ -50,9 +50,9 @@ The existing `billing-worker` registers `web-telemetry.retention`, schedules it 
 and requests cleanup at worker startup. Cleanup deletes samples older than 30 days in batches of
 5,000 through time indexes. Daily counters expire when their entire UTC day is older than the
 cutoff. Ordinary autovacuum uses table-local scale factors 0.01 (vacuum) and 0.02 (analyze) for sample
-and error tables; global PostgreSQL settings stay unchanged. The summary index groups route/device/metric without
-individual timestamps, so PostgreSQL can deduplicate equal keys. The separate time index serves
-retention.
+and error tables; global PostgreSQL settings stay unchanged. Vital samples reference a shared route-template dictionary. A covering group index includes time
+and value, so summary reads can avoid fetching heap rows after ordinary vacuum. A BRIN time index
+serves retention without one index entry per sample.
 
 The read-only SQL view `web_telemetry.health` feeds the existing watchdog:
 
@@ -71,7 +71,9 @@ the migration that creates its view.
 
 `pnpm telemetry:measure` owns an isolated PostgreSQL 18.4 container limited to two CPUs and 1 GiB.
 It fills 600,000 vital samples and 150,000 errors using diverse 500-code-point, four-byte messages,
-then runs eight daily insertion/30-day-cleanup cycles. It measures before cleanup, after cleanup
+then runs eight daily insertion/30-day-cleanup cycles through the actual quota/coverage routines.
+Initial bulk preparation uses ordinary vacuum for sample visibility. Query adapters initialize
+against an empty date window before timed queries; that preparation does not read the corpus. It measures before cleanup, after cleanup
 and after ordinary vacuum. No VACUUM FULL, REINDEX or global setting change resets the measurement.
 Ordinary vacuum models the maintenance available during a real day; it retains file high-water
 marks and reusable pages. The command checks the 600 MB budget, p75 query time and daily cleanup
