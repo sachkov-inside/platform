@@ -214,10 +214,9 @@ function Quiz({
   const resultFocus = useRef<HTMLDivElement>(null);
   const previousAnswer = useRef(answer);
   useEffect(() => {
-    if (variant === "C" && previousAnswer.current !== answer) {
-      if (answer === null)
-        resultFocus.current?.querySelector("button")?.focus();
-      else resultFocus.current?.focus();
+    if (previousAnswer.current !== answer) {
+      if (answer === null) quizFocus.current?.querySelector("button")?.focus();
+      else if (variant === "C") resultFocus.current?.focus();
     }
     previousAnswer.current = answer;
   }, [variant, answer]);
