@@ -710,6 +710,135 @@ describe("владельческие операции billing: платежи, �
     ).toBe("not_found");
   });
 
+  test("предпросмотр показывает устаревшую классификацию без изменения состояния и выдачи", async () => {
+    const s = await scenario();
+    const [classified, untouched, missing] = [
+      await account(),
+      await account(),
+      randomUUID(),
+    ];
+    expect(
+      asClassification(
+        await s.operations.execute(owner, {
+          ...classifyNew(classified),
+          classification: "confirmed_legacy",
+          bridgeEnabled: true,
+        }),
+      ).value,
+    ).toMatchObject({ classification: "confirmed_legacy", revision: 1 });
+    const command = {
+      operation: "grants.previewBatch" as const,
+      operationId: randomUUID(),
+      rows: [
+        ...[classified, untouched, missing].map((accountId, index) => ({
+          rowKey: `classification-${String(index + 1)}`,
+          accountId,
+          expectedRevision: 0,
+          classification: "confirmed_new" as const,
+          sourceRef: `cohort-${accountId}`,
+          reason: "Подтверждённый участник",
+          bridgeEnabled: false,
+          tributeStopped: false,
+        })),
+        {
+          rowKey: "grant",
+          accountId: untouched,
+          source: "manual" as const,
+          sourceRef: `support-${untouched}`,
+          terms: {
+            capabilities: ["support" as const],
+            startsAt: "2030-03-01T00:00:00Z",
+            validUntil: null,
+            reason: "Ручное сопровождение",
+          },
+        },
+      ],
+    };
+    for (const actor of [outsider, s.buyer])
+      expect(failure(await s.operations.execute(actor, command))).toBe(
+        "forbidden",
+      );
+    const before = await db.prisma.legacyClassification.findUniqueOrThrow({
+      where: { accountId: classified },
+    });
+    const preview = asGrantPreview(await s.operations.execute(owner, command));
+    expect(preview.rows).toEqual([
+      {
+        rowKey: "classification-1",
+        accountId: classified,
+        status: "confirmed",
+        current: { classification: "confirmed_legacy", revision: 1 },
+      },
+      {
+        rowKey: "classification-2",
+        accountId: untouched,
+        status: "confirmed",
+        current: { classification: "unknown", revision: 0 },
+      },
+      {
+        rowKey: "classification-3",
+        accountId: missing,
+        status: "not_found",
+        current: null,
+      },
+      { rowKey: "grant", accountId: untouched, status: "confirmed" },
+    ]);
+    expect(
+      await db.prisma.legacyClassification.findUniqueOrThrow({
+        where: { accountId: classified },
+      }),
+    ).toEqual(before);
+    expect(
+      await db.prisma.legacyClassification.findUnique({
+        where: { accountId: untouched },
+      }),
+    ).toBeNull();
+    const stored = await db.prisma.accessBatchPreview.findUniqueOrThrow({
+      where: { id: preview.previewRef },
+    });
+    const confirmedIdentity: unknown = expect.any(String);
+    expect(stored.rows).toEqual(
+      command.rows.map((row) => ({
+        ...row,
+        identityFingerprint:
+          row.accountId === missing ? null : confirmedIdentity,
+      })),
+    );
+    expect(asGrantPreview(await s.operations.execute(owner, command))).toEqual(
+      preview,
+    );
+    const apply = {
+      operation: "grants.applyBatch" as const,
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      expectedRevision: preview.revision,
+      confirmedRows: ["grant", "classification-2", "classification-1"],
+    };
+    expect(failure(await s.operations.execute(owner, apply))).toBe(
+      "revision_conflict",
+    );
+    expect(
+      asClassification(
+        await s.operations.execute(owner, readClassification(untouched)),
+      ).value,
+    ).toMatchObject({ classification: "unknown", revision: 0 });
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: untouched } }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessChange.count({
+        where: { accountId: { in: [classified, untouched] } },
+      }),
+    ).toBe(1);
+    expect(
+      await db.prisma.accessReceipt.findUnique({
+        where: {
+          scope_operationId: { scope: owner, operationId: apply.operationId },
+        },
+      }),
+    ).toBeNull();
+  });
+
   test("набор классифицируется через тот же предпросмотр и применение, что и ручная выдача", async () => {
     const s = await scenario();
     const [first, second] = [await account(), await account()];
@@ -731,8 +860,18 @@ describe("владельческие операции billing: платежи, �
       }),
     );
     expect(preview.rows).toEqual([
-      { rowKey: "row-1", accountId: first, status: "confirmed" },
-      { rowKey: "row-2", accountId: second, status: "confirmed" },
+      {
+        rowKey: "row-1",
+        accountId: first,
+        status: "confirmed",
+        current: { classification: "unknown", revision: 0 },
+      },
+      {
+        rowKey: "row-2",
+        accountId: second,
+        status: "confirmed",
+        current: { classification: "unknown", revision: 0 },
+      },
     ]);
     // Предпросмотр ничего не записал: состояние обоих аккаунтов не изменилось.
     expect(
@@ -789,6 +928,20 @@ describe("владельческие операции billing: платежи, �
         })),
       }),
     );
+    expect(stale.rows).toEqual([
+      {
+        rowKey: "stale-1",
+        accountId: third,
+        status: "confirmed",
+        current: { classification: "unknown", revision: 0 },
+      },
+      {
+        rowKey: "stale-2",
+        accountId: fourth,
+        status: "confirmed",
+        current: { classification: "unknown", revision: 0 },
+      },
+    ]);
     expect(
       asClassification(await s.operations.execute(owner, classifyNew(third)))
         .value,

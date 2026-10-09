@@ -5,6 +5,7 @@ import type { Accounts } from "../../../accounts/index.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
+  classificationSchema,
   classificationTermsAgree,
   classificationTermsShape,
   grantTermsSchema,
@@ -89,6 +90,22 @@ export const previewRowsSchema = z.array(
   ]),
 );
 export type PreviewRow = z.infer<typeof previewRowsSchema>[number];
+const identityOutcomeSchema = z.strictObject({
+  rowKey: z.string(),
+  accountId: z.uuid(),
+  status: z.enum(["confirmed", "not_found"]),
+});
+export const previewOutcomeRowSchema = z.union([
+  identityOutcomeSchema,
+  identityOutcomeSchema.extend({
+    current: z
+      .strictObject({
+        classification: classificationSchema,
+        revision: z.number().int().nonnegative(),
+      })
+      .nullable(),
+  }),
+]);
 export type PreviewGrantBatchResult =
   | AccessFailure<"invalid_input" | "operation_conflict">
   | {
@@ -96,11 +113,7 @@ export type PreviewGrantBatchResult =
       readonly previewRef: string;
       readonly revision: number;
       readonly expiresAt: string;
-      readonly rows: readonly {
-        readonly rowKey: string;
-        readonly accountId: string;
-        readonly status: "confirmed" | "not_found";
-      }[];
+      readonly rows: readonly z.infer<typeof previewOutcomeRowSchema>[];
     };
 const previewLifetimeMilliseconds = 30 * 60 * 1000;
 
@@ -158,11 +171,34 @@ export async function previewGrantBatch(
       previewRef: preview.id,
       revision: preview.revision,
       expiresAt: preview.expiresAt.toISOString(),
-      rows: previewRowsSchema.parse(preview.rows).map((row) => ({
-        rowKey: row.rowKey,
-        accountId: row.accountId,
-        status: row.identityFingerprint === null ? "not_found" : "confirmed",
-      })),
+      rows: await Promise.all(
+        previewRowsSchema.parse(preview.rows).map(async (row) => {
+          const identityOutcome = {
+            rowKey: row.rowKey,
+            accountId: row.accountId,
+            status:
+              row.identityFingerprint === null
+                ? ("not_found" as const)
+                : ("confirmed" as const),
+          };
+          if (isGrantRow(row)) return identityOutcome;
+          if (row.identityFingerprint === null)
+            return { ...identityOutcome, current: null };
+          const existing = await transaction.legacyClassification.findUnique({
+            where: { accountId: row.accountId },
+            select: { classification: true, revision: true },
+          });
+          return {
+            ...identityOutcome,
+            current: {
+              classification: classificationSchema.parse(
+                existing?.classification ?? "unknown",
+              ),
+              revision: existing?.revision ?? 0,
+            },
+          };
+        }),
+      ),
     };
   });
 }

@@ -2599,11 +2599,19 @@ export class BillingService {
       outcome: 'grantPreview';
       previewRef: string;
       revision: number;
-      rows: Array<{
+      rows: Array<({
         accountId: string;
         rowKey: string;
         status: 'confirmed' | 'not_found';
-      }>;
+      } | {
+        accountId: string;
+        current: {
+          classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
+          revision: number;
+        } | null;
+        rowKey: string;
+        status: 'confirmed' | 'not_found';
+      })>;
     } | {
       outcome: 'grantBatch';
       rows: Array<{
