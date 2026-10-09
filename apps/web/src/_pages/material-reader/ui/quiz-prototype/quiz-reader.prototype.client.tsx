@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ReaderBlock,
   MaterialReaderMetadata,
@@ -210,6 +210,16 @@ function Quiz({
     initialAnswer(initialState),
   );
   const [all, setAll] = useState(initialState === "all");
+  const resultFocus = useRef<HTMLDivElement>(null);
+  const previousAnswer = useRef(answer);
+  useEffect(() => {
+    if (variant === "C" && previousAnswer.current !== answer) {
+      if (answer === null)
+        resultFocus.current?.querySelector("button")?.focus();
+      else resultFocus.current?.focus();
+    }
+    previousAnswer.current = answer;
+  }, [variant, answer]);
   const choose = (id: string) => {
     setAnswer(id);
     setAll(false);
@@ -255,7 +265,9 @@ function Quiz({
           className="border-y border-border py-4"
         >
           <summary className="cursor-pointer py-2 font-semibold focus-visible:outline-ring">
-            Проверьте себя: что доказывает результат?
+            <h3 className="inline text-lg">
+              Проверьте себя: что доказывает результат?
+            </h3>
           </summary>
           <p className="mt-4">{quizFixture.promptMarkdown}</p>
           <div className="mt-4">{choices}</div>
@@ -270,7 +282,11 @@ function Quiz({
               Один ответ. Можно продолжить чтение в любой момент.
             </p>
           </div>
-          <div className="mt-5 sm:mt-0">
+          <div
+            className="mt-5 sm:mt-0 focus-visible:outline-ring"
+            ref={resultFocus}
+            tabIndex={-1}
+          >
             {answer === null ? choices : feedback}
           </div>
         </div>
