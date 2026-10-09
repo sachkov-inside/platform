@@ -96,7 +96,7 @@ case "$*" in
   *" config --images rabbitmq caddy-smoke") printf '%s\\n' "$RABBITMQ_IMAGE" "$CADDY_IMAGE" ;;
   *" config --images") printf '%s\\n' "$RABBITMQ_IMAGE" "$CADDY_IMAGE" ;;
   *" pull rabbitmq caddy-smoke")
-    # Compose owns graph ordering; the observed historical graph acquired Caddy first.
+    # Compose owns graph ordering; CI38000920757 on 2026-10-09 acquired Caddy first (#1316).
     acquire caddy-smoke "$CADDY_IMAGE"
     acquire rabbitmq "$RABBITMQ_IMAGE"
     ;;
