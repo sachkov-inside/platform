@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readerBlocksSchema } from "@inside/material-blocks";
 import { canonical, loadPackage, materialRevision } from "./package.mjs";
 import {
   coursePreviewManifest,
@@ -192,20 +193,23 @@ test("course profile preserves opaque v2 readerBlocks, Task pages and authored a
   const base = fixture();
   const material = base.materials[0];
   assert.ok(material);
-  const readerBlocks = [
+  const readerBlocks = readerBlocksSchema.parse([
     { kind: "markdown", markdown: "## Section\nText" },
     {
       kind: "quiz",
       id: "question-one",
       promptMarkdown: "Question?",
-      options: [{ id: "a", markdown: "A", explanationMarkdown: "Reason" }],
+      options: [
+        { id: "a", markdown: "A", explanationMarkdown: "Reason A" },
+        { id: "b", markdown: "B", explanationMarkdown: "Reason B" },
+      ],
       correctOptionId: "a",
       dontKnow: {
         explanationMarkdown: "Review section",
-        reviewLinks: [{ label: "Section", href: "#section" }],
+        reviewLinks: ["#section"],
       },
     },
-  ];
+  ]);
   const original = {
     ...base,
     schemaVersion: /** @type {const} */ (2),
