@@ -210,6 +210,7 @@ function Quiz({
     initialAnswer(initialState),
   );
   const [all, setAll] = useState(initialState === "all");
+  const quizFocus = useRef<HTMLElement>(null);
   const resultFocus = useRef<HTMLDivElement>(null);
   const previousAnswer = useRef(answer);
   useEffect(() => {
@@ -249,6 +250,7 @@ function Quiz({
   return (
     <section
       aria-label="Проверьте понимание"
+      ref={quizFocus}
       data-quiz-variant={variant}
       className="my-10 text-base leading-relaxed"
     >
