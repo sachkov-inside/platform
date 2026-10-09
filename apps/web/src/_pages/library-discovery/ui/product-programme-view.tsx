@@ -34,6 +34,7 @@ import {
   PendingSeriesLearning,
   ProgrammeProgress,
 } from "./series-learning.client";
+import { CourseMark } from "@/features/ai-engineering-course";
 
 type ResolvedSeriesResult = Extract<
   PublishedSeriesResult,
@@ -125,13 +126,20 @@ export function ProductProgrammeView({
             название. Обложки в шапке программы нет (решение владельца 09.10.2026): это рабочий
             экран курса, картинка в маленьком размере ничего не сообщает. */}
         <div className="grid grid-cols-1 items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="min-w-0 [overflow-wrap:anywhere]">
-            <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
-              {result.reference.name}
-            </h1>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground sm:text-sm">
-              {meta.join(" · ")}
-            </p>
+          <div className="flex min-w-0 items-center gap-3 [overflow-wrap:anywhere]">
+            {/* У курса AI Engineering рядом с названием его знак (решение владельца 09.10.2026). */}
+            {result.reference.productPage?.presentation ===
+            "ai-engineering-course" ? (
+              <CourseMark className="size-10 shrink-0 sm:size-12" />
+            ) : null}
+            <div className="min-w-0">
+              <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
+                {result.reference.name}
+              </h1>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
+                {meta.join(" · ")}
+              </p>
+            </div>
           </div>
           {accessPending ? (
             <PendingPurchaseRow
