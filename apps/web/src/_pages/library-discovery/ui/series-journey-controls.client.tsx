@@ -623,6 +623,7 @@ function ProductBottomBar({
     <>
       {/* Место под панель в конце списка: последний урок не прячется за ней. */}
       <div aria-hidden="true" className="h-20 md:hidden" />
+      <div aria-hidden="true" className="course-bar-fade md:hidden" />
       <nav
         aria-label="Разделы продукта"
         className="product-bottom-bar md:hidden"

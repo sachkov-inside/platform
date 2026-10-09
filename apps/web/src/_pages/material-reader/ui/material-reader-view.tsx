@@ -203,6 +203,7 @@ export function SeriesReaderBar({
     <>
       {/* Место под панель в конце урока: последние строки не прячутся за ней. */}
       <div aria-hidden="true" className="h-20 lg:hidden" />
+      <div aria-hidden="true" className="course-bar-fade lg:hidden" />
       <nav
         aria-label="Уроки продукта"
         className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 shadow-floating-nav backdrop-blur-xl lg:hidden"
