@@ -1172,3 +1172,65 @@ test.each(["#раздел", "#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1", "#"])(
     });
   },
 );
+
+test("image variants survive the editor schema and retain every referenced asset", () => {
+  const imageVariants = {
+    wideLight: "92000000-0000-4000-8000-000000000011",
+    wideDark: "92000000-0000-4000-8000-000000000012",
+    tallLight: "92000000-0000-4000-8000-000000000013",
+    tallDark: "92000000-0000-4000-8000-000000000014",
+  };
+  const snapshot = {
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            nodeId: testNodeId(1),
+            assetId: imageVariants.wideLight,
+            alt: "Схема",
+            caption: "Подпись",
+            sourceSrc: "assets/scene-wide-light.png",
+            imageVariants,
+          },
+        },
+      ],
+    },
+  };
+  const accepted = materialBodyOperations.accept(snapshot);
+  expect(accepted.ok).toBe(true);
+  if (!accepted.ok) throw new Error("Rejected image variants");
+  const editorSnapshot = {
+    schemaVersion: 1,
+    doc: materialDocumentSchemaV1
+      .nodeFromJSON(accepted.value.doc)
+      .toJSON() as unknown,
+  };
+  const restored = materialBodyOperations.accept(editorSnapshot);
+  expect(restored.ok).toBe(true);
+  if (!restored.ok) throw new Error("Editor lost variants");
+  expect(materialBodyOperations.render(restored.value)).toMatchObject({
+    ok: true,
+    value: {
+      blocks: [
+        {
+          sourceSrc: "assets/scene-wide-light.png",
+          imageVariants: {
+            wideLight: { assetId: imageVariants.wideLight },
+            wideDark: { assetId: imageVariants.wideDark },
+            tallLight: { assetId: imageVariants.tallLight },
+            tallDark: { assetId: imageVariants.tallDark },
+          },
+        },
+      ],
+    },
+  });
+  const extraction = materialBodyOperations.extract(restored.value);
+  expect(extraction.ok).toBe(true);
+  if (!extraction.ok) throw new Error("No extraction");
+  expect(
+    extraction.value.resources.map((resource) => resource.assetId),
+  ).toEqual(Object.values(imageVariants));
+});

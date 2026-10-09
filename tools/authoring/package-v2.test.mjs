@@ -48,7 +48,7 @@ function fixture() {
       complete: true,
     },
     materials: [],
-    assets: [],
+    assets: /** @type {import("./package.mjs").ManifestAsset[]} */ ([]),
     diagnostics: [],
     guides: [
       {
@@ -795,4 +795,91 @@ test("an interrupted Task apply cannot replay under a different reviewed access 
     /different access decision/u,
   );
   assert.deepEqual(writes, []);
+});
+
+test("v2 loads a complete image variant set and refuses missing assets before requests", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  const page = manifest.tasks[0]?.page;
+  assert.ok(page);
+  manifest.requiredFeatures.push("image-variants-v1");
+  const source = "assets/scene-wide-light.png";
+  const variants = {
+    wideLight: "wide-light",
+    wideDark: "wide-dark",
+    tallLight: "tall-light",
+    tallDark: "tall-dark",
+  };
+  Object.assign(page, {
+    markdown: `![Схема](${source})`,
+    images: { [source]: "wide-light" },
+    imageVariants: { [source]: variants },
+  });
+  for (const id of Object.values(variants)) {
+    const bytes = Buffer.from(id);
+    manifest.assets.push({
+      sourceId: id,
+      path: `${id}.png`,
+      sha256: (await import("./package.mjs")).checksum(bytes),
+      mimeType: "image/png",
+    });
+    await writeFile(join(f.path, "..", `${id}.png`), bytes);
+  }
+  await f.write(manifest);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(
+    Reflect.get(pkg.manifest.tasks?.[0]?.page ?? {}, "imageVariants"),
+    { [source]: variants },
+  );
+  manifest.assets.pop();
+  await f.write(manifest);
+  let requests = 0;
+  await assert.rejects(
+    syncLocal(f.path, f.state, {
+      request: async () => {
+        requests++;
+        throw new Error("unexpected request");
+      },
+    }),
+    /missing.*asset/iu,
+  );
+  assert.equal(requests, 0);
+});
+
+test("incomplete or undeclared variant sets stop synchronization before its first request", async (t) => {
+  const f = await temporary(t);
+  for (const kind of [
+    "incomplete",
+    "undeclared",
+    "missing-source",
+    "wrong-base",
+  ]) {
+    const manifest = fixture();
+    const page = manifest.tasks[0]?.page;
+    assert.ok(page);
+    if (kind !== "undeclared")
+      manifest.requiredFeatures.push("image-variants-v1");
+    Object.assign(page, {
+      images: { "scene.png": kind === "wrong-base" ? "other" : "wide-light" },
+      imageVariants: {
+        [kind === "missing-source" ? "unknown.png" : "scene.png"]: {
+          wideLight: "wide-light",
+          wideDark: "wide-dark",
+          tallLight: "tall-light",
+          ...(kind === "incomplete" ? {} : { tallDark: "tall-dark" }),
+        },
+      },
+    });
+    await f.write(manifest);
+    let requests = 0;
+    await assert.rejects(
+      syncLocal(f.path, f.state, {
+        request: async () => {
+          requests++;
+          throw new Error("unexpected request");
+        },
+      }),
+    );
+    assert.equal(requests, 0, kind);
+  }
 });

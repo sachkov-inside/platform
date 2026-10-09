@@ -27,6 +27,21 @@ export interface MaterialLabeledRow {
  * because `defineMaterialBlock` accepts only a `kind` this union declares, and the wire
  * enumeration is built from the registry rather than from a second list.
  */
+export interface ImageVariants<T> {
+  readonly wideLight: T;
+  readonly wideDark: T;
+  readonly tallLight: T;
+  readonly tallDark: T;
+}
+
+export interface ImageAssetPresentation {
+  readonly assetId: string;
+  readonly height?: number | undefined;
+  readonly width?: number | undefined;
+  readonly variants?:
+    readonly { readonly height: number; readonly width: number }[] | undefined;
+}
+
 export type RenderedBlock =
   | { readonly content: readonly RenderedText[]; readonly kind: "paragraph" }
   | {
@@ -105,6 +120,9 @@ export type RenderedBlock =
       readonly displayWidthPercent?: number | undefined;
       readonly height?: number | undefined;
       readonly kind: "image";
+      readonly sourceSrc?: string | undefined;
+      readonly imageVariants?:
+        ImageVariants<ImageAssetPresentation> | undefined;
       readonly variants?:
         | readonly { readonly height: number; readonly width: number }[]
         | undefined;

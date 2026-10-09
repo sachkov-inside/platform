@@ -112,6 +112,9 @@ export const applySourceTaskBodySchema = sourceTaskFields
       });
     const keys = [
       ...Object.keys(page.images),
+      ...Object.entries(page.imageVariants ?? {}).flatMap(([src, variants]) =>
+        Object.keys(variants).map((variant) => `variant:${src}:${variant}`),
+      ),
       ...(page.coverAssetId === undefined || page.coverAssetId === null
         ? []
         : [`cover:${page.coverAssetId}`]),

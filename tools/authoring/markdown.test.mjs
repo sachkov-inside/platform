@@ -138,3 +138,54 @@ test("callout fences retain literal headers and adjacent callouts stay separate"
     );
   }
 });
+
+test("image variants retain source, ALT and caption in a reader block", () => {
+  const ids = {
+    wideLight: "92000000-0000-4000-8000-000000000011",
+    wideDark: "92000000-0000-4000-8000-000000000012",
+    tallLight: "92000000-0000-4000-8000-000000000013",
+    tallDark: "92000000-0000-4000-8000-000000000014",
+  };
+  const sourceSrc = "assets/scene-wide-light.png";
+  const body = convertMarkdown(`![Описание](${sourceSrc} "Подпись")`, {
+    ...options,
+    image: () => ids.wideLight,
+    imageVariants: () => ({ sourceSrc, imageVariants: ids }),
+  });
+  assert.deepEqual(body.doc.content[0]?.attrs, {
+    nodeId: body.doc.content[0]?.attrs?.["nodeId"],
+    assetId: ids.wideLight,
+    sourceSrc,
+    imageVariants: ids,
+    alt: "Описание",
+    caption: "Подпись",
+  });
+});
+
+for (const sourceSrc of [
+  "assets/схема/out/example.png",
+  "assets/схема%20один/out/example.png",
+  "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0/out/example.png",
+]) {
+  test(`image variants preserve the exact package source key: ${sourceSrc}`, async () => {
+    const { resolveImageVariants } = await import("./image-variants.mjs");
+    const variants = {
+      wideLight: "wl",
+      wideDark: "wd",
+      tallLight: "tl",
+      tallDark: "td",
+    };
+    const page = {
+      sourcePath: "lesson.md",
+      imageVariants: { [sourceSrc]: variants },
+    };
+    const uploads = new Map(Object.entries(variants).map(([, id]) => [id, id]));
+    const body = convertMarkdown(`![Описание](${sourceSrc} "Подпись")`, {
+      ...options,
+      image: () => "wl",
+      imageVariants: (href) => resolveImageVariants(page, href, uploads),
+    });
+    assert.equal(body.doc.content[0]?.attrs?.["sourceSrc"], sourceSrc);
+    assert.deepEqual(body.doc.content[0]?.attrs?.["imageVariants"], variants);
+  });
+}

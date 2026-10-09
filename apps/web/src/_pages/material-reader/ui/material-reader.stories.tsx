@@ -1,3 +1,7 @@
+import {
+  variantDiagram,
+  expectVariantDiagram,
+} from "@/storybook/image-variants";
 import type { ComponentProps, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -1626,6 +1630,17 @@ export const SourceAnchorShellCollision: Story = {
       canvas.getByRole("link", { name: /^Перейти к содержанию$/u }),
     ).toHaveAttribute("href", "#app:content");
   },
+};
+
+export const ImageVariants: Story = {
+  args: { body: [variantDiagram], material: { ...material, cover: null } },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, false),
+};
+export const ImageVariantsMobile: Story = {
+  ...ImageVariants,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
 };
 
 export const CollapsibleAdvice: Story = {

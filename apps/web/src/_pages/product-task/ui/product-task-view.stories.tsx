@@ -1,3 +1,7 @@
+import {
+  variantDiagram,
+  expectVariantDiagram,
+} from "@/storybook/image-variants";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
@@ -388,4 +392,40 @@ export const SourceAnchors: Story = {
       page.getByRole("region", { name: "Мои сдачи" }),
     ).toBeInTheDocument();
   },
+};
+
+export const ImageVariants: Story = {
+  args: {
+    page: {
+      ...openFormatCTask,
+      task: {
+        ...openFormatCTask.task,
+        page: {
+          title: "Задание со схемой",
+          summary: "Варианты схемы",
+          cover: null,
+          artifacts: [],
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              {
+                kind: "heading",
+                level: 2,
+                content: [{ kind: "text", text: "Схема решения", marks: [] }],
+              },
+              variantDiagram,
+            ],
+          },
+        },
+      },
+    },
+    submissions: notSubmittedYet,
+  },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, false),
+};
+export const ImageVariantsMobile: Story = {
+  ...ImageVariants,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
 };

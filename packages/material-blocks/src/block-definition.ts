@@ -138,7 +138,7 @@ export interface MaterialBlockDefinition<
     block: z.ZodType<RenderedBlock>,
   ): RenderedBlockVariantSchema<BlockOf<Kind>>;
   /** Asset the block references, for the extraction summary. */
-  resource?(block: BlockOf<Kind>): MaterialBodyResourceSummary;
+  resources?(block: BlockOf<Kind>): readonly MaterialBodyResourceSummary[];
   /** Plain text for full-text search. */
   text(block: BlockOf<Kind>, tools: MaterialBlockTextTools): string;
 }

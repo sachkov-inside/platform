@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 
 import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
-import { MaterialImageDelivery } from "@/features/material-assets";
+import {
+  MaterialResponsiveImage,
+  type MaterialImageSource,
+} from "@/features/material-assets";
 
 import type { OpenProductTask } from "../model/product-task-page";
 
@@ -33,9 +36,7 @@ export function TaskPageBody({
       hintAt={hintAt}
       rendering={{
         headingId: (path) => `task-section-${path.join("-")}`,
-        image: (block) => (
-          <TaskImage block={block} src={assetHref(block.assetId)} />
-        ),
+        image: (block) => <TaskImage block={block} assetHref={assetHref} />,
         file: (block) => (
           <a
             className="inline-flex min-h-11 items-center underline underline-offset-4"
@@ -86,29 +87,71 @@ export function TaskPageBody({
 
 function TaskImage({
   block,
-  src,
+  assetHref,
 }: {
   readonly block: Extract<RenderedBlock, { kind: "image" }>;
-  readonly src: string;
+  readonly assetHref: (assetId: string) => string;
 }) {
   const width = block.width;
   const height = block.height;
   if (width === undefined || height === undefined)
+    return <p role="status">Изображение временно недоступно.</p>;
+  const source = (asset: {
+    readonly assetId: string;
+    readonly width?: number | undefined;
+    readonly height?: number | undefined;
+  }): MaterialImageSource | undefined =>
+    asset.width === undefined || asset.height === undefined
+      ? undefined
+      : {
+          width: asset.width,
+          height: asset.height,
+          src: assetHref(asset.assetId),
+          srcSet: "",
+          viewerSize: { width: asset.width, height: asset.height },
+        };
+  const wideLight =
+    block.imageVariants === undefined
+      ? undefined
+      : source(block.imageVariants.wideLight);
+  const wideDark =
+    block.imageVariants === undefined
+      ? undefined
+      : source(block.imageVariants.wideDark);
+  const tallLight =
+    block.imageVariants === undefined
+      ? undefined
+      : source(block.imageVariants.tallLight);
+  const tallDark =
+    block.imageVariants === undefined
+      ? undefined
+      : source(block.imageVariants.tallDark);
+  const imageVariants =
+    wideLight !== undefined &&
+    wideDark !== undefined &&
+    tallLight !== undefined &&
+    tallDark !== undefined
+      ? { wideLight, wideDark, tallLight, tallDark }
+      : undefined;
+  if (block.imageVariants !== undefined && imageVariants === undefined)
     return <p role="status">Изображение временно недоступно.</p>;
   return (
     <figure
       className="mx-auto overflow-hidden rounded-xl bg-card"
       style={{ width: `${String(block.displayWidthPercent ?? 100)}%` }}
     >
-      <MaterialImageDelivery
+      <MaterialResponsiveImage
         alt={block.alt}
         caption={block.caption}
-        height={height}
+        image={{
+          width,
+          height,
+          src: assetHref(block.assetId),
+          srcSet: "",
+          viewerSize: { width, height },
+        }}
+        imageVariants={imageVariants}
         preview={false}
-        src={src}
-        srcSet=""
-        width={width}
-        viewerSize={{ width, height }}
       />
       {block.caption === undefined ? null : (
         <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">

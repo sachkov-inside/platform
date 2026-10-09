@@ -89,6 +89,7 @@
   --font-body:
     "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
   --font-utility: "JetBrains Mono Variable", ui-monospace, monospace;
+  --theme-is-dark: 0;
   color-scheme: light;
 }
 
@@ -133,6 +134,7 @@
   --elevation-cover: 0 1.5rem 3rem -1.5rem rgb(20 21 24 / 65%);
   --elevation-floating-nav: 0 1.5rem 4rem -1.25rem rgb(20 21 24 / 60%);
   --elevation-note: 0 1.2rem 3rem -2.3rem rgb(20 22 26 / 35%);
+  --theme-is-dark: 0;
   color-scheme: light;
 }
 
@@ -180,6 +182,7 @@
   --sidebar-ring: oklch(0.72 0.16 40);
   --elevation-card: 0 0.75rem 2rem -1rem oklch(0.05 0.01 128 / 0.7);
   --elevation-card-hover: 0 1rem 2.5rem -1rem oklch(0.05 0.01 128 / 0.82);
+  --theme-is-dark: 1;
   color-scheme: dark;
 }
 
@@ -286,6 +289,7 @@ body {
 html:has([data-public-shell]),
 body:has([data-public-shell]) {
   background: #fff;
+  --theme-is-dark: 0;
   color-scheme: light;
 }
 

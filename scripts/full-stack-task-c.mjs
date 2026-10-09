@@ -22,6 +22,26 @@ export async function seedFullStackTaskC(origin, accessToken) {
       resolve("apps/web/.storybook/fixtures/reader-images/960"),
     );
     await writeFile(join(directory, "diagram.png"), imageBytes);
+    const imageVariants = {
+      wideLight: "scene-wide-light",
+      wideDark: "scene-wide-dark",
+      tallLight: "scene-tall-light",
+      tallDark: "scene-tall-dark",
+    };
+    const sceneAssets = [];
+    for (const [variant, sourceId] of Object.entries(imageVariants)) {
+      const bytes = await readFile(
+        resolve(`apps/web/.storybook/fixtures/image-variants/${variant}.png`),
+      );
+      const path = `${sourceId}.png`;
+      await writeFile(join(directory, path), bytes);
+      sceneAssets.push({
+        sourceId,
+        path,
+        sha256: checksum(bytes),
+        mimeType: "image/png",
+      });
+    }
     const provenance = {
       repository: "synthetic/fullstack",
       commit: "b".repeat(40),
@@ -54,12 +74,16 @@ export async function seedFullStackTaskC(origin, accessToken) {
       showInFeed: false,
       difficulty: null,
       outcomes: null,
-      markdown: `Урок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}\n\n${advice}`,
+      markdown: `![Схема вариантов](assets/схема%20один.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}\n\n${advice}`,
       links: {
         "c-first.md": "c-first",
         "c-first.md#как-спроектировать-один-этап": "c-first",
       },
-      images: { "diagram.png": "diagram" },
+      images: {
+        "diagram.png": "diagram",
+        "assets/схема%20один.png": imageVariants.wideLight,
+      },
+      imageVariants: { "assets/схема%20один.png": imageVariants },
       coverAssetId: null,
       coverAlt: null,
       video: null,
@@ -99,8 +123,14 @@ export async function seedFullStackTaskC(origin, accessToken) {
         sourcePath: `${code}.md`,
         title: `Задание c. ${code}`,
         summary: "Синтетическая страница формата c",
-        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n${advice}\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
-        images: { "diagram.png": "diagram" },
+        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n![Схема вариантов](assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n${advice}\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
+        images: {
+          "diagram.png": "diagram",
+          "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png": imageVariants.wideLight,
+        },
+        imageVariants: {
+          "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png": imageVariants,
+        },
         links: {
           "lesson.md": "c-lesson",
           "lesson.md#раздел-2": "c-lesson",
@@ -114,6 +144,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
       requiredFeatures: [
         "task-c-v2",
         "github-anchors-v1",
+        "image-variants-v1",
         "collapsible-callouts-v1",
       ],
       sourceNamespace: "synthetic",
@@ -151,6 +182,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
         task("c-closed", "closed", "c-lesson"),
       ],
       assets: [
+        ...sceneAssets,
         {
           sourceId: "diagram",
           path: "diagram.png",
@@ -187,12 +219,13 @@ export async function seedFullStackTaskC(origin, accessToken) {
       request,
       publish: "all",
     });
-    // Synchronize the same immutable package again; completed imports keep their stored bodies.
-    await syncLocal(path, join(directory, "state"), {
+    const repeat = await syncLocal(path, join(directory, "state"), {
       origin,
       request,
       publish: "all",
     });
+    if (repeat.unchanged !== 1)
+      throw new Error("Synthetic diagram repeat changed its lesson");
     const journal = parseJournal(
       JSON.parse(
         await readFile(join(directory, "state", "journal.json"), "utf8"),
@@ -217,6 +250,20 @@ export async function seedFullStackTaskC(origin, accessToken) {
     const materialRequest = z.object({
       path: z.literal("/authoring/import/materials/apply"),
     });
+    const variantIdsSchema = z.object({
+      wideLight: z.uuid(),
+      wideDark: z.uuid(),
+      tallLight: z.uuid(),
+      tallDark: z.uuid(),
+    });
+    const diagramNode = z.object({
+      attrs: z.object({
+        sourceSrc: z.literal("assets/схема%20один.png"),
+        imageVariants: variantIdsSchema,
+      }),
+    });
+    let materialImageVariants;
+    let taskImageVariants;
     let closedAssetId;
     for (const operation of Object.values(journal.operations)) {
       if (!isJournalOperation(operation) || operation.status !== "applied")
@@ -225,13 +272,57 @@ export async function seedFullStackTaskC(origin, accessToken) {
         materialIds.add(
           materialReceiptSchema.parse(operation.result).materialId,
         );
+      const requestBody = z
+        .object({ path: z.string(), body: z.record(z.string(), z.unknown()) })
+        .parse(operation.request);
+      if (
+        requestBody.path === "/authoring/import/materials/apply" &&
+        z
+          .object({ id: z.literal("synthetic:c-lesson") })
+          .safeParse(requestBody.body["source"]).success
+      ) {
+        const doc = z
+          .object({ doc: z.object({ content: z.array(z.unknown()) }) })
+          .parse(requestBody.body["body"]);
+        for (const node of doc.doc.content) {
+          const parsed = diagramNode.safeParse(node);
+          if (parsed.success)
+            materialImageVariants = parsed.data.attrs.imageVariants;
+        }
+      }
+      if (
+        requestBody.path === "/authoring/import/tasks/apply" &&
+        requestBody.body["code"] === "c-first"
+      ) {
+        const doc = z
+          .object({ doc: z.object({ content: z.array(z.unknown()) }) })
+          .parse(requestBody.body["pageBody"]);
+        for (const node of doc.doc.content) {
+          const parsed = z
+            .object({
+              attrs: z.object({
+                sourceSrc: z.literal(
+                  "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0.png",
+                ),
+                imageVariants: variantIdsSchema,
+              }),
+            })
+            .safeParse(node);
+          if (parsed.success)
+            taskImageVariants = parsed.data.attrs.imageVariants;
+        }
+      }
       const parsed = taskRequest.safeParse(operation.request);
       if (parsed.success)
         closedAssetId = parsed.data.body.resolvedImages["diagram.png"]?.assetId;
     }
     if (closedAssetId === undefined)
       throw new Error("Synthetic closed Task has no imported diagram");
+    if (materialImageVariants === undefined || taskImageVariants === undefined)
+      throw new Error("Synthetic diagrams lost variant relations");
     return {
+      materialImageVariants,
+      taskImageVariants,
       productSlug: "synthetic-format-c",
       code: "c-first",
       closedCode: "c-closed",

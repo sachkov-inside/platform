@@ -81,6 +81,7 @@ async function fixture(t) {
   const write = () => writeFile(packagePath, canonical(manifest));
   await write();
   return {
+    directory,
     manifest,
     write,
     stateDirectory,
@@ -111,7 +112,11 @@ function applicationApi({ loseFirstResponse = false } = {}) {
     },
     /** @type {LocalTransport} */
     async request(path, body, key) {
-      calls.push(structuredClone({ path, body, key }));
+      calls.push({
+        path,
+        body: body instanceof FormData ? body : structuredClone(body),
+        key,
+      });
       if (path === "/authoring/import/materials/environment")
         return { mode: "development" };
       if (path === "/authoring/collections?kind=topic") return [];
@@ -131,6 +136,15 @@ function applicationApi({ loseFirstResponse = false } = {}) {
       }
       if (path === `/authoring/materials/${materialId}`)
         return structuredClone(materials.get(sourceId));
+      if (path === `/authoring/materials/${materialId}/assets`) {
+        assert.ok(body instanceof FormData);
+        const uploaded = calls.filter((call) =>
+          call.path.endsWith("/assets"),
+        ).length;
+        return {
+          assetId: `92000000-0000-4000-8000-${String(uploaded).padStart(12, "0")}`,
+        };
+      }
       if (path === "/authoring/import/materials/apply") {
         assert.ok(key, "Every mutation must supply an idempotency key");
         const previous = receipts.get(key);
@@ -340,4 +354,87 @@ test("import preserves Unicode, same-page and missing fragments in published lin
   assert.ok(doc.includes("/materials/stable-original-url#%D0%BA%D0%B0%D0%BA-"));
   assert.ok(doc.includes("#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1"));
   assert.ok(doc.includes("/materials/stable-original-url#%D0%BD%D0%B5%D1%82-"));
+});
+
+test("v2 imports all four diagram assets once and preserves their relation on repeat", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["image-variants-v1"];
+  setup.manifest.selection.taskIds = [];
+  const row = itemAt(setup.manifest.materials, 0);
+  row.markdown = '![Схема](scene.png "Подпись")';
+  row.images = { "scene.png": "wide-light" };
+  row.imageVariants = {
+    "scene.png": {
+      wideLight: "wide-light",
+      wideDark: "wide-dark",
+      tallLight: "tall-light",
+      tallDark: "tall-dark",
+    },
+  };
+  const { checksum } = await import("./package.mjs");
+  const { default: sharp } = await import("sharp");
+  for (const [index, sourceId] of [
+    "wide-light",
+    "wide-dark",
+    "tall-light",
+    "tall-dark",
+  ].entries()) {
+    const bytes = await sharp({
+      create: {
+        width: 20 + index,
+        height: 10,
+        channels: 3,
+        background: "white",
+      },
+    })
+      .png()
+      .toBuffer();
+    const path = `${sourceId}.png`;
+    await writeFile(join(setup.directory, path), bytes);
+    setup.manifest.assets.push({
+      sourceId,
+      path,
+      sha256: checksum(bytes),
+      mimeType: "image/png",
+    });
+  }
+  await setup.write();
+  const api = applicationApi();
+  await setup.sync(api);
+  const saved = valueAt(api.materials, sourceId).body;
+  assert.deepEqual(saved, {
+    schemaVersion: 1,
+    doc: {
+      type: "doc",
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            assetId: "92000000-0000-4000-8000-000000000001",
+            sourceSrc: "scene.png",
+            alt: "Схема",
+            caption: "Подпись",
+            imageVariants: {
+              wideLight: "92000000-0000-4000-8000-000000000001",
+              wideDark: "92000000-0000-4000-8000-000000000002",
+              tallLight: "92000000-0000-4000-8000-000000000003",
+              tallDark: "92000000-0000-4000-8000-000000000004",
+            },
+            nodeId: (await import("./markdown.mjs")).sourceUuid(
+              "inside-content:one:0",
+            ),
+          },
+        },
+      ],
+    },
+  });
+  const repeat = await setup.sync(api);
+  assert.equal(repeat.unchanged, 1);
+  assert.equal(api.commits, 1);
+  assert.equal(
+    api.calls.filter((call) => call.path.endsWith("/assets")).length,
+    4,
+  );
+  assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
 });
