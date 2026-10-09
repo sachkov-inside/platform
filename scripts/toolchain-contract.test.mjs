@@ -763,9 +763,10 @@ describe("supported toolchain contract", () => {
       composeImage,
       "compose.yaml must declare the object-storage image",
     );
-    assert.ok(
-      composeImage.includes("@sha256:"),
-      "object-storage image must be pinned by digest",
+    assert.equal(
+      composeImage,
+      "ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "object-storage must use the official GHCR source with the unchanged RustFS digest",
     );
     assert.ok(
       read(
