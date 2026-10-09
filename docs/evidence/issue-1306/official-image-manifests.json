@@ -1,0 +1,98 @@
+{
+  "verifiedOn": "2026-10-10",
+  "method": "Bounded registry metadata requests; no image layer pulls. ECR index and child bytes hashed, compared with Hub GET bytes or HEAD Docker-Content-Digest.",
+  "officialSource": "https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/",
+  "images": [
+    {
+      "image": "node:26.10.0-alpine3.24",
+      "digest": "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+      "upstreamDigest": "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+      "linuxPlatforms": {
+        "amd64": "sha256:b341ca66519d9a1c25d4e41f254ffb6fe403fc0f9054c62b863f0660dcc1c199",
+        "arm64": "sha256:f78d6d4ca1b1463e66837575f9ac0035aaad30d9497dc9f3bc611b544be2ab15"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "node:26.10.0-bookworm-slim",
+      "digest": "sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+      "upstreamDigest": "sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+      "linuxPlatforms": {
+        "amd64": "sha256:0a992e1420e2d70611578f1844a6f10a9d11fe6bb535aabf72efe3007f13d79b",
+        "arm64": "sha256:131c9695bc02b79f4dbb1ca360f5822d5f67f248a621498c22de5883f94122d0"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "postgres:18.4-alpine3.23",
+      "digest": "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+      "upstreamDigest": "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+      "linuxPlatforms": {
+        "amd64": "sha256:2342268e5cf8851c327dcf10fc124283448428059f9b756692b7e3302940d769",
+        "arm64": "sha256:0ae101b61e6c82f9fca7ac7f8d216f3cbd567a392b5dc816d1a82431620dcff5"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "postgres:18.4-alpine",
+      "digest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "upstreamDigest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "linuxPlatforms": {
+        "amd64": "sha256:b6a16ed0eb96e2c362811f7eeb951eac8b459e7b40be4149ea5444aa7c65569b",
+        "arm64": "sha256:122c9942437efcbbb8d595fc578dee7d26ee1543c2a8634d183adfa4a1e55b4d"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "postgres:17.6-alpine",
+      "digest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "upstreamDigest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+      "linuxPlatforms": {
+        "amd64": "sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be",
+        "arm64": "sha256:9b9fb55f7e3b2149854def33c728b781dc44d1c5e86492ad62912a527ae234b3"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "rabbitmq:4.2.4-management-alpine",
+      "digest": "sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+      "upstreamDigest": "sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+      "linuxPlatforms": {
+        "amd64": "sha256:a28daaa3fd82a27a843a323615a6bb86cc31e36e59e0b77f5b2edf6a72fce75b",
+        "arm64": "sha256:dfca4df78e96242c71ca889d8307cafbe25693611b5e566df46c97932e3237b9"
+      },
+      "result": "identical",
+      "upstreamVerification": "HEAD; preceding GET returned HTTP 429"
+    },
+    {
+      "image": "rabbitmq:4.2.4-alpine",
+      "digest": "sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47",
+      "upstreamDigest": "sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47",
+      "linuxPlatforms": {
+        "amd64": "sha256:d1b24a78c1ace826771eb8585d8f30315a64f1aad4d1fe6fcd9b4435cccc16f4",
+        "arm64": "sha256:99ddb237c9865b939efb22c6e30708998881b945801b62fa0d70787bf7413f56"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "rabbitmq:4.3-management-alpine",
+      "digest": "sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+      "upstreamDigest": "sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+      "linuxPlatforms": {
+        "amd64": "sha256:ad995f859fce23a0ccd91c24cfac89d8f8cc57de4d708b58dcecea2697ad0d8c",
+        "arm64": "sha256:58dce3b05806022e53e6632018d9bc76305a3f1e6f7f5498703a947004e4b983"
+      },
+      "result": "identical"
+    },
+    {
+      "image": "caddy:2.11.4-alpine",
+      "digest": "sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+      "upstreamDigest": "sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+      "linuxPlatforms": {
+        "amd64": "sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0",
+        "arm64": "sha256:c802bf2721a427e961b9fd6a194c3888a180de9990b43f8530a02bd6be017e17"
+      },
+      "result": "identical"
+    }
+  ]
+}

@@ -77,6 +77,33 @@ in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands
 the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
 Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
+## Official image inputs
+
+CI service containers, application Dockerfile bases, Compose dependencies and explicit
+Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`.
+References keep the existing version tags and select immutable SHA-256 digests. Release builds
+use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
+This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
+ECR Public has its own quotas; it is not an unlimited registry.
+
+Docker publishes this namespace directly ([official announcement](https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/)).
+The [#1306 metadata evidence](../evidence/issue-1306/official-image-manifests.json) records identical
+upstream/ECR index digests and verified `linux/amd64` and `linux/arm64` child manifests.
+Metadata inspection proves availability and identity, not successful execution. Required CI jobs
+still prove service startup, BuildKit builds, Testcontainers and SQL execution.
+
+When changing an image input, verify its tag/digest and required platform manifests against both
+official registries. Keep vendor images at their owning source: RustFS, Logto and Mailpit retain
+their existing references. Testcontainers' implicit Ryuk/SSH helper images remain owned by the
+pinned Testcontainers dependency; the official-image contract covers the explicit inputs listed
+in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
+
+SQL setup retains Docker stderr in the exception traceback. If cleanup also fails, setup preserves
+the original failure and adds the cleanup failure as a note. The historical SQL setup exit 125 in
+[run 37990329163](https://github.com/sachkov-inside/platform/actions/runs/37990329163/job/114022533381)
+ran zero SQL tests and omitted captured stderr. Its precise cause cannot be recovered from that log.
+Read the setup stderr on a new failure; another job's pull failure does not establish the SQL cause.
+
 ## Merge queue
 
 `main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a

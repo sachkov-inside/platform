@@ -68,8 +68,14 @@ describe("application CI workflow contract", () => {
       telegram,
       /run: pnpm --filter @inside\/telegram check:full$/mu,
     );
-    assert.match(telegram, /image: postgres:18\.4-alpine/u);
-    assert.match(telegram, /image: rabbitmq:4\.3-management-alpine/u);
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/postgres:18\.4-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(
       telegram,
