@@ -63,11 +63,11 @@ export function ProductPurchaseView({
         data-purchase-part="back"
       >
         <Link
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold"
+          className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
           href={programmeHref}
         >
           <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-          Программа
+          <span>Программа</span>
         </Link>
       </nav>
 
