@@ -2,6 +2,7 @@
 
 Docker Compose is the primary local-development contract. A fresh clone needs Docker with Compose,
 not host Node.js or a host `node_modules` directory.
+Image inputs follow the [official image acquisition contract](continuous-integration.md#official-image-inputs).
 
 ## What Compose runs
 
@@ -854,7 +855,7 @@ the named `editor` target retains its default port 4396.
 Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
-docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
+docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
 docker run -d --name platform-396-storage -e RUSTFS_ACCESS_KEY=inside-local-access-key -e RUSTFS_SECRET_KEY=inside-local-secret-key -p 127.0.0.1:9036:9000 "$(docker compose config --images object-storage)"
 pnpm editor:local
 ```
@@ -1233,7 +1234,7 @@ in their order and chapters, proposes no archive and refuses `--archive`; an emp
 that scope is refused. The [Product shell contract](../contracts/authoring-product-shell-v1/README.md)
 describes the package the Content exporter writes.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]...`
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...`
 compares a package with the target without writing and saves a fingerprinted preview. Each Material
 shows its `publication`, a `publicationChange` from draft to published, or the conflict
 `target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
@@ -1248,6 +1249,20 @@ until `--task-access CODE=free|closed` records an explicit choice. Repeat the op
 unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes
 no `--task-access` and does not change package bytes. An existing Material with the Task source key
 is a migration conflict; apply does not replace, archive or duplicate it.
+
+For an explicitly reviewed removal from a held Product, repeat
+`--confirm-product-removal PRODUCT_UUID` on **preview** (#1302). Each UUID must identify an active
+Product of this package on this target. The sorted `confirmedProductRemovals` choice enters the
+saved preview fingerprint; apply reads it from that preview and accepts no choice flag. Each
+composition command receives only its own confirmed Product ID. Without that choice, removing a
+published Material from a held Product still fails with HTTP 409
+`product_removal_confirmation_required`; Materials remain published.
+After a definitive rejection during partial apply, make a new preview against the actual target
+state with the explicit choice. Composition commands use journal operation keys derived from their
+stored request: the changed choice gets a new key, while old rejected operations and previews stay
+unchanged. If an earlier successful receipt differs from the current order version, a new operation
+applies the composition again and preserves the old receipt. Materials and Tasks already applied resume through their existing journal receipts.
+An unfinished composition retries its original payload and key with the same reviewed choice.
 
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
 write the journal left unfinished, with its original idempotency key, then applies exactly that

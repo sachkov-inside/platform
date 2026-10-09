@@ -124,6 +124,9 @@ export interface PassProblem {
  * который Playwright не даёт перехватить: он ушёл, и итог прохода красный.
  */
 export interface BlockedPassRequest {
+  readonly identity: PassIdentity | "anonymous";
+  /** Клетка страницы, которая начала запрос; фоновые запросы без страницы клетки не имеют. */
+  readonly cellId?: string | undefined;
   readonly method: string;
   /** Origin и путь без query: в query бывают токены. */
   readonly target: string;
@@ -241,8 +244,8 @@ export function renderPassMarkdown(report: PassReport): string {
     ].join(" | "),
   );
   const blocked = report.blockedRequests.map(
-    ({ method, target, reason, sent }) =>
-      `- \`${method} ${target}\`: ${reason}${sent === true ? " — **отправлен**" : ""}`,
+    ({ method, target, reason, sent, identity, cellId }) =>
+      `- \`${method} ${target}\`: ${reason}${sent === true ? " — **отправлен**" : ""}; identity: \`${identity}\`${cellId === undefined ? "" : `; клетка: \`${cellId}\``}`,
   );
   return [
     "# Production-проход доступа",

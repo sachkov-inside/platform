@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { HttpException } from "@nestjs/common";
+import { ImportSourceProductController } from "../../src/modules/materials/features/import-source-product/import-source-product.controller.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
@@ -320,6 +322,104 @@ describe("снятие материала из купленного руково
       }),
     ).toMatchObject({ ok: true });
     expect(await publishedProducts(item.materialId)).toEqual([]);
+  });
+
+  test("source import controller keeps the held Product guard and forwards only explicit confirmation", async () => {
+    const sourceId = `inside-content:confirmed-${randomUUID()}`;
+    const reserved = await materials.authoring.reserveSourceProduct({
+      actor: owner,
+      sourceId,
+      name: "Imported course",
+      slug: `confirmed-${randomUUID()}`,
+      summary: "",
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const bought = reserved.value.id;
+    const other = await product();
+    await grant({ capabilities: [`product:${bought}`], validUntil: null });
+    const source = {
+      id: `inside-content:removed-${randomUUID()}`,
+      path: "removed.md",
+      revision: "a".repeat(64),
+      showInFeed: false,
+    };
+    const reservedMaterial = await materials.authoring.reserveSourceMaterial({
+      actor: owner,
+      source,
+    });
+    if (!reservedMaterial.ok) throw new Error(reservedMaterial.error.code);
+    const imported = await materials.authoring.applySourceMaterial({
+      actor: owner,
+      idempotencyKey: randomUUID(),
+      source,
+      materialId: reservedMaterial.value.materialId,
+      expectedContentVersion: reservedMaterial.value.contentVersion,
+      publicationState: "published",
+      primaryVideoId: null,
+      metadata: { ...metadata([bought]), formatId: "guide" },
+      body: representativeDocument("Imported removal"),
+    });
+    if (!imported.ok) throw new Error(imported.error.code);
+    const removed = imported.value;
+    const order = await materials.authoring.loadSeriesOrder({
+      actor: owner,
+      seriesId: bought,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const controller = new ImportSourceProductController(materials.authoring);
+    const command = {
+      sourceId,
+      seriesId: bought,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [],
+    };
+    for (const confirmation of [undefined, [other]]) {
+      try {
+        await controller.composition(
+          { accountId: owner },
+          {
+            ...command,
+            ...(confirmation === undefined
+              ? {}
+              : { confirmedProductRemovals: confirmation }),
+          },
+        );
+        expect.fail("Unconfirmed removal must fail");
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        if (!(error instanceof HttpException)) throw error;
+        expect(error.getStatus()).toBe(409);
+        expect(error.getResponse()).toMatchObject({
+          code: "product_removal_confirmation_required",
+        });
+      }
+    }
+    expect(await publishedProducts(removed.materialId)).toEqual([bought]);
+    await controller.composition(
+      { accountId: owner },
+      { ...command, confirmedProductRemovals: [bought] },
+    );
+    expect(await publishedProducts(removed.materialId)).toEqual([]);
+    const held = await grants.countProductHolders(db.prisma, [bought]);
+    expect(held.get(bought)).toBe(1);
+    const loaded = await materials.authoring.loadMaterial({
+      actor: owner,
+      materialId: removed.materialId,
+    });
+    expect(loaded).toMatchObject({
+      ok: true,
+      value: { publicationState: "published" },
+    });
+    await expect(
+      controller.composition(
+        { accountId: owner },
+        {
+          ...command,
+          sourceId: "inside-content:foreign",
+          confirmedProductRemovals: [bought],
+        },
+      ),
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   test("состав руководства теряет опубликованный шаг только подтверждением", async () => {

@@ -35,7 +35,7 @@ services:
   # лежат в именованном томе. Наружу не публикуется ничего; notifications-worker и Telegram
   # подключаются по AMQPS через внутреннюю сеть `broker`.
   rabbitmq:
-    image: rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47
+    image: public.ecr.aws/docker/library/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47
     pull_policy: missing
     hostname: rabbitmq
     # Сразу пользователь образа: healthcheck и rabbitmqctl не создают erlang cookie от root раньше
