@@ -300,6 +300,12 @@ try {
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
+    FULLSTACK_MATERIAL_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.materialImageVariants,
+    ),
+    FULLSTACK_TASK_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.taskImageVariants,
+    ),
     FULLSTACK_TASK_C_PRODUCT_SLUG: taskCFixture.productSlug,
     FULLSTACK_TASK_C_CODE: taskCFixture.code,
     FULLSTACK_TASK_C_CLOSED_CODE: taskCFixture.closedCode,

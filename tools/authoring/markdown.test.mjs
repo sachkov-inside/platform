@@ -113,3 +113,26 @@ test("callout fences retain literal headers and adjacent callouts stay separate"
     );
   }
 });
+
+test("image variants retain source, ALT and caption in a reader block", () => {
+  const ids = {
+    wideLight: "92000000-0000-4000-8000-000000000011",
+    wideDark: "92000000-0000-4000-8000-000000000012",
+    tallLight: "92000000-0000-4000-8000-000000000013",
+    tallDark: "92000000-0000-4000-8000-000000000014",
+  };
+  const sourceSrc = "assets/scene-wide-light.png";
+  const body = convertMarkdown(`![Описание](${sourceSrc} "Подпись")`, {
+    ...options,
+    image: () => ids.wideLight,
+    imageVariants: () => ids,
+  });
+  assert.deepEqual(body.doc.content[0]?.attrs, {
+    nodeId: body.doc.content[0]?.attrs?.["nodeId"],
+    assetId: ids.wideLight,
+    sourceSrc,
+    imageVariants: ids,
+    alt: "Описание",
+    caption: "Подпись",
+  });
+});

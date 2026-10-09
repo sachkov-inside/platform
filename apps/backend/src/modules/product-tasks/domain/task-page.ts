@@ -21,6 +21,19 @@ export const sourceTaskPageSchema = z
     markdown: z.string().max(1000000),
     links: z.record(z.string(), z.string()),
     images: z.record(z.string(), z.string()),
+    imageVariants: z
+      .record(
+        z.string(),
+        z
+          .object({
+            wideLight: z.string(),
+            wideDark: z.string(),
+            tallLight: z.string(),
+            tallDark: z.string(),
+          })
+          .strict(),
+      )
+      .optional(),
     coverAssetId: z.string().nullable().optional(),
     coverAlt: z.string().nullable().optional(),
     artifacts: z

@@ -234,6 +234,7 @@ function PreviewBlock({
           materialId={materialId}
           preview
           variants={block.variants}
+          imageVariants={block.imageVariants}
           width={block.width}
         />
       );

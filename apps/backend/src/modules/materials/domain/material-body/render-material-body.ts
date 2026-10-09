@@ -46,6 +46,17 @@ function collect(block: RenderedBlock, into: Collected): void {
   const resource = materialBlockResource(block);
   if (resource !== undefined) {
     into.resources.push(resource);
+    if (block.kind === "image" && block.imageVariants !== undefined) {
+      for (const variant of [
+        block.imageVariants.wideLight,
+        block.imageVariants.wideDark,
+        block.imageVariants.tallLight,
+        block.imageVariants.tallDark,
+      ]) {
+        if (variant.assetId !== block.assetId)
+          into.resources.push({ ...resource, assetId: variant.assetId });
+      }
+    }
   }
   if (block.kind === "variant") {
     into.modeVariants = true;

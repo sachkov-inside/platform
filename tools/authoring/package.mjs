@@ -88,6 +88,19 @@ export const materialSchema = z
     markdown: z.string(),
     links: z.record(z.string(), identifier),
     images: z.record(z.string(), z.string()),
+    imageVariants: z
+      .record(
+        z.string(),
+        z
+          .object({
+            wideLight: z.string().min(1),
+            wideDark: z.string().min(1),
+            tallLight: z.string().min(1),
+            tallDark: z.string().min(1),
+          })
+          .strict(),
+      )
+      .optional(),
     coverAssetId: z.string().nullable(),
     coverAlt: z.string().nullable(),
     video: z.object({ kinescopeId: z.uuid() }).strict().nullable(),
@@ -103,6 +116,24 @@ export const materialSchema = z
     ),
   })
   .strict();
+
+/** All image assets a page references, including its alternate compositions and themes.
+ * @param {ManifestMaterial} row */
+export function materialImageAssetIds(row) {
+  return [
+    ...new Set([
+      ...Object.values(row.images),
+      ...Object.values(row.imageVariants ?? {}).flatMap(
+        ({ wideLight, wideDark, tallLight, tallDark }) => [
+          wideLight,
+          wideDark,
+          tallLight,
+          tallDark,
+        ],
+      ),
+    ]),
+  ];
+}
 
 /**
  * A Product Task of the package (#946). Its source ID is the task code; Product, chapter and related
@@ -256,7 +287,7 @@ export function materialRevision(manifest, row) {
       row: { ...row, access: fingerprintAccess(row.access) },
       assets: manifest.assets.filter((asset) =>
         [
-          ...Object.values(row.images),
+          ...materialImageAssetIds(row),
           row.coverAssetId,
           ...row.artifacts.map((item) => item.assetId),
         ].includes(asset.sourceId),
@@ -428,7 +459,9 @@ export function checkCapabilities(value) {
   if (envelope.schemaVersion === 1 && envelope.requiredFeatures !== undefined)
     throw new Error("Package v1 cannot declare requiredFeatures");
   for (const feature of envelope.requiredFeatures ?? [])
-    if (!["task-c-v2", "github-anchors-v1"].includes(feature))
+    if (
+      !["task-c-v2", "github-anchors-v1", "image-variants-v1"].includes(feature)
+    )
       throw new Error(`Unsupported requiredFeature: ${feature}`);
 }
 
@@ -487,8 +520,33 @@ export async function loadPackage(path) {
       task.page === undefined ? [] : [task.page],
     ),
   ]) {
+    if (material.imageVariants !== undefined) {
+      if (
+        manifest.schemaVersion !== 2 ||
+        !manifest.requiredFeatures?.includes("image-variants-v1")
+      )
+        throw new Error(
+          "Image variants require package v2 and image-variants-v1",
+        );
+      for (const [src, variants] of Object.entries(material.imageVariants)) {
+        if (!Object.hasOwn(material.images, src))
+          throw new Error(
+            `${material.sourcePath}: variant source is not in images: ${src}`,
+          );
+        if (!Object.values(variants).includes(material.images[src] ?? ""))
+          throw new Error(
+            `${material.sourcePath}: source image is outside its variant set: ${src}`,
+          );
+        if (
+          Object.values(variants).some(
+            (id) => assets.get(id)?.mimeType !== "image/png",
+          )
+        )
+          throw new Error(`${material.sourcePath}: missing PNG variant asset`);
+      }
+    }
     const refs = [
-      ...Object.values(material.images),
+      ...materialImageAssetIds(material),
       ...material.artifacts.map((item) => item.assetId),
       ...(material.coverAssetId === null ? [] : [material.coverAssetId]),
     ];

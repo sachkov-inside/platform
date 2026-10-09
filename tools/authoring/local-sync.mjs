@@ -1,4 +1,6 @@
 // @ts-check
+import { resolveImageVariants } from "./image-variants.mjs";
+import { materialImageAssetIds } from "./package.mjs";
 import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
 import {
@@ -890,6 +892,7 @@ export async function syncLocal(
           if (/^(https?:|mailto:|#)/u.test(href)) return href;
           throw new Error(`${row.sourcePath}: undeclared local link: ${href}`);
         },
+        imageVariants: (href) => resolveImageVariants(row, href, images),
         image: (href) => {
           const id = row.images[href] ?? row.images[decodeURI(href)];
           if (id === undefined || !images.has(id))
@@ -1259,7 +1262,7 @@ export async function syncLocal(
       } else {
         /** @type {Map<string, string>} */
         const images = new Map();
-        for (const assetId of new Set(Object.values(row.images))) {
+        for (const assetId of materialImageAssetIds(row)) {
           const asset = valueAt(assets, assetId);
           const upload = await imageUpload(await readAsset(asset), asset);
           const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;

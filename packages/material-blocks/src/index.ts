@@ -66,3 +66,8 @@ export {
   renderedBlockSchema,
   renderedMaterialBodySchema,
 } from "./rendered-block-schema.js";
+
+export type {
+  ImageVariants,
+  ImageAssetPresentation,
+} from "./rendered-block.js";

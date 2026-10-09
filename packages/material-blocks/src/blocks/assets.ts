@@ -14,6 +14,39 @@ import { isJsonObject, stringAttribute } from "../json.js";
 
 /** Field rules, declared once and read both by the document node and by the rendered block. */
 const assetIdSchema = z.uuid();
+const imageVariantIdsSchema = z
+  .object({
+    wideLight: assetIdSchema,
+    wideDark: assetIdSchema,
+    tallLight: assetIdSchema,
+    tallDark: assetIdSchema,
+  })
+  .strict();
+const imagePresentationSchema = z
+  .object({
+    assetId: assetIdSchema,
+    height: z.number().int().positive().optional(),
+    width: z.number().int().positive().optional(),
+    variants: z
+      .array(
+        z
+          .object({
+            height: z.number().int().positive(),
+            width: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
+const imageVariantsSchema = z
+  .object({
+    wideLight: imagePresentationSchema,
+    wideDark: imagePresentationSchema,
+    tallLight: imagePresentationSchema,
+    tallDark: imagePresentationSchema,
+  })
+  .strict();
 const displayWidthPercentSchema = z.number().int().min(25).max(100);
 
 function accepts(schema: z.ZodType, value: unknown): boolean {
@@ -37,6 +70,10 @@ function assetNode(
     group: "block",
     // One DOM contract for both applications: the editor's, because the server never parses or
     // renders HTML and the editor's clipboard behaviour must not change.
+    domAttributes:
+      name === "assetImage"
+        ? { imageVariants: "data-image-variants", sourceSrc: "data-source-src" }
+        : {},
     parseHTML: [`[data-material-asset="${name}"]`],
     renderHTML: (nodeAttributes) => {
       const isImage = name === "assetImage";
@@ -67,6 +104,22 @@ export const assetImageBlock: MaterialBlockDefinition =
       const attributes = isJsonObject(node["attrs"])
         ? node["attrs"]
         : undefined;
+      const imageVariants = attributes?.["imageVariants"];
+      if (imageVariants !== undefined && imageVariants !== null) {
+        const parsed = imageVariantIdsSchema.safeParse(imageVariants);
+        if (
+          !parsed.success ||
+          !Object.values(parsed.data).includes(
+            stringAttribute(node, "assetId") ?? "",
+          )
+        )
+          report("invalid_image_variants", "imageVariants");
+        if (
+          typeof attributes?.["sourceSrc"] !== "string" ||
+          attributes["sourceSrc"].length === 0
+        )
+          report("missing_image_source", "sourceSrc");
+      }
       const displayWidthPercent = attributes?.["displayWidthPercent"];
       if (
         displayWidthPercent !== undefined &&
@@ -88,10 +141,17 @@ export const assetImageBlock: MaterialBlockDefinition =
       "alt",
       "caption",
       "displayWidthPercent",
+      "sourceSrc",
+      "imageVariants",
     ]),
     render: (node) => {
       const attributes = nodeAttributes(node);
       const caption = optionalText(attributes["caption"]);
+      const sourceSrc = optionalText(attributes["sourceSrc"]);
+      const ids =
+        attributes["imageVariants"] == null
+          ? undefined
+          : imageVariantIdsSchema.parse(attributes["imageVariants"]);
       return {
         alt: expectString(attributes["alt"], "image alt"),
         assetId: expectString(attributes["assetId"], "asset ID"),
@@ -99,6 +159,17 @@ export const assetImageBlock: MaterialBlockDefinition =
         ...(typeof attributes["displayWidthPercent"] === "number"
           ? { displayWidthPercent: attributes["displayWidthPercent"] }
           : {}),
+        ...(sourceSrc === undefined ? {} : { sourceSrc }),
+        ...(ids === undefined
+          ? {}
+          : {
+              imageVariants: {
+                wideLight: { assetId: ids.wideLight },
+                wideDark: { assetId: ids.wideDark },
+                tallLight: { assetId: ids.tallLight },
+                tallDark: { assetId: ids.tallDark },
+              },
+            }),
         kind: "image",
       };
     },
@@ -111,6 +182,8 @@ export const assetImageBlock: MaterialBlockDefinition =
           displayWidthPercent: displayWidthPercentSchema.optional(),
           height: z.number().int().positive().optional(),
           kind: z.literal("image"),
+          sourceSrc: z.string().optional(),
+          imageVariants: imageVariantsSchema.optional(),
           variants: z
             .array(
               z

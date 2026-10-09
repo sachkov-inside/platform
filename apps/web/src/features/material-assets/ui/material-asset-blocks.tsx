@@ -1,4 +1,11 @@
-import { MaterialImageDelivery } from "./material-image-delivery.client";
+import type {
+  ImageAssetPresentation,
+  ImageVariants,
+} from "@inside/material-blocks";
+import {
+  MaterialResponsiveImage,
+  type MaterialImageSource,
+} from "./material-responsive-image.client";
 import { materialAssetFileHref } from "../api/material-asset-file-href";
 import { FileText } from "lucide-react";
 
@@ -9,6 +16,7 @@ export function MaterialAssetImage({
   contentVersion,
   displayWidthPercent = 100,
   height,
+  imageVariants,
   materialId,
   preview = false,
   variants,
@@ -21,6 +29,7 @@ export function MaterialAssetImage({
   readonly contentVersion: number;
   readonly displayWidthPercent?: number | undefined;
   readonly height?: number | undefined;
+  readonly imageVariants?: ImageVariants<ImageAssetPresentation> | undefined;
   readonly materialId: string;
   readonly preview?: boolean;
   readonly variants?:
@@ -40,25 +49,65 @@ export function MaterialAssetImage({
   }
   const query = new URLSearchParams({ contentVersion: String(contentVersion) });
   if (preview) query.set("preview", "true");
-  const url = (variantWidth: number) =>
-    `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}?${query.toString()}`;
+  const source = (
+    asset: ImageAssetPresentation,
+  ): MaterialImageSource | undefined => {
+    const largest = asset.variants?.at(-1);
+    if (
+      largest === undefined ||
+      asset.width === undefined ||
+      asset.height === undefined
+    )
+      return undefined;
+    const url = (variantWidth: number) =>
+      `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(asset.assetId)}/images/${String(variantWidth)}?${query.toString()}`;
+    return {
+      height: asset.height,
+      width: asset.width,
+      src: url(largest.width),
+      srcSet: (asset.variants ?? [])
+        .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
+        .join(", "),
+      viewerSize: zoomable ? largest : undefined,
+    };
+  };
+  const image = source({
+    assetId,
+    height,
+    width,
+    variants: responsiveVariants,
+  });
+  const wideLight =
+    imageVariants === undefined ? undefined : source(imageVariants.wideLight);
+  const wideDark =
+    imageVariants === undefined ? undefined : source(imageVariants.wideDark);
+  const tallLight =
+    imageVariants === undefined ? undefined : source(imageVariants.tallLight);
+  const tallDark =
+    imageVariants === undefined ? undefined : source(imageVariants.tallDark);
+  const sources =
+    wideLight !== undefined &&
+    wideDark !== undefined &&
+    tallLight !== undefined &&
+    tallDark !== undefined
+      ? { wideLight, wideDark, tallLight, tallDark }
+      : undefined;
+  if (
+    image === undefined ||
+    (imageVariants !== undefined && sources === undefined)
+  )
+    return <p role="status">Изображение временно недоступно.</p>;
   return (
     <figure
       style={{ width: `${String(displayWidthPercent)}%` }}
       className="mx-auto overflow-hidden rounded-xl bg-card"
     >
-      <MaterialImageDelivery
-        key={url(available.width)}
+      <MaterialResponsiveImage
         alt={alt}
         caption={caption}
-        height={height}
+        image={image}
+        imageVariants={sources}
         preview={preview}
-        src={url(available.width)}
-        srcSet={responsiveVariants
-          .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
-          .join(", ")}
-        width={width}
-        viewerSize={zoomable ? available : undefined}
       />
       {caption === undefined ? null : (
         <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">

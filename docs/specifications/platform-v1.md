@@ -1374,8 +1374,8 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
 The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
-`task-c-v2` and `github-anchors-v1`; unknown features are refused by name. Quizzes (#940), image
-variants (#1195) and general collapsible callouts (#1196) remain separate integrations. A Content
+`task-c-v2`, `github-anchors-v1` and `image-variants-v1`; unknown features are refused by name. Quizzes (#940)
+and general collapsible callouts (#1196) remain separate integrations. A Content
 package that requires them is refused until those integrations support their features. In particular,
 Content's generated c advice may also declare `collapsible-callouts-v1`; Task-local folding alone
 does not declare support for that package capability.
@@ -1474,3 +1474,21 @@ accepted look yet: it is temporary semantic UI until
   the learner reads «Автор ещё не смотрел». The learner reads the feedback on the task page and
   through `learning_task_submissions`. The browser reaches it through
   `PUT /api/authoring/product-tasks/feedback`.
+
+
+#### Static course image variants (#1195)
+
+Package v2 `materials[].imageVariants` and `tasks[].page.imageVariants` map the original Markdown
+image source to four PNG assets: `wideLight`, `wideDark`, `tallLight`, `tallDark`. The package requires
+`image-variants-v1`. Before any uploads or writes, load rejects incomplete sets, unknown sources,
+missing PNG asset records and an original image outside its set; package asset checks still verify
+all bytes and checksums. Image blocks keep `sourceSrc`, the four uploaded asset IDs, ALT and caption.
+All four assets remain referenced for access checks and cleanup; editor saves and repeated imports
+preserve their relation. Ordinary single-asset images retain their delivery path.
+
+The Reader and Task c page reuse the existing image and full-screen viewer. They choose the wide
+composition at an image column width of at least 560 CSS pixels, and the tall composition below it.
+They choose light or dark from the column's computed color scheme and react to width and theme
+changes. The public application shell currently fixes the light theme; this capability does not add
+a theme switch. The viewer opens the selected composition. `scene.js` and `DURATION` have no
+execution path in this feature; the importer consumes static image assets only.

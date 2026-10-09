@@ -176,11 +176,12 @@ export function sourceUuid(value) {
  *   sourceId: string;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
+ *   imageVariants?: (src: string) => import("@inside/material-blocks").ImageVariants<string> | undefined;
  * }} source
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image },
+  { sourcePath, sourceId, link, image, imageVariants },
 ) {
   /**
    * @param {Token} token
@@ -249,10 +250,15 @@ export function convertMarkdown(
             parent,
             "linked/marked image requires an explicit supported block",
           );
+        const src = attribute(token, "src");
+        const variants = imageVariants?.(src);
         nodes.push({
           type: "assetImage",
           attrs: {
-            assetId: image(attribute(token, "src")),
+            assetId: image(src),
+            ...(variants === undefined
+              ? {}
+              : { sourceSrc: src, imageVariants: variants }),
             alt: token.content,
             caption: token.attrGet("title"),
           },
