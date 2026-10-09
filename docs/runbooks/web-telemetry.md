@@ -71,11 +71,11 @@ the migration that creates its view.
 
 `pnpm telemetry:measure` owns an isolated PostgreSQL 18.4 container limited to two CPUs and 1 GiB.
 It fills 600,000 vital samples and 150,000 errors using diverse 500-code-point, four-byte messages,
-then runs eight daily insertion/30-day-cleanup cycles through the actual quota/coverage routines.
+then runs 32 daily insertion/30-day-cleanup cycles through the actual quota/coverage routines.
 Initial bulk preparation uses ordinary vacuum for sample visibility. Query adapters initialize
 against an empty date window before timed queries; that preparation does not read the corpus. It measures before cleanup, after cleanup
 and after ordinary vacuum. No VACUUM FULL, REINDEX or global setting change resets the measurement.
-Ordinary vacuum models the maintenance available during a real day; it retains file high-water
+Ordinary vacuum and checkpoints model maintenance during a real day; it retains file high-water
 marks and reusable pages. The command checks the 600 MB budget, p75 query time and daily cleanup
 budget, and removes its database in `finally`. The final Issue/PR records measured values and
 machine conditions; this runbook does not substitute an estimate for that evidence.

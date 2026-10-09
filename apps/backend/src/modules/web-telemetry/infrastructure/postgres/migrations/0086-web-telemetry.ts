@@ -85,9 +85,9 @@ CREATE VIEW web_telemetry.health AS
      AND older.occurred_at<=now()-interval '10 minutes')
  ) fresh
  UNION ALL
- SELECT 'web_telemetry_size', CASE WHEN coalesce(sum(pg_total_relation_size(c.oid)),0)>=480000000 THEN 1 ELSE 0 END
+ SELECT 'web_telemetry_size', CASE WHEN coalesce(sum(CASE WHEN c.relkind='S' THEN pg_relation_size(c.oid) ELSE pg_total_relation_size(c.oid) END),0)>=480000000 THEN 1 ELSE 0 END
  FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='web_telemetry' AND c.relkind IN ('r','m')
+ WHERE n.nspname='web_telemetry' AND c.relkind IN ('r','m','S')
  UNION ALL
  SELECT 'web_telemetry_dropped', coalesce(sum(dropped),0)::bigint FROM web_telemetry.daily_quota
  WHERE day=(now() AT TIME ZONE 'UTC')::date;

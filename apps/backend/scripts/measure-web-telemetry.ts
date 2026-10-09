@@ -9,7 +9,7 @@ import { migrateToLatest } from "../src/migrations/index.js";
 import { WebTelemetry } from "../src/modules/web-telemetry/index.js";
 
 const budgetBytes = 600_000_000;
-const cycles = 8;
+const cycles = 32;
 const corpusSize = 1_024;
 const metricsPerDay = 20_000;
 const errorsPerDay = 5_000;
@@ -21,6 +21,7 @@ async function measure() {
     .start();
   const cleanup: (() => Promise<unknown>)[] = [() => container.stop()];
   let failed = false;
+  let failure: unknown;
   try {
     const prisma = createPrismaClient(container.getConnectionUri());
     cleanup.unshift(() => prisma.$disconnect());
@@ -108,8 +109,8 @@ async function measure() {
     }
     async function size() {
       const rows: unknown = await prisma.$queryRaw(Prisma.sql`
-        SELECT sum(pg_total_relation_size(c.oid))::float8 AS bytes FROM pg_class c
-        JOIN pg_namespace n ON c.relnamespace=n.oid WHERE n.nspname='web_telemetry' AND c.relkind IN ('r','m')
+        SELECT sum(CASE WHEN c.relkind='S' THEN pg_relation_size(c.oid) ELSE pg_total_relation_size(c.oid) END)::float8 AS bytes FROM pg_class c
+        JOIN pg_namespace n ON c.relnamespace=n.oid WHERE n.nspname='web_telemetry' AND c.relkind IN ('r','m','S')
       `);
       const [row] = z
         .array(z.object({ bytes: z.number() }))
@@ -122,6 +123,15 @@ async function measure() {
     await prisma.$executeRaw`ANALYZE web_telemetry.vital_samples`;
     await prisma.$executeRaw`ANALYZE web_telemetry.errors`;
     const initialBytes = await size();
+    const signal: unknown =
+      await prisma.$queryRaw`SELECT value::float8 AS value FROM web_telemetry.health WHERE name='web_telemetry_size'`;
+    if (
+      !z
+        .array(z.object({ value: z.literal(1) }))
+        .length(1)
+        .safeParse(signal).success
+    )
+      throw new Error("Missing 80% schema size signal");
     const relations: unknown =
       await prisma.$queryRaw`SELECT c.relname,pg_total_relation_size(c.oid)::float8 AS bytes FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid WHERE n.nspname='web_telemetry' AND c.relkind='r'`;
     // Prepare Prisma/query/result adapters against an empty date window, without reading the corpus.
@@ -146,6 +156,7 @@ async function measure() {
       afterCleanupBytes: number;
       afterVacuumBytes: number;
       cleanupMs: number;
+      p75Ms: number;
     }[] = [];
     for (let cycle = 1; cycle <= cycles; cycle++) {
       now = new Date(now.getTime() + millisecondsPerDay);
@@ -163,12 +174,21 @@ async function measure() {
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.errors`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.coverage`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.daily_quota`;
+      queryTimes.length = 0;
+      const summary = await telemetry.summary("benchmark-owner", 30);
+      if (!summary.ok) throw new Error(summary.error.code);
+      const p75Ms = queryTimes[0];
+      if (p75Ms === undefined) throw new Error("Missing p75 query timing");
+      p75Times.push(p75Ms);
+      // A simulated day also includes the ordinary checkpoints that would happen during 24 hours.
+      await prisma.$executeRaw`CHECKPOINT`;
       growth.push({
         cycle,
         beforeCleanupBytes,
         afterCleanupBytes,
         afterVacuumBytes: await size(),
         cleanupMs,
+        p75Ms,
       });
     }
     const maxBytes = Math.max(
@@ -199,7 +219,7 @@ async function measure() {
       throw new Error("Telemetry resource budget exceeded");
   } catch (error) {
     failed = true;
-    throw error;
+    failure = error;
   } finally {
     const failures: unknown[] = [];
     for (const release of cleanup) {
@@ -210,13 +230,16 @@ async function measure() {
       }
     }
     if (failures.length > 0) {
-      if (!failed)
-        throw new AggregateError(
+      if (!failed) {
+        failed = true;
+        failure = new AggregateError(
           failures,
           "Telemetry measurement cleanup failed",
         );
-      process.stderr.write("Telemetry measurement cleanup also failed\n");
+      } else
+        process.stderr.write("Telemetry measurement cleanup also failed\n");
     }
   }
+  if (failed) throw failure;
 }
 await measure();
