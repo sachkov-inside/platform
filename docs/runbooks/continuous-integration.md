@@ -90,7 +90,12 @@ separate Compose command before application startup. It waits one second after R
 before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
 concurrency but leaves admission timing and graph order to Compose. The interval bounds this
 pair's own admission; it cannot reserve a quota shared with other clients or prove the historical
-origin of throttling. Acquisition failures keep their original error and stop startup without a
+origin of throttling. A Compose call start does not timestamp its individual registry requests.
+Pull completion bounds the end of that opaque request window; the next admission follows that
+completion plus the provider interval. This conservatively separates the two request windows.
+The virtual-time adapter proves this contract, not successful acquisition from AWS; the exact-ref
+runtime smoke and current-head CI must provide that proof.
+Acquisition failures keep their original error and stop startup without a
 retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
 boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
 Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
