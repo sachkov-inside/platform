@@ -29,6 +29,12 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   await expect(
     page.locator("[data-series-order]:visible").first(),
   ).toBeVisible();
+  // The personal projection replaces the shared fallback; switch parts once its access state has landed.
+  await expect(
+    page.locator(
+      '[data-product-programme="performance-course"] [data-programme-part="header"]:visible',
+    ),
+  ).toContainText("всё открыто");
   await page
     .getByRole("navigation", { name: "Разделы продукта" })
     .getByRole("button", { name: /^Материалы/u })
