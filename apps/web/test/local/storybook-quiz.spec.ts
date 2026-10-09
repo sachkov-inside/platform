@@ -51,7 +51,9 @@ for (const state of [
     if (process.env["CAPTURE_EVIDENCE"] === "1") {
       const directory = resolve("../../docs/evidence/issue-1283");
       await mkdir(directory, { recursive: true });
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
       await screenshotWholePage(page, {
         animations: "disabled",
         path: resolve(

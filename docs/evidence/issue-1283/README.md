@@ -38,4 +38,4 @@ The isolated Reader/editor route awaits #1284's configurable internal web port a
 No compatibility bypass or actual Content application is allowed here.
 Root owns #56 and the immutable chapters 1–2 package application after runtime handoff.
 Final checks, CI, independent review and production visual GO must precede merge.
-Platform-orchestrator owns the unified candidate; main freeze 05959055 and merge queue remain binding.
+Platform-orchestrator owns the unified candidate. The v32 freeze is lifted; only the coordinator may enqueue this PR after its gates.
