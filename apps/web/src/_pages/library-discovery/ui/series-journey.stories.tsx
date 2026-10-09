@@ -539,8 +539,9 @@ export const LargeMaterialCatalogue: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await openPart(canvasElement, /^Материалы/u);
-    const catalogue = canvas.getByRole("list", { name: "Материалы курса" });
-    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
+    const catalogue = () =>
+      canvas.getByRole("list", { name: "Материалы курса" });
+    await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(12);
     await expect(
       canvas.getByText("120 материалов", { exact: true }),
     ).toBeVisible();
@@ -549,9 +550,9 @@ export const LargeMaterialCatalogue: Story = {
     });
     // Совпадение находится в последней порции, которую ещё не открывали.
     await userEvent.type(search, "Описание материала 120");
-    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(1);
+    await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(1);
     await expect(
-      within(catalogue).getByRole("heading", { name: "Урок 120" }),
+      within(catalogue()).getByRole("heading", { name: "Урок 120" }),
     ).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Видео" }));
     await expect(canvas.getByText(/Ничего не нашлось/u)).toBeVisible();
@@ -560,11 +561,11 @@ export const LargeMaterialCatalogue: Story = {
       canvas.getByRole("heading", { name: "Урок 120" }),
     ).toBeVisible();
     await userEvent.clear(search);
-    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(12);
+    await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(12);
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё материалы" }),
     );
-    await expect(within(catalogue).getAllByRole("listitem")).toHaveLength(24);
+    await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(24);
   },
 };
 

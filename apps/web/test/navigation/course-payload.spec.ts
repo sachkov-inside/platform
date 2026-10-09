@@ -73,7 +73,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     .click();
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
   await page
-    .getByRole("link", { name: "Назад к программе", exact: true })
+    .getByRole("link", { name: "Назад к материалам", exact: true })
     .first()
     .click();
   await expect(page).toHaveURL(/part=materials.*at=performance-lesson-1/u);
@@ -97,6 +97,14 @@ for (const version of ["v1", "v2", "v3"] as const) {
     const errors: string[] = [];
     const scripts: Promise<{ url: string; source: string }>[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        /hydrat|did not match|didn't match/iu.test(message.text())
+      ) {
+        errors.push(message.text());
+      }
+    });
     page.on("response", (response) => {
       if (response.request().resourceType() !== "script") return;
       scripts.push(
@@ -107,7 +115,11 @@ for (const version of ["v1", "v2", "v3"] as const) {
     await page.goto(`/products/performance-course?film=${version}`);
     const film = page.locator(".aie-film:visible canvas");
     await expect(film).toHaveAccessibleName(
-      version === "v2" ? /путь одной фичи/u : /навыки AI-инженера/u,
+      version === "v1"
+        ? /одним непрерывным движением/u
+        : version === "v2"
+          ? /путь одной фичи/u
+          : /^Анимация курса: навыки AI-инженера\. Агент/u,
     );
     await expect
       .poll(() =>
