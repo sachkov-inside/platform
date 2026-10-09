@@ -29,7 +29,16 @@ assert_public_status() {
     # RFC 6750 sign-in challenges intentionally have no body; discovery remains on the old host.
     local challenge='Bearer resource_metadata="https://inside.sachkov.dev/.well-known/oauth-protected-resource/mcp/learning", scope="learning:read"'
     if [[ -s "$body_path" ]] ||
-      ! tr -d '\r' <"$headers_path" | grep -Fqix "www-authenticate: $challenge"; then
+      ! tr -d '\r' <"$headers_path" | awk -v challenge="$challenge" '
+        index($0, ":") {
+          separator = index($0, ":")
+          name = substr($0, 1, separator - 1)
+          value = substr($0, separator + 1)
+          sub(/^[[:space:]]*/, "", value)
+          if (tolower(name) == "www-authenticate" && value == challenge) found = 1
+        }
+        END { exit !found }
+      '; then
       echo "Expected GET /mcp/learning to return the empty learner OAuth sign-in challenge" >&2
       exit 1
     fi

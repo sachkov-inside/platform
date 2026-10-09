@@ -12,6 +12,11 @@ const learningChallenge =
 test("production probe accepts the learner MCP sign-in challenge with an empty body", () => {
   const result = runProbe({ challenge: learningChallenge });
   assert.equal(result.status, 0, result.output);
+  const mixedCaseHeader = runProbe({
+    challenge: learningChallenge,
+    headerName: "wWw-aUtHeNtIcAtE",
+  });
+  assert.equal(mixedCaseHeader.status, 0, mixedCaseHeader.output);
 });
 
 test("production probe rejects a missing or changed learner OAuth challenge", () => {
@@ -19,6 +24,8 @@ test("production probe rejects a missing or changed learner OAuth challenge", ()
     "",
     learningChallenge.replace("inside.sachkov.dev", "sachkov.dev"),
     learningChallenge.replace("learning:read", "materials:manage"),
+    learningChallenge.replace("learning:read", "learning:READ"),
+    learningChallenge.replace("/.well-known/", "/.WELL-KNOWN/"),
   ]) {
     const result = runProbe({ challenge });
     assert.equal(result.status, 1, result.output);
@@ -60,7 +67,7 @@ test("production probe retains nonempty API rejections and empty fail-closed rou
 });
 
 /**
- * @param {{challenge?: string, body?: string, status?: string, path?: string, expected?: string}} response
+ * @param {{challenge?: string, headerName?: string, body?: string, status?: string, path?: string, expected?: string}} response
  */
 function runProbe(response) {
   const directory = mkdtempSync(join(tmpdir(), "production-public-probe-"));
@@ -72,7 +79,7 @@ set -eu
 while (($#)); do
   case "$1" in
     --output) printf '%s' "$PROBE_BODY" > "$2"; shift ;;
-    --dump-header) printf 'HTTP/2 %s\\r\\nWWW-Authenticate: %s\\r\\n\\r\\n' "$PROBE_STATUS" "$PROBE_CHALLENGE" > "$2"; shift ;;
+    --dump-header) printf 'HTTP/2 %s\\r\\n%s: %s\\r\\n\\r\\n' "$PROBE_STATUS" "$PROBE_HEADER_NAME" "$PROBE_CHALLENGE" > "$2"; shift ;;
   esac
   shift
 done
@@ -100,6 +107,7 @@ printf '%s' "$PROBE_STATUS"
           PROBE_BODY: response.body ?? "",
           PROBE_STATUS: response.status ?? "401",
           PROBE_CHALLENGE: response.challenge ?? "",
+          PROBE_HEADER_NAME: response.headerName ?? "WWW-Authenticate",
         },
       },
     );
