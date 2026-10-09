@@ -139,6 +139,7 @@ test("image variants retain source, ALT and caption in a reader block", () => {
 
 for (const sourceSrc of [
   "assets/схема/out/example.png",
+  "assets/схема%20один/out/example.png",
   "assets/%D1%81%D1%85%D0%B5%D0%BC%D0%B0/out/example.png",
 ]) {
   test(`image variants preserve the exact package source key: ${sourceSrc}`, async () => {

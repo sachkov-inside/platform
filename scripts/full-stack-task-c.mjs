@@ -72,13 +72,13 @@ export async function seedFullStackTaskC(origin, accessToken) {
       showInFeed: false,
       difficulty: null,
       outcomes: null,
-      markdown: `![Схема вариантов](assets/схема.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}`,
+      markdown: `![Схема вариантов](assets/схема%20один.png)\n\nУрок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}`,
       links: {
         "c-first.md": "c-first",
         "c-first.md#как-спроектировать-один-этап": "c-first",
       },
-      images: { "assets/схема.png": imageVariants.wideLight },
-      imageVariants: { "assets/схема.png": imageVariants },
+      images: { "assets/схема%20один.png": imageVariants.wideLight },
+      imageVariants: { "assets/схема%20один.png": imageVariants },
       coverAssetId: null,
       coverAlt: null,
       video: null,
@@ -248,7 +248,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
     });
     const diagramNode = z.object({
       attrs: z.object({
-        sourceSrc: z.literal("assets/схема.png"),
+        sourceSrc: z.literal("assets/схема%20один.png"),
         imageVariants: variantIdsSchema,
       }),
     });

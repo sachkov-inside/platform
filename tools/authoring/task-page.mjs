@@ -1,7 +1,7 @@
 // @ts-check
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { resolveImageVariants } from "./image-variants.mjs";
+import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { imageUpload } from "./image-upload.mjs";
@@ -58,7 +58,8 @@ export function taskPageBody(task, links, images, onResolvedLink) {
     },
     imageVariants: (href) => resolveImageVariants(page, href, images),
     image: (href) => {
-      const id = page.images[href] ?? page.images[decodeURI(href)];
+      const key = imageSourceKey(page.images, href);
+      const id = key === undefined ? undefined : page.images[key];
       const assetId = id === undefined ? undefined : images.get(id);
       if (assetId === undefined)
         throw new Error(`${page.sourcePath}: unresolved image: ${href}`);

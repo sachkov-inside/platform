@@ -25,6 +25,21 @@ async function verifyDiagram(
         ),
       )
       .toBe(true);
+    await expect
+      .poll(() =>
+        image.evaluate((node) => {
+          const composition = node.closest(
+            '[data-image-composition="variants"]',
+          );
+          return composition === null
+            ? Infinity
+            : Math.abs(
+                composition.getBoundingClientRect().height -
+                  node.getBoundingClientRect().height,
+              );
+        }),
+      )
+      .toBeLessThan(1);
   };
   await loaded(narrow ? ids.tallLight : ids.wideLight);
   await figure.evaluate((node) => {

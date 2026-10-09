@@ -20,8 +20,8 @@ export const variantDiagram: Extract<RenderedBlock, { kind: "image" }> = {
     wideDark: {
       assetId: "wideDark.png",
       width: 960,
-      height: 420,
-      variants: [{ width: 960, height: 420 }],
+      height: 500,
+      variants: [{ width: 960, height: 500 }],
     },
     tallLight: {
       assetId: "tallLight.png",
@@ -32,8 +32,8 @@ export const variantDiagram: Extract<RenderedBlock, { kind: "image" }> = {
     tallDark: {
       assetId: "tallDark.png",
       width: 420,
-      height: 900,
-      variants: [{ width: 420, height: 900 }],
+      height: 1100,
+      variants: [{ width: 420, height: 1100 }],
     },
   },
 };
@@ -55,6 +55,14 @@ export async function expectVariantDiagram(
       );
       await expect(image).toHaveProperty("complete", true);
       await expect(image).not.toHaveProperty("naturalWidth", 0);
+      const composition = image.closest('[data-image-composition="variants"]');
+      if (composition === null) throw new Error("Missing composition");
+      await expect(
+        Math.abs(
+          composition.getBoundingClientRect().height -
+            image.getBoundingClientRect().height,
+        ),
+      ).toBeLessThan(1);
     });
   };
   const figure = image.closest("figure");

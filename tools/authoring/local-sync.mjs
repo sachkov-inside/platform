@@ -1,5 +1,5 @@
 // @ts-check
-import { resolveImageVariants } from "./image-variants.mjs";
+import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
 import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
@@ -894,7 +894,8 @@ export async function syncLocal(
         },
         imageVariants: (href) => resolveImageVariants(row, href, images),
         image: (href) => {
-          const id = row.images[href] ?? row.images[decodeURI(href)];
+          const key = imageSourceKey(row.images, href);
+          const id = key === undefined ? undefined : row.images[key];
           if (id === undefined || !images.has(id))
             throw new Error(`${row.sourcePath}: unresolved image: ${href}`);
           return valueAt(images, id);

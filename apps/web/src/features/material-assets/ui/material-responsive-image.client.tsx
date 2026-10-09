@@ -40,14 +40,10 @@ export function MaterialResponsiveImage({
   useEffect(() => {
     const element = container.current;
     if (element === null || imageVariants === undefined) return;
-    const preference = window.matchMedia("(prefers-color-scheme: dark)");
     const update = () => {
-      const scheme = getComputedStyle(element).colorScheme;
       const dark =
-        scheme === "dark" ||
-        (scheme.includes("light") &&
-          scheme.includes("dark") &&
-          preference.matches);
+        getComputedStyle(element).getPropertyValue("--theme-is-dark").trim() ===
+        "1";
       const wide =
         element.getBoundingClientRect().width >= WIDE_IMAGE_COLUMN_PX;
       setChoice(
@@ -72,12 +68,10 @@ export function MaterialResponsiveImage({
         attributes: true,
         attributeFilter: ["class", "style"],
       });
-    preference.addEventListener("change", update);
     update();
     return () => {
       resize.disconnect();
       theme.disconnect();
-      preference.removeEventListener("change", update);
     };
   }, [imageVariants]);
   const selected =
@@ -90,8 +84,14 @@ export function MaterialResponsiveImage({
     imageVariants === undefined
       ? undefined
       : {
-          "--wide-ratio": `${String(imageVariants.wideLight.width)} / ${String(imageVariants.wideLight.height)}`,
-          "--tall-ratio": `${String(imageVariants.tallLight.width)} / ${String(imageVariants.tallLight.height)}`,
+          "--wide-light-width": String(imageVariants.wideLight.width),
+          "--wide-light-height": String(imageVariants.wideLight.height),
+          "--wide-dark-width": String(imageVariants.wideDark.width),
+          "--wide-dark-height": String(imageVariants.wideDark.height),
+          "--tall-light-width": String(imageVariants.tallLight.width),
+          "--tall-light-height": String(imageVariants.tallLight.height),
+          "--tall-dark-width": String(imageVariants.tallDark.width),
+          "--tall-dark-height": String(imageVariants.tallDark.height),
         };
   return (
     <div className={styles["container"]} ref={container} style={ratios}>
