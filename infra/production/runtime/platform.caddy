@@ -1,7 +1,7 @@
-inside.sachkov.dev {
+sachkov.dev, inside.sachkov.dev {
 	# Браузер год помнит площадку как HTTPS-only, и набранный http:// адрес не уходит в открытую сеть.
-	# includeSubDomains касается только имён под inside.sachkov.dev: auth и telegram — соседние
-	# домены. Preload не включён: он необратим на месяцы и требует политики для всего sachkov.dev.
+	# includeSubDomains на sachkov.dev требует HTTPS для всех его поддоменов.
+	# Preload не включён: его отмена занимает месяцы.
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
 	route {
@@ -91,22 +91,60 @@ inside.sachkov.dev {
 		uri @authoring_api strip_prefix /authoring-api
 		reverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		@mcp path /mcp
+		@mcp {
+			host inside.sachkov.dev
+			path /mcp
+		}
 		reverse_proxy @mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
-		@mcp_metadata path /.well-known/oauth-protected-resource/mcp
+		@mcp_metadata {
+			host inside.sachkov.dev
+			path /.well-known/oauth-protected-resource/mcp
+		}
 		reverse_proxy @mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
 		# Учебный MCP использует отдельный OAuth resource и не предоставляет авторские операции.
-		@learning_mcp path /mcp/learning
+		@learning_mcp {
+			host inside.sachkov.dev
+			path /mcp/learning
+		}
 		reverse_proxy @learning_mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
-		@learning_mcp_metadata path /.well-known/oauth-protected-resource/mcp/learning
+		@learning_mcp_metadata {
+			host inside.sachkov.dev
+			path /.well-known/oauth-protected-resource/mcp/learning
+		}
 		reverse_proxy @learning_mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
 		@unknown_integration path /integrations/*
 		respond @unknown_integration 404
 
+		@unknown_internal path /internal/*
+		respond @unknown_internal 404
+
+		@other_mcp path /mcp /mcp/* /.well-known/oauth-protected-resource/mcp /.well-known/oauth-protected-resource/mcp/*
+		respond @other_mcp 404
+
+		# Незавершённый вход не переносит code/state и cookie между hostname.
+		@old_callback {
+			host inside.sachkov.dev
+			path /callback
+		}
+		header @old_callback Cache-Control "no-store"
+		redir @old_callback https://sachkov.dev/?authentication=failed 303
+
+		@old_web host inside.sachkov.dev
+		header @old_web Cache-Control "no-store"
+		redir @old_web https://sachkov.dev{uri} 302
+
 		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000}
+	}
+}
+
+www.sachkov.dev {
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	route {
+		header Cache-Control "no-store"
+		redir https://sachkov.dev{uri} 302
 	}
 }

@@ -1,4 +1,4 @@
-inside.sachkov.dev {
+sachkov.dev, inside.sachkov.dev, www.sachkov.dev {
 	# Тот же HSTS, что у platform.caddy: выкладка не должна снимать его на время обслуживания.
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	respond "Deployment in progress" 503

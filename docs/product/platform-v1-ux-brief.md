@@ -105,7 +105,8 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 
 - Public landing и Platform application — разные surfaces: landing объясняет предложение и ведёт
   в application/Мастерскую; application владеет content discovery/reading/account. `sachkov.dev` и
-  `app.sachkov.dev` — рабочие примеры, не production domain commitment этой UX-задачи.
+  `app.sachkov.dev` были рабочими примерами этой UX-задачи. Решение #421 заменяет отдельный лендинг
+  приложением на `sachkov.dev`; текущая граница описана в [MVP brief](platform-mvp-brief.md#пользователи-и-доступ).
 - Free content доступен без account. Email-code sign-in одновременно создаёт или открывает
   account; отдельной registration form нет.
 - После первого sign-in Platform сразу предлагает связать Telegram, но шаг можно пропустить.

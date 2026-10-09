@@ -228,7 +228,7 @@ LOGTO_AUDIENCE=https://api.production-smoke.invalid
 LOGTO_APP_ID=inside-production-smoke
 LOGTO_APP_SECRET=inside-production-smoke-app-secret
 LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
-WEB_BASE_URL=https://inside.sachkov.dev
+WEB_BASE_URL=https://sachkov.dev
 EOF
 }
 
@@ -364,6 +364,7 @@ assert_public_status() {
   local method=$1
   local path=$2
   local expected=$3
+  local host=${4:-inside.sachkov.dev}
   local actual
   local body_path="$runtime_config_dir/public-response-body"
   actual="$(curl \
@@ -371,10 +372,10 @@ assert_public_status() {
     --noproxy '*' \
     --output "$body_path" \
     --request "$method" \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+    --resolve "${host}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
     --silent \
     --write-out '%{http_code}' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+    "https://${host}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
   if [[ "$actual" != "$expected" ]]; then
     echo "Expected $method $path to return $expected, received $actual" >&2
     exit 1
@@ -689,24 +690,24 @@ if curl \
 fi
 
 data_before="$(application_data_digest)"
-home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
 if [[ "$home_response" != *"Sachkov Inside"* ]]; then
   echo "Caddy did not serve the Platform home" >&2
   exit 1
 fi
 # Bundled creator artwork must survive standalone packaging and the real edge route.
 curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
   --output "$runtime_config_dir/home-avatar.webp" \
-  "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/images/kirill-mini-app.webp"
+  "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/images/kirill-mini-app.webp"
 if ! cmp -s apps/web/public/images/kirill-mini-app.webp "$runtime_config_dir/home-avatar.webp"; then
   echo "Bundled creator avatar differs from the approved bundled asset" >&2
   exit 1
 fi
 # The edge pins HTTPS for a year and the production CSP names no local development origin.
 home_headers="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
-  --dump-header - --output /dev/null "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --dump-header - --output /dev/null "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
 if ! grep -qi '^strict-transport-security: max-age=31536000; includeSubDomains' <<<"$home_headers"; then
   echo "Caddy did not send HSTS" >&2
   exit 1
@@ -723,10 +724,10 @@ sign_in_budget=60
 sign_in_statuses=""
 for attempt in $(seq 1 $((sign_in_budget + 1))); do
   sign_in_statuses+="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+    --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
     --request POST --header "X-Forwarded-For: 198.51.100.${attempt}" \
     --output /dev/null --write-out '%{http_code} ' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
+    "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
 done
 if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 "$sign_in_budget"))429 " ]]; then
   echo "Sign-in rate limit did not engage after $sign_in_budget requests: $sign_in_statuses" >&2
@@ -734,9 +735,9 @@ if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 "$sign_in_budget"))429
 fi
 # Public Next not-found pages carry HTML; integration 404 responses remain empty and fail closed.
 retired_library_status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
   --silent --show-error --output /dev/null --write-out '%{http_code}' \
-  "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
+  "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
 if [[ "$retired_library_status" != "404" ]]; then
   echo "Retired Library route should return 404, got $retired_library_status" >&2
   exit 1
@@ -772,15 +773,62 @@ if ! grep -q '"items"' "$runtime_config_dir/public-response-body"; then
   exit 1
 fi
 for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do
-  internal_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
-    --write-out '\n%{http_code}' "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${internal_path}")"
-  # Only the exact POST reaches the API; anything else is the public not-found page, never an API JSON answer.
-  if [[ "${internal_response##*$'\n'}" != "404" || "$internal_response" == \{* ]]; then
-    echo "Expected GET $internal_path to stay outside the API" >&2
+  assert_public_status GET "$internal_path" 404
+done
+
+# The browser moves hosts, while provider and MCP identities keep their old URLs.
+assert_redirect() {
+  local host=$1 path=$2 expected_status=$3 target=$4
+  local headers="$runtime_config_dir/redirect-headers"
+  local status
+  status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+    --resolve "${host}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent --show-error \
+    --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
+    "https://${host}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+  if [[ "$status" != "$expected_status" ]] ||
+    ! grep -Fqi "location: $target" "$headers" ||
+    ! grep -qi '^cache-control: no-store' "$headers"; then
+    echo "Unexpected redirect for $host$path: $status" >&2
+    cat "$headers" >&2
     exit 1
   fi
+}
+for host in inside.sachkov.dev www.sachkov.dev; do
+  assert_redirect "$host" '/explore?q=typescript&topic=testing' 302 'https://sachkov.dev/explore?q=typescript&topic=testing'
+  assert_redirect "$host" '/series/inside-ai-engineering?from=legacy' 302 'https://sachkov.dev/series/inside-ai-engineering?from=legacy'
+  assert_redirect "$host" '/library' 302 'https://sachkov.dev/library'
 done
+assert_redirect inside.sachkov.dev '/callback?code=secret-code&state=secret-state' 303 'https://sachkov.dev/?authentication=failed'
+if grep -Eq 'secret-code|secret-state' "$runtime_config_dir/redirect-headers"; then
+  echo 'Old callback leaked code/state' >&2
+  exit 1
+fi
+assert_public_status GET /explore 200 sachkov.dev
+for host in sachkov.dev inside.sachkov.dev; do
+  for path in /health /health/ready /_health/ready /integrations/unknown; do
+    assert_public_status GET "$path" 404 "$host"
+  done
+done
+for path in /mcp /mcp/learning /.well-known/oauth-protected-resource/mcp /.well-known/oauth-protected-resource/mcp/learning; do
+  assert_public_status GET "$path" 404 sachkov.dev
+done
+assert_public_status GET /mcp/learning 401
+assert_public_status GET /.well-known/oauth-protected-resource/mcp/learning 200
+
+# Reload the real maintenance fragment; every browser hostname must stay unavailable.
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/maintenance.Caddyfile --adapter caddyfile
+for host in sachkov.dev inside.sachkov.dev www.sachkov.dev; do
+  assert_public_status GET / 503 "$host"
+  assert_public_status POST /billing/tbank/notification 503 "$host"
+done
+# The DNS bridge must point toward the still-active old app before the final cutover.
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/stage.Caddyfile --adapter caddyfile
+for host in sachkov.dev www.sachkov.dev; do
+  assert_redirect "$host" '/explore?q=typescript' 302 'https://inside.sachkov.dev/explore?q=typescript'
+done
+assert_public_status GET / 200
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
 data_after="$(application_data_digest)"
 if [[ "$data_before" != "$data_after" ]]; then
   echo "Basic production smoke changed application/provider data" >&2
