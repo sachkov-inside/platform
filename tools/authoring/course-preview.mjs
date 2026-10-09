@@ -18,25 +18,30 @@ export function coursePreviewManifest(original) {
   );
   if (product === undefined || manifest.products.length !== 1)
     throw new Error("Course preview requires only Inside AI Engineering");
-  const preparation = product.chapters.find(
-    (row) => row.sourceId === "course-preparation",
-  );
-  const first = product.chapters.find(
-    (row) => row.sourceId === "first-agent-project",
-  );
+  // Explicit local acceptance choice for Content #56 / Platform #1284.
+  const chapterIds = [
+    "project-setup",
+    "mvp-platform",
+    "team-agent-infrastructure",
+    "business-agent",
+    "quality-and-production",
+  ];
   if (
-    preparation === undefined ||
-    first === undefined ||
-    first.materialIds.length < 3
+    !product.complete ||
+    product.chapters.length !== chapterIds.length ||
+    product.chapters.some(
+      (chapter, index) => chapter.sourceId !== chapterIds[index],
+    )
   )
     throw new Error(
-      "Course preview needs preparation and at least three chapter-one lessons",
+      "Course preview refuses an unknown course programme; review its acceptance profile",
     );
-  const free = new Set([
-    ...preparation.materialIds,
-    ...first.materialIds.slice(0, 2),
-    ...product.supplementaryMaterialIds,
-  ]);
+  const first = product.chapters.find(
+    (row) => row.sourceId === "project-setup",
+  );
+  if (first === undefined || first.materialIds.length === 0)
+    throw new Error("Course preview needs project-setup materials");
+  const free = new Set(first.materialIds);
   for (const row of manifest.materials)
     row.access = free.has(row.sourceId) ? "free" : "closed";
   for (const practice of manifest.practiceDefinitions ?? []) {
