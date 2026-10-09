@@ -192,6 +192,7 @@ function journeyRun(
       ? undefined
       : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
+  const preparing = run.items.length === 0 && tasks.length === 0;
   return {
     chapter:
       run.chapter === null
@@ -204,14 +205,16 @@ function journeyRun(
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
               >
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <h3
                     className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
-                  {run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
+                  {preparing ? (
+                    <span className="programme-chapter-soon">Скоро</span>
+                  ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
                     // На телефоне счётчик уступает место заголовку главы: число уроков видно в
                     // самом списке.
                     <span className="text-xs tabular-nums text-muted-foreground max-sm:hidden">
@@ -228,21 +231,13 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
-                    будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
-                    обычной и её можно проходить. */}
-                {run.items.length === 0 && tasks.length === 0 ? (
-                  <div className="programme-chapter-preview">
-                    {run.chapter.summary === "" ? null : (
-                      // Будущая глава — коротко: две строки на телефоне, три на широком экране.
-                      <p className="line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm sm:leading-6">
-                        {run.chapter.summary}
-                      </p>
-                    )}
-                    <p className="programme-chapter-soon">
-                      Материалы готовятся
-                    </p>
-                  </div>
+                {/* Глава без уроков остаётся частью программы, но коротко: метка «Скоро» и первая
+                    фраза описания (решение владельца 09.10.2026). С первым уроком глава
+                    становится обычной и её можно проходить. */}
+                {preparing && run.chapter.summary !== "" ? (
+                  <p className="mt-1 line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:text-sm">
+                    {firstSentence(run.chapter.summary)}
+                  </p>
                 ) : null}
               </header>
             ),
@@ -315,4 +310,10 @@ function chapterLookup(
     material.materialId === undefined
       ? null
       : (byMaterial.get(material.materialId) ?? null);
+}
+
+/** Первая фраза описания главы: будущая глава в программе называется одной мыслью. */
+function firstSentence(text: string): string {
+  const match = /^.+?[.!?…](?=\s|$)/su.exec(text.trim());
+  return match === null ? text.trim() : match[0];
 }

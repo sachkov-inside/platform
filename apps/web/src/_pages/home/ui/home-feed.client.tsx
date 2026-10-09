@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import {
   InfiniteMaterialCatalog,
-  LibrarySearchControl,
   homeFeedQueryOptions,
   libraryHref,
   parseLibrarySearchParams,
@@ -72,11 +71,9 @@ export function HomeFeedView({
     page?.kind === "unavailable";
   return (
     <section className="home-feed" aria-label="Материалы" id="materials">
+      {/* Поиска по материалам на Главной пока нет (решение владельца 09.10.2026): лента и
+          фильтры по формату и теме. Поиск остаётся в каталоге. */}
       <div className="home-feed-toolbar">
-        <LibrarySearchControl
-          query={catalog.searchQuery}
-          onQueryChange={changeQuery}
-        />
         <FeedFilters
           query={catalog.searchQuery}
           topics={page?.kind === "ready" ? page.facets.topics : []}

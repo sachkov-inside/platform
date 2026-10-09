@@ -258,10 +258,11 @@
   margin: 2.5rem auto 0;
   scroll-margin-top: 2rem;
 }
+/* Ряд фильтров ленты; поиска на Главной пока нет, поэтому высота — под один ряд чипов. */
 .home-feed-toolbar {
   display: grid;
   gap: 0.75rem;
-  min-height: 7rem;
+  min-height: 2.75rem;
   margin-bottom: 1rem;
 }
 .home-feed-filters {
