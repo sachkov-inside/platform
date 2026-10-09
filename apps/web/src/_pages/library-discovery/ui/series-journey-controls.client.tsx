@@ -489,7 +489,7 @@ function MaterialCatalog({
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
   const chip = (active: boolean) =>
     cn(
-      "inline-flex min-h-9 shrink-0 items-center rounded-full px-3.5 text-[0.8125rem] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm",
+      "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-9 sm:px-3.5 sm:text-sm",
       active
         ? "bg-primary text-primary-foreground"
         : "bg-muted text-muted-foreground hover:text-foreground",
@@ -497,14 +497,16 @@ function MaterialCatalog({
   return (
     <div data-material-catalog>
       <PartHeading title="Материалы" />
-      <label className="mt-4 flex min-h-11 items-center gap-2.5 rounded-xl bg-muted px-3.5">
+      {/* Поиск и фильтры компактные (стандарт шкалы 09.10.2026): поле 40 px, текст ввода 16 px,
+          чтобы iPhone не увеличивал страницу, подсказка мельче. */}
+      <label className="mt-3 flex min-h-10 items-center gap-2 rounded-xl bg-muted px-3 sm:mt-4 sm:min-h-11 sm:gap-2.5 sm:px-3.5">
         <Search
           aria-hidden="true"
           className="size-4 shrink-0 text-muted-foreground"
         />
         <span className="sr-only">Поиск по материалам курса</span>
         <input
-          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-sm placeholder:text-muted-foreground sm:placeholder:text-base"
           onChange={(event) => {
             setQuery(event.currentTarget.value);
           }}
@@ -513,10 +515,11 @@ function MaterialCatalog({
           value={query}
         />
       </label>
-      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2">
+      {/* Фильтры — один ряд: на узком экране он прокручивается вбок, а не растёт вниз. */}
+      <div className="public-horizontal-rail -mx-4 mt-2.5 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:mt-3 sm:flex-wrap sm:overflow-visible sm:px-0">
         <div
           aria-label="Формат материала"
-          className="flex gap-1.5"
+          className="flex shrink-0 gap-1.5"
           role="group"
         >
           {formats.map((option) => (
@@ -533,7 +536,12 @@ function MaterialCatalog({
             </button>
           ))}
         </div>
-        <div aria-label="Откуда материал" className="flex gap-1.5" role="group">
+        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+        <div
+          aria-label="Откуда материал"
+          className="flex shrink-0 gap-1.5"
+          role="group"
+        >
           {catalogScopes.slice(1).map((option) => (
             <button
               aria-pressed={scope === option.id}
@@ -549,7 +557,10 @@ function MaterialCatalog({
           ))}
         </div>
       </div>
-      <p aria-live="polite" className="mt-4 text-sm text-muted-foreground">
+      <p
+        aria-live="polite"
+        className="mt-3 text-xs text-muted-foreground sm:mt-4 sm:text-sm"
+      >
         {shown.length === entries.length
           ? formatMaterialCount(entries.length)
           : `Найдено: ${formatMaterialCount(shown.length)}`}
