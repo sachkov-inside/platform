@@ -1627,3 +1627,79 @@ export const SourceAnchorShellCollision: Story = {
     ).toHaveAttribute("href", "#app:content");
   },
 };
+
+export const CollapsibleAdvice: Story = {
+  args: {
+    body: [
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Мой совет",
+        collapse: "collapsed",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Ссылка в раскрытом совете",
+                marks: [{ kind: "link", href: "https://example.com" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Открытый совет",
+        collapse: "expanded",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Совет открыт изначально", marks: [] },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "note",
+        title: "Обычная врезка",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Обычная врезка видна сразу", marks: [] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+    await expect(canvas.getByText("Совет открыт изначально")).toBeVisible();
+    await expect(canvas.getByText("Обычная врезка видна сразу")).toBeVisible();
+    const summary = canvas
+      .getByText("Мой совет", { exact: true })
+      .closest("summary");
+    if (summary === null) throw new Error("Advice must have a summary");
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByRole("link", { name: "Ссылка в раскрытом совете" }),
+    ).toBeVisible();
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+  },
+};
+export const CollapsibleAdviceMobile: Story = {
+  ...CollapsibleAdvice,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

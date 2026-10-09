@@ -58,6 +58,7 @@ export type RenderedBlock =
   | {
       readonly content: readonly RenderedBlock[];
       readonly kind: "callout";
+      readonly collapse?: "collapsed" | "expanded" | undefined;
       readonly title?: string | undefined;
       readonly tone:
         | "bad"

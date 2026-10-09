@@ -51,6 +51,7 @@ export type RecursiveSchema0schema0 = ({
     }>;
   }>;
 } | {
+  collapse?: 'collapsed' | 'expanded';
   content: Array<RecursiveSchema0schema0>;
   kind: 'callout';
   title?: string;

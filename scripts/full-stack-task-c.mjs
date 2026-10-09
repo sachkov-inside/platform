@@ -36,6 +36,8 @@ export async function seedFullStackTaskC(origin, accessToken) {
       { length: 20 },
       () => "Продолжение после раздела для проверки позиции заголовка.",
     ).join("\n\n");
+    const advice =
+      "> [!tip]- Импортированный совет\n> [Ссылка внутри совета](https://example.com)\n>\n> ![Схема внутри совета](diagram.png)\n>\n> > [!note]+ Вложенный совет\n> > Вложенное тело\n>\n> ```markdown\n> > [!tip]- Литеральный пример\n> ```\n\n> [!tip]+ Открытый совет\n> Открытое тело\n\n> [!tip] Обычная врезка\n> Обычное тело";
     const duplicateHeadings = "## Раздел\n\n## Раздел-1\n\n## Раздел";
     const lesson = {
       sourceId: "c-lesson",
@@ -52,12 +54,12 @@ export async function seedFullStackTaskC(origin, accessToken) {
       showInFeed: false,
       difficulty: null,
       outcomes: null,
-      markdown: `Урок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}`,
+      markdown: `Урок перед заданием. [Открой задание](c-first.md). [К разделу задания](c-first.md#как-спроектировать-один-этап).\n\n${padding}\n\n${duplicateHeadings}\n\n${tail}\n\n${advice}`,
       links: {
         "c-first.md": "c-first",
         "c-first.md#как-спроектировать-один-этап": "c-first",
       },
-      images: {},
+      images: { "diagram.png": "diagram" },
       coverAssetId: null,
       coverAlt: null,
       video: null,
@@ -97,7 +99,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
         sourcePath: `${code}.md`,
         title: `Задание c. ${code}`,
         summary: "Синтетическая страница формата c",
-        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
+        markdown: `[Здесь](#как-спроектировать-один-этап). [Нет раздела](#отсутствует). [К повторному разделу урока](lesson.md#раздел-2).\n\n${padding}\n\n## Как спроектировать один этап?\n\n${duplicateHeadings}\n\n${tail}\n\nПострой небольшой проект.\n\n## Что нужно сделать\n\n### 1. Создай запрос\n\nВернись к [уроку](lesson.md) и [следующему заданию](next.md).\n\n![Схема учебного проекта](diagram.png)\n\n> [!tip]- Мой совет\n> Начни с одного запроса.\n\n${advice}\n\n## Что решаешь сам\n\nСтек выбираешь сам.\n\n## Сдать\n\nПроверь отчёт перед отправкой.\n\n## Материалы к заданию\n\n[Урок](lesson.md)`,
         images: { "diagram.png": "diagram" },
         links: {
           "lesson.md": "c-lesson",
@@ -109,7 +111,11 @@ export async function seedFullStackTaskC(origin, accessToken) {
     });
     const manifest = {
       schemaVersion: 2,
-      requiredFeatures: ["task-c-v2", "github-anchors-v1"],
+      requiredFeatures: [
+        "task-c-v2",
+        "github-anchors-v1",
+        "collapsible-callouts-v1",
+      ],
       sourceNamespace: "synthetic",
       selection: {
         productId: "format-c-course",
@@ -176,6 +182,12 @@ export async function seedFullStackTaskC(origin, accessToken) {
         );
       return /** @type {unknown} */ (await response.json());
     };
+    await syncLocal(path, join(directory, "state"), {
+      origin,
+      request,
+      publish: "all",
+    });
+    // Re-import the same immutable package: document attributes must survive the journal replay.
     await syncLocal(path, join(directory, "state"), {
       origin,
       request,
