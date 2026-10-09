@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+
 import { chromium } from "@playwright/test";
 import { expect, it } from "vitest";
 
@@ -71,8 +73,8 @@ it("reports a blocked outside-host navigation as not_checked, never denied", asy
     expect(report.cells[0]).toMatchObject({
       status: "not_checked",
       observed: null,
-      reason: expect.stringContaining("ERR_BLOCKED_BY_CLIENT"),
     });
+    expect(report.cells[0]?.reason).toContain("ERR_BLOCKED_BY_CLIENT");
     expect(context.pages()).toHaveLength(0);
   } finally {
     await browser.close();
@@ -120,5 +122,73 @@ it("detects protected bytes even when the application renders denial", async () 
     expect(context.pages()).toHaveLength(0);
   } finally {
     await browser.close();
+  }
+}, 30_000);
+
+it("does not count an outside-host redirect response as anonymous denial", async () => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(
+      '<main data-application-content><div data-material-reader-state="access-required">Access required</div></main>',
+    );
+  });
+  try {
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const address = server.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Missing redirect fixture listener");
+    const target = `http://127.0.0.1:${String(address.port)}/materials/closed`;
+    const browser = await chromium.launch();
+    try {
+      const context = await browser.newContext({
+        baseURL: "https://sachkov.dev",
+      });
+      const blocked: BlockedPassRequest[] = [];
+      await guardPassContext(context, blocked);
+      // Playwright does not intercept the redirect step; the owned responder supplies its final response.
+      await context.route("https://sachkov.dev/**", (route) =>
+        route.fulfill({ status: 302, headers: { location: target } }),
+      );
+      let problem: string | undefined;
+      try {
+        await observeBodyPage(context, "closed", snippet);
+      } catch (error) {
+        problem = problemLine(error);
+      }
+      expect(problem).toContain("only HTTPS is allowed");
+      expect(blocked).toEqual([
+        {
+          method: "GET",
+          target,
+          reason: "redirect step: only HTTPS is allowed",
+          sent: true,
+        },
+      ]);
+      const report = evaluatePass({
+        cells: [cell],
+        observations: [],
+        problems: [{ cellId: cell.id, problem: problem ?? "missing failure" }],
+        deployedSha: "a".repeat(40),
+        blockedRequests: blocked,
+      });
+      expect(report.cells[0]).toMatchObject({
+        status: "not_checked",
+        observed: null,
+      });
+      expect(report.verdict).toBe("red");
+      expect(context.pages()).toHaveLength(0);
+    } finally {
+      await browser.close();
+    }
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => {
+        if (error === undefined) resolve();
+        else reject(error);
+      }),
+    );
   }
 }, 30_000);

@@ -1,6 +1,7 @@
 import { expect, type BrowserContext } from "@playwright/test";
 
 import type { PassOutcome } from "./pass-cells";
+import { checkPassRequest, PassRequestRejected } from "./pass-requests";
 
 /** Тело или отказ Reader после успешного ответа приложения; сбой перехода остаётся ошибкой. */
 export async function observeBodyPage(
@@ -15,6 +16,10 @@ export async function observeBodyPage(
       throw new Error(
         `Material page did not return a successful response: HTTP ${String(response?.status())}`,
       );
+    const finalUrl = response.url();
+    const decision = checkPassRequest({ method: "GET", url: finalUrl });
+    if (!decision.allowed)
+      throw new PassRequestRejected("GET", finalUrl, decision.reason);
     const state = page
       .locator(
         "[data-application-content] [data-material-reader-state='available'], [data-application-content] [data-material-reader-state='access-required']",
