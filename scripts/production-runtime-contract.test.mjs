@@ -330,8 +330,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@learning_mcp path",
-              `\t\t${mcpRoute("additional_mcp", path)}\n\n\t\t@learning_mcp path`,
+              mcpRoute("learning_mcp", "/mcp/learning"),
+              `${mcpRoute("additional_mcp", path)}\n\n\t\t${mcpRoute("learning_mcp", "/mcp/learning")}`,
             ),
             releaseRunbook: runtime.releaseRunbook.replace(
               "| любой | `/mcp/learning` |",
@@ -376,8 +376,8 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           caddy: runtime.caddy.replace(
-            "\t\t@mcp path /mcp\n",
-            "\t\t@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t@mcp path /mcp\n",
+            mcpRoute("mcp", "/mcp"),
+            `@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t${mcpRoute("mcp", "/mcp")}`,
           ),
         }),
       new RegExp(table, "u"),
