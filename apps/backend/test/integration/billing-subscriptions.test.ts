@@ -249,15 +249,18 @@ describe("подписка: продление, отмена, смена вар�
       enrollments: grants,
       clock: () => now,
     });
-    const subscriptions = new BillingSubscriptions({
-      prisma: db.prisma,
-      bank: client,
-      contact,
-      grants,
-      payments,
-      notices,
-      clock: () => now,
-    });
+    function assembleSubscriptions() {
+      return new BillingSubscriptions({
+        prisma: db.prisma,
+        bank: client,
+        contact,
+        grants,
+        payments,
+        notices,
+        clock: () => now,
+      });
+    }
+    const subscriptions = assembleSubscriptions();
 
     async function consentFor(
       contextRef: string,
@@ -374,6 +377,7 @@ describe("подписка: продление, отмена, смена вар�
       bank,
       payments,
       subscriptions,
+      assembleSubscriptions,
       notices,
       buy,
       offer,
@@ -1763,6 +1767,146 @@ describe("подписка: продление, отмена, смена вар�
       } else expect(current).toBeNull();
     },
   );
+
+  test("активный AddCard старше 10 секунд переживает worker и поздний ответ даёт рабочую форму", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = await s.view();
+    const gate = s.bank.holdAddCardResponse();
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: active?.revision,
+    };
+    const changing = db.run(() =>
+      s.subscriptions.changeMethod(s.buyer, command),
+    );
+    const settled = Promise.allSettled([changing]);
+    const worker = s.assembleSubscriptions();
+    try {
+      await gate.entered;
+      now = new Date("2030-01-31T10:00:11Z");
+      expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+        inspected: 1,
+        applied: 0,
+      });
+      expect((await s.view())?.pendingMethodChange).toMatchObject({
+        formUrl: null,
+      });
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "started",
+        formUrl: null,
+      });
+    } finally {
+      gate.release();
+      await settled;
+    }
+    const started = value(await changing);
+    expect(started).toMatchObject({
+      state: "started",
+      formUrl: "https://securepay.tinkoff.ru/binding",
+    });
+    expect(value(await s.subscriptions.changeMethod(s.buyer, command))).toEqual(
+      started,
+    );
+    expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+      applied: 1,
+    });
+    expect(await s.view()).toMatchObject({
+      paymentMethod: { methodRef: started.flowRef },
+      pendingMethodChange: null,
+    });
+    expect(s.bank.addCardCalls).toBe(1);
+  });
+
+  test("потеря PostgreSQL-владельца восстанавливает попытку ровно с 10 секунд и поздний ответ не оживляет её", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = await s.view();
+    const gate = s.bank.holdAddCardResponse();
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: active?.revision,
+    };
+    const changing = db.run(() =>
+      s.subscriptions.changeMethod(s.buyer, command),
+    );
+    const settled = Promise.allSettled([changing]);
+    const worker = s.assembleSubscriptions();
+    try {
+      await gate.entered;
+      // A dedicated database proves which live transaction owns this attempt. Terminating that
+      // backend models the lease loss left by a lost Platform process, while retaining a late bank reply.
+      const [owner] = z
+        .array(z.strictObject({ pid: z.int().positive() }))
+        .length(1)
+        .parse(
+          await db.prisma.$queryRaw`SELECT a.pid FROM pg_stat_activity a
+          WHERE a.datname = current_database() AND EXISTS (
+            SELECT 1 FROM pg_locks l WHERE l.pid = a.pid AND l.locktype = 'advisory'
+              AND l.granted AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+          )`,
+        );
+      if (!owner) throw new Error("Missing AddCard lease owner");
+      const terminated = z
+        .array(z.strictObject({ terminated: z.boolean() }))
+        .length(1)
+        .parse(
+          await db.prisma
+            .$queryRaw`SELECT pg_terminate_backend(${owner.pid}) AS terminated`,
+        );
+      expect(terminated[0]?.terminated).toBe(true);
+      await eventually(async () => {
+        const rows = z
+          .array(z.strictObject({ present: z.boolean() }))
+          .length(1)
+          .parse(
+            await db.prisma
+              .$queryRaw`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = ${owner.pid}) AS present`,
+          );
+        expect(rows[0]?.present).toBe(false);
+      }, 2_000);
+      now = new Date("2030-01-31T10:00:09.999Z");
+      expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+        applied: 0,
+      });
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "started",
+        formUrl: null,
+      });
+      now = new Date("2030-01-31T10:00:10Z");
+      value(await worker.reconcileMethodFlows());
+      expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+        state: "rejected",
+        formUrl: null,
+      });
+    } finally {
+      gate.release();
+      await settled;
+    }
+    expect(await changing).toMatchObject({
+      ok: false,
+      error: { code: "provider_unavailable" },
+    });
+    expect(value(await worker.changeMethod(s.buyer, command))).toMatchObject({
+      state: "rejected",
+      formUrl: null,
+    });
+    const next = value(
+      await worker.changeMethod(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    expect(next).toMatchObject({
+      state: "started",
+      formUrl: "https://securepay.tinkoff.ru/binding",
+    });
+    expect(value(await worker.reconcileMethodFlows())).toMatchObject({
+      applied: 1,
+    });
+    expect((await s.view())?.paymentMethod?.methodRef).toBe(next.flowRef);
+    expect(s.bank.addCardCalls).toBe(2);
+  });
 
   test("смена карты применяется доказанным token и не включает отменённое продление", async () => {
     const s = await scenario();

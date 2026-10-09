@@ -38,6 +38,7 @@ export class BankFixture {
   failInit = false;
   failState = false;
   failBindingState = false;
+  private addCardResponseGate: (() => Promise<void>) | undefined;
   private stateResponseGate: (() => Promise<void>) | undefined;
   binding: { status: string; success: boolean; rebillId: string | undefined } =
     { status: "COMPLETED", success: true, rebillId: "synthetic-new-card" };
@@ -82,9 +83,32 @@ export class BankFixture {
       return gate;
     };
   }
+  holdAddCardResponse(): { entered: Promise<void>; release: () => void } {
+    let entered!: () => void;
+    let release!: () => void;
+    const arrived = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.addCardResponseGate = () => {
+      entered();
+      return held;
+    };
+    return {
+      entered: arrived,
+      release: () => {
+        this.addCardResponseGate = undefined;
+        release();
+      },
+    };
+  }
   client(config: TbankConfig = this.config): Tbank {
     return new Tbank(config, async (url, init) => {
       const response = this.respond(url, init);
+      if (typeof url === "string" && url.endsWith("/AddCard"))
+        await this.addCardResponseGate?.();
       if (typeof url === "string" && url.endsWith("/GetState"))
         await this.stateResponseGate?.();
       return response;

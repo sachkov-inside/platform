@@ -124,6 +124,7 @@ export type ProductTasksPrismaClient = ProductTasksPrisma &
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,
+    options?: { readonly timeout: number },
   ): Promise<Result>;
 }
 
