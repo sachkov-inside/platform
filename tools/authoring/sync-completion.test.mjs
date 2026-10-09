@@ -1621,10 +1621,24 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
   /** @type {{ key: string | undefined; body: unknown }[]} */
   const compositionCalls = [];
   let taskWrites = 0;
+  let loseCompositionResponse = false;
   /** @type {z.infer<typeof taskReceiptSchema> | null} */
   let taskReceipt = null;
+  /** @type {{ id: string; name: string; summary: string }[]} */
+  let chapters = [];
+  const orderVersion = () =>
+    checksum(canonical({ members: api.product.members, chapters }));
   /** @type {LocalTransport} */
   const request = async (path, body, key, options) => {
+    if (path === `/authoring/products/${productId}/order`)
+      return {
+        orderVersion: orderVersion(),
+        chapters,
+        items: (api.product.members ?? []).map((materialId) => ({
+          materialId,
+          chapterId: chapters[0]?.id ?? null,
+        })),
+      };
     if (path === "/authoring/import/tasks/validate")
       return { valid: true, current: taskReceipt, migration: null };
     if (path === "/authoring/import/tasks/apply") {
@@ -1650,6 +1664,20 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
           new Error("product_removal_confirmation_required"),
           { status: 409 },
         );
+      await api.request(path, body, key, options);
+      chapters = z
+        .object({
+          chapters: z.array(
+            z.object({ id: z.string(), name: z.string(), summary: z.string() }),
+          ),
+        })
+        .passthrough()
+        .parse(body).chapters;
+      if (loseCompositionResponse) {
+        loseCompositionResponse = false;
+        throw new Error("composition response lost after commit");
+      }
+      return { orderVersion: orderVersion() };
     }
     return api.request(path, body, key, options);
   };
@@ -1745,4 +1773,41 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
   assert.equal(api.materials.size, 1);
   assert.equal(api.count(/materials\/apply/u), materialWrites);
   assert.equal(taskWrites, 1);
+  // A target may return to its previous composition hash; an old success is not its actual state.
+  const committed = await readJournalFile(setup.state);
+  api.product.members = [uuid(700)];
+  chapters = [];
+  const restored = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  loseCompositionResponse = true;
+  await assert.rejects(
+    applyRelease(restored.path, setup.state, { request }),
+    /composition response lost/u,
+  );
+  const lost = itemAt(compositionCalls, compositionCalls.length - 1);
+  assert.notEqual(lost.key, itemAt(compositionCalls, 1).key);
+  await assert.rejects(
+    applyRelease(unconfirmed.path, setup.state, { request }),
+    /interrupted composition requires/u,
+  );
+  await assert.rejects(
+    applyRelease(restored.path, setup.state, { request }),
+    /environment changed/u,
+  );
+  const replay = itemAt(compositionCalls, compositionCalls.length - 1);
+  assert.equal(replay.key, lost.key);
+  assert.deepEqual(replay.body, lost.body);
+  const recovered = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  await applyRelease(recovered.path, setup.state, { request });
+  assert.deepEqual(api.product.members, [uuid(1)]);
+  const resumed = await readJournalFile(setup.state);
+  for (const [key, operation] of Object.entries(committed.operations))
+    assert.deepEqual(resumed.operations[key], operation);
+  assert.equal(taskWrites, 1);
+  assert.equal(api.count(/materials\/apply/u), materialWrites);
 });

@@ -1227,8 +1227,9 @@ published Material from a held Product still fails with HTTP 409
 `product_removal_confirmation_required`; Materials remain published.
 After a definitive rejection during partial apply, make a new preview against the actual target
 state with the explicit choice. Composition commands use journal operation keys derived from their
-exact payload: the changed choice gets a new key, while old rejected operations and previews stay
-unchanged. Materials and Tasks already applied resume through their existing journal receipts.
+stored request: the changed choice gets a new key, while old rejected operations and previews stay
+unchanged. If an earlier successful receipt differs from the current order version, a new operation
+applies the composition again and preserves the old receipt. Materials and Tasks already applied resume through their existing journal receipts.
 An unfinished composition retries its original payload and key with the same reviewed choice.
 
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any

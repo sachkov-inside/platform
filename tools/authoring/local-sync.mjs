@@ -673,10 +673,33 @@ export async function syncLocal(
         );
     /** @param {Record<string, unknown>} body */
     async function applyComposition(body) {
-      return applyJournaled(
-        context,
-        { path: "/authoring/import/products/composition", body },
-        (operation, key) => request(operation.path, operation.body, key),
+      const command = { path: "/authoring/import/products/composition", body };
+      const previous = Object.values(journal.operations).flatMap((entry) => {
+        if (!isJournalOperation(entry)) return [];
+        const parsed = z
+          .object({ path: z.string(), body: z.record(z.string(), z.unknown()) })
+          .passthrough()
+          .safeParse(entry.request);
+        if (!parsed.success) return [];
+        const request = canonicalAuthoringRequest(parsed.data);
+        return canonical({ path: request.path, body: request.body }) ===
+          canonical(command)
+          ? [{ entry, request: parsed.data }]
+          : [];
+      });
+      const latest = previous.at(-1);
+      // Order versions are state hashes: an earlier success cannot stand for a later return to that state.
+      const repeat =
+        latest?.entry.status === "applied" &&
+        parseLocalResponse(
+          "/authoring/import/products/composition",
+          latest.entry.result,
+        ).orderVersion !== body["expectedOrderVersion"];
+      const operation = repeat
+        ? { ...command, compositionAttempt: previous.length }
+        : (latest?.request ?? command);
+      return applyJournaled(context, operation, (operation, key) =>
+        request(operation.path, operation.body, key),
       );
     }
     const resources = (journal.resources ??= {});
