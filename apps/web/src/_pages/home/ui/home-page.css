@@ -337,7 +337,12 @@
 .home-feed-post-copy {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.65;
+  line-height: 1.6;
+}
+@media (max-width: 47.999rem) {
+  .home-feed-post {
+    padding-block: 1.25rem;
+  }
 }
 .home-feed-artwork {
   position: relative;

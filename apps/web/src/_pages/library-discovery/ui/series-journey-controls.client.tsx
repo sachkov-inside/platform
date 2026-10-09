@@ -1,16 +1,22 @@
 "use client";
 
 import {
-  Library,
+  LayoutGrid,
   ListOrdered,
+  Package,
   RefreshCw,
   Search,
-  Shapes,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import { SeriesContinuationProvider } from "@/entities/material";
 import { formatMaterialCount } from "@/features/library-discovery";
@@ -250,10 +256,7 @@ export function SeriesJourneyControls({
       >
         {part?.kind === "artifacts" ? (
           <>
-            <PartHeading
-              text="Файлы, шаблоны и инструменты для работы над проектом."
-              title={part.label}
-            />
+            <PartHeading title={part.label} />
             {part.panel}
           </>
         ) : part?.kind === "catalog" ? (
@@ -436,20 +439,11 @@ function partCount(part: JourneyPart): number {
 }
 
 /** Заголовок раздела: на странице видно, что открыты «Материалы» или «Артефакты». */
-function PartHeading({
-  text,
-  title,
-}: {
-  readonly text: string;
-  readonly title: string;
-}) {
+function PartHeading({ title }: { readonly title: string }) {
   return (
-    <div className="pb-1">
-      <h2 className="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
-        {title}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
-    </div>
+    <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
+      {title}
+    </h2>
   );
 }
 
@@ -502,10 +496,7 @@ function MaterialCatalog({
     );
   return (
     <div data-material-catalog>
-      <PartHeading
-        text="Все материалы курса: из программы и дополнительные. Новые — сверху."
-        title="Материалы"
-      />
+      <PartHeading title="Материалы" />
       <label className="mt-4 flex min-h-11 items-center gap-2.5 rounded-xl bg-muted px-3.5">
         <Search
           aria-hidden="true"
@@ -602,8 +593,8 @@ function artifactsInWords(count: number): string {
 
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   programme: ListOrdered,
-  supplementary: Library,
-  artifacts: Shapes,
+  supplementary: LayoutGrid,
+  artifacts: Package,
 };
 /** Имена пунктов нижней панели для скринридера: на экране у пунктов только значки. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
@@ -635,7 +626,16 @@ function ProductBottomBar({
       <nav
         aria-label="Разделы продукта"
         className="product-bottom-bar md:hidden"
+        style={barVariables({
+          "--bar-count": parts.length,
+          "--bar-index": Math.max(
+            0,
+            parts.findIndex((entry) => entry.id === activeId),
+          ),
+        })}
       >
+        {/* Подложка выбранного раздела переезжает к новому пункту, как в приложении. */}
+        <span aria-hidden="true" className="product-bottom-bar-indicator" />
         <HidePublicFooter />
         {parts.map((entry) => {
           const Icon = partIcons[entry.id];
@@ -706,4 +706,10 @@ function ProgrammeSidebar({
       </nav>
     </aside>
   );
+}
+
+type BarVariables = CSSProperties & Record<`--${string}`, number>;
+/** CSS-переменные панели: число пунктов и выбранный — по ним стили ставят подложку. */
+function barVariables(values: Record<`--${string}`, number>): BarVariables {
+  return values;
 }

@@ -87,7 +87,22 @@ export function CourseHero({
       </div>
       <div className="aie-hero-film">
         {filmBadge}
-        <CourseFilm />
+        {/* На Главной анимация тоже ведёт на страницу курса, как и кнопка (решение владельца
+            09.10.2026). На самой странице курса ссылки нет. */}
+        {action === undefined ? (
+          <CourseFilm />
+        ) : (
+          // Дубль кнопки для мыши и пальца: клавиатура и скринридер идут по кнопке, второй
+          // одинаковой ссылки в их обходе нет.
+          <IntentPrefetchLink
+            aria-hidden="true"
+            className="aie-hero-film-link"
+            href={action.href}
+            tabIndex={-1}
+          >
+            <CourseFilm />
+          </IntentPrefetchLink>
+        )}
       </div>
     </div>
   );

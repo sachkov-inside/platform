@@ -284,3 +284,23 @@
     line-height: 1.6;
   }
 }
+
+/* Анимация-ссылка на Главной: вся плёнка нажимается, при наведении чуть приподнимается. */
+.aie-hero-film-link {
+  display: block;
+  border-radius: 1.5rem;
+  text-decoration: none;
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.aie-hero-film-link:hover {
+  transform: translateY(-3px);
+}
+.aie-hero-film-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aie-hero-film-link {
+    transition: none;
+  }
+}

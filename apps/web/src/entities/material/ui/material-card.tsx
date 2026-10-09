@@ -121,7 +121,7 @@ export function MaterialCard({
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+          className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-[0.6875rem] font-bold text-primary-foreground sm:size-10 sm:text-xs"
         >
           S
         </span>
@@ -146,7 +146,9 @@ export function MaterialCard({
           </p>
         </div>
       </div>
-      <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]">
+      {/* Шкала шрифтов карточки (стандарт 09.10.2026): заголовок 15/17 px, текст 14/15 px —
+          на телефоне как в программе, на широком экране на ступень крупнее. */}
+      <Heading className="mt-3 text-[0.9375rem] font-semibold leading-snug tracking-[-0.02em] sm:mt-4 sm:text-[1.0625rem]">
         <IntentPrefetchLink
           className="no-underline hover:text-action"
           href={readerHref}
@@ -154,7 +156,7 @@ export function MaterialCard({
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      <p className="home-feed-post-copy mt-3 text-base text-body-muted">
+      <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
         {excerpt?.text ?? material.summary}
       </p>
       {link === undefined ? (
