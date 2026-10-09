@@ -356,7 +356,7 @@ describe("снятие материала из купленного руково
       expectedContentVersion: reservedMaterial.value.contentVersion,
       publicationState: "published",
       primaryVideoId: null,
-      metadata: metadata([bought]),
+      metadata: { ...metadata([bought]), formatId: "guide" },
       body: representativeDocument("Imported removal"),
     });
     if (!imported.ok) throw new Error(imported.error.code);
