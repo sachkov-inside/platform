@@ -35,7 +35,7 @@ describe("Telegram delivery across the repository transition", () => {
   it("preserves the exact legacy v5 migration identity and 31 files", () => {
     const result = runOwnedCommandSync(
       process.execPath,
-      ["scripts/release-contract.mjs", "migrations-identity"],
+      ["scripts/release-contract.mjs", "legacy-migrations-identity"],
       { encoding: "utf8" },
     );
     expect(result.status, result.stderr).toBe(0);
@@ -44,6 +44,40 @@ describe("Telegram delivery across the repository transition", () => {
         "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d",
       count: 31,
       latest: "030-invitation-redemptions.ts",
+    });
+  });
+
+  it("binds the current manifest to the full registry including Mini App migration 031", () => {
+    const result = runOwnedCommandSync(
+      process.execPath,
+      [
+        "scripts/release-contract.mjs",
+        "manifest",
+        "--version",
+        "v7",
+        "--source-sha",
+        sourceSha,
+        "--image-digest",
+        `sha256:${"d".repeat(64)}`,
+        "--compose",
+        "infra/production/compose.yaml",
+        "--caddy",
+        "infra/production/telegram.caddy",
+        "--run-id",
+        "77",
+        "--server-url",
+        "https://github.com",
+      ],
+      { encoding: "utf8" },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      migrations: {
+        identity:
+          "sha256:0f73eb1d14fbd2fab3809223ba469154142bdd81c0479b3a5154c124aa8eb1ae",
+        count: 32,
+        latest: "031-mini-app-sign-in.ts",
+      },
     });
   });
 

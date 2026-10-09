@@ -53,8 +53,15 @@ jq --exit-status '
   (.image | test("^ghcr\\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$"))
 ' "$fixture/release-manifest.json" >/dev/null
 legacy_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
-identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity | jq --raw-output .identity)"
-[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Migration identity mismatch'
+node apps/telegram/scripts/release-contract.mjs legacy-migrations-identity >"$fixture/legacy-migrations.json"
+[[ "$(jq --raw-output .identity "$fixture/legacy-migrations.json")" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Legacy migration identity mismatch'
+[[ "$(jq --raw-output .count "$fixture/legacy-migrations.json")" == 31 ]] || refuse 'Legacy migration count mismatch'
+node apps/telegram/scripts/release-contract.mjs migrations-identity >"$fixture/candidate-migrations.json"
+candidate_identity="$(jq --raw-output .identity "$fixture/candidate-migrations.json")"
+candidate_count="$(jq --raw-output .count "$fixture/candidate-migrations.json")"
+node apps/telegram/scripts/release-contract.mjs migration-names >"$fixture/migration-names.json"
+candidate_ledger="$(jq --raw-output '.[]' "$fixture/migration-names.json")"
+legacy_ledger="$(jq --raw-output '.[0:31][]' "$fixture/migration-names.json")"
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
 image_built=true
@@ -140,6 +147,7 @@ assert_ready
 [[ "$(query 'select count(*) from kysely_migration')" == 31 ]] || refuse 'Legacy migration count mismatch'
 query 'create table delivery_smoke_sentinel (value text primary key); insert into delivery_smoke_sentinel values ($$preserved$$)' >/dev/null
 ledger_before="$(query 'select name from kysely_migration order by name')"
+[[ "$ledger_before" == "$legacy_ledger" ]] || refuse 'Legacy migration ledger changed'
 
 started="$(date +%s)"
 compose stop app
@@ -147,12 +155,20 @@ active_image="$candidate"
 compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]] || refuse 'Candidate migration ledger changed'
+[[ "$(query 'select name from kysely_migration order by name')" == "$candidate_ledger" ]] || refuse 'Candidate migration ledger changed'
 [[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Candidate sentinel changed'
 echo "Candidate restart/readiness: $(( $(date +%s) - started )) seconds"
 # Repeated start and rollback never execute the migration command.
 compose up --detach --no-build --wait app
 assert_ready
+[[ "$(query 'select name from kysely_migration order by name')" == "$candidate_ledger" ]] || refuse 'Candidate repeat migration ledger changed'
+[[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Candidate repeat sentinel changed'
+# Production rollback requires equal schema identities. New migrations stay applied forward.
+if [[ "$candidate_identity" != "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]]; then
+  echo 'Legacy rollback skipped: migration identities differ'
+  echo "Telegram runtime transition passed: $candidate_count migrations, legacy prefix and sentinel preserved, exact image IDs and loopback readiness/auth verified."
+  exit 0
+fi
 started="$(date +%s)"
 compose stop app
 active_image="$legacy_image"
