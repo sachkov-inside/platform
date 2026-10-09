@@ -2,6 +2,7 @@
 .github
 .env
 .identity-proof
+.reports
 .env.*
 !.env.example
 config/compose/production/*.env

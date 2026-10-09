@@ -37,6 +37,11 @@ COPY --chown=node:node . .
 
 ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
 
+# All local roles share this image; the bank double's volume inherits its writable data directory.
+USER root
+RUN mkdir -p /data && chown node:node /data
+USER node
+
 FROM dependencies AS release-identity
 
 ARG INSIDE_RELEASE_VERSION
@@ -80,10 +85,6 @@ FROM development AS bank-double
 
 # Журнал двойника принадлежит процессу приложения, поэтому каталог тома создаётся с его владельцем:
 # пустой именованный том наследует владельца каталога образа.
-USER root
-RUN mkdir -p /data && chown node:node /data
-USER node
-
 CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
 
 FROM development AS production-build

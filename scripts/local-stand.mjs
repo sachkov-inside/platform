@@ -8,6 +8,9 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
+import { statfsSync } from "node:fs";
+import { z } from "zod";
+import { createStandBuildBudget } from "./local-stand-budget.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
@@ -67,6 +70,8 @@ let interruptedSignal;
 let shutdownPromise;
 /** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
+/** @type {ReturnType<typeof createStandBuildBudget> | undefined} */
+let buildBudget;
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
@@ -77,10 +82,35 @@ try {
   // Предпосылки проверяются первыми: без Docker занятость стека не узнать, и отказ должен
   // объяснять причину, а не падать на первом же вызове.
   await runPnpm(["platform:doctor"]);
+  if (productionWeb) {
+    const status = await run(
+      "git",
+      ["status", "--porcelain", "--untracked-files=all"],
+      { capture: true },
+    );
+    if (status.output.trim().length > 0) {
+      throw new Error(
+        "Commit source changes before starting the production web stand so its release identity names the exact source revision.",
+      );
+    }
+    const revision = await run("git", ["rev-parse", "HEAD"], { capture: true });
+    Object.assign(environment, {
+      STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+    });
+  }
   if (await isComposeRunning()) {
     throw new Error(
       "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff, or stop the stand with docker compose --profile identity down before pnpm local:stand.",
     );
+  }
+  buildBudget = createStandBuildBudget(() => {
+    const disk = statfsSync(repositoryRoot);
+    return disk.bavail * disk.bsize;
+  });
+  // BuildKit checks the current context on every start, including cache hits. Only API exports the
+  // shared backend image; exporting ten command-only variants caused parallel layer unpacking.
+  for (const service of ["api", "web", "rabbitmq", "logto"]) {
+    await compose(["build", service]);
   }
   await runPnpm(["identity:proof:certs"]);
   shouldCleanupCompose = true;
@@ -88,14 +118,14 @@ try {
   await compose([
     "up",
     "--detach",
-    "--build",
+    "--no-build",
     "--wait",
     "logto-postgres",
     "logto",
   ]);
   await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
   // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
-  await compose(["up", "--detach", "--build", "--wait"]);
+  await compose(["up", "--detach", "--no-build", "--wait"]);
   shouldCleanupCompose = false;
   process.stdout.write(
     [
@@ -189,6 +219,19 @@ async function run(
     ...(cleanup ? { timeout: 60_000 } : {}),
   });
   activeProcesses.add(child);
+  /** @type {unknown} */
+  let budgetFailure;
+  const budgetMonitor =
+    cleanup || buildBudget === undefined
+      ? undefined
+      : setInterval(() => {
+          try {
+            buildBudget?.assertAvailable();
+          } catch (error) {
+            budgetFailure = error;
+            void stopOwned(child);
+          }
+        }, 250);
   let output = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
@@ -200,10 +243,13 @@ async function run(
   }
   try {
     const exitCode = await commandExit(child);
+    if (budgetFailure !== undefined) throw budgetFailure;
+    if (!cleanup) buildBudget?.assertAvailable();
     if (exitCode !== 0) {
       throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
     }
   } finally {
+    clearInterval(budgetMonitor);
     await stopOwned(child);
     activeProcesses.delete(child);
   }

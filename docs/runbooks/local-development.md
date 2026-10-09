@@ -157,6 +157,11 @@ it once, then starts API, MCP and web. The seed keeps its demonstration Material
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
+The ten backend roles share one development image. Only `api` builds it; each role declares its
+own command and retains its readiness/dependency contract. Rebuild `api` after backend changes,
+then recreate affected roles to use that image. Local diagnostic `.reports` files are excluded
+from the root Docker context; tracked source and `docs/evidence` remain available.
+
 The checked-in `config/compose/local/*.env` files contain safe container-only development values.
 A root `.env` copied from `.env.example` is optional for host-process overrides and Compose host
 ports; already exported variables take precedence. Next.js host fallback uses the same checked-in
@@ -243,6 +248,21 @@ Only the `web` service changes: it is built from the `web-production` image targ
 `config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
+
+`local:stand` builds API's shared backend image, web, RabbitMQ and Logto sequentially before
+starting containers with `--no-build`. Each invocation asks BuildKit to verify the current source
+inputs, so cached images never bypass source validation. Production web requires a clean Git
+working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
+
+Before building, the command measures available host disk space. It requires 25 GiB: a 10 GiB
+build allowance plus a 15 GiB reserve. During launch it checks both limits every 250 ms and stops
+its command tree when either limit is crossed. This bounds host disk consumption; it does not
+increase Docker's own storage quota. A refusal leaves existing stand data intact. Arrange disk
+capacity before retrying; the command never prunes caches, reports or volumes.
+
+For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/local-build-context-smoke.sh`.
+It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary
+files. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
