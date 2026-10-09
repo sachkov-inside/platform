@@ -273,3 +273,14 @@
     --aie-icon-size: 1.75rem;
   }
 }
+
+/* Телефон: шрифты первого экрана на ступень мельче (решение владельца 09.10.2026). */
+@media (max-width: 47.999rem) {
+  .aie-hero-title {
+    font-size: 2rem;
+  }
+  .aie-hero-lead {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+}

@@ -18,9 +18,11 @@ import { formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { readSeriesPage } from "@/shared/routing/material-reader";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import { useSeriesLearning } from "./series-learning.client";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
@@ -439,7 +441,7 @@ const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
  * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
  * навигацию: разделы продукта — те же, что вкладки на широком экране, — и профиль. Главной здесь
  * нет: выход на витрину стоит вверху слева, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
- * Атрибут `data-hide-mobile-navigation` убирает общую панель, её место занимает эта.
+ * `HideMobileNavigation` убирает общую панель, её место занимает эта.
  */
 function ProductBottomBar({
   activeId,
@@ -451,11 +453,9 @@ function ProductBottomBar({
   readonly parts: readonly JourneyPart[];
 }) {
   return (
-    <nav
-      aria-label="Разделы продукта"
-      className="product-bottom-bar md:hidden"
-      data-hide-mobile-navigation
-    >
+    <nav aria-label="Разделы продукта" className="product-bottom-bar md:hidden">
+      <HideMobileNavigation />
+      <HidePublicFooter />
       {parts.map((entry) => {
         const Icon = partIcons[entry.id];
         const current = entry.id === activeId;

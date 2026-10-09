@@ -373,7 +373,7 @@ function SeriesMaterialRow({
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
-            className="w-6 shrink-0 text-center text-lg font-semibold leading-6 tabular-nums text-foreground sm:w-7 sm:text-xl"
+            className="w-5 shrink-0 text-center text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-xl sm:leading-6"
             data-series-preview
           >
             {ordinal}
@@ -381,7 +381,7 @@ function SeriesMaterialRow({
         )}
         <span
           aria-hidden="true"
-          className="shrink-0 border-r border-border pr-2.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-[0.08em] text-muted-foreground sm:pr-3"
+          className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
           data-series-format
         >
           {material.format}

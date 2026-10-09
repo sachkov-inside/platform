@@ -38,6 +38,7 @@ import {
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import {
@@ -95,9 +96,9 @@ export function AiEngineeringCourseView({
     <article
       className="ai-product-page aie-course"
       data-product-presentation="ai-engineering-course"
-      data-hide-mobile-navigation
       data-product-landing={reference.slug}
     >
+      <HideMobileNavigation />
       <IntentPrefetchLink className="aie-back" href={returnTarget.href}>
         <ChevronLeft aria-hidden="true" />
         Назад

@@ -16,6 +16,7 @@ import {
   productPurchaseHref,
 } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
 /** Кто смотрит страницу оплаты: это решает, показывать оформление или приглашение войти. */
 export type ProductPurchaseViewer = "loading" | "guest" | "member";
@@ -58,6 +59,9 @@ export function ProductPurchaseView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">
+      {/* Страница покупки, как и страница курса, обходится без общей нижней навигации: путь
+          назад — ссылка вверху (решение владельца 09.10.2026). */}
+      <HideMobileNavigation />
       <nav
         aria-label="Путь навигации"
         className="pt-4"

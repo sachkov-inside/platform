@@ -115,7 +115,7 @@ export function ApplicationShell({
         <div className="public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(6.25rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] pt-[calc(1.5rem+env(safe-area-inset-top))] lg:shrink-0 lg:pb-[calc(5rem+var(--storage-notice-space,0px))] lg:pt-8">
           {/* Pages keep ordinary block flow; only this wrapper is a flex item. */}
           <div className="min-w-0">{children}</div>
-          <div className="mt-auto pt-16">
+          <div className="public-footer-slot mt-auto pt-16">
             <PublicFooter />
           </div>
         </div>
@@ -161,11 +161,13 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
-      style={{ width: `calc(${String(totalParts * 2.75)}rem + .25rem + 2px)` }}
-      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
+      style={{
+        width: `calc(${String(totalParts * 3.5 + (totalParts - 1) * 0.375)}rem + .5rem + 2px)`,
+      }}
+      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.4rem] border border-black/8 bg-white/88 p-1 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
     >
       <div
-        className="mobile-navigation-items relative grid"
+        className="mobile-navigation-items relative grid gap-1.5"
         style={{
           gridTemplateColumns: `repeat(${String(totalParts)}, minmax(0, 1fr))`,
         }}
@@ -174,8 +176,10 @@ function MobileBottomNavigation({
           aria-hidden="true"
           className="mobile-navigation-indicator pointer-events-none absolute inset-y-0 left-0 rounded-[1.15rem] bg-primary"
           style={{
-            width: `${String((1 / totalParts) * 100)}%`,
-            transform: `translateX(${String(Math.max(0, activeIndex) * 100)}%)`,
+            // Между кнопками промежуток 0.375rem: подложка шириной в одну кнопку и сдвигается на
+            // кнопку вместе с промежутком.
+            width: `calc((100% - ${String((totalParts - 1) * 0.375)}rem) / ${String(totalParts)})`,
+            transform: `translateX(calc(${String(Math.max(0, activeIndex))} * (100% + 0.375rem)))`,
             opacity: activeIndex < 0 ? 0 : 1,
           }}
         />

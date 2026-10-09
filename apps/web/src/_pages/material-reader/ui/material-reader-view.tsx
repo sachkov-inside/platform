@@ -21,6 +21,7 @@ import {
   MaterialLessonBlock,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import {
@@ -35,6 +36,7 @@ import {
 import { topicPath } from "@/shared/routing/public-page-path";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
   readonly body: readonly ReaderBlock[];
@@ -187,7 +189,7 @@ export function SeriesReaderNavigation({
 /**
  * Нижняя панель урока внутри продукта на телефоне и планшете (решение владельца 09.10.2026):
  * предыдущий урок, программа с номером урока, следующий урок. Внутри курса она заменяет общую
- * навигацию — `data-hide-mobile-navigation` убирает общую панель, и случайно уйти на Главную
+ * навигацию — `HideMobileNavigation` убирает общую панель, и случайно уйти на Главную
  * нельзя. Кнопки 44 px (зона нажатия); недоступный шаг остаётся на месте приглушённым.
  */
 export function SeriesReaderBar({
@@ -202,9 +204,10 @@ export function SeriesReaderBar({
     <nav
       aria-label="Уроки продукта"
       className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 shadow-floating-nav backdrop-blur-xl lg:hidden"
-      data-hide-mobile-navigation
       data-series-reader-bar
     >
+      <HideMobileNavigation />
+      <HidePublicFooter />
       {context.previous === null ? (
         <span
           aria-hidden="true"

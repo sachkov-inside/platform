@@ -116,7 +116,7 @@ export function ProductProgrammeView({
       </nav>
 
       <header
-        className="relative mt-2 rounded-2xl bg-muted/60 p-4 max-sm:rounded-none max-sm:bg-transparent max-sm:p-0 sm:p-5"
+        className="relative mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
         data-programme-part="header"
       >
         {preorder === null || accessPending ? null : (
@@ -124,10 +124,8 @@ export function ProductProgrammeView({
         )}
         {/* Обложка, название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит
             под название и занимает всю ширину, чтобы до неё было удобно дотянуться. */}
-        {/* Телефон: шапка без карточки и обложки — название, сводка, цена и кнопка в одну строку
-            (референс владельца 09.10.2026). */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3 max-sm:grid-cols-1 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
-          <div className="w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-border max-sm:hidden @[36rem]/programme:w-36">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
+          <div className="w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-border @[36rem]/programme:w-36">
             <ContentCoverImage
               alt=""
               className="aspect-[3/2] min-h-0 w-full"
@@ -263,7 +261,7 @@ function ProgrammePurchase({
   // Пока поток набирается, рядом с кнопкой — цена предзаказа и зачёркнутая цена после старта.
   if (preorder === null) return button;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4 max-sm:pt-3">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-4 [&>a]:w-full @[30rem]/programme:[&>a]:w-auto">
       <PreorderPriceView note={null} price={preorder} />
       {button}
     </div>

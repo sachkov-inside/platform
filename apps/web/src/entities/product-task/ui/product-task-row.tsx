@@ -37,13 +37,13 @@ export function ProductTaskRow({
       {/* Та же строка, что у урока: флажок на месте номера, тип словом, название, статус. */}
       <span
         aria-hidden="true"
-        className="grid w-6 shrink-0 place-items-center text-[color:var(--callout-task)] sm:w-7"
+        className="grid w-5 shrink-0 place-items-center text-[color:var(--callout-task)] sm:w-7"
       >
-        <Flag className="size-4" />
+        <Flag className="size-3.5 sm:size-4" />
       </span>
       <span
         aria-hidden="true"
-        className="shrink-0 border-r border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] pr-2.5 text-[0.625rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[color:var(--callout-task)] sm:pr-3"
+        className="shrink-0 border-r border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--callout-task)] sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
       >
         Задание
       </span>

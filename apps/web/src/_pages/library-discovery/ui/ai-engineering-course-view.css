@@ -1737,3 +1737,34 @@
     pointer-events: none;
   }
 }
+
+/*
+ * Телефон: шкала шрифтов страницы курса на ступень мельче (решение владельца 09.10.2026):
+ * заголовки блоков 20 px, заголовки карточек 15 px, основной текст 14 px, тексты карточек 13,5 px.
+ */
+@media (max-width: 47.999rem) {
+  .ai-product-page.aie-course h2 {
+    font-size: 1.25rem;
+    line-height: 1.25;
+  }
+  .ai-product-page.aie-course h3,
+  .ai-product-page.aie-course .aie-faq summary {
+    font-size: 0.9375rem;
+  }
+  .ai-product-page.aie-course p,
+  .ai-product-page.aie-course .ai-product-section-intro {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+  .ai-product-page.aie-course li p,
+  .ai-product-page.aie-course .aie-bento p,
+  .ai-product-page.aie-course .aie-format li p {
+    font-size: 0.84375rem;
+  }
+  .ai-product-page.aie-course .aie-status li {
+    font-size: 0.875rem;
+  }
+  .aie-cohort-ticket .preorder-price-now {
+    font-size: 2rem;
+  }
+}
