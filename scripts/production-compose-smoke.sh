@@ -761,7 +761,19 @@ assert_public_status POST /billing/tbank/notification 400 \
   --header 'X-Inside-Production-Verify: bank-webhook-rejection' \
   --header 'X-Forwarded-For: 127.0.0.1' \
   --header 'Forwarded: for=127.0.0.1'
-api_probe_logs="$("${application_compose[@]}" logs --no-color api)"
+for ((attempt = 1; attempt <= container_log_poll_attempts; attempt += 1)); do
+  api_probe_logs="$("${application_compose[@]}" logs --no-color api)"
+  api_probe_rejections="$(grep '"event":"request_completed"' <<<"$api_probe_logs" |
+    grep '"route":"/billing/tbank/notification"' | grep -c '"statusCode":400' || true)"
+  if ((api_probe_rejections >= 2)); then
+    break
+  fi
+  sleep "$production_smoke_poll_interval_seconds"
+done
+if ((api_probe_rejections < 2)); then
+  echo "API did not log both bank rejection requests" >&2
+  exit 1
+fi
 if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
   echo "Caddy forwarded an external production verification marker" >&2
   exit 1
