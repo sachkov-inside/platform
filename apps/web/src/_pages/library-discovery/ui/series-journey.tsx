@@ -221,7 +221,7 @@ function journeyRun(
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
               >
-                {/* Счётчик и метка «Скоро» стоят сразу за названием главы, мелко (референс
+                {/* Счётчик и метка «Планируется» стоят сразу за названием главы, мелко (референс
                     владельца 09.10.2026). */}
                 <div className="min-w-0">
                   <h3
@@ -232,7 +232,7 @@ function journeyRun(
                   </h3>
                   {preparing ? (
                     <span className="programme-chapter-soon ml-2 align-[2px]">
-                      Скоро
+                      Планируется
                     </span>
                   ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
                     <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
@@ -249,7 +249,7 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы, но коротко: метка «Скоро» и первая
+                {/* Глава без уроков остаётся частью программы, но коротко: метка «Планируется» и первая
                     фраза описания (решение владельца 09.10.2026). С первым уроком глава
                     становится обычной и её можно проходить. */}
                 {preparing && run.chapter.summary !== "" ? (

@@ -411,7 +411,7 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Скоро")).toBeVisible();
+    await expect(canvas.getByText("Планируется")).toBeVisible();
   },
 };
 export const ChaptersMobile: Story = {
@@ -579,7 +579,7 @@ export const OnlyPlannedChapters: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Скоро")).toHaveLength(5);
+    await expect(canvas.getAllByText("Планируется")).toHaveLength(5);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
