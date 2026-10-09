@@ -392,7 +392,11 @@ describe("production deployment state machine", () => {
           ),
         );
         assert.equal(operation.status, "failed");
-        assert.equal(operation.phase, phase);
+        assert.equal(
+          operation.phase,
+          phase === "pre-pull" ? "preflight" : phase,
+        );
+        assertLegacyOperationKeys(operation);
         if (
           phase === "preflight" ||
           phase === "pre-pull" ||
@@ -453,9 +457,91 @@ describe("production deployment state machine", () => {
               ),
             ),
           );
-          assert.equal(journal.phase, "pre-pull");
+          assert.equal(journal.phase, "preflight");
+          assertLegacyOperationKeys(journal);
           assert.equal(journal.maintenance, undefined);
           assertGatewaySuccess(fixture, operation, target, 304);
+        } finally {
+          fixture.cleanup();
+        }
+      });
+    }
+  }
+
+  for (const status of ["failed", "running"]) {
+    it(`old rollback rejects a ${status} operation with embedded maintenance`, () => {
+      const fixture = createHostFixture({ legacyV1: true });
+      try {
+        assertGatewaySuccess(fixture, "deploy", "v1", 460);
+        assertGatewaySuccess(fixture, "deploy", "v2", 461);
+        const journalPath = resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation.json",
+        );
+        const journal = deploymentOperationSchema.parse(readJson(journalPath));
+        writeFileSync(
+          journalPath,
+          JSON.stringify({
+            ...journal,
+            operation: "rollback",
+            version: "v1",
+            status,
+            phase: "readiness",
+            recoveryPhase: "readiness",
+            maintenance: {
+              startedAtEpochSeconds: 100,
+              endedAtEpochSeconds: null,
+              durationSeconds: 20,
+            },
+          }),
+        );
+        const before = readFileSync(journalPath, "utf8");
+        const result = runGateway(fixture, "rollback", "v1", 462);
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /operation journal is invalid/u);
+        assert.equal(readFileSync(journalPath, "utf8"), before);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+
+    for (const phase of ["pre-pull", "schema"]) {
+      it(`old rollback reads a ${status} new deploy journal after ${phase}`, () => {
+        const fixture = createHostFixture({ legacyV1: true });
+        try {
+          assertGatewaySuccess(fixture, "deploy", "v1", 470);
+          assertGatewaySuccess(fixture, "deploy", "v2", 471);
+          assert.notEqual(
+            runGateway(fixture, "deploy", "v3", 472, {
+              INSIDE_DEPLOY_FAIL_PHASE: phase,
+            }).status,
+            0,
+          );
+          const journalPath = resolve(
+            fixture.root,
+            "var/lib/inside/deployments/operation.json",
+          );
+          const journal = deploymentOperationSchema.parse(
+            readJson(journalPath),
+          );
+          writeFileSync(journalPath, JSON.stringify({ ...journal, status }));
+          const before = readExternalLog(fixture).length;
+          const result = runGateway(fixture, "rollback", "v1", 473);
+          assert.doesNotMatch(result.stderr, /operation journal is invalid/u);
+          if (phase === "pre-pull") {
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(readState(fixture).current.version, "v1");
+          } else {
+            assert.notEqual(result.status, 0);
+            assert.match(
+              result.stderr,
+              /unfinished deployment operation must be retried/u,
+            );
+            assert.doesNotMatch(
+              readExternalLog(fixture).slice(before),
+              /caddy reload|docker pull| stop --timeout/u,
+            );
+          }
         } finally {
           fixture.cleanup();
         }
@@ -548,11 +634,13 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
         }).status,
         0,
       );
-      const journalPath = resolve(
-        fixture.root,
-        "var/lib/inside/deployments/operation.json",
+      const before = readFileSync(
+        resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation-maintenance.json",
+        ),
+        "utf8",
       );
-      const before = readFileSync(journalPath, "utf8");
       assertGatewaySuccess(fixture, "deploy", "v2", 442, {
         INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
       });
@@ -1329,12 +1417,7 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
         }).status,
         0,
       );
-      const journal = deploymentOperationSchema.parse(
-        readJson(
-          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-        ),
-      );
-      assert.deepEqual(journal.maintenance, {
+      assert.deepEqual(readMaintenance(fixture).maintenance, {
         startedAtEpochSeconds: 200,
         endedAtEpochSeconds: null,
         durationSeconds: 50,
@@ -1364,6 +1447,64 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
         "status",
         "version",
       ]);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("preserves timing after interruption between the sidecar and operation renames", () => {
+    const fixture = createHostFixture();
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 480);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v2", 481, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_MAINTENANCE: "readiness",
+          INSIDE_DEPLOY_TEST_NOW_EPOCH: "200",
+        }).status,
+        0,
+      );
+      const sidecar = readMaintenance(fixture);
+      assert.equal(sidecar.journal.phase, "readiness");
+      const journal = deploymentOperationSchema.parse(
+        readJson(
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        ),
+      );
+      assert.equal(journal.phase, "start");
+      assertLegacyOperationKeys(journal);
+      assertGatewaySuccess(fixture, "deploy", "v2", 482, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "300",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 200,
+        endedAtEpochSeconds: 300,
+        durationSeconds: 100,
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("ignores a timing sidecar replaced by a successful legacy rollback", () => {
+    const fixture = createHostFixture({ legacyV1: true });
+    try {
+      assertGatewaySuccess(fixture, "deploy", "v1", 490);
+      assertGatewaySuccess(fixture, "deploy", "v2", 491);
+      const sidecarPath = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation-maintenance.json",
+      );
+      const previousSidecar = readFileSync(sidecarPath, "utf8");
+      assertGatewaySuccess(fixture, "rollback", "v1", 492);
+      assert.equal(readFileSync(sidecarPath, "utf8"), previousSidecar);
+      assertGatewaySuccess(fixture, "deploy", "v3", 493, {
+        INSIDE_DEPLOY_TEST_NOW_EPOCH: "500",
+      });
+      assert.deepEqual(readState(fixture).maintenance, {
+        startedAtEpochSeconds: 500,
+        endedAtEpochSeconds: 500,
+        durationSeconds: 0,
+      });
     } finally {
       fixture.cleanup();
     }
@@ -1413,7 +1554,7 @@ if [[ "$*" == "-u +%s" ]]; then cat "$INSIDE_DEPLOY_TEST_ROOT/clock"; else /bin/
   });
 });
 
-function createHostFixture({ compatible = true } = {}) {
+function createHostFixture({ compatible = true, legacyV1 = false } = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-production-host-"));
   const root = resolve(directory, "host");
   const bin = resolve(directory, "bin");
@@ -1570,10 +1711,44 @@ fi
     { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(build.status, 0, build.stderr);
+  let legacyBundle = bundle;
+  if (legacyV1) {
+    const staging = resolve(directory, "legacy-runtime");
+    mkdirSync(staging);
+    const unpacked = spawnSync("tar", ["-xzf", bundle, "-C", staging], {
+      timeout: 30_000,
+      encoding: "utf8",
+    });
+    assert.equal(unpacked.status, 0, unpacked.stderr);
+    const legacy = readFileSync(
+      "scripts/fixtures/deployment/legacy-deploy-release",
+    );
+    assert.equal(
+      sha256(legacy),
+      "sha256:214d4d68329f02e5a43d4d63f35e598f6354e3e5efead25af2c8cddbaab72a70",
+    );
+    writeFileSync(resolve(staging, "bin/deploy-release"), legacy);
+    legacyBundle = resolve(directory, "legacy-runtime.tar.gz");
+    const packed = spawnSync(
+      "tar",
+      [
+        "-C",
+        staging,
+        "-czf",
+        legacyBundle,
+        "bin/deploy-release",
+        "caddy/maintenance.caddy",
+        "caddy/platform.caddy",
+        "compose.production.yaml",
+      ],
+      { timeout: 30_000, encoding: "utf8" },
+    );
+    assert.equal(packed.status, 0, packed.stderr);
+  }
   const bundleDigest = sha256(readFileSync(bundle));
   const schemaIdentity = `sha256:${"c".repeat(64)}`;
   const v1Manifest = releaseManifest({
-    bundleDigest,
+    bundleDigest: sha256(readFileSync(legacyBundle)),
     runId: 91,
     schemaIdentity,
     sourceSha: "1".repeat(40),
@@ -1636,6 +1811,7 @@ fi
   const fixture = {
     bin,
     bundle,
+    legacyBundle,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
     manifests,
@@ -1730,7 +1906,10 @@ function createEnvelope(fixture, version) {
   const manifest = fixture.manifests[version];
   assert.ok(manifest !== undefined, `missing manifest fixture for ${version}`);
   writeFileSync(resolve(root, "release-manifest.json"), manifest);
-  copyFileSync(fixture.bundle, resolve(root, "production-runtime.tar.gz"));
+  copyFileSync(
+    version === "v1" ? fixture.legacyBundle : fixture.bundle,
+    resolve(root, "production-runtime.tar.gz"),
+  );
   const result = spawnSync(
     "tar",
     [
@@ -1860,4 +2039,38 @@ function writeExecutable(path, content) {
 /** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+/** @param {HostFixture} fixture */
+function readMaintenance(fixture) {
+  return z
+    .object({
+      journal: deploymentOperationSchema,
+      phase: z.string(),
+      maintenance: z.unknown(),
+    })
+    .parse(
+      readJson(
+        resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation-maintenance.json",
+        ),
+      ),
+    );
+}
+
+/** @param {unknown} operation */
+function assertLegacyOperationKeys(operation) {
+  const journal = deploymentOperationSchema.parse(operation);
+  assert.deepEqual(Object.keys(journal).sort(), [
+    "githubRunId",
+    "operation",
+    "phase",
+    "recordedAt",
+    "recoveryPhase",
+    "repairForward",
+    "schemaVersion",
+    "status",
+    "version",
+  ]);
 }

@@ -35,8 +35,6 @@ state_dir="$host_root/var/lib/inside/deployments"
 runtime_dir="$host_root/srv/inside/runtime"
 state_file="$state_dir/state.json"
 operation_file="$state_dir/operation.json"
-maintenance_file="$state_dir/operation-maintenance.json"
-previous_written_operation_json=null
 operation_history_dir="$state_dir/operation-history"
 release_env_dir="$state_dir/release-environments"
 phase=preflight
@@ -51,8 +49,6 @@ repair_forward_phase=
 repair_forward_version=
 repair_forward_run_id=
 repair_forward_manifest=
-maintenance_started_epoch=
-maintenance_ended_epoch=
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -73,14 +69,7 @@ write_private_file_atomically() {
 write_operation() {
   local status="$1"
   local operation_phase="$2"
-  local maintenance_duration=null
-  if [[ -n "$maintenance_started_epoch" ]]; then
-    local measured_end="${maintenance_ended_epoch:-$(now_epoch)}"
-    maintenance_duration=$((measured_end - maintenance_started_epoch))
-    if ((maintenance_duration < 0)); then maintenance_duration=0; fi
-  fi
-  local journal_json
-  journal_json="$(jq --null-input \
+  jq --null-input \
     --arg schemaVersion inside.platform.deployment-operation.v1 \
     --arg status "$status" \
     --arg operation "$operation" \
@@ -91,48 +80,27 @@ write_operation() {
     --arg repairForwardPhase "$repair_forward_phase" \
     --arg recordedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson githubRunId "$github_run_id" \
-    --argjson repairForwardRunId "${repair_forward_run_id:-null}" '
-    {
+    --argjson repairForwardRunId "${repair_forward_run_id:-null}" \
+    '{
       schemaVersion: $schemaVersion,
       status: $status,
       operation: $operation,
       version: $version,
-      phase: (if $phase == "pre-pull" then "preflight" else $phase end),
-      recoveryPhase: (if $recoveryPhase == "" or $recoveryPhase == "pre-pull" then null else $recoveryPhase end),
+      phase: $phase,
+      recoveryPhase: (if $recoveryPhase == "" then null else $recoveryPhase end),
       repairForward: (
-        if $repairForwardVersion == "" then null
-        else {version: $repairForwardVersion, githubRunId: $repairForwardRunId, recoveryPhase: $repairForwardPhase}
+        if $repairForwardVersion == ""
+        then null
+        else {
+          version: $repairForwardVersion,
+          githubRunId: $repairForwardRunId,
+          recoveryPhase: $repairForwardPhase
+        }
         end
       ),
       githubRunId: $githubRunId,
       recordedAt: $recordedAt
-    }')"
-  # Publish timing first. Either journal snapshot binds it across an interruption between
-  # the two atomic renames. An unrelated write by a legacy script makes this sidecar stale.
-  jq --null-input \
-    --argjson journal "$journal_json" \
-    --argjson previousJournal "$previous_written_operation_json" \
-    --arg phase "$operation_phase" \
-    --argjson maintenanceStarted "${maintenance_started_epoch:-null}" \
-    --argjson maintenanceEnded "${maintenance_ended_epoch:-null}" \
-    --argjson maintenanceDuration "$maintenance_duration" '
-    {
-      schemaVersion: "inside.platform.deployment-maintenance.v1",
-      journal: $journal,
-      previousJournal: $previousJournal,
-      phase: $phase,
-      maintenance: (
-        if $maintenanceStarted == null then null
-        else {startedAtEpochSeconds: $maintenanceStarted, endedAtEpochSeconds: $maintenanceEnded, durationSeconds: $maintenanceDuration}
-        end
-      )
-    }' | write_private_file_atomically "$maintenance_file"
-  if [[ -n "${INSIDE_DEPLOY_TEST_ROOT:-}" &&
-        "${INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_MAINTENANCE:-}" == "$operation_phase" ]]; then
-    kill -KILL "$$"
-  fi
-  printf '%s\n' "$journal_json" | write_private_file_atomically "$operation_file"
-  previous_written_operation_json="$journal_json"
+    }' | write_private_file_atomically "$operation_file"
 }
 
 on_exit() {
@@ -245,8 +213,8 @@ stop_workers() {
 activate_caddy() {
   local source="$1"
   local temporary="$runtime_dir/caddy/active.caddy.tmp.$$"
-  install -m 644 "$source" "$temporary" || return 1
-  mv "$temporary" "$runtime_dir/caddy/active.caddy" || return 1
+  install -m 644 "$source" "$temporary"
+  mv "$temporary" "$runtime_dir/caddy/active.caddy"
   caddy reload --config "$host_root/etc/caddy/Caddyfile" --adapter caddyfile
 }
 
@@ -416,37 +384,6 @@ validate_operation_journal() {
   ' "$1" >/dev/null
 }
 
-validate_maintenance_journal() {
-  jq --exit-status '
-    (keys == ["journal", "maintenance", "phase", "previousJournal", "schemaVersion"]) and
-    .schemaVersion == "inside.platform.deployment-maintenance.v1" and
-    (.journal | type == "object") and
-    (.previousJournal == null or (.previousJournal | type == "object")) and
-    (.phase | test("^(preflight|pre-pull|maintenance|pull|schema|workers|migrations|start|readiness|smoke|routes|journal|complete)$")) and
-    (
-      .maintenance == null or
-      (
-        (.maintenance | keys == ["durationSeconds", "endedAtEpochSeconds", "startedAtEpochSeconds"]) and
-        (.maintenance.startedAtEpochSeconds | type == "number") and
-        .maintenance.startedAtEpochSeconds >= 0 and
-        (.maintenance.startedAtEpochSeconds | floor) == .maintenance.startedAtEpochSeconds and
-        (.maintenance.durationSeconds | type == "number") and
-        .maintenance.durationSeconds >= 0 and
-        (.maintenance.durationSeconds | floor) == .maintenance.durationSeconds and
-        (
-          .maintenance.endedAtEpochSeconds == null or
-          (
-            (.maintenance.endedAtEpochSeconds | type == "number") and
-            .maintenance.endedAtEpochSeconds >= .maintenance.startedAtEpochSeconds and
-            (.maintenance.endedAtEpochSeconds | floor) == .maintenance.endedAtEpochSeconds and
-            .maintenance.durationSeconds == (.maintenance.endedAtEpochSeconds - .maintenance.startedAtEpochSeconds)
-          )
-        )
-      )
-    )
-  ' "$1" >/dev/null
-}
-
 deployment_predecessor() {
   local ordinal="$1"
   jq --exit-status --compact-output --argjson ordinal "$ordinal" '
@@ -546,18 +483,6 @@ if [[ -f "$operation_file" ]]; then
   fi
   last_operation_json="$(jq --compact-output . "$operation_file")"
 fi
-previous_written_operation_json="$last_operation_json"
-last_maintenance_json=null
-if [[ -e "$maintenance_file" || -L "$maintenance_file" ]]; then
-  if [[ ! -f "$maintenance_file" || -L "$maintenance_file" ]] ||
-    ! validate_maintenance_journal "$maintenance_file"; then
-    echo "Deployment maintenance journal is invalid" >&2
-    exit 1
-  fi
-  last_maintenance_json="$(jq --compact-output --argjson journal "$last_operation_json" '
-    if .journal == $journal or .previousJournal == $journal then . else null end
-  ' "$maintenance_file")"
-fi
 active_recovery_phase="$(jq --raw-output '
   if (.status == "failed" or .status == "running")
   then (.recoveryPhase // .phase)
@@ -617,28 +542,8 @@ recovery_phase="$(jq --raw-output \
 if [[ "$recovery_phase" == preflight ]]; then
   recovery_phase=
 fi
-if [[ "$operation" == rollback && -n "$recovery_phase" && "$recovery_phase" != pre-pull ]]; then
+if [[ "$operation" == rollback && -n "$recovery_phase" ]]; then
   accepted_rollback_recovery=true
-fi
-# Carry an open interval across exact retries and repair forward. Completed measurements
-# remain in state.json; every operation journal keeps the legacy closed shape.
-if jq --exit-status --arg operation "$operation" --arg version "$version" '
-  .operation == $operation and .version == $version
-' <<<"$last_operation_json" >/dev/null 2>&1 ||
-  [[ "$repair_forward" == true && "$(jq --raw-output '.maintenance.endedAtEpochSeconds' <<<"$last_maintenance_json")" == null ]]; then
-  maintenance_started_epoch="$(jq --raw-output '.maintenance.startedAtEpochSeconds // empty' <<<"$last_maintenance_json")"
-  maintenance_ended_epoch="$(jq --raw-output '.maintenance.endedAtEpochSeconds // empty' <<<"$last_maintenance_json")"
-fi
-# A retry can open another interval after routes succeeded but state publication failed.
-# Preserve the completed attempt before its operation journal is replaced.
-if [[ -n "$maintenance_ended_epoch" ]] &&
-  [[ "$(jq --raw-output .status <<<"$last_operation_json")" != succeeded ]]; then
-  measured_run_id="$(jq --raw-output .githubRunId <<<"$last_operation_json")"
-  measured_history="$operation_history_dir/maintenance-$operation-$version-run-$measured_run_id-ended-$maintenance_ended_epoch.json"
-  if [[ ! -e "$measured_history" ]]; then
-    install -m 600 "$maintenance_file" "$measured_history.tmp.$$"
-    mv "$measured_history.tmp.$$" "$measured_history"
-  fi
 fi
 if [[ "$repair_forward" != true ]]; then
   if [[ "$operation" == rollback && "$recovery_phase" == journal ]]; then
@@ -919,42 +824,23 @@ if [[ "$is_noop" == true ]]; then
   exit 0
 fi
 
-phase=pre-pull
+phase=maintenance
 write_operation running "$phase"
-fail_if_requested pre-pull
+fail_if_requested maintenance
+activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"
+
+phase=pull
+write_operation running "$phase"
+fail_if_requested pull
 docker pull "$backend_image"
 docker pull "$web_image"
-for image in "$backend_image" "$web_image"; do
-  if ! docker image inspect --format '{{json .RepoDigests}}' "$image" |
-    jq --exit-status --arg image "$image" 'index($image) != null' >/dev/null; then
-    echo "Pulled image does not match the manifest digest: $image" >&2
-    exit 1
-  fi
-done
 candidate_broker="$(declared_services "$compose_file" rabbitmq)"
 if [[ -n "$candidate_broker" ]]; then
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" pull rabbitmq
 fi
 
-phase=maintenance
-write_operation running "$phase"
-fail_if_requested maintenance
-prior_maintenance_started_epoch="$maintenance_started_epoch"
-prior_maintenance_ended_epoch="$maintenance_ended_epoch"
-if [[ -z "$maintenance_started_epoch" || -n "$maintenance_ended_epoch" ]]; then
-  maintenance_started_epoch="$(now_epoch)"
-  maintenance_ended_epoch=
-fi
-write_operation running "$phase"
-if ! activate_caddy "$release_dir/runtime/caddy/maintenance.caddy"; then
-  maintenance_started_epoch="$prior_maintenance_started_epoch"
-  maintenance_ended_epoch="$prior_maintenance_ended_epoch"
-  exit 1
-fi
-
 phase=schema
 write_operation running "$phase"
-fail_if_requested schema
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
   run --pull never --rm --no-deps migrations \
   node dist/migrations/migrate.js --verify-schema-compatible >/dev/null
@@ -984,7 +870,7 @@ if [[ "$operation" == deploy ]]; then
   write_operation running "$phase"
   fail_if_requested migrations
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-    run --rm --pull never migrations
+    run --rm migrations
 fi
 
 phase=start
@@ -995,7 +881,7 @@ fail_if_requested start
 candidate_broker="$(declared_services "$compose_file" rabbitmq)"
 if [[ -n "$candidate_broker" ]]; then
   docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-    up --detach --wait --pull never --no-deps rabbitmq
+    up --detach --wait --no-deps rabbitmq
 fi
 # An assignment keeps a failed service listing fatal; an empty list would otherwise start everything.
 candidate_process_list="$(declared_services "$compose_file" "${process_services[@]}")"
@@ -1005,7 +891,7 @@ if [[ -z "$candidate_process_list" ]]; then
 fi
 read -r -a candidate_processes <<<"$candidate_process_list"
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-  up --detach --wait --pull never --no-deps "${candidate_processes[@]}"
+  up --detach --wait --no-deps "${candidate_processes[@]}"
 
 phase=readiness
 recovery_phase="$phase"
@@ -1041,12 +927,6 @@ recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested routes
 activate_caddy "$release_dir/runtime/caddy/platform.caddy"
-maintenance_ended_epoch="$(now_epoch)"
-if ((maintenance_ended_epoch < maintenance_started_epoch)); then
-  maintenance_ended_epoch="$maintenance_started_epoch"
-fi
-write_operation running "$phase"
-echo "Maintenance duration: $((maintenance_ended_epoch - maintenance_started_epoch)) seconds."
 
 successful_epoch="$(now_epoch)"
 deployed_at="$(format_epoch "$successful_epoch")"
@@ -1080,8 +960,7 @@ jq --null-input \
   --argjson githubRunId "$github_run_id" \
   --argjson previous "$previous_json" \
   --argjson rollback "$rollback_json" \
-  --argjson rolledBackFrom "$rolled_back_from_json" \
-  --argjson maintenance "$(jq --compact-output .maintenance "$maintenance_file")" '
+  --argjson rolledBackFrom "$rolled_back_from_json" '
     {
       schemaVersion: $schemaVersion,
       status: "succeeded",
@@ -1100,8 +979,7 @@ jq --null-input \
       },
       previous: $previous,
       rollback: $rollback,
-      rolledBackFrom: $rolledBackFrom,
-      maintenance: $maintenance
+      rolledBackFrom: $rolledBackFrom
     }
   ' | write_private_file_atomically "$state_file"
 
