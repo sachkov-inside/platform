@@ -1,7 +1,11 @@
-# Stand MCP trusts the local Logto certificate; Reader reads the learner MCP settings from stand.env.
+# Stand MCP trusts Logto; both adapters sign browser URLs for the published local storage port.
 services:
+  api:
+    environment:
+      OBJECT_STORAGE_SIGNED_GET_ENDPOINT: http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}
   mcp:
     environment:
       NODE_EXTRA_CA_CERTS: /identity-tls/certificate.pem
+      OBJECT_STORAGE_SIGNED_GET_ENDPOINT: http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}
     volumes:
       - ./.identity-proof/tls:/identity-tls:ro

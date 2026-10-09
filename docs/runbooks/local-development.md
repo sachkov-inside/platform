@@ -251,6 +251,13 @@ Only the `web` service changes: it is built from the `web-production` image targ
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 
+The local production-web build passes `http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}` as the
+existing validated `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`. Next captures the headers during the build;
+setting it only on the running container cannot repair a previously built CSP. The common learner
+overlay uses that same published port for API and MCP signed image URLs in both stand modes.
+Builds for a production release omit the local origin and keep the existing production `img-src`.
+The loopback validation and script policy remain in `next.config.ts` / [ADR 0028](../adr/0028-web-edge-hardening.md).
+
 `local:stand` builds API's shared backend image, web, RabbitMQ and Logto sequentially before
 starting containers with `--no-build`. Each invocation asks BuildKit to verify the current source
 inputs, so cached images never bypass source validation. Production web requires a clean Git
@@ -259,8 +266,8 @@ working tree and uses its real `HEAD` SHA as the release identity; commit source
 Before building, the command measures available space on Docker's host storage filesystem. On macOS,
 it locates the open Docker Desktop `Docker.raw` through `lsof` file metadata; on Linux Engine it uses
 the daemon's `DockerRootDir`. It refuses an unidentified data disk. It requires 20 GiB: an 8 GiB
-build ceiling, the mandatory 10 GiB host floor and 2 GiB of stop/cleanup headroom. During launch it checks both limits every 250 ms and stops
-its command tree when either limit is reached. This bounds host disk consumption; it does not
+build ceiling, the mandatory 10 GiB host floor and 2 GiB of stop/cleanup headroom. During launch it checks both limits every 250 ms and starts
+stopping its command tree 256 MiB before either limit: growth at 7.75 GiB or remaining free at 10.25 GiB. This monitors host disk consumption; it does not
 increase Docker's own storage quota. A refusal leaves existing stand data intact. Arrange disk
 capacity before retrying; the command never prunes caches, reports or volumes.
 
@@ -269,6 +276,8 @@ of at most 2.261 GB each to an 8 GiB ceiling. This uses retained layer/cache mea
 sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
 were captured on 9 October 2026 UTC / 10 October 2026 MSK. Runtime verification must measure actual peak growth and the
 remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.
+[The refreshed inputs after main391 and the linked CSP fix](../evidence/issue-1304/resume-1318/README.md)
+keep the same provisional ceiling. Those metadata sizes are not measured future build growth.
 Root diagnostic `*.log` files are ignored by Git as well as the Docker context, so they do not
 prevent production web's source check.
 

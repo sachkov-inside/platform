@@ -6,7 +6,9 @@ const hostReserveBytes = 10 * gib;
 // cache keys miss, rounded up to8 GiB. Bounded runtime proof must validate actual growth. Shared
 // cache records overlap; their sum is not physical storage. Never prune another session's data.
 // Measurement period:2026-10-09 UTC /2026-10-10 MSK. Source/model:docs/evidence/issue-1304/README.md.
+// Refreshed main391/#1318 inputs:docs/evidence/issue-1304/resume-1318/README.md; actual peak pending.
 const buildAllowanceBytes = 8 * gib;
+const stopMarginBytes = 256 * 1024 ** 2;
 // Coordinator's bounded-proof admission keeps2 GiB of stop/cleanup headroom above ceiling+floor.
 const minimumStartingFreeBytes = 20 * gib;
 
@@ -43,14 +45,17 @@ export function createStandBuildBudget(freeBytes) {
     initialFreeBytes,
     assertAvailable() {
       const available = freeBytes();
-      if (available <= hostReserveBytes) {
+      if (available <= hostReserveBytes + stopMarginBytes) {
         throw new Error(
-          `Local stand stopped to preserve its ${hostReserveBytes / gib} GiB host floor.`,
+          `Local stand stopped with ${stopMarginBytes / 1024 ** 2} MiB stop margin to preserve its ${hostReserveBytes / gib} GiB host floor.`,
         );
       }
-      if (initialFreeBytes - available >= buildAllowanceBytes) {
+      if (
+        initialFreeBytes - available >=
+        buildAllowanceBytes - stopMarginBytes
+      ) {
         throw new Error(
-          `Local stand stopped after consuming its ${buildAllowanceBytes / gib} GiB build ceiling.`,
+          `Local stand stopped with ${stopMarginBytes / 1024 ** 2} MiB stop margin before its ${buildAllowanceBytes / gib} GiB build ceiling.`,
         );
       }
     },

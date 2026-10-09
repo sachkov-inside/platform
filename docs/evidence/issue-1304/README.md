@@ -1,9 +1,13 @@
 # Local stand budget evidence — #1304
 
-These are read-only measurements from 9 October 2026 UTC / 10 October 2026 MSK. Exact capture instants and
+These original read-only measurements are from 9 October 2026 UTC / 10 October 2026 MSK. Exact capture instants and
 checksums are in [capture-metadata.json](capture-metadata.json). No local Docker build, pull,
-Compose or live-stand operation ran. Actual peak build growth and successful standard startup are
+or live-stand operation ran at that capture. Actual peak build growth and successful standard startup are
 **pending** a sole-heavy slot and Content's ownership handoff.
+
+[Refreshed read-only inputs after the main391 merge and linked #1318 fix](resume-1318/README.md)
+retain the provisional 8 GiB ceiling. The resumed LIGHT phase renders client-only Compose config
+against a deliberately absent Docker engine; this is separate from actual build/stand proof.
 
 ## Inputs and sources
 
