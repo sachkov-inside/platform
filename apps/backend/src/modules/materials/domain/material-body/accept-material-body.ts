@@ -6,6 +6,7 @@ import {
   materialBlockByType,
   materialBlockChildren,
   renderedBlockSchema,
+  resourceCardUrlValid,
   type RenderedBlock,
   materialQuizReferencesValid,
   renderMaterialBlocks,
@@ -78,7 +79,8 @@ function safeQuizContent(block: RenderedBlock): boolean {
     )
       return false;
   }
-  if (block.kind === "resource_card" && !validateUrl(block.url)) return false;
+  if (block.kind === "resource_card" && !resourceCardUrlValid(block.url))
+    return false;
   if (
     (block.kind === "image" || block.kind === "file") &&
     !isUuid(block.assetId)

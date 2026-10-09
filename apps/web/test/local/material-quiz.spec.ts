@@ -2,8 +2,6 @@ import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
-import { convertMarkdown } from "../../../../tools/authoring/markdown.mjs";
-import { readerBlocksSchema } from "@inside/material-blocks";
 import { readerBlocks } from "../../src/storybook/quiz-content";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { resolve } from "node:path";
@@ -17,6 +15,9 @@ test("imported Reader quiz supports keyboard, all explanations, anchors and edit
   page,
   request,
 }, testInfo) => {
+  const { convertMarkdown } =
+    await import("../../../../tools/authoring/markdown.mjs");
+  const { readerBlocksSchema } = await import("@inside/material-blocks");
   const environment = await request.get(
     "/__local-api/authoring/import/materials/environment",
   );

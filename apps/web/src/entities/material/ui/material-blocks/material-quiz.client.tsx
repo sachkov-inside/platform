@@ -167,8 +167,9 @@ export function MaterialQuiz({
             <h3 className="font-semibold">Разбор всех вариантов</h3>
             {options.map((option, index) => (
               <div key={option.id}>
-                <div className="font-semibold">
-                  {index + 1}. {option.content}
+                <div className="flex gap-3 font-semibold">
+                  <span>{index + 1}.</span>
+                  <div className="min-w-0">{option.content}</div>
                 </div>
                 <div className="mt-1">{option.explanation}</div>
               </div>

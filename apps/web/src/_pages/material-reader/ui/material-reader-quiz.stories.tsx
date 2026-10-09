@@ -7,17 +7,15 @@ import { MaterialReaderView } from "./material-reader-view";
 
 /** Fixture adapter supplies prepared reading states; real conversion is tested at import seams. */
 const prose = (markdown: string): RenderedBlock[] =>
-  markdown
-    .split("\n\n")
-    .map((text) =>
-      text.startsWith("## ")
-        ? {
-            kind: "heading",
-            level: 2,
-            content: [{ kind: "text", text: text.slice(3), marks: [] }],
-          }
-        : { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] },
-    );
+  markdown.split("\n\n").map((text) =>
+    text.startsWith("## ")
+      ? {
+          kind: "heading",
+          level: 2,
+          content: [{ kind: "text", text: text.slice(3), marks: [] }],
+        }
+      : { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] },
+  );
 const body: RenderedBlock[] = readerBlocks.flatMap((block): RenderedBlock[] =>
   block.kind === "markdown"
     ? prose(block.markdown)
@@ -40,9 +38,9 @@ const body: RenderedBlock[] = readerBlocks.flatMap((block): RenderedBlock[] =>
       ],
 );
 const meta = {
+  ...publicPageEnvironment("/materials/quiz-proof"),
   title: "Pages/Material Reader Quiz",
   component: MaterialReaderView,
-  parameters: { ...publicPageEnvironment("/materials/quiz-proof") },
   args: {
     body,
     primaryVideo: null,

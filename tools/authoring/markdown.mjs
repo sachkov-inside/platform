@@ -5,7 +5,7 @@ import {
   calloutToneLabels,
   readerBlocksSchema,
   renderMaterialBlocks,
-  materialHeadingAnchors,
+  materialQuizReferenceIssue,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
@@ -402,18 +402,8 @@ export function convertMarkdown(
           }),
         };
   if (readerBlocks !== undefined) {
-    const anchors = new Set(
-      materialHeadingAnchors(renderNodes(doc.content)).values(),
-    );
-    for (const block of readerBlocksSchema.parse(readerBlocks)) {
-      if (block.kind !== "quiz") continue;
-      for (const href of block.dontKnow.reviewLinks) {
-        if (!anchors.has(decodeURIComponent(href.slice(1))))
-          throw new Error(
-            `${sourcePath}: quiz ${block.id}: missing narrative anchor ${href}`,
-          );
-      }
-    }
+    const issue = materialQuizReferenceIssue(renderNodes(doc.content));
+    if (issue !== undefined) throw new Error(`${sourcePath}: ${issue}`);
   }
   /**
    * IDs are stable for unchanged positions, and are independent of filenames and target

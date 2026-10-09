@@ -153,3 +153,44 @@ test("rejects unsafe links hidden inside a quiz explanation", () => {
   };
   expect(materialBodyOperations.accept(candidate)).toMatchObject({ ok: false });
 });
+
+test.each(["/relative", "#section", "https://example.com/resource"])(
+  "quiz resource cards use the registry https policy: %s",
+  (url) => {
+    const source = fixture();
+    const node = source.doc.content[1];
+    const quiz = node?.attrs.quiz;
+    const first = quiz?.options[0];
+    if (!node || !quiz || !first) throw new Error("Missing quiz fixture");
+    const candidate = {
+      ...source,
+      doc: {
+        ...source.doc,
+        content: [
+          source.doc.content[0],
+          {
+            ...node,
+            attrs: {
+              ...node.attrs,
+              quiz: {
+                ...quiz,
+                options: [
+                  {
+                    ...first,
+                    explanation: [
+                      { kind: "resource_card", title: "Resource", url },
+                    ],
+                  },
+                  ...quiz.options.slice(1),
+                ],
+              },
+            },
+          },
+        ],
+      },
+    };
+    expect(materialBodyOperations.accept(candidate).ok).toBe(
+      url.startsWith("https:"),
+    );
+  },
+);

@@ -81,4 +81,9 @@ export {
 export { materialHeadingAnchors } from "./heading-anchors.js";
 export type { RenderedQuiz } from "./rendered-block.js";
 
-export { materialQuizReferencesValid } from "./quiz-document.js";
+export {
+  materialQuizReferenceIssue,
+  materialQuizReferencesValid,
+} from "./quiz-document.js";
+
+export { resourceCardUrlValid } from "./blocks/resource-card.js";
