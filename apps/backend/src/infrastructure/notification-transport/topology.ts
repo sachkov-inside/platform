@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { lanes, type NotificationPrincipal } from "./wire.js";
 
-export const NOTIFICATION_BROKER_IMAGE = "rabbitmq:4.2.4-management-alpine";
+export const NOTIFICATION_BROKER_IMAGE =
+  "public.ecr.aws/docker/library/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef";
 /** Ёмкость каждой очереди окружения: сообщения; байты — по 16 KiB на сообщение. Одна для стенда и production. */
 export const NOTIFICATION_QUEUE_CAPACITY = 1_000;
 export const LOCAL_NOTIFICATION_BROKER_CREDENTIALS = {

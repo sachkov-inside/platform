@@ -77,6 +77,47 @@ in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands
 the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
 Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
+## Official image inputs
+
+CI service containers, application Dockerfile bases, Compose dependencies and explicit
+Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`.
+References keep the existing version tags and select immutable SHA-256 digests. Release builds
+use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
+This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
+ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
+The production smoke prints the resolved RabbitMQ/Caddy references and pulls them sequentially
+with Compose `--parallel 1` before application startup. Development CI does the same for
+PostgreSQL, RustFS and Mailpit before starting its clean-stack smoke. This bounds each job's own
+acquisition concurrency; it does not identify the origin of an unlabelled rate-limit error.
+Integration serial enables
+`testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
+missing-image or cleanup error. These acquisition paths do not retry a failed pull.
+
+Docker publishes this namespace directly ([official announcement](https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/)).
+The [#1306 metadata evidence](../evidence/issue-1306/official-image-manifests.json) records identical
+upstream/ECR index digests and verified `linux/amd64` and `linux/arm64` child manifests.
+Metadata inspection proves availability and identity, not successful execution. Required CI jobs
+still prove service startup, BuildKit builds, Testcontainers and SQL execution.
+
+When changing an image input, verify its tag/digest and required platform manifests against both
+official registries. Keep vendor images at their owning source: RustFS, Logto and Mailpit retain
+their existing references. Shared CI setup exports `RYUK_CONTAINER_IMAGE` to select the
+Testcontainers publisher's `ghcr.io/testcontainers/ryuk:0.14.0` by immutable digest. Its
+[publisher workflow](https://github.com/testcontainers/moby-ryuk/blob/0.14.0/.github/workflows/publish-docker-image.yml)
+publishes to Hub and GHCR; the metadata evidence above records identical index bytes and required
+platform manifests. This input addresses the observed
+[Ryuk Hub token timeout](https://github.com/sachkov-inside/platform/actions/runs/37992936027/job/114031539499).
+Local commands retain the dependency's Ryuk default unless `RYUK_CONTAINER_IMAGE` is set explicitly.
+Other implicit helper inputs remain unchanged. The official-image contract covers the explicit
+inputs listed in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
+
+SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
+If cleanup also fails, setup prints that failure and preserves the original exception.
+The historical SQL setup exit 125 in
+[run 37990329163](https://github.com/sachkov-inside/platform/actions/runs/37990329163/job/114022533381)
+ran zero SQL tests and omitted captured stderr. Its precise cause cannot be recovered from that log.
+Read the setup stderr on a new failure; another job's pull failure does not establish the SQL cause.
+
 ## Merge queue
 
 `main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a

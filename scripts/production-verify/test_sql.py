@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 import unittest
 import uuid
 from queries import DOMAIN_CATALOG, logto_secret_inventory
@@ -16,8 +17,8 @@ class SqlContractTests(unittest.TestCase):
         try:
             subprocess.run(['docker', 'run', '--detach', '--name', cls.container, '--label', 'inside.owner=production-verify-test',
                             '--env', 'POSTGRES_PASSWORD=synthetic-test-only', '--health-cmd', 'pg_isready -h 127.0.0.1 -U postgres',
-                            '--health-interval', '1s', '--health-retries', '30', 'postgres:18.4-alpine3.23'],
-                           check=True, capture_output=True, timeout=120)
+                            '--health-interval', '1s', '--health-retries', '30', 'public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e'],
+                           check=True, capture_output=True, text=True, timeout=120)
             # TCP health excludes the temporary socket-only server used by image initialization.
             # The budget only bounds a stuck start.
             import time
@@ -32,8 +33,13 @@ class SqlContractTests(unittest.TestCase):
             else:
                 raise RuntimeError('test database start timeout')
             cls.execute(pathlib.Path(__file__).with_name('sql-fixture.sql').read_text(), readonly=False)
-        except BaseException:
-            cls.tearDownClass()
+        except BaseException as error:
+            if isinstance(error, subprocess.CalledProcessError) and error.stderr:
+                print('SQL setup Docker stderr: ' + error.stderr, file=sys.stderr)
+            try:
+                cls.tearDownClass()
+            except Exception as cleanup_error:
+                print('SQL setup cleanup failed: ' + str(cleanup_error), file=sys.stderr)
             raise
 
     @classmethod
