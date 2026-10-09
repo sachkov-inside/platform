@@ -26,7 +26,7 @@ const expected: Record<OwnerFailureCode, number> = {
 };
 
 describe("billing owner result mapping", () => {
-  test("grantPreview transports current classification alongside unchanged grant outcomes", () => {
+  test("grantPreview response schema preserves current classification and unchanged grant outcomes", () => {
     const response = {
       operationRef: "00000000-0000-4000-8000-000000000001",
       result: {

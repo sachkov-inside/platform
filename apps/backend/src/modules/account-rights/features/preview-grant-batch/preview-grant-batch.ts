@@ -183,13 +183,20 @@ export async function previewGrantBatch(
           };
           if (isGrantRow(row)) return identityOutcome;
           if (row.identityFingerprint === null)
-            return { ...identityOutcome, current: null };
+            return {
+              rowKey: row.rowKey,
+              accountId: row.accountId,
+              status: identityOutcome.status,
+              current: null,
+            };
           const existing = await transaction.legacyClassification.findUnique({
             where: { accountId: row.accountId },
             select: { classification: true, revision: true },
           });
           return {
-            ...identityOutcome,
+            rowKey: row.rowKey,
+            accountId: row.accountId,
+            status: identityOutcome.status,
             current: {
               classification: classificationSchema.parse(
                 existing?.classification ?? "unknown",
