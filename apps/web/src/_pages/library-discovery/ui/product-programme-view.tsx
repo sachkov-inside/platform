@@ -93,11 +93,11 @@ export function ProductProgrammeView({
       className="programme-frame @container/programme mx-auto min-w-0 w-full max-w-[46rem]"
       data-product-programme={slug}
     >
-      {/* Выход из прохождения — вверху слева, на витрину Inside: снизу у программы свои разделы,
+      {/* Выход из прохождения — вверху слева, на Главную: снизу у программы свои разделы,
           и случайно уйти на Главную нельзя. Страница продукта — справа, для тех, кто его изучает. */}
       <nav
         aria-label="Путь навигации"
-        className="flex items-center justify-between gap-3 pt-4"
+        className="flex flex-wrap items-center justify-between gap-x-3 pt-4"
         data-programme-part="back"
       >
         <IntentPrefetchLink
@@ -105,7 +105,7 @@ export function ProductProgrammeView({
           href="/"
         >
           <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-          <span>Inside</span>
+          <span>Главная</span>
         </IntentPrefetchLink>
         <IntentPrefetchLink
           className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-border underline-offset-4"

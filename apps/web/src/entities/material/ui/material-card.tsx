@@ -1,4 +1,14 @@
-import { ChevronRight, Clock3, Link2, LockKeyhole, Play } from "lucide-react";
+import {
+  BookOpenText,
+  ChevronRight,
+  CirclePlay,
+  Clock3,
+  FileText,
+  Link2,
+  LockKeyhole,
+  Play,
+  type LucideIcon,
+} from "lucide-react";
 import type { Route } from "next";
 
 import { cn } from "@/shared/lib/utils";
@@ -364,7 +374,7 @@ function SeriesMaterialRow({
   return (
     <SeriesRowArticle
       availability={pending ? "pending" : material.availability}
-      className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
+      className="group/row relative flex min-h-16 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:min-h-20 sm:px-4 sm:py-3"
       slug={material.slug}
     >
       <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
@@ -372,7 +382,7 @@ function SeriesMaterialRow({
           {/* Номер урока стоит в плитке: без обложки он и есть её рисунок, с обложкой — метка в углу. */}
           <span
             data-series-preview
-            className="relative w-14 shrink-0 overflow-hidden rounded-xl @min-[30rem]/series-entry:w-16 @max-[16rem]/series-entry:hidden"
+            className="relative w-11 shrink-0 overflow-hidden rounded-xl @min-[30rem]/series-entry:w-14 @max-[16rem]/series-entry:hidden"
           >
             <ContentCoverImage
               alt=""
@@ -414,20 +424,10 @@ function SeriesMaterialRow({
                 {material.title}
               </IntentPrefetchLink>
             </Heading>
-            {material.access === "free" &&
-            material.availability === "available" ? (
-              <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">
-                Бесплатно
-              </span>
-            ) : null}
+            <SeriesRowMeta duration={duration} material={material} />
           </div>
         </div>
         <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
-          {duration === undefined ? null : (
-            <span className="tabular-nums" data-series-duration>
-              {duration}
-            </span>
-          )}
           {pending ? (
             <span
               aria-hidden="true"
@@ -448,6 +448,51 @@ function SeriesMaterialRow({
         </span>
       </div>
     </SeriesRowArticle>
+  );
+}
+
+const formatIcons: Readonly<Record<string, LucideIcon>> = {
+  video: CirclePlay,
+  guide: BookOpenText,
+};
+
+/**
+ * Строка под названием урока: значок и формат, длительность видео и пометка «Бесплатно». По ней
+ * видно, где видео, а где текст, без обложек: в программе номер урока и есть его рисунок
+ * (решение владельца 09.10.2026). Задания отмечает своя строка задания.
+ */
+function SeriesRowMeta({
+  duration,
+  material,
+}: {
+  readonly duration: string | undefined;
+  readonly material: MaterialPreview;
+}) {
+  const Icon =
+    formatIcons[
+      materialPreviewHasVideo(material) ? "video" : (material.formatSlug ?? "")
+    ] ?? FileText;
+  const free =
+    material.access === "free" && material.availability === "available";
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs leading-5 text-muted-foreground">
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span>{material.format}</span>
+      {duration === undefined ? null : (
+        <>
+          <span aria-hidden="true">·</span>
+          <span className="tabular-nums" data-series-duration>
+            {duration}
+          </span>
+        </>
+      )}
+      {free ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <span className="font-semibold text-action">Бесплатно</span>
+        </>
+      ) : null}
+    </span>
   );
 }
 

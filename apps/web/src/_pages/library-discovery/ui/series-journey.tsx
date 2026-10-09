@@ -206,13 +206,15 @@ function journeyRun(
               >
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <h3
-                    className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
+                    className="min-w-0 flex-1 text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
                   {run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
-                    <span className="text-xs tabular-nums text-muted-foreground">
+                    // На телефоне счётчик уступает место заголовку главы: число уроков видно в
+                    // самом списке.
+                    <span className="text-xs tabular-nums text-muted-foreground max-sm:hidden">
                       {[
                         run.chapter.materialIds.length > 0
                           ? formatMaterialCount(run.chapter.materialIds.length)
@@ -232,7 +234,8 @@ function journeyRun(
                 {run.items.length === 0 && tasks.length === 0 ? (
                   <div className="programme-chapter-preview">
                     {run.chapter.summary === "" ? null : (
-                      <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                      // Будущая глава — коротко: две строки на телефоне, три на широком экране.
+                      <p className="line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:line-clamp-3 sm:text-sm sm:leading-6">
                         {run.chapter.summary}
                       </p>
                     )}

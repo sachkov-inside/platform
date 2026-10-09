@@ -30,13 +30,13 @@ export function ProductTaskRow({
   const locked = !pending && task.availability === "locked";
   return (
     <article
-      className="group/task relative flex min-h-20 min-w-0 items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-3 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:gap-4 sm:px-4"
+      className="group/task relative flex min-h-16 min-w-0 items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--callout-task)_32%,transparent)] bg-[color-mix(in_srgb,var(--callout-task)_6%,var(--card))] px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] focus-within:bg-[color-mix(in_srgb,var(--callout-task)_11%,var(--card))] sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3"
       data-programme-task={task.code}
       data-task-availability={pending ? "pending" : task.availability}
     >
       <span
         aria-hidden="true"
-        className="grid size-14 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--callout-task)_14%,transparent)] text-[color:var(--callout-task)] @min-[30rem]/series-entry:size-16 @max-[16rem]/series-entry:hidden"
+        className="grid size-11 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--callout-task)_14%,transparent)] text-[color:var(--callout-task)] @min-[30rem]/series-entry:size-14 @max-[16rem]/series-entry:hidden"
       >
         {locked ? (
           <LockKeyhole className="size-5" />
