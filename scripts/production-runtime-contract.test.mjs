@@ -352,8 +352,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@learning_mcp path",
-              `\t\t${mcpRoute("additional_mcp", path)}\n\n\t\t@learning_mcp path`,
+              mcpRoute("learning_mcp", "/mcp/learning"),
+              `${mcpRoute("additional_mcp", path)}\n\n\t\t${mcpRoute("learning_mcp", "/mcp/learning")}`,
             ),
             releaseRunbook: runtime.releaseRunbook.replace(
               "| любой | `/mcp/learning` |",
@@ -398,8 +398,8 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           caddy: runtime.caddy.replace(
-            "\t\t@mcp path /mcp\n",
-            "\t\t@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t@mcp path /mcp\n",
+            mcpRoute("mcp", "/mcp"),
+            `@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t${mcpRoute("mcp", "/mcp")}`,
           ),
         }),
       new RegExp(table, "u"),
@@ -424,8 +424,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@mcp path /mcp\n",
-              `${route}\n\t\t@mcp path /mcp\n`,
+              mcpRoute("mcp", "/mcp"),
+              `${route}\n\t\t${mcpRoute("mcp", "/mcp")}`,
             ),
           }),
         /not in a form the runbook route check understands/u,
@@ -513,7 +513,7 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             [key]: runtime[key].replace(
-              /\theader Strict-Transport-Security[^\n]+\n/u,
+              /\theader(?: @[a-z_]+)? Strict-Transport-Security[^\n]+\n/gu,
               "",
             ),
           }),
@@ -724,7 +724,7 @@ function assertRuntimeContract(files) {
     ["maintenance.caddy", files.maintenanceCaddy],
   ])) {
     if (
-      !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
+      !/^\theader @legacy_hsts Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
         caddy,
       )
     ) {
@@ -837,8 +837,10 @@ function assertRuntimeContract(files) {
       throw new Error(`${name} must publish only its exact method and path`);
   }
   if (
-    /path \/internal\/\*|path \/billing\/\*|subscription-activation\/\*/u.test(
-      files.caddy,
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      / \/internal\/\*$| \/billing\/\*$|subscription-activation\/\*/u.test(
+        route,
+      ),
     )
   ) {
     throw new Error(
@@ -1006,11 +1008,20 @@ function caddyProxiedRoutes(caddy) {
   /** @type {Set<string>} */
   const understood = new Set();
   for (const [, name = "", method = "", paths = ""] of caddy.matchAll(
-    /@([a-z_]+) \{\n\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
+    /@([a-z_]+) \{\n(?:\t+host inside\.sachkov\.dev\n)?\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
   )) {
     if (!proxied.has(name)) continue;
     understood.add(name);
-    routes.push(...paths.split(" ").map((path) => `${method} ${path}`));
+    routes.push(
+      ...paths.split(" ").map((path) => `${method || "ANY"} ${path}`),
+    );
+  }
+  for (const [, name = "", paths = ""] of caddy.matchAll(
+    /@([a-z_]+) \{\n\t+host inside\.sachkov\.dev\n\t+path ([^\n]+)\n\t+\}/gu,
+  )) {
+    if (!proxied.has(name)) continue;
+    understood.add(name);
+    routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
   }
   for (const [, name = "", paths = ""] of caddy.matchAll(
     /@([a-z_]+) path ([^\n]+)/gu,
@@ -1043,7 +1054,7 @@ function runbookRoutes(runbook) {
 /** Exact Caddy route from a named path matcher to the MCP process. */
 /** @param {string} name @param {string} path */
 function mcpRoute(name, path) {
-  return `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
+  return `@${name} {\n\t\t\thost inside.sachkov.dev\n\t\t\tpath ${path}\n\t\t}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
 }
 
 /** @param {string} value */

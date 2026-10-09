@@ -1,0 +1,9 @@
+{
+	local_certs
+}
+
+import /etc/caddy/primary-domain-stage.caddy
+
+inside.sachkov.dev {
+	reverse_proxy {$PLATFORM_WEB_UPSTREAM}
+}

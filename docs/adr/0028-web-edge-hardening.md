@@ -21,6 +21,13 @@ TLS заканчивается на системном Caddy, поэтому `St
 `inside.sachkov.dev`. Preload не включён: его снятие занимает месяцы и затрагивает весь
 `sachkov.dev`, это отдельное решение владельца. Next.js HSTS не дублирует.
 
+### Дополнение 09.10.2026: основной домен #421
+
+После применения [#421](https://github.com/sachkov-inside/platform/issues/421) Caddy выдаёт
+годовой HSTS также на `sachkov.dev` и `www.sachkov.dev`, без `includeSubDomains`.
+Старый `inside.sachkov.dev` сохраняет `includeSubDomains`. Перенос не распространяет прежнюю
+политику на все поддомены apex. Maintenance применяет ту же границу.
+
 ## `'unsafe-inline'` в `script-src` остаётся
 
 Next.js передаёт браузеру данные React (RSC payload) встроенными скриптами

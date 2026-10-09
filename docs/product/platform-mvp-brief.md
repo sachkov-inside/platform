@@ -142,11 +142,11 @@ legacy-группы. Юридические тексты/реквизиты и �
 
 ## Пользователи и доступ
 
-Public landing и Platform application являются разными surfaces. Landing объясняет предложение
-Inside и ведёт в application; application владеет discovery, free/closed Materials,
-private Account, member-only Member Profile и reading experience. `sachkov.dev` и
-`app.sachkov.dev` являются рабочими примерами этой границы, а exact production domains определяются
-будущей release specification.
+Основной публичный адрес Platform — `https://sachkov.dev` после применения
+[переноса #421](https://github.com/sachkov-inside/platform/issues/421).
+Приложение заменяет отдельный лендинг и объединяет гостевую главную, каталог, материалы и личный Account.
+Старые страницы `inside.sachkov.dev` ведут на новый адрес; служебные интеграции сохраняют прежние URL.
+Порядок применения и приёмка находятся в [runbook переноса](../runbooks/primary-domain-cutover.md).
 
 ### Публичный посетитель
 
