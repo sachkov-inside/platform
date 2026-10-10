@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 
-import { HomePage, readPublicHomeWithOfferTerms } from "@/_pages/home.server";
+import {
+  HomePageWithLearningAction,
+  readPublicHomeWithOfferTerms,
+} from "@/_pages/home.server";
 import { publicPageMetadata, siteLinkPreview } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
@@ -30,5 +33,7 @@ export default async function HomeRoute() {
   // У адреса без параметров предсборка прочитала бы закреп при сборке образа, где нет ни backend,
   // ни конфигурации среды выполнения. `connection()` оставляет чтение запросу.
   await connection();
-  return <HomePage result={await readPublicHomeWithOfferTerms()} />;
+  return (
+    <HomePageWithLearningAction result={await readPublicHomeWithOfferTerms()} />
+  );
 }

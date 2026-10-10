@@ -429,7 +429,8 @@ const taskedChapters = chapters.map((chapter, index) =>
         tasks: [
           {
             code: "platform-spec",
-            title: "Спецификация первой версии",
+            title:
+              "Спецификация первой версии: сценарии пользователя, границы продукта и проверка результата до начала разработки",
             access: "free" as const,
             afterMaterialId: null,
             availability: "available" as const,
@@ -449,6 +450,14 @@ const taskedChapters = chapters.map((chapter, index) =>
       ? {
           ...chapter,
           tasks: [
+            {
+              code: "access-unavailable",
+              title: "Проверка доступа к данным",
+              access: "closed" as const,
+              afterMaterialId: chapter.materialIds[1] ?? null,
+              availability: "unavailable" as const,
+              lastSubmittedAt: null,
+            },
             {
               code: "access-model",
               title: "Модель доступа",
@@ -483,13 +492,67 @@ export const ChapterTasks: Story = {
     await expect(
       canvasElement.querySelector('[data-programme-task="access-model"]'),
     ).toHaveAttribute("data-task-availability", "locked");
-    await expect(canvas.getByText("6 материалов · 2 задания")).toBeVisible();
+    const chapterHeader = canvas
+      .getByRole("heading", { level: 3, name: "Основа продукта" })
+      .closest("header");
+    if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
+    await expect(
+      within(chapterHeader).getByText("6 материалов · 2 задания"),
+    ).toBeVisible();
+    const unavailable = canvasElement.querySelector(
+      '[data-programme-task="access-unavailable"]',
+    );
+    await expect(unavailable).toHaveAttribute(
+      "data-task-availability",
+      "unavailable",
+    );
+    await expect(unavailable).toHaveTextContent("Доступ временно не определён");
+    await expectTaskRowsFit(canvasElement);
   },
 };
 export const ChapterTasksMobile: Story = {
   args: { result: { ...result, chapters: taskedChapters } },
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+    ).toHaveTextContent("Сдано 3 октября");
+    await expectTaskRowsFit(canvasElement);
+  },
 };
+export const ChapterTasksPending: Story = {
+  args: { result: { ...result, chapters: taskedChapters }, pending: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+    ).toHaveAttribute("data-task-availability", "available");
+    await expect(
+      canvasElement.querySelector('[data-programme-task="access-model"]'),
+    ).toHaveAttribute("data-task-availability", "pending");
+    await expect(
+      within(canvasElement).queryByText("Нужен доступ"),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** Длинное название остаётся внутри строки на широком экране и на телефоне. */
+async function expectTaskRowsFit(canvasElement: HTMLElement): Promise<void> {
+  const document = canvasElement.ownerDocument;
+  await document.fonts.ready;
+  await expect(document.documentElement.scrollWidth).toBe(
+    document.documentElement.clientWidth,
+  );
+  for (const row of canvasElement.querySelectorAll("[data-programme-task]")) {
+    await expect(row.querySelector("[data-series-ordinal]")).toBeNull();
+    const title = row.querySelector("a");
+    await expect(title).not.toBeNull();
+    if (title === null) continue;
+    const bounds = row.getBoundingClientRect();
+    const titleBounds = title.getBoundingClientRect();
+    await expect(titleBounds.right).toBeLessThanOrEqual(bounds.right);
+    await expect(titleBounds.left).toBeGreaterThanOrEqual(bounds.left);
+  }
+}
 export const PartiallyGrouped: Story = {
   args: {
     learning: { kind: "guest" },

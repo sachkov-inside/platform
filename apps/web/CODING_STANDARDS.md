@@ -198,3 +198,29 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   there.
 - Keep Web guardrails and negative fixtures aligned. Use mapping/query tests, Storybook for
   meaningful UI states, and Playwright for route behaviour and accessibility.
+
+## Reader controls
+
+Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distinct from prose.
+
+- Use `text-xs` (12 px) on phones and `text-sm` (14 px) from `sm` for Reader navigation and
+  action labels, with 16–20 px icons. Keep the reading-state label visible; an empty circle
+  alone does not explain the action.
+- Keep touch targets at least 44 px high. Size ordinary action buttons to their labels with
+  12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
+  padding. Full-width actions need a named layout reason.
+- The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
+  panels show programme, bookmark and the written reading-state action in one row at normal
+  text size. Allow reflow when text is enlarged. The upper panel has no next button. Keep previous and next
+  arrows only in the floating mobile panel, with the lesson number on one line. Do not repeat
+  the ordinal, product heading or large next button beneath the material on phones.
+- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
+  prose; outcomes use 14 px. Keep the established desktop sizes from their breakpoints.
+- A collapsed callout is one 44 px summary row; put body padding only inside its open content.
+- A quiz uses the shared semantic result colors, a result icon and a written result. A person
+  can change the answer directly; do not repeat the selected text or add a separate retry button.
+
+The 44 px choice preserves comfortable touch targets while reducing visual bulk;
+[W3C target-size guidance](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced)
+explains the enhanced size criterion. These sizes apply to Reader; they do not change other page
+typography.
