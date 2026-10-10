@@ -22,6 +22,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import {
   MaterialAssetFile,
   MaterialAssetImage,
@@ -94,13 +95,21 @@ export function MaterialReaderView({
         repeatAtBottom={seriesContext === null}
         hideReturn={seriesContext !== null}
         target={returnTarget}
-      >
-        <div className="mx-auto min-w-0 max-w-[43rem]">
+        topNavigation={
           <ReaderTopActions
             context={seriesContext}
             readingAction={topReadingAction}
             bookmarkAction={topBookmarkAction}
+            returnAction={
+              <CatalogBackLink
+                href={returnTarget.href}
+                label={returnTarget.label}
+              />
+            }
           />
+        }
+      >
+        <div className="mx-auto min-w-0 max-w-[43rem]">
           <MaterialReaderHeader
             material={material}
             outcomesHeadingId={outcomesHeadingId}

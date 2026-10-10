@@ -1224,8 +1224,13 @@ export const ShortMaterial: Story = {
       canvasElement.querySelector('[data-reader-return="bottom"]'),
     ).toBeNull();
     await expect(
-      canvas.queryByRole("navigation", { name: "Действия материала" }),
-    ).toBeNull();
+      canvas.getByRole("navigation", { name: "Действия материала" }),
+    ).toBeVisible();
+    await expect(
+      canvas
+        .getByRole("navigation", { name: "Действия материала" })
+        .getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(104);
     // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
     const body = canvasElement.querySelector("[data-reader-body]");
     await expect(

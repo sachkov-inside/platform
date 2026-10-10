@@ -144,6 +144,16 @@ function PersonalPart({
           materialId={material.materialId}
         />
       }
+      topReadingAction={
+        <SavedReadingAction
+          compact
+          format={material.format.slug}
+          materialId={material.materialId}
+        />
+      }
+      topBookmarkAction={
+        <SavedBookmarkAction compact materialId={material.materialId} />
+      }
       returnTarget={returnTarget}
       seriesContext={seriesContext}
     />
@@ -162,7 +172,7 @@ function PersonalPart({
 
 const measure = (canvasElement: HTMLElement) => ({
   header: boxOf(canvasElement, "[data-reader-header]"),
-  returnRow: boxOf(canvasElement, "[data-reader-return='top']"),
+  returnRow: boxOf(canvasElement, "[data-reader-top-frame]"),
 });
 
 const environment = publicPageEnvironment("/materials/instant-navigation");

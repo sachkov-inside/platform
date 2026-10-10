@@ -8,6 +8,28 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
+  it.each([
+    ["/products/programme", "/products/programme/programme"],
+    [
+      "/products/programme/programme?from=%2F",
+      "/products/programme/programme?from=%2F",
+    ],
+  ])(
+    "keeps programme navigation distinct from a product named programme: %s",
+    (origin, expected) => {
+      expect(
+        resolveSeriesReaderContext({
+          currentMaterialSlug: "first",
+          returnTarget: parseMaterialReaderReturnTarget(origin),
+          series: {
+            kind: "ready",
+            reference: { name: "Programme", slug: "programme" },
+            items: [{ slug: "first", title: "Первый урок" }],
+          },
+        })?.series.href,
+      ).toBe(expected);
+    },
+  );
   it("opens the programme even when the lesson was entered from the product description", () => {
     expect(
       resolveSeriesReaderContext({

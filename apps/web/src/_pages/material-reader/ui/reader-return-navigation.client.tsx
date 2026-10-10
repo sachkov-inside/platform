@@ -10,11 +10,13 @@ export function ReaderReturnNavigation({
   children,
   repeatAtBottom,
   hideReturn = false,
+  topNavigation,
   target,
 }: {
   readonly children: ReactNode;
   readonly repeatAtBottom: boolean;
   readonly hideReturn?: boolean;
+  readonly topNavigation?: ReactNode;
   readonly target: MaterialReaderReturnTarget;
 }) {
   const topRef = useRef<HTMLDivElement>(null);
@@ -34,7 +36,7 @@ export function ReaderReturnNavigation({
     };
   }, [repeatAtBottom]);
 
-  if (hideReturn) return children;
+  if (hideReturn && topNavigation === undefined) return children;
 
   const action = <CatalogBackLink href={target.href} label={target.label} />;
 
@@ -42,10 +44,11 @@ export function ReaderReturnNavigation({
     <>
       <div
         className="mx-auto mb-6 max-w-[43rem]"
-        data-reader-return="top"
+        data-reader-return={hideReturn ? undefined : "top"}
+        data-reader-top-frame
         ref={topRef}
       >
-        {action}
+        {topNavigation ?? action}
       </div>
       {children}
       {repeatAtBottom && topOutsideViewport ? (

@@ -449,11 +449,14 @@ export const ToolbarKeepsHeaderPlace: Story = {
     const canvas = within(canvasElement);
     const header = canvasElement.querySelector("[data-reader-header]");
     if (header === null) throw new Error("Reader header is missing");
-    await waitFor(() =>
-      expect(
-        canvas.queryByRole("navigation", { name: "Действия материала" }),
-      ).toBeNull(),
-    );
+    const toolbar = canvas.getByRole("navigation", {
+      name: "Действия материала",
+    });
+    await expect(toolbar).toBeVisible();
+    await expect(
+      header.getBoundingClientRect().top -
+        toolbar.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(24);
     const before = header.getBoundingClientRect().top;
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать длинный материал" }),
@@ -467,4 +470,26 @@ export const ToolbarKeepsHeaderPlace: Story = {
 export const ToolbarKeepsHeaderPlaceMobile: Story = {
   ...ToolbarKeepsHeaderPlace,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const StandaloneActionsMobile: Story = {
+  args: { seriesContext: null },
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const toolbar = within(canvasElement).getByRole("navigation", {
+      name: "Действия материала",
+    });
+    await expect(
+      within(toolbar).getByRole("link", { name: "Назад к программе" }),
+    ).toBeVisible();
+    await expect(
+      within(toolbar).queryByRole("link", { name: "Назад" }),
+    ).toBeNull();
+    await expect(toolbar.getBoundingClientRect().height).toBeLessThanOrEqual(
+      104,
+    );
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+  },
 };

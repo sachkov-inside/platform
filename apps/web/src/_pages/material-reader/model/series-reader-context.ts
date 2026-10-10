@@ -60,6 +60,7 @@ export function resolveSeriesReaderContext({
     ({ slug }) => slug === currentMaterialSlug,
   );
   if (currentIndex === -1) return null;
+  const programmeHref = productProgrammeHref(series.reference.slug);
 
   return {
     currentPosition: currentIndex + 1,
@@ -68,9 +69,9 @@ export function resolveSeriesReaderContext({
     series: {
       hasModeVariants: series.reference.hasModeVariants ?? false,
       href:
-        returnTarget.href.split("?")[0]?.endsWith("/programme") === true
+        returnTarget.href.split("?")[0] === programmeHref
           ? returnTarget.href
-          : productProgrammeHref(series.reference.slug),
+          : programmeHref,
       name: series.reference.name,
     },
     totalMaterials: series.items.length,
