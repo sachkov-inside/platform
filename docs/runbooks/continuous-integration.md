@@ -147,6 +147,27 @@ Read the setup stderr on a new failure; another job's pull failure does not esta
 
 ## Merge queue
 
+### Observe one exact CI run
+
+Use the read-only `pnpm ci:wait` command after obtaining an actual run ID:
+
+```bash
+pnpm ci:wait --repo sachkov-inside/platform --run-id <run-id> --sha <full-source-sha> --event pull_request --attempt 1 --timeout-seconds 1200
+```
+
+For the queue, select its combined SHA and `--event merge_group`. The command reads only the
+selected attempt, verifies workflow path, event and SHA, and requires completed jobs plus a real
+successful `CI Gate`. It never reruns a workflow. Each API read uses at most 15 seconds of the
+single overall budget. Temporary network errors can recover within that budget.
+Its JSON outcome distinguishes `success`, `failure`, `missing-run`, `identity-mismatch`,
+`incomplete-jobs`, `network-error` and `timeout`; only success returns exit 0. A missing run ends
+immediately. A completed run with missing or unfinished jobs also ends immediately. Waiting for
+a running run stops at the explicit deadline, retaining a final unresolved network failure when
+one prevented observation. Run it through the package command so the repository process owner
+closes its own CLI descendants on interruption.
+
+### Enqueue a checked pull request
+
 `main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a
 successful `CI Gate` on its own head; the ruleset no longer requires the branch to be up to date
 with `main`. The queue builds each entry on top of the current `main` plus the entries ahead of it,
