@@ -62,9 +62,12 @@ SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` со
 
 ```bash
 node --test scripts/acquisition-diagnostic.test.mjs
+python3 -m unittest discover -s scripts -p test_acquisition_diagnostic_guard.py
 node scripts/check-agent-documentation.mjs
 ```
 
 Эти проверки доказывают propagation, secret omission и вызов teardown через диагностический адаптер.
+Python regressions проверяют intake, поздний cache, итоговый resource sample, deadline и ошибки cleanup.
+Они запускают только собственные Python subprocesses; git, Docker и shutdown заменены doubles.
 Они не доказывают реальный Docker teardown, доступность registry, causal red/green или current-head CI.
 Hosted experiment, whole check, CI queue и rerun принадлежат Root и требуют отдельных grants.
