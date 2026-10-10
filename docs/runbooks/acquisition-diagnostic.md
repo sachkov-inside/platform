@@ -44,7 +44,7 @@ References, digests, platform defaults, pull arguments и SDK auth lookup сох
 Перед печатью stream records проходят allowlist: произвольный текст, headers и URLs исключены.
 Тонкие observations добавляют actual pull start/end, arguments и auth presence.
 Они возвращают исходный Promise, result и error; auth values не сериализуются.
-Runtime record содержит только architecture, OS, API version и presence Docker environment locators.
+Runtime record содержит только architecture, OS, Docker Engine version и presence Docker environment locators.
 Host/socket paths, environment values, auth headers и signed URLs не печатаются.
 SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` сохраняет настоящий SQL exit.
 `nativeExit` в `receipt.json` относится ко всему диагностическому процессу.

@@ -85,7 +85,7 @@ async function main() {
       runtime.info.containerRuntime.operatingSystemType === "linux"
         ? "linux"
         : "omitted",
-    daemonApiVersion: runtime.info.containerRuntime.serverVersion,
+    daemonServerVersion: runtime.info.containerRuntime.serverVersion,
     dockerHostPresent: dockerHost !== undefined,
     dockerConfigOverridePresent: dockerConfig !== undefined,
     dockerAuthConfigPresent: dockerAuthConfig !== undefined,
