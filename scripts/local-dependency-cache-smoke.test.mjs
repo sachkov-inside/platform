@@ -40,6 +40,27 @@ function fixture(behavior, verify) {
 const localContext =
   "if 'context' in args: print('unix:///fixture/docker.sock')";
 
+test("dependency cache observation accepts the actual BuildKit environment expansion", () => {
+  const result = spawnSync(
+    "python3",
+    [
+      "-B",
+      "-c",
+      `
+import sys, importlib
+sys.path.insert(0, 'scripts')
+proof = importlib.import_module('local-dependency-cache-smoke')
+header = '#22 [dependencies 13/13] RUN test "/corepack" = /corepack && printf dependency-executed > /workspace/dependency-marker\\n'
+assert not proof.marker_cached(header + '#22 DONE 0.1s\\n')
+assert proof.marker_cached(header + '#22 CACHED\\n')
+assert not proof.marker_cached(header + '#23 CACHED\\n#22 DONE 0.1s\\n')
+`,
+    ],
+    { encoding: "utf8", timeout: 5_000 },
+  );
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test("dependency preflight deadline closes a blocked image inspector and its child", () => {
   fixture(
     `${localContext}\nelif 'image' in args:\n child=subprocess.Popen([sys.executable,'-c','import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'])\n Path(os.environ['PROOF_PID']).write_text(str(child.pid))\n time.sleep(60)\nelse: print('Driver: docker\\nEndpoint: desktop-linux')`,
