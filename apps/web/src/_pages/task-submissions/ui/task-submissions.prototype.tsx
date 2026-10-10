@@ -479,6 +479,7 @@ function SubmissionDetail({
   const criteria = criteriaOf(submissions, submission);
   const mark = submission.serviceMark;
   const link = repositoryLink(mark.repositoryUrl);
+  const landmarkSuffix = `${submission.task.title}, сдача ${submission.submissionId}`;
   return (
     <article
       aria-label={`Полная сдача: ${submission.task.title}`}
@@ -512,7 +513,7 @@ function SubmissionDetail({
         </p>
       </header>
       <section
-        aria-label="Данные ученика и проекта"
+        aria-label={`Данные ученика и проекта: ${landmarkSuffix}`}
         className="grid gap-4 rounded-xl bg-secondary/60 p-4 text-sm"
       >
         <dl className="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
@@ -560,7 +561,10 @@ function SubmissionDetail({
           </dd>
         </dl>
       </section>
-      <section aria-label="Полный отчёт" className="grid gap-4">
+      <section
+        aria-label={`Полный отчёт: ${landmarkSuffix}`}
+        className="grid gap-4"
+      >
         <div className="grid gap-1">
           <h3 className="text-lg font-semibold">
             {submission.reviewReport === null
@@ -640,7 +644,7 @@ function SubmissionDetail({
         </details>
       </section>
       <form
-        aria-label="Отзыв автора"
+        aria-label={`Отзыв автора: ${landmarkSuffix}`}
         className="grid gap-4 border-t border-border pt-6"
         onSubmit={(event) => {
           event.preventDefault();

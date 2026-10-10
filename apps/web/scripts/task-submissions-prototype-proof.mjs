@@ -59,7 +59,7 @@ const expectedReport = [
     gap: "Инструкции второго агента в репозитории нет.",
   },
 ];
-/** @type {{scenario: string, width: number, violations: string[], screenshot: string}[]} */
+/** @type {{scenario: string, width: number, violations: string[], violationDetails: {id: string, impact: string | null, nodes: string[]}[], screenshot: string}[]} */
 const captures = [];
 try {
   for (const width of [390, 1440]) {
@@ -102,7 +102,9 @@ try {
             .getByRole("article", { name: "Полная сдача: Онбординг команды" })
             .first();
           const criteria = report
-            .getByRole("region", { name: "Полный отчёт" })
+            .getByRole("region", {
+              name: "Полный отчёт: Онбординг команды, сдача 30000000-0000-4000-8000-000000000003",
+            })
             .getByRole("list")
             .first()
             .getByRole("listitem");
@@ -143,12 +145,20 @@ try {
             nodes: item.nodes.map((node) => node.target),
           })),
         ).toEqual([]);
+        expect(
+          a11y.violations.filter((item) => item.id === "landmark-unique"),
+        ).toEqual([]);
         const screenshot = `${scenario}-${String(width)}.png`;
         await screenshotWholePage(page, { path: resolve(output, screenshot) });
         captures.push({
           scenario,
           width,
           violations: a11y.violations.map((item) => item.id),
+          violationDetails: a11y.violations.map((item) => ({
+            id: item.id,
+            impact: item.impact ?? null,
+            nodes: item.nodes.map((node) => node.html),
+          })),
           screenshot,
         });
       }
