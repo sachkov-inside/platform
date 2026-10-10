@@ -1,4 +1,7 @@
 import { fn } from "storybook/test";
+import { ReadonlyURLSearchParams } from "next/dist/client/components/navigation.react-server";
+
+export { ReadonlyURLSearchParams };
 
 const router = {
   back: () => undefined,
@@ -23,6 +26,6 @@ export function getStoryRouter() {
   return router;
 }
 
-export function useSearchParams(): URLSearchParams {
-  return new URLSearchParams();
-}
+export const useSearchParams = fn(
+  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),
+);

@@ -17,10 +17,7 @@ import {
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
-import {
-  catalogReaderReturnHref,
-  seriesReaderReturnHref,
-} from "@/shared/routing/material-reader";
+import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 
 import { formatTaskCount } from "./product-counts";
@@ -99,24 +96,11 @@ export function SeriesJourney({
     {
       // Материалы — каталог всех материалов продукта карточками: поиск, фильтры, новые сверху
       // (решение владельца 09.10.2026). Программа остаётся строгим порядком глав.
-      entries: items.map((item) => ({
-        card: (
-          // Карточка уходит клиенту в массиве: ключ нужен и элементу-значению.
-          <MaterialCard
-            accessPending={accessPending}
-            headingLevel="h3"
-            key={item.slug}
-            material={item}
-            returnHref={catalogReaderReturnHref(currentHref, item.slug)}
-            variant="feed"
-          />
-        ),
-        format: item.format,
-        formatSlug: item.formatSlug ?? "",
-        inProgramme: result.chapters.length === 0 || chapterOf(item) !== null,
-        publishedAt: item.publishedAt ?? "",
-        slug: item.slug,
-        text: `${item.title} ${item.summary}`.toLocaleLowerCase("ru"),
+      accessPending,
+      entries: items.map((material) => ({
+        material,
+        inProgramme:
+          result.chapters.length === 0 || chapterOf(material) !== null,
       })),
       id: "supplementary",
       kind: "catalog",
