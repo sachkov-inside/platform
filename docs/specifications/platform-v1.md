@@ -256,8 +256,10 @@ production trade-off подтверждён evidence, а не заранее д�
 Backend source #443 добавляет общий mark `term` с UUID определения, Markdown/package `terms-v1`,
 versioned import/save API и текущую публичную проекцию определения без тела подробного Material.
 [Контракт и тестовые заметки](../contracts/authoring-terms-v1/README.md) разделяют source checkpoint
-и доказанную поставку. Миграция 0089 не применена; Prisma codegen и real PG/access/cache proofs
-ещё не выполнены. Editor open/save и карточки Reader остаются в полном scope #443.
+и доказанную поставку. Миграция 0089 не применена. Собственный Prisma codegen и focused backend TS/lint
+прошли; real PG/access/cache proofs ещё не выполнены. Reader/preview сохраняют UUID в DOM;
+source Storybook proof подготовлен, actual rendering/build ожидает отдельный слот.
+Editor open/save и интерактивные карточки Reader остаются в полном scope #443.
 
 Квиз `quiz` (#1283, #940) импортируется из Content `readerBlocks` v2 на месте вопроса.
 Если `readerBlocks` присутствуют, импорт не использует `markdown` для читательского тела.

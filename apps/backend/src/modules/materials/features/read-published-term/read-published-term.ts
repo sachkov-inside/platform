@@ -25,7 +25,7 @@ export class PublishedTermReader {
       const row = await this.prisma.termDefinition.findUnique({
         where: { termId: parsed.data.toLowerCase() },
       });
-      if (row === null || row.publicationState !== "published")
+      if (row?.publicationState !== "published")
         return { ok: false, error: { code: "term_not_found" } };
       const definition = termDefinitionSchema.parse(row.definition);
       const material =

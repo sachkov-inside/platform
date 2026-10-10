@@ -8,8 +8,9 @@
 ## Состояние поставки
 
 Этот backend source checkpoint подключает определения и typed references к importer и API.
-Миграция 0089 создана, но не применена. Prisma client ещё не сгенерирован для новых моделей.
-Targeted backend typecheck завершился с exit 1 из-за отсутствующих generated delegates.
+Миграция 0089 создана, но не применена. Собственный Prisma client сгенерирован штатной командой репозитория.
+Targeted backend typecheck дал exit 0 после codegen; прежние 14 diagnostics исчезли без обходов source/config.
+Прежние 64 lint diagnostics также исчезли; после отдельной style-правки targeted lint дал exit 0.
 Проверки настоящего PostgreSQL, доступа и кеша остаются обязательными. Интерфейс Reader ещё не реализован.
 Не передавайте этот пример в production и не публикуйте его как авторский словарь.
 
@@ -17,7 +18,7 @@ Targeted backend typecheck завершился с exit 1 из-за отсутс
 |---|---|---|
 | Определение | Строгая схема, source миграции и Prisma models; API import/save с версиями | Codegen, применение миграции, real PG и concurrency proof |
 | Wiki-ссылка | Inline Markdown parser, package v2 `terms-v1`, проверки целей до передачи | Подтверждение полного импорта на изолированном стенде |
-| Structured body | Общая mark-схема, acceptance/render, ID внутри quiz; server reference integrity | Реальная запись в PG и editor open/save |
+| Structured body | Общая mark-схема, acceptance/render, ID внутри quiz; server reference integrity; Reader/preview сохраняют ID в DOM | Реальная запись в PG, editor open/save и интерактивная карточка |
 | Публичное чтение | Source API текущего опубликованного определения, `no-store`, ссылка без тела подробного Material | Реальные access/cache proofs на двух Material и Reader UI |
 | Авторский пример | Пять определений, два Material и отдельный подробный Material | Изолированный сквозной импорт и проверка интерфейса |
 
@@ -160,6 +161,20 @@ Authoring API использует trusted Account и `materials:manage`:
 | `GET /authoring/terms/:termId` | Определение и текущая версия для автора |
 
 Наличие API source не подтверждает запуск этих endpoints или обязательные PG/HTTP security checks.
+
+## Storybook proof и контракт отображения
+
+Source stories `Proofs/Material Terms` подготовлены в собственном worktree #443.
+Они используют авторские fixtures этого пакета и development-only presentation interface.
+Состояния охватывают hover/focus, mobile tap, два Material с одной записью, узкий экран,
+200% text zoom, loading, недоступное определение и dependency failure.
+Actual Storybook rendering/build, catalog/docs MCP и визуальная приёмка ещё не выполнены.
+Этот proof не подключён к production API, кешу или редактору.
+
+Reader и authoring preview явно сохраняют фразу и `data-term-id` в DOM.
+Два focused SSR contract tests подтверждают сохранение UUID, фразы и обычной ссылки без копии определения.
+Это закрывает прежние TS7030 в ветках mark-renderer; полноценная интерактивная карточка остаётся следующим этапом #443.
+Общая схема редактора принимает mark, но реальный editor open/save ещё требует проверки и UI интеграции.
 
 ## Пример и происхождение текста
 
