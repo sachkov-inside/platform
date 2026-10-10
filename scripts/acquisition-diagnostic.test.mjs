@@ -169,15 +169,15 @@ test("normal SDK pull receipt identifies overlapping calls and their actual sett
     await first;
     await assert.rejects(second, (actual) => actual === error);
     assert.deepEqual(
-      records.map((row) => row.activeLogicalCalls),
+      records.map((row) => row["activeLogicalCalls"]),
       [1, 2, 1, 0],
     );
     assert.deepEqual(
-      records.map((row) => row.call),
+      records.map((row) => row["call"]),
       [1, 2, 1, 2],
     );
     assert.deepEqual(
-      records.map((row) => row.monotonicMs),
+      records.map((row) => row["monotonicMs"]),
       [100, 101, 102, 103],
     );
     assert.doesNotMatch(JSON.stringify(records), /TOKEN/);
@@ -213,10 +213,10 @@ test("normal SDK auth receipt distinguishes absent auth and records lookup timel
       ["auth-start", "auth-resolved"],
     );
     assert.deepEqual(
-      records.map((row) => row.monotonicMs),
+      records.map((row) => row["monotonicMs"]),
       [200, 201],
     );
-    assert.equal(records[1]?.present, false);
+    assert.equal(records[1]?.["present"], false);
   } finally {
     restore();
   }
@@ -254,11 +254,11 @@ test("normal SDK cache observation forwards hits and misses without another insp
     assert.deepEqual(
       records
         .filter((row) => row.event === "exists-result")
-        .map((row) => row.exists),
+        .map((row) => row["exists"]),
       [false, true],
     );
     assert.deepEqual(
-      records.map((row) => row.monotonicMs),
+      records.map((row) => row["monotonicMs"]),
       [300, 301, 302, 303],
     );
   } finally {
@@ -308,15 +308,15 @@ test("normal SDK Engine request observation preserves auth arguments and failed 
     assert.deepEqual(
       records
         .filter((row) => row.event === "request-start")
-        .map((row) => row.authConfigPresent),
+        .map((row) => row["authConfigPresent"]),
       [false, true],
     );
     assert.deepEqual(
-      records.map((row) => row.activeLogicalCalls),
+      records.map((row) => row["activeLogicalCalls"]),
       [1, 2, 1, 0],
     );
     assert.deepEqual(
-      records.map((row) => row.monotonicMs),
+      records.map((row) => row["monotonicMs"]),
       [400, 401, 402, 403],
     );
     assert.doesNotMatch(
