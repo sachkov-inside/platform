@@ -1,5 +1,7 @@
 """One Root-authorized acquisition-only run on an otherwise idle ephemeral Linux runner."""
 import argparse
+import importlib.util
+import sys
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,42 @@ DAEMON_SHUTDOWN_SECONDS_MAXIMUM = 30
 FORCED_PROCESS_STOP_SECONDS_MAXIMUM = 10
 RECEIPT_RESERVE_SECONDS = 2
 FINAL_SAMPLE_RESERVE_SECONDS = NATIVE_COMMAND_TIMEOUT_SECONDS + RECEIPT_RESERVE_SECONDS
+
+_meter_spec = importlib.util.spec_from_file_location('acquisition_meter', Path(__file__).with_name('acquisition-diagnostic-meter.py'))
+meter = importlib.util.module_from_spec(_meter_spec)
+_meter_spec.loader.exec_module(meter)
+
+
+def bounded_command(command, cwd, timeout, capacity):
+    process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    chunks = [bytearray(), bytearray()]
+    deadline = time.monotonic() + timeout
+    try:
+        with selectors.DefaultSelector() as intake:
+            intake.register(process.stdout, selectors.EVENT_READ, 0)
+            intake.register(process.stderr, selectors.EVENT_READ, 1)
+            while intake.get_map():
+                if time.monotonic() >= deadline - 0.5:
+                    raise subprocess.TimeoutExpired(command, timeout, bytes(chunks[0]), bytes(chunks[1]))
+                for key, _event in intake.select(timeout=min(0.05, deadline-time.monotonic())):
+                    data = os.read(key.fd, 65536)
+                    if not data:
+                        intake.unregister(key.fileobj)
+                        continue
+                    available = capacity - sum(map(len, chunks))
+                    chunks[key.data].extend(data[:available])
+                    if len(data) > available:
+                        raise subprocess.CalledProcessError(1, command, bytes(chunks[0]), bytes(chunks[1]))
+        process.wait(timeout=max(0.01, deadline-time.monotonic()))
+        if process.returncode:
+            raise subprocess.CalledProcessError(process.returncode, command, bytes(chunks[0]), bytes(chunks[1]))
+        return subprocess.CompletedProcess(command, 0, chunks[0].decode(errors='ignore'), chunks[1].decode(errors='ignore'))
+    finally:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+        process.wait(timeout=max(0.01, deadline-time.monotonic()))
+        process.stdout.close()
+        process.stderr.close()
 
 
 def main():
@@ -40,6 +78,8 @@ def main():
     daemon_owned = False
     initial = None
     paths = None
+    command_bytes = 0
+    measurement_pending = False
 
     def stop(_signal, _frame):
         nonlocal interrupted
@@ -58,9 +98,49 @@ def main():
             raise subprocess.TimeoutExpired('whole acquisition deadline', EXPERIMENT_SECONDS_MAXIMUM)
         return seconds
 
-    def native(command):
-        return subprocess.check_output(command, cwd=root, text=True,
-                                       timeout=remaining(work_deadline)).strip()
+    def command_record(command, stage, end):
+        timeout = remaining(end)
+        record = {'stage': stage, 'command': command, 'startMonotonic': time.monotonic(),
+                  'deadlineMonotonic': min(end, time.monotonic() + timeout), 'timeoutSeconds': timeout}
+        receipt['lastCommand'] = record
+        (output / 'command-stage.json').write_text(json.dumps(record))
+        return record
+
+    def command_failure(error, record):
+        nonlocal command_bytes, measurement_pending
+        def bounded(value):
+            nonlocal command_bytes
+            value = value.encode() if isinstance(value, str) else value or b''
+            value = value[:max(0, 1024**2 - command_bytes)]
+            command_bytes += len(value)
+            return value.decode(errors='ignore')
+        primary = {**record, 'failureType': type(error).__name__,
+                   'command': getattr(error, 'cmd', record['command']),
+                   'timeoutSeconds': getattr(error, 'timeout', record['timeoutSeconds']),
+                   'nativeExit': getattr(error, 'returncode', 124 if isinstance(error, subprocess.TimeoutExpired) else 1),
+                   'stdout': bounded(getattr(error, 'output', None)), 'stderr': bounded(getattr(error, 'stderr', None))}
+        measurement_pending = measurement_pending or getattr(error, 'meter_cleanup_pending', False)
+        if hasattr(error, 'meter_receipt'):
+            primary['meterReceipt'] = error.meter_receipt
+            receipt.setdefault('meters', []).append(error.meter_receipt)
+        if hasattr(error, 'meter_directory'):
+            primary['meterDirectory'] = error.meter_directory
+        if 'primaryFailure' not in receipt:
+            receipt['primaryFailure'] = primary
+            (output / 'primary-failure.json').write_text(json.dumps(primary))
+        receipt['commandDiagnosticBytes'] = command_bytes
+
+    def native(command, stage, end=work_deadline):
+        nonlocal command_bytes
+        record = command_record(command, stage, end)
+        try:
+            result = bounded_command(command, root, record['timeoutSeconds'], max(0, 1024**2-command_bytes))
+            command_bytes += len(result.stdout.encode()) + len(result.stderr.encode())
+            receipt['commandDiagnosticBytes'] = command_bytes
+            return result.stdout.strip()
+        except Exception as error:
+            command_failure(error, record)
+            raise
 
     def owned_paths():
         # Re-evaluate optional paths, including a cache created after admission.
@@ -77,10 +157,20 @@ def main():
         return current
 
     def allocated(paths, end):
-        # Privileged Docker data belongs entirely to this ephemeral runner. Preserve du failure.
-        result = subprocess.run(['sudo', '-n', 'du', '-sk', *map(str, paths)],
-                                capture_output=True, text=True, timeout=remaining(end), check=True)
-        return sum(int(line.split()[0]) * 1024 for line in result.stdout.splitlines())
+        nonlocal command_bytes
+        command = ['du', '-sk', *map(str, paths)]
+        record = command_record(command, 'privileged-measurement', end)
+        try:
+            result = meter.measure(paths, output, record['timeoutSeconds'], max(0, 1024**2-command_bytes),
+                                   cancelled=lambda: interrupted)
+            receipt['lastMeter'] = result
+            receipt.setdefault('meters', []).append(result)
+            command_bytes += len(result['stdout'].encode()) + len(result['stderr'].encode())
+            receipt['commandDiagnosticBytes'] = command_bytes
+            return sum(int(line.split()[0]) * 1024 for line in result['stdout'].splitlines())
+        except Exception as error:
+            command_failure(error, record)
+            raise
 
     def sample(end, final=False):
         size = allocated(owned_paths(), end)
@@ -99,13 +189,13 @@ def main():
     try:
         assert os.uname().sysname == 'Linux', 'Linux required'
         assert len(args.source_sha) == 40 and all(c in '0123456789abcdef' for c in args.source_sha)
-        assert native(['git', 'rev-parse', 'HEAD']) == args.source_sha, 'source SHA differs'
-        subprocess.run(['git', 'diff', '--quiet'], cwd=root, check=True, timeout=remaining(work_deadline))
-        subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=root, check=True, timeout=remaining(work_deadline))
+        assert native(['git', 'rev-parse', 'HEAD'], 'git-head') == args.source_sha, 'source SHA differs'
+        native(['git', 'diff', '--quiet'], 'git-diff')
+        native(['git', 'diff', '--cached', '--quiet'], 'git-diff-cached')
         assert os.environ.get('ACQUISITION_DIAGNOSTIC_EPHEMERAL') == '1', 'Root ephemeral grant required'
-        assert not native(['docker', 'ps', '-aq']), 'runner already has containers'
+        assert not native(['docker', 'ps', '-aq'], 'docker-ps'), 'runner already has containers'
         daemon_owned = True
-        daemon = Path(native(['docker', 'info', '--format', '{{.DockerRootDir}}']))
+        daemon = Path(native(['docker', 'info', '--format', '{{.DockerRootDir}}'], 'docker-info'))
         cache = root / 'apps/backend/node_modules/.cache'
         containerd = Path('/var/lib/containerd')
         paths = owned_paths()
@@ -141,7 +231,7 @@ def main():
                         if not chunk:
                             intake.unregister(key.fileobj)
                             continue
-                        capacity = 1024**2 - log.tell()
+                        capacity = max(0, 1024**2 - command_bytes - log.tell())
                         log.write(chunk[:capacity])
                         if len(chunk) > capacity:
                             reason = 'diagnostics budget'
@@ -156,7 +246,7 @@ def main():
     except Exception as error:
         receipt['guardFailureType'] = type(error).__name__
     finally:
-        receipt['pending'] = 0
+        receipt['pending'] = 'measurement cleanup unproven' if measurement_pending else 0
         try:
             if process is not None:
                 if process.poll() is None:
@@ -204,6 +294,8 @@ def main():
                         receipt.setdefault('stopReason', final_reason)
             except Exception as error:
                 receipt['finalSampleFailureType'] = type(error).__name__
+                if measurement_pending:
+                    receipt['pending'] = 'measurement cleanup unproven'
             finally:
                 (output / 'receipt.json').write_text(json.dumps(receipt, indent=2))
     failed = any(key in receipt for key in ('stopReason', 'guardFailureType', 'processCleanupFailureType',

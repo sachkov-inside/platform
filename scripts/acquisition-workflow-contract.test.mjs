@@ -129,3 +129,20 @@ test("exact full-SHA diagnostic label fits GitHub maximum 50 characters", () => 
   assert.equal(label.length, 49);
   assert.equal(sourceSha.length, 40);
 });
+
+test("mixed-UID native preflight must succeed before guardian starts", () => {
+  const native = workflow.indexOf(
+    "name: Prove diagnostic mixed-UID meter closure",
+  );
+  const guardian = workflow.indexOf("id: diagnostic");
+  assert.ok(native >= 0 && guardian > native);
+  assert.match(workflow, /ACQUISITION_DIAGNOSTIC_NATIVE_EPHEMERAL: "1"/u);
+  assert.match(
+    workflow,
+    /owned-node\.mjs --command python3 scripts\/acquisition-diagnostic-meter-native\.py/u,
+  );
+  assert.doesNotMatch(
+    workflow.slice(native, guardian),
+    /continue-on-error|if:.*always/u,
+  );
+});

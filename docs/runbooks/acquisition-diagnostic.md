@@ -106,3 +106,14 @@ Workflow contracts проверяют actual job expression на неверны�
 Native qualification contracts используют supplied process/daemon doubles и сохраняют отказ при pending resources.
 Они не доказывают реальный Docker teardown, доступность registry, causal red/green или current-head CI.
 Hosted experiment, whole check, CI queue и rerun принадлежат Root и требуют отдельных grants.
+
+
+### Diagnostic-owned privileged measurement
+
+The committed entry first runs a no-Docker mixed-UID native preflight on the ephemeral Linux runner. Root must authorize the next one exact-SHA label after source checks, full review and terminal normal CI. The previous hosted attempt failed before admission; neither the timed-out command nor PID 2877 ownership was captured. Initial privileged `du` is a hypothesis. Provider acquisition and the #1324 cause remain unproved.
+
+The meter uses its own transient systemd unit, separate from the unprivileged supervisor ancestry. The unit registers `KillMode=control-group`, `RuntimeMaxSec` and a bounded stop reserve before launching a root leaf. A private FIFO and the caller PID/birth/UID bind owner lifetime. The privileged helper records real UID, PGID and birth, then signals and reaps only its verified leaf groups. Owner EOF/death cancels measurement. An independent unit deadline remains when the helper or caller dies. Shared `owned-process.py`, `heavy-check/lock.py` and EPERM behavior are unchanged.
+
+Before every native operation, `command-stage.json` records its stage, allowlisted command, start and deadline. A separate `primary-failure.json` preserves TimeoutExpired command, timeout, bounded partial stdout/stderr and primary status before cleanup. Command and acquisition output share the existing 1 MiB cap. The 10-second command bound, 180-second whole bound, shutdown reserves, resource floors, images and zero retries remain unchanged.
+
+Repository tests exercise actual nonprivileged timeout, FIFO cancellation, output intake, signals and reap. Run `node scripts/owned-node.mjs --command python3 -B -m unittest discover -s scripts -p 'test_acquisition_diagnostic_*.py'`. These results cannot prove mixed-UID Linux closure. The future hosted native preflight tests a TERM-resistant root leaf and runner-owner SIGKILL, records kernel fingerprints and requires native absence before `pending: 0`. The guardian starts only after that preflight succeeds. The actual root fixture and acquisition guardian remain pending until a separate Root grant.

@@ -77,8 +77,17 @@ class GuardContracts(unittest.TestCase):
                     shutdown = True
                 if command[0] == 'git' and git_expiry:
                     clock[0] = 121
-                    raise subprocess.TimeoutExpired(command, kwargs['timeout'])
+                    raise subprocess.TimeoutExpired(command, kwargs['timeout'], output=b'partial-native-out', stderr=b'partial-native-err')
                 return subprocess.CompletedProcess(command, 0, '', '')
+
+            def measure(paths, _output, timeout, _capacity, **_kwargs):
+                result = run(['sudo', '-n', 'du', '-sk', *map(str, paths)], timeout=timeout)
+                return {'stdout': result.stdout, 'stderr': result.stderr, 'nativeExit': 0, 'pending': 0}
+
+            def bounded(command, _cwd, timeout, _capacity):
+                if command[:2] == ['git', 'diff']:
+                    return run(command, timeout=timeout)
+                return subprocess.CompletedProcess(command, 0, check_output(command, timeout=timeout), '')
 
             def check_output(command, **kwargs):
                 calls.append((command, kwargs.get('timeout')))
@@ -111,7 +120,8 @@ class GuardContracts(unittest.TestCase):
                      patch.object(guard.os, 'uname', return_value=type('Linux', (), {'sysname':'Linux'})()), \
                      patch.dict(os.environ, {'ACQUISITION_DIAGNOSTIC_EPHEMERAL':'1'}), \
                      patch.object(guard.os, 'statvfs', return_value=type('Fs', (), {'f_bavail':30*1024**3, 'f_frsize':1})()), \
-                     patch.object(guard.subprocess, 'check_output', side_effect=check_output), \
+                     patch.object(guard, 'bounded_command', side_effect=bounded), \
+                     patch.object(guard.meter, 'measure', side_effect=measure), \
                      patch.object(guard.subprocess, 'run', side_effect=run), \
                      patch.object(guard.subprocess, 'Popen', side_effect=popen), \
                      patch.object(guard.time, 'monotonic', side_effect=lambda:clock[0]):
@@ -174,6 +184,18 @@ class GuardContracts(unittest.TestCase):
         self.assertNotEqual(status, 0)
         self.assertEqual(receipt['guardFailureType'], 'TimeoutExpired')
         self.assertTrue(all(timeout is not None and timeout <= 120 for _, timeout in calls))
+
+    def test_command_timeout_keeps_primary_before_cleanup(self):
+        status, receipt, _, _ = self.exercise(git_expiry=True)
+        self.assertNotEqual(status, 0)
+        primary = receipt['primaryFailure']
+        self.assertEqual(primary['stage'], 'git-diff')
+        self.assertEqual(primary['command'], ['git', 'diff', '--quiet'])
+        self.assertEqual(primary['stdout'], 'partial-native-out')
+        self.assertEqual(primary['stderr'], 'partial-native-err')
+        self.assertLessEqual(primary['timeoutSeconds'], 10)
+        self.assertIn('startMonotonic', primary)
+        self.assertIn('deadlineMonotonic', primary)
 
     def test_normal_exit_is_preserved_with_final_sample(self):
         status, receipt, _, _ = self.exercise()

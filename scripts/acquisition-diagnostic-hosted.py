@@ -13,7 +13,7 @@ NATIVE_CLOSURE_COMMAND_SECONDS = 10
 DAEMON_UNITS = ('docker.service', 'docker.socket', 'containerd.service')
 
 
-def qualify_closure(root, receipt, snapshot, cwd, daemon_state):
+def qualify_closure(root, receipt, snapshot, cwd, daemon_state, identity=lambda _pid: None):
     """Fail closed on live workspace children or a still-active ephemeral daemon."""
     ancestors = {os.getpid()}
     parent = os.getpid()
@@ -23,24 +23,39 @@ def qualify_closure(root, receipt, snapshot, cwd, daemon_state):
             break
         ancestors.add(parent)
     pending = []
+    contexts = []
+    meter_pending = []
+    for result in receipt.get("meters", []):
+        if result.get("pending") != 0:
+            meter_pending.append(result.get("unit"))
+        for owned in [result["helper"], *result["fingerprints"]]:
+            current = identity(owned["pid"])
+            if current is not None and current["birth"] == owned["birth"]:
+                meter_pending.append(owned)
     for pid, row in snapshot.items():
         if pid in ancestors or row[2] == 'Z':
             continue
+        context = identity(pid) or {"pid": pid, "ppid": row[0], "pgid": row[1], "state": row[2], "birth": row[3], "uids": None}
         try:
             directory = cwd(pid)
-        except (FileNotFoundError, ProcessLookupError):
+        except (FileNotFoundError, ProcessLookupError) as error:
             # A vanished process is harmless; an unreadable live process is not proof.
             if process_snapshot().get(pid) == row:
-                raise
+                error.kernel_process = context
+                raise error
             continue
+        except Exception as error:
+            error.kernel_process = context
+            raise
         if directory.is_relative_to(root):
             pending.append(pid)
+            contexts.append(context)
     states = {unit: daemon_state(unit) for unit in DAEMON_UNITS}
-    closed = (not pending and all(value == ('inactive', '0') for value in states.values())
+    closed = (not pending and not meter_pending and all(value == ('inactive', '0') for value in states.values())
               and receipt.get('pending') == 0 and receipt.get('daemonShutdownExit') == 0
               and isinstance(receipt.get('supervisorExit'), int))
     return {'pending': 0 if closed else 'native closure unproven',
-            'workspaceProcessPids': pending, 'daemonStates': states,
+            'workspaceProcessPids': pending, 'workspaceProcesses': contexts, 'meterProcessesPending': meter_pending, 'daemonStates': states,
             'supervisorExit': receipt.get('supervisorExit'),
             'daemonShutdownExit': receipt.get('daemonShutdownExit')}
 
@@ -84,9 +99,26 @@ def main():
                     return Path('/')
                 raise
 
-        evidence = qualify_closure(root, receipt, process_snapshot(), native_cwd, daemon_state)
+        def kernel_identity(pid):
+            from processes import process_row
+            row = process_row(pid)
+            if row is None:
+                return None
+            try:
+                status = Path(f'/proc/{pid}/status').read_text()
+                uids = next(line for line in status.splitlines() if line.startswith('Uid:'))
+                return {'pid': pid, 'ppid': row[0], 'pgid': row[1], 'state': row[2], 'birth': row[3],
+                        'uids': list(map(int, uids.split()[1:]))}
+            except FileNotFoundError:
+                if process_row(pid) is None:
+                    return None
+                raise
+
+        evidence = qualify_closure(root, receipt, process_snapshot(), native_cwd, daemon_state, kernel_identity)
     except Exception as error:
         evidence['failureType'] = type(error).__name__
+        if hasattr(error, 'kernel_process'):
+            evidence['failureProcess'] = error.kernel_process
     finally:
         with (output / 'native-closure.json').open('x') as file:
             json.dump(evidence, file, indent=2)

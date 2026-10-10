@@ -34,6 +34,13 @@ jobs:
       - name: Set up frozen Platform dependencies
         timeout-minutes: 10
         uses: ./.github/actions/setup-platform
+      - name: Prove diagnostic mixed-UID meter closure
+        timeout-minutes: 1
+        env:
+          ACQUISITION_DIAGNOSTIC_NATIVE_EPHEMERAL: "1"
+        run: |
+          node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-meter-native.py \
+            --output "$RUNNER_TEMP/1324-hosted"
       - name: Run one acquisition guardian
         id: diagnostic
         timeout-minutes: 4
