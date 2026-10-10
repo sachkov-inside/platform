@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight, Bookmark, Circle, List } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import type { SeriesReaderContext } from "../model/series-reader-context";
@@ -13,11 +14,13 @@ export function ReaderTopActions({
   readingAction,
   bookmarkAction,
   returnAction,
+  format = "guide",
 }: {
   readonly context: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
   readonly returnAction?: ReactNode;
+  readonly format?: string;
 }) {
   const link =
     "inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring";
@@ -98,7 +101,7 @@ export function ReaderTopActions({
           {readingAction ?? (
             <Button disabled className="h-11 rounded-lg px-3" variant="outline">
               <Circle aria-hidden="true" />
-              Изучено
+              {materialReadingLabels(format).complete}
             </Button>
           )}
         </div>

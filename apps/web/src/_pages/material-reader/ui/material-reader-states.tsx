@@ -36,12 +36,18 @@ export function MaterialReaderLoading() {
     <div
       aria-busy="true"
       aria-label="Материал загружается"
+      role="region"
       className="@container/material-reader min-h-svh"
       data-material-reader-state="loading"
       data-route-skeleton="material-reader"
     >
       <div className="mx-auto mb-6 max-w-[43rem]" data-reader-top-frame>
-        <div className="h-[103px] rounded-xl bg-muted sm:h-[54px]" />
+        <div aria-hidden="true">
+          <ReaderTopActions
+            context={null}
+            returnAction={<span className="h-5 w-36 rounded-md bg-muted" />}
+          />
+        </div>
       </div>
       <div className="mx-auto min-w-0 max-w-[43rem]">
         <div
@@ -86,6 +92,7 @@ export function MaterialReaderPending({
         topNavigation={
           <ReaderTopActions
             context={seriesContext}
+            format={material.format.slug}
             returnAction={
               <CatalogBackLink
                 href={returnTarget.href}
@@ -100,6 +107,7 @@ export function MaterialReaderPending({
           <div
             aria-busy="true"
             aria-label="Текст материала загружается"
+            role="region"
             data-route-skeleton="material-reader"
           >
             <ReaderBodySkeleton />
@@ -217,6 +225,7 @@ export function MaterialReaderAccess({
           topNavigation={
             <ReaderTopActions
               context={seriesContext}
+              format={material.format.slug}
               returnAction={
                 <CatalogBackLink
                   href={returnTarget.href}
