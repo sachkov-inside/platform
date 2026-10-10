@@ -493,14 +493,18 @@ function ReaderWithRecheckedAccess(
       <button
         aria-pressed={!canMark}
         className="min-h-11"
-        onClick={() => setCanMark(false)}
+        onClick={() => {
+          setCanMark(false);
+        }}
         type="button"
       >
         Подтвердить закрытый материал
       </button>
       <button
         className="min-h-11"
-        onClick={() => setCanMark(true)}
+        onClick={() => {
+          setCanMark(true);
+        }}
         type="button"
       >
         Подтвердить доступный материал

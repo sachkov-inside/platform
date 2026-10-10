@@ -802,13 +802,17 @@ function ContinuationRecheckFailure() {
       </Button>
       <Button
         className={controlClassName}
-        onClick={() => setLearning(confirmedLearning)}
+        onClick={() => {
+          setLearning(confirmedLearning);
+        }}
       >
         Прогресс снова доступен
       </Button>
       <Button
         className={controlClassName}
-        onClick={() => setLearning({ kind: "guest" })}
+        onClick={() => {
+          setLearning({ kind: "guest" });
+        }}
       >
         Выйти из аккаунта
       </Button>
@@ -897,7 +901,9 @@ export const UnavailablePreservesExpandedRowEnlarged: Story = {
     try {
       root.style.fontSize = "200%";
       await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => resolve()),
+        requestAnimationFrame(() => {
+          resolve();
+        }),
       );
       await verifyContinuationRecheck(canvasElement);
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
