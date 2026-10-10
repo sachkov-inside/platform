@@ -814,7 +814,7 @@ export const UnavailablePreservesExpandedRow: Story = {
     );
     if (following === null) throw new Error("Missing following lesson");
     await canvasElement.ownerDocument.fonts.ready;
-    const before = following.getBoundingClientRect().toJSON();
+    const before = following.getBoundingClientRect();
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Сбой повторного чтения продолжения",
@@ -831,7 +831,9 @@ export const UnavailablePreservesExpandedRow: Story = {
     await expect(
       canvasElement.querySelector('[aria-current="step"]'),
     ).toBeNull();
-    await expect(following.getBoundingClientRect().toJSON()).toEqual(before);
+    await expect(following.getBoundingClientRect().toJSON()).toEqual(
+      before.toJSON(),
+    );
   },
 };
 
