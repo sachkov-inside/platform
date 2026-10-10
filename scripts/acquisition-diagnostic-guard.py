@@ -89,12 +89,12 @@ def main():
     output.mkdir(mode=0o700, exist_ok=False)
     receipt = {'sourceSha': args.source_sha, 'logicalAcquisitionsMaximum': 3,
                'applicationRetries': 0, 'runtimeSecondsMaximum': EXPERIMENT_SECONDS_MAXIMUM,
-               'growthBytesMaximum': 2 * 1024**3, 'diagnosticBytesMaximum': 1024**2}
+               'growthBytesMaximum': 2 * 1024**3, 'diagnosticBytesMaximum': 1024**2,
+               'acquisitionStarted': False}
     process = None
     interrupted = False
     daemon_owned = False
     initial = None
-    paths = None
     command_bytes = 0
     diagnostic_bytes = 0
     command_pending = False
@@ -106,10 +106,6 @@ def main():
 
     for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, stop)
-
-    def free_bytes():
-        value = os.statvfs(root)
-        return value.f_bavail * value.f_frsize
 
     def remaining(end, maximum=NATIVE_COMMAND_TIMEOUT_SECONDS):
         seconds = min(maximum, end - time.monotonic())
@@ -190,29 +186,30 @@ def main():
         assert all(not path.is_symlink() for path in current), 'owned directory symlink forbidden'
         return current
 
-    def allocated(paths, end):
-        nonlocal command_bytes
-        command = ['du', '-sk', *map(str, paths)]
-        record = command_record(command, 'privileged-measurement', end)
-        try:
-            result = meter.measure(paths, output, record['timeoutSeconds'], command_capacity(),
-                                   cancelled=lambda: interrupted)
-            receipt['lastMeter'] = result
-            receipt.setdefault('meters', []).append(result)
-            account_command(result['stdout'], result['stderr'])
-            return sum(int(line.split()[0]) * 1024 for line in result['stdout'].splitlines())
-        except Exception as error:
-            command_failure(error, record)
-            raise
+    def filesystem_sample(end):
+        remaining(end)
+        owned_paths()
+        value = os.statvfs(root)
+        return {'blocks': value.f_blocks, 'freeBlocks': value.f_bfree,
+                'availableBlocks': value.f_bavail, 'blockBytes': value.f_frsize,
+                'device': root.stat().st_dev, 'monotonic': time.monotonic(),
+                'allocatedBytes': (value.f_blocks - value.f_bfree) * value.f_frsize,
+                'freeBytes': value.f_bavail * value.f_frsize}
 
     def sample(end, final=False):
-        size = allocated(owned_paths(), end)
+        snapshot = filesystem_sample(end)
+        size = snapshot['allocatedBytes']
         growth = size - initial
-        free = free_bytes()
+        free = snapshot['freeBytes']
+        receipt['lastFilesystemSample'] = snapshot
+        if growth >= receipt.get('maximumGrowthBytes', 0):
+            receipt['maximumGrowthSample'] = snapshot
+        if free <= receipt.get('minimumFreeBytes', admission):
+            receipt['minimumFreeSample'] = snapshot
         receipt['maximumGrowthBytes'] = max(receipt.get('maximumGrowthBytes', 0), growth)
         receipt['minimumFreeBytes'] = min(receipt.get('minimumFreeBytes', admission), free)
         if final:
-            receipt.update(finalAllocatedBytes=size, finalFreeBytes=free)
+            receipt.update(finalAllocatedBytes=size, finalFreeBytes=free, finalFilesystemSample=snapshot)
         if growth >= 2 * 1024**3 - 256 * 1024**2:
             return 'growth early margin'
         if free < 15 * 1024**3 + 256 * 1024**2:
@@ -231,11 +228,14 @@ def main():
         daemon = Path(native(['docker', 'info', '--format', '{{.DockerRootDir}}'], 'docker-info'))
         cache = root / 'apps/backend/node_modules/.cache'
         containerd = Path('/var/lib/containerd')
-        paths = owned_paths()
-        initial = allocated(paths, work_deadline)
-        admission = free_bytes()
+        baseline = filesystem_sample(work_deadline)
+        initial = baseline['allocatedBytes']
+        admission = baseline['freeBytes']
+        receipt.update(admissionFreeBytes=admission, baselineAllocatedBytes=initial,
+                       filesystemAccounting='whole-filesystem-net-used', baselineFilesystemSample=baseline,
+                       maximumGrowthBytes=0, minimumFreeBytes=admission,
+                       maximumGrowthSample=baseline, minimumFreeSample=baseline)
         assert admission >= 20 * 1024**3, '20 GiB admission required'
-        receipt.update(admissionFreeBytes=admission, baselineAllocatedBytes=initial)
         environment = {**os.environ, 'DEBUG': 'testcontainers:pull', 'DEBUG_COLORS': '0',
                        'RYUK_CONTAINER_IMAGE': 'ghcr.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0'}
         command = ['node', 'scripts/owned-node.mjs', 'apps/backend/node_modules/tsx/dist/cli.mjs',
@@ -243,6 +243,8 @@ def main():
         receipt['command'] = command
         remaining(work_deadline)
         with (output / 'diagnostic.jsonl').open('xb') as log:
+            # A failed spawn after this point cannot be mistaken for no acquisition.
+            receipt['acquisitionStarted'] = True
             process = subprocess.Popen(command, cwd=root, env=environment,
                                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
             receipt['supervisorPid'] = process.pid
@@ -315,9 +317,8 @@ def main():
         # Independent cleanup: a process race/timeout cannot cancel daemon shutdown or receipt.
         try:
             if daemon_owned:
-                shutdown = subprocess.run(['sudo', '-n', 'systemctl', 'stop', 'docker.service', 'docker.socket', 'containerd.service'],
-                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                          timeout=remaining(daemon_deadline, DAEMON_SHUTDOWN_SECONDS_MAXIMUM))
+                timeout = remaining(daemon_deadline, DAEMON_SHUTDOWN_SECONDS_MAXIMUM)
+                shutdown = meter.shutdown_daemon(timeout)
                 receipt['daemonShutdownExit'] = shutdown.returncode
                 if shutdown.returncode != 0:
                     receipt['pending'] = 'daemon shutdown unproven'

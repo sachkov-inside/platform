@@ -2,11 +2,12 @@
 
 Этот эксперимент запускает Root только после отдельного hosted grant и review подготовленного commit.
 Он проверяет получение images на реальной SDK/global-setup seam, не выполняя integration cases.
-Эксперимент не устанавливает provider cause и не закрывает #1324.
+Один successful retry не устанавливает provider cause и не закрывает #1324.
 
 Baseline: `546518b02e48158f213524b19adc46aae7fd8e49`.
 SDK patch, PostgreSQL setup, SQL prerequisite и их dependency inputs совпадают с `af1cab0488a01707daeac64f83b5521076ac4b71`.
-Поэтому freshness merge не нужен. SQL prerequisite выполняется первым, как в Integration job.
+Перед новым grant Root повторяет сверку inputs на reviewed Source.
+SQL prerequisite выполняется первым, как в Integration job.
 Затем выполняется тот же `postgres.global.ts`; после успеха сразу вызывается его нормальный teardown.
 Если setup отказал до возврата teardown, supervisor закрывает процессы и весь ephemeral daemon.
 
@@ -57,8 +58,15 @@ node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-gua
 Marker `ACQUISITION_DIAGNOSTIC_EPHEMERAL=1` задаёт только отдельно допущенный diagnostic step.
 Output directory должен отсутствовать. Guardian сверяет HEAD и чистоту tracked files.
 Admission требует 20 GiB свободного места. Floor составляет 15 GiB плюс margin 256 MiB.
-Guardian считает Docker data, containerd data, output и временный backend cache вместе.
-Все эти paths должны находиться на одном filesystem.
+Docker data, containerd data, output и временный backend cache должны находиться на одном filesystem.
+Guardian сохраняет один `statvfs` snapshot для baseline и admission; recursive `du` в guardian отсутствует.
+Used bytes равны `(f_blocks - f_bfree) * f_frsize`; available bytes равны `f_bavail * f_frsize`.
+Поля определены [Python os.statvfs](https://docs.python.org/3/library/os.html#os.statvfs).
+Receipt сохраняет device, исходные blocks, block size, extrema witnesses и final snapshot.
+Growth означает изменение net used bytes всего filesystem относительно baseline.
+Чужой рост также уменьшает бюджет. Одновременное удаление может скрыть часть роста owned paths.
+Поэтому runner должен оставаться disposable, idle и с одним владельцем записи; prune во время acquisition запрещён.
+Этот способ не измеряет сумму directory allocations и не доказывает отсутствие краткого пика между samples.
 Growth ceiling: 2 GiB; ранняя остановка с margin 256 MiB.
 Diagnostics ceiling: суммарно 1 MiB для stdout и stderr, включая SDK DEBUG.
 Guardian принимает оба потока через pipe и сохраняет только байты внутри лимита.
@@ -70,6 +78,21 @@ SDK PostgreSQL `9a8afca…`, затем publisher Ryuk `7c1a8a9…`.
 References, digests, platform defaults, pull arguments и SDK auth lookup сохраняются.
 Новых retries/preload, image/provider/version, credentials и mirror нет.
 Внутренняя HTTP политика Docker daemon сохраняется; один logical pull может содержать несколько HTTP requests.
+
+### Актуальный отказ RabbitMQ в обычном CI
+
+Run [38075627035](https://github.com/sachkov-inside/platform/actions/runs/38075627035/job/114281873703)
+для PR #1342 проверял Source `71866db1cd12e88915ed44dbc660b78a9f051950`.
+В Integration serial `notifications-acceptance.test.ts` отказал в `beforeAll`, внутри `startNotificationBroker`.
+Первичный pull error в 18:25:14.512Z: `toomanyrequests: Rate exceeded`.
+Image: `public.ecr.aws/docker/library/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef`.
+Cleanup #1309 сохранил первичную ошибку без вторичного `undefined.stop`.
+Job сохраняет failure; позднейший успех другого broker suite не устанавливает причину отказа.
+
+Этот PostgreSQL-only diagnostic не получает RabbitMQ и не доказывает устранение нового blocker.
+Новый Source evidence должен привязать эксперимент к actual RabbitMQ SDK seam и reviewed inputs.
+До отдельного Root grant acquisition не повторяется; pins, auth, provider, budgets и retries не меняются.
+Сам error не устанавливает auth mode, quota dimension, shared egress или причину throttling.
 
 `DEBUG=testcontainers:pull` сохраняет supported stream diagnostics.
 Перед печатью stream records проходят allowlist: произвольный текст, headers и URLs исключены.
@@ -85,6 +108,11 @@ SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` со
 Ошибка сохраняет failed status; она не преобразуется в success.
 После процесса guardian останавливает системные Docker/containerd services этого ephemeral runner.
 `receipt.json` сохраняет native exits, resource samples и результат shutdown.
+До попытки запуска SDK receipt содержит `acquisitionStarted: false`.
+Перед `Popen` guardian ставит `true`; failed spawn не превращается в утверждение об отсутствии child.
+Qualifier принимает explicit `false` только без `supervisorPid`/`supervisorExit` и при чистом native census.
+После start отсутствующий supervisor exit оставляет closure недоказанным.
+Legacy receipt с integer supervisor exit остаётся допустимым; invalid state и boolean exit не допускаются.
 `pending: 0` требует успешного daemon shutdown; Root также проверяет native process census своего runner.
 Если guardian не доказал cleanup, Root не принимает результат и завершает ephemeral runner.
 Этот протокол требует внешнего lifecycle владельца runner при SIGKILL самого guardian или потере VM.
@@ -108,12 +136,57 @@ Native qualification contracts используют supplied process/daemon doub
 Hosted experiment, whole check, CI queue и rerun принадлежат Root и требуют отдельных grants.
 
 
-### Diagnostic-owned privileged measurement
+### Privileged clients и отдельный native proof
 
-The committed entry first runs a no-Docker mixed-UID native preflight on the ephemeral Linux runner. Root must authorize the next one exact-SHA label after source checks, full review and terminal normal CI. The previous hosted attempt failed before admission; neither the timed-out command nor PID 2877 ownership was captured. Initial privileged `du` is a hypothesis. Provider acquisition and the #1324 cause remain unproved.
+Hosted run [38071159784](https://github.com/sachkov-inside/platform/actions/runs/38071159784)
+на Source `9a4e2591682144d902cf3e02ec785e0dfb54b90d` отказал до SDK.
+Primary был recursive `du` с timeout 10 s; UID0/PID2641/birth8007 и отсутствие meter descendants сохранены.
+Daemon shutdown завершился native0. Qualifier отказал из-за отсутствующего `supervisorExit` до SDK.
+Это не объясняет исторический Rate exceeded; failure сохраняется как failure.
 
-The meter uses its own transient systemd unit, separate from the unprivileged supervisor ancestry. The unit registers `KillMode=control-group`, `RuntimeMaxSec` and a bounded stop reserve before launching a root leaf. A private FIFO and the caller PID/birth/UID bind owner lifetime. The privileged helper records real UID, PGID and birth, then signals and reaps only its verified leaf groups. Owner EOF/death cancels measurement. An independent unit deadline remains when the helper or caller dies. Shared `owned-process.py`, `heavy-check/lock.py` and EPERM behavior are unchanged.
+Guardian больше не вызывает meter для filesystem samples.
+Meter остаётся владельцем двух fixed privileged transports и native root-leaf regression.
+`systemd-run` регистрирует independent cgroup cleaner до запуска root leaf:
+`KillMode=control-group`, `RuntimeMaxSec` и bounded stop reserve.
+Private FIFO и caller PID/birth/UID привязывают root worker к владельцу.
+Root worker проверяет fingerprint, сигналит только свои группы и проверяет native отсутствие.
 
-Before every native operation, `command-stage.json` records its stage, allowlisted command, start and deadline. A separate `primary-failure.json` preserves TimeoutExpired command, timeout, bounded partial stdout/stderr and primary status before cleanup. Command and acquisition output share the existing 1 MiB cap. The 10-second command bound, 180-second whole bound, shutdown reserves, resource floors, images and zero retries remain unchanged.
+Оба privileged clients запускаются как `sudo -n timeout --signal=TERM --kill-after=… … <client>`.
+GNU timer работает как root, без `--foreground`, и закрывает собственную группу.
+TERM window, KILL reserve и outer reap входят в прежний timeout: 10 s для launch и максимум 30 s для shutdown.
+Ordinary exit не заменяется success; 124/137 сами по себе не доказывают отсутствие процессов.
+Поведение групп и сигналов описывает [GNU timeout](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html).
 
-Repository tests exercise actual nonprivileged timeout, FIFO cancellation, output intake, signals and reap. Run `node scripts/owned-node.mjs --command python3 -B -m unittest discover -s scripts -p 'test_acquisition_diagnostic_*.py'`. These results cannot prove mixed-UID Linux closure. The future hosted native preflight tests a TERM-resistant root leaf and runner-owner SIGKILL, records kernel fingerprints and requires native absence before `pending: 0`. The guardian starts only after that preflight succeeds. The actual root fixture and acquisition guardian remain pending until a separate Root grant.
+Перед bounded unprivileged commands `command-stage.json` сохраняет stage, command и deadline.
+`primary-failure.json` сохраняет первый native failure до cleanup, включая bounded partial stdout/stderr.
+Command и SDK output используют прежний общий cap 1 MiB.
+Shared `owned-process.py`, `heavy-check/lock.py`, EPERM policy, provider/pull/auth и zero retries сохраняются.
+
+Native entry `scripts/acquisition-diagnostic-meter-native.py` проверяет real root worker timeout и owner SIGKILL.
+Для каждого client, `systemd-run` и `systemctl`, он проверяет timeout, caller SIGKILL, sudo SIGKILL и ordinary exit29.
+Только service executable заменён TERM/HUP-resistant fixture; production transport, sudo и GNU timer остаются настоящими.
+Fixture создаёт root client и root child; record сохраняет client/child/monitor PID, UID, PGID и birth.
+Native proof требует их kernel absence; unprivileged parent принимает и reaps orphan children.
+Bounded cleanup сигналит только сохранённые identities и отказывает при foreign group member.
+Proof budget — 55 s внутри прежнего workflow step 1 min; каждый client case использует 3 s и bounded reap.
+Proof не вызывает Docker, не останавливает daemon и не запускает SDK.
+Подготовленный entry и local doubles не являются исполненным Linux proof.
+
+Отдельный native-only job того же workflow требует новый grant и label `1337-p2-<полный reviewed SHA>`.
+Label длиной 48 characters допускается только для same-repository PR #1340, event `labeled`, `main` и attempt1.
+Job получает exact checkout и pinned Node без workspace dependency install; job budget — 3 min.
+`acquisition` job при этом label skipped. Artifact: `native-closure-1337-<SHA>-<run_id>-1`.
+Root добавляет label ровно один раз после grant, сохраняет exits/artifacts, затем удаляет label.
+Этот grant не разрешает acquisition label или rerun.
+
+Exact native command на disposable Ubuntu с pinned Node:
+
+```bash
+ACQUISITION_DIAGNOSTIC_NATIVE_EPHEMERAL=1 \
+node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-meter-native.py \
+  --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/1337-native"
+```
+
+Source должен быть clean и совпадать с reviewed SHA; output directory не должен содержать предыдущий `meter-native`.
+До второго acquisition нужны новый exact SHA, independent review, guards, native proof и отдельное решение Root.
+Обычный CI завершается до acquisition label. Старый run не является проверкой нового HEAD.

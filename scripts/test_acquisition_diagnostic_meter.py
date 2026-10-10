@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('meter', Path(__file__).with_name('acquisition-diagnostic-meter.py'))
 meter = importlib.util.module_from_spec(spec)
@@ -17,6 +18,22 @@ spec.loader.exec_module(meter)
 
 
 class MeterContracts(unittest.TestCase):
+    def test_privileged_service_client_has_its_own_root_timeout(self):
+        calls = []
+        def run(command, **kwargs):
+            calls.append((command, kwargs))
+            return subprocess.CompletedProcess(command, 0)
+        with patch.object(meter.subprocess, 'run', side_effect=run):
+            meter.launch_unit(Path('/private/fixture'), {'unit':'inside-fixture', 'deadlineMonotonic':time.monotonic()+10})
+            meter.shutdown_daemon(30)
+        for (command, options), client in zip(calls, ['systemd-run', 'systemctl'], strict=True):
+            with self.subTest(client=client):
+                self.assertEqual(command[:3], ['sudo', '-n', 'timeout'])
+                self.assertNotIn('--foreground', command)
+                self.assertIn('--signal=TERM', command)
+                self.assertEqual(command[6], client)
+                self.assertLessEqual(float(command[5]) + float(command[4].split('=')[1]), options['timeout'])
+
     def launch(self, directory, request):
         # Supplied service transport; actual worker/pipe/groups/signals/reap are unchanged.
         command = [sys.executable, '-c', 'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); print("partial-out",flush=True); print("partial-err",file=__import__("sys").stderr,flush=True); time.sleep(30)']

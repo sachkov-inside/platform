@@ -146,3 +146,78 @@ test("mixed-UID native preflight must succeed before guardian starts", () => {
     /continue-on-error|if:.*always/u,
   );
 });
+
+test("native-only proof needs its own exact-head grant and never invokes acquisition", () => {
+  const native = workflow.slice(workflow.indexOf("  native-closure:"));
+  const expression = native
+    .match(/ {4}if: \|\n([\s\S]*?) {4}runs-on:/u)?.[1]
+    ?.trim()
+    .replace(/^\$\{\{|\}\}$/gu, "");
+  assert.ok(expression, "separate native-only route is required");
+  const sha = "a".repeat(40);
+  const event = () => ({
+    event_name: "pull_request",
+    run_attempt: 1,
+    repository: "sachkov-inside/platform",
+    event: {
+      action: "labeled",
+      number: 1340,
+      label: { name: `1337-p2-${sha}` },
+      pull_request: {
+        head: { sha, repo: { full_name: "sachkov-inside/platform" } },
+        base: { ref: "main" },
+      },
+    },
+  });
+  const admitted = (/** @type {ReturnType<typeof event>} */ github) => {
+    /** @type {unknown} */
+    const result = runInNewContext(
+      expression,
+      {
+        github,
+        format: (/** @type {string} */ pattern, /** @type {string} */ value) =>
+          pattern.replace("{0}", value),
+      },
+      { timeout: 1000 },
+    );
+    return result;
+  };
+  assert.equal(admitted(event()), true);
+  for (const field of [
+    "action",
+    "label",
+    "head",
+    "fork",
+    "pr",
+    "attempt",
+    "event",
+    "base",
+  ]) {
+    const value = event();
+    if (field === "action") value.event.action = "synchronize";
+    if (field === "label") value.event.label.name = `1324-acq-${sha}`;
+    if (field === "head") value.event.pull_request.head.sha = "b".repeat(40);
+    if (field === "fork")
+      value.event.pull_request.head.repo.full_name = "fork/platform";
+    if (field === "pr") value.event.number = 1333;
+    if (field === "attempt") value.run_attempt = 2;
+    if (field === "event") value.event_name = "push";
+    if (field === "base") value.event.pull_request.base.ref = "other";
+    assert.equal(admitted(value), false, field);
+  }
+  assert.equal(event().event.label.name.length, 48);
+  assert.match(
+    native,
+    /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u,
+  );
+  assert.match(native, /node-version-file: \.node-version/u);
+  assert.match(native, /timeout-minutes: 1/u);
+  assert.match(
+    native,
+    /owned-node\.mjs --command python3 scripts\/acquisition-diagnostic-meter-native\.py/u,
+  );
+  assert.doesNotMatch(
+    native,
+    /setup-platform|acquisition-diagnostic-guard|ACQUISITION_DIAGNOSTIC_EPHEMERAL:|secrets\.|continue-on-error/u,
+  );
+});

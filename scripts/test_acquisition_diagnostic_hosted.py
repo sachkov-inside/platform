@@ -18,8 +18,27 @@ class NativeClosureContracts(unittest.TestCase):
         self.assertEqual(self.qualify()['pending'], 0)
         self.assertEqual(self.qualify()['supervisorExit'], 29)
 
+    def test_explicit_pre_sdk_failure_is_closed_but_missing_supervisor_is_not(self):
+        before_sdk = {'pending': 0, 'daemonShutdownExit': 0, 'acquisitionStarted': False}
+        self.assertEqual(self.qualify(receipt=before_sdk)['pending'], 0)
+        for receipt in [
+                {'pending': 0, 'daemonShutdownExit': 0},
+                {**before_sdk, 'acquisitionStarted': True},
+                {**before_sdk, 'supervisorPid': 42},
+                {**before_sdk, 'supervisorExit': 0}]:
+            with self.subTest(receipt=receipt):
+                self.assertNotEqual(self.qualify(receipt=receipt)['pending'], 0)
+        self.assertNotEqual(self.qualify({424242: (1, 424242, 'S', 100)}, receipt=before_sdk)['pending'], 0)
+
     def test_live_workspace_child_is_not_closed(self):
         self.assertNotEqual(self.qualify({424242: (1, 424242, 'S', 100)})['pending'], 0)
+
+    def test_invalid_acquisition_state_cannot_be_a_closed_supervisor(self):
+        for value in [None, 0, 1, 'false']:
+            with self.subTest(value=value):
+                receipt = {'pending': 0, 'daemonShutdownExit': 0, 'supervisorExit': 0,
+                           'acquisitionStarted': value}
+                self.assertNotEqual(self.qualify(receipt=receipt)['pending'], 0)
 
     def test_census_preserves_kernel_identity_and_rejects_live_meter(self):
         owned = {'pid': 424242, 'birth': 100, 'uids': [0, 0, 0, 0], 'pgid': 424242}

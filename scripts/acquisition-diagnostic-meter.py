@@ -19,6 +19,23 @@ COMMAND_SECONDS_MAXIMUM = 10
 METER_CLEANUP_RESERVE_SECONDS = 2
 TERM_SECONDS_MAXIMUM = 0.5
 UNIT_STOP_SECONDS_MAXIMUM = 0.5
+ROOT_CLIENT_KILL_RESERVE_SECONDS = 0.5
+ROOT_CLIENT_REAP_RESERVE_SECONDS = 0.5
+
+
+def root_client_command(command, timeout):
+    """Root owns the TERM/KILL timer even when the unprivileged sudo caller dies."""
+    assert 0 < timeout <= 30, 'privileged client budget'
+    kill = min(ROOT_CLIENT_KILL_RESERVE_SECONDS, timeout / 4)
+    reap = min(ROOT_CLIENT_REAP_RESERVE_SECONDS, timeout / 4)
+    return ['sudo', '-n', 'timeout', '--signal=TERM', '--kill-after=' + str(kill),
+            str(timeout - kill - reap), *command]
+
+
+def shutdown_daemon(timeout):
+    command = ['systemctl', 'stop', 'docker.service', 'docker.socket', 'containerd.service']
+    return subprocess.run(root_client_command(command, timeout), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, start_new_session=True, timeout=timeout)
 
 
 def fingerprint(pid):
@@ -166,13 +183,14 @@ def worker(directory, request, command, expected_uid):
 def launch_unit(directory, request):
     # Register systemd's independent cgroup cleaner BEFORE the privileged leaf can start.
     # The service is detached from the unprivileged owned-process ancestry/group.
-    remaining = max(0.1, request['deadlineMonotonic'] - time.monotonic() - UNIT_STOP_SECONDS_MAXIMUM)
-    command = ['sudo', '-n', 'systemd-run', '--quiet', '--no-block',
+    timeout = request['deadlineMonotonic'] - time.monotonic()
+    remaining = max(0.1, timeout - UNIT_STOP_SECONDS_MAXIMUM)
+    command = ['systemd-run', '--quiet', '--no-block',
                '--collect', '--unit=' + request['unit'], '--property=Type=exec', '--property=KillMode=control-group',
                '--property=RuntimeMaxSec=' + str(remaining), '--property=TimeoutStopSec=' + str(UNIT_STOP_SECONDS_MAXIMUM),
                sys.executable, str(Path(__file__).resolve()), '--worker', str(directory)]
-    subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                   check=True, timeout=max(0.01, request['deadlineMonotonic'] - time.monotonic()))
+    subprocess.run(root_client_command(command, timeout), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   start_new_session=True, check=True, timeout=timeout)
 
 
 def measure(paths, output, timeout, capacity, *, launch=launch_unit, fixture=False, cancelled=lambda: False):

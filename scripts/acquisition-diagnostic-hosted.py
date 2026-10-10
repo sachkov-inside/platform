@@ -51,12 +51,17 @@ def qualify_closure(root, receipt, snapshot, cwd, daemon_state, identity=lambda 
             pending.append(pid)
             contexts.append(context)
     states = {unit: daemon_state(unit) for unit in DAEMON_UNITS}
+    before_sdk = (receipt.get('acquisitionStarted') is False
+                  and 'supervisorPid' not in receipt and 'supervisorExit' not in receipt)
+    supervisor_closed = ((receipt.get('acquisitionStarted') is True or 'acquisitionStarted' not in receipt)
+                         and type(receipt.get('supervisorExit')) is int)
     closed = (not pending and not meter_pending and all(value == ('inactive', '0') for value in states.values())
               and receipt.get('pending') == 0 and receipt.get('daemonShutdownExit') == 0
-              and isinstance(receipt.get('supervisorExit'), int))
+              and (before_sdk or supervisor_closed))
     return {'pending': 0 if closed else 'native closure unproven',
             'workspaceProcessPids': pending, 'workspaceProcesses': contexts, 'meterProcessesPending': meter_pending, 'daemonStates': states,
             'supervisorExit': receipt.get('supervisorExit'),
+            'acquisitionStarted': receipt.get('acquisitionStarted'),
             'daemonShutdownExit': receipt.get('daemonShutdownExit')}
 
 

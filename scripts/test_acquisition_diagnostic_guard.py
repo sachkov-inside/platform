@@ -48,7 +48,9 @@ class GuardContracts(unittest.TestCase):
             raise RuntimeError('Run guard contracts through node scripts/owned-node.mjs --command python3')
 
     def exercise(self, payload='', *, growth=False, cleanup_error=False, git_expiry=False,
-                 late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False, final_meter_spill=False):
+                 late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False, command_spill=False,
+                 forbid_meter=False, admission_free=30*1024**3, available_after=None, foreign_growth=0,
+                 shutdown_exit=0):
         with process_contract_deadline(), tempfile.TemporaryDirectory() as temporary:
             temporary = str(Path(temporary).resolve())
             output = Path(temporary)/'result'
@@ -76,17 +78,29 @@ class GuardContracts(unittest.TestCase):
                     raise OSError('shutdown fault')
                 if 'systemctl' in command:
                     shutdown = True
+                    return subprocess.CompletedProcess(command, shutdown_exit, '', '')
                 if command[0] == 'git' and git_expiry:
                     clock[0] = 121
                     raise subprocess.TimeoutExpired(command, kwargs['timeout'], output=b'partial-native-out', stderr=b'partial-native-err')
+                if command[:2] == ['git', 'diff'] and command_spill:
+                    return subprocess.CompletedProcess(command, 0, 'n'*1024, '')
                 return subprocess.CompletedProcess(command, 0, '', '')
 
             def measure(paths, _output, timeout, _capacity, **_kwargs):
+                assert not forbid_meter, 'recursive measurement forbidden'
                 result = run(['sudo', '-n', 'du', '-sk', *map(str, paths)], timeout=timeout)
-                text = ('0\t' + 'm'*1021 + '\n') if final_meter_spill and shutdown else ('0\tx\n' if final_meter_spill else result.stdout)
+                text = result.stdout
                 if len(text.encode()) > _capacity:
                     raise subprocess.CalledProcessError(1, ['du', '-sk'], text[:_capacity], '')
                 return {'stdout': text, 'stderr': result.stderr, 'nativeExit': 0, 'pending': 0}
+
+            def filesystem(_root):
+                extra = 2*1024**3 if (growth and shutdown) or (late_cache and cache.exists()) else 0
+                if process is not None:
+                    extra += foreign_growth
+                available = available_after if available_after is not None and process is not None else admission_free
+                return type('Fs', (), {'f_blocks':35*1024**3, 'f_bfree':30*1024**3-extra,
+                                      'f_bavail':min(available, 30*1024**3-extra), 'f_frsize':1})()
 
             def bounded(command, _cwd, timeout, _capacity):
                 if command[:2] == ['git', 'diff']:
@@ -123,7 +137,7 @@ class GuardContracts(unittest.TestCase):
                      patch.object(guard, '__file__', str(Path(temporary)/'scripts/guard.py')), \
                      patch.object(guard.os, 'uname', return_value=type('Linux', (), {'sysname':'Linux'})()), \
                      patch.dict(os.environ, {'ACQUISITION_DIAGNOSTIC_EPHEMERAL':'1'}), \
-                     patch.object(guard.os, 'statvfs', return_value=type('Fs', (), {'f_bavail':30*1024**3, 'f_frsize':1})()), \
+                     patch.object(guard.os, 'statvfs', side_effect=filesystem), \
                      patch.object(guard, 'bounded_command', side_effect=bounded), \
                      patch.object(guard.meter, 'measure', side_effect=measure), \
                      patch.object(guard.subprocess, 'run', side_effect=run), \
@@ -142,14 +156,50 @@ class GuardContracts(unittest.TestCase):
                     if process.stdout is not None:
                         process.stdout.close()
 
+    def test_filesystem_baseline_and_final_sample_do_not_walk_directories(self):
+        status, receipt, _, _ = self.exercise(forbid_meter=True)
+        self.assertEqual(status, 0)
+        self.assertEqual(receipt['baselineAllocatedBytes'], 5*1024**3)
+        self.assertEqual(receipt['finalAllocatedBytes'], 5*1024**3)
+        self.assertEqual(receipt['admissionFreeBytes'], 30*1024**3)
+
+    def test_low_admission_has_an_explicit_no_sdk_receipt(self):
+        status, receipt, _, _ = self.exercise(admission_free=19*1024**3, forbid_meter=True)
+        self.assertNotEqual(status, 0)
+        self.assertIs(receipt['acquisitionStarted'], False)
+        self.assertNotIn('supervisorPid', receipt)
+        self.assertEqual(receipt['admissionFreeBytes'], 19*1024**3)
+        self.assertEqual(receipt['daemonShutdownExit'], 0)
+
+    def test_whole_filesystem_growth_stops_at_the_unchanged_early_margin(self):
+        status, receipt, _, _ = self.exercise(foreign_growth=1792*1024**2, forbid_meter=True)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(receipt['stopReason'], 'growth early margin')
+        self.assertEqual(receipt['maximumGrowthBytes'], 1792*1024**2)
+        self.assertEqual(receipt['maximumGrowthSample']['allocatedBytes'], 6912*1024**2)
+
+    def test_available_space_floor_is_independent_of_net_growth(self):
+        status, receipt, _, _ = self.exercise(available_after=15*1024**3, forbid_meter=True)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(receipt['stopReason'], 'free-space early margin')
+        self.assertEqual(receipt['maximumGrowthBytes'], 0)
+        self.assertEqual(receipt['minimumFreeBytes'], 15*1024**3)
+        self.assertEqual(receipt['minimumFreeSample']['availableBlocks'], 15*1024**3)
+
+    def test_shutdown_native_failure_is_preserved_and_never_closed(self):
+        status, receipt, _, _ = self.exercise(shutdown_exit=29)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(receipt['daemonShutdownExit'], 29)
+        self.assertNotEqual(receipt['pending'], 0)
+
     def test_combined_stdout_stderr_ceiling_and_final_exit(self):
         status, receipt, size, _ = self.exercise("import os; os.write(1,b'x'*600000); os.write(2,b'y'*600000)")
         self.assertLessEqual(size, 1024**2)
         self.assertNotEqual(status, 0)
         self.assertEqual(receipt['stopReason'], 'diagnostics budget')
 
-    def test_final_meter_and_sdk_share_one_total_intake_budget(self):
-        status, receipt, size, _ = self.exercise("import os; os.write(1,b'x'*(1024**2-512))", final_meter_spill=True)
+    def test_native_commands_and_sdk_share_one_total_intake_budget(self):
+        status, receipt, size, _ = self.exercise("import os; os.write(1,b'x'*(1024**2-512))", command_spill=True)
         self.assertLessEqual(size + receipt['commandDiagnosticBytes'], 1024**2)
         self.assertNotEqual(status, 0)
         self.assertEqual(receipt['daemonShutdownExit'], 0)
@@ -239,6 +289,7 @@ class GuardContracts(unittest.TestCase):
         status, receipt, _, _ = self.exercise()
         self.assertEqual(status, 0)
         self.assertEqual(receipt['nativeExit'], 0)
+        self.assertIs(receipt['acquisitionStarted'], True)
         self.assertIn('finalAllocatedBytes', receipt)
 
     def test_native_deadline_stops_a_child_with_frozen_guard_clock(self):
