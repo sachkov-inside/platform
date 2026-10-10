@@ -1,23 +1,22 @@
 import { createRequire } from "node:module";
+import { z } from "zod";
 
 import type * as AuthModule from "testcontainers/build/container-runtime/auth/get-auth-config.js";
 import type * as LoggerModule from "testcontainers/build/common/logger.js";
 
 import { getContainerRuntimeClient } from "testcontainers/build/container-runtime/clients/client.js";
+import { ImageName } from "testcontainers/build/container-runtime/image-name.js";
 
 import {
   observeAuth,
+  observeExists,
   observePull,
-  runSetupAndTeardown,
+  observeRequest,
+  acquireSelectedImage,
   safeImage,
   safePullEvent,
 } from "../../../../../scripts/acquisition-diagnostic.mjs";
-import {
-  spawnOwned,
-  stopOwned,
-} from "../../../../../scripts/owned-process.mjs";
-import { commandExit } from "../../../../../scripts/diagnostic-command.mjs";
-import setup from "../../integration/setup/postgres.global.js";
+import { NOTIFICATION_BROKER_IMAGE } from "../../../src/infrastructure/notification-transport/topology.js";
 
 // This is an acquisition-only entrypoint, never a Vitest case or a normal CI test command.
 const require = createRequire(import.meta.url);
@@ -26,6 +25,7 @@ const {
   DOCKER_HOST: dockerHost,
   DOCKER_CONFIG: dockerConfig,
   DOCKER_AUTH_CONFIG: dockerAuthConfig,
+  ACQUISITION_DIAGNOSTIC_IMAGE: selection,
 } = process.env;
 /* oxlint-disable typescript/no-unsafe-type-assertion -- pinned SDK CJS exports share the actual setup's module cache. */
 const auth =
@@ -44,35 +44,23 @@ function emit(record: { event: string; [key: string]: unknown }) {
 async function main() {
   if (process.platform !== "linux" || debug !== "testcontainers:pull")
     throw new Error("Requires Linux and selected pull DEBUG");
-  // Preserve the real job's native SQL prerequisite; never expose captured provider free text.
-  const sql = spawnOwned(
-    "python3",
-    [
-      "-m",
-      "unittest",
-      "discover",
-      "-s",
-      "scripts/production-verify",
-      "-p",
-      "test_sql.py",
-    ],
-    {
-      stdio: "ignore",
-      env: { ...process.env, PRODUCTION_VERIFY_SQL_TEST: "1" },
-    },
-  );
-  try {
-    const exit = await commandExit(sql);
-    emit({ event: "sql-prerequisite", exit });
-    if (exit !== 0) {
-      process.exitCode = exit ?? 1;
-      return;
-    }
-  } finally {
-    await stopOwned(sql);
-  }
-
+  if (selection !== "rabbitmq")
+    throw new Error("Explicit RabbitMQ selection required");
   const runtime = await getContainerRuntimeClient();
+  // The pinned DockerImageClient owns this transport. Reject an unsupported layout before acquisition.
+  const driver: unknown = Object.getOwnPropertyDescriptor(
+    runtime.image,
+    "dockerode",
+  )?.value;
+  const transport = z
+    .custom<Parameters<typeof observeRequest>[0]>(
+      (value) =>
+        value !== null &&
+        typeof value === "object" &&
+        "pull" in value &&
+        typeof value.pull === "function",
+    )
+    .parse(driver);
   emit({
     event: "runtime",
     nodeArchitecture: process.arch,
@@ -89,9 +77,13 @@ async function main() {
     dockerHostPresent: dockerHost !== undefined,
     dockerConfigOverridePresent: dockerConfig !== undefined,
     dockerAuthConfigPresent: dockerAuthConfig !== undefined,
+    provider: "public.ecr.aws",
+    processPid: process.pid,
   });
   const restorePull = observePull(runtime.image, emit);
+  const restoreExists = observeExists(runtime.image, emit);
   const restoreAuth = observeAuth(auth, emit);
+  const restoreRequest = observeRequest(transport, emit);
   // eslint-disable-next-line typescript/unbound-method -- called with the original receiver and restored in finally.
   const originalTrace = logger.pullLog.trace;
   logger.pullLog.trace = function (message, options) {
@@ -101,20 +93,19 @@ async function main() {
     });
   };
   try {
-    await runSetupAndTeardown(
-      () =>
-        setup({
-          isRootProject: () => true,
-          provide: () => {
-            /* Diagnostic discards database context; it never starts test cases. */
-          },
-        }),
-      () => emit({ event: "setup-complete" }),
+    // GenericContainer.start's normal acquisition arguments, before broker/container creation.
+    await acquireSelectedImage(
+      runtime.image,
+      ImageName.fromString(NOTIFICATION_BROKER_IMAGE),
+      selection,
+      emit,
     );
-    emit({ event: "teardown-complete" });
+    emit({ event: "acquisition-complete" });
   } finally {
     logger.pullLog.trace = originalTrace;
+    restoreRequest();
     restoreAuth();
+    restoreExists();
     restorePull();
   }
 }

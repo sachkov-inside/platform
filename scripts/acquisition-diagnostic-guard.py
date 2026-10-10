@@ -237,7 +237,9 @@ def main():
                        maximumGrowthSample=baseline, minimumFreeSample=baseline)
         assert admission >= 20 * 1024**3, '20 GiB admission required'
         environment = {**os.environ, 'DEBUG': 'testcontainers:pull', 'DEBUG_COLORS': '0',
+                       'ACQUISITION_DIAGNOSTIC_IMAGE': 'rabbitmq',
                        'RYUK_CONTAINER_IMAGE': 'ghcr.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0'}
+        receipt['selectedImage'] = environment['ACQUISITION_DIAGNOSTIC_IMAGE']
         command = ['node', 'scripts/owned-node.mjs', 'apps/backend/node_modules/tsx/dist/cli.mjs',
                    'apps/backend/test/contracts/fixtures/ci-acquisition-diagnostic.mts']
         receipt['command'] = command

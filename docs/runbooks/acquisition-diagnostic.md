@@ -1,15 +1,19 @@
 # Однократная диагностика acquisition #1324
 
 Этот эксперимент запускает Root только после отдельного hosted grant и review подготовленного commit.
-Он проверяет получение images на реальной SDK/global-setup seam, не выполняя integration cases.
+Он проверяет получение одного выбранного pinned RabbitMQ image через нормальный SDK image client, без integration cases.
 Один successful retry не устанавливает provider cause и не закрывает #1324.
 
 Baseline: `546518b02e48158f213524b19adc46aae7fd8e49`.
-SDK patch, PostgreSQL setup, SQL prerequisite и их dependency inputs совпадают с `af1cab0488a01707daeac64f83b5521076ac4b71`.
+SDK patch и dependency inputs сверяются с reviewed Source и actual failure Source #855.
 Перед новым grant Root повторяет сверку inputs на reviewed Source.
-SQL prerequisite выполняется первым, как в Integration job.
-Затем выполняется тот же `postgres.global.ts`; после успеха сразу вызывается его нормальный teardown.
-Если setup отказал до возврата teardown, supervisor закрывает процессы и весь ephemeral daemon.
+Guardian выбирает `ACQUISITION_DIAGNOSTIC_IMAGE=rabbitmq`; другой или отсутствующий выбор запрещён.
+Fixture импортирует `NOTIFICATION_BROKER_IMAGE` из канонического `topology.ts`, без копии digest.
+Он вызывает `image.pull(ImageName.fromString(image), { force: false, platform: undefined })` один раз.
+Это acquisition boundary из pinned `GenericContainer.start`; `setup/broker.ts` не меняет pull policy или platform.
+Fixture не запускает SQL prerequisite, PostgreSQL, Ryuk, broker или test cases.
+После успеха или отказа supervisor закрывает owned процессы и весь ephemeral daemon.
+Прежний PostgreSQL/global-setup/SQL путь сохранён в истории Source `f20db233501e6a03bf74dd9446ad79e2ed7be58d`.
 
 Root использует отдельный свежий Linux runner с единоличным владением системными Docker/containerd services.
 Runner имеет существующие frozen dependencies и тот же pinned Node/SDK, что Application CI.
@@ -41,7 +45,7 @@ Skipped job, source review и зелёный prerequisite не доказыва�
 Workflow использует `ubuntu-24.04`, `contents: read`, checkout точного head без сохранения credentials.
 Shared `setup-platform` устанавливает frozen dependencies без browsers; prerequisite ограничен 10 минутами.
 Guardian step ограничен 4 минутами, job — 18 минутами; acquisition budget остаётся 180 s.
-SQL prerequisite выполняет только guardian. Workflow не добавляет preload или provider changes.
+Workflow не добавляет preload или provider changes.
 `identity.json` содержит только source/workflow/job/run identity и runner image metadata.
 После guardian workflow через существующий `owned-node` дожидается native выхода всего дерева.
 Независимая Linux qualification проверяет process census workspace и inactive Docker/containerd units с MainPID 0.
@@ -73,8 +77,8 @@ Guardian принимает оба потока через pipe и сохран�
 Периодическая проверка ресурсов не задерживает и не повторяет registry requests.
 Guardian резервирует время на shutdown внутри общего runtime budget 180 s.
 
-Source допускает максимум три logical image acquisitions: native SQL PostgreSQL `996d…`,
-SDK PostgreSQL `9a8afca…`, затем publisher Ryuk `7c1a8a9…`.
+Существующий guardian ceiling остаётся три logical image acquisitions; выбранный SDK call только один.
+Нормальный SDK cache check может завершить этот call без Engine pull при наличии image.
 References, digests, platform defaults, pull arguments и SDK auth lookup сохраняются.
 Новых retries/preload, image/provider/version, credentials и mirror нет.
 Внутренняя HTTP политика Docker daemon сохраняется; один logical pull может содержать несколько HTTP requests.
@@ -89,18 +93,30 @@ Image: `public.ecr.aws/docker/library/rabbitmq:4.2.4-management-alpine@sha256:ad
 Cleanup #1309 сохранил первичную ошибку без вторичного `undefined.stop`.
 Job сохраняет failure; позднейший успех другого broker suite не устанавливает причину отказа.
 
-Этот PostgreSQL-only diagnostic не получает RabbitMQ и не доказывает устранение нового blocker.
-Новый Source evidence должен привязать эксперимент к actual RabbitMQ SDK seam и reviewed inputs.
+Выбранный probe получает этот RabbitMQ через ту же SDK image acquisition seam и сохраняет его digest.
+Он не запускает `beforeAll` или broker и не доказывает устранение blocker.
+Обычный f20 CI [38079799570](https://github.com/sachkov-inside/platform/actions/runs/38079799570/job/114294182536)
+отказал в root globalSetup с `Rate exceeded` после успешного native SQL prerequisite.
+Image, auth presence и concurrency этого отказа не записаны; image остаётся UNOBSERVED.
+RabbitMQ probe не воспроизводит PostgreSQL/Ryuk/SQL контекст f20 и не закрывает этот пробел.
 До отдельного Root grant acquisition не повторяется; pins, auth, provider, budgets и retries не меняются.
 Сам error не устанавливает auth mode, quota dimension, shared egress или причину throttling.
 
 `DEBUG=testcontainers:pull` сохраняет supported stream diagnostics.
 Перед печатью stream records проходят allowlist: произвольный текст, headers и URLs исключены.
-Тонкие observations добавляют actual pull start/end, arguments и auth presence.
+Тонкие observations добавляют actual SDK pull start/end, arguments, SDK exists result и auth lookup start/end/presence.
+Они также наблюдают настоящий `dockerode.pull` transport внутри pinned DockerImageClient.
+Этот transport проверяется до acquisition; другая SDK layout не допускает молчаливой потери request evidence.
+`request-start/returned/failed` отмечают вызов Docker Engine ImageCreate и получение stream либо отказ.
+`returned` не означает завершение загрузки: его завершение определяет SDK `pull-complete/failed`.
+Каждая boundary имеет свои call identity, monotonic timestamps и счётчик активных logical calls.
+Auth result presence и outgoing authconfig presence — только booleans; они не доказывают валидность token или quota mode.
+SDK cache result наблюдается без дополнительного inspect, preload или запроса.
 Они возвращают исходный Promise, result и error; auth values не сериализуются.
-Runtime record содержит только architecture, OS, Docker Engine version и presence Docker environment locators.
+Runtime record содержит architecture, OS, Docker Engine version, provider, process PID и presence Docker environment locators.
 Host/socket paths, environment values, auth headers и signed URLs не печатаются.
-SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` сохраняет настоящий SQL exit.
+Engine call concurrency не измеряет внутренние registry HTTP requests daemon или shared egress/IP quota.
+Сохранённый исторический failure нельзя дополнить отсутствовавшими auth/runtime/concurrency фактами нового probe.
 `nativeExit` в `receipt.json` относится ко всему диагностическому процессу.
 Неизвестный primary получает failure exit и безопасную классификацию, без произвольного error text.
 
