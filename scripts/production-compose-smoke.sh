@@ -6,6 +6,11 @@ cd "$repository_root"
 
 release_version=v1
 source_sha=1111111111111111111111111111111111111111
+cache_only="${PRODUCTION_SMOKE_CACHE_ONLY:-0}"
+case "$cache_only" in
+  0 | 1) ;;
+  *) echo "PRODUCTION_SMOKE_CACHE_ONLY must be 0 or 1" >&2; exit 64 ;;
+esac
 project_name="inside-platform-production-smoke-$$"
 foundation_project="${project_name}-database"
 foundation_network="${project_name}-database"
@@ -16,6 +21,17 @@ artifact_dir="${PRODUCTION_SMOKE_ARTIFACT_DIR:-}"
 backend_image="inside-platform-runtime-backend-smoke:$$"
 next_backend_image="inside-platform-runtime-backend-next-smoke:$$"
 web_image="inside-platform-runtime-web-smoke:$$"
+cache_admitted=0
+docker_run=(docker run)
+docker_create=(docker create)
+if [[ "$cache_only" == 1 ]]; then
+  source_sha="${PRODUCTION_SMOKE_SOURCE_SHA:-}"
+  backend_image="${PRODUCTION_SMOKE_BACKEND_IMAGE:-}"
+  next_backend_image="${PRODUCTION_SMOKE_NEXT_BACKEND_IMAGE:-}"
+  web_image="${PRODUCTION_SMOKE_WEB_IMAGE:-}"
+  docker_run+=(--pull=never)
+  docker_create+=(--pull=never)
+fi
 wrong_release_container="${project_name}-wrong-release"
 contender_container="${project_name}-worker-contender"
 drain_lock_container="${project_name}-worker-drain-lock"
@@ -84,7 +100,7 @@ cleanup() {
   local cleanup_status=0
   trap - EXIT
 
-  if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
+  if ((test_status != 0)) && [[ "$cache_only" == 0 || "$cache_admitted" == 1 ]] && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
     bash scripts/compose-failure-diagnostics.sh "$artifact_dir" "${application_compose[@]}" || true
     bash scripts/compose-failure-diagnostics.sh "$artifact_dir/foundation" "${foundation_compose[@]}" || true
     "${application_compose[@]}" ps --all >"$artifact_dir/compose-ps.txt" 2>&1 || true
@@ -92,20 +108,29 @@ cleanup() {
     "${foundation_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/foundation.log" 2>&1 || true
   fi
 
-  docker container rm --force \
-    "$wrong_release_container" \
-    "$contender_container" \
-    "$drain_lock_container" \
-    "$sale_configuration_container" >/dev/null 2>&1 || true
-  if ! "${application_compose[@]}" down --volumes --remove-orphans; then
-    echo "Failed to remove production runtime smoke resources" >&2
-    cleanup_status=1
+  if [[ "$cache_only" == 0 || "$cache_admitted" == 1 ]]; then
+    docker container rm --force \
+      "$wrong_release_container" \
+      "$contender_container" \
+      "$drain_lock_container" \
+      "$sale_configuration_container" >/dev/null 2>&1 || true
+    if ! "${application_compose[@]}" down --volumes --remove-orphans; then
+      echo "Failed to remove production runtime smoke resources" >&2
+      cleanup_status=1
+    fi
+    if [[ "$cache_only" == 1 ]]; then
+      if ! "${foundation_compose[@]}" down --volumes --remove-orphans; then
+        echo "Failed to remove production foundation smoke resources" >&2
+        cleanup_status=1
+      fi
+    else
+      if ! "${foundation_compose[@]}" down --rmi local --volumes --remove-orphans; then
+        echo "Failed to remove production foundation smoke resources" >&2
+        cleanup_status=1
+      fi
+      docker image rm --force "$backend_image" "$next_backend_image" "$web_image" >/dev/null 2>&1 || true
+    fi
   fi
-  if ! "${foundation_compose[@]}" down --rmi local --volumes --remove-orphans; then
-    echo "Failed to remove production foundation smoke resources" >&2
-    cleanup_status=1
-  fi
-  docker image rm --force "$backend_image" "$next_backend_image" "$web_image" >/dev/null 2>&1 || true
   rm -r "$runtime_config_dir" "$foundation_config_dir"
 
   if ((test_status != 0)); then
@@ -114,6 +139,70 @@ cleanup() {
   exit "$cleanup_status"
 }
 trap cleanup EXIT
+
+admit_cached_images() {
+  local owner="${PRODUCTION_SMOKE_CACHE_OWNER:-}"
+  local foundation_image="${PRODUCTION_SMOKE_FOUNDATION_IMAGE:-}"
+  local supplied_override="${PRODUCTION_SMOKE_FOUNDATION_OVERRIDE:-}"
+  local image actual_id index other pins pin_count=0
+  local images=("$backend_image" "$next_backend_image" "$web_image" "$foundation_image")
+  local tags=("$owner-backend:v1" "$owner-backend:v2" "$owner-web:v1" "$owner-foundation:local")
+  if [[ ! "$source_sha" =~ ^[0-9a-f]{40}$ || ! "$owner" =~ ^inside-platform-production-smoke-cache-[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "Cache-only smoke requires an exact Source SHA and its own cache owner prefix" >&2
+    return 64
+  fi
+  for index in 0 1 2 3; do
+    image="${images[$index]}"
+    if [[ ! "$image" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+      echo "Cache-only smoke requires four full immutable image IDs" >&2
+      return 64
+    fi
+    for ((other = 0; other < index; other++)); do
+      if [[ "$image" == "${images[$other]}" ]]; then
+        echo "Cache-only v1/v2/Web/foundation image IDs must be distinct" >&2
+        return 64
+      fi
+    done
+    actual_id="$(docker image inspect "${tags[$index]}" --format '{{.Id}}')" || return "$?"
+    if [[ "$actual_id" != "$image" ]]; then
+      echo "Cache-only image ID does not match its owned tag: ${tags[$index]}" >&2
+      return 65
+    fi
+  done
+  if [[ ! -f "$supplied_override" ]]; then
+    echo "Cache-only smoke requires its own foundation image override" >&2
+    return 64
+  fi
+  # Freeze supplied bytes before validation; no arbitrary volume/network/env override is admitted.
+  cp "$supplied_override" "$foundation_config_dir/cache-image.compose.yaml"
+  printf 'services:\n  postgres:\n    image: %s\n    pull_policy: never\n  pgbackrest:\n    image: %s\n    pull_policy: never\n  restore:\n    image: %s\n    pull_policy: never\n' \
+    "$foundation_image" "$foundation_image" "$foundation_image" >"$foundation_config_dir/expected-cache-image.compose.yaml"
+  if ! cmp -s "$foundation_config_dir/cache-image.compose.yaml" "$foundation_config_dir/expected-cache-image.compose.yaml"; then
+    echo "Cache-only foundation override must contain only the three supplied image/pull-policy entries" >&2
+    return 65
+  fi
+  foundation_compose+=(--file "$foundation_config_dir/cache-image.compose.yaml")
+  printf 'services:\n  rabbitmq:\n    pull_policy: never\n  caddy-smoke:\n    pull_policy: never\n' >"$runtime_config_dir/cache-pull.compose.yaml"
+  application_compose+=(--file "$runtime_config_dir/cache-pull.compose.yaml")
+  pins="$("${application_compose[@]}" config --images rabbitmq caddy-smoke)" || return "$?"
+  while IFS= read -r image; do
+    if [[ ! "$image" =~ @sha256:[0-9a-f]{64}$ ]]; then
+      echo "Cache-only smoke requires both pinned broker/edge inputs" >&2
+      return 65
+    fi
+    actual_id="$(docker image inspect "$image" --format '{{.Id}}')" || return "$?"
+    if [[ ! "$actual_id" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+      echo "Cache-only pinned input did not resolve to an immutable image ID" >&2
+      return 65
+    fi
+    pin_count=$((pin_count + 1))
+  done <<<"$pins"
+  if ((pin_count != 2)); then
+    echo "Cache-only smoke requires both pinned broker/edge inputs" >&2
+    return 65
+  fi
+  cache_admitted=1
+}
 
 write_runtime_configuration() {
   cat >"$runtime_config_dir/runtime.env" <<EOF
@@ -245,7 +334,7 @@ write_broker_configuration() {
   mkdir -p "$broker_dir"
   bash infra/production/broker/issue-broker-tls.sh "$tls_dir" 2 2
   rm "$tls_dir/ca-key.pem"
-  docker run --rm --memory "$probe_container_memory" \
+  "${docker_run[@]}" --rm --memory "$probe_container_memory" \
     --env-file "$runtime_config_dir/notifications-worker.env" \
     --env "NOTIFICATIONS_TELEGRAM_BROKER_URL=$(broker_url telegram)" \
     --entrypoint node \
@@ -488,41 +577,54 @@ wait_for_active_cleanup_job() {
 write_runtime_configuration
 write_foundation_configuration
 
-docker build \
-  --file apps/backend/Dockerfile \
-  --target backend-production \
-  --build-arg "INSIDE_RELEASE_VERSION=$release_version" \
-  --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
-  --tag "$backend_image" \
-  .
-docker build \
-  --file apps/backend/Dockerfile \
-  --target backend-production \
-  --build-arg "INSIDE_RELEASE_VERSION=v2" \
-  --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
-  --tag "$next_backend_image" \
-  .
-docker build \
-  --file apps/web/Dockerfile \
-  --target web-production \
-  --build-arg "INSIDE_RELEASE_VERSION=$release_version" \
-  --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
-  --tag "$web_image" \
-  .
-PRODUCTION_SMOKE_BACKEND_IMAGE="$(docker image inspect "$backend_image" --format '{{.Id}}')"
-PRODUCTION_SMOKE_WEB_IMAGE="$(docker image inspect "$web_image" --format '{{.Id}}')"
+if [[ "$cache_only" == 1 ]]; then
+  admit_cached_images
+else
+  docker build \
+    --file apps/backend/Dockerfile \
+    --target backend-production \
+    --build-arg "INSIDE_RELEASE_VERSION=$release_version" \
+    --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
+    --tag "$backend_image" \
+    .
+  docker build \
+    --file apps/backend/Dockerfile \
+    --target backend-production \
+    --build-arg "INSIDE_RELEASE_VERSION=v2" \
+    --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
+    --tag "$next_backend_image" \
+    .
+  docker build \
+    --file apps/web/Dockerfile \
+    --target web-production \
+    --build-arg "INSIDE_RELEASE_VERSION=$release_version" \
+    --build-arg "INSIDE_SOURCE_SHA=$source_sha" \
+    --tag "$web_image" \
+    .
+fi
+if [[ "$cache_only" == 1 ]]; then
+  PRODUCTION_SMOKE_BACKEND_IMAGE="$backend_image"
+  PRODUCTION_SMOKE_WEB_IMAGE="$web_image"
+else
+  PRODUCTION_SMOKE_BACKEND_IMAGE="$(docker image inspect "$backend_image" --format '{{.Id}}')"
+  PRODUCTION_SMOKE_WEB_IMAGE="$(docker image inspect "$web_image" --format '{{.Id}}')"
+fi
 export PRODUCTION_SMOKE_BACKEND_IMAGE PRODUCTION_SMOKE_WEB_IMAGE
 write_broker_configuration
 
 "${foundation_compose[@]}" config --quiet
-"${foundation_compose[@]}" up --detach --build --wait postgres
+if [[ "$cache_only" == 1 ]]; then
+  "${foundation_compose[@]}" up --detach --no-build --pull never --wait postgres
+else
+  "${foundation_compose[@]}" up --detach --build --wait postgres
+fi
 wait_for_foundation_sql
 
 "${foundation_compose[@]}" exec -T postgres createdb \
   --username postgres \
   --owner platform \
   inside_fresh
-docker run --rm \
+"${docker_run[@]}" --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
   --env-file "$runtime_config_dir/migrations.env" \
@@ -531,7 +633,7 @@ docker run --rm \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   dist/migrations/migrate.js \
   --verify-schema-compatible >/dev/null
-docker run --rm \
+"${docker_run[@]}" --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
   --env-file "$runtime_config_dir/migrations.env" \
@@ -544,7 +646,7 @@ docker run --rm \
   --username postgres \
   inside_fresh
 
-docker run --rm \
+"${docker_run[@]}" --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
   --env-file "$runtime_config_dir/migrations.env" \
@@ -553,7 +655,7 @@ docker run --rm \
   "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
   --input-type=module \
   --eval "import { runMigrationsToLatest } from './dist/infrastructure/postgres/migrate-to-latest.js'; import { platformMigrations } from './dist/migrations/index.js'; await runMigrationsToLatest(process.env.DATABASE_URL, platformMigrations.slice(0, -1));"
-docker run --rm \
+"${docker_run[@]}" --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
   --env-file "$runtime_config_dir/migrations.env" \
@@ -571,12 +673,16 @@ fi
 # ordering from admitting both images together; wait a full interval after the first completes.
 # This controls our two pulls, not other clients sharing the provider quota. Do not retry failures.
 "${application_compose[@]}" config --images rabbitmq caddy-smoke
-"${application_compose[@]}" --parallel 1 pull rabbitmq
-sleep "$ecr_public_anonymous_pull_interval_seconds"
-"${application_compose[@]}" --parallel 1 pull caddy-smoke
-"${application_compose[@]}" up --detach --wait
+if [[ "$cache_only" == 1 ]]; then
+  "${application_compose[@]}" up --detach --no-build --pull never --wait
+else
+  "${application_compose[@]}" --parallel 1 pull rabbitmq
+  sleep "$ecr_public_anonymous_pull_interval_seconds"
+  "${application_compose[@]}" --parallel 1 pull caddy-smoke
+  "${application_compose[@]}" up --detach --wait
+fi
 
-docker run --rm \
+"${docker_run[@]}" --rm \
   --network "$foundation_network" \
   --env DATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside \
   --entrypoint node \
@@ -610,7 +716,7 @@ node --input-type=module --eval '
   }
   if (queues.length !== 8 || queues.some(queue => queue.type !== "quorum")) throw new Error("Broker queues differ from the topology");
 ' "$broker_users" "$broker_queues"
-docker run --rm --memory "$probe_container_memory" \
+"${docker_run[@]}" --rm --memory "$probe_container_memory" \
   --network "$PLATFORM_BROKER_NETWORK" \
   --volume "$runtime_config_dir/rabbitmq/tls/ca.pem:/tmp/broker-ca.pem:ro" \
   --entrypoint node \
@@ -866,7 +972,7 @@ expect_sale_configuration_refusal() {
   local env_file=$1
   local entrypoint=$2
   local expected=$3
-  docker create \
+  "${docker_create[@]}" \
     --name "$sale_configuration_container" \
     --memory "$probe_container_memory" \
     --network "$foundation_network" \
@@ -930,7 +1036,7 @@ if ! restored_schema_marker="$(read_schema_marker "$restored_readiness")" || [[ 
 fi
 wait_for_worker_health healthy
 
-docker create \
+"${docker_create[@]}" \
   --name "$wrong_release_container" \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/runtime.env" \
@@ -947,7 +1053,7 @@ if [[ "$(docker container inspect "$wrong_release_container" --format '{{.State.
   exit 1
 fi
 
-docker create \
+"${docker_create[@]}" \
   --name "$contender_container" \
   --network "$foundation_network" \
   --tmpfs /tmp \
@@ -968,7 +1074,7 @@ docker container rm "$contender_container" >/dev/null
 
 foundation_postgres_container="$("${foundation_compose[@]}" ps --quiet postgres)"
 foundation_postgres_image="$(docker container inspect "$foundation_postgres_container" --format '{{.Config.Image}}')"
-docker create \
+"${docker_create[@]}" \
   --name "$drain_lock_container" \
   --network "$foundation_network" \
   --env PGPASSWORD=platform-production-smoke-password \
@@ -982,7 +1088,7 @@ docker create \
 docker start "$drain_lock_container" >/dev/null
 wait_for_material_asset_table_lock
 
-probe_job_id="$(docker run \
+probe_job_id="$("${docker_run[@]}" \
   --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/material-assets-worker.env" \
@@ -1038,7 +1144,7 @@ if [[ "$old_worker_logs" != *'"status":"draining"'* || "$old_worker_logs" != *'"
   exit 1
 fi
 
-docker create \
+"${docker_create[@]}" \
   --name "$contender_container" \
   --network "$foundation_network" \
   --tmpfs /tmp \

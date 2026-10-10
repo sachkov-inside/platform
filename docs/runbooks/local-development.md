@@ -351,6 +351,72 @@ universal registry ban. Any required base acquisition is a separate, explicitly 
 using the same pinned Node digest, never a fixture fallback. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
 reuse. This isolates the environment/cache seam; it does not measure a whole application build.
 
+### Disposable production smoke from owned cache
+
+The optional `PRODUCTION_SMOKE_CACHE_ONLY=1` mode of
+`scripts/production-compose-smoke.sh` reuses supplied production images. The default CI mode
+still builds images and performs its existing pinned broker/edge acquisition. Cache-only mode
+does not build or pull, and it retains every migration, worker, TLS, negative and readiness
+assertion. It is a runtime proof of the supplied images, not a cold-acquisition fix or a full
+application-build/cache proof.
+
+Before using this mode, obtain the shared heavy slot and freeze a clean, reviewed Source.
+Build the real backend v1/v2 and Web v1 with that exact Source SHA in their release identities.
+Use `v1` and `v2`: the smoke verifies both releases. Build a separate foundation image from
+`infra/production/database/Dockerfile`. Record native platform, image IDs, build inputs, actual
+BuildKit completion and storage/cleanup receipts. A marker fixture or an old image tag is not
+that evidence. This mode grants no build, daemon startup, provider access or credential change.
+
+Choose a unique `PRODUCTION_SMOKE_CACHE_OWNER` beginning with
+`inside-platform-production-smoke-cache-`. The four existing owned tags must resolve to four
+distinct full `sha256:<64 lowercase hex digits>` image IDs:
+
+| Supplied environment variable | Required owned tag |
+| --- | --- |
+| `PRODUCTION_SMOKE_BACKEND_IMAGE` | `<owner>-backend:v1` |
+| `PRODUCTION_SMOKE_NEXT_BACKEND_IMAGE` | `<owner>-backend:v2` |
+| `PRODUCTION_SMOKE_WEB_IMAGE` | `<owner>-web:v1` |
+| `PRODUCTION_SMOKE_FOUNDATION_IMAGE` | `<owner>-foundation:local` |
+
+Set `PRODUCTION_SMOKE_SOURCE_SHA` to the exact 40-character lowercase Source SHA.
+Set `PRODUCTION_SMOKE_FOUNDATION_OVERRIDE` to a file containing exactly these entries, with
+each `<foundation-ID>` replaced by the supplied immutable foundation image ID:
+
+```yaml
+services:
+  postgres:
+    image: <foundation-ID>
+    pull_policy: never
+  pgbackrest:
+    image: <foundation-ID>
+    pull_policy: never
+  restore:
+    image: <foundation-ID>
+    pull_policy: never
+```
+
+The smoke copies and validates the override before using it. Extra volume, network,
+environment or build authority is rejected. It also checks that both pinned broker/edge
+references from the current Compose graph exist locally before any container starts.
+Missing or mismatched inputs fail without build, pull, startup or anonymous fallback.
+
+After admission, run the script under the checked-in shared heavy and owned-process wrappers,
+with an enclosing deadline and filesystem monitor. Supply free
+`PRODUCTION_SMOKE_API_PORT`, `PRODUCTION_SMOKE_MCP_PORT`, `PRODUCTION_SMOKE_WEB_PORT`,
+`PRODUCTION_SMOKE_HTTP_PORT` and `PRODUCTION_SMOKE_HTTPS_PORT`; defaults may already belong
+to another stand. `PRODUCTION_SMOKE_ARTIFACT_DIR` holds failure diagnostics.
+The script creates separate application/foundation projects and temporary synthetic configuration.
+It starts Compose with `--no-build --pull never` and direct image probes with `--pull=never`.
+It never writes or removes the shared `inside/postgres-pgbackrest:18.4-2.57.0` image tag in this mode.
+The singleton `local:stand`, owner pages, identities and volumes are not used.
+
+Shutdown removes only the smoke's containers, networks, volumes and temporary configuration.
+Supplied images remain owned by the caller, who checks consumers before removing its own tags.
+Record primary exit and cleanup exit separately, plus actual owned PID/kernel absence and Docker
+resource inventory. A successful CLI exit or an EXIT trap alone does not prove complete closure.
+If admission, deadline, storage or cleanup fails, retain the failure and request a new scope;
+do not retry, enlarge budgets or prune shared cache to obtain green.
+
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
 refuses to start while a stack is already running: stop the running one with
