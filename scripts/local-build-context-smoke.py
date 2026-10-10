@@ -49,8 +49,8 @@ def run_owned(command, budget, *, stdout=None, stderr=None, label="Context build
         expired = True
         stop()
 
-    for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-        signal.signal(signum, interrupt)
+    previous_handlers = {signum: signal.signal(signum, interrupt)
+                         for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)}
     timer = threading.Timer(budget, deadline)
     try:
         timer.start()
@@ -65,6 +65,8 @@ def run_owned(command, budget, *, stdout=None, stderr=None, label="Context build
     finally:
         timer.cancel()
         timer.join()
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
         os.close(write_fd)
         try:
             os.waitpid(supervisor, 0)
