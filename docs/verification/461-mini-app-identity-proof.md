@@ -124,8 +124,21 @@ Check the Telegram database marker first. Set `DATABASE_URL` to context `telegra
 pnpm --filter @inside/telegram exec vitest run --config vitest.integration.config.ts test/integration/bot-sign-in.integration.test.ts
 ```
 
-Both commands require the granted PG/runtime slot. Telegram setup migrates031 and truncates only
-its corpus database. Existing cases cover context/private-secret transfer, independent-connection
+The [#1320](https://github.com/sachkov-inside/platform/issues/1320) migration-history corpus also
+requires that own PG slot and marker check:
+
+```text
+pnpm --filter @inside/telegram exec vitest run --config vitest.integration.config.ts test/integration/migration-history.integration.test.ts
+```
+
+Its communications-first/sign-in-first cases assert the exact retained31 names/receipts before031,
+the exact current32 names, removal/reapplication of031 columns, preservation of legacy journal data,
+and an unchanged ledger on repeat latest. Light source replay evaluates the actual final count/set
+assertions with supplied SQL-result payloads; it does not execute these PostgreSQL histories.
+
+These commands require the granted PG/runtime slot. Telegram bot-sign-in cases truncate their
+own corpus database; migration-history cases roll back and reconstruct that separate database.
+Existing bot-sign-in cases cover context/private-secret transfer, independent-connection
 bind/replay arbitration, ordinary bot compatibility, stable subject, consumed receipt and competing
 ownership. Backend uses real Accounts PG with a supplied Telegram provider for convergent
 establishment, foreign subject, lost result repair and transaction rollback; this is not live Logto.
