@@ -31,6 +31,7 @@ container_exit_poll_attempts=20
 container_log_poll_attempts=30
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
+ecr_public_anonymous_pull_interval_seconds=1
 # pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
 # locally and in CI (#728).
 pgboss_job_poll_attempts=20
@@ -370,31 +371,46 @@ wait_for_worker_health() {
   local worker
   local attempt
   local worker_health_poll_attempts=0
-  local interval_nanoseconds timeout_nanoseconds retries
+  local worker_container_id health_configuration worker_state worker_index
+  local worker_container_ids=()
   local transition_attempts
   # Observe the production policy: two failed probes at 30 s cannot fit in the old 20 s window.
   # Read the effective container config so this observation bound follows its owning contract.
   for worker in "${application_workers[@]}"; do
-    read -r interval_nanoseconds timeout_nanoseconds retries <<<"$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.Config.Healthcheck.Interval}} {{.Config.Healthcheck.Timeout}} {{.Config.Healthcheck.Retries}}')"
-    transition_attempts=$(( ((interval_nanoseconds + timeout_nanoseconds) * retries + 999999999) / 1000000000 / production_smoke_poll_interval_seconds + 2 ))
+    worker_container_id="$("${application_compose[@]}" ps --quiet "$worker")" || exit "$?"
+    if [[ -z "$worker_container_id" ]]; then
+      echo "Missing production worker container: $worker" >&2
+      exit 1
+    fi
+    health_configuration="$(docker container inspect "$worker_container_id" --format '{{json .Config.Healthcheck}}')" || exit "$?"
+    transition_attempts="$(node scripts/production-worker-health-budget.mjs "$worker" "$health_configuration" "$production_smoke_poll_interval_seconds")" || exit "$?"
+    worker_container_ids+=("$worker_container_id")
     if ((transition_attempts > worker_health_poll_attempts)); then
       worker_health_poll_attempts=$transition_attempts
     fi
   done
   for ((attempt = 1; attempt <= worker_health_poll_attempts; attempt += 1)); do
     local all_match=true
-    for worker in "${application_workers[@]}"; do
-      if [[ "$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.State.Health.Status}}')" != "$expected" ]]; then
+    for ((worker_index = 0; worker_index < ${#application_workers[@]}; worker_index += 1)); do
+      worker="${application_workers[$worker_index]}"
+      worker_container_id="${worker_container_ids[$worker_index]}"
+      worker_state="$(docker container inspect "$worker_container_id" --format '{{.State.Health.Status}}')" || exit "$?"
+      case "$worker_state" in
+        starting|healthy|unhealthy) ;;
+        *) echo "Invalid health state for production worker $worker: $worker_state" >&2; exit 1 ;;
+      esac
+      if [[ "$worker_state" != "$expected" ]]; then
         all_match=false
       fi
     done
     if [[ "$all_match" == true ]]; then
+      printf 'Production workers reached health state %s: %s\n' "$expected" "${application_workers[*]}"
       return
     fi
     sleep "$production_smoke_poll_interval_seconds"
   done
   echo "Workers did not reach health state $expected" >&2
-  "${application_compose[@]}" ps >&2
+  "${application_compose[@]}" ps >&2 || true
   exit 1
 }
 
@@ -551,10 +567,13 @@ if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; 
   echo "Production runtime resolved a moving image tag" >&2
   exit 1
 fi
-# ECR Public permits one anonymous pull per second. Acquire external runtime dependencies
-# sequentially before starting the already-built application images, and retain resolved sources.
+# ECR Public permits one anonymous pull per second. Separate commands keep Compose graph
+# ordering from admitting both images together; wait a full interval after the first completes.
+# This controls our two pulls, not other clients sharing the provider quota. Do not retry failures.
 "${application_compose[@]}" config --images rabbitmq caddy-smoke
-"${application_compose[@]}" --parallel 1 pull rabbitmq caddy-smoke
+"${application_compose[@]}" --parallel 1 pull rabbitmq
+sleep "$ecr_public_anonymous_pull_interval_seconds"
+"${application_compose[@]}" --parallel 1 pull caddy-smoke
 "${application_compose[@]}" up --detach --wait
 
 docker run --rm \

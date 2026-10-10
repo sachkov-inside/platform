@@ -10,6 +10,8 @@ import type { PassCell, PassIdentity, PassOutcome } from "./pass-cells";
 export const productionTarget = {
   web: "https://sachkov.dev",
   logto: "https://auth.sachkov.dev",
+  protectedStorage:
+    "https://inside-production-protected.storage.yandexcloud.net",
   learnerMcp: "https://inside.sachkov.dev/mcp/learning",
   ownerMcp: "https://inside.sachkov.dev/mcp",
   apiResource: "https://api.inside.sachkov.dev",
