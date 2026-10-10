@@ -7,7 +7,6 @@ RUN mkdir /corepack \
     && corepack install --global pnpm@11.27.1 \
     && chown -R node:node /corepack
 
-ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
@@ -34,7 +33,12 @@ RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1
 
 FROM dependencies AS development
 
+# Keep dependency cache inputs shared; only Web stages disable Next telemetry.
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Restore installed patch metadata after source COPY: pnpm checks its timestamps.
 COPY --chown=node:node . .
+COPY --from=dependencies --chown=node:node /workspace/patches ./patches
 
 FROM dependencies AS release-identity
 
@@ -54,6 +58,7 @@ CMD ["pnpm", "--filter", "@inside/web", "storybook", "--host", "0.0.0.0"]
 
 FROM development AS production-build
 
+ARG CSP_LOCAL_OBJECT_STORAGE_ORIGIN=""
 RUN pnpm --filter @inside/web build
 
 FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production
