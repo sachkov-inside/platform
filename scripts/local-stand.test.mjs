@@ -25,11 +25,12 @@ const callsSchema = z.array(
   }),
 );
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
 function launch({
   freeGiB = 50,
   productionWeb = false,
   failedBuild = "",
+  failedStartup = false,
   exhaustDisk = false,
   dirtySource = false,
   runningStand = false,
@@ -62,6 +63,8 @@ import { appendFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA}) + "\\n");
 if(args.includes("build") && args.includes(process.env.FAILED_BUILD)) process.exit(9);
+if(args.includes("up") && !args.includes("logto-postgres") && process.env.FAILED_STARTUP === "true") process.exit(1);
+if(args.includes("logs")) process.stdout.write("migrations: primary dependency error\\n");
 if(process.argv[1].endsWith("lsof")) process.stdout.write("n" + process.env.DOCKER_STORAGE + "/Docker.raw\\n");
 if(args.includes("info")) process.stdout.write(process.env.DOCKER_STORAGE + "\\n");
 if(args.includes("ps") && process.env.RUNNING_STAND === "true") process.stdout.write("api\\n");
@@ -125,6 +128,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
           npm_execpath: join(root, "bin/pnpm.mjs"),
           CALL_LOG: log,
           FAILED_BUILD: failedBuild,
+          FAILED_STARTUP: String(failedStartup),
           CAPACITY_FILE: capacityFile,
           DOCKER_STORAGE: dockerStorage,
           EXHAUST_DISK: String(exhaustDisk),
@@ -195,6 +199,17 @@ test("a failed build cannot start or shut down a stand it never started", () => 
       (call) => call.args.includes("up") || call.args.includes("down"),
     ),
   );
+});
+
+test("failed startup prints primary job diagnostics before shutting down without volumes", () => {
+  const { result, calls } = launch({ failedStartup: true });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /migrations: primary dependency error/u);
+  const logs = calls.findIndex((call) => call.args.includes("logs"));
+  const down = calls.findIndex((call) => call.args.includes("down"));
+  assert.ok(logs >= 0 && down > logs);
+  assert.ok(calls[logs]?.args.includes("migrations"));
+  assert.ok(!calls[down]?.args.includes("--volumes"));
 });
 
 test("disk exhaustion interrupts an active build before startup", () => {

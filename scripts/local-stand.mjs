@@ -165,6 +165,20 @@ try {
     ].join("\n"),
   );
 } catch (error) {
+  if (shouldCleanupCompose && interruptedSignal === undefined) {
+    // Compose's wait error omits failed job output; read it before shutdown removes containers.
+    try {
+      const diagnostics = await compose(
+        ["logs", "--no-color", "--tail", "80", "migrations", "seed"],
+        { capture: true, cleanup: true },
+      );
+      process.stderr.write(diagnostics.output);
+    } catch {
+      process.stderr.write(
+        "Startup job diagnostics unavailable; keeping the original failure.\n",
+      );
+    }
+  }
   await shutdown();
   if (interruptedSignal === undefined) {
     throw error;

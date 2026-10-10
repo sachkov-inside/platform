@@ -33,7 +33,8 @@ RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1
 
 FROM dependencies AS development
 
-COPY --chown=node:node . .
+# Keep the installed patches' timestamps: pnpm treats recopied patches as a stale install.
+COPY --exclude=patches --chown=node:node . .
 
 ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
 

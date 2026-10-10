@@ -262,6 +262,10 @@ The loopback validation and script policy remain in `next.config.ts` / [ADR 0028
 starting containers with `--no-build`. Each invocation asks BuildKit to verify the current source
 inputs, so cached images never bypass source validation. Production web requires a clean Git
 working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
+Backend and web preserve the patches already copied before the frozen dependency install. Recopying
+them after a cached install changes their timestamps and makes pnpm attempt an unnecessary install.
+If startup fails, the launcher prints up to 80 lines from each migration/seed job before shutdown
+removes its containers; reading these diagnostics has a 20-second deadline.
 
 Before building, the command measures available space on Docker's host storage filesystem. On macOS,
 it locates the open Docker Desktop `Docker.raw` through `lsof` file metadata; on Linux Engine it uses
@@ -285,6 +289,8 @@ For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/
 It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary
 files. Its execution budget is 60 seconds; the repository Python supervisor force-stops the command
 tree on deadline and returns124. Ordinary Docker failures retain their original status. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
+It also exercises both development Dockerfiles' real `COPY` instructions and verifies that they
+preserve patch files from the dependency stage.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it

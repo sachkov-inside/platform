@@ -26,8 +26,14 @@ test("context smoke removes its temporary context after a successful adapter com
     writeFileSync(
       join(root, "bin/docker"),
       `#!/usr/bin/env node
-import {mkdirSync,writeFileSync} from "node:fs";
+import {copyFileSync,mkdirSync,writeFileSync} from "node:fs";
 const output=process.argv.at(-2).split("dest=")[1];
+if(output.endsWith("/backend") || output.endsWith("/web")) {
+  mkdirSync(output+"/workspace/patches",{recursive:true});
+  copyFileSync(process.argv.at(-1)+"/installed.patch",output+"/workspace/patches/proof.patch");
+  writeFileSync(output+"/workspace/package.json","fixture source");
+  process.exit(0);
+}
 mkdirSync(output+"/docs/evidence",{recursive:true});
 writeFileSync(output+"/package.json","fixture source");writeFileSync(output+"/docs/evidence/proof.txt","fixture evidence");
 `,
