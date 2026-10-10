@@ -582,26 +582,43 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   });
   await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
   await onboardingDismiss.click();
-  const markWatched = page.getByRole("button", {
-    name: "Просмотрено",
-    exact: true,
-  });
+  const markWatched = page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("button", { name: "Просмотрено", exact: true });
+  const watchedAtBottom = page
+    .getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    })
+    .getByRole("button", { name: "Просмотрено", exact: true });
+  await expect(markWatched).toBeVisible();
+  await expect(watchedAtBottom).toBeVisible();
   await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   if ((await markWatched.getAttribute("aria-pressed")) === "true") {
     await markWatched.click();
   }
   await expect(markWatched).toHaveAttribute("aria-pressed", "false");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   await markWatched.click();
-  await expect(
-    page.getByRole("button", { name: "Просмотрено" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(markWatched).toHaveAttribute("aria-pressed", "true");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "true");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   await page.reload();
-  const watched = page.getByRole("button", { name: "Просмотрено" });
-  await expect(watched).toBeEnabled();
-  await watched.click();
-  await expect(
-    page.getByRole("button", { name: "Просмотрено", exact: true }),
-  ).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeVisible();
+  await expect(watchedAtBottom).toBeVisible();
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
+  await expect(markWatched).toHaveAttribute("aria-pressed", "true");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "true");
+  await watchedAtBottom.click();
+  await expect(markWatched).toHaveAttribute("aria-pressed", "false");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
 
   const reader = await page.goto(
     "/materials/developer-pipeline-bez-poteri-konteksta",
