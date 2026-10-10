@@ -92,3 +92,4 @@ export {
   termDefinitionSchema,
   type TermDefinition,
 } from "./term-definition.js";
+export { referencedTermIds } from "./term-references.js";

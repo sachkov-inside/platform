@@ -6,6 +6,34 @@ generator client {
   importFileExtension    = "js"
 }
 
+model TermDefinition {
+  termId             String   @id @map("term_id") @db.Uuid
+  definition         Json
+  definitionDigest   String   @map("definition_digest") @db.Char(64)
+  termVersion        BigInt   @map("term_version")
+  publicationState   String   @map("publication_state")
+  detailedMaterialId String?  @map("detailed_material_id") @db.Uuid
+  sourceId           String?  @unique @map("source_id")
+  sourcePath         String?  @map("source_path")
+  sourceRevision     String?  @map("source_revision") @db.Char(64)
+  updatedAt          DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("term_definitions")
+  @@schema("materials")
+}
+
+model TermImportReceipt {
+  actorId            String @map("actor_id") @db.Uuid
+  operation          String
+  idempotencyKey     String @map("idempotency_key")
+  requestFingerprint String @map("request_fingerprint") @db.Char(64)
+  receipt            Json?
+
+  @@id([actorId, operation, idempotencyKey])
+  @@map("term_import_receipts")
+  @@schema("materials")
+}
+
 datasource db {
   provider = "postgresql"
   schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]

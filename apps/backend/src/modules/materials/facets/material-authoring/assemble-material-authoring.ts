@@ -39,6 +39,11 @@ export function assembleMaterialAuthoring(
   const loadMaterial = assembleLoadMaterial(dependencies);
   const saveMaterial = assembleSaveMaterial(dependencies);
   return {
+    applySourceTerm: assembleApplySourceTerm(dependencies),
+    validateSourceTerm: assembleValidateSourceTerm(dependencies),
+    saveTerm: assembleSaveTerm(dependencies),
+    listTerms: assembleListAuthoringTerms(dependencies),
+    loadTerm: assembleLoadAuthoringTerm(dependencies),
     applySourcePractice: assembleApplySourcePractice(dependencies),
     validateSourcePractice: assembleValidateSourcePractice(dependencies),
     reserveSourceProduct: assembleReserveSourceProduct(dependencies),
@@ -71,3 +76,12 @@ export function assembleMaterialAuthoring(
     updateContentCollection: assembleUpdateContentCollection(dependencies),
   };
 }
+import {
+  assembleApplySourceTerm,
+  assembleSaveTerm,
+  assembleValidateSourceTerm,
+} from "../../features/import-source-term/import-source-term.js";
+import {
+  assembleListAuthoringTerms,
+  assembleLoadAuthoringTerm,
+} from "../../features/read-authoring-terms/read-authoring-terms.js";

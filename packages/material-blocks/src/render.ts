@@ -1,4 +1,5 @@
 import type { MaterialBlockRenderTools } from "./block-definition.js";
+import { z } from "zod";
 import {
   expectArray,
   expectObject,
@@ -26,6 +27,11 @@ function renderMark(value: JsonValue): RenderedMark {
       return {
         href: expectString(nodeAttributes(mark)["href"], "link href"),
         kind: "link",
+      };
+    case "term":
+      return {
+        kind: "term",
+        termId: z.uuid().parse(nodeAttributes(mark)["termId"]),
       };
     default:
       throw new TypeError(`Unsupported mark: ${type}`);

@@ -4,7 +4,8 @@ import type { ProductMode } from "./product-mode.js";
 
 export type RenderedMark =
   | { readonly kind: "bold" | "code" | "italic" | "strike" }
-  | { readonly href: string; readonly kind: "link" };
+  | { readonly href: string; readonly kind: "link" }
+  | { readonly kind: "term"; readonly termId: string };
 
 export interface RenderedText {
   readonly kind: "text";
@@ -178,6 +179,7 @@ export type MaterialBodyResourceSummary =
 export const renderedMarkSchema: z.ZodType<RenderedMark> = z.union([
   z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }).strict(),
   z.object({ href: z.string(), kind: z.literal("link") }).strict(),
+  z.object({ termId: z.uuid(), kind: z.literal("term") }).strict(),
 ]);
 
 export const renderedTextSchema: z.ZodType<RenderedText> = z
@@ -186,7 +188,19 @@ export const renderedTextSchema: z.ZodType<RenderedText> = z
     marks: z.array(renderedMarkSchema),
     text: z.string(),
   })
-  .strict();
+  .strict()
+  .superRefine((text, context) => {
+    const terms = text.marks.filter((mark) => mark.kind === "term");
+    if (
+      terms.length > 1 ||
+      (terms.length === 1 && text.marks.some((mark) => mark.kind === "link"))
+    )
+      context.addIssue({
+        code: "custom",
+        message: "A phrase carries one term reference and no overlapping link",
+        path: ["marks"],
+      });
+  });
 
 const headingLevelSchemas: readonly [
   z.ZodLiteral<2>,

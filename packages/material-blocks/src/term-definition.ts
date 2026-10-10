@@ -10,12 +10,12 @@ export const termDefinitionSchema: z.ZodObject<{
   materialId: z.ZodOptional<z.ZodUUID>;
 }> = z
   .object({
-    id: z.uuid(),
+    id: z.uuid().toLowerCase(),
     title: z.string().trim().min(1).max(200),
     aliases: z.array(z.string().trim().min(1).max(200)).max(50),
     definition: z.string().trim().min(1).max(2000),
     example: z.string().trim().min(1).max(1000).optional(),
-    materialId: z.uuid().optional(),
+    materialId: z.uuid().toLowerCase().optional(),
   })
   .strict();
 

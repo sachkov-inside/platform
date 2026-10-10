@@ -92,6 +92,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} [homePinned]
  * @property {"product-shell"} [scope]
  * @property {import("./task-import.mjs").TaskChange[]} [tasks]
+ * @property {import("./term-import.mjs").TermChange[]} [terms]
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -653,10 +654,14 @@ export async function syncLocal(
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
   const publicationOf = (row) =>
     publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
-  const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
+  const manifest = termsForTransfer(
+    practicesFollowLessons(pkg.manifest, publicationOfKey),
+    publicationOfKey,
+  );
   if (!reconcileOnly) {
     await validateProductPages(pkg.manifest, send);
     await validateSourcePractices(manifest, request);
+    await validateSourceTerms(manifest, request);
   }
   if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
     await validateSourceTasks(pkg.manifest, request);
@@ -715,6 +720,17 @@ export async function syncLocal(
       notices: [...pkg.manifest.diagnostics],
       ...(shell ? { scope: productShellScope.value } : {}),
     };
+    await replayTermImports(manifest, context, request);
+    if (!reconcileOnly && manifest.terms !== undefined)
+      report.terms = await syncSourceTerms(manifest, context, request);
+    const resolveTerm = prepareTermReferences(
+      (manifest.terms ?? []).map((row) => ({
+        definition: row.definition,
+        publicationState: row.publicationState,
+        available: true,
+      })),
+      { allowUnpublished: true },
+    );
     const rows = new Map(
       pkg.manifest.materials.map((row) => [row.sourceId, row]),
     );
@@ -947,6 +963,9 @@ export async function syncLocal(
     const convert = (row, links, images) =>
       convertMarkdown(row.markdown, {
         readerBlocks: row.readerBlocks,
+        term: manifest.requiredFeatures?.includes("terms-v1")
+          ? resolveTerm
+          : undefined,
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
         link: (href) => {
@@ -1755,6 +1774,13 @@ if (
     publish: publishOption(values),
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, products: report.products, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, products: report.products, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], terms: report.terms ?? [], notices: report.notices }, null, 2)}\n`,
   );
 }
+import {
+  termsForTransfer,
+  validateSourceTerms,
+  replayTermImports,
+  syncSourceTerms,
+} from "./term-import.mjs";
+import { prepareTermReferences } from "./term-references.mjs";

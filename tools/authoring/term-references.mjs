@@ -82,6 +82,6 @@ export function prepareTermReferences(terms, options = {}) {
       options.allowUnpublished !== true
     )
       throw new Error(`Unpublished term: ${target}`);
-    return { kind: "term", termId: term.definition.id };
+    return { kind: "term", termId: term.definition.id.toLowerCase() };
   };
 }

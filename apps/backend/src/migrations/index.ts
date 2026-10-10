@@ -1,4 +1,8 @@
 import {
+  name as materialTermsName,
+  statement as materialTermsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0089-material-term-definitions.js";
+import {
   name as productCohortPriceAfterStartName,
   statement as productCohortPriceAfterStartStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
@@ -569,6 +573,7 @@ export const platformMigrations = [
     name: productCohortPriceAfterStartName,
     statement: productCohortPriceAfterStartStatement,
   },
+  { name: materialTermsName, statement: materialTermsStatement },
 ] as const;
 
 export function migrateToLatest(

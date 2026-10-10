@@ -180,7 +180,33 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
 
     const marks = value["marks"];
     if (marks !== undefined && isJsonArray(marks)) {
+      const terms = marks.filter(
+        (mark) => isJsonObject(mark) && mark["type"] === "term",
+      );
+      if (
+        terms.length > 1 ||
+        (terms.length === 1 &&
+          marks.some((mark) => isJsonObject(mark) && mark["type"] === "link"))
+      )
+        issues.push({
+          code: "overlapping_term_reference",
+          path: validationIssuePath([...path, "marks"]),
+        });
       marks.forEach((mark, index) => {
+        if (isJsonObject(mark) && mark["type"] === "term") {
+          const termId = stringAttribute(mark, "termId");
+          if (termId === undefined || !isUuid(termId))
+            issues.push({
+              code: "invalid_term_reference",
+              path: validationIssuePath([
+                ...path,
+                "marks",
+                index,
+                "attrs",
+                "termId",
+              ]),
+            });
+        }
         if (isJsonObject(mark) && mark["type"] === "link") {
           const href = stringAttribute(mark, "href");
           if (href === undefined || !validateUrl(href)) {
@@ -232,7 +258,7 @@ function canonicalize(value: JsonValue): JsonValue {
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([name, attribute]) => [
           name,
-          (name === "nodeId" || name === "assetId") &&
+          (name === "nodeId" || name === "assetId" || name === "termId") &&
           typeof attribute === "string" &&
           isUuid(attribute)
             ? attribute.toLowerCase()

@@ -8,6 +8,8 @@ export type MaterialsPrisma = Pick<
   | "authoringIdempotency"
   | "practiceDefinition"
   | "practiceImportReceipt"
+  | "termDefinition"
+  | "termImportReceipt"
   | "contentCover"
   | "contentCoverRendition"
   | "materialAnnouncement"
