@@ -86,18 +86,24 @@ Access is checked at every read and every submission; submissions stay when acce
 return with it. The database refuses any change to a written version or submission; deleting one
 is left to an explicit data-policy procedure.
 
-**Deleting submissions on a data request.** Data policy v4 (§5–6) lets a learner ask the operator
+### Deleting submissions on a data request
+
+Data policy v4 (§5–6) lets a learner ask the operator
 to delete one submission or all of them; the Author Feedback goes with it. The operator checks the
-requester as the policy says and finds the Account id. Then, in `psql` on the Platform database,
-delete the feedback first, because its foreign key has no cascade:
+requester as the policy says and finds the Account id. This production procedure requires migration
+`0082` from [#1065](https://github.com/sachkov-inside/platform/issues/1065), which renames `guide_tasks`
+to `product_tasks`. Root verifies that the migration has run before this procedure is used. The v4
+source branch predates that migration; its historical schema name is not the production target.
+Then, in `psql` on the Platform database after the migration, delete the feedback first, because its
+foreign key has no cascade:
 
 ```sql
 \set ON_ERROR_STOP on
 \set account '<account uuid>'
 BEGIN;
-DELETE FROM guide_tasks.author_feedback
-  WHERE submission_id IN (SELECT id FROM guide_tasks.submissions WHERE account_id = :'account');
-DELETE FROM guide_tasks.submissions WHERE account_id = :'account';
+DELETE FROM product_tasks.author_feedback
+  WHERE submission_id IN (SELECT id FROM product_tasks.submissions WHERE account_id = :'account');
+DELETE FROM product_tasks.submissions WHERE account_id = :'account';
 COMMIT;
 ```
 
@@ -110,13 +116,18 @@ The task page (#947) offers the same submission without an agent: a form with th
 an optional repository and an optional report as plain text. It creates a `form` submission through
 the API, which obeys the same setting and the same hourly bound.
 
-**Enabling submissions in production.** `GUIDE_TASK_SUBMISSIONS_ENABLED` turns submission on; it
-defaults to `true` locally and to `false` in production, where `learning_task_submit` and the page
-form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
-publishes data policy v4, which covers submissions, review reports, notes and repository links:
+### Enabling submissions in production
 
-1. Set `GUIDE_TASK_SUBMISSIONS_ENABLED=true` in the production MCP and API environments
-   (`config/compose/production/mcp.env.example` and `api.env.example` name it).
+After #1065, `PRODUCT_TASK_SUBMISSIONS_ENABLED` turns submission on. In the historical source
+before #1065 this setting was named `GUIDE_TASK_SUBMISSIONS_ENABLED`. The production procedure below
+uses the name after #1065; Root verifies the runtime version first. It defaults to `true` locally
+and to `false` in production, where `learning_task_submit` and the page
+form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
+publishes data policy v4 and Root verifies that release. Enabling submissions is a separate later
+Root step. The policy covers submissions, review reports, notes and repository links:
+
+1. Set `PRODUCT_TASK_SUBMISSIONS_ENABLED=true` in the production MCP and API environments
+   (`config/compose/production/mcp.env.example` and `api.env.example` name it after #1065).
 2. Release the MCP and API processes by the [release runbook](production-release.md).
 3. Check that a test learner submits a free task once through MCP and once through the page form
    and sees both in «Мои сдачи»; record no token or learner data.
