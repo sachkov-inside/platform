@@ -10,6 +10,7 @@ const projectSchema = z.object({
   test: z.object({ name: z.string(), maxWorkers: z.number() }),
 });
 const configurationsSchema = z.object({
+  unit: z.object({ backend: z.number(), telegram: z.number() }),
   web: z.array(projectSchema),
   integration: z.object({
     maxWorkers: z.number(),
@@ -17,7 +18,7 @@ const configurationsSchema = z.object({
   }),
 });
 
-test("browser projects and local integration explicitly bound file workers", () => {
+test("unit, browser and local integration runners explicitly bound file workers", () => {
   const environment = { ...process.env };
   delete environment["CI"];
   const result = spawnSync(
@@ -30,6 +31,7 @@ test("browser projects and local integration explicitly bound file workers", () 
   );
   assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
   const config = configurationsSchema.parse(JSON.parse(result.stdout));
+  assert.deepEqual(config.unit, { backend: 1, telegram: 1 });
   assert.deepEqual(
     config.web.map(({ test: project }) => [project.name, project.maxWorkers]),
     [
