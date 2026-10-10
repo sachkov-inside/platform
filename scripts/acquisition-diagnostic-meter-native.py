@@ -18,6 +18,56 @@ CLIENT_SECONDS_MAXIMUM = 3
 CLIENT_REAP_SECONDS_MAXIMUM = 1
 NATIVE_PROOF_SECONDS_MAXIMUM = 55
 NATIVE_POLL_SECONDS = 0.02
+NATIVE_READY_SECONDS_MAXIMUM = 1
+ROOT_IDENTITY_FIELDS = ('pid', 'ppid', 'pgid', 'sid', 'birth', 'uids')
+
+
+def validate_root_ready(saved, kernel_ready):
+    assert set(saved) == {'client', 'child', 'monitor'}, 'root identities missing'
+    assert set(kernel_ready) == set(saved), 'kernel READY identities missing'
+    assert len({row['pid'] for row in saved.values()}) == 3, 'root identities overlap'
+    for name, row in saved.items():
+        assert all(type(row[key]) is int and row[key] > 1 for key in ('pid', 'pgid', 'sid'))
+        assert type(row['birth']) is int and row['birth'] > 0 and len(row['uids']) == 4 and all(type(uid) is int and uid == 0 for uid in row['uids']), 'root identity invalid'
+        assert all(row[key] == kernel_ready[name][key] for key in ROOT_IDENTITY_FIELDS), 'kernel READY identity differs'
+        assert row['pgid'] == saved['monitor']['pid'], 'foreign root group'
+        assert row['sid'] == saved['monitor']['sid'], 'foreign root session'
+    assert saved['client']['ppid'] == saved['monitor']['pid'] and saved['child']['ppid'] == saved['client']['pid']
+
+
+def qualify_client_case(record, client_name, action, identity=meter.fingerprint):
+    """A signal exit is qualified only with the right timer and native identities."""
+    assert client_name in ('systemd-run', 'systemctl') and record.get('client') == client_name, 'foreign client'
+    assert action in ('command-timeout', 'caller-sigkill', 'sudo-sigkill', 'ordinary-exit')
+    assert record.get('case') == action and type(record.get('pending')) is int and record['pending'] == 0, 'case closure unproven'
+    saved = record['fingerprints']
+    validate_root_ready(saved, record['kernelReady'])
+    closure = {name: identity(row['pid']) for name, row in saved.items()}
+    assert all(row is None for row in closure.values()), 'root client/child/monitor kernel absence unproven'
+    record['kernelAbsence'] = closure
+    if action == 'caller-sigkill':
+        assert record['callerExit'] == -signal.SIGKILL
+        return
+    exit_record = record['transportExit']
+    native_exit = exit_record['nativeExit']
+    assert type(native_exit) is int and record['callerExit'] == (128 - native_exit if native_exit < 0 else native_exit), 'native/caller exit differs'
+    assert exit_record.get('failureType') != 'TimeoutExpired', 'outer transport deadline expired'
+    if action == 'ordinary-exit':
+        assert native_exit == 29
+    elif action == 'sudo-sigkill':
+        assert native_exit == -signal.SIGKILL
+    else:
+        transport = record['transport']
+        command = transport['productionCommand']
+        assert command[:4] == ['sudo', '-n', 'timeout', '--signal=TERM'] and command[6] == client_name
+        assert '--foreground' not in command and command[4].startswith('--kill-after=')
+        term, kill = float(command[5]), float(command[4].split('=', 1)[1])
+        budget = transport['timeoutSeconds']
+        assert type(budget) in (int, float) and type(exit_record['transportElapsedSeconds']) in (int, float)
+        assert term > 0 and kill > 0 and term + kill < budget <= CLIENT_SECONDS_MAXIMUM
+        assert term + kill <= exit_record['transportElapsedSeconds'] < budget, 'root timer expiry unproven'
+        # The fixture ignores TERM; Python exposes SIGKILL as -9, a shell as 137.
+        assert native_exit in (-signal.SIGKILL, 128 + signal.SIGKILL), 'TERM-resistant fixture did not reach KILL'
 
 
 def wait_fact(read, deadline):
@@ -60,11 +110,14 @@ def root_fixture(directory, child_only=False, normal_exit=None):
     child = None
     try:
         child = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--fixture-child', '--output', str(directory)])
-        child_identity = wait_fact(lambda: meter.ready_json(directory / 'child-ready.json'), time.monotonic() + 1)
+        child_identity = wait_fact(lambda: meter.ready_json(directory / 'child-ready.json'), time.monotonic() + NATIVE_READY_SECONDS_MAXIMUM)
         client = meter.fingerprint(os.getpid())
         monitor = meter.fingerprint(os.getppid())
         assert all(row['uids'][0] == 0 and row['pgid'] == monitor['pid'] for row in (client, child_identity, monitor))
         meter.save(directory, 'client-ready.json', {'client': client, 'child': child_identity, 'monitor': monitor}, owner_uid)
+        # Even ordinary exit waits until the parent has validated all live identities.
+        ack = wait_fact(lambda: meter.ready_json(directory / 'kernel-ready-ack.json'), time.monotonic() + NATIVE_READY_SECONDS_MAXIMUM)
+        assert ack == {'pid': client['pid'], 'birth': client['birth']}, 'kernel READY acknowledgement differs'
         if normal_exit is not None:
             return normal_exit
         while True:
@@ -126,6 +179,7 @@ def client_caller(client_name, directory, normal_exit=None):
         if normal_exit is not None:
             fixture.extend(['--normal-exit', str(normal_exit)])
         meter.save(directory, 'transport.json', {'productionCommand': command, 'timeoutSeconds': kwargs['timeout']}, os.getuid())
+        started_at = time.monotonic()
         try:
             with patch.object(subprocess, 'Popen', side_effect=launch):
                 result = actual_run([*command[:6], *fixture], **kwargs)
@@ -135,9 +189,10 @@ def client_caller(client_name, directory, normal_exit=None):
             outcome.update(nativeExit=error.returncode, failureType=type(error).__name__)
             raise
         except subprocess.TimeoutExpired as error:
-            outcome.update(nativeExit=124, failureType=type(error).__name__)
+            outcome.update(nativeExit=None, failureType=type(error).__name__)
             raise
         finally:
+            outcome['transportElapsedSeconds'] = time.monotonic() - started_at
             meter.save(directory, 'transport-exit.json', outcome, os.getuid())
 
     try:
@@ -149,7 +204,8 @@ def client_caller(client_name, directory, normal_exit=None):
                 meter.shutdown_daemon(CLIENT_SECONDS_MAXIMUM)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         pass
-    return outcome['nativeExit']
+    code = outcome['nativeExit']
+    return 1 if code is None else 128 - code if code < 0 else code
 
 
 def client_case(output, client_name, action, evidence, whole_deadline):
@@ -169,7 +225,10 @@ def client_case(output, client_name, action, evidence, whole_deadline):
     try:
         launched = wait_fact(lambda: meter.ready_json(directory / 'launched.json'), deadline)
         ready = wait_fact(lambda: meter.ready_json(directory / 'client-ready.json'), deadline)
-        record.update(launched=launched, fingerprints=ready, transport=meter.ready_json(directory / 'transport.json'))
+        record.update(launched=launched, fingerprints=ready, transport=meter.ready_json(directory / 'transport.json'),
+                      kernelReady={name: meter.fingerprint(row['pid']) for name, row in ready.items()})
+        validate_root_ready(ready, record['kernelReady'])
+        meter.save(directory, 'kernel-ready-ack.json', {'pid': ready['client']['pid'], 'birth': ready['client']['birth']}, os.getuid())
         if action == 'caller-sigkill':
             assert live(launched['caller'])
             caller.kill()
@@ -182,14 +241,6 @@ def client_case(output, client_name, action, evidence, whole_deadline):
             record['sudoSigkillTarget'] = target
         record['callerExit'] = caller.wait(timeout=max(0.01, deadline - time.monotonic()))
         record['transportExit'] = meter.ready_json(directory / 'transport-exit.json')
-        if action == 'caller-sigkill':
-            assert record['callerExit'] == -signal.SIGKILL
-        elif action == 'sudo-sigkill':
-            assert record['transportExit']['nativeExit'] == -signal.SIGKILL
-        elif action == 'ordinary-exit':
-            assert record['callerExit'] == 29 and record['transportExit']['nativeExit'] == 29
-        else:
-            assert record['callerExit'] in (124, 137) and record['transportExit']['nativeExit'] in (124, 137)
         while True:
             reap(ready.values())
             if not any(live(row) for row in ready.values()):
@@ -197,9 +248,11 @@ def client_case(output, client_name, action, evidence, whole_deadline):
             assert time.monotonic() < deadline, 'root client/child/monitor still exists'
             time.sleep(NATIVE_POLL_SECONDS)
         record['pending'] = 0
+        qualify_client_case(record, client_name, action)
     except BaseException as error:
         primary = error
         record['failureType'] = type(error).__name__
+        record['pending'] = 'native client qualification failed'
         raise
     finally:
         try:
@@ -216,6 +269,10 @@ def client_case(output, client_name, action, evidence, whole_deadline):
                         break
                     assert time.monotonic() < cleanup_end, 'fixture cleanup unproven'
                     time.sleep(NATIVE_POLL_SECONDS)
+            if ready is not None:
+                record['cleanupKernelAbsence'] = {name: meter.fingerprint(row['pid']) for name, row in ready.items()}
+                assert all(row is None for row in record['cleanupKernelAbsence'].values()), 'fixture cleanup kernel absence unproven'
+                record['cleanupPending'] = 0
         except BaseException as error:
             record['cleanupFailureType'] = type(error).__name__
             record['pending'] = 'fixture cleanup unproven'

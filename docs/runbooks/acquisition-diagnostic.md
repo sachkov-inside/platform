@@ -156,6 +156,10 @@ GNU timer работает как root, без `--foreground`, и закрыва
 TERM window, KILL reserve и outer reap входят в прежний timeout: 10 s для launch и максимум 30 s для shutdown.
 Ordinary exit не заменяется success; 124/137 сами по себе не доказывают отсутствие процессов.
 Поведение групп и сигналов описывает [GNU timeout](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html).
+Python `subprocess` сохраняет signal termination как negative returncode,
+например `-9` для SIGKILL: [CompletedProcess.returncode](https://docs.python.org/3/library/subprocess.html#subprocess.CompletedProcess.returncode).
+Native fixture сохраняет этот status в receipt, а CLI caller кодирует его как `128 + signal`.
+`TimeoutExpired` внешнего transport оставляет native exit неизвестным; он не превращается в GNU status 124.
 
 Перед bounded unprivileged commands `command-stage.json` сохраняет stage, command и deadline.
 `primary-failure.json` сохраняет первый native failure до cleanup, включая bounded partial stdout/stderr.
@@ -166,11 +170,21 @@ Native entry `scripts/acquisition-diagnostic-meter-native.py` проверяет
 Для каждого client, `systemd-run` и `systemctl`, он проверяет timeout, caller SIGKILL, sudo SIGKILL и ordinary exit29.
 Только service executable заменён TERM/HUP-resistant fixture; production transport, sudo и GNU timer остаются настоящими.
 Fixture создаёт root client и root child; record сохраняет client/child/monitor PID, UID, PGID и birth.
+Parent сверяет их live kernel identities; fixture ждёт acknowledgement до ordinary exit.
+Qualification отвергает missing/wrong identities, foreign client/group/session, missing case и pending resources.
+Для TERM-resistant timeout fixture нужен actual transport elapsed после TERM plus KILL, внутри прежнего budget.
+Native `-9` или shell `137` не заменяют kernel absence; qualification сохраняет отдельный census каждого identity.
 Native proof требует их kernel absence; unprivileged parent принимает и reaps orphan children.
 Bounded cleanup сигналит только сохранённые identities и отказывает при foreign group member.
 Proof budget — 55 s внутри прежнего workflow step 1 min; каждый client case использует 3 s и bounded reap.
 Proof не вызывает Docker, не останавливает daemon и не запускает SDK.
 Подготовленный entry и local doubles не являются исполненным Linux proof.
+
+Native-only [run38078689293](https://github.com/sachkov-inside/platform/actions/runs/38078689293/job/114290928101)
+на exact `e67fe5b683fc76d130c419535517fdad657900eb` завершился failure.
+Primary: первый `systemd-run` timeout вернул native `-9`, а proof ошибочно ожидал shell 124/137.
+Caller получил 247 при прежнем Python `exit(-9)`; сохранённый run остаётся failed и closure unproven.
+Acquisition job был skipped. Исправленный representation contract требует нового exact-SHA review и нового native grant.
 
 Отдельный native-only job того же workflow требует новый grant и label `1337-p2-<полный reviewed SHA>`.
 Label длиной 48 characters допускается только для same-repository PR #1340, event `labeled`, `main` и attempt1.

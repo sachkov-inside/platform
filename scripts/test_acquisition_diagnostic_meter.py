@@ -16,6 +16,87 @@ spec = importlib.util.spec_from_file_location('meter', Path(__file__).with_name(
 meter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(meter)
 
+native_spec = importlib.util.spec_from_file_location('native', Path(__file__).with_name('acquisition-diagnostic-meter-native.py'))
+native = importlib.util.module_from_spec(native_spec)
+native_spec.loader.exec_module(native)
+
+
+class NativeReceiptContracts(unittest.TestCase):
+    def test_signal_exit_preserves_native_status_and_encodes_caller_status(self):
+        def run(command, **_kwargs):
+            raise subprocess.CalledProcessError(-signal.SIGKILL, command)
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict(os.environ, ACQUISITION_DIAGNOSTIC_NATIVE_EPHEMERAL='1'), \
+                patch.object(native.time, 'monotonic', return_value=1000), \
+                patch.object(native.subprocess, 'run', side_effect=run):
+            exit_code = native.client_caller('systemd-run', Path(directory))
+            receipt = json.loads((Path(directory) / 'transport-exit.json').read_text())
+        self.assertEqual(receipt['nativeExit'], -signal.SIGKILL)
+        self.assertEqual(receipt['failureType'], 'CalledProcessError')
+        self.assertEqual(exit_code, 128 + signal.SIGKILL)
+
+    def record(self, client='systemd-run', action='command-timeout'):
+        def row(pid, parent, birth):
+            return {'pid': pid, 'ppid': parent, 'pgid': 100, 'sid': 99,
+                    'birth': birth, 'uids': [0, 0, 0, 0]}
+        identities = {'monitor': row(100, 99, 10), 'client': row(101, 100, 11), 'child': row(102, 101, 12)}
+        return {'client': client, 'case': action, 'pending': 0, 'fingerprints': identities,
+                'kernelReady': json.loads(json.dumps(identities)), 'callerExit': 137,
+                'transportExit': {'nativeExit': -signal.SIGKILL, 'failureType': 'CalledProcessError', 'transportElapsedSeconds': 2.6},
+                'transport': {'productionCommand': ['sudo', '-n', 'timeout', '--signal=TERM', '--kill-after=0.5', '2', client],
+                              'timeoutSeconds': 3}}
+
+    def test_timeout_needs_expired_timer_and_validated_native_absence(self):
+        for client in ('systemd-run', 'systemctl'):
+            for code in (-signal.SIGKILL, 128 + signal.SIGKILL):
+                with self.subTest(client=client, native_exit=code):
+                    record = self.record(client)
+                    record['transportExit']['nativeExit'] = code
+                    native.qualify_client_case(record, client, 'command-timeout', lambda _pid: None)
+                    self.assertEqual(record['kernelAbsence'], {'monitor': None, 'client': None, 'child': None})
+
+    def test_invalid_timeout_receipts_cannot_qualify(self):
+        mutations = {
+            'pending': lambda r: r.update(pending='unproven'),
+            'boolean-pending': lambda r: r.update(pending=False),
+            'missing-case': lambda r: r.pop('case'),
+            'foreign-client': lambda r: r.update(client='foreign-client'),
+            'missing-identity': lambda r: r['fingerprints'].pop('child'),
+            'missing-kernel-ready': lambda r: r.pop('kernelReady'),
+            'wrong-birth': lambda r: r['fingerprints']['child'].update(birth=999),
+            'foreign-uid': lambda r: r['fingerprints']['child'].update(uids=[1001] * 4),
+            'foreign-group': lambda r: r['fingerprints']['child'].update(pgid=999),
+            'nonexpired-timer': lambda r: r['transportExit'].update(transportElapsedSeconds=1.9),
+            'outer-budget-exceeded': lambda r: r['transportExit'].update(transportElapsedSeconds=3.1),
+            'outer-timeout': lambda r: r['transportExit'].update(failureType='TimeoutExpired'),
+            'wrong-exit-pair': lambda r: r.update(callerExit=247),
+            'unexpected-term-exit': lambda r: (r.update(callerExit=124), r['transportExit'].update(nativeExit=124)),
+            'foreign-transport': lambda r: r['transport']['productionCommand'].__setitem__(6, 'systemctl'),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(case=name):
+                record = self.record()
+                mutate(record)
+                with self.assertRaises((AssertionError, KeyError, TypeError)):
+                    native.qualify_client_case(record, 'systemd-run', 'command-timeout', lambda _pid: None)
+        for name in ('client', 'child', 'monitor'):
+            with self.subTest(live_root=name):
+                record = self.record()
+                live = record['fingerprints'][name]
+                with self.assertRaises(AssertionError):
+                    native.qualify_client_case(record, 'systemd-run', 'command-timeout', lambda pid: live if pid == live['pid'] else None)
+
+    def test_intentional_exits_still_require_native_absence(self):
+        for action, caller_exit, transport_exit in [('ordinary-exit', 29, 29), ('sudo-sigkill', 137, -signal.SIGKILL), ('caller-sigkill', -signal.SIGKILL, None)]:
+            with self.subTest(case=action):
+                record = self.record(action=action)
+                record['callerExit'] = caller_exit
+                record['transportExit']['nativeExit'] = transport_exit
+                native.qualify_client_case(record, 'systemd-run', action, lambda _pid: None)
+                live = record['fingerprints']['child']
+                with self.assertRaises(AssertionError):
+                    native.qualify_client_case(record, 'systemd-run', action, lambda pid: live if pid == live['pid'] else None)
+
 
 class MeterContracts(unittest.TestCase):
     def test_partial_result_waits_for_committed_receipt_without_a_process(self):
