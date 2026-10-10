@@ -132,9 +132,11 @@ try {
   process.stdout.write(
     `Local stand disk: ${(buildBudget.initialFreeBytes / 1024 ** 3).toFixed(2)} GiB available on Docker storage.\n`,
   );
-  // BuildKit checks the current context on every start, including cache hits. Only API exports the
-  // shared backend image; exporting ten command-only variants caused parallel layer unpacking.
-  for (const service of ["api", "web", "rabbitmq", "logto"]) {
+  // BuildKit checks source inputs even on cache hits. API builds the development workspace for
+  // all backend roles and Web; only production Web needs its separate build and image.
+  for (const service of productionWeb
+    ? ["api", "web", "rabbitmq", "logto"]
+    : ["api", "rabbitmq", "logto"]) {
     await compose(["build", service]);
   }
   await runPnpm(["identity:proof:certs"]);

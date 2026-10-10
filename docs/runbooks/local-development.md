@@ -158,9 +158,11 @@ it once, then starts API, MCP and web. The seed keeps its demonstration Material
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
-The ten backend roles share one development image. Only `api` builds it; each role declares its
-own command and retains its readiness/dependency contract. Rebuild `api` after backend changes,
-then recreate affected roles to use that image. Local diagnostic `.reports` files are excluded
+The ten backend roles and development `web` share one workspace image. Only `api` builds it;
+each role declares its own command and retains its readiness/dependency contract. The workspace
+contains both applications and their dependencies, so development Web needs no second install or
+image export. Rebuild `api` after backend or Web source changes, then recreate affected roles to use
+that image. Local diagnostic `.reports` files are excluded
 from the root Docker context; tracked source and `docs/evidence` remain available. The host-generated
 Prisma client is excluded too: dependency installation generates it from the image's own schema.
 
@@ -248,6 +250,8 @@ pnpm local:stand --production-web
 
 The `web` service is built from the `web-production` image target through
 `config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
+It uses a separate `${COMPOSE_PROJECT_NAME:-inside-platform}-web-production:local` image and the
+production server command; its build cannot replace the shared backend development image.
 API and web use the same baked source/release identity so web's `/_health/ready` can verify equality.
 API providers remain in development mode; its explicit local image-identity input follows the
 [runtime configuration contract](runtime-configuration.md#docker-compose-flow).
@@ -261,8 +265,9 @@ overlay uses that same published port for API and MCP signed image URLs in both 
 Builds for a production release omit the local origin and keep the existing production `img-src`.
 The loopback validation and script policy remain in `next.config.ts` / [ADR 0028](../adr/0028-web-edge-hardening.md).
 
-`local:stand` builds API's shared backend image, web, RabbitMQ and Logto sequentially before
-starting containers with `--no-build`. Each invocation asks BuildKit to verify the current source
+`local:stand` builds API's shared workspace image, RabbitMQ and Logto sequentially before starting
+containers with `--no-build`. It builds a separate Web image only with `--production-web`.
+Each invocation asks BuildKit to verify the current source
 inputs, so cached images never bypass source validation. Production web requires a clean Git
 working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
 Backend and web restore installed patches from the dependency stage after source COPY. Recopying
@@ -279,7 +284,8 @@ increase Docker's own storage quota. A refusal leaves existing stand data intact
 capacity before retrying; the command never prunes caches, reports or volumes.
 
 The cached-stand estimate rounds up 3 GiB for source/web/export growth plus two dependency snapshots
-of at most 2.261 GB each to an 8 GiB ceiling. This uses retained layer/cache measurements, not the
+of at most 2.261 GB each to an 8 GiB ceiling. Production Web still needs both dependency builds;
+development Web reuses API's workspace. This uses retained layer/cache measurements, not the
 sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
 were captured on 9 October 2026 UTC / 10 October 2026 MSK. Runtime verification must measure actual peak growth and the
 remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.

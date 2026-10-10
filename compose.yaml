@@ -360,10 +360,19 @@ services:
       retries: 30
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: web
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@inside/web",
+        "dev",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ]
     env_file:
       - ./config/compose/local/web.env
       - path: ./.identity-proof/stand.env

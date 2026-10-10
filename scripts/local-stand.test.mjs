@@ -151,13 +151,13 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
   }
 }
 
-test("standard stand builds one backend payload, then starts roles without rebuilding", () => {
+test("development stand builds one workspace for backend roles and Web", () => {
   const { result, calls } = launch();
   assert.equal(result.status, 0, result.stderr);
   const builds = calls.filter((call) => call.args.includes("build"));
   assert.deepEqual(
     builds.map((call) => call.args.at(-1)),
-    ["api", "web", "rabbitmq", "logto"],
+    ["api", "rabbitmq", "logto"],
   );
   for (const call of calls.filter((call) => call.args.includes("up"))) {
     assert.ok(call.args.includes("--no-build"));
@@ -189,10 +189,16 @@ test("production web uses the exact Git revision instead of a placeholder source
   assert.ok(
     web.args.includes("config/compose/local/production-web.compose.yaml"),
   );
+  assert.deepEqual(
+    calls
+      .filter((call) => call.args.includes("build"))
+      .map((call) => call.args.at(-1)),
+    ["api", "web", "rabbitmq", "logto"],
+  );
 });
 
 test("a failed build cannot start or shut down a stand it never started", () => {
-  const { result, calls } = launch({ failedBuild: "web" });
+  const { result, calls } = launch({ failedBuild: "api" });
   assert.notEqual(result.status, 0);
   assert.ok(
     !calls.some(

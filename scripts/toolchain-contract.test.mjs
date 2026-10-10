@@ -114,6 +114,59 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("runs development Web from the backend workspace without a second build", () => {
+    const localCompose = read("compose.yaml");
+    const web = localCompose.match(
+      /^ {2}web:\n(?<body>[\s\S]*?)(?=^ {2}\S|^volumes:)/mu,
+    )?.groups?.["body"];
+    assert.ok(web);
+    assert.match(
+      web,
+      /^ {4}image: \$\{COMPOSE_PROJECT_NAME:-inside-platform\}-backend-development:local$/mu,
+    );
+    assert.doesNotMatch(web, /^ {4}build:/mu);
+    assert.match(web, /^ {4}pull_policy: never$/mu);
+    const command = web.match(/command:\s*(\[[\s\S]*?\])/u)?.[1];
+    assert.ok(command);
+    assert.deepEqual(
+      z.array(z.string()).parse(JSON.parse(command.replace(/,\s*\]/u, "]"))),
+      [
+        "pnpm",
+        "--filter",
+        "@inside/web",
+        "dev",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ],
+    );
+    assert.match(
+      read("config/compose/local/web.env"),
+      /^NEXT_TELEMETRY_DISABLED=1$/mu,
+    );
+  });
+
+  it("builds production Web under a separate image and production command", () => {
+    const web = read("config/compose/local/production-web.compose.yaml").match(
+      /^ {2}web:\n(?<body>[\s\S]*)$/mu,
+    )?.groups?.["body"];
+    assert.ok(web);
+    assert.match(
+      web,
+      /^ {4}image: \$\{COMPOSE_PROJECT_NAME:-inside-platform\}-web-production:local$/mu,
+    );
+    assert.match(web, /^ {6}context: \.$/mu);
+    assert.match(web, /^ {6}dockerfile: apps\/web\/Dockerfile$/mu);
+    assert.match(web, /^ {6}target: web-production$/mu);
+    assert.match(web, /command: \["node", "apps\/web\/server\.js"\]/u);
+    assert.match(web, /INSIDE_SOURCE_SHA: \$\{STAND_WEB_SOURCE_SHA:\?/u);
+    assert.match(
+      web,
+      /CSP_LOCAL_OBJECT_STORAGE_ORIGIN: http:\/\/127\.0\.0\.1:\$\{OBJECT_STORAGE_HOST_PORT:-9000\}/u,
+    );
+  });
+
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage, telegramPackage];
