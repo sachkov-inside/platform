@@ -20,8 +20,12 @@ const standConfigSchema = z.object({
   services: z.object({
     web: z.object({
       build: z.object({ args: environmentSchema.default({}) }),
+      environment: environmentSchema.default({}),
     }),
-    api: z.object({ environment: environmentSchema.default({}) }),
+    api: z.object({
+      build: z.object({ args: environmentSchema.default({}) }),
+      environment: environmentSchema.default({}),
+    }),
     mcp: z.object({ environment: environmentSchema.default({}) }),
   }),
 });
@@ -156,6 +160,21 @@ describe("local stand production build input", () => {
     expect(localImageOrigins(await policy(config))).toEqual([
       "http://127.0.0.1:9000",
     ]);
+  });
+
+  it("binds API and production web to one image and runtime identity without production API providers", async () => {
+    const services = await standInput();
+    for (const service of [services.api, services.web]) {
+      expect(service.build.args["INSIDE_RELEASE_VERSION"]).toBe("v1");
+      expect(service.build.args["INSIDE_SOURCE_SHA"]).toBe("1".repeat(40));
+      expect(service.environment["PLATFORM_RELEASE_VERSION"]).toBe("v1");
+      expect(service.environment["PLATFORM_SOURCE_SHA"]).toBe("1".repeat(40));
+    }
+    expect(services.api.environment["PLATFORM_LOCAL_RELEASE_IDENTITY"]).toBe(
+      "image",
+    );
+    expect(services.api.environment["NODE_ENV"]).toBe("development");
+    expect(services.web.environment["NODE_ENV"]).toBe("production");
   });
 
   it("keeps development signed image URLs on the same configured published port", async () => {

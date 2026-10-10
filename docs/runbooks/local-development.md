@@ -246,8 +246,11 @@ the real speed, start the stand with the production build of web:
 pnpm local:stand --production-web
 ```
 
-Only the `web` service changes: it is built from the `web-production` image target through
+The `web` service is built from the `web-production` image target through
 `config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
+API and web use the same baked source/release identity so web's `/_health/ready` can verify equality.
+API providers remain in development mode; its explicit local image-identity input follows the
+[runtime configuration contract](runtime-configuration.md#docker-compose-flow).
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 

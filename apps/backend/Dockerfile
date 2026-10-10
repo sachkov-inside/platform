@@ -39,8 +39,17 @@ COPY --from=dependencies --chown=node:node /workspace/patches ./patches
 
 ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
 
-# All local roles share this image; the bank double's volume inherits its writable data directory.
+# The production-web stand binds its API to this image's immutable release identity.
+ARG INSIDE_RELEASE_VERSION=""
+ARG INSIDE_SOURCE_SHA=""
 USER root
+RUN if [ -n "$INSIDE_RELEASE_VERSION" ] || [ -n "$INSIDE_SOURCE_SHA" ]; then \
+      node packages/runtime-identity/write-release-identity.mjs \
+        "$INSIDE_RELEASE_VERSION" "$INSIDE_SOURCE_SHA" \
+        /workspace/apps/backend/release-identity.json \
+      && chmod 0444 /workspace/apps/backend/release-identity.json; \
+    fi
+# All local roles share this image; the bank double's volume inherits its writable data directory.
 RUN mkdir -p /data && chown node:node /data
 USER node
 
