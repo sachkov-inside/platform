@@ -258,8 +258,9 @@ API providers remain in development mode; its explicit local image-identity inpu
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 
-The local production-web launcher derives the canonical URL origin from
-`http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}` and passes it through
+The local production-web launcher reads the resolved API signed storage endpoint from
+the common learner Compose configuration, including Compose's `.env`/shell interpolation.
+It derives that URL's canonical origin and passes it through
 `STAND_WEB_OBJECT_STORAGE_ORIGIN` as the existing validated `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`.
 For port80 the canonical origin is `http://127.0.0.1`; other ports remain explicit.
 Next captures the headers during the build;

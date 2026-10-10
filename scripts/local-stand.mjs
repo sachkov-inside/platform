@@ -40,21 +40,18 @@ const standPorts = {
 // кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
 // остаётся в режиме разработки с горячей перезагрузкой.
 const productionWeb = process.argv.slice(2).includes("--production-web");
-const composeFiles = productionWeb
-  ? [
-      "--file",
-      "compose.yaml",
-      "--file",
-      "config/compose/local/learner-setup.compose.yaml",
-      "--file",
-      "config/compose/local/production-web.compose.yaml",
-    ]
-  : [
-      "--file",
-      "compose.yaml",
-      "--file",
-      "config/compose/local/learner-setup.compose.yaml",
-    ];
+const learnerComposeFiles = [
+  "--file",
+  "compose.yaml",
+  "--file",
+  "config/compose/local/learner-setup.compose.yaml",
+];
+const composeFiles = [
+  ...learnerComposeFiles,
+  ...(productionWeb
+    ? ["--file", "config/compose/local/production-web.compose.yaml"]
+    : []),
+];
 // The stand is always the shared project, even when a shell still names the disposable smoke one.
 const environment = {
   ...process.env,
@@ -98,13 +95,38 @@ try {
       );
     }
     const revision = await run("git", ["rev-parse", "HEAD"], { capture: true });
-    const storagePort = process.env["OBJECT_STORAGE_HOST_PORT"];
-    const publishedStoragePort =
-      storagePort === undefined || storagePort === "" ? "9000" : storagePort;
     Object.assign(environment, {
       STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+    });
+    // Compose owns interpolation, including .env/shell precedence. Do not load private env_files.
+    const resolved = await run(
+      "docker",
+      [
+        "compose",
+        ...learnerComposeFiles,
+        "--profile",
+        "identity",
+        "config",
+        "--no-env-resolution",
+        "--format",
+        "json",
+      ],
+      { capture: true },
+    );
+    const storage = z
+      .object({
+        services: z.object({
+          api: z.object({
+            environment: z.object({
+              OBJECT_STORAGE_SIGNED_GET_ENDPOINT: z.url(),
+            }),
+          }),
+        }),
+      })
+      .parse(JSON.parse(resolved.output));
+    Object.assign(environment, {
       STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
-        `http://127.0.0.1:${publishedStoragePort}`,
+        storage.services.api.environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT,
       ).origin,
     });
   }
@@ -280,12 +302,13 @@ async function run(
           }
         }, standDiskPollIntervalMilliseconds);
   let output = "";
+  let diagnostic = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
     child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
-      output += chunk.toString();
+      diagnostic += chunk.toString();
     });
   }
   try {
@@ -293,8 +316,11 @@ async function run(
     if (budgetFailure !== undefined) throw budgetFailure;
     if (!cleanup) buildBudget?.assertAvailable();
     if (exitCode !== 0) {
-      throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
+      throw new Error(
+        `${label} failed${capture ? `:\n${diagnostic}${output}` : ""}`,
+      );
     }
+    if (capture && diagnostic.length > 0) process.stderr.write(diagnostic);
   } finally {
     clearInterval(budgetMonitor);
     await stopOwned(child);

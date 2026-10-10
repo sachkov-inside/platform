@@ -56,11 +56,13 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; envFileStoragePort?: string; composeStorageEndpoint?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
-  storagePort = "9000",
+  storagePort,
+  envFileStoragePort,
+  composeStorageEndpoint = `http://127.0.0.1:${storagePort === undefined || storagePort === "" ? "9000" : storagePort}`,
   failedBuild = "",
   failedStartup = false,
   exhaustDisk = false,
@@ -99,6 +101,7 @@ if(args.includes("up") && !args.includes("logto-postgres") && process.env.FAILED
 if(args.includes("logs")) process.stdout.write("migrations: primary dependency error\\n");
 if(process.argv[1].endsWith("lsof")) process.stdout.write("n" + process.env.DOCKER_STORAGE + "/Docker.raw\\n");
 if(args.includes("info")) process.stdout.write(process.env.DOCKER_STORAGE + "\\n");
+if(args.includes("config")) { process.stderr.write("fixture config warning\\n"); process.stdout.write(JSON.stringify({services: {api: {environment: {OBJECT_STORAGE_SIGNED_GET_ENDPOINT: process.env.COMPOSE_STORAGE_ENDPOINT}}}})); }
 if(args.includes("ps") && process.env.RUNNING_STAND === "true") process.stdout.write("api\\n");
 if(args.includes("build") && process.env.EXHAUST_DISK === "true") { writeFileSync(process.env.CAPACITY_FILE, "9"); setInterval(() => {}, 1000); }
 `;
@@ -126,6 +129,11 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
       "fixture",
     ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
+    if (envFileStoragePort !== undefined)
+      writeFileSync(
+        join(root, ".env"),
+        `OBJECT_STORAGE_HOST_PORT=${envFileStoragePort}\n`,
+      );
     writeFileSync(
       join(root, ".git/info/exclude"),
       "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\n",
@@ -161,6 +169,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
           NODE_OPTIONS: "",
           COMPOSE_PROJECT_NAME: "unrelated-project",
           OBJECT_STORAGE_HOST_PORT: storagePort,
+          COMPOSE_STORAGE_ENDPOINT: composeStorageEndpoint,
         },
       },
     );
@@ -176,6 +185,33 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
     rmSync(root, { recursive: true, force: true });
   }
 }
+
+test("production stand uses the Compose-resolved storage endpoint from .env (CLI adapter)", async () => {
+  const { result, calls } = await launch({
+    productionWeb: true,
+    envFileStoragePort: "9157",
+    composeStorageEndpoint: "http://127.0.0.1:9157",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stderr, /fixture config warning/u);
+  const configIndex = calls.findIndex((call) => call.args.includes("config"));
+  const buildIndex = calls.findIndex((call) => call.args.includes("build"));
+  assert.ok(configIndex >= 0 && configIndex < buildIndex);
+  const config = calls[configIndex];
+  assert.ok(config);
+  assert.ok(config.args.includes("--no-env-resolution"));
+  assert.ok(
+    config.args.includes("config/compose/local/learner-setup.compose.yaml"),
+  );
+  assert.ok(
+    !config.args.includes("config/compose/local/production-web.compose.yaml"),
+  );
+  const web = calls.find(
+    (call) => call.args.includes("build") && call.args.at(-1) === "web",
+  );
+  assert.ok(web);
+  assert.equal(web.storageOrigin, "http://127.0.0.1:9157");
+});
 
 test("development stand builds one workspace for backend roles and Web", async () => {
   const { result, calls } = await launch();
