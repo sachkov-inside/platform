@@ -35,6 +35,30 @@ function storyId(name) {
   return entry.id;
 }
 const browser = await chromium.launch();
+const expectedReport = [
+  {
+    requirement: "Новичок получает доступ к репозиториям через платформу.",
+    status: "Подтверждено",
+    level: "Обязательно",
+    evidence:
+      "README.md описывает выдачу; лог `grant.log` показывает ответ GitHub 201.",
+    gap: "",
+  },
+  {
+    requirement: "Доступ выдаёт только руководитель команды.",
+    status: "Нарушение",
+    level: "Обязательно · получено запуском",
+    evidence: '<img src=x onerror="alert(1)"> Роль читается из запроса.',
+    gap: "Роль приходит от клиента, сервер её не проверяет.",
+  },
+  {
+    requirement: "Второй агент проверяет выдачу.",
+    status: "Не проверено",
+    level: "Дополнительно",
+    evidence: "",
+    gap: "Инструкции второго агента в репозитории нет.",
+  },
+];
 /** @type {{scenario: string, width: number, violations: string[], screenshot: string}[]} */
 const captures = [];
 try {
@@ -77,10 +101,36 @@ try {
           const report = page
             .getByRole("article", { name: "Полная сдача: Онбординг команды" })
             .first();
-          await expect(
-            report.getByText("Нарушение", { exact: true }),
-          ).toBeVisible();
-          await expect(report.getByText(/<img src=x onerror=/u)).toBeVisible();
+          const criteria = report
+            .getByRole("region", { name: "Полный отчёт" })
+            .getByRole("list")
+            .first()
+            .getByRole("listitem");
+          await expect(criteria).toHaveCount(expectedReport.length);
+          for (const [position, criterion] of expectedReport.entries()) {
+            const row = criteria.nth(position);
+            for (const text of [
+              criterion.requirement,
+              criterion.status,
+              criterion.level,
+            ]) {
+              await expect(row.getByText(text, { exact: true })).toBeVisible();
+            }
+            for (const [label, content] of [
+              ["Доказательство", criterion.evidence],
+              ["Пробел", criterion.gap],
+            ]) {
+              if (content === "") {
+                await expect(
+                  row.getByText(`${label}:`, { exact: true }),
+                ).toHaveCount(0);
+              } else {
+                await expect(
+                  row.getByText(`${label}: ${content}`, { exact: true }),
+                ).toBeVisible();
+              }
+            }
+          }
           await expect(page.locator("img[src=x]")).toHaveCount(0);
         }
         const a11y = await new AxeBuilder({ page }).analyze();
@@ -153,7 +203,7 @@ try {
         browser: browser.version(),
         captures,
         interactions: [
-          "full report stays plain text",
+          "three synthetic report criteria retain requirements, statuses, evidence and gaps as plain text",
           "feedback stays in memory across variants",
           "product/chapter filtering",
         ],
