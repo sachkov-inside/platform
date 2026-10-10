@@ -92,17 +92,18 @@ export function MaterialReaderView({
     >
       <ReaderReturnNavigation
         repeatAtBottom={seriesContext === null}
+        hideReturn={seriesContext !== null}
         target={returnTarget}
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          <MaterialReaderHeader
-            material={material}
-            outcomesHeadingId={outcomesHeadingId}
-          />
           <ReaderTopActions
             context={seriesContext}
             readingAction={topReadingAction}
             bookmarkAction={topBookmarkAction}
+          />
+          <MaterialReaderHeader
+            material={material}
+            outcomesHeadingId={outcomesHeadingId}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -133,7 +134,7 @@ export function MaterialReaderView({
           {bookmarkAction === undefined &&
           readingAction === undefined ? null : (
             <div
-              className="flex flex-wrap items-start justify-end gap-x-3"
+              className="mt-6 flex flex-wrap items-start justify-end gap-2"
               data-material-actions
             >
               {bookmarkAction}
@@ -167,10 +168,10 @@ export function SeriesReaderNavigation({
       <p className="mt-1 break-words text-sm text-muted-foreground">
         {context.series.name}
       </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <Button
           asChild
-          className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center"
+          className="h-auto min-h-11 whitespace-normal rounded-lg px-3 py-2 text-center"
           variant="secondary"
         >
           <IntentPrefetchLink href={context.series.href}>
@@ -180,7 +181,7 @@ export function SeriesReaderNavigation({
         {context.next === null ? null : (
           <Button
             asChild
-            className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center"
+            className="h-auto min-h-11 whitespace-normal rounded-lg px-3 py-2 text-center"
           >
             <IntentPrefetchLink href={context.next.href}>
               Дальше <ArrowRight aria-hidden="true" />
@@ -214,15 +215,14 @@ export function SeriesReaderBar({
 }) {
   if (context === null) return null;
   const step =
-    "grid size-11 place-items-center rounded-[1.15rem] text-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    "grid size-11 place-items-center rounded-lg text-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
   return (
     <>
       {/* Место под панель в конце урока: последние строки не прячутся за ней. */}
-      <div aria-hidden="true" className="h-20 lg:hidden" />
-      <div aria-hidden="true" className="course-bar-fade lg:hidden" />
+      <div aria-hidden="true" className="h-16 lg:hidden" />
       <nav
         aria-label="Уроки продукта"
-        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-[1.4rem] border border-black/8 bg-white/88 p-0.5 shadow-floating-nav backdrop-blur-xl lg:hidden"
+        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-sm backdrop-blur lg:hidden"
         data-series-reader-bar
       >
         <HidePublicFooter />
@@ -244,10 +244,10 @@ export function SeriesReaderBar({
         )}
         <IntentPrefetchLink
           aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}`}
-          className="flex min-h-11 items-center gap-2 rounded-[1.15rem] bg-primary px-4 text-sm font-semibold tabular-nums text-primary-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex min-h-11 min-w-20 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium tabular-nums text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          title="Открыть программу"
           href={context.series.href}
         >
-          <List aria-hidden="true" className="size-4 text-accent-bright" />
           {context.currentPosition} / {context.totalMaterials}
         </IntentPrefetchLink>
         {context.next === null ? (
@@ -346,7 +346,7 @@ export function MaterialReaderFooter({
   if (seriesContext === null) return null;
 
   return (
-    <footer className="mt-12 border-t border-border pt-6" data-reader-footer>
+    <footer className="mt-6 border-t border-border pt-4" data-reader-footer>
       <SeriesReaderNavigation context={seriesContext} />
     </footer>
   );

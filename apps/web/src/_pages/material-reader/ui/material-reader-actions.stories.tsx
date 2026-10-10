@@ -1,3 +1,4 @@
+import { useState, type ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
@@ -23,6 +24,13 @@ let isRead = false;
 let bookmarked = false;
 let version = 0;
 let release: (() => void) | undefined;
+let readingFailure: "unavailable" | "denied" | "conflict" | null = null;
+let bookmarkFailure: "unavailable" | "denied" | null = null;
+const commands: string[] = [];
+function releaseReading() {
+  if (release === undefined) throw new Error("Reading save was not submitted");
+  release();
+}
 const readingState = () => ({
   materialId,
   isRead,
@@ -47,6 +55,9 @@ const meta = {
     bookmarked = false;
     version = 0;
     release = undefined;
+    readingFailure = null;
+    bookmarkFailure = null;
+    commands.length = 0;
     return fetchBeforeRender(async (input, init) => {
       const path = new URL(
         input instanceof Request ? input.url : String(input),
@@ -61,9 +72,19 @@ const meta = {
       if (!(body instanceof FormData))
         throw new Error(`Unexpected request: ${path}`);
       if (path === "/api/reading-progress/state") {
+        const commandId = body.get("commandId");
+        if (typeof commandId !== "string")
+          throw new Error("Missing command ID");
+        commands.push(commandId);
         await new Promise<void>((resolve) => {
           release = resolve;
         });
+        if (readingFailure !== null)
+          return Response.json(
+            readingFailure === "conflict"
+              ? { kind: "conflict", current: readingState() }
+              : { kind: readingFailure },
+          );
         isRead = body.get("isRead") === "true";
         version += 1;
         return Response.json({
@@ -73,6 +94,8 @@ const meta = {
         });
       }
       if (path === "/api/bookmarks/state") {
+        if (bookmarkFailure !== null)
+          return Response.json({ kind: bookmarkFailure });
         bookmarked = body.get("bookmarked") === "true";
         return Response.json({ kind: "ready", state: bookmarkState() });
       }
@@ -197,5 +220,190 @@ export const SyncedActions: Story = {
 };
 export const SyncedActionsMobile: Story = {
   ...SyncedActions,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const SharedFailureAndRetry: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const top = await canvas.findByRole("navigation", {
+      name: "Действия материала",
+    });
+    const bottom = canvasElement.querySelector<HTMLElement>(
+      "[data-material-actions]",
+    );
+    if (bottom === null) throw new Error("Bottom actions are missing");
+    const reads = [
+      within(top).getByRole("button", { name: "Изучено" }),
+      within(bottom).getByRole("button", { name: "Изучено" }),
+    ] as const;
+    const save = async (button: HTMLElement) => {
+      release = undefined;
+      await userEvent.click(button);
+      await waitFor(() => expect(release).toBeDefined());
+      releaseReading();
+    };
+    readingFailure = "unavailable";
+    await save(reads[0]);
+    await waitFor(async () => {
+      await expect(
+        top.querySelector("[data-reading-action-state]"),
+      ).toHaveAttribute("data-reading-action-state", "error");
+      await expect(
+        bottom.querySelector("[data-reading-action-state]"),
+      ).toHaveAttribute("data-reading-action-state", "error");
+    });
+    readingFailure = null;
+    await save(reads[1]);
+    await waitFor(async () => {
+      for (const button of reads)
+        await expect(button).toHaveAttribute("aria-pressed", "true");
+    });
+    await expect(commands[1]).toBe(commands[0]);
+    await save(reads[0]);
+    await waitFor(async () => {
+      for (const button of reads)
+        await expect(button).toHaveAttribute("aria-pressed", "false");
+    });
+    await expect(commands[2]).not.toBe(commands[0]);
+    bookmarkFailure = "unavailable";
+    await userEvent.click(
+      within(top).getByRole("button", { name: "В закладки" }),
+    );
+    await waitFor(async () => {
+      await expect(
+        bottom.querySelector("[data-bookmark-action-state]"),
+      ).toHaveAttribute("data-bookmark-action-state", "error");
+    });
+    bookmarkFailure = null;
+    await userEvent.click(
+      within(bottom).getByRole("button", { name: "В закладки" }),
+    );
+    await waitFor(() =>
+      expect(top.querySelector("[data-bookmark-action-state]")).toHaveAttribute(
+        "data-bookmark-action-state",
+        "ready",
+      ),
+    );
+    await userEvent.click(
+      within(top).getByRole("button", { name: "В закладках" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(bottom).getByRole("button", { name: "В закладки" }),
+      ).toHaveAttribute("aria-pressed", "false"),
+    );
+  },
+};
+
+export const SharedConflictAndDenial: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const top = await canvas.findByRole("navigation", {
+      name: "Действия материала",
+    });
+    const bottom = canvasElement.querySelector<HTMLElement>(
+      "[data-material-actions]",
+    );
+    if (bottom === null) throw new Error("Bottom actions are missing");
+    const save = async () => {
+      release = undefined;
+      await userEvent.click(
+        within(top).getByRole("button", { name: "Изучено" }),
+      );
+      await waitFor(() => expect(release).toBeDefined());
+      releaseReading();
+    };
+    readingFailure = "conflict";
+    await save();
+    await waitFor(() =>
+      expect(
+        within(bottom).getByRole("button", { name: "Обновить статус" }),
+      ).toBeVisible(),
+    );
+    await userEvent.click(
+      within(bottom).getByRole("button", { name: "Обновить статус" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(top).queryByRole("button", { name: "Обновить статус" }),
+      ).toBeNull(),
+    );
+    readingFailure = "denied";
+    await save();
+    await waitFor(async () => {
+      for (const root of [top, bottom])
+        await expect(
+          within(root).getByRole("button", { name: "Изучено" }),
+        ).toHaveAttribute("aria-disabled", "true");
+    });
+    bookmarkFailure = "denied";
+    await userEvent.click(
+      within(top).getByRole("button", { name: "В закладки" }),
+    );
+    await waitFor(async () => {
+      for (const root of [top, bottom])
+        await expect(
+          root.querySelector("[data-bookmark-action-state]"),
+        ).toHaveAttribute("data-bookmark-action-state", "denied");
+    });
+  },
+};
+
+function GrowingReader(args: ComponentProps<typeof MaterialReaderView>) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <button
+        className="min-h-11 text-sm"
+        onClick={() => {
+          setExpanded(true);
+        }}
+        type="button"
+      >
+        Показать длинный материал
+      </button>
+      <MaterialReaderView
+        {...args}
+        body={
+          expanded
+            ? args.body
+            : [
+                {
+                  kind: "paragraph",
+                  content: [
+                    { kind: "text", marks: [], text: "Короткий материал." },
+                  ],
+                },
+              ]
+        }
+      />
+    </>
+  );
+}
+export const ToolbarKeepsHeaderPlace: Story = {
+  render: (args) => <GrowingReader {...args} />,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const header = canvasElement.querySelector("[data-reader-header]");
+    if (header === null) throw new Error("Reader header is missing");
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("navigation", { name: "Действия материала" }),
+      ).toBeNull(),
+    );
+    const before = header.getBoundingClientRect().top;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Показать длинный материал" }),
+    );
+    await canvas.findByRole("navigation", { name: "Действия материала" });
+    await expect(
+      Math.abs(header.getBoundingClientRect().top - before),
+    ).toBeLessThanOrEqual(1);
+  },
+};
+export const ToolbarKeepsHeaderPlaceMobile: Story = {
+  ...ToolbarKeepsHeaderPlace,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };

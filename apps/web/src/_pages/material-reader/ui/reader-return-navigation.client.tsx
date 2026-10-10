@@ -9,10 +9,12 @@ import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 export function ReaderReturnNavigation({
   children,
   repeatAtBottom,
+  hideReturn = false,
   target,
 }: {
   readonly children: ReactNode;
   readonly repeatAtBottom: boolean;
+  readonly hideReturn?: boolean;
   readonly target: MaterialReaderReturnTarget;
 }) {
   const topRef = useRef<HTMLDivElement>(null);
@@ -31,6 +33,8 @@ export function ReaderReturnNavigation({
       observer.disconnect();
     };
   }, [repeatAtBottom]);
+
+  if (hideReturn) return children;
 
   const action = <CatalogBackLink href={target.href} label={target.label} />;
 

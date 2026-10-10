@@ -1048,8 +1048,8 @@ export const PlaylistReturn: Story = {
     ).toBe(true);
     await expect(readerFooter.contains(seriesNavigation)).toBe(true);
     await expect(
-      within(canvasElement).getByRole("link", { name: "Назад к продукту" }),
-    ).toHaveAttribute("href", "/products/platform-inside");
+      within(canvasElement).queryByRole("link", { name: "Назад к продукту" }),
+    ).toBeNull();
     await expect(
       within(canvasElement).queryByText(/· №/u),
     ).not.toBeInTheDocument();

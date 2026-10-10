@@ -48,53 +48,72 @@ export function ReaderTopActions({
 
   const link =
     "inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring";
+  if (
+    context === null &&
+    readingAction === undefined &&
+    bookmarkAction === undefined
+  )
+    return null;
   return (
-    <div ref={slot}>
-      {!long ||
-      (context === null &&
-        readingAction === undefined &&
-        bookmarkAction === undefined) ? null : (
-        <nav
-          aria-label="Действия материала"
-          className="flex flex-wrap items-center justify-between gap-x-2 pt-4"
-          data-reader-top-actions
-        >
-          <div className="flex flex-wrap items-center gap-x-1">
-            {context?.previous === null ||
-            context?.previous === undefined ? null : (
-              <IntentPrefetchLink
-                className={link}
-                href={context.previous.href}
-                title={context.previous.title}
-              >
-                <ArrowLeft aria-hidden="true" className="size-4" /> Назад
-              </IntentPrefetchLink>
-            )}
-            {context === null ? null : (
-              <IntentPrefetchLink
-                className={link}
-                href={context.series.href}
-                aria-label="Открыть программу"
-              >
-                <List aria-hidden="true" className="size-4" /> Программа
-              </IntentPrefetchLink>
-            )}
-            {context?.next === null || context?.next === undefined ? null : (
-              <IntentPrefetchLink
-                className={link}
-                href={context.next.href}
-                title={context.next.title}
-              >
-                Дальше <ArrowRight aria-hidden="true" className="size-4" />
-              </IntentPrefetchLink>
-            )}
-          </div>
-          <div className="flex items-start gap-1">
-            {bookmarkAction}
-            {readingAction}
-          </div>
-        </nav>
-      )}
+    <div ref={slot} className="pb-6" data-reader-top-actions-slot>
+      {/* Место занято до измерения: появление действий не сдвигает заголовок. */}
+      <nav
+        aria-label="Действия материала"
+        aria-hidden={!long}
+        inert={!long}
+        className={`flex flex-wrap items-center justify-between gap-x-2 rounded-xl border border-border bg-muted/40 px-2 py-1${long ? "" : " invisible"}`}
+        data-reader-top-actions={long ? "" : undefined}
+      >
+        <div className="grid w-full grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center sm:flex sm:w-auto sm:flex-wrap sm:gap-x-1">
+          {context?.previous === null || context?.previous === undefined ? (
+            <span
+              aria-hidden="true"
+              className="grid size-11 place-items-center text-muted-foreground/40 sm:hidden"
+            >
+              <ArrowLeft className="size-4" />
+            </span>
+          ) : (
+            <IntentPrefetchLink
+              className={`${link} justify-center sm:justify-start`}
+              href={context.previous.href}
+              title={context.previous.title}
+            >
+              <ArrowLeft aria-hidden="true" className="size-4" />{" "}
+              <span className="sr-only sm:not-sr-only">Назад</span>
+            </IntentPrefetchLink>
+          )}
+          {context === null ? null : (
+            <IntentPrefetchLink
+              className={`${link} justify-center sm:justify-start`}
+              href={context.series.href}
+              aria-label="Открыть программу"
+            >
+              <List aria-hidden="true" className="size-4" /> Программа
+            </IntentPrefetchLink>
+          )}
+          {context?.next === null || context?.next === undefined ? (
+            <span
+              aria-hidden="true"
+              className="grid size-11 place-items-center text-muted-foreground/40 sm:hidden"
+            >
+              <ArrowRight className="size-4" />
+            </span>
+          ) : (
+            <IntentPrefetchLink
+              className={`${link} justify-center sm:justify-start`}
+              href={context.next.href}
+              title={context.next.title}
+            >
+              <span className="sr-only sm:not-sr-only">Дальше</span>{" "}
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </IntentPrefetchLink>
+          )}
+        </div>
+        <div className="ml-auto flex w-full items-start justify-end gap-1 border-t border-border pt-1 sm:w-auto sm:border-0 sm:pt-0">
+          {bookmarkAction}
+          {readingAction}
+        </div>
+      </nav>
     </div>
   );
 }

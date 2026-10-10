@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { subscribeToCurrentBillingChanges } from "@/features/billing-subscription";
+import { readingProgressChanges } from "@/features/reading-progress";
 
 /**
  * Кеш маршрутов держит личную часть страницы 60 секунд (ADR 0027), а смена доступа ждать не должна.
  * Вход, выход и возврат из банка — полные загрузки документа и сбрасывают кеш сами. Здесь закрыто
- * остальное: аккаунт сменился в другой вкладке или состояние покупателя объявлено изменённым —
+ * остальное: аккаунт сменился в другой вкладке, состояние покупателя или прогресс объявлены изменёнными —
  * `router.refresh()` забывает сохранённые страницы и перечитывает текущую.
  */
 export function useAccessChangeRefresh(
@@ -25,6 +26,13 @@ export function useAccessChangeRefresh(
       }),
     [router],
   );
+
+  useEffect(() => {
+    if (!authResolved || accountId === null) return;
+    return readingProgressChanges(accountId).subscribe(() => {
+      router.refresh();
+    });
+  }, [accountId, authResolved, router]);
 
   useEffect(() => {
     if (!authResolved) return;

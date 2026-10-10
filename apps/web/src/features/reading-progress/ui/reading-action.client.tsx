@@ -17,8 +17,8 @@ export function ReadingAction({
   const descriptionId = useId();
   const label = materialReadingLabels(format).complete;
   const buttonClassName = compact
-    ? "size-11 shrink-0 rounded-lg p-0 aria-disabled:opacity-50"
-    : "h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2 aria-disabled:opacity-50";
+    ? "h-11 shrink-0 rounded-lg px-3 aria-disabled:opacity-50"
+    : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50";
   const isRead = "isRead" in view && view.isRead;
   const loading = view.kind === "loading";
   const pending = view.kind === "pending";
@@ -41,24 +41,18 @@ export function ReadingAction({
                   : "Нажмите, чтобы отметить материал.";
   return (
     <div
-      className={
-        compact ? "flex flex-col items-end" : "mt-6 flex flex-col items-end"
-      }
+      className="flex flex-col items-end"
       data-reading-action-state={view.kind}
     >
       {view.kind === "anonymous" ? (
-        <Button
-          asChild
-          className={buttonClassName}
-          variant={compact ? "ghost" : "outline"}
-        >
+        <Button asChild className={buttonClassName} variant="outline">
           <a
             aria-describedby={descriptionId}
             href={view.loginHref}
             title={message}
           >
             <Circle aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
+            <span>{label}</span>
           </a>
         </Button>
       ) : (
@@ -75,15 +69,7 @@ export function ReadingAction({
           }}
           title={message}
           type="button"
-          variant={
-            isRead
-              ? compact
-                ? "secondary"
-                : "default"
-              : compact
-                ? "ghost"
-                : "outline"
-          }
+          variant={isRead ? (compact ? "secondary" : "default") : "outline"}
         >
           {loading || pending ? (
             <LoaderCircle
@@ -95,7 +81,7 @@ export function ReadingAction({
           ) : (
             <Circle aria-hidden="true" />
           )}
-          <span className={compact ? "sr-only" : undefined}>{label}</span>
+          <span>{label}</span>
         </Button>
       )}
       <p

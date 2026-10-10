@@ -519,6 +519,22 @@ body:has(
   --callout-ink: var(--callout-task);
 }
 
+/* Квиз выделяется фоном; результат узнаётся также по значку и тексту. */
+[data-material-quiz] {
+  background: color-mix(in oklab, var(--action) 5%, var(--card));
+  border-color: color-mix(in oklab, var(--action) 25%, var(--border));
+}
+[data-quiz-option][data-result="correct"] {
+  color: var(--callout-good);
+  border-color: color-mix(in oklab, var(--callout-good) 55%, var(--border));
+  background: color-mix(in oklab, var(--callout-good) 12%, var(--card));
+}
+[data-quiz-option][data-result="incorrect"] {
+  color: var(--callout-bad);
+  border-color: color-mix(in oklab, var(--callout-bad) 55%, var(--border));
+  background: color-mix(in oklab, var(--callout-bad) 10%, var(--card));
+}
+
 ::selection {
   color: var(--accent-foreground);
   background: var(--accent);

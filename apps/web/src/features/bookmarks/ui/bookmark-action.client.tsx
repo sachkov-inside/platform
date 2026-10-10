@@ -32,11 +32,11 @@ export function BookmarkAction({
                 : "Нажмите, чтобы сохранить материал в закладки.";
   const buttonClassName = compact
     ? "size-11 shrink-0 rounded-lg p-0 aria-disabled:opacity-50"
-    : "h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2 aria-disabled:opacity-50";
+    : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50";
   return (
     <div
       className={
-        compact ? "flex flex-col items-end" : "mt-6 flex flex-col items-end"
+        compact ? "flex flex-col items-end" : "flex flex-col items-end"
       }
       data-bookmark-action-state={view.kind}
     >

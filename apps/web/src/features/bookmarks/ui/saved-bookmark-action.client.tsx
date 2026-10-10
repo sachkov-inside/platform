@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import {
   useIsMutating,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -14,6 +14,10 @@ import {
 } from "../api/bookmarks.browser";
 import { bookmarkChanges, refreshBookmarks } from "../model/bookmark-events";
 import { useBookmarkChanges } from "../model/use-bookmark-changes.client";
+import {
+  bookmarkCommandSchema,
+  bookmarkStateResultSchema,
+} from "../model/bookmark-contract";
 import type { BookmarkActionView } from "../model/bookmark-action-view";
 import { BookmarkAction } from "./bookmark-action.client";
 
@@ -39,7 +43,21 @@ export function SavedBookmarkAction({
   ] as const;
   const saving = useIsMutating({ mutationKey }) > 0;
   useBookmarkChanges(resolved ? accountId : null);
-  const [notice, setNotice] = useState<"error" | "denied" | null>(null);
+  const latest = useMutationState({
+    filters: { mutationKey, exact: true },
+    select: ({ state }) => ({
+      status: state.status,
+      result: bookmarkStateResultSchema.safeParse(state.data).data,
+      command: bookmarkCommandSchema.strip().safeParse(state.variables).data,
+    }),
+  }).at(-1);
+  const notice =
+    latest?.result?.kind === "denied"
+      ? "denied"
+      : latest?.status === "error" ||
+          (latest?.status === "success" && latest.result?.kind !== "ready")
+        ? "error"
+        : null;
   const state = useQuery(
     bookmarkStatesQueryOptions({
       materialId,
@@ -54,15 +72,7 @@ export function SavedBookmarkAction({
       accountId: string;
     }) => setBookmark(input),
     onSuccess: async (result, input) => {
-      if (result.kind === "unavailable") {
-        setNotice("error");
-        return;
-      }
-      if (result.kind === "denied") {
-        setNotice("denied");
-        return;
-      }
-      setNotice(null);
+      if (result.kind === "unavailable" || result.kind === "denied") return;
       if (result.kind === "ready") {
         const announcementId = bookmarkChanges(input.accountId).announce();
         await refreshBookmarks(queryClient, input.accountId, announcementId);
@@ -71,9 +81,6 @@ export function SavedBookmarkAction({
           queryKey: ["bookmarks", input.accountId],
         });
       }
-    },
-    onError: () => {
-      setNotice("error");
     },
   });
   const data = state.data;
@@ -94,13 +101,13 @@ export function SavedBookmarkAction({
     view = {
       kind: "pending",
       bookmarked,
-      desired: mutation.variables?.bookmarked ?? !bookmarked,
+      desired: latest?.command?.bookmarked ?? !bookmarked,
     };
   else if (notice === "error")
     view = {
       kind: "error",
       bookmarked,
-      desired: mutation.variables?.bookmarked ?? !bookmarked,
+      desired: latest?.command?.bookmarked ?? !bookmarked,
     };
   else if (notice === "denied") view = { kind: "denied", bookmarked };
   else view = { kind: "ready", bookmarked };

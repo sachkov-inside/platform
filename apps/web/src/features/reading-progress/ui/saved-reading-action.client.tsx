@@ -1,9 +1,20 @@
 "use client";
-import { useRef, useState } from "react";
-import { useIsMutating, useMutation } from "@tanstack/react-query";
+import {
+  useIsMutating,
+  useMutation,
+  useMutationState,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import { setReadingState } from "../api/reading.browser";
-import type { ReadingCommand } from "../model/reading-contract";
+import {
+  readingCommandSchema,
+  readingResultSchema,
+} from "../model/reading-contract";
+import {
+  readingProgressChanges,
+  refreshReadingProgress,
+} from "../model/reading-progress-events";
 import type { ReadingActionView } from "../model/reading-progress-view";
 import { ReadingAction } from "./reading-action.client";
 
@@ -19,9 +30,7 @@ export function SavedReadingAction({
   readonly compact?: boolean;
 }) {
   const reading = useMaterialReading(materialId);
-  const command = useRef<ReadingCommand | null>(null);
-  const [notice, setNotice] = useState<"conflict" | "error" | null>(null);
-  const [denied, setDenied] = useState(false);
+  const queryClient = useQueryClient();
   const mutationKey = [
     "reading-progress",
     reading.accountId,
@@ -29,27 +38,35 @@ export function SavedReadingAction({
     materialId,
   ] as const;
   const saving = useIsMutating({ mutationKey }) > 0;
+  // Все представления материала наблюдают последнюю команду одного владельца кеша.
+  const latest = useMutationState({
+    filters: { mutationKey, exact: true },
+    select: ({ state }) => ({
+      status: state.status,
+      result: readingResultSchema.safeParse(state.data).data,
+      command: readingCommandSchema.safeParse(state.variables).data,
+    }),
+  }).at(-1);
+  const denied = latest?.result?.kind === "denied";
+  const notice =
+    latest?.status === "error" ||
+    (latest?.status === "success" &&
+      latest.result?.kind !== "saved" &&
+      latest.result?.kind !== "conflict" &&
+      latest.result?.kind !== "denied")
+      ? "error"
+      : latest?.result?.kind === "conflict"
+        ? "conflict"
+        : null;
   const mutation = useMutation({
     mutationKey,
     mutationFn: setReadingState,
     onSuccess: async (result) => {
-      if (result.kind === "unavailable") {
-        setNotice("error");
-        return;
-      }
-      command.current = null;
-      if (result.kind === "denied") setDenied(true);
-      setNotice(
-        result.kind === "conflict"
-          ? "conflict"
-          : result.kind === "saved"
-            ? null
-            : "error",
-      );
-      await reading.refresh();
-    },
-    onError: () => {
-      setNotice("error");
+      if (result.kind === "unavailable") return;
+      if (result.kind === "saved" && reading.accountId !== null) {
+        const id = readingProgressChanges(reading.accountId).announce();
+        await refreshReadingProgress(queryClient, reading.accountId, id);
+      } else await reading.refresh();
     },
   });
   const state = reading.state;
@@ -80,14 +97,14 @@ export function SavedReadingAction({
       kind: "pending",
       isRead,
       canMark: canMark && !denied,
-      desiredIsRead: mutation.variables?.isRead ?? !isRead,
+      desiredIsRead: latest?.command?.isRead ?? !isRead,
     };
   else if (notice === "error")
     view = {
       kind: "error",
       isRead,
       canMark: canMark && !denied,
-      desiredIsRead: mutation.variables?.isRead ?? !isRead,
+      desiredIsRead: latest?.command?.isRead ?? !isRead,
     };
   else
     view = {
@@ -102,19 +119,20 @@ export function SavedReadingAction({
       view={view}
       onRefresh={() => {
         void reading.refresh().then(() => {
-          setNotice(null);
+          const cache = queryClient.getMutationCache();
+          for (const previous of cache.findAll({ mutationKey, exact: true }))
+            if (previous.state.status !== "pending") cache.remove(previous);
         });
       }}
       onSetReadingState={(desired) => {
         if (state === undefined || saving) return;
-        command.current ??= {
+        const command = (notice === "error" ? latest?.command : undefined) ?? {
           materialId,
           isRead: desired,
           expectedVersion: state.version,
           commandId: crypto.randomUUID(),
         };
-        setNotice(null);
-        mutation.mutate(command.current);
+        mutation.mutate(command);
       }}
     />
   );
