@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { resolve } from "node:path";
 
 import {
@@ -17,6 +17,24 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
 const snapshots = evidenceDirectory("issue-529");
+
+async function expectReaderProgrammeReturn(
+  page: Page,
+  lowerPanelName: string,
+  href: string,
+) {
+  for (const name of ["Действия материала", lowerPanelName]) {
+    const action = page
+      .getByRole("navigation", { name, exact: true })
+      .getByRole("link", { name: "Открыть программу", exact: true });
+    await expect(action).toHaveCount(1);
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAttribute("href", href);
+  }
+  return page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Открыть программу", exact: true });
+}
 
 test("product product leads to the programme and the programme keeps the Reader return position", async ({
   page,
@@ -61,11 +79,18 @@ test("product product leads to the programme and the programme keeps the Reader 
     .getByRole("link", { name: "Demo #295 · Финальный гайд", exact: true })
     .click();
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-  await page
-    .getByRole("link", { name: "Назад к программе", exact: true })
-    .first()
-    .click();
+  const programmeReturnHref =
+    "/products/demo-series-harness/programme?page=1&at=demo-295-finalnyy-gayd";
+  const programmeReturn = await expectReaderProgrammeReturn(
+    page,
+    testInfo.project.name === "mobile-chromium"
+      ? "Действия в конце материала"
+      : "Навигация по продукту «Demo #295 · основная серия»",
+    programmeReturnHref,
+  );
+  await programmeReturn.click();
   await expect(page).toHaveURL(/at=demo-295-finalnyy-gayd/u);
+  await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
   await expect(
     page.locator('[data-route-material="demo-295-finalnyy-gayd"]:visible'),
   ).toBeInViewport();
@@ -258,13 +283,21 @@ test("product programme appends a real composition and restores Reader return po
       page.getByRole("navigation", { name: "Страницы маршрута" }),
     ).toHaveCount(0);
     const row = page.locator('[data-series-ordinal="13"]:visible');
+    const materialSlug = await row.getAttribute("data-route-material");
+    expect(materialSlug).not.toBeNull();
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    await page
-      .getByRole("link", { name: "Назад к программе", exact: true })
-      .first()
-      .click();
+    const programmeReturnHref = `/products/${slug}/programme?page=2&at=${materialSlug}`;
+    const programmeReturn = await expectReaderProgrammeReturn(
+      page,
+      testInfo.project.name === "mobile-chromium"
+        ? "Действия в конце материала"
+        : "Навигация по продукту «Demo #426 · Длинный маршрут»",
+      programmeReturnHref,
+    );
+    await programmeReturn.click();
     await expect(page).toHaveURL(/page=2&at=/u);
+    await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
     await expect(row).toBeInViewport();
     await page.reload();
     await expect(row).toBeInViewport();

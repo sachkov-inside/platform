@@ -874,20 +874,29 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   expect(new URL(page.url()).searchParams.get("from")).toBe(
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
-  const playlistBackLinks = page.getByRole("link", {
-    name: "Все материалы продукта",
-  });
-  await expect(playlistBackLinks).toHaveCount(1);
-  await expect(playlistBackLinks.first()).toHaveAttribute(
-    "href",
-    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
-  );
+  const programmeReturnHref =
+    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
+  const lowerProgrammePanel =
+    testInfo.project.name === "mobile-chromium"
+      ? "Действия в конце материала"
+      : "Навигация по продукту «Создание Platform Inside»";
+  for (const name of ["Действия материала", lowerProgrammePanel]) {
+    const programmeAction = page
+      .getByRole("navigation", { name, exact: true })
+      .getByRole("link", { name: "Открыть программу", exact: true });
+    await expect(programmeAction).toHaveCount(1);
+    await expect(programmeAction).toBeVisible();
+    await expect(programmeAction).toHaveAttribute("href", programmeReturnHref);
+  }
+  await expect(
+    page.getByRole("link", { name: "Все материалы продукта", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
   await expect(
     page.getByRole("link", { name: "Назад к программе" }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
 
   await expect(page).toHaveTitle(
@@ -897,6 +906,12 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
+  await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Открыть программу", exact: true })
+    .click();
+  await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
+  await expect(representativeSeriesItem).toBeInViewport();
 });
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
