@@ -463,3 +463,9 @@ publication proof remains:
 ```bash
 pnpm release:dry-run
 ```
+
+## Persisted web telemetry
+
+[Web telemetry](web-telemetry.md) owns the PostgreSQL retention, storage quota, read-only MCP summary
+and SQL watchdog contract from #707. The existing browser addresses and structured log remain its
+collection boundary.

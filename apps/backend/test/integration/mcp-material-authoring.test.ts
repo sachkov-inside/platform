@@ -1,3 +1,4 @@
+import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import {
@@ -136,6 +137,7 @@ describe("delegated Material authoring over MCP", () => {
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
+      telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",
         port: 0,

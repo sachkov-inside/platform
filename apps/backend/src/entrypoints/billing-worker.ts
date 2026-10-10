@@ -1,3 +1,4 @@
+import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { PgBoss } from "pg-boss";
@@ -34,6 +35,7 @@ import {
   runNoticeJob,
 } from "./billing-worker/jobs.js";
 
+const telemetryCleanupQueue = "web-telemetry.retention";
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const noticeQueue = "billing.subscription-notices";
@@ -60,6 +62,7 @@ async function bootstrap(): Promise<void> {
     await application.close();
     throw error;
   }
+  const telemetry = application.get(WebTelemetry);
   const tribute = application.get(TributeConvergence);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
@@ -82,6 +85,30 @@ async function bootstrap(): Promise<void> {
     process: "billing-worker",
     readiness: application.get(OperationalReadiness),
     async registerJobs() {
+      await jobs.createQueue(telemetryCleanupQueue, {
+        deleteAfterSeconds: jobRetentionSeconds,
+        expireInSeconds: jobTimeoutSeconds,
+        retryLimit: 0,
+      });
+      await jobs.schedule(
+        telemetryCleanupQueue,
+        "0 3 * * *",
+        {},
+        { tz: "Etc/UTC" },
+      );
+      await jobs.send(
+        telemetryCleanupQueue,
+        {},
+        { singletonSeconds: jobRetentionSeconds },
+      );
+      await jobs.work(
+        telemetryCleanupQueue,
+        observeJob("billing-worker", telemetryCleanupQueue, async () => {
+          const result = await telemetry.clean();
+          if (!result.ok) throw new Error(result.error.code);
+          return result;
+        }),
+      );
       await jobs.createQueue(recoveryQueue, {
         deleteAfterSeconds: jobRetentionSeconds,
         expireInSeconds: jobTimeoutSeconds,

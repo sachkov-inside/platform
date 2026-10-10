@@ -52,7 +52,8 @@
     "start:billing-worker": "node dist/entrypoints/billing-worker.js",
     "contracts:generate": "tsx scripts/generate-subscription-contracts.ts",
     "contracts:check": "tsx scripts/generate-subscription-contracts.ts --check",
-    "test:contracts": "bash ../../scripts/heavy-check.sh bash -c 'pnpm build && vitest run --config vitest.contract.config.mts \"$@\"' --"
+    "test:contracts": "bash ../../scripts/heavy-check.sh bash -c 'pnpm build && vitest run --config vitest.contract.config.mts \"$@\"' --",
+    "telemetry:measure": "bash ../../scripts/heavy-check.sh tsx scripts/measure-web-telemetry.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1146.0",

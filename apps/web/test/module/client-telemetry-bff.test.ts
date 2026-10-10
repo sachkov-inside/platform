@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("next/server", () => ({ after: () => undefined }));
+
 vi.mock("@/shared/auth/index.server", async () => {
   const origin = await import("@/shared/auth/same-origin-mutation.server");
   return {

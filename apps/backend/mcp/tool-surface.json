@@ -86,5 +86,6 @@
   "product_save_composition",
   "video_attach_existing",
   "video_init_upload",
-  "video_reconcile"
+  "video_reconcile",
+  "web_telemetry_summary"
 ]

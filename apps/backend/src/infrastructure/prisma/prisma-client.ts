@@ -230,3 +230,8 @@ export type NotificationsPrisma = Pick<
 >;
 export type NotificationsPrismaClient = NotificationsPrisma &
   TransactionClient<NotificationsPrisma>;
+
+export type WebTelemetryPrisma = Pick<
+  PlatformPrisma,
+  "$executeRaw" | "$queryRaw"
+>;
