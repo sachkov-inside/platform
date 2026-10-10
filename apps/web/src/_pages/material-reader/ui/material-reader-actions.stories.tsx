@@ -454,10 +454,14 @@ export const SharedConflictAndDenial: Story = {
     readingFailure = "denied";
     await save();
     await waitFor(async () => {
-      for (const root of [top, bottom])
+      for (const root of [top, bottom]) {
+        await expect(
+          root.querySelector("[data-reading-action-state]"),
+        ).toHaveAttribute("data-reading-action-state", "ready");
         await expect(
           within(root).getByRole("button", { name: "Изучено" }),
         ).toHaveAttribute("aria-disabled", "true");
+      }
     });
     bookmarkFailure = "denied";
     await userEvent.click(
@@ -487,6 +491,7 @@ function ReaderWithRecheckedAccess(
   return (
     <>
       <button
+        aria-pressed={!canMark}
         className="min-h-11"
         onClick={() => setCanMark(false)}
         type="button"
@@ -528,14 +533,21 @@ export const AccessRestoredAfterDenial: Story = {
     readingFailure = "denied";
     await save();
     await waitFor(async () => {
-      for (const panel of panels)
+      for (const panel of panels) {
+        await expect(
+          panel.querySelector("[data-reading-action-state]"),
+        ).toHaveAttribute("data-reading-action-state", "ready");
         await expect(
           within(panel).getByRole("button", { name: "Изучено" }),
         ).toHaveAttribute("aria-disabled", "true");
+      }
     });
     await userEvent.click(
       canvas.getByRole("button", { name: "Подтвердить закрытый материал" }),
     );
+    await expect(
+      canvas.getByRole("button", { name: "Подтвердить закрытый материал" }),
+    ).toHaveAttribute("aria-pressed", "true");
     readingFailure = null;
     await userEvent.click(
       canvas.getByRole("button", { name: "Подтвердить доступный материал" }),
