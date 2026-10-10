@@ -87,3 +87,8 @@ export {
 } from "./quiz-document.js";
 
 export { resourceCardUrlValid } from "./blocks/resource-card.js";
+
+export {
+  termDefinitionSchema,
+  type TermDefinition,
+} from "./term-definition.js";
