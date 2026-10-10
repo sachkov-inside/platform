@@ -6,7 +6,11 @@ import { Button } from "@/shared/ui/button";
 import type { BookmarkActionProps } from "../model/bookmark-action-view";
 
 /** Presentation only. The production adapter owns the saved state and commands. */
-export function BookmarkAction({ view, onToggle }: BookmarkActionProps) {
+export function BookmarkAction({
+  view,
+  onToggle,
+  compact = false,
+}: BookmarkActionProps) {
   const descriptionId = useId();
   const bookmarked = "bookmarked" in view && view.bookmarked;
   const loading = view.kind === "loading";
@@ -26,22 +30,29 @@ export function BookmarkAction({ view, onToggle }: BookmarkActionProps) {
               : bookmarked
                 ? "Материал в закладках. Нажмите, чтобы убрать."
                 : "Нажмите, чтобы сохранить материал в закладки.";
-  const buttonClassName =
-    "h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2 aria-disabled:opacity-50";
+  const buttonClassName = compact
+    ? "size-11 shrink-0 rounded-lg p-0 aria-disabled:opacity-50"
+    : "h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2 aria-disabled:opacity-50";
   return (
     <div
-      className="mt-6 flex flex-col items-end"
+      className={
+        compact ? "flex flex-col items-end" : "mt-6 flex flex-col items-end"
+      }
       data-bookmark-action-state={view.kind}
     >
       {view.kind === "anonymous" ? (
-        <Button asChild className={buttonClassName} variant="outline">
+        <Button
+          asChild
+          className={buttonClassName}
+          variant={compact ? "ghost" : "outline"}
+        >
           <a
             aria-describedby={descriptionId}
             href={view.loginHref}
             title={message}
           >
             <Bookmark aria-hidden="true" />
-            {label}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </a>
         </Button>
       ) : (
@@ -56,7 +67,15 @@ export function BookmarkAction({ view, onToggle }: BookmarkActionProps) {
           }}
           title={message}
           type="button"
-          variant={bookmarked ? "default" : "outline"}
+          variant={
+            bookmarked
+              ? compact
+                ? "secondary"
+                : "default"
+              : compact
+                ? "ghost"
+                : "outline"
+          }
         >
           {loading || pending ? (
             <LoaderCircle
@@ -68,7 +87,7 @@ export function BookmarkAction({ view, onToggle }: BookmarkActionProps) {
           ) : (
             <Bookmark aria-hidden="true" />
           )}
-          {label}
+          <span className={compact ? "sr-only" : undefined}>{label}</span>
         </Button>
       )}
       <p

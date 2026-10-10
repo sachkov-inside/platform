@@ -15,7 +15,6 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import {
-  materialDifficultyLabel,
   materialTaxonomyLabel,
   MaterialBodyView,
   materialSourceAnchors,
@@ -35,6 +34,7 @@ import {
 import { topicPath } from "@/shared/routing/public-page-path";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
@@ -45,6 +45,8 @@ export interface MaterialReaderViewProps {
   readonly seriesContext?: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
+  readonly topReadingAction?: ReactNode;
+  readonly topBookmarkAction?: ReactNode;
   readonly practiceActions?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
@@ -70,6 +72,8 @@ export function MaterialReaderView({
   seriesContext = null,
   readingAction,
   bookmarkAction,
+  topReadingAction,
+  topBookmarkAction,
   practiceActions,
   modeHint,
   modeSwitch,
@@ -94,6 +98,11 @@ export function MaterialReaderView({
           <MaterialReaderHeader
             material={material}
             outcomesHeadingId={outcomesHeadingId}
+          />
+          <ReaderTopActions
+            context={seriesContext}
+            readingAction={topReadingAction}
+            bookmarkAction={topBookmarkAction}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -165,7 +174,7 @@ export function SeriesReaderNavigation({
           variant="secondary"
         >
           <IntentPrefetchLink href={context.series.href}>
-            Все материалы продукта
+            Открыть программу
           </IntentPrefetchLink>
         </Button>
         {context.next === null ? null : (
@@ -298,16 +307,6 @@ export function MaterialReaderHeader({
       <p className="mt-4 text-pretty text-[1.0625rem] leading-7 text-body-muted">
         {material.summary}
       </p>
-      {material.difficulty === null ? null : (
-        <p className="mt-4">
-          <span
-            className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-medium text-muted-foreground"
-            data-material-difficulty={material.difficulty}
-          >
-            Сложность: {materialDifficultyLabel(material.difficulty)}
-          </span>
-        </p>
-      )}
       {material.outcomes.length === 0 ? null : (
         <section
           aria-labelledby={outcomesHeadingId}

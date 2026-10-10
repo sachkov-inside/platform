@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useIsMutating, useMutation } from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import { setReadingState } from "../api/reading.browser";
 import type { ReadingCommand } from "../model/reading-contract";
@@ -11,17 +11,26 @@ export function SavedReadingAction({
   materialId,
   format,
   canMark = true,
+  compact = false,
 }: {
   readonly materialId: string;
   readonly format: string;
   readonly canMark?: boolean;
+  readonly compact?: boolean;
 }) {
   const reading = useMaterialReading(materialId);
   const command = useRef<ReadingCommand | null>(null);
   const [notice, setNotice] = useState<"conflict" | "error" | null>(null);
   const [denied, setDenied] = useState(false);
+  const mutationKey = [
+    "reading-progress",
+    reading.accountId,
+    "set-state",
+    materialId,
+  ] as const;
+  const saving = useIsMutating({ mutationKey }) > 0;
   const mutation = useMutation({
-    mutationKey: ["reading-progress", reading.accountId, "set-state"],
+    mutationKey,
     mutationFn: setReadingState,
     onSuccess: async (result) => {
       if (result.kind === "unavailable") {
@@ -66,12 +75,12 @@ export function SavedReadingAction({
         </div>
       );
     view = { kind: "loading" };
-  } else if (mutation.isPending)
+  } else if (saving)
     view = {
       kind: "pending",
       isRead,
       canMark: canMark && !denied,
-      desiredIsRead: mutation.variables.isRead,
+      desiredIsRead: mutation.variables?.isRead ?? !isRead,
     };
   else if (notice === "error")
     view = {
@@ -88,6 +97,7 @@ export function SavedReadingAction({
     };
   return (
     <ReadingAction
+      compact={compact}
       format={format}
       view={view}
       onRefresh={() => {
@@ -96,7 +106,7 @@ export function SavedReadingAction({
         });
       }}
       onSetReadingState={(desired) => {
-        if (state === undefined || mutation.isPending) return;
+        if (state === undefined || saving) return;
         command.current ??= {
           materialId,
           isRead: desired,

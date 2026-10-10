@@ -17,6 +17,7 @@ export type BookmarkActionView =
   | { readonly kind: "denied"; readonly bookmarked: boolean };
 
 export interface BookmarkActionProps {
+  readonly compact?: boolean;
   readonly view: BookmarkActionView;
   readonly onToggle: (desired: boolean) => void;
 }

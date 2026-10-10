@@ -34,19 +34,6 @@
 .ai-product-page svg {
   flex-shrink: 0;
 }
-.ai-product-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  text-decoration: none;
-  font-size: 0.85rem;
-  color: var(--muted-foreground);
-}
-.ai-product-back svg {
-  width: 1rem;
-  height: 1rem;
-}
 .ai-product-hero {
   display: grid;
   grid-template-columns: 1.05fr 1fr;

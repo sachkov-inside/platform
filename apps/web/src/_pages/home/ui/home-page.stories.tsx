@@ -10,6 +10,10 @@ import {
 import { getQueryClient } from "@/shared/api/query-client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { HomePage } from "./home-page";
+import {
+  CohortCallView,
+  courseLearningAction,
+} from "@/features/ai-engineering-course";
 import { HomeFeedView } from "./home-feed.client";
 import { aiEngineeringCoursePage } from "@/storybook/ai-engineering-course.fixtures";
 import {
@@ -309,6 +313,49 @@ export const AiEngineeringCourse: Story = {
 };
 export const AiEngineeringCourseMobile: Story = {
   ...AiEngineeringCourse,
+  globals: mobile.globals,
+};
+
+export const CourseParticipant: Story = {
+  ...AiEngineeringCourse,
+  args: {
+    ...AiEngineeringCourse.args,
+    courseCall: (
+      <CohortCallView
+        call={{ banner: null, action: courseLearningAction("ai-engineering") }}
+      />
+    ),
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("link", { name: "Открыть программу" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  },
+};
+export const CourseParticipantContinuing: Story = {
+  ...AiEngineeringCourse,
+  args: {
+    ...AiEngineeringCourse.args,
+    courseCall: (
+      <CohortCallView
+        call={{
+          banner: null,
+          action: courseLearningAction("ai-engineering", "course-intro"),
+        }}
+      />
+    ),
+  },
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.getByRole("link", { name: "Продолжить обучение" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+    );
+  },
+};
+export const CourseParticipantContinuingMobile: Story = {
+  ...CourseParticipantContinuing,
   globals: mobile.globals,
 };
 

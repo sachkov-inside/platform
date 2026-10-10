@@ -1,11 +1,9 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { Button } from "@/shared/ui/button";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 
 /** Repeat the return action after scrolling past its ordinary, non-sticky top position. */
 export function ReaderReturnNavigation({
@@ -34,18 +32,7 @@ export function ReaderReturnNavigation({
     };
   }, [repeatAtBottom]);
 
-  const action = (
-    <Button
-      asChild
-      className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-4 text-xs font-semibold shadow-none"
-      variant="outline"
-    >
-      <IntentPrefetchLink href={target.href}>
-        <ArrowLeft aria-hidden="true" />
-        {target.label}
-      </IntentPrefetchLink>
-    </Button>
-  );
+  const action = <CatalogBackLink href={target.href} label={target.label} />;
 
   return (
     <>

@@ -8,6 +8,21 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
+  it("opens the programme even when the lesson was entered from the product description", () => {
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "first",
+        returnTarget: parseMaterialReaderReturnTarget(
+          "/products/ai-engineering",
+        ),
+        series: {
+          kind: "ready",
+          reference: { name: "AI Engineering", slug: "ai-engineering" },
+          items: [{ slug: "first", title: "Первый урок" }],
+        },
+      })?.series.href,
+    ).toBe("/products/ai-engineering/programme");
+  });
   it("keeps the selected Series order when one Material belongs to several Series", () => {
     const result = resolveSeriesReaderContext({
       currentMaterialSlug: "shared-material",
@@ -38,7 +53,7 @@ describe("Series Reader context", () => {
       },
       series: {
         hasModeVariants: false,
-        href: "/series/platform-inside?from=%2F",
+        href: "/products/platform-inside/programme",
         name: "Создание Platform Inside",
       },
       totalMaterials: 3,

@@ -14,6 +14,7 @@ export type ReadingActionView =
     };
 
 export interface ReadingActionProps {
+  readonly compact?: boolean;
   readonly format: string;
   readonly view: ReadingActionView;
   readonly onSetReadingState: (isRead: boolean) => void;

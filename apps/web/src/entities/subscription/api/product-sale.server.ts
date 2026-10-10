@@ -44,7 +44,7 @@ async function readProductSale(
     loadProductCohort(productId),
     accessToken === undefined
       ? ("closed" as const)
-      : readAccess(productId, accessToken),
+      : readProductAccess(productId, accessToken),
   ]);
   if (catalog.kind === "unavailable") return catalog;
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.
@@ -64,7 +64,8 @@ async function readProductSale(
     terms: offers[0] === undefined ? null : oneTimeOfferTerms(offers[0]),
   };
 }
-async function readAccess(
+/** Доступ участника не зависит от того, открыта ли сейчас продажа продукта. */
+export async function readProductAccess(
   productId: string,
   accessToken: string,
 ): Promise<"open" | "closed" | "unknown"> {

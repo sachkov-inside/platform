@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import {
   bookmarkStatesQueryOptions,
@@ -19,11 +24,20 @@ import { BookmarkAction } from "./bookmark-action.client";
  */
 export function SavedBookmarkAction({
   materialId,
+  compact = false,
 }: {
   readonly materialId: string;
+  readonly compact?: boolean;
 }) {
   const { accountId, resolved } = useMaterialReading();
   const queryClient = useQueryClient();
+  const mutationKey = [
+    "bookmarks",
+    accountId,
+    "set-state",
+    materialId,
+  ] as const;
+  const saving = useIsMutating({ mutationKey }) > 0;
   useBookmarkChanges(resolved ? accountId : null);
   const [notice, setNotice] = useState<"error" | "denied" | null>(null);
   const state = useQuery(
@@ -33,6 +47,7 @@ export function SavedBookmarkAction({
     }),
   );
   const mutation = useMutation({
+    mutationKey,
     mutationFn: (input: {
       materialId: string;
       bookmarked: boolean;
@@ -75,11 +90,11 @@ export function SavedBookmarkAction({
     view = { kind: "anonymous", loginHref: "/account" };
   else if (data.kind !== "ready")
     view = { kind: "error", bookmarked, desired: !bookmarked };
-  else if (mutation.isPending)
+  else if (saving)
     view = {
       kind: "pending",
       bookmarked,
-      desired: mutation.variables.bookmarked,
+      desired: mutation.variables?.bookmarked ?? !bookmarked,
     };
   else if (notice === "error")
     view = {
@@ -91,8 +106,9 @@ export function SavedBookmarkAction({
   else view = { kind: "ready", bookmarked };
   return (
     <BookmarkAction
+      compact={compact}
       onToggle={(desired) => {
-        if (accountId === null || state.isPending || mutation.isPending) return;
+        if (accountId === null || state.isPending || saving) return;
         mutation.mutate({ materialId, bookmarked: desired, accountId });
       }}
       view={view}
