@@ -1,3 +1,4 @@
+import { isLoginEmailReserved } from "../../infrastructure/postgres/login-email-intents.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -54,6 +55,9 @@ export async function establishTelegramAccount(
         where: { telegramSubjectRef: identity.telegram.subjectRef },
       });
       if (emailFingerprint !== undefined) {
+        if (await isLoginEmailReserved(transaction, emailFingerprint)) {
+          return { ok: false, error: { code: "identity_conflict" } };
+        }
         const emailOwner = await transaction.account.findUnique({
           where: { emailFingerprint },
           select: { id: true },

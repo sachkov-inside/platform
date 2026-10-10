@@ -133,3 +133,20 @@ Billing contact и его consent/code flow не участвуют в login pro
 same-subject first email attachment, replay/TTL/limits, конкурентные первые входы и email race,
 lost consume/attachment response, provider/application partial commit, switches и logout.
 Physical Telegram iOS/Android/Desktop и внешняя email delivery остаются отдельной живой приёмкой.
+
+
+## Backend LIGHT Accounts checkpoint (2026-10-10)
+
+Pinned source facts remain distinct from actual runtime proof. Retained upstream1.44.0 at
+`79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`, profile `setProfileByVerificationId` consumes the
+native bind record and derives the profile; `safeGetIdentifiedUser` uses the identified user for
+SignIn. `ExperienceInteraction.submit` obtains that user and calls `updateUserById(user.id, ...)`
+after availability/interaction guards. These source facts support the same-owner staged profile seam.
+They do not prove a deployed HTTP journey or expose an upstream operation receipt API.
+
+The Accounts source now owns its first-email operation ledger under native0088, with its existing
+Account identity and email fingerprint policy. `LoginEmailNativeAuthority` defines our future trusted
+adapter contract. Its methods are not documented as upstream APIs. AccountsModule does not register
+an implementation, and the production write path remains closed until private native browser and
+receipt correlation are connected and proved. Pure policy/control fixtures and an authored real PG
+corpus exercise Accounts semantics only. First own actual pinned Logto/API proof remains PENDING.
