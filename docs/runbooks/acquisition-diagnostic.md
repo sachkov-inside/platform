@@ -120,7 +120,8 @@ Engine call concurrency не измеряет внутренние registry HTTP
 `nativeExit` в `receipt.json` относится ко всему диагностическому процессу.
 Неизвестный primary получает failure exit и безопасную классификацию, без произвольного error text.
 
-Успех означает успешный setup и нормальный teardown только этого запуска.
+Успех acquisition означает завершение выбранного SDK pull только этого запуска.
+Guardian и независимый qualifier отдельно проверяют daemon shutdown и отсутствие owned процессов.
 Ошибка сохраняет failed status; она не преобразуется в success.
 После процесса guardian останавливает системные Docker/containerd services этого ephemeral runner.
 `receipt.json` сохраняет native exits, resource samples и результат shutdown.
@@ -141,7 +142,8 @@ node scripts/owned-node.mjs --command python3 -m unittest discover -s scripts -p
 node scripts/check-agent-documentation.mjs
 ```
 
-Эти проверки доказывают propagation, secret omission и вызов teardown через диагностический адаптер.
+Mock contracts проверяют propagation, secret omission, выбор одного RabbitMQ и cache/auth/Engine-call receipts.
+Отдельный legacy contract проверяет `runSetupAndTeardown`; текущий fixture этот helper не вызывает.
 Python regressions проверяют intake, поздний cache, итоговый resource sample, deadline и ошибки cleanup.
 Repository entry использует внешний `owned-node` supervisor, который закрывает дерево также после SIGKILL unittest owner.
 Без ownership marker guard contracts отказывают до запуска child.

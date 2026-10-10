@@ -38,10 +38,10 @@ function callReceipts(boundary, emit, now) {
   };
 }
 
-/** @param {unknown} options @param {string} key */
+/** @param {unknown} options @param {string} key @returns {unknown} */
 function option(options, key) {
   return options !== null && typeof options === "object" && key in options
-    ? options[key]
+    ? Reflect.get(options, key)
     : undefined;
 }
 
