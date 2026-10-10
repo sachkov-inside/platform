@@ -33,6 +33,8 @@ if(output.endsWith("/backend") || output.endsWith("/web")) {
   copyFileSync(process.argv.at(-1)+"/installed.patch",output+"/workspace/patches/proof.patch");
   const installed=statSync(process.argv.at(-1)+"/installed.patch");
   utimesSync(output+"/workspace/patches/proof.patch",installed.atime,installed.mtime);
+  copyFileSync(output+"/workspace/patches/proof.patch",output+"/dependency-installed.patch");
+  utimesSync(output+"/dependency-installed.patch",installed.atime,installed.mtime);
   writeFileSync(output+"/workspace/package.json","fixture source");
   process.exit(0);
 }

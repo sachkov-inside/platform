@@ -36,6 +36,15 @@ patch bytes invalidate the install cache. No new Dockerfile frontend or registry
 The native regression executes both real development COPY sequences in a scratch fixture and
 checks installed patch bytes and timestamps. Native proof and normal launch on this correction
 remain pending until its committed review completes. Historical red/green receipts stay unchanged.
+
+The first native timestamp check on reviewed `170307f73ab9e42a8247186fab5771bb6209f2d5`
+failed because its expected timestamp came from the host fixture. BuildKit reused the installed
+patch layer with mtime1791591610284525095ns while the host fixture had1300000000000000000ns.
+A minimal native probe exported a reference from the cached dependency stage: the final patch had
+exactly the same cached mtime and unchanged bytes, exit0. This separates correct stage COPY from
+an incorrect expectation about the host fixture. The regression now compares the final timestamp
+with that cached dependency reference. No cache pruning or full-stand retry was used; the shared
+cached stand remained live throughout this diagnosis.
 The launcher now reads bounded migrations/seed logs before failed-startup shutdown. A process
 regression failed before this change and passed after it. pnpm verification remains enabled.
 

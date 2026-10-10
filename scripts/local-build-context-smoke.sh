@@ -48,11 +48,12 @@ assert instructions, 'Missing development COPY'
 print('\n'.join(line.replace('--chown=node:node', '--chown=1000:1000') for line in instructions))
 PY
 )"
-  printf 'FROM scratch AS dependencies\nWORKDIR /workspace\nCOPY installed.patch ./patches/proof.patch\nFROM dependencies AS development\n%s\n' "$copy_instructions" > "$proof_directory/context/Dockerfile"
+  printf 'FROM scratch AS dependencies\nWORKDIR /workspace\nCOPY installed.patch ./patches/proof.patch\nFROM dependencies AS development\n%s\nCOPY --from=dependencies /workspace/patches/proof.patch /dependency-installed.patch\n' "$copy_instructions" > "$proof_directory/context/Dockerfile"
   python3 "$repository_root/scripts/local-build-context-smoke.py" \
     "$proof_directory/context" "$proof_directory/$application"
   cmp "$proof_directory/context/installed.patch" "$proof_directory/$application/workspace/patches/proof.patch"
-  python3 - "$proof_directory/context/installed.patch" "$proof_directory/$application/workspace/patches/proof.patch" <<'PY'
+  # BuildKit can reuse this stage with an older mtime: compare against that installed snapshot.
+  python3 - "$proof_directory/$application/dependency-installed.patch" "$proof_directory/$application/workspace/patches/proof.patch" <<'PY'
 from pathlib import Path
 import sys
 

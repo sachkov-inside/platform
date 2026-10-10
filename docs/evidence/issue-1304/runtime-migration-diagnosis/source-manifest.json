@@ -377,5 +377,50 @@
         "exit": 1
       }
     ]
+  },
+  "nativeCachedTimestampDiagnosis": {
+    "sourceHead": "170307f73ab9e42a8247186fab5771bb6209f2d5",
+    "redLabel": "heavy-final-native-copy",
+    "redExit": 1,
+    "primary": "Installed patch timestamp changed; expected hostmtime despite cachehit",
+    "greenLabel": "heavy-native-cached-patch-causal",
+    "greenExit": 0,
+    "hostMtimeNs": 1300000000000000000,
+    "cachedDependencyMtimeNs": 1791591610284525095,
+    "finalMtimeNs": 1791591610284525095,
+    "bytesEqual": true,
+    "sharedStandStopped": false,
+    "rawSources": [
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.stdout.log",
+        "bytes": 86,
+        "sha256": "271b74299835f4ec5c410521230f641d7af238da717ab6851731cc0e01134fe8"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.stderr.log",
+        "bytes": 1562,
+        "sha256": "892445994846f619e6deec96fc1e219cbd69232f3520719d4018f0c85c201470"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.credit-receipt.json",
+        "bytes": 1655,
+        "sha256": "97c8174064d0b347c52489b1e4440c7a0bb72a42dfece22019d586a2180b3a7c"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.stdout.log",
+        "bytes": 197,
+        "sha256": "740fef692ea0bcb6e265b9db0cf8fd5dfd3368c595ad7da2894582da8024cc95"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.stderr.log",
+        "bytes": 1009,
+        "sha256": "e9ba40f5a0fee13557414c1488e35882bea017587f347d0c8b39a6bb7e67aade"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.credit-receipt.json",
+        "bytes": 1669,
+        "sha256": "df3991dd48d5ae63b3b666445777699893926561bc8c695d7bf01a4412e89965"
+      }
+    ]
   }
 }
