@@ -50,6 +50,7 @@ class GuardContracts(unittest.TestCase):
     def exercise(self, payload='', *, growth=False, cleanup_error=False, git_expiry=False,
                  late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False, final_meter_spill=False):
         with process_contract_deadline(), tempfile.TemporaryDirectory() as temporary:
+            temporary = str(Path(temporary).resolve())
             output = Path(temporary)/'result'
             daemon = Path(temporary)/'daemon'
             daemon.mkdir()
