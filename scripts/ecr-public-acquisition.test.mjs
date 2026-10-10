@@ -289,6 +289,11 @@ printf '%s\\n' "$((now + 1000))" >"$ACQUISITION_FIXTURE/clock"
 `,
     { mode: 0o755 },
   );
+  const inheritedEnvironment = {
+    ...process.env,
+    // Every default-mode adapter must also reject an inherited opt-in mode.
+    PRODUCTION_SMOKE_CACHE_ONLY: "1",
+  };
   const child = spawnOwned(
     "/bin/bash",
     ["scripts/production-compose-smoke.sh"],
@@ -296,7 +301,8 @@ printf '%s\\n' "$((now + 1000))" >"$ACQUISITION_FIXTURE/clock"
       // The budget stops a stuck adapter; the supervisor owns descendant cleanup.
       signal: AbortSignal.timeout(10_000),
       env: {
-        ...process.env,
+        ...inheritedEnvironment,
+        PRODUCTION_SMOKE_CACHE_ONLY: cacheOnly ? "1" : "0",
         PATH: `${fixture}:${process.env["PATH"] ?? ""}`,
         TMPDIR: fixture,
         ACQUISITION_FIXTURE: fixture,
@@ -306,7 +312,6 @@ printf '%s\\n' "$((now + 1000))" >"$ACQUISITION_FIXTURE/clock"
         PRODUCTION_SMOKE_ARTIFACT_DIR: join(fixture, "artifacts"),
         ...(cacheOnly
           ? {
-              PRODUCTION_SMOKE_CACHE_ONLY: "1",
               PRODUCTION_SMOKE_CACHE_OWNER:
                 scenario === "cache-foreign-owner" ? "inside-platform" : owner,
               PRODUCTION_SMOKE_SOURCE_SHA:
