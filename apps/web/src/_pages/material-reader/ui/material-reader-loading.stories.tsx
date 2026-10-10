@@ -135,11 +135,14 @@ function PersonalPart({
   return outcome === "opened" ? (
     <MaterialReaderView
       body={body}
-      bookmarkAction={<SavedBookmarkAction materialId={material.materialId} />}
+      bookmarkAction={
+        <SavedBookmarkAction compact materialId={material.materialId} />
+      }
       material={material}
       primaryVideo={null}
       readingAction={
         <SavedReadingAction
+          compact
           format={material.format.slug}
           materialId={material.materialId}
         />

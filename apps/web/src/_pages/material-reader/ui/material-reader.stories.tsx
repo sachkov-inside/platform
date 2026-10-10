@@ -484,12 +484,13 @@ function readerActions(
     topBookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
     readingAction: (
       <SavedReadingAction
+        compact
         format={format}
         key={materialId}
         materialId={materialId}
       />
     ),
-    bookmarkAction: <SavedBookmarkAction materialId={materialId} />,
+    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
     practiceActions: (
       <LearningPracticePrompts connection={learnerMcp} result={noPractices} />
     ),
@@ -636,6 +637,19 @@ export const Mobile: Story = {
     await expect(getComputedStyle(heading).fontSize).toBe("22px");
     await expect(getComputedStyle(readerBody).fontSize).toBe("15px");
     await expect(getComputedStyle(readerBody).lineHeight).toBe("24.75px");
+    for (const name of ["Действия материала", "Действия в конце материала"]) {
+      const panel = canvas.getByRole("navigation", { name });
+      const mark = within(panel).getByRole("link", { name: "Изучено" });
+      await expect(getComputedStyle(mark).fontSize).toBe("12px");
+      await expect(mark.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+        44,
+      );
+      const bookmark = within(panel).getByRole("link", { name: "В закладки" });
+      await expect(bookmark.getBoundingClientRect().width).toBe(44);
+      await expect(
+        bookmark.getBoundingClientRect().height,
+      ).toBeGreaterThanOrEqual(44);
+    }
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
     await expect(getComputedStyle(readerBody).color).toBe(
       getComputedStyle(heading).color,

@@ -44,7 +44,7 @@ export function ReaderTopActions({
             ? "Действия материала"
             : "Действия в конце материала"
         }
-        className={`flex flex-wrap items-center gap-x-1 rounded-xl border border-border bg-muted/40 px-1 py-1 [&_button]:text-xs sm:[&_button]:text-sm ${position === "bottom" ? "sm:border-0 sm:bg-transparent sm:px-0" : ""}`}
+        className={`flex flex-wrap items-center gap-x-1 rounded-xl border border-border bg-muted/40 px-1 py-1 [&_a]:text-xs [&_button]:text-xs sm:[&_a]:text-sm sm:[&_button]:text-sm ${position === "bottom" ? "sm:border-0 sm:bg-transparent sm:px-0" : ""}`}
         data-reader-top-actions
       >
         {context === null ? (

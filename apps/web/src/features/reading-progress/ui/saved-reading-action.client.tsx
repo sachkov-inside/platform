@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useMemo } from "react";
 import {
   useIsMutating,
   useMutation,
@@ -31,12 +32,23 @@ export function SavedReadingAction({
 }) {
   const reading = useMaterialReading(materialId);
   const queryClient = useQueryClient();
-  const mutationKey = [
-    "reading-progress",
-    reading.accountId,
-    "set-state",
-    materialId,
-  ] as const;
+  const mutationKey = useMemo(
+    () =>
+      ["reading-progress", reading.accountId, "set-state", materialId] as const,
+    [materialId, reading.accountId],
+  );
+  // Новый доступный Reader снимает прежний отказ, сохраняя ошибки и ключи повторных команд.
+  useEffect(() => {
+    if (!canMark || !reading.resolved) return;
+    const cache = queryClient.getMutationCache();
+    for (const previous of cache.findAll({ mutationKey, exact: true }))
+      if (
+        previous.state.status === "success" &&
+        readingResultSchema.safeParse(previous.state.data).data?.kind ===
+          "denied"
+      )
+        cache.remove(previous);
+  }, [canMark, mutationKey, queryClient, reading.resolved]);
   const saving = useIsMutating({ mutationKey }) > 0;
   // Все представления материала наблюдают последнюю команду одного владельца кеша.
   const latest = useMutationState({

@@ -472,6 +472,92 @@ export const SharedConflictAndDenial: Story = {
   },
 };
 
+function ReaderWithRecheckedAccess(
+  args: ComponentProps<typeof MaterialReaderView>,
+) {
+  const [canMark, setCanMark] = useState(true);
+  const action = (
+    <SavedReadingAction
+      compact
+      canMark={canMark}
+      format="guide"
+      materialId={materialId}
+    />
+  );
+  return (
+    <>
+      <button
+        className="min-h-11"
+        onClick={() => setCanMark(false)}
+        type="button"
+      >
+        Подтвердить закрытый материал
+      </button>
+      <button
+        className="min-h-11"
+        onClick={() => setCanMark(true)}
+        type="button"
+      >
+        Подтвердить доступный материал
+      </button>
+      <MaterialReaderView
+        {...args}
+        readingAction={action}
+        topReadingAction={action}
+      />
+    </>
+  );
+}
+
+export const AccessRestoredAfterDenial: Story = {
+  render: (args) => <ReaderWithRecheckedAccess {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const panels = [
+      await canvas.findByRole("navigation", { name: "Действия материала" }),
+      canvas.getByRole("navigation", { name: "Действия в конце материала" }),
+    ] as const;
+    const save = async () => {
+      release = undefined;
+      await userEvent.click(
+        within(panels[0]).getByRole("button", { name: "Изучено" }),
+      );
+      await waitFor(() => expect(release).toBeDefined());
+      releaseReading();
+    };
+    readingFailure = "denied";
+    await save();
+    await waitFor(async () => {
+      for (const panel of panels)
+        await expect(
+          within(panel).getByRole("button", { name: "Изучено" }),
+        ).toHaveAttribute("aria-disabled", "true");
+    });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Подтвердить закрытый материал" }),
+    );
+    readingFailure = null;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Подтвердить доступный материал" }),
+    );
+    await waitFor(async () => {
+      for (const panel of panels)
+        await expect(
+          within(panel).getByRole("button", { name: "Изучено" }),
+        ).toHaveAttribute("aria-disabled", "false");
+    });
+    await save();
+    await waitFor(async () => {
+      for (const panel of panels)
+        await expect(
+          within(panel).getByRole("button", { name: "Изучено" }),
+        ).toHaveAttribute("aria-pressed", "true");
+    });
+    await expect(commands).toHaveLength(2);
+    await expect(commands[1]).not.toBe(commands[0]);
+  },
+};
+
 function GrowingReader(args: ComponentProps<typeof MaterialReaderView>) {
   const [expanded, setExpanded] = useState(false);
   return (
