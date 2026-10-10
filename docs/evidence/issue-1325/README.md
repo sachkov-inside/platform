@@ -1,0 +1,11 @@
+# Local production-web readiness — #1325
+
+On committed d6311d2d2507215871bb1ed7f5836a504bb10cd8, normal `pnpm local:stand --production-web` exited0 and current FULL data preservation passed. Web root200 and baked local CSP did not prove readiness: `/_health/ready` returned503 `dependency_unavailable`. API `/health/ready` returned200. [Actual identities and image IDs](d631-readiness-red.json) show web `v1/d631…` versus API `development/0000…`.
+
+`webReadiness` requires exact API/web release and source equality. `resolveRuntimeIdentity` previously returned deterministic development identity before reading release inputs. API intentionally remains in development mode: production configuration rejects stand Mailpit, HTTP storage, Kinescope test provider and bank double. Changing only API release environment could not fix the owning boundary.
+
+The local production-web overlay now supplies one clean launcher's HEAD/release to both image builds and runtime environments. The backend development image optionally writes a readonly identity from those validated build arguments. API explicitly selects local image identity while retaining development providers. The shared identity module then performs the same complete runtime/immutable-image validation and equality as production. Web readiness equality and production identity validation stay unchanged; ordinary development/test retain deterministic identities. Ten backend roles still share one physical development image.
+
+The public identity interface test goes red on the old development short circuit and green with the explicit opt-in. Negative tests require complete inputs and reject local/production mismatch. Compose config verifies both services receive exact build/runtime inputs. [Private raw receipt hashes](source-manifest.json) retain the original failure and corrected source-loop results; no credentials or course dumps are copied here.
+
+Actual corrected-head native COPY, both normal modes, web/API readiness200, baked CSP/header, anonymous denial, preservation, disposable guarded smoke, final check and current-head CI remain required. These results are pending at this source commit. Root resumes genuine Content QA only after all shared Compose mutations finish and the exact production runtime is handed off.

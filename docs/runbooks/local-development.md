@@ -158,6 +158,14 @@ it once, then starts API, MCP and web. The seed keeps its demonstration Material
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
+The ten backend roles and development `web` share one workspace image. Only `api` builds it;
+each role declares its own command and retains its readiness/dependency contract. The workspace
+contains both applications and their dependencies, so development Web needs no second install or
+image export. Rebuild `api` after backend or Web source changes, then recreate affected roles to use
+that image. Local diagnostic `.reports` files are excluded
+from the root Docker context; tracked source and `docs/evidence` remain available. The host-generated
+Prisma client is excluded too: dependency installation generates it from the image's own schema.
+
 The checked-in `config/compose/local/*.env` files contain safe container-only development values.
 A root `.env` copied from `.env.example` is optional for host-process overrides and Compose host
 ports; already exported variables take precedence. Next.js host fallback uses the same checked-in
@@ -248,10 +256,96 @@ the real speed, start the stand with the production build of web:
 pnpm local:stand --production-web
 ```
 
-Only the `web` service changes: it is built from the `web-production` image target through
+The `web` service is built from the `web-production` image target through
 `config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
+It uses a separate `${COMPOSE_PROJECT_NAME:-inside-platform}-web-production:local` image and the
+production server command; its build cannot replace the shared backend development image.
+API and web use the same baked source/release identity so web's `/_health/ready` can verify equality.
+API providers remain in development mode; its explicit local image-identity input follows the
+[runtime configuration contract](runtime-configuration.md#docker-compose-flow).
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
+
+Local Web has provisional memory bounds ([#1332](https://github.com/sachkov-inside/platform/issues/1332)):
+development allows 6 GiB of RAM and 8 GiB of RAM plus swap; production Web allows 1 GiB of RAM
+and 1 GiB of RAM plus swap, so it cannot use swap. `memswap_limit` is the combined total, not
+additional swap. These are container safety caps, not measured FULL-course budgets; actual
+production peaks and available VM headroom must confirm or correct them before runtime acceptance.
+The local production overlay inherits `restart: unless-stopped` from Web's base service.
+Docker restarts unexpected exits after successful startup; an explicit stop remains stopped.
+An unhealthy probe alone does not restart the container. These local settings do not change
+the release Web's existing 512 MiB deployment cap or other local services.
+
+Before applying these settings to an existing shared stand, its owner must announce the restart.
+Record the current Web `memory.current` and guest `MemAvailable`, then choose the runtime limits
+for the planned workload. Measure production Web's peak and VM headroom through startup and
+FULL-course review; require preserved identities/data, no OOM and no unexpected restart.
+The normal 20 GiB disk admission still applies. A runtime Web cap does not bound BuildKit memory
+or prove that the VM has enough memory for a build. See Docker's
+[memory contract](https://docs.docker.com/engine/containers/resource_constraints/) and
+[restart policy](https://docs.docker.com/engine/containers/start-containers-automatically/).
+
+The local production-web launcher reads the resolved API signed storage endpoint from
+the common learner Compose configuration, including Compose's `.env`/shell interpolation.
+It derives that URL's canonical origin and passes it through
+`STAND_WEB_OBJECT_STORAGE_ORIGIN` as the existing validated `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`.
+For port80 the canonical origin is `http://127.0.0.1`; other ports remain explicit.
+Next captures the headers during the build;
+setting it only on the running container cannot repair a previously built CSP. The common learner
+overlay uses that same published port for API and MCP signed image URLs in both stand modes.
+Builds for a production release omit the local origin and keep the existing production `img-src`.
+The loopback validation and script policy remain in `next.config.ts` / [ADR 0028](../adr/0028-web-edge-hardening.md).
+
+`local:stand` builds API's shared workspace image, RabbitMQ and Logto sequentially before starting
+containers with `--no-build`. It builds a separate Web image only with `--production-web`.
+Each invocation asks BuildKit to verify the current source
+inputs, so cached images never bypass source validation. Production web requires a clean Git
+working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
+Backend and web restore installed patches from the dependency stage after source COPY. Recopying
+them from source after a cached install changes their timestamps and makes pnpm attempt an unnecessary install.
+If startup fails, the launcher prints up to 80 lines from each migration/seed job before shutdown
+removes its containers; reading these diagnostics has a 20-second deadline.
+
+Before building, the command measures available space on Docker's host storage filesystem. On macOS,
+it locates the open Docker Desktop `Docker.raw` through `lsof` file metadata; on Linux Engine it uses
+the daemon's `DockerRootDir`. It refuses an unidentified data disk. It requires 20 GiB: an 8 GiB
+build ceiling, the mandatory 10 GiB host floor and 2 GiB of stop/cleanup headroom. During launch it checks both limits every 250 ms and starts
+stopping its command tree 256 MiB before either limit: growth at 7.75 GiB or remaining free at 10.25 GiB. This monitors host disk consumption; it does not
+increase Docker's own storage quota. A refusal leaves existing stand data intact. Arrange disk
+capacity before retrying; the command never prunes caches, reports or volumes.
+
+The 9 October cached-stand estimate rounded up 3 GiB for source/web/export growth plus two dependency
+snapshots of at most 2.261 GB each to a provisional 8 GiB ceiling. On 10 October, the c0 image-only
+attempt stopped at the cumulative global margin while building Web dependencies; that estimate did
+not prove the whole matrix fits. Backend and Web now declare identical toolchain/dependency inputs.
+Web disables Next telemetry in its development stage, inherited by Web, Storybook and production-build,
+so this Web setting does not separate the dependency cache. Native reuse still needs verification;
+a matching source graph is not measured capacity. Production Web keeps its separate image and build,
+while development Web reuses API's workspace. The historical estimate uses retained layer/cache
+measurements, not the sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
+were captured on 9 October 2026 UTC / 10 October 2026 MSK. Runtime verification must measure actual peak growth and the
+remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.
+[The refreshed inputs after main391 and the linked CSP fix](../evidence/issue-1304/resume-1318/README.md)
+keep the same provisional ceiling. Those metadata sizes are not measured future build growth.
+Root diagnostic `*.log` files are ignored by Git as well as the Docker context, so they do not
+prevent production web's source check.
+
+For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/local-build-context-smoke.sh`.
+It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary
+files. Each scratch build has a 60-second execution budget; the repository Python supervisor force-stops its command
+tree on deadline and returns124. Ordinary Docker failures retain their original status. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
+It also exercises both development Dockerfiles' real `COPY` instructions and verifies that they
+preserve patch files from the dependency stage.
+The separate native cache discriminator is `python3 scripts/local-dependency-cache-smoke.py <baseline-web-Dockerfile>`
+under the same guarded slot. Supply preserved pre-fix Web Dockerfile bytes. It requires the pinned Node
+base already present in the `desktop-linux` Engine. Its bounded preflight requires the local Unix-socket
+context and its single Engine-backed `docker` builder; every build explicitly selects that builder.
+Missing base or a different builder fails before build. Each metadata command has a five-second budget
+and uses the same owned-tree cleanup as the 60-second marker builds. Synthetic bytes retain the real
+dependency COPY paths without running pnpm. `--network=none` isolates RUN; `--pull=false` is not a
+universal registry ban. Any required base acquisition is a separate, explicitly bounded prerequisite
+using the same pinned Node digest, never a fixture fallback. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
+reuse. This isolates the environment/cache seam; it does not measure a whole application build.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it

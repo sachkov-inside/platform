@@ -1,17 +1,34 @@
 # Стенд с production-сборкой web: `pnpm local:stand --production-web` (ADR 0027).
 #
 # В режиме разработки Next.js не предзагружает ссылки и компилирует маршрут при первом открытии,
-# поэтому скорость переходов на обычном стенде ничего не говорит о production. Этот файл меняет
-# только сервис web: тот же образ, что уходит в выпуск, с идентичностью выпуска стенда. Данные,
+# поэтому скорость переходов на обычном стенде ничего не говорит о production. Этот файл собирает
+# web образом выпуска и связывает его identity с локальным API. Данные,
 # вход и остальные сервисы остаются прежними.
 services:
-  web:
+  api:
     build:
+      args:
+        INSIDE_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
+        INSIDE_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
+    environment:
+      PLATFORM_LOCAL_RELEASE_IDENTITY: image
+      PLATFORM_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
+      PLATFORM_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
+  web:
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-web-production:local
+    # Standalone Web does not compile routes at runtime; this cap still needs actual peak proof.
+    mem_limit: 1g
+    memswap_limit: 1g
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
       target: web-production
       args:
         INSIDE_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
-        INSIDE_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:-1111111111111111111111111111111111111111}
+        INSIDE_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
+        CSP_LOCAL_OBJECT_STORAGE_ORIGIN: ${STAND_WEB_OBJECT_STORAGE_ORIGIN:?local:stand sets the canonical storage origin}
+    command: ["node", "apps/web/server.js"]
     environment:
       NODE_ENV: production
       PLATFORM_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
-      PLATFORM_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:-1111111111111111111111111111111111111111}
+      PLATFORM_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
