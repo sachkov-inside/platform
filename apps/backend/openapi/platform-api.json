@@ -81354,30 +81354,85 @@
                             },
                             "rows": {
                               "items": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "accountId": {
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                    "type": "string"
-                                  },
-                                  "rowKey": {
-                                    "type": "string"
-                                  },
-                                  "status": {
-                                    "enum": [
-                                      "confirmed",
-                                      "not_found"
+                                "anyOf": [
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "rowKey": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "confirmed",
+                                          "not_found"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "rowKey",
+                                      "accountId",
+                                      "status"
                                     ],
-                                    "type": "string"
+                                    "type": "object"
+                                  },
+                                  {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "current": {
+                                        "additionalProperties": false,
+                                        "nullable": true,
+                                        "properties": {
+                                          "classification": {
+                                            "enum": [
+                                              "confirmed_legacy",
+                                              "confirmed_new",
+                                              "unknown"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "classification",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "rowKey": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "confirmed",
+                                          "not_found"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "rowKey",
+                                      "accountId",
+                                      "status",
+                                      "current"
+                                    ],
+                                    "type": "object"
                                   }
-                                },
-                                "required": [
-                                  "rowKey",
-                                  "accountId",
-                                  "status"
-                                ],
-                                "type": "object"
+                                ]
                               },
                               "type": "array"
                             }

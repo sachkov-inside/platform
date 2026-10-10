@@ -20,7 +20,10 @@ export {
   type AccessGrants,
 } from "./facets/access-grants/assemble-access-grants.js";
 export type { AccessCapability } from "./domain/access-grant.js";
-export { previewCommandSchema as previewGrantBatchCommandSchema } from "./features/preview-grant-batch/preview-grant-batch.js";
+export {
+  previewCommandSchema as previewGrantBatchCommandSchema,
+  previewOutcomeRowSchema as grantPreviewRowSchema,
+} from "./features/preview-grant-batch/preview-grant-batch.js";
 export { applyGrantBatchCommandSchema } from "./features/apply-grant-batch/apply-grant-batch.js";
 export { changeAccessGrantCommandSchema } from "./features/change-access-grant/change-access-grant.js";
 export { accessGrantsViewSchema } from "./features/list-access-grants/list-access-grants.js";
