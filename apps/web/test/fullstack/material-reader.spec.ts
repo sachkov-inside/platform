@@ -9,7 +9,6 @@ import {
 import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
-import { homeFeedCard } from "../support/home-feed";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
