@@ -22,6 +22,7 @@ if (pnpmExecutable === undefined) {
   throw new Error("Run the local stand through the pinned pnpm CLI");
 }
 const pnpmPath = pnpmExecutable;
+const standDiskPollIntervalMilliseconds = 250;
 
 // Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
 // должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
@@ -269,7 +270,7 @@ async function run(
             budgetFailure = error;
             void stopOwned(child);
           }
-        }, 250);
+        }, standDiskPollIntervalMilliseconds);
   let output = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
