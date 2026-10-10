@@ -146,12 +146,27 @@ test("product programme marks the last opened material as the place to continue"
     await page.goto(`/materials/${slug}`);
     expect((await opened).ok()).toBe(true);
     const button = page
-      .locator("[data-reading-action-state]:visible")
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .getByRole("button", { name: "Изучено", exact: true });
+    const lowerButton = page
+      .getByRole("navigation", {
+        name: "Действия в конце материала",
+        exact: true,
+      })
+      .getByRole("button", { name: "Изучено", exact: true });
+    await expect(button).toHaveCount(1);
+    await expect(lowerButton).toHaveCount(1);
     await expect(button).toBeVisible();
+    await expect(lowerButton).toBeVisible();
+    await expect(button).toBeEnabled();
+    await expect(lowerButton).toBeEnabled();
     if ((await button.getAttribute("aria-pressed")) === "true") {
+      await expect(lowerButton).toHaveAttribute("aria-pressed", "true");
       await button.click();
-      await expect(button).toHaveAttribute("aria-pressed", "false");
+    }
+    for (const action of [button, lowerButton]) {
+      await expect(action).toHaveAttribute("aria-pressed", "false");
+      await expect(action).toBeEnabled();
     }
   }
 

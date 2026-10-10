@@ -916,7 +916,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
   page,
-}) => {
+}, testInfo) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
   await page.goto("/products/demo-series-harness/programme");
   await page
@@ -925,7 +925,13 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(page.locator("[data-series-reader-navigation]")).toContainText(
     "1 из 2",
   );
-  const harnessNext = page.getByRole("link", { name: "Дальше" });
+  const harnessNext = readerNextLink(
+    page,
+    testInfo,
+    "Demo #295 · основная серия",
+  );
+  await expect(harnessNext).toHaveCount(1);
+  await expect(harnessNext).toBeVisible();
   expect(
     new URL(
       (await harnessNext.getAttribute("href")) ?? "",
@@ -937,7 +943,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page.goBack();
   await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
   await page.goForward();
-  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
+  await expect(harnessNext).toBeVisible();
 
   await page.goto("/products/demo-series-review/programme");
   await page
@@ -946,9 +952,13 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(page.locator("[data-series-reader-navigation]")).toContainText(
     "1 из 3",
   );
-  const mixedNext = page.getByRole("link", {
-    name: "Дальше",
-  });
+  const mixedNext = readerNextLink(
+    page,
+    testInfo,
+    "Demo #295 · смешанная серия",
+  );
+  await expect(mixedNext).toHaveCount(1);
+  await expect(mixedNext).toBeVisible();
   expect(
     new URL(
       (await mixedNext.getAttribute("href")) ?? "",
@@ -958,7 +968,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
     "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();
-  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
+  await expect(mixedNext).toBeVisible();
 
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
   await expect(
@@ -969,6 +979,21 @@ test("uses the selected Series order for a shared Material and leaves standalone
     page.getByRole("link", { name: "Назад на Главную" }).first(),
   ).toBeVisible();
 });
+
+function readerNextLink(page: Page, testInfo: TestInfo, productName: string) {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  return page
+    .getByRole("navigation", {
+      name: mobile
+        ? "Уроки продукта"
+        : `Навигация по продукту «${productName}»`,
+      exact: true,
+    })
+    .getByRole("link", {
+      name: mobile ? "Следующий урок" : "Дальше",
+      exact: true,
+    });
+}
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== "mobile-chromium") return;
