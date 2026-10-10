@@ -38,7 +38,7 @@ jobs:
         id: diagnostic
         timeout-minutes: 4
         env:
-          ACQUISITION_DIAGNOSTIC_EPHEMERAL: '1'
+          ACQUISITION_DIAGNOSTIC_EPHEMERAL: "1"
         run: |
           node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-guard.py \
             --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/1324-acquisition"
