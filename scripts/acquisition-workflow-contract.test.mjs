@@ -33,7 +33,7 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
     event: {
       action: "labeled",
       number: 1333,
-      label: { name: `1324-acquisition-${sha}` },
+      label: { name: `1324-acq-${sha}` },
       pull_request: {
         head: { sha, repo: { full_name: "sachkov-inside/platform" } },
         base: { ref: "main" },
@@ -111,4 +111,21 @@ test("hosted delivery preserves exact guardian, owned native closure and artifac
     workflow,
     /secrets\.|browsers:|production:verify|docker (pull|run)|continue-on-error/u,
   );
+});
+
+test("exact full-SHA diagnostic label fits GitHub maximum 50 characters", () => {
+  const pattern = workflow.match(
+    /github\.event\.label\.name == format\('([^']+)', github\.event\.pull_request\.head\.sha\)/u,
+  )?.[1];
+  assert.ok(pattern);
+  const sourceSha = "a".repeat(40);
+  const label = pattern.replace("{0}", sourceSha);
+  assert.ok(
+    label.length <= 50,
+    `actual diagnostic label length ${label.length}`,
+  );
+  assert.equal(label, `1324-acq-${sourceSha}`);
+  assert.equal(label.slice("1324-acq-".length), sourceSha);
+  assert.equal(label.length, 49);
+  assert.equal(sourceSha.length, 40);
 });

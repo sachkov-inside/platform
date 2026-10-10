@@ -17,7 +17,7 @@ jobs:
           github.event.number == 1333 &&
           github.event.pull_request.base.ref == 'main' &&
           github.event.pull_request.head.repo.full_name == github.repository &&
-          github.event.label.name == format('1324-acquisition-{0}', github.event.pull_request.head.sha) &&
+          github.event.label.name == format('1324-acq-{0}', github.event.pull_request.head.sha) &&
           github.run_attempt == 1 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 18

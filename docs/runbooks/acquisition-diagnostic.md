@@ -18,7 +18,7 @@ Marker ниже означает явный grant на shutdown всего daemo
 
 Repository-owned entry: `.github/workflows/acquisition-diagnostic.yml`.
 Он получает только `pull_request: labeled` для `main`, same-repository PR #1333 и attempt 1.
-Label должен совпасть с `1324-acquisition-<полный head SHA>`.
+Label должен совпасть с `1324-acq-<полный head SHA>`.
 Обычный push, другой label, новый head и rerun не допускают diagnostic job.
 `workflow_dispatch` не подходит до появления workflow на default branch.
 GitHub описывает [labeled events и head checkout](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
@@ -27,7 +27,7 @@ Root выполняет следующую последовательность 
 
 1. Дождаться завершения обычного CI после source push.
 2. Зафиксировать reviewed head PR #1333 и проверить отсутствие новых source commits и merge conflicts.
-3. Создать label `1324-acquisition-<полный reviewed head SHA>` и добавить его к PR #1333 ровно один раз.
+3. Создать label `1324-acq-<полный reviewed head SHA>` и добавить его к PR #1333 ровно один раз.
 4. Наблюдать один run `Acquisition diagnostic 1324`; не использовать rerun или повторное добавление label.
 5. Сохранить run/job identity, actual exits и artifact `acquisition-1324-<SHA>-<run_id>-1`.
 6. Проверить `receipt.json` и независимый `native-closure.json`; принять cleanup только при `pending: 0`.
