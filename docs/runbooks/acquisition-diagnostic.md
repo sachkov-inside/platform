@@ -29,7 +29,8 @@ Admission требует 20 GiB свободного места. Floor сост�
 Guardian считает Docker data, containerd data, output и временный backend cache вместе.
 Все эти paths должны находиться на одном filesystem.
 Growth ceiling: 2 GiB; ранняя остановка с margin 256 MiB.
-Diagnostics ceiling: 1 MiB; ранняя остановка с margin 64 KiB.
+Diagnostics ceiling: суммарно 1 MiB для stdout и stderr, включая SDK DEBUG.
+Guardian принимает оба потока через pipe и сохраняет только байты внутри лимита.
 Периодическая проверка ресурсов не задерживает и не повторяет registry requests.
 Guardian резервирует время на shutdown внутри общего runtime budget 180 s.
 
@@ -45,7 +46,8 @@ References, digests, platform defaults, pull arguments и SDK auth lookup сох
 Они возвращают исходный Promise, result и error; auth values не сериализуются.
 Runtime record содержит только architecture, OS, API version и presence Docker environment locators.
 Host/socket paths, environment values, auth headers и signed URLs не печатаются.
-SQL child output подавлен; receipt сохраняет native SQL exit.
+SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` сохраняет настоящий SQL exit.
+`nativeExit` в `receipt.json` относится ко всему диагностическому процессу.
 Неизвестный primary получает failure exit и безопасную классификацию, без произвольного error text.
 
 Успех означает успешный setup и нормальный teardown только этого запуска.
