@@ -306,10 +306,15 @@ stopping its command tree 256 MiB before either limit: growth at 7.75 GiB or rem
 increase Docker's own storage quota. A refusal leaves existing stand data intact. Arrange disk
 capacity before retrying; the command never prunes caches, reports or volumes.
 
-The cached-stand estimate rounds up 3 GiB for source/web/export growth plus two dependency snapshots
-of at most 2.261 GB each to an 8 GiB ceiling. Production Web still needs both dependency builds;
-development Web reuses API's workspace. This uses retained layer/cache measurements, not the
-sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
+The 9 October cached-stand estimate rounded up 3 GiB for source/web/export growth plus two dependency
+snapshots of at most 2.261 GB each to a provisional 8 GiB ceiling. On 10 October, the c0 image-only
+attempt stopped at the cumulative global margin while building Web dependencies; that estimate did
+not prove the whole matrix fits. Backend and Web now declare identical toolchain/dependency inputs.
+Web disables Next telemetry in its development stage, inherited by Web, Storybook and production-build,
+so this Web setting does not separate the dependency cache. Native reuse still needs verification;
+a matching source graph is not measured capacity. Production Web keeps its separate image and build,
+while development Web reuses API's workspace. The historical estimate uses retained layer/cache
+measurements, not the sum of overlapping cache records. [The source data and calculation](../evidence/issue-1304/README.md)
 were captured on 9 October 2026 UTC / 10 October 2026 MSK. Runtime verification must measure actual peak growth and the
 remaining floor; cold caches or changed dependency inputs may exceed that estimate and stop safely.
 [The refreshed inputs after main391 and the linked CSP fix](../evidence/issue-1304/resume-1318/README.md)
@@ -323,6 +328,11 @@ files. Each scratch build has a 60-second execution budget; the repository Pytho
 tree on deadline and returns124. Ordinary Docker failures retain their original status. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
 It also exercises both development Dockerfiles' real `COPY` instructions and verifies that they
 preserve patch files from the dependency stage.
+The separate native cache discriminator is `python3 scripts/local-dependency-cache-smoke.py <baseline-web-Dockerfile>`
+under the same guarded slot. Supply preserved pre-fix Web Dockerfile bytes. It requires the pinned Node
+base already present locally and uses synthetic bytes at the real dependency COPY paths, without pnpm
+or network access. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
+reuse. This isolates the environment/cache seam; it does not measure a whole application build.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it

@@ -7,7 +7,6 @@ RUN mkdir /corepack \
     && corepack install --global pnpm@11.27.1 \
     && chown -R node:node /corepack
 
-ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
@@ -33,6 +32,9 @@ RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
 FROM dependencies AS development
+
+# Keep dependency cache inputs shared; only Web stages disable Next telemetry.
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Restore installed patch metadata after source COPY: pnpm checks its timestamps.
 COPY --chown=node:node . .

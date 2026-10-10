@@ -114,6 +114,41 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("shares the complete cacheable dependency ancestry between backend and Web", () => {
+    const dependencyAncestry = (/** @type {string} */ dockerfile) =>
+      dockerfile
+        .split("FROM dependencies AS development")[0]
+        ?.replace(/\\\n\s*/gu, " ")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line !== "" && !line.startsWith("#"));
+    // Compare base, environment, user, workdir, every COPY and the install/cache-mount command.
+    // Matching pnpm text alone cannot reuse a snapshot with different inherited environment.
+    assert.deepEqual(
+      dependencyAncestry(read("apps/web/Dockerfile")),
+      dependencyAncestry(read("apps/backend/Dockerfile")),
+      "Both builds must submit the same dependency ancestry to BuildKit",
+    );
+    const stages = read("apps/web/Dockerfile").split(/^FROM /mu);
+    const development = stages.find((stage) =>
+      stage.startsWith("dependencies AS development\n"),
+    );
+    assert.ok(development);
+    assert.match(development, /^ENV NEXT_TELEMETRY_DISABLED=1$/mu);
+    for (const target of ["web", "storybook", "production-build"]) {
+      assert.ok(
+        stages.some((stage) => stage.startsWith(`development AS ${target}\n`)),
+      );
+    }
+    const production = stages.find((stage) =>
+      stage.includes(" AS web-production\n"),
+    );
+    assert.ok(production);
+    assert.match(production, /^ENV NODE_ENV=production \\$/mu);
+    // The standalone production target starts from a fresh base, as before this change.
+    assert.doesNotMatch(production, /NEXT_TELEMETRY_DISABLED/u);
+  });
+
   it("runs development Web from the backend workspace without a second build", () => {
     const localCompose = read("compose.yaml");
     const web = localCompose.match(
