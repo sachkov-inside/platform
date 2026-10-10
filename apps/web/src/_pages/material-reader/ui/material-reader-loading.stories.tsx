@@ -144,6 +144,16 @@ function PersonalPart({
           materialId={material.materialId}
         />
       }
+      topReadingAction={
+        <SavedReadingAction
+          compact
+          format={material.format.slug}
+          materialId={material.materialId}
+        />
+      }
+      topBookmarkAction={
+        <SavedBookmarkAction compact materialId={material.materialId} />
+      }
       returnTarget={returnTarget}
       seriesContext={seriesContext}
     />
@@ -162,7 +172,7 @@ function PersonalPart({
 
 const measure = (canvasElement: HTMLElement) => ({
   header: boxOf(canvasElement, "[data-reader-header]"),
-  returnRow: boxOf(canvasElement, "[data-reader-return='top']"),
+  returnRow: boxOf(canvasElement, "[data-reader-top-frame]"),
 });
 
 const environment = publicPageEnvironment("/materials/instant-navigation");
@@ -191,6 +201,7 @@ type Story = StoryObj<typeof meta>;
 function loadsInPlace(
   { globals, width }: StoryViewport,
   outcome: Outcome,
+  fontSize = "100%",
 ): Pick<Story, "globals" | "loaders" | "render" | "play"> {
   return {
     globals,
@@ -199,29 +210,35 @@ function loadsInPlace(
       <StagedReader outcome={outcome} sequence={stagedLoadingOf(loaded)} />
     ),
     play: async ({ canvasElement, loaded }) => {
-      await settleStoryFrame(width);
-      const sequence = stagedLoadingOf(loaded);
-      const canvas = within(canvasElement);
-      await expect(
-        await canvas.findByLabelText("Материал загружается"),
-      ).toHaveAttribute("aria-busy", "true");
-      const skeleton = measure(canvasElement);
+      const originalFontSize = document.documentElement.style.fontSize;
+      document.documentElement.style.fontSize = fontSize;
+      try {
+        await settleStoryFrame(width);
+        const sequence = stagedLoadingOf(loaded);
+        const canvas = within(canvasElement);
+        await expect(
+          await canvas.findByLabelText("Материал загружается"),
+        ).toHaveAttribute("aria-busy", "true");
+        const skeleton = measure(canvasElement);
 
-      sequence.deliverSharedPart();
-      await canvas.findByRole("heading", { level: 1, name: material.title });
-      await expect(
-        canvas.getByLabelText("Текст материала загружается"),
-      ).toHaveAttribute("aria-busy", "true");
-      const sharedPart = measure(canvasElement);
+        sequence.deliverSharedPart();
+        await canvas.findByRole("heading", { level: 1, name: material.title });
+        await expect(
+          canvas.getByLabelText("Текст материала загружается"),
+        ).toHaveAttribute("aria-busy", "true");
+        const sharedPart = measure(canvasElement);
 
-      sequence.deliverPersonalPart();
-      if (outcome === "opened") await canvas.findByText(/^Абзац 1\./u);
-      else await canvas.findByRole("link", { name: /Купить продукт/u });
-      const ready = measure(canvasElement);
+        sequence.deliverPersonalPart();
+        if (outcome === "opened") await canvas.findByText(/^Абзац 1\./u);
+        else await canvas.findByRole("link", { name: /Купить продукт/u });
+        const ready = measure(canvasElement);
 
-      await expect(skeleton.returnRow).toEqual(ready.returnRow);
-      await expect(originOf(skeleton.header)).toEqual(originOf(ready.header));
-      await expect(sharedPart).toEqual(ready);
+        await expect(skeleton.returnRow).toEqual(ready.returnRow);
+        await expect(originOf(skeleton.header)).toEqual(originOf(ready.header));
+        await expect(sharedPart).toEqual(ready);
+      } finally {
+        document.documentElement.style.fontSize = originalFontSize;
+      }
     },
   };
 }
@@ -233,4 +250,49 @@ export const OpenedLoadsInPlaceMobile: Story = {
 export const LockedLoadsInPlace: Story = { ...loadsInPlace(desktop, "locked") };
 export const LockedLoadsInPlaceMobile: Story = {
   ...loadsInPlace(mobile, "locked"),
+};
+
+export const OpenedLoadsInPlaceLargeText: Story = {
+  ...loadsInPlace(desktop, "opened", "200%"),
+};
+export const OpenedLoadsInPlaceLargeTextMobile: Story = {
+  ...loadsInPlace(mobile, "opened", "200%"),
+};
+export const LockedLoadsInPlaceLargeText: Story = {
+  ...loadsInPlace(desktop, "locked", "200%"),
+};
+export const LockedLoadsInPlaceLargeTextMobile: Story = {
+  ...loadsInPlace(mobile, "locked", "200%"),
+};
+
+const videoMaterial = {
+  ...material,
+  format: { name: "Видео", slug: "video" },
+};
+export const PendingVideo: Story = {
+  render: () => (
+    <MaterialReaderPending
+      material={videoMaterial}
+      returnTarget={returnTarget}
+      seriesContext={seriesContext}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Просмотрено" }),
+    ).toBeDisabled();
+    await expect(canvas.queryByRole("button", { name: "Изучено" })).toBeNull();
+  },
+};
+export const LockedVideo: Story = {
+  ...PendingVideo,
+  render: () => (
+    <MaterialReaderAccess
+      invitation={null}
+      material={videoMaterial}
+      returnTarget={returnTarget}
+      seriesContext={seriesContext}
+    />
+  ),
 };

@@ -4,6 +4,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import { recordMaterialOpen } from "../api/material-open.browser";
 import type { MaterialOpenCommand } from "../model/material-open-contract";
+import {
+  readingProgressChanges,
+  refreshReadingProgress,
+} from "../model/reading-progress-events";
 
 const OPEN_RETRY_DELAY_MS = 1_000;
 
@@ -38,10 +42,13 @@ export function VisibleMaterialOpen({
       // A retry completes the already-observed visible open, even if the tab was hidden later.
       const result = await recordMaterialOpen(input.value);
       if (result.kind === "unavailable") throw new Error("open_unavailable");
-      if (result.kind === "saved" && currentAccount.current === input.accountId)
-        await queryClient.invalidateQueries({
-          queryKey: ["reading-progress", input.accountId],
-        });
+      if (
+        result.kind === "saved" &&
+        currentAccount.current === input.accountId
+      ) {
+        const id = readingProgressChanges(input.accountId).announce();
+        await refreshReadingProgress(queryClient, input.accountId, id);
+      }
     },
     retry: 2,
     retryDelay: OPEN_RETRY_DELAY_MS,

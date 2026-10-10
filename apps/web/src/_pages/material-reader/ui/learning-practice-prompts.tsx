@@ -21,8 +21,10 @@ export function LearningPracticeDisclosure(
         readonly result: LearningPracticesView;
       },
 ) {
+  if (props.result?.kind === "available" && props.result.practices.length === 0)
+    return null;
   return (
-    <div className="mt-8 min-h-11" data-practice-slot>
+    <div className="mt-6 min-h-11" data-practice-slot>
       {props.result === null ? (
         <p
           className="flex h-11 items-center text-sm text-muted-foreground"

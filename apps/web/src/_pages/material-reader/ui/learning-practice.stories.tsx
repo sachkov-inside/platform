@@ -187,3 +187,18 @@ export const PublicLesson: Story = {
     ).toBeVisible();
   },
 };
+
+export const EmptyDisclosure: Story = {
+  args: { result: { kind: "available", practices: [] }, disclosure: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-practice-slot]"),
+    ).toBeNull();
+    const body = canvasElement.querySelector("[data-reader-body]");
+    const actions = canvasElement.querySelector("[data-material-actions]");
+    if (body === null || actions === null) throw new Error("Reader is missing");
+    await expect(
+      actions.getBoundingClientRect().top - body.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(24);
+  },
+};

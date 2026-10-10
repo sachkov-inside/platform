@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   Clock3,
@@ -29,6 +28,7 @@ import {
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 
 import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-product-view.css";
@@ -65,13 +65,7 @@ export function AiFirstProductView({
       {/* Страница продукта — витрина: без шапки телефона, как и страница курса. */}
       <HideMobileNavigation />
       <nav aria-label="Хлебные крошки">
-        <IntentPrefetchLink
-          className="ai-product-back"
-          href={returnTarget.href}
-        >
-          <ArrowLeft />
-          {returnTarget.label}
-        </IntentPrefetchLink>
+        <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
       </nav>
       {/* Название продукта — заголовок страницы: его показывает hero, а без hero он всё равно нужен. */}
       {page.blocks.some((block) => block.kind === "hero") ? null : (

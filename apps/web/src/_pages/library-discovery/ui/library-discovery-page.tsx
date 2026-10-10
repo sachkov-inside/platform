@@ -112,7 +112,7 @@ export async function PublishedSeriesPage({
   return (
     <LibraryDiscoveryView
       artifacts={artifacts}
-      // Поток и кнопка по этапу продаж — единственная личная часть страницы продукта. Её рисует
+      // Действие обучения участника или поток и кнопка продаж — личная часть страницы продукта. Её рисует
       // только оформление, у которого она есть; остальные продукты её не запрашивают (#814).
       heroCall={
         <Suspense fallback={<PendingCohortCall slug={slug} />}>

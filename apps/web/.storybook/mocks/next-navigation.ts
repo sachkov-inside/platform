@@ -18,6 +18,11 @@ export function useRouter() {
   return router;
 }
 
+/** Story fixtures configure the external router before rendering production hooks. */
+export function getStoryRouter() {
+  return router;
+}
+
 export function useSearchParams(): URLSearchParams {
   return new URLSearchParams();
 }

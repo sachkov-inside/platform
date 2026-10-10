@@ -14,6 +14,10 @@ import {
 import { clearOtherReadingAccounts } from "../model/reading-cache";
 import { getReadingStates } from "../api/reading.browser";
 import { createReadingStateBatcher } from "../model/reading-state-batcher";
+import {
+  readingProgressChanges,
+  refreshReadingProgress,
+} from "../model/reading-progress-events";
 
 /** One account-scoped reader shared by visible Material cards and Reader: cached per Material, read in batches. */
 export function ReadingProgressProvider({
@@ -58,6 +62,12 @@ export function ReadingProgressProvider({
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["reading-progress"] });
   }, [queryClient]);
+  useEffect(() => {
+    if (!resolved || accountId === null) return;
+    return readingProgressChanges(accountId).subscribe((id) => {
+      void refreshReadingProgress(queryClient, accountId, id);
+    });
+  }, [accountId, resolved, queryClient]);
   useEffect(() => {
     if (resolved) clearOtherReadingAccounts(queryClient, accountId);
   }, [accountId, queryClient, resolved]);
