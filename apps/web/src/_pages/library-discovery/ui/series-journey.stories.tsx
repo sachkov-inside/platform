@@ -777,23 +777,40 @@ export const ShortSeries: Story = {
 };
 
 const progressResume = { ...resume, materialSlug: "series-material-2" };
+const confirmedLearning = {
+  kind: "ready",
+  read: 1,
+  total: 24,
+  continuation: progressResume,
+} satisfies SeriesLearningView;
 
 /** A failed recheck removes the personal action without moving the following lesson. */
 function ContinuationRecheckFailure() {
-  const [learning, setLearning] = useState<SeriesLearningView>({
-    kind: "ready",
-    read: 1,
-    total: 24,
-    continuation: progressResume,
-  });
+  const [learning, setLearning] =
+    useState<SeriesLearningView>(confirmedLearning);
+  const controlClassName =
+    "h-auto min-h-11 max-w-full whitespace-normal transition-none";
   return (
     <>
       <Button
+        className={controlClassName}
         onClick={() => {
           setLearning({ kind: "unavailable" });
         }}
       >
         Сбой повторного чтения продолжения
+      </Button>
+      <Button
+        className={controlClassName}
+        onClick={() => setLearning(confirmedLearning)}
+      >
+        Прогресс снова доступен
+      </Button>
+      <Button
+        className={controlClassName}
+        onClick={() => setLearning({ kind: "guest" })}
+      >
+        Выйти из аккаунта
       </Button>
       <SeriesLearningProvider learning={learning}>
         <ProductProgrammeView result={result} />
@@ -802,44 +819,92 @@ function ContinuationRecheckFailure() {
   );
 }
 
+async function verifyContinuationRecheck(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  await expect(
+    canvas.getByRole("link", { name: /^Продолжить$/u }),
+  ).toBeVisible();
+  const following = canvasElement.querySelector<HTMLElement>(
+    '[data-route-material="series-material-3"]',
+  );
+  if (following === null) throw new Error("Missing following lesson");
+  await canvasElement.ownerDocument.fonts.ready;
+  const before = following.getBoundingClientRect();
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Сбой повторного чтения продолжения",
+    }),
+  );
+  await expect(
+    canvas.getByText("Прогресс сейчас не загрузился. Материалы можно читать."),
+  ).toBeVisible();
+  await expect(
+    canvas.queryByRole("link", { name: /^Продолжить$/u }),
+  ).not.toBeInTheDocument();
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toBeNull();
+  const space = canvasElement.querySelector<HTMLElement>(
+    "[data-series-continuation-space]",
+  );
+  if (space === null) throw new Error("Missing reserved continuation space");
+  await expect(space).not.toBeVisible();
+  await expect(space.querySelector("a, button, [tabindex]")).toBeNull();
+  await expect(following.getBoundingClientRect().toJSON()).toEqual(
+    before.toJSON(),
+  );
+  const recover = canvas.getByRole("button", {
+    name: "Прогресс снова доступен",
+  });
+  // При 200% тестовая кнопка может быть за краем экрана: её фокус не является сдвигом программы.
+  recover.focus({ preventScroll: true });
+  await userEvent.click(recover);
+  await expect(
+    canvas.getByRole("link", { name: /^Продолжить$/u }),
+  ).toBeVisible();
+  await expect(following.getBoundingClientRect().toJSON()).toEqual(
+    before.toJSON(),
+  );
+  await userEvent.click(
+    canvas.getByRole("button", { name: "Выйти из аккаунта" }),
+  );
+  await expect(
+    canvas.queryByRole("link", { name: /^Продолжить$/u }),
+  ).not.toBeInTheDocument();
+  await expect(
+    canvas.getByRole("link", { name: "Начать обучение" }),
+  ).toBeVisible();
+  await expect(
+    canvasElement.querySelector("[data-series-continuation-space]"),
+  ).toBeNull();
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toBeNull();
+}
+
 export const UnavailablePreservesExpandedRow: Story = {
   render: () => <ContinuationRecheckFailure />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("link", { name: /^Продолжить$/u }),
-    ).toBeVisible();
-    const following = canvasElement.querySelector<HTMLElement>(
-      '[data-route-material="series-material-3"]',
-    );
-    if (following === null) throw new Error("Missing following lesson");
-    await canvasElement.ownerDocument.fonts.ready;
-    const before = following.getBoundingClientRect();
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: "Сбой повторного чтения продолжения",
-      }),
-    );
-    await expect(
-      canvas.getByText(
-        "Прогресс сейчас не загрузился. Материалы можно читать.",
-      ),
-    ).toBeVisible();
-    await expect(
-      canvas.queryByRole("link", { name: /^Продолжить$/u }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvasElement.querySelector('[aria-current="step"]'),
-    ).toBeNull();
-    await expect(following.getBoundingClientRect().toJSON()).toEqual(
-      before.toJSON(),
-    );
-  },
+  play: async ({ canvasElement }) => verifyContinuationRecheck(canvasElement),
 };
 
 export const UnavailablePreservesExpandedRowMobile: Story = {
   ...UnavailablePreservesExpandedRow,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const UnavailablePreservesExpandedRowEnlarged: Story = {
+  ...UnavailablePreservesExpandedRowMobile,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      await verifyContinuationRecheck(canvasElement);
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+    } finally {
+      root.style.fontSize = fontSize;
+    }
+  },
 };
 
 /** Ответ прогресса ждёт, пока проверка не измерит программу без него. */

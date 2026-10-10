@@ -226,13 +226,13 @@ export function SeriesJourneyControls({
   }
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
-    selectPart(id);
     // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
-    // владельца 09.10.2026). На широком экране прокручивается оболочка, на телефоне — окно.
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: 0 });
-      document.getElementById("content")?.scrollTo({ top: 0 });
-    });
+    // владельца 09.10.2026). Сбрасываем реальную оболочку до появления sentinel нового раздела.
+    window.scrollTo({ top: 0 });
+    routeRef.current
+      ?.closest<HTMLElement>("[data-application-content]")
+      ?.scrollTo({ top: 0 });
+    selectPart(id);
   }
 
   return (
@@ -299,7 +299,12 @@ export function SeriesJourneyControls({
                 Повторить проверку доступа
               </Button>
             ) : null}
-            <SeriesContinuationProvider continuation={inlineContinuation}>
+            <SeriesContinuationProvider
+              continuation={inlineContinuation}
+              reservePrevious={
+                learning.kind === "loading" || learning.kind === "unavailable"
+              }
+            >
               <div className="mt-5 grid gap-6">
                 {visibleRuns(
                   part?.kind === "materials" ? part.runs : [],

@@ -2,7 +2,7 @@
 
 import { Play } from "lucide-react";
 import type { Route } from "next";
-import { createContext, use, type ReactNode } from "react";
+import { createContext, use, useState, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -18,19 +18,40 @@ export interface SeriesContinuation {
   readonly label: string;
 }
 
-const SeriesContinuationContext = createContext<SeriesContinuation | null>(
+type SeriesContinuationView = SeriesContinuation & {
+  readonly reserved: boolean;
+};
+
+const SeriesContinuationContext = createContext<SeriesContinuationView | null>(
   null,
 );
 
 export function SeriesContinuationProvider({
   children,
   continuation,
+  reservePrevious = false,
 }: {
   readonly children: ReactNode;
   readonly continuation: SeriesContinuation | null;
+  /** При отказе личного чтения сохраняется только место прежней кнопки, без действия. */
+  readonly reservePrevious?: boolean;
 }) {
+  const [previous, setPrevious] = useState(continuation);
+  if (
+    !reservePrevious &&
+    (previous?.materialSlug !== continuation?.materialSlug ||
+      previous?.label !== continuation?.label)
+  )
+    setPrevious(continuation);
+  const current = continuation ?? (reservePrevious ? previous : null);
   return (
-    <SeriesContinuationContext value={continuation}>
+    <SeriesContinuationContext
+      value={
+        current === null
+          ? null
+          : { ...current, reserved: continuation === null }
+      }
+    >
       {children}
     </SeriesContinuationContext>
   );
@@ -49,7 +70,8 @@ export function SeriesRowArticle({
   readonly className: string;
   readonly slug: string;
 }) {
-  const current = use(SeriesContinuationContext)?.materialSlug === slug;
+  const continuation = use(SeriesContinuationContext);
+  const current = continuation?.materialSlug === slug && !continuation.reserved;
   return (
     <article
       className={cn(
@@ -79,14 +101,29 @@ export function SeriesContinuationAction({
 }) {
   const continuation = use(SeriesContinuationContext);
   if (continuation?.materialSlug !== slug) return null;
-  return (
+  const className =
+    "relative z-10 mt-2 flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[0.8125rem] font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm";
+  const contents = (
+    <>
+      <Play aria-hidden="true" className="size-3 fill-current" />
+      {continuation.label}
+    </>
+  );
+  return continuation.reserved ? (
+    <div
+      aria-hidden="true"
+      className={`${className} invisible`}
+      data-series-continuation-space
+    >
+      {contents}
+    </div>
+  ) : (
     <IntentPrefetchLink
-      className="relative z-10 mt-2 flex min-h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[0.8125rem] font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm"
+      className={className}
       data-series-continuation
       href={href}
     >
-      <Play aria-hidden="true" className="size-3 fill-current" />
-      {continuation.label}
+      {contents}
     </IntentPrefetchLink>
   );
 }

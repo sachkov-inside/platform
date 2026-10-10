@@ -27,7 +27,7 @@ export function ReaderTopActions({
   readonly extraAction?: ReactNode;
 }) {
   const link =
-    "inline-flex min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:px-2 sm:text-sm";
+    "min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:px-2 sm:text-sm";
   if (
     context === null &&
     readingAction === undefined &&
@@ -67,7 +67,7 @@ export function ReaderTopActions({
               </IntentPrefetchLink>
             )}
             <IntentPrefetchLink
-              className={`${link} min-w-0 justify-start`}
+              className={`${link} inline-flex min-w-0 justify-start`}
               href={context.series.href}
               aria-label="Открыть программу"
             >
