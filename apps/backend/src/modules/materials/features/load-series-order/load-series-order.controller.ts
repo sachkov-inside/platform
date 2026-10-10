@@ -24,17 +24,17 @@ export class LoadSeriesOrderController {
     @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
   ) {}
 
-  @Get("guides/:guideId/order")
+  @Get("products/:productId/order")
   @ApiOperation({
-    operationId: "loadAuthoringGuideOrder",
-    summary: "Load the current Material order for a Guide",
+    operationId: "loadAuthoringProductOrder",
+    summary: "Load the current Material order for a Product",
   })
-  @ApiParam({ name: "guideId", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "productId", schema: { type: "string", format: "uuid" } })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesOrderSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 500, 503)
-  async loadGuide(
+  async loadProduct(
     @CurrentAccount() account: AuthenticatedAccount,
-    @Param("guideId") seriesId: string,
+    @Param("productId") seriesId: string,
   ) {
     const result = await this.authoring.loadSeriesOrder({
       actor: account.accountId,

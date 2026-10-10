@@ -1,5 +1,7 @@
 import "server-only";
 
+import { privateAuthenticatedResponse } from "./private-response.server";
+
 import {
   expirePublicCatalog,
   expirePublicCatalogAfter,
@@ -7,9 +9,9 @@ import {
 } from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 import {
-  getPlatformAccessToken,
+  sessionAdapter,
   LogtoSessionUnavailableError,
-} from "./platform-access-token.server";
+} from "./session-adapter.server";
 import { getOptionalPlatformAccessToken } from "./optional-platform-access-token.server";
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { isSameOriginMutation } from "./same-origin-mutation.server";
@@ -58,11 +60,10 @@ export async function handleAuthenticatedMutation(
     | [execute: ExecuteMutation, options?: undefined]
     | [execute: ExecuteStreamingMutation, options: StreamingMutationOptions]
 ): Promise<Response> {
-  const config = readLogtoBffConfig();
-  if (!isSameOriginMutation(request, config.baseUrl)) {
+  if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
     return options === undefined
       ? mutationResponse(null, 403)
-      : privateMutationResponse(
+      : privateAuthenticatedResponse(
           options.failureResponse("cross_origin_request"),
         );
   }
@@ -71,15 +72,15 @@ export async function handleAuthenticatedMutation(
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return options === undefined
       ? mutationResponse(null, 413)
-      : privateMutationResponse(options.failureResponse("body_too_large"));
+      : privateAuthenticatedResponse(options.failureResponse("body_too_large"));
   }
 
   let accessToken: string;
   try {
-    accessToken = await getPlatformAccessToken(config);
+    accessToken = await sessionAdapter.accessToken("route");
   } catch (error) {
     if (options !== undefined) {
-      return privateMutationResponse(
+      return privateAuthenticatedResponse(
         options.failureResponse(
           error instanceof LogtoSessionUnavailableError
             ? "authentication_required"
@@ -100,9 +101,9 @@ export async function handleAuthenticatedMutation(
         ? null
         : limitBodyStream(request.body, options.maxBytes, limit);
     try {
-      return privateMutationResponse(await execute(body, accessToken));
+      return privateAuthenticatedResponse(await execute(body, accessToken));
     } catch {
-      return privateMutationResponse(
+      return privateAuthenticatedResponse(
         options.failureResponse(
           limit.exceeded ? "body_too_large" : "dependency_unavailable",
         ),
@@ -168,7 +169,7 @@ export async function handleOptionalAuthenticatedMutation(
     return mutationResponse(null, 413);
   }
   try {
-    return privateMutationResponse(
+    return privateAuthenticatedResponse(
       await execute(formData, await getOptionalPlatformAccessToken(request)),
     );
   } catch {
@@ -212,31 +213,9 @@ function formDataByteLength(formData: FormData): number {
 }
 
 function mutationResponse(body: unknown, status: number): Response {
-  const headers = {
-    "cache-control": "no-store, private",
-    vary: "cookie",
-  };
-  return body === null
-    ? new Response(null, { headers, status })
-    : Response.json(body, { headers, status });
-}
-
-function privateMutationResponse(response: Response): Response {
-  const headers = new Headers(response.headers);
-  headers.set("cache-control", "no-store, private");
-  const vary = headers.get("vary");
-  if (vary === null) headers.set("vary", "cookie");
-  else if (
-    !vary
-      .toLowerCase()
-      .split(",")
-      .some((value) => value.trim() === "cookie")
-  ) {
-    headers.set("vary", `${vary}, cookie`);
-  }
-  return new Response(response.body, {
-    headers,
-    status: response.status,
-    statusText: response.statusText,
-  });
+  return privateAuthenticatedResponse(
+    body === null
+      ? new Response(null, { status })
+      : Response.json(body, { status }),
+  );
 }

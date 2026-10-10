@@ -1,7 +1,8 @@
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
-import { BillingPricing } from "../../src/modules/billing/index.js";
+import type { BillingPricing } from "../../src/modules/billing/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -55,7 +56,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
       data: { accountId: owner, permission: "platform:admin" },
     });
     // Каталог заводит процесс со всеми правами продажи: проверяется состояние, а не отказ каталога.
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       sale: { payments: true, subscriptions: true },
       accounts: assembleAccounts({
@@ -72,7 +73,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
   ) {
     const offerId = randomUUID(),
       optionId = randomUUID(),
-      capability = `guide:${randomUUID()}`;
+      capability = `product:${randomUUID()}`;
     value(
       await pricing.manage(owner, {
         operation: "offers.save",
@@ -92,7 +93,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
                 id: offerId,
                 name: "Материалы",
                 benefits: ["materials"],
-                contentScope: { guideIds: [randomUUID()], materialIds: [] },
+                coverage: { productIds: [randomUUID()], materialIds: [] },
               },
       }),
     );

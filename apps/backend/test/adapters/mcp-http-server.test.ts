@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import {
@@ -15,6 +17,8 @@ import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
 import { readCommittedToolSurface } from "../../scripts/mcp-tool-surface-file.js";
 import { refusingMcpToolDependencies } from "../fixtures/inside-mcp-dependencies.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -341,5 +345,6 @@ function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
 }
 
 function currentTime(): number {
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   return Math.floor(Date.now() / 1_000);
 }

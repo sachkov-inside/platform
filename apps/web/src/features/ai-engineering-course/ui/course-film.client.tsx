@@ -3,13 +3,27 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
+  DEFAULT_PALETTE,
   drawFilm,
   FILM_DESCRIPTION,
   FILM_DURATION,
   FILM_POSTER_TIME,
   FILM_WIDTH,
   type FilmFonts,
+  type FilmPalette,
 } from "../model/course-film";
+import {
+  drawFilmV2,
+  FILM_V2_DESCRIPTION,
+  FILM_V2_DURATION,
+  FILM_V2_POSTER_TIME,
+} from "../model/course-film-v2";
+import {
+  drawFilmV3,
+  FILM_V3_DESCRIPTION,
+  FILM_V3_DURATION,
+  FILM_V3_POSTER_TIME,
+} from "../model/course-film-v3";
 
 import "./course-film.css";
 
@@ -28,6 +42,60 @@ const readServerReducedMotion = () => true;
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
+ * Три версии фильма. По умолчанию — третья: сюжет первой с переходами и законами движения по
+ * словарю Pronin (выбор владельца 08.10.2026). Первая — навыки AI-инженера с перетеканием
+ * плашек — по адресу с `?film=v1`, вторая — путь фичи от задачи до релиза — с `?film=v2`.
+ */
+interface Film {
+  readonly draw: typeof drawFilm;
+  readonly description: string;
+  readonly duration: number;
+  readonly poster: number;
+}
+const FILMS: Readonly<Record<"v1" | "v2" | "v3", Film>> = {
+  v1: {
+    draw: drawFilm,
+    description: FILM_DESCRIPTION,
+    duration: FILM_DURATION,
+    poster: FILM_POSTER_TIME,
+  },
+  v2: {
+    draw: drawFilmV2,
+    description: FILM_V2_DESCRIPTION,
+    duration: FILM_V2_DURATION,
+    poster: FILM_V2_POSTER_TIME,
+  },
+  v3: {
+    draw: drawFilmV3,
+    description: FILM_V3_DESCRIPTION,
+    duration: FILM_V3_DURATION,
+    poster: FILM_V3_POSTER_TIME,
+  },
+};
+type FilmVersion = keyof typeof FILMS;
+const subscribeNothing = () => () => undefined;
+const readFilmVersion = (): FilmVersion => {
+  const asked = new URLSearchParams(window.location.search).get("film");
+  return asked === "v1" || asked === "v2" ? asked : "v3";
+};
+const readServerFilmVersion = (): FilmVersion => "v3";
+
+/** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
+function readPalette(element: HTMLElement): FilmPalette {
+  const style = getComputedStyle(element);
+  const token = (name: string, fallback: string) => {
+    const value = style.getPropertyValue(name).trim();
+    return value === "" ? fallback : value;
+  };
+  return {
+    ink: token("--primary", DEFAULT_PALETTE.ink),
+    paper: token("--secondary", DEFAULT_PALETTE.paper),
+    accent: token("--accent", DEFAULT_PALETTE.accent),
+    good: DEFAULT_PALETTE.good,
+  };
+}
+
+/**
  * Анимация курса AI Engineering на холсте. Кадр задаёт только время: `drawFilm` — чистая функция,
  * поэтому пауза и итоговый кадр не расходятся. Время идёт, только пока анимация видна и вкладка
  * открыта. Кнопки паузы нет по решению владельца (30.09.2026, platform#808): тому, кто просит
@@ -39,7 +107,17 @@ export function CourseFilm({
   readonly autoplay?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const time = useRef(FILM_POSTER_TIME);
+  const version = useSyncExternalStore(
+    subscribeNothing,
+    readFilmVersion,
+    readServerFilmVersion,
+  );
+  const film = FILMS[version];
+  const filmRef = useRef<Film>(film);
+  const time = useRef<number>(film.poster);
+  useEffect(() => {
+    filmRef.current = film;
+  }, [film]);
   const paintRef = useRef<(() => void) | undefined>(undefined);
   const reduced = useSyncExternalStore(
     subscribeReducedMotion,
@@ -55,6 +133,7 @@ export function CourseFilm({
     const element = canvas.current;
     if (!element) return undefined;
     let fonts: FilmFonts = { sans: "sans-serif", mono: MONO };
+    let palette = readPalette(element);
     const paint = () => {
       const g = element.getContext("2d");
       if (!g) return;
@@ -70,12 +149,15 @@ export function CourseFilm({
       }
       const scale = (dpr * width) / FILM_WIDTH;
       g.setTransform(scale, 0, 0, scale, 0, 0);
-      drawFilm(g, time.current, fonts);
+      filmRef.current.draw(g, time.current, fonts, palette);
     };
     const resize = new ResizeObserver(paint);
     resize.observe(element);
     void document.fonts.ready.then(() => {
-      fonts = { sans: getComputedStyle(element).fontFamily, mono: MONO };
+      const style = getComputedStyle(element);
+      const utility = style.getPropertyValue("--font-utility").trim();
+      fonts = { sans: style.fontFamily, mono: utility === "" ? MONO : utility };
+      palette = readPalette(element);
       paint();
       setReady(true);
     });
@@ -117,7 +199,8 @@ export function CourseFilm({
     let raf = 0;
     let last = performance.now();
     const tick = (now: number) => {
-      time.current = (time.current + (now - last) / 1000) % FILM_DURATION;
+      time.current =
+        (time.current + (now - last) / 1000) % filmRef.current.duration;
       last = now;
       paintRef.current?.();
       raf = requestAnimationFrame(tick);
@@ -132,14 +215,14 @@ export function CourseFilm({
   // Если движение вернут, фильм начнётся заново.
   useEffect(() => {
     if (playing || !ready) return;
-    time.current = FILM_POSTER_TIME;
+    time.current = filmRef.current.poster;
     started.current = false;
     paintRef.current?.();
   }, [playing, ready]);
 
   return (
     <div className="aie-film">
-      <canvas aria-label={FILM_DESCRIPTION} ref={canvas} role="img" />
+      <canvas aria-label={film.description} ref={canvas} role="img" />
     </div>
   );
 }

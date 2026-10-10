@@ -36,10 +36,11 @@ test("tablet Home can scroll through the feed and keeps navigation usable", asyn
   const firstCount = await articles.count();
   await articles.last().scrollIntoViewIfNeeded();
   await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
+  // Шапка телефона и планшета прилипает к верху: логотип «Главная» виден и после прокрутки ленты.
   await expect(
     page
-      .getByRole("navigation", { name: "Мобильная навигация" })
-      .getByRole("link", { name: "Главная" }),
+      .locator("[data-mobile-header]")
+      .getByRole("link", { name: "Главная", exact: true }),
   ).toBeInViewport();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),

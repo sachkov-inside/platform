@@ -1,15 +1,13 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
-import { GenericContainer, Wait } from "testcontainers";
-import { expect, test, onTestFinished } from "vitest";
-import { brokerAdmin, queueDepth } from "./setup/broker.js";
+import { expect, test, onTestFinished, vi } from "vitest";
+import { startNotificationBroker, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
 import {
   connectNotificationBroker,
   publishNotification,
@@ -27,46 +25,29 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleBillingNotificationOutbox } from "../../src/modules/billing/index.js";
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
-import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
-import type { NotificationEvent } from "../../src/modules/notifications/domain/notification-wire.js";
+import {
+  resultSchema,
+  type NotificationEvent,
+} from "../../src/modules/notifications/domain/notification-wire.js";
+
+registerFixedClock();
 
 // Every wait below ends on a committed fact; the budget only bounds a stuck run.
 const barrierBudgetMs = 30_000;
 test("real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL", async () => {
   const topology = localNotificationTopology("inside-test", 100);
-  const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-    .withExposedPorts(5672)
-    .withCopyContentToContainer([
-      {
-        content: JSON.stringify(topology),
-        target: "/etc/rabbitmq/definitions.json",
-      },
-      {
-        content:
-          "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-        target: "/etc/rabbitmq/rabbitmq.conf",
-      },
-    ])
-    .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-    .start();
+  const broker = await startNotificationBroker({ topology });
   onTestFinished(async () => {
     await broker.stop();
   });
-  const admin = brokerAdmin(broker);
+  const admin = broker.admin;
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
-  const url = (principal: string) =>
-    `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
-  const urls = {
-    billing: url("billing"),
-    materials: url("materials"),
-    notifications: url("notifications"),
-    email: url("email"),
-  };
+  const { urls } = broker;
   const actor = randomUUID();
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   const instant = new Date();
   const before = new Date(instant.getTime() - 60_000);
   const event = (category: "subscription" | "material"): NotificationEvent => ({
@@ -188,11 +169,10 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
   ]);
   let sends = 0;
   const reports: Record<string, unknown>[] = [];
-  const worker = assembleNotificationWorker({
+  const worker = assembleNotificationPipeline({
     config: { urls, prefetch: 2, quarantineCapacity: 100 },
     transport: app.transport,
-    billing: assembleBillingNotificationOutbox(database.prisma),
-    materials: assembleMaterialsNotificationOutbox(database.prisma),
+    prisma: database.prisma,
     processInbox: () =>
       app.sweep(() => {
         sends += 1;
@@ -233,15 +213,22 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
     // The outage is a fact, not an assumption: results stay staged because the broker refused the
     // publish, which is exactly what the revoked write permission has to produce.
     await eventually(async () => {
-      expect(
-        await database.prisma.notificationOutbox.count({
-          where: {
-            scope: "email",
-            publishedAt: null,
-            lastFailure: "publish_not_confirmed",
-          },
-        }),
-      ).toBeGreaterThanOrEqual(1);
+      const pendingResults = await database.prisma.notificationOutbox.findMany({
+        where: { scope: "email", publishedAt: null },
+        select: { payload: true, lastFailure: true, nextAttemptAt: true },
+      });
+      const sentResults = pendingResults.filter(
+        (row) => resultSchema.parse(JSON.parse(row.payload)).state === "sent",
+      );
+      expect(sentResults).toHaveLength(2);
+      // Intermediate accepted/unknown results also share this lane. Finish every refused publish
+      // before moving Date, so an in-flight refusal cannot schedule a retry beyond the new instant.
+      for (const result of pendingResults) {
+        expect(result.lastFailure).toBe("publish_not_confirmed");
+        expect(result.nextAttemptAt.getTime()).toBeGreaterThan(
+          instant.getTime(),
+        );
+      }
       expect(reports).toContainEqual(
         expect.objectContaining({
           status: "operator_attention",
@@ -269,12 +256,27 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
       emailPermission.write,
       emailPermission.read,
     ]);
+    // Permission recovery does not advance the virtual Date. Reach the persisted retry deadline;
+    // native worker timers still run normally, and the following barrier observes both deliveries.
+    const pendingResults = await database.prisma.notificationOutbox.findMany({
+      where: { scope: "email", publishedAt: null },
+      select: { nextAttemptAt: true },
+    });
+    expect(pendingResults.length).toBeGreaterThanOrEqual(2);
+    vi.setSystemTime(
+      Math.max(...pendingResults.map((row) => row.nextAttemptAt.getTime())),
+    );
     await eventually(async () => {
       expect(
         await database.prisma.notificationDelivery.count({
           where: { state: "sent" },
         }),
       ).toBe(2);
+      expect(
+        await database.prisma.notificationOutbox.count({
+          where: { scope: "email", publishedAt: null },
+        }),
+      ).toBe(0);
     }, barrierBudgetMs);
     await publishNotification(
       publisher,

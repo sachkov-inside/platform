@@ -16,9 +16,10 @@
 Публично сейчас продаётся только разовая покупка продукта; публичная продажа подписки выключена
 ([#178](https://github.com/sachkov-inside/workspace/issues/178),
 [#180](https://github.com/sachkov-inside/workspace/issues/180)), подписочные тексты не меняются.
-По решению владельца от 27.09.2026 подписку откроют только прежним подписчикам Tribute для
-продления ([#238](https://github.com/sachkov-inside/workspace/issues/238)); это тоже включает
-владелец отдельно.
+По [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026 подписку продают только
+по приглашению владельца. Продажа начнётся, когда банк подтвердит регулярные списания и выйдет
+новая редакция оферты подписки. Прежнее решение от 27.09.2026 открыть подписку только прежним
+подписчикам Tribute ([#238](https://github.com/sachkov-inside/workspace/issues/238)) заменено.
 Собственный приём оплаты через Т-Банк подтверждён проверкой терминала и кассы
 ([Platform #402](https://github.com/sachkov-inside/platform/issues/402)); Tribute остаётся только
 для ранее совершённых покупок. Публикация страниц и ссылок на сайте — зависимая
@@ -110,9 +111,10 @@ commit входят в политику v4, а приём сдач в production
 [#948](https://github.com/sachkov-inside/platform/issues/948) на `43a27aa9`.
 Владелец 10.10.2026 [одобрил публикацию варианта А](https://github.com/sachkov-inside/platform/issues/991#issuecomment-6093765700).
 Редакция ещё не опубликована. Root проводит merge через очередь и выпуск после обязательных проверок.
+Фактическую публикацию и следующий production gate отслеживает [#1197](https://github.com/sachkov-inside/platform/issues/1197).
 Для выпуска v4 используется runtime после [переименования домена #1065](https://github.com/sachkov-inside/platform/issues/1065).
 В нём флаг приёма сдач называется `PRODUCT_TASK_SUBMISSIONS_ENABLED`, а схема сдач называется `product_tasks`.
-На исходной точке `43a27aa9` и в коде этой ветки до интеграции #1065 они назывались `GUIDE_TASK_SUBMISSIONS_ENABLED` и `guide_tasks`.
+На исходной точке `43a27aa9` они назывались `GUIDE_TASK_SUBMISSIONS_ENABLED` и `guide_tasks`.
 Приём сдач в production остаётся выключенным (`PRODUCT_TASK_SUBMISSIONS_ENABLED=false`).
 Root включает его отдельным шагом после публикации политики и проверки выпуска.
 Инструкция удаления ниже требует миграции `0082` из #1065; Root проверяет её применение перед использованием инструкции.
@@ -198,7 +200,8 @@ garant.ru. Официальные pravo.gov.ru и consultant.ru 06.10.2026 из 
 
 ## Оферта подписки и условия Tribute — к переносу участников
 
-Стартовый тариф по решению владельца 15.09.2026 открывает то же, что подписка
+По [ADR 0033](../adr/0033-product-tariff-payment-model.md) прежние участники курса получают
+назначение тарифа курса, а подписчики Tribute — приглашение оплатить подписку
 ([модель доступа](../product/access-model.md#что-входит-в-доступ)). [Оферта подписки](subscription-v1.md),
 раздел 9, и [условия покупки через Tribute](tribute-v1.md) описывают прежний состав, поэтому к
 переносу участников [#150](https://github.com/sachkov-inside/workspace/issues/150) им нужны новые

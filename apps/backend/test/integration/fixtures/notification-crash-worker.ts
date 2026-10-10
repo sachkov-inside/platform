@@ -58,7 +58,14 @@ if (config.phase.includes("confirm")) {
       // стоять на барьере: иначе через `BROKER_CONFIRM_TIMEOUT_MS` его публикация падает по сроку,
       // relay записывает неудачную попытку с отсрочкой, и процесс выходит сам. Если тест
       // наблюдает очередь дольше этого срока, он теряет и смерть от SIGKILL, и свою строку outbox.
-      void published.catch(() => undefined);
+      void published.catch((error: unknown) => {
+        if (
+          error instanceof Error &&
+          error.message === "publisher_confirm_timeout"
+        )
+          process.send?.(crashWorkerSignals.confirmExpired);
+        else throw error;
+      });
       await new Promise(() => undefined);
     }
     await published;

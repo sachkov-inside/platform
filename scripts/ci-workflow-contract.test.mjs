@@ -1,7 +1,8 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -57,6 +58,82 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("acquires development runtime images serially before startup and preserves pull failures", () => {
+    const step = jobBlock("compose-development").split(
+      "      - name: Run clean stack smoke and write persistence probes\n        run: |\n",
+    )[1];
+    assert.ok(step);
+    const startup = "docker compose up --detach --wait";
+    const startupIndex = step.indexOf(startup);
+    assert.ok(startupIndex >= 0);
+    const prefix = step
+      .slice(0, startupIndex + startup.length)
+      .replace(/^ {10}/gmu, "");
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-development-pull-"));
+    const calls = resolve(fixture, "calls");
+    const resolvedImages =
+      "ecr-fixture/postgres@sha256:fixed\nhub-fixture/rustfs@sha256:fixed\nhub-fixture/mailpit@sha256:fixed";
+    const adapter = `docker() {
+    printf '%s\\n' "$*" >>"$CALLS";
+    case "$*" in
+      'compose config --images postgres object-storage mailpit') printf '%s\\n' "$RESOLVED_IMAGES" ;;
+      'compose --parallel 1 pull postgres object-storage mailpit')
+        if [ "$PULL_EXIT" != 0 ]; then printf '%s\\n' 'primary registry failure' >&2; return "$PULL_EXIT"; fi ;;
+      'compose up --detach --wait') ;;
+      *) printf '%s\\n' 'unexpected Docker command' >&2; return 55 ;;
+    esac
+  }`;
+    try {
+      for (const pullExit of [0, 29]) {
+        rmSync(calls, { force: true });
+        const result = spawnSync("bash", ["-euc", `${adapter}\n${prefix}`], {
+          env: {
+            ...process.env,
+            CALLS: calls,
+            RESOLVED_IMAGES: resolvedImages,
+            PULL_EXIT: String(pullExit),
+          },
+          encoding: "utf8",
+          timeout: 10_000,
+        });
+        assert.equal(result.status, pullExit, result.stderr);
+        assert.equal(result.stdout.trim(), resolvedImages);
+        assert.deepEqual(readFileSync(calls, "utf8").trim().split("\n"), [
+          "compose config --images postgres object-storage mailpit",
+          "compose --parallel 1 pull postgres object-storage mailpit",
+          ...(pullExit === 0 ? ["compose up --detach --wait"] : []),
+        ]);
+        if (pullExit !== 0)
+          assert.match(result.stderr, /primary registry failure/u);
+      }
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("exports the identical publisher Ryuk image through the setup shell boundary", () => {
+    const command = setupAction.match(
+      /- name: Select Ryuk cleanup image\n\s+shell: bash\n\s+run: (.+)\n/u,
+    )?.[1];
+    assert.ok(command, "shared setup must select the publisher Ryuk image");
+    const fixture = mkdtempSync(resolve(tmpdir(), "inside-ryuk-input-"));
+    const environmentFile = resolve(fixture, "github-env");
+    try {
+      const result = spawnSync("bash", ["-euc", command], {
+        env: { ...process.env, GITHUB_ENV: environmentFile },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        readFileSync(environmentFile, "utf8"),
+        "RYUK_CONTAINER_IMAGE=ghcr.io/testcontainers/ryuk:0.14.0@sha256:7c1a8a9a47c780ed0f983770a662f80deb115d95cce3e2daa3d12115b8cd28f0\n",
+      );
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("checks Telegram on isolated PostgreSQL and non-guest RabbitMQ at the captured source SHA", () => {
     const telegram = jobBlock("telegram");
     assert.match(
@@ -68,8 +145,14 @@ describe("application CI workflow contract", () => {
       telegram,
       /run: pnpm --filter @inside\/telegram check:full$/mu,
     );
-    assert.match(telegram, /image: postgres:18\.4-alpine/u);
-    assert.match(telegram, /image: rabbitmq:4\.3-management-alpine/u);
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/postgres:18\.4-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
+    assert.match(
+      telegram,
+      /image: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+    );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(
       telegram,
@@ -129,6 +212,13 @@ describe("application CI workflow contract", () => {
     assert.match(topLevelBlock("concurrency"), /cancel-in-progress: true/u);
   });
 
+  it("isolates reruns from first attempts so stale recovery cannot cancel a newer commit", () => {
+    assert.match(
+      topLevelBlock("concurrency"),
+      /\$\{\{ github\.run_attempt > 1 && format\('-rerun-\{0\}', github\.run_id\) \|\| '' \}\}/u,
+    );
+  });
+
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
     assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
@@ -171,7 +261,7 @@ describe("application CI workflow contract", () => {
   it("runs every stage of pnpm check as its own job", () => {
     assert.equal(
       rootScripts["check"],
-      checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
+      `bash scripts/heavy-check.sh bash -c '${checkStages.map(([, script]) => `pnpm ${script}`).join(" && ")} "$@"' --`,
     );
     for (const [job, script] of checkStages) {
       assert.match(
@@ -196,8 +286,61 @@ describe("application CI workflow contract", () => {
       setupAction,
       /key: playwright-.*steps\.playwright\.outputs\.version/u,
     );
-    assert.match(setupAction, /playwright install --with-deps \$BROWSERS$/mu);
+    assert.match(
+      setupAction,
+      /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
+    );
     assert.doesNotMatch(workflow, /pnpm install/u);
+  });
+
+  // Зеркало Ubuntu отдавало пакеты WebKit с паузами по 30 с, и установка не успевала за таймаут
+  // задачи (#827).
+  it("installs Playwright system packages from a cache that only main saves", () => {
+    const step = (/** @type {string} */ name) => {
+      const start = setupAction.indexOf(`- name: ${name}\n`);
+      assert.notEqual(start, -1, `setup action must have step ${name}`);
+      const next = setupAction.indexOf("\n    - name: ", start + 1);
+      return setupAction.slice(start, next === -1 ? undefined : next);
+    };
+    const restore = step("Restore Playwright system packages");
+    const install = step("Install browser engines and system dependencies");
+    const save = step("Save Playwright system packages");
+
+    assert.ok(
+      setupAction.indexOf(restore) < setupAction.indexOf(install) &&
+        setupAction.indexOf(install) < setupAction.indexOf(save),
+      "system packages must be restored before the install and saved after it",
+    );
+    for (const block of [restore, save]) {
+      assert.match(block, /path: ~\/\.cache\/playwright-apt\/\*\.deb$/mu);
+    }
+    assert.match(restore, /uses: actions\/cache\/restore@/u);
+    assert.match(
+      restore,
+      /key: playwright-apt-.*inputs\.browsers.*steps\.playwright\.outputs\.version.*steps\.playwright\.outputs\.image/u,
+    );
+    assert.match(
+      restore,
+      /restore-keys: playwright-apt-\$\{\{ runner\.os \}\}-\$\{\{ inputs\.browsers \}\}-$/mu,
+    );
+    const archivesConfig = install.search(
+      /^ {8}echo "Dir::Cache::Archives \\"\$apt_archives\/\\";" \| sudo tee \/etc\/apt\/apt\.conf\.d\/99playwright-archives >\/dev\/null$/mu,
+    );
+    assert.notEqual(archivesConfig, -1, "apt must read the cached archives");
+    assert.ok(
+      archivesConfig < install.indexOf("bash scripts/install-playwright-ci.sh"),
+      "apt must read the cached archives before Playwright installs system packages",
+    );
+    assert.match(install, /apt-get autoclean$/mu);
+    assert.match(save, /uses: actions\/cache\/save@/u);
+    assert.match(
+      save,
+      /^ {6}if: \$\{\{ inputs\.browsers != '' && github\.ref == 'refs\/heads\/main' && steps\.system-packages\.outputs\.cache-hit != 'true' \}\}$/mu,
+    );
+    assert.match(
+      save,
+      /key: \$\{\{ steps\.system-packages\.outputs\.cache-primary-key \}\}$/mu,
+    );
   });
 
   it("runs every required job on pinned GitHub-hosted runners", () => {
@@ -281,12 +424,12 @@ describe("application CI workflow contract", () => {
   it("uploads only bounded failure diagnostics for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      4,
+      5,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 5);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      5,
+      6,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
@@ -307,6 +450,35 @@ describe("application CI workflow contract", () => {
         productionSmoke.indexOf("down --rmi local --volumes --remove-orphans"),
       "production diagnostics must be captured before cleanup",
     );
+  });
+
+  it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
+    const webE2E = jobBlock("web-e2e");
+    const upload = webE2E.slice(
+      webE2E.indexOf("      - name: Upload Playwright diagnostics\n"),
+    );
+    assert.match(upload, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assert.match(
+      upload,
+      /name: web-e2e-playwright-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
+    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
+    assert.doesNotMatch(upload, /overwrite: true/u);
+  });
+
+  it("uploads WebKit browser-engine diagnostics separately for each CI attempt", () => {
+    const job = jobBlock("ui");
+    assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
+    assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(
+      job,
+      /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(job, /path: apps\/web\/test-results\/browser-engines/u);
+    assert.match(job, /if-no-files-found: ignore/u);
+    assert.match(job, /retention-days: 7/u);
   });
 
   it("exposes one stable gate that fails closed over every required job", () => {
@@ -348,13 +520,33 @@ describe("nightly full-stack workflow contract", () => {
       topLevelBlock("permissions", nightlyWorkflow).trim(),
       "contents: read",
     );
-    assert.doesNotMatch(nightlyWorkflow, /^ {2,}permissions:/mu);
+    assert.doesNotMatch(
+      jobBlock("full-stack", nightlyWorkflow),
+      /permissions:/u,
+    );
     assert.doesNotMatch(nightlyWorkflow, /secrets\./u);
     const actionReferences = actionReferenceLines(nightlyWorkflow);
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
       assert.match(reference, commitPinnedAction);
     }
+  });
+
+  it("reports main failures in an assigned issue through a separate write-permission job", () => {
+    const reporter = jobBlock("report-failure", nightlyWorkflow);
+    assert.match(reporter, /^ {4}needs: full-stack$/mu);
+    assert.match(
+      reporter,
+      /always\(\) && needs\.full-stack\.result == 'failure' && github\.ref == 'refs\/heads\/main'/u,
+    );
+    assert.match(reporter, /^ {6}issues: write$/mu);
+    assert.match(reporter, /^ {6}contents: read$/mu);
+    assert.match(reporter, /GH_TOKEN: \$\{\{ github\.token \}\}/u);
+    assert.match(
+      reporter,
+      /run: bash scripts\/report-nightly-fullstack-failure\.sh$/mu,
+    );
+    assert.match(jobBlock("full-stack", nightlyWorkflow), /runner-load\.txt/u);
   });
 
   it("starts Compose infrastructure before the smoke and always removes it", () => {
@@ -364,10 +556,10 @@ describe("nightly full-stack workflow contract", () => {
     assert.match(job, /^ {4}timeout-minutes: \d+$/mu);
     const steps = [
       "pnpm install --frozen-lockfile",
-      "playwright install --with-deps chromium",
+      "bash scripts/install-playwright-ci.sh chromium",
       "cp .env.example .env",
       "run: pnpm infra:up",
-      "run: pnpm smoke:fullstack",
+      "pnpm smoke:fullstack",
     ].map((command) => {
       const index = job.indexOf(command);
       assert.notEqual(index, -1, `nightly job must run ${command}`);
@@ -391,6 +583,11 @@ describe("nightly full-stack workflow contract", () => {
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /^ {12}apps\/web\/playwright-report$/mu);
     assert.match(job, /^ {12}apps\/web\/test-results$/mu);
+    assert.match(
+      job,
+      /name: nightly-fullstack-diagnostics-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.doesNotMatch(job, /overwrite: true/u);
     assert.match(job, /^\s+retention-days: 7$/mu);
     assert.equal(job.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 2);
   });

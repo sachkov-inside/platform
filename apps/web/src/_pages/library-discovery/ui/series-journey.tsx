@@ -1,26 +1,29 @@
 import type { Route } from "next";
 
 import {
-  GuideTaskRow,
+  ProductTaskRow,
   placeChapterTasks,
-  type GuideChapterTask,
-} from "@/entities/guide-task";
+  type ProductChapterTask,
+} from "@/entities/product-task";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import {
-  ReaderGuideArtifacts,
-  type ReaderGuideArtifactsResult,
-} from "@/features/guide-artifacts.reader";
+  ReaderProductArtifacts,
+  type ReaderProductArtifactsResult,
+} from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
-  type GuideChapter,
+  type ProductChapter,
   type PublishedSeriesResult,
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
-import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
-import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
-import { guideTaskHref } from "@/shared/routing/subscription-route";
+import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
+import {
+  catalogReaderReturnHref,
+  seriesReaderReturnHref,
+} from "@/shared/routing/material-reader";
+import { productTaskHref } from "@/shared/routing/subscription-route";
 
-import { formatTaskCount } from "./guide-counts";
+import { formatTaskCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -46,7 +49,7 @@ export function SeriesJourney({
 }: {
   /** Личная часть ещё идёт: строки стоят на общих данных, отметки доступа уточняются. */
   readonly accessPending?: boolean;
-  readonly artifacts?: ReaderGuideArtifactsResult;
+  readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
 }) {
@@ -54,18 +57,18 @@ export function SeriesJourney({
   const chapterOf = chapterLookup(result.chapters);
   // A chapter split into several runs shows its opening tasks once, before its first run.
   const ledChapters = new Set<string>();
-  // An artifact part exists only for a Guide the catalog resolved by id, so the
+  // An artifact part exists only for a Product the catalog resolved by id, so the
   // download address it builds is never a guess.
-  const guideId = result.reference.id;
-  const guideArtifacts =
-    artifacts.kind === "ready" && guideId !== undefined
+  const productId = result.reference.id;
+  const productArtifacts =
+    artifacts.kind === "ready" && productId !== undefined
       ? artifacts.artifacts
       : [];
-  // Chapters are the Guide programme; anything the author has not placed in one is supplementary.
+  // Chapters are the Product programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
-    readonly chapters: readonly GuideChapter[];
-    readonly id: "programme" | "supplementary";
+    readonly chapters: readonly ProductChapter[];
+    readonly id: "programme";
     readonly items: readonly MaterialPreview[];
     readonly label: string;
     readonly shortLabel?: string;
@@ -79,16 +82,6 @@ export function SeriesJourney({
           ? items
           : items.filter((item) => chapterOf(item) !== null),
     },
-    {
-      id: "supplementary",
-      label: "Дополнительные материалы",
-      shortLabel: "Дополнительно",
-      chapters: [],
-      items:
-        result.chapters.length === 0
-          ? []
-          : items.filter((item) => chapterOf(item) === null),
-    },
   ];
   const parts: readonly JourneyPart[] = [
     ...materialParts.map(
@@ -98,13 +91,39 @@ export function SeriesJourney({
         kind: "materials" as const,
         label,
         ...(shortLabel === undefined ? {} : { shortLabel }),
-        runs: guideChapterRuns(partItems, chapters, chapterOf).map((run) =>
+        runs: productChapterRuns(partItems, chapters, chapterOf).map((run) =>
           journeyRun(run, { accessPending, currentHref, ledChapters, result }),
         ),
       }),
     ),
     {
-      count: guideArtifacts.length,
+      // Материалы — каталог всех материалов продукта карточками: поиск, фильтры, новые сверху
+      // (решение владельца 09.10.2026). Программа остаётся строгим порядком глав.
+      entries: items.map((item) => ({
+        card: (
+          // Карточка уходит клиенту в массиве: ключ нужен и элементу-значению.
+          <MaterialCard
+            accessPending={accessPending}
+            headingLevel="h3"
+            key={item.slug}
+            material={item}
+            returnHref={catalogReaderReturnHref(currentHref, item.slug)}
+            variant="feed"
+          />
+        ),
+        format: item.format,
+        formatSlug: item.formatSlug ?? "",
+        inProgramme: result.chapters.length === 0 || chapterOf(item) !== null,
+        publishedAt: item.publishedAt ?? "",
+        slug: item.slug,
+        text: `${item.title} ${item.summary}`.toLocaleLowerCase("ru"),
+      })),
+      id: "supplementary",
+      kind: "catalog",
+      label: "Материалы",
+    },
+    {
+      count: productArtifacts.length,
       id: "artifacts",
       kind: "artifacts",
       label: "Артефакты",
@@ -118,15 +137,15 @@ export function SeriesJourney({
               Артефакты сейчас не загрузились. Попробуй открыть этот раздел
               позже.
             </p>
-          ) : guideArtifacts.length === 0 || guideId === undefined ? (
+          ) : productArtifacts.length === 0 || productId === undefined ? (
             <p className="py-5 text-sm leading-6 text-muted-foreground">
               Здесь появятся файлы, шаблоны и инструменты для работы над
               проектом.
             </p>
           ) : (
-            <ReaderGuideArtifacts
-              artifacts={guideArtifacts}
-              guideId={guideId}
+            <ReaderProductArtifacts
+              artifacts={productArtifacts}
+              productId={productId}
             />
           )}
         </div>
@@ -150,7 +169,7 @@ export function SeriesJourney({
 /** Отрезок части с готовыми строками: порядковый номер и адрес возврата известны на сервере. */
 function journeyRun(
   run: {
-    readonly chapter: GuideChapter | null;
+    readonly chapter: ProductChapter | null;
     readonly items: readonly MaterialPreview[];
     readonly offset: number;
   },
@@ -168,14 +187,19 @@ function journeyRun(
 ): JourneyRun {
   const tasks = run.chapter?.tasks ?? [];
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
-  const taskList = (items: readonly GuideChapterTask[], label: string) =>
+  const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
-      <ul aria-label={label} className="mt-2 grid gap-2" data-programme-tasks>
+      <ul
+        aria-label={label}
+        className="mt-2 grid gap-2"
+        data-programme-tasks
+        key={`tasks-${label}`}
+      >
         {items.map((task) => (
           <li className="@container/series-entry min-w-0" key={task.code}>
-            <GuideTaskRow
+            <ProductTaskRow
               accessPending={accessPending}
-              href={guideTaskHref(result.reference.slug, task.code)}
+              href={productTaskHref(result.reference.slug, task.code)}
               task={task}
             />
           </li>
@@ -187,22 +211,34 @@ function journeyRun(
       ? undefined
       : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
+  const preparing = run.items.length === 0 && tasks.length === 0;
   return {
     chapter:
       run.chapter === null
         ? null
         : {
             header: (
-              <header className="programme-chapter-head">
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              // Заголовок уходит клиентскому компоненту в массиве глав: React требует ключ и у
+              // элемента, переданного как значение, иначе пишет предупреждение в консоль.
+              <header
+                className="programme-chapter-head"
+                key={`head-${run.chapter.id}`}
+              >
+                {/* Счётчик и метка «Планируется» стоят сразу за названием главы, мелко (референс
+                    владельца 09.10.2026). */}
+                <div className="min-w-0">
                   <h3
-                    className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
+                    className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
-                  {run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
-                    <span className="text-xs tabular-nums text-muted-foreground">
+                  {preparing ? (
+                    <span className="programme-chapter-soon ml-2 align-[2px]">
+                      Планируется
+                    </span>
+                  ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
+                    <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {[
                         run.chapter.materialIds.length > 0
                           ? formatMaterialCount(run.chapter.materialIds.length)
@@ -216,20 +252,13 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
-                    будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
-                    обычной и её можно проходить. */}
-                {run.items.length === 0 && tasks.length === 0 ? (
-                  <div className="programme-chapter-preview">
-                    {run.chapter.summary === "" ? null : (
-                      <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
-                        {run.chapter.summary}
-                      </p>
-                    )}
-                    <p className="programme-chapter-soon">
-                      Материалы готовятся
-                    </p>
-                  </div>
+                {/* Глава без уроков остаётся частью программы, но коротко: метка «Планируется» и первая
+                    фраза описания (решение владельца 09.10.2026). С первым уроком глава
+                    становится обычной и её можно проходить. */}
+                {preparing && run.chapter.summary !== "" ? (
+                  <p className="mt-1 line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:text-sm">
+                    {firstSentence(run.chapter.summary)}
+                  </p>
                 ) : null}
               </header>
             ),
@@ -239,7 +268,7 @@ function journeyRun(
     ...(leading === undefined ? {} : { leading }),
     offset: run.offset,
     rows: run.items.map((material, index) => {
-      // Splitting the route into parts renumbers each part; a flat Guide keeps its stored order.
+      // Splitting the route into parts renumbers each part; a flat Product keeps its stored order.
       const ordinal =
         result.chapters.length > 0
           ? run.offset + index + 1
@@ -289,7 +318,7 @@ function journeyRun(
 }
 
 function chapterLookup(
-  chapters: readonly GuideChapter[],
+  chapters: readonly ProductChapter[],
 ): (material: MaterialPreview) => string | null {
   const byMaterial = new Map(
     chapters.flatMap((chapter) =>
@@ -302,4 +331,10 @@ function chapterLookup(
     material.materialId === undefined
       ? null
       : (byMaterial.get(material.materialId) ?? null);
+}
+
+/** Первая фраза описания главы: будущая глава в программе называется одной мыслью. */
+function firstSentence(text: string): string {
+  const match = /^.+?[.!?…](?=\s|$)/su.exec(text.trim());
+  return match === null ? text.trim() : match[0];
 }

@@ -1,6 +1,6 @@
 import { expectImmediateMobileNavigation } from "../support/immediate-mobile-navigation";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const catalog = {
   kind: "ready",
@@ -22,8 +22,35 @@ const catalog = {
   totalCount: 18,
 };
 
+const materialCatalogRequests = /\/api\/(?:home|library)\/materials(?:\?|$)/u;
+
+// Шапка телефона: логотип «Главная» стоит вне списка разделов, поэтому ищется в самой шапке.
+function header(page: Page) {
+  return page.locator("[data-mobile-header]");
+}
+
 function navigation(page: Page) {
   return page.getByRole("navigation", { name: "Мобильная навигация" });
+}
+
+function homeLink(page: Page) {
+  return header(page).getByRole("link", { name: "Главная", exact: true });
+}
+
+/**
+ * Нажатие по центру ссылки, как палец. Шапка прилипает к верху, и `locator.click()` перед нажатием
+ * прокручивает страницу к её месту в потоке документа: позиция ленты терялась бы до перехода.
+ */
+async function tap(page: Page, link: Locator) {
+  const box = await link.boundingBox();
+  if (box === null) throw new Error("Navigation link is missing");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+function formatChip(page: Page, name: string) {
+  return page
+    .getByRole("group", { name: "Формат материала" })
+    .getByRole("button", { name, exact: true });
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
@@ -42,34 +69,40 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   page,
 }) => {
   let requests = 0;
-  await page.route("**/api/home/materials**", (route) => {
+  await page.route(materialCatalogRequests, (route) => {
     requests++;
     return route.fulfill({ json: catalog });
   });
-  await page.goto("/?q=навигация");
+  // Поиска на Главной нет: состояние ленты, которое помнит вкладка, — выбранный формат.
+  await page.goto("/?format=guide");
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.evaluate(() => {
     window.scrollTo(0, 700);
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
-  await navigation(page).getByRole("link", { name: "Профиль" }).click();
+  await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
   ).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   const loadedRequests = requests;
-  await expect(
-    navigation(page).getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("href", /q=/u);
-  await navigation(page).getByRole("link", { name: "Главная" }).click();
-  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await expect(homeLink(page)).toHaveAttribute("href", /format=guide/u);
+  await homeLink(page).click();
+  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
-  await expect(
-    page.getByText("Загружаем опубликованные материалы"),
-  ).toHaveCount(0);
+  // Лента не показывает второй экран загрузки: материалы приходят из памяти браузера.
+  await expect(page.locator('section.home-feed[aria-busy="true"]')).toHaveCount(
+    0,
+  );
   expect(requests).toBe(loadedRequests);
   await page.goBack();
   await expect(page).toHaveURL(/\/account$/u);
@@ -77,20 +110,23 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     navigation(page).getByRole("link", { name: "Профиль" }),
   ).toHaveAttribute("aria-current", "page");
   await page.goForward();
-  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("Home feed data is prefetched before the first tab visit", async ({
   page,
 }) => {
   let requests = 0;
-  await page.route("**/api/home/materials**", (route) => {
+  await page.route(materialCatalogRequests, (route) => {
     requests++;
     return route.fulfill({ json: catalog });
   });
   await page.goto("/account");
   await expect.poll(() => requests).toBe(1);
-  await navigation(page).getByRole("link", { name: "Главная" }).click();
+  await homeLink(page).click();
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
@@ -100,48 +136,32 @@ test("Home feed data is prefetched before the first tab visit", async ({
 test("fast repeated navigation remains clickable during the transition", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/");
-  await expect(page.getByRole("searchbox")).toBeVisible();
+  await expect(formatChip(page, "Все")).toBeVisible();
   // Real pointer input bypasses Playwright's animation-stability wait, as a quick user tap does.
-  const profile = await navigation(page)
-    .getByRole("link", { name: "Профиль" })
-    .boundingBox();
-  if (profile === null) throw new Error("Profile link is missing");
-  await page.mouse.click(
-    profile.x + profile.width / 2,
-    profile.y + profile.height / 2,
-  );
+  await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
   await expect(page).toHaveURL(/\/account$/u);
-  const library = await navigation(page)
-    .getByRole("link", { name: "Главная" })
-    .boundingBox();
-  if (library === null) throw new Error("Home feed link is missing");
-  await page.mouse.click(
-    library.x + library.width / 2,
-    library.y + library.height / 2,
-  );
+  await tap(page, homeLink(page));
   await expect(page).toHaveURL(/\/$/u);
-  await expect(
-    navigation(page).getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(homeLink(page)).toHaveAttribute("aria-current", "page");
 });
 
 test("public canvas, navigation geometry and reduced motion are consistent", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
-    const before = await navigation(page).boundingBox();
-    await navigation(page).getByRole("link", { name: "Главная" }).click();
-    await expect(page.getByRole("searchbox")).toBeVisible();
-    const after = await navigation(page).boundingBox();
+    const before = await header(page).boundingBox();
+    await homeLink(page).click();
+    await expect(formatChip(page, "Все")).toBeVisible();
+    const after = await header(page).boundingBox();
     expect(after?.width).toBe(before?.width);
     expect(after?.y).toBe(before?.y);
     expect(
@@ -162,7 +182,8 @@ test("public canvas, navigation geometry and reduced motion are consistent", asy
   await page.emulateMedia({ reducedMotion: "reduce" });
   expect(
     await page
-      .locator(".mobile-navigation-indicator")
+      .locator(".mobile-navigation-link")
+      .first()
       .evaluate((element) => getComputedStyle(element).transitionDuration),
   ).toBe("0s");
   expect(
@@ -189,7 +210,7 @@ test("background Profile failure retains data but lost authorization removes it"
       },
     });
   });
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account/access");
@@ -229,17 +250,16 @@ test("background Profile failure retains data but lost authorization removes it"
 test("native Back preserves the latest Home feed filter and scroll for the next tab visit", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
-  await navigation(page).getByRole("link", { name: "Главная" }).click();
-  await page.getByRole("searchbox").fill("навигация");
-  await expect(page).toHaveURL(/q=/u);
+  await homeLink(page).click();
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
-  await page.getByRole("searchbox").blur();
+  await formatChip(page, "Видео").click();
+  await expect(page).toHaveURL(/format=video/u);
   // Позицию ленты приложение записывает по событию scroll, а браузер доставляет его в следующем кадре:
   // «Назад» в том же кадре уносит несохранённую позицию (#735). Событие рассылается всем обработчикам
   // целиком до следующей команды теста.
@@ -259,19 +279,22 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
   await page.goBack();
   await expect(page).toHaveURL(/\/account$/u);
-  await navigation(page).getByRole("link", { name: "Главная" }).click();
-  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await homeLink(page).click();
+  await expect(formatChip(page, "Видео")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
 });
 
 test("a newer tab selection wins over an unfinished route request", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/");
-  await expect(page.getByRole("searchbox")).toBeVisible();
+  await expect(formatChip(page, "Все")).toBeVisible();
   let started = false;
   let release: () => void = () => undefined;
   const held = new Promise<void>((resolve) => {
@@ -286,14 +309,12 @@ test("a newer tab selection wins over an unfinished route request", async ({
     await navigation(page).getByRole("link", { name: "Профиль" }).click();
     await expect.poll(() => started).toBe(true);
     await expect(page).toHaveURL(/\/$/u);
-    await navigation(page).getByRole("link", { name: "Главная" }).click();
+    await homeLink(page).click();
     await expect(page).toHaveURL(/\/$/u);
   } finally {
     release();
   }
-  await expect(
-    navigation(page).getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(homeLink(page)).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
   ).toHaveCount(0);
@@ -321,7 +342,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
       },
     });
   });
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({
       json: {
         ...catalog,
@@ -338,14 +359,15 @@ test("changing account identity clears remembered tabs and the old Profile form"
       },
     }),
   );
-  await page.goto("/?q=навигация");
-  await expect(page.getByRole("searchbox")).toHaveValue("навигация");
+  await page.goto("/?format=guide");
+  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await navigation(page).getByRole("link", { name: "Профиль" }).click();
   const name = page.getByRole("textbox", { name: "Имя", exact: true });
   await name.fill("Старый аккаунт");
-  await expect(
-    navigation(page).getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("href", /q=/u);
+  await expect(homeLink(page)).toHaveAttribute("href", /format=guide/u);
   const before = accountRequests;
   accountId = "22222222-2222-4222-8222-222222222222";
   await page.evaluate(() => {
@@ -353,17 +375,15 @@ test("changing account identity clears remembered tabs and the old Profile form"
   });
   await expect.poll(() => accountRequests).toBeGreaterThan(before);
   await expect(name).toHaveValue("");
-  await expect(
-    navigation(page).getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("href", "/");
-  await navigation(page).getByRole("link", { name: "Главная" }).click();
-  await expect(page.getByRole("searchbox")).toHaveValue("");
+  await expect(homeLink(page)).toHaveAttribute("href", "/");
+  await homeLink(page).click();
+  await expect(formatChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
 });
 
 test("a cold tab shows its destination immediately while the route response is still pending", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await expectImmediateMobileNavigation(page);
@@ -372,16 +392,19 @@ test("a cold tab shows its destination immediately while the route response is s
 test("external Home query changes update the selected format and results", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
-  await page.goto("/?format=note");
+  // Текст поиска из старой ссылки Главная не применяет и убирает из адреса (решение владельца 09.10.2026).
+  await page.goto("/?format=note&q=навигация");
   // SSR already exposes the selected button; loaded API content proves client navigation is mounted.
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
   const notes = page.getByRole("button", { name: "Заметки", exact: true });
   await expect(notes).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull();
   // Native history integration uses the same search-parameter notification as an App Router link.
   await page.evaluate(() => {
     window.history.pushState(null, "", "/?format=guide");
@@ -391,9 +414,12 @@ test("external Home query changes update the selected format and results", async
   ).toHaveAttribute("aria-pressed", "true");
   await page.goBack();
   await expect(notes).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("searchbox").pressSequentially("два слова");
-  await expect(page.getByRole("searchbox")).toHaveValue("два слова");
+  await formatChip(page, "Видео").click();
+  await expect(formatChip(page, "Видео")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect
-    .poll(() => new URL(page.url()).searchParams.get("q"))
-    .toBe("два слова");
+    .poll(() => new URL(page.url()).searchParams.get("format"))
+    .toBe("video");
 });

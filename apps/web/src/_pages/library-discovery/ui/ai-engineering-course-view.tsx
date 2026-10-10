@@ -1,6 +1,6 @@
 import {
-  ArrowLeft,
   ArrowRight,
+  ChevronLeft,
   Bot,
   Check,
   ChevronDown,
@@ -9,6 +9,7 @@ import {
   FileCode2,
   FileText,
   FolderGit2,
+  GitPullRequest,
   Gauge,
   Layers,
   MessagesSquare,
@@ -18,7 +19,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Terminal,
   UserRound,
   Wrench,
 } from "lucide-react";
@@ -26,10 +26,10 @@ import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
 
 import type {
-  GuidePage,
-  GuidePageBlock,
-  GuidePageBlockOf,
-} from "@/entities/guide-page";
+  ProductPage,
+  ProductPageBlock,
+  ProductPageBlockOf,
+} from "@/entities/product-page";
 import {
   CourseHero,
   CourseIcon,
@@ -37,7 +37,8 @@ import {
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import {
@@ -48,8 +49,9 @@ import {
   OpenCodeLogo,
 } from "./agent-logos";
 
+import { cohortEnrollAnchor } from "../model/cohort-call";
 import { countFreeLessons } from "../model/free-lessons";
-import "./ai-first-guide-view.css";
+import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 
 type ResolvedSeriesResult = Extract<
@@ -61,46 +63,52 @@ type ResolvedSeriesResult = Extract<
  * Оформление `ai-engineering-course`: страница-описание курса. Весь текст приходит из описания
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
- * Программа и прохождение живут на странице программы: туда ведут все кнопки.
+ * Программа и прохождение живут на странице программы: туда ведут все кнопки. На телефоне и
+ * планшете навигации сайта внизу нет: её место занимает кнопка в программу, а назад ведёт
+ * маленькая кнопка в самом верху.
  */
 export function AiEngineeringCourseView({
   heroCall,
   result,
   page,
   returnTarget,
+  statusCall,
+  heroBadge,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
-  readonly page: GuidePage;
+  readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
+  /** Плашка набора на поток вместо заголовка нижнего блока, пока поток не стартовал. */
+  readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на углу анимации, пока поток набирается. */
+  readonly heroBadge?: ReactNode;
 }) {
   const { reference } = result;
-  const programme = guideProgrammeHref(reference.slug);
+  const programme = productProgrammeHref(reference.slug);
   const hasFreeLessons =
     countFreeLessons(result.kind === "ready" ? result.items : []) > 0;
   const hero = page.blocks.find(
-    (block): block is GuidePageBlockOf<"hero"> => block.kind === "hero",
+    (block): block is ProductPageBlockOf<"hero"> => block.kind === "hero",
   );
   return (
     <article
-      className="ai-guide-page aie-course"
-      data-guide-presentation="ai-engineering-course"
-      data-guide-product={reference.slug}
+      className="ai-product-page aie-course"
+      data-product-presentation="ai-engineering-course"
+      data-product-landing={reference.slug}
     >
-      <nav aria-label="Хлебные крошки">
-        <IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}>
-          <ArrowLeft />
-          {returnTarget.label}
-        </IntentPrefetchLink>
-      </nav>
+      <HideMobileNavigation />
+      <IntentPrefetchLink className="aie-back" href={returnTarget.href}>
+        <ChevronLeft aria-hidden="true" />
+        Назад
+      </IntentPrefetchLink>
 
       <header className="aie-course-hero">
         <CourseHero
-          action={{ href: programme, label: "Открыть программу" }}
           badge={hero?.badge ?? ""}
           call={heroCall}
-          compactActionOnPhone
+          filmBadge={heroBadge}
           highlights={hero?.highlights ?? []}
           lead={hero?.lead ?? reference.summary}
           name={reference.name}
@@ -109,6 +117,7 @@ export function AiEngineeringCourseView({
 
       {page.blocks.map((block) => (
         <CourseBlock
+          statusCall={statusCall}
           block={block}
           hasFreeLessons={hasFreeLessons}
           key={block.id}
@@ -116,8 +125,8 @@ export function AiEngineeringCourseView({
         />
       ))}
 
-      <div className="ai-guide-sticky">
-        <IntentPrefetchLink className="ai-guide-button" href={programme}>
+      <div className="ai-product-sticky">
+        <IntentPrefetchLink className="ai-product-button" href={programme}>
           Открыть программу
           <ArrowRight />
         </IntentPrefetchLink>
@@ -130,16 +139,19 @@ function CourseBlock({
   block,
   hasFreeLessons,
   programme,
+  statusCall,
 }: {
-  readonly block: GuidePageBlock;
+  readonly block: ProductPageBlock;
   readonly hasFreeLessons: boolean;
   readonly programme: Route;
+  readonly statusCall?: ReactNode;
 }): ReactNode {
   switch (block.kind) {
     case "hero":
       return null;
     case "cards":
-      if (block.id === "topics") return <TopicGrid block={block} />;
+      if (block.id === "topics")
+        return <TopicGrid block={block} programme={programme} />;
       if (block.id === "audience") return <Audience block={block} />;
       if (block.id === "value") return <ValueGrid block={block} />;
       if (block.id === "faq") return <Faq block={block} />;
@@ -152,17 +164,20 @@ function CourseBlock({
       return <FormatCards block={block} programme={programme} />;
     case "list":
       if (block.id === "status")
-        return <Status block={block} programme={programme} />;
+        return <Status block={block} call={statusCall} programme={programme} />;
       if (block.id === "agents") return <Agents block={block} />;
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
       return hasFreeLessons ? (
-        <section className="ai-guide-trial">
+        <section className="ai-product-trial">
           <h2>{block.title}</h2>
           <p>{block.text}</p>
           {block.link === "" ? null : (
-            <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+            <IntentPrefetchLink
+              className="ai-product-text-link"
+              href={programme}
+            >
               {block.link}
               <ArrowRight />
             </IntentPrefetchLink>
@@ -172,25 +187,25 @@ function CourseBlock({
   }
 }
 
-type CardItem = GuidePageBlockOf<"cards">["items"][number];
+type CardItem = ProductPageBlockOf<"cards">["items"][number];
 
 /**
  * Необязательные поля карточек: оформление курса рисует их у каждого блока, чтобы написанное в
  * описании продукта не пропадало (ADR 0026).
  */
 function Eyebrow({ text }: { readonly text: string }) {
-  return text === "" ? null : <p className="ai-guide-eyebrow">{text}</p>;
+  return text === "" ? null : <p className="ai-product-eyebrow">{text}</p>;
 }
 function ItemDetail({ item }: { readonly item: CardItem }) {
   return item.detail === "" ? null : (
-    <span className="ai-guide-item-detail">
+    <span className="ai-product-item-detail">
       {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
       {item.detail}
     </span>
   );
 }
 function Note({ text }: { readonly text: string }) {
-  return text === "" ? null : <p className="ai-guide-career">{text}</p>;
+  return text === "" ? null : <p className="ai-product-career">{text}</p>;
 }
 
 const mentoringIcons: readonly CourseIconName[] = [
@@ -199,10 +214,10 @@ const mentoringIcons: readonly CourseIconName[] = [
   "updates",
 ];
 /** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
-function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="ai-guide-support aie-mentoring">
-      <div className="ai-guide-support-intro">
+    <section className="ai-product-support aie-mentoring">
+      <div className="ai-product-support-intro">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
@@ -384,16 +399,19 @@ const topicTiles: readonly {
     art: (
       <div className="aie-art-guard">
         <span className="aie-art-guard-action">
-          <Terminal />
-          git push --force
+          <Bot />
+          Шаг 3 из 5 · auth.ts
         </span>
         <span className="aie-art-guard-gate">
           <ShieldCheck />
-          Нужно подтверждение
+          Тесты 24/24
         </span>
         <span className="aie-art-guard-buttons">
-          <b>Разрешить</b>
-          <b>Отклонить</b>
+          <b>
+            <GitPullRequest />
+            PR #42 проверен
+          </b>
+          <b>Merge</b>
         </span>
       </div>
     ),
@@ -469,13 +487,22 @@ const topicTiles: readonly {
     ),
   },
 ];
-function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+/** Темы курса и под ними кнопка в программу: там главы и уроки по этим темам. */
+function TopicGrid({
+  block,
+  programme,
+}: {
+  readonly block: ProductPageBlockOf<"cards">;
+  readonly programme: Route;
+}) {
   return (
-    <section className="ai-guide-outcomes aie-topics">
+    <section className="ai-product-outcomes aie-topics">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
+        <p className="ai-product-section-intro ai-product-promise">
+          {block.lead}
+        </p>
       )}
       <ul className="aie-bento">
         {block.items.map((item, index) => {
@@ -501,6 +528,10 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         })}
       </ul>
       <Note text={block.note} />
+      <IntentPrefetchLink className="aie-topics-programme" href={programme}>
+        Открыть программу
+        <ArrowRight aria-hidden="true" />
+      </IntentPrefetchLink>
     </section>
   );
 }
@@ -508,14 +539,14 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 function ChecklistCards({
   block,
 }: {
-  readonly block: GuidePageBlockOf<"cards">;
+  readonly block: ProductPageBlockOf<"cards">;
 }) {
   return (
-    <section className="ai-guide-audience">
+    <section className="ai-product-audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
+        <p className="ai-product-section-intro">{block.lead}</p>
       )}
       <dl>
         {block.items.map((item, index) => (
@@ -536,9 +567,9 @@ function ChecklistCards({
   );
 }
 
-function SplitText({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
+function SplitText({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
   return (
-    <section className="ai-guide-shift">
+    <section className="ai-product-shift">
       <h2>{block.title}</h2>
       <div>
         {block.paragraphs.map((paragraph, index) => (
@@ -562,18 +593,39 @@ const formatArt: readonly ReactNode[] = [
     </span>
     <i />
   </div>,
-  <div className="aie-mock-video" key="video">
+  <div className="aie-mock-task" key="task">
+    <small>Задание 2.3</small>
+    <b>Спроектируй вход в систему</b>
+    <ul>
+      <li>
+        <Check />
+        Спецификация
+      </li>
+      <li>
+        <Check />
+        Реализация
+      </li>
+      <li>
+        <Check />
+        Тесты
+      </li>
+    </ul>
     <span>
-      <Play />
+      <ShieldCheck />
+      Проверено
     </span>
-    <i>
-      <b />
-    </i>
   </div>,
-  <div className="aie-mock-terminal" key="terminal">
-    <code>$ pnpm test</code>
-    <code data-ok="true">✓ 24 passed</code>
-    <code data-ok="true">✓ проверка пройдена</code>
+  <div className="aie-mock-decision" key="decision">
+    <span className="aie-mock-decision-ask">
+      <Bot />
+      Как хранить сессии?
+    </span>
+    <span>В памяти сервера</span>
+    <span data-chosen="true">
+      <Check />
+      Токены с ротацией
+    </span>
+    <small>решаешь ты</small>
   </div>,
   <div className="aie-mock-chat" key="chat">
     <span>Проверка не проходит, куда смотреть?</span>
@@ -584,7 +636,7 @@ function FormatCards({
   block,
   programme,
 }: {
-  readonly block: GuidePageBlockOf<"steps">;
+  readonly block: ProductPageBlockOf<"steps">;
   readonly programme: Route;
 }) {
   const titleId = `aie-${block.id}-title`;
@@ -594,11 +646,11 @@ function FormatCards({
         <div>
           <h2 id={titleId}>{block.title}</h2>
           {block.lead === "" ? null : (
-            <p className="ai-guide-section-intro">{block.lead}</p>
+            <p className="ai-product-section-intro">{block.lead}</p>
           )}
         </div>
         {block.link === "" ? null : (
-          <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+          <IntentPrefetchLink className="ai-product-text-link" href={programme}>
             {block.link}
             <ArrowRight />
           </IntentPrefetchLink>
@@ -626,7 +678,7 @@ const practiceTasks = [
   { label: "Агент с поиском по документам проекта", state: "current" },
   { label: "Evals и проверка перед релизом", state: "next" },
 ] as const;
-function Practice({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
+function Practice({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
   return (
     <section className="aie-practice">
       <div>
@@ -662,7 +714,7 @@ const agentLogos: Record<string, (props: { className?: string }) => ReactNode> =
     hermes: HermesAgentLogo,
   };
 /** Агенты с логотипами; незнакомое название получает нейтральный знак. */
-function Agents({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
+function Agents({ block }: { readonly block: ProductPageBlockOf<"list"> }) {
   return (
     <section className="aie-agents">
       <div className="aie-agents-copy">
@@ -694,13 +746,13 @@ const audienceIcons: readonly CourseIconName[] = [
   "basics",
 ];
 /** Для кого: три равные карточки со значками, заметка отдельной строкой. */
-function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Audience({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
+        <p className="ai-product-section-intro">{block.lead}</p>
       )}
       <ul>
         {block.items.map((item, index) => {
@@ -734,7 +786,7 @@ function cssVariables(values: Record<`--${string}`, number>): CssVariables {
  * Что даёт курс: польза растёт от первой к последней. На широком экране над текстом растут
  * столбики с номерами, текст стоит на одной линии; на планшете и телефоне это вертикальный путь.
  */
-function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function ValueGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-value">
       <div className="aie-value-head">
@@ -769,14 +821,14 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 }
 
 /** Частые вопросы: вопрос раскрывает ответ; нативный `details` работает с клавиатуры и без скриптов. */
-function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-faq">
       <div className="aie-faq-head">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : (
-          <p className="ai-guide-section-intro">{block.lead}</p>
+          <p className="ai-product-section-intro">{block.lead}</p>
         )}
       </div>
       <div className="aie-faq-list">
@@ -793,59 +845,103 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
           </details>
         ))}
       </div>
-      {block.note === "" ? null : (
-        <p className="aie-faq-note">
-          <CourseIcon name="telegram" />
-          <span>{withTelegramLinks(block.note)}</span>
-        </p>
-      )}
+      {block.note === "" ? null : <FaqContact note={block.note} />}
     </section>
   );
 }
 
 /**
- * Ник Telegram в тексте автора становится ссылкой: контакт хранится в описании курса, а не в коде.
- * Правило Telegram: 5–32 символа, латиница, цифры и подчёркивание.
+ * Подпись под вопросами: текст автора и кнопка Telegram. Ник хранится в описании курса, а не в
+ * коде; в тексте он не печатается, его заменяет кнопка (решение владельца 09.10.2026). Правило
+ * Telegram для ника: 5–32 символа, латиница, цифры и подчёркивание.
  */
-function withTelegramLinks(text: string): ReactNode[] {
-  return text.split(/(@[A-Za-z][A-Za-z0-9_]{4,31})/u).map((part, index) =>
-    index % 2 === 1 ? (
-      <a
-        href={`https://t.me/${part.slice(1)}`}
-        key={`${String(index)}-${part}`}
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        {part}
-      </a>
-    ) : (
-      part
-    ),
+function FaqContact({ note }: { readonly note: string }) {
+  const handle = /@([A-Za-z][A-Za-z0-9_]{4,31})/u.exec(note)?.[1];
+  const text =
+    handle === undefined ? note : note.replace(`@${handle}`, "").trim();
+  return (
+    <div className="aie-faq-note">
+      <span>{text}</span>
+      {handle === undefined ? null : (
+        <a
+          className="aie-telegram-button"
+          href={`https://t.me/${handle}`}
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <TelegramLogo />
+          Написать в Telegram
+        </a>
+      )}
+    </div>
   );
 }
 
+/** Знак Telegram (Simple Icons, CC0): бумажный самолёт в круге, цвет задаёт кнопка. */
+function TelegramLogo() {
+  return (
+    <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+    </svg>
+  );
+}
+
+/**
+ * Значки пунктов «что входит» по порядку описания курса: доступ к курсу, менторинг, практика,
+ * сообщество. Лишний пункт получает галочку.
+ */
+const statusIcons: readonly CourseIconName[] = [
+  "materials",
+  "questions",
+  "check",
+  "telegram",
+];
+
 function Status({
   block,
+  call,
   programme,
 }: {
-  readonly block: GuidePageBlockOf<"list">;
+  readonly block: ProductPageBlockOf<"list">;
+  /**
+   * Плашка набора на поток. Пока она есть, она стоит вместо заголовка и кнопки блока; без неё
+   * блок показывает свой текст из описания курса.
+   */
+  readonly call?: ReactNode;
   readonly programme: Route;
 }) {
   return (
-    <section className="aie-status">
-      <div>
-        <h2>{block.title}</h2>
-        {block.text === "" ? null : <p>{block.text}</p>}
+    // Якорь цены — только у блока набора: прочие блоки-списки рисуются тем же компонентом.
+    <section
+      className="aie-status"
+      id={block.id === "status" ? cohortEnrollAnchor : undefined}
+    >
+      <div className="aie-status-lead">
+        <div className="aie-status-default">
+          <h2>{block.title}</h2>
+          {block.text === "" ? null : <p>{block.text}</p>}
+        </div>
+        {call}
       </div>
       <ul>
-        {block.items.map((item, index) => (
-          <li key={`${String(index)}-${item}`}>
-            <Check aria-hidden="true" />
-            {item}
-          </li>
-        ))}
+        {block.items.map((item, index) => {
+          const icon = statusIcons[index];
+          return (
+            <li key={`${String(index)}-${item}`}>
+              {icon === undefined ? (
+                <Check aria-hidden="true" />
+              ) : (
+                <CourseIcon name={icon} />
+              )}
+              {item}
+            </li>
+          );
+        })}
       </ul>
-      <IntentPrefetchLink className="aie-status-button" href={programme}>
+      <IntentPrefetchLink
+        className="aie-status-button aie-status-default"
+        href={programme}
+      >
         Открыть программу
         <ArrowRight />
       </IntentPrefetchLink>

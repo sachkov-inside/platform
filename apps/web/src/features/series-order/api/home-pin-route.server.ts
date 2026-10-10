@@ -1,28 +1,28 @@
 import "server-only";
 import {
-  getPlatformAccessToken,
+  handleAuthenticatedRead,
   handleAuthenticatedMutation,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 import { executeSetHomePin, getHomePin } from "./home-pin.server";
 
 export async function handleHomePinReadRequest(): Promise<Response> {
-  const headers = { "cache-control": "private, no-store" };
-  try {
-    const accessToken = await getPlatformAccessToken(readLogtoBffConfig());
-    return Response.json(await getHomePin(accessToken), { headers });
-  } catch (error) {
-    return Response.json(
-      {
-        kind:
-          error instanceof LogtoSessionUnavailableError
-            ? "unauthorized"
-            : "unavailable",
-      },
-      { headers },
-    );
-  }
+  return handleAuthenticatedRead(async (accessToken) => {
+    const result = await getHomePin(accessToken);
+    return Response.json(result, {
+      status:
+        result.kind === "unauthorized"
+          ? 401
+          : result.kind === "unavailable"
+            ? 503
+            : result.kind === "forbidden"
+              ? 403
+              : result.kind === "conflict"
+                ? 409
+                : result.kind === "invalid_input"
+                  ? 400
+                  : 200,
+    });
+  });
 }
 export function handleHomePinWriteRequest(request: Request): Promise<Response> {
   return handleAuthenticatedMutation(request, executeSetHomePin);

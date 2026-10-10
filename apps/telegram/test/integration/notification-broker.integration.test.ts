@@ -1,3 +1,4 @@
+import { runtimeTestClock } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transport-slots.js";
@@ -8,7 +9,6 @@ import {
 } from "node:http";
 import { NotificationWorker } from "../../src/operations/notification-worker.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
-import { systemClock } from "../../src/shared/clock.js";
 import { seedNotificationRecipient } from "../support/notification-recipient.js";
 import { randomUUID } from "node:crypto";
 import { text as readText } from "node:stream/consumers";
@@ -33,7 +33,7 @@ import {
   type NotificationCommand,
 } from "../../src/modules/notifications/notification-contract.js";
 import topology from "../../docs/operations/notification-topology.json" with { type: "json" };
-import fixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming, jsonRecord, record } from "../support/json.js";
 const db = createDatabase(required(process.env["DATABASE_URL"]));
@@ -44,6 +44,7 @@ const users = {
   rogue: `${vhost}-rogue`,
 };
 const password = randomUUID();
+// deterministic-test-allow shared-mutation: Connection cleanup registry is drained afterAll; it is not scenario seed data.
 const connections: ChannelModel[] = [];
 let brokers: NotificationBroker[] = [];
 const root =
@@ -203,10 +204,11 @@ afterAll(async () => {
 }, 30000);
 describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
   it("runtime worker delivers both lanes under sustained backlog and delayed HTTP preflight", async () => {
+    const runtimeClock = runtimeTestClock();
     await sql`truncate platform_links, link_transactions, bot_contacts, telegram_transport_slots cascade`.execute(
       db,
     );
-    const now = new Date();
+    const now = runtimeClock.now();
     const commands = Array.from({ length: 32 }, (_, i) => {
       const c = command(i < 24 ? "subscription" : "material");
       c.binding.accountRef = `synthetic-account-${i}`;
@@ -227,6 +229,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
     async function authorize(req: IncomingMessage, res: ServerResponse) {
       const request = jsonRecord(await readText(req));
       authorizations.push(request);
+      // deterministic-test-allow duration-wait: Synthetic authorization latency exercises bounded concurrent dispatch; assertions observe delivered commands.
       await new Promise((resolve) => setTimeout(resolve, 80));
       res.setHeader("content-type", "application/json");
       res.end(
@@ -234,7 +237,9 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
           ...request,
           status: "allowed",
           permitRef: randomUUID(),
-          validUntil: new Date(Date.now() + 4900).toISOString(),
+          validUntil: new Date(
+            runtimeClock.now().getTime() + 4900,
+          ).toISOString(),
         }),
       );
     }
@@ -264,22 +269,25 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       TELEGRAM_BOT_TOKEN: "synthetic-never-passed-to-real-adapter",
     });
     const sent: string[] = [];
+    let releaseLastSend!: () => void;
+    const lastSend = new Promise<void>((resolve) => {
+      releaseLastSend = resolve;
+    });
     const worker = new NotificationWorker(
       config,
       db,
       {
-        sendText: (message) => {
+        sendText: async (message) => {
           sent.push(message.text);
-          return Promise.resolve({
-            kind: "delivered",
-            providerMessageId: String(sent.length),
-          });
+          const providerMessageId = String(sent.length);
+          if (sent.length === commands.length) await lastSend;
+          return { kind: "delivered", providerMessageId };
         },
         editText: () => {
           return Promise.reject(new Error("unused"));
         },
       },
-      systemClock,
+      runtimeClock,
     );
     try {
       worker.onApplicationBootstrap();
@@ -293,7 +301,12 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         running = db
           .transaction()
           .execute((tx) =>
-            reserveTelegramSlot(tx, "inside", `general:${general}`, new Date()),
+            reserveTelegramSlot(
+              tx,
+              "inside",
+              `general:${general}`,
+              runtimeClock.now(),
+            ),
           )
           .then((granted) => {
             if (granted) general++;
@@ -328,25 +341,43 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       await expect
         .poll(() => sent.length, { timeout: 15000 })
         .toBe(commands.length);
+      const unpublishedResults = async () =>
+        (
+          await db
+            .selectFrom("notification_result_outbox")
+            .selectAll()
+            .where("published_at", "is", null)
+            .execute()
+        ).length;
+      // Transport calls and a drained outbox can precede the final settlement.
+      await expect.poll(unpublishedResults).toBe(0);
       await expect
         .poll(
           async () =>
             (
               await db
-                .selectFrom("notification_result_outbox")
-                .selectAll()
-                .where("published_at", "is", null)
+                .selectFrom("notification_commands")
+                .select("state")
+                .where("state", "=", "unknown")
                 .execute()
             ).length,
         )
-        .toBe(0);
+        .toBe(1);
+      releaseLastSend();
+      await expect
+        .poll(async () =>
+          (
+            await db
+              .selectFrom("notification_commands")
+              .select("state")
+              .execute()
+          ).map((c) => c.state),
+        )
+        .toEqual(Array.from({ length: commands.length }, () => "sent"));
+      await expect.poll(unpublishedResults).toBe(0);
       expect(authorizations.length).toBeGreaterThanOrEqual(2);
-      expect(
-        (
-          await db.selectFrom("notification_commands").selectAll().execute()
-        ).map((c) => c.state),
-      ).toEqual(Array.from({ length: commands.length }, () => "sent"));
     } finally {
+      releaseLastSend();
       await worker.onModuleDestroy();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

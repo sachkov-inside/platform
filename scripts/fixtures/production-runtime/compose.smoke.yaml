@@ -10,44 +10,24 @@ services:
 
   material-assets-worker:
     image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
-    healthcheck:
-      interval: 1s
-      retries: 3
-      start_period: 2s
 
   profile-avatars-worker:
     image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
-    healthcheck:
-      interval: 1s
-      retries: 3
-      start_period: 2s
 
   video-deletions-worker:
     image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
-    healthcheck:
-      interval: 1s
-      retries: 3
-      start_period: 2s
 
   billing-worker:
     image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
-    healthcheck:
-      interval: 1s
-      retries: 3
-      start_period: 2s
 
   notifications-worker:
     image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
-    healthcheck:
-      interval: 1s
-      retries: 3
-      start_period: 2s
 
   web:
     image: ${PRODUCTION_SMOKE_WEB_IMAGE:?candidate web image ID is required}
 
   caddy-smoke:
-    image: caddy:2.11.4-alpine
+    image: public.ecr.aws/docker/library/caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     depends_on:
       api:
         condition: service_healthy
@@ -71,3 +51,7 @@ services:
     volumes:
       - ./scripts/fixtures/production-runtime/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./infra/production/runtime/platform.caddy:/etc/caddy/platform.caddy:ro
+      - ./infra/production/deploy/maintenance.caddy:/etc/caddy/maintenance.caddy:ro
+      - ./infra/production/host/primary-domain-stage.caddy:/etc/caddy/primary-domain-stage.caddy:ro
+      - ./scripts/fixtures/production-runtime/maintenance.Caddyfile:/etc/caddy/maintenance.Caddyfile:ro
+      - ./scripts/fixtures/production-runtime/stage.Caddyfile:/etc/caddy/stage.Caddyfile:ro

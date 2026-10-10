@@ -4,6 +4,7 @@ import { canonical, checksum, taskPositions } from "./package.mjs";
 import { applyJournaled } from "./journal.mjs";
 import { isJournalOperation, taskReceiptSchema } from "./local-boundaries.mjs";
 import { sourceUuid } from "./markdown.mjs";
+import { fingerprintAccess } from "./compatibility.mjs";
 
 /**
  * @typedef {import("./package.mjs").Manifest} Manifest
@@ -14,6 +15,8 @@ import { sourceUuid } from "./markdown.mjs";
  * @property {string} sourceId
  * @property {string} title
  * @property {"new" | "changed" | "unchanged" | "conflict"} change
+ * @property {string} [conflictReason]
+ * @property {{ materialId: string }} [migration]
  * @property {TaskPublication} publication
  * @property {{ from: TaskPublication; to: TaskPublication }} [publicationChange]
  */
@@ -40,6 +43,49 @@ const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 /** @param {string} code */
 const resourceKey = (code) => `task:${code}`;
 
+/** Resolve explicit preview choices without mutating the canonical package.
+ * @param {Manifest} manifest
+ * @param {string[]} choices
+ * @returns {{ manifest: Manifest; choices: string[] }} */
+export function resolveTaskAccess(manifest, choices) {
+  /** @type {Map<string, "free" | "closed">} */
+  const selected = new Map();
+  for (const choice of choices) {
+    const [code, access, extra] = choice.split("=");
+    if (
+      code === undefined ||
+      code.length === 0 ||
+      extra !== undefined ||
+      (access !== "free" && access !== "closed")
+    )
+      throw new Error("Task access choice must be code=free or closed");
+    const task = (manifest.tasks ?? []).find((task) => task.sourceId === code);
+    if (task === undefined)
+      throw new Error(`Unknown Task access code: ${code}`);
+    const previous = selected.get(code);
+    if (previous !== undefined && previous !== access)
+      throw new Error(`Conflicting Task access choices: ${code}`);
+    if (task.access !== null && task.access !== access)
+      throw new Error(
+        `${code}: Task access is already explicitly ${task.access}`,
+      );
+    selected.set(code, access);
+  }
+  return {
+    manifest:
+      selected.size === 0
+        ? manifest
+        : {
+            ...manifest,
+            tasks: (manifest.tasks ?? []).map((task) => ({
+              ...task,
+              access: selected.get(task.sourceId) ?? task.access,
+            })),
+          },
+    choices: [...selected].map(([code, access]) => `${code}=${access}`).sort(),
+  };
+}
+
 /**
  * The publication a task asks for: Content's `unpublished` withdraws it; `published` takes effect
  * only for a task the owner selected (`--publish` or `--publish-all`). Otherwise the target keeps
@@ -56,7 +102,7 @@ export function taskPublication(task, selected, current) {
 }
 
 /**
- * The authored task as validation reads it, before its Guide may exist on the target.
+ * The authored task as validation reads it, before its Product may exist on the target.
  *
  * @param {Manifest} manifest
  * @param {ManifestTask} task
@@ -69,6 +115,7 @@ function authoredBody(manifest, task, publicationState) {
     title: task.title,
     access: task.access,
     definition: task.definition,
+    ...(task.page === undefined ? {} : { page: task.page }),
     relatedMaterialSourceIds: task.relatedMaterialIds.map((id) =>
       sourceKey(manifest, id),
     ),
@@ -98,7 +145,21 @@ export function taskDigest(manifest, task, publicationState) {
   return checksum(
     canonical({
       ...state,
-      guide: task.guideId,
+      ...(task.page === undefined
+        ? {}
+        : {
+            pageAssets: manifest.assets.filter((asset) =>
+              [
+                ...Object.values(task.page?.images ?? {}),
+                task.page?.coverAssetId,
+                ...(task.page?.artifacts ?? []).map(
+                  (artifact) => artifact.assetId,
+                ),
+              ].includes(asset.sourceId),
+            ),
+          }),
+      access: fingerprintAccess(state.access),
+      guide: task.productId,
       chapter: task.chapterId,
       position: taskPositions(manifest).get(task.sourceId),
     }),
@@ -108,7 +169,7 @@ export function taskDigest(manifest, task, publicationState) {
 /** @param {Manifest} manifest @param {ManifestTask} task */
 export function taskChapterId(manifest, task) {
   return sourceUuid(
-    `${sourceKey(manifest, task.guideId)}:chapter:${task.chapterId}`,
+    `${sourceKey(manifest, task.productId)}:chapter:${task.chapterId}`,
   );
 }
 
@@ -116,11 +177,38 @@ export function taskChapterId(manifest, task) {
  * @param {Manifest} manifest
  * @param {import('./local-boundaries.mjs').LocalRequest} request */
 export async function validateSourceTasks(manifest, request) {
-  for (const task of manifest.tasks ?? [])
-    await request(
+  for (const task of manifest.tasks ?? []) {
+    const result = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
+    if (result.migration != null)
+      throw new Error(
+        `${task.sourceId}: material_to_task_migration requires a release decision`,
+      );
+  }
+}
+
+/** A pending Task command may finish only with the same access decision.
+ * @param {Manifest} manifest
+ * @param {import('./journal.mjs').Journal} journal */
+export function assertTaskReplayAccess(manifest, journal) {
+  for (const entry of Object.values(journal.operations)) {
+    if (!isJournalOperation(entry) || entry.status !== "pending") continue;
+    const parsed = operationSchema.safeParse(entry.request);
+    if (!parsed.success) continue;
+    const task = (manifest.tasks ?? []).find(
+      (task) => task.sourceId === parsed.data.body.code,
+    );
+    if (
+      task !== undefined &&
+      fingerprintAccess(task.access) !==
+        fingerprintAccess(parsed.data.body["access"])
+    )
+      throw new Error(
+        `${task.sourceId}: an interrupted Task transfer used a different access decision; apply its original preview first`,
+      );
+  }
 }
 
 /**
@@ -159,31 +247,35 @@ export async function replayTaskImports(context, request, selected) {
 }
 
 /**
- * Imports every task of the package after its Guide and chapters. A task the package omits stays
+ * Imports every task of the package after its Product and chapters. A task the package omits stays
  * unchanged on the target. A target that changed since this journal's last import stops the
  * transfer instead of being overwritten.
  *
  * @param {Manifest} manifest
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
- * @param {{ guideIdOf: (guideSourceId: string) => string; selected: (sourceKey: string) => boolean }} options
+ * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean; pageOf?: (task: ManifestTask) => Promise<import("./task-page.mjs").PageImport> }} options
  * @returns {Promise<TaskChange[]>}
  */
 export async function syncSourceTasks(
   manifest,
   context,
   request,
-  { guideIdOf, selected },
+  { productIdOf, selected, pageOf },
 ) {
   const resources = (context.journal.resources ??= {});
   const positions = taskPositions(manifest);
   /** @type {TaskChange[]} */
   const changes = [];
   for (const task of manifest.tasks ?? []) {
-    const { current } = await request(
+    const { current, migration } = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
+    if (migration != null)
+      throw new Error(
+        `${task.sourceId}: material_to_task_migration requires a release decision`,
+      );
     const key = resourceKey(task.sourceId);
     const previous =
       resources[key] === undefined
@@ -218,7 +310,10 @@ export async function syncSourceTasks(
     }
     const body = {
       ...authoredBody(manifest, task, publicationState),
-      guideId: guideIdOf(task.guideId),
+      ...(task.page === undefined || pageOf === undefined
+        ? {}
+        : await pageOf(task)),
+      productId: productIdOf(task.productId),
       chapterId: taskChapterId(manifest, task),
       position: positions.get(task.sourceId),
       expectedRevision: current?.revision ?? null,
@@ -263,7 +358,17 @@ export async function previewTasks(manifest, journal, request, selected) {
   /** @type {Record<string, number>} */
   const expected = {};
   for (const task of manifest.tasks ?? []) {
-    const { current } = await request(
+    if (task.access === null) {
+      tasks.push({
+        sourceId: task.sourceId,
+        title: task.title,
+        publication: task.publicationState,
+        change: "conflict",
+        conflictReason: "task_access_decision",
+      });
+      continue;
+    }
+    const { current, migration } = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
@@ -280,14 +385,22 @@ export async function previewTasks(manifest, journal, request, selected) {
       sourceId: task.sourceId,
       title: task.title,
       publication,
+      ...(migration == null ? {} : { migration }),
+      ...(migration != null ||
+      journal.materials[sourceKey(manifest, task.sourceId)] !== undefined
+        ? { conflictReason: "material_to_task_migration" }
+        : {}),
       change:
-        previous !== undefined && previous.revision !== current?.revision
+        migration != null ||
+        journal.materials[sourceKey(manifest, task.sourceId)] !== undefined
           ? "conflict"
-          : current === null
-            ? "new"
-            : previous?.digest === taskDigest(manifest, task, publication)
-              ? "unchanged"
-              : "changed",
+          : previous !== undefined && previous.revision !== current?.revision
+            ? "conflict"
+            : current === null
+              ? "new"
+              : previous?.digest === taskDigest(manifest, task, publication)
+                ? "unchanged"
+                : "changed",
       ...(current !== null && current.publicationState !== publication
         ? {
             publicationChange: {

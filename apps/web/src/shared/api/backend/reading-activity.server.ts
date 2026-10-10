@@ -1,5 +1,5 @@
 import "server-only";
-import type { GuideMode } from "@/shared/guide-mode";
+import type { ProductMode } from "@/shared/product-mode";
 import { ReadingActivityService } from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
@@ -36,21 +36,21 @@ export function requestSetReadingState(
     { accessToken },
   );
 }
-export function requestReaderGuideMode(accessToken: string) {
+export function requestReaderProductMode(accessToken: string) {
   return executeGeneratedRequest(
-    (request) => new ReadingActivityService(request).getReaderGuideMode(),
+    (request) => new ReadingActivityService(request).getReaderProductMode(),
     200,
     { accessToken },
   );
 }
-export function requestSetReaderGuideMode(
-  guideMode: GuideMode,
+export function requestSetReaderProductMode(
+  productMode: ProductMode,
   accessToken: string,
 ) {
   return executeGeneratedRequest(
     (request) =>
-      new ReadingActivityService(request).setReaderGuideMode({
-        requestBody: { guideMode },
+      new ReadingActivityService(request).setReaderProductMode({
+        requestBody: { productMode },
       }),
     200,
     { accessToken },

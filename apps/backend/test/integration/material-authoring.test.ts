@@ -107,9 +107,10 @@ describe("MaterialAuthoring", () => {
           ownerMaterials.contentAccess.checkAvailabilityMany.bind(
             ownerMaterials.contentAccess,
           ),
-        checkGuideAccess: ownerMaterials.contentAccess.checkGuideAccess.bind(
-          ownerMaterials.contentAccess,
-        ),
+        checkProductAccess:
+          ownerMaterials.contentAccess.checkProductAccess.bind(
+            ownerMaterials.contentAccess,
+          ),
         authorize: async (input) => {
           previewAuthorizations += 1;
           expect(input).toMatchObject({
@@ -180,7 +181,7 @@ describe("MaterialAuthoring", () => {
       metadata: {
         title: "Protected preview",
         summary: null,
-        access: "membership",
+        access: "closed",
         topicId: null,
         formatId: null,
         tagIds: [],
@@ -201,7 +202,7 @@ describe("MaterialAuthoring", () => {
     const bodyRowRead = vi.spyOn(testDatabase.prisma.material, "findUnique");
     const tagRead = vi.spyOn(testDatabase.prisma.materialTag, "findMany");
     const seriesRead = vi.spyOn(
-      testDatabase.prisma.guideMembership,
+      testDatabase.prisma.productMembership,
       "findMany",
     );
 
@@ -247,7 +248,7 @@ describe("MaterialAuthoring", () => {
         ],
       }),
 
-      testDatabase.prisma.guide.create({
+      testDatabase.prisma.product.create({
         data: {
           id: "94000000-0000-4000-8000-000000000035",
           name: "Build",
@@ -777,7 +778,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -956,7 +957,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1040,7 +1041,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1136,7 +1137,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1292,7 +1293,7 @@ describe("MaterialAuthoring", () => {
       // Two attempts of one Material are ordered by when they started.
       clock: distinctClock(),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1447,7 +1448,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({
@@ -1554,7 +1555,7 @@ describe("MaterialAuthoring", () => {
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
       prisma: testDatabase.prisma,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
       provider,
     });
     const materials = assembleMaterials({

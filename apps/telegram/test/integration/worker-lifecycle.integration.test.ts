@@ -1,3 +1,5 @@
+import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
+import { BackgroundWorkers } from "../../src/operations/background-workers.js";
 import { hasText } from "../../src/shared/text.js";
 import {
   FastifyAdapter,
@@ -37,6 +39,8 @@ import {
   type TelegramTextMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
 
+registerFixedClock();
+
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
@@ -68,6 +72,7 @@ const config: ApplicationConfig = {
   marketingEnabled: false,
   membershipMode: "live",
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipReconciliationCadenceMilliseconds: 240_000,
   notifications: {
     // Nothing listens here: the broker stays unavailable while durable work continues.
@@ -144,6 +149,7 @@ describe("background worker lifecycle", () => {
         privateChatId: "4242",
         messageText: "Synthetic reply",
         sourceKey: "lifecycle:1",
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         now: new Date(),
       });
       await vi.waitFor(
@@ -154,14 +160,27 @@ describe("background worker lifecycle", () => {
         { timeout: 5000 },
       );
 
+      const shutdownStarted = vi.spyOn(
+        app.get(BackgroundWorkers),
+        "onModuleDestroy",
+      );
       const closing = app.close().then(() => {
         lifecycle.closed = true;
       });
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(lifecycle.closed).toBe(false);
-
-      release({ kind: "delivered", providerMessageId: "7" });
-      await closing;
+      let restoreDate: (() => void) | undefined;
+      try {
+        await vi.waitFor(() => expect(shutdownStarted).toHaveBeenCalled(), {
+          timeout: 5000,
+        });
+        restoreDate = useTimeoutClock();
+        await vi.advanceTimersByTimeAsync(200);
+        expect(lifecycle.closed).toBe(false);
+      } finally {
+        restoreDate?.();
+        shutdownStarted.mockRestore();
+        release({ kind: "delivered", providerMessageId: "7" });
+        await closing;
+      }
     } finally {
       if (!lifecycle.closed) await app.close();
     }
@@ -203,6 +222,7 @@ describe("background worker lifecycle", () => {
             data: "signin:approve:00000000-0000-4000-8000-000000000000",
           },
         },
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
       );
       await vi.waitFor(() => expect(answering).toHaveBeenCalled(), {
@@ -222,6 +242,7 @@ describe("background worker lifecycle", () => {
             text: "/start",
           },
         },
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
       );
       await vi.waitFor(
@@ -254,10 +275,13 @@ describe("background worker lifecycle", () => {
       },
     );
     try {
-      // Let every cycle reach its idle pace before measuring.
-      await new Promise((resolve) => setTimeout(resolve, 15_000));
-      const before = statements;
       const windowMs = 10_000;
+      await vi.waitFor(
+        () => expect(app.get(BackgroundWorkers).isIdle(windowMs)).toBe(true),
+        { timeout: 30_000 },
+      );
+      const before = statements;
+      // deterministic-test-allow duration-wait: the explicit performance contract measures real idle SQL statements over ten seconds.
       await new Promise((resolve) => setTimeout(resolve, windowMs));
       const perSecond = ((statements - before) * 1000) / windowMs;
       process.stdout.write(`idle SQL statements per second: ${perSecond}\n`);

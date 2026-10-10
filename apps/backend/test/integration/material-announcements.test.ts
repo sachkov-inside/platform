@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -14,6 +16,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const ownerId = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -290,6 +294,7 @@ describe("анонс первой публикации материала", () =
   test("анонс невозможно записать материалу, который ещё не публиковался", async () => {
     const materialId = await draft("Черновик без публикации");
     // Обе границы окна приходят из одного чтения часов, как их считает сам источник.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const occurredAt = new Date();
     await expect(
       database.prisma.materialAnnouncement.create({
@@ -312,6 +317,7 @@ describe("анонс первой публикации материала", () =
 
   test("чужой и неизвестный повод не открывают отправку", async () => {
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const unknownOccurredAt = new Date();
     expect(
       await facet.resolveAnnouncement({ contractVersion: "other" }),

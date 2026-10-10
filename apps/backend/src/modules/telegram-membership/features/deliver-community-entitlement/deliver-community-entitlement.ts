@@ -180,6 +180,19 @@ export async function pollCommunityOperations(
     });
   let polled = 0;
   for (const row of candidates) {
+    const command = communitySetSchema.safeParse(row.command);
+    if (!command.success) {
+      await dependencies.prisma.telegramCommunityOperation.update({
+        where: { operationId: row.operationId },
+        data: {
+          delivery: "rejected",
+          errorCode: "malformed",
+          polledAt: now,
+          updatedAt: now,
+        },
+      });
+      continue;
+    }
     // Only the latest command for a recipient is reconciled. This is our own lifecycle
     // decision, so it never overwrites what the provider actually reported.
     if (await hasNewerCommand(dependencies.prisma, row)) {
@@ -189,8 +202,6 @@ export async function pollCommunityOperations(
       });
       continue;
     }
-    const command = communitySetSchema.safeParse(row.command);
-    if (!command.success) continue;
     const outcome = await dependencies.provider.status(command.data);
     polled += 1;
     if (outcome.kind === "result") {

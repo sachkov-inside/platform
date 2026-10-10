@@ -1,7 +1,8 @@
 // @ts-check
 // Disposable local PostgreSQL + real SMTP adapter + BFF/browser. All identities/recipients are synthetic.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -12,12 +13,8 @@ import { parseEnv } from "node:util";
 import { z } from "zod";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { evidenceDirectory } from "./evidence-path.mjs";
-import {
-  reservePort,
-  startWithRoutes,
-  stopProcessGroup,
-  stopServerOnPort,
-} from "./smoke-stand.mjs";
+import { reservePort, startWithRoutes } from "./smoke-stand.mjs";
+import { screenshotWholePage } from "../apps/web/test/support/whole-page-screenshot.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -97,17 +94,36 @@ let database;
 let identity;
 /** @type {import("../apps/web/test/support/proof-dependencies.mjs").Browser | undefined} */
 let browser;
+/** @type {NodeJS.Signals | undefined} */
+let interruptedSignal;
+/** @type {Promise<void> | undefined} */
+let stoppingProcesses;
+function stopProcesses() {
+  stoppingProcesses ??= Promise.all(
+    children.map((child) => stopOwned(child)),
+  ).then(() => undefined);
+  return stoppingProcesses;
+}
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
+  process.once(signal, () => {
+    interruptedSignal ??= signal;
+    void stopProcesses();
+    void browser?.close();
+  });
+}
 /**
  * @param {string[]} args
  * @param {NodeJS.ProcessEnv} env
  */
 function run(args, env) {
-  const child = spawn(process.execPath, [pnpmPath, ...args], {
+  if (interruptedSignal !== undefined)
+    throw new Error("Billing proof interrupted");
+  const child = spawnOwned(process.execPath, [pnpmPath, ...args], {
     cwd: root,
     env,
     stdio: "inherit",
-    detached: true,
   });
+  child.once("error", (error) => process.stderr.write(`${String(error)}\n`));
   children.push(child);
   return child;
 }
@@ -117,10 +133,12 @@ function run(args, env) {
  */
 async function command(args, env) {
   const child = run(args, env);
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((done) => child.once("exit", done));
-  const code = await exited;
-  assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
+  try {
+    const code = await commandExit(child);
+    assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
+  } finally {
+    await stopOwned(child);
+  }
 }
 /**
  * Опрашивает адрес, пока ответ не подойдёт. Редиректы не выполняются: ответ даёт сам процесс.
@@ -131,7 +149,12 @@ async function command(args, env) {
  */
 async function waitReady(child, url, accepts) {
   for (let index = 0; index < 120; index++) {
-    if (child.exitCode !== null || child.signalCode !== null)
+    if (
+      interruptedSignal !== undefined ||
+      child.pid === undefined ||
+      child.exitCode !== null ||
+      child.signalCode !== null
+    )
       throw new Error(`Process exited before readiness: ${url}`);
     try {
       const response = await fetch(url, {
@@ -154,7 +177,9 @@ try {
   await smtpListening;
   const smtpAddress = smtp.address();
   assert(smtpAddress && typeof smtpAddress !== "string");
-  database = await new PostgreSqlContainer("postgres:18.4-alpine").start();
+  database = await new PostgreSqlContainer(
+    "public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+  ).start();
   const fullStackIdentity = await startFullStackIdentity({
     apiBaseUrl,
     webBaseUrl,
@@ -231,7 +256,7 @@ try {
         ],
         webEnv,
       ),
-    stop: (web) => stopServerOnPort(web, webPort),
+    stop: (web) => stopOwned(web),
     // Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`; готовность ждёт любого
     // ответа сервера.
     ready: (web) =>
@@ -279,9 +304,8 @@ try {
     await page
       .getByRole("button", { name: "Закрыть подключение Telegram" })
       .click();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-empty-${name}.png`),
-      fullPage: true,
     });
     await page
       .getByLabel("Email", { exact: true })
@@ -304,9 +328,8 @@ try {
       : raw.slice(split + 2);
     const code = /: ([0-9]{6})\./u.exec(text)?.[1];
     assert(code, "Synthetic SMTP must carry a verification code");
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-code-${name}.png`),
-      fullPage: true,
     });
     // Раздел находится по своему заголовку: связь `aria-labelledby` даёт `useId`, поэтому
     // постоянного идентификатора у него нет и вписать его сюда нельзя.
@@ -335,9 +358,8 @@ try {
       .click();
     await page.getByText("Email подтверждён.", { exact: true }).waitFor();
     await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-verified-${name}.png`),
-      fullPage: true,
     });
     await page.reload();
     await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
@@ -352,11 +374,16 @@ try {
   console.log(
     "Billing contact proof passed: desktop/mobile, BFF/API/PostgreSQL/SMTP, reload, WCAG and overflow; all recipients synthetic.",
   );
+} catch (error) {
+  if (interruptedSignal === undefined) throw error;
 } finally {
   await browser?.close();
-  for (const child of children.reverse()) await stopProcessGroup(child);
+  await stopProcesses();
   await identity?.close();
   for (const socket of sockets) socket.destroy();
   await new Promise((done) => smtp.close(done));
   await database?.stop();
 }
+
+if (interruptedSignal !== undefined)
+  process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;

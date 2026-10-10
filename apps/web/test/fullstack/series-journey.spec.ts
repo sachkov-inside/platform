@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -11,12 +12,13 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
 const snapshots = evidenceDirectory("issue-529");
 
-test("guide product leads to the programme and the programme keeps the Reader return position", async ({
+test("product product leads to the programme and the programme keeps the Reader return position", async ({
   page,
   context,
 }, testInfo) => {
@@ -31,7 +33,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
   await page.goto("/products/demo-series-harness");
   await expect(
-    page.locator('[data-guide-product="demo-series-harness"]:visible'),
+    page.locator('[data-product-landing="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page
@@ -41,7 +43,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
-    page.locator('[data-guide-programme="demo-series-harness"]:visible'),
+    page.locator('[data-product-programme="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(
     page.getByRole("progressbar", { name: "Прогресс продукта" }),
@@ -75,16 +77,15 @@ test("guide product leads to the programme and the programme keeps the Reader re
     page.getByRole("navigation", { name: "Страницы маршрута" }),
   ).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page })
-    .include('[data-guide-programme="demo-series-harness"]')
+    .include('[data-product-programme="demo-series-harness"]')
     .analyze();
   expect(accessibility.violations).toEqual([]);
   await prepareEvidenceDirectory("issue-529");
   await page.evaluate(() => {
     window.scrollTo(0, 0);
   });
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(snapshots, `programme-${testInfo.project.name}.png`),
-    fullPage: true,
   });
 
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
@@ -95,13 +96,12 @@ test("guide product leads to the programme and the programme keeps the Reader re
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(snapshots, `programme-guest-${testInfo.project.name}.png`),
-    fullPage: true,
   });
 });
 
-test("guide programme marks the last opened material as the place to continue", async ({
+test("product programme marks the last opened material as the place to continue", async ({
   page,
   context,
 }) => {
@@ -140,9 +140,10 @@ test("guide programme marks the last opened material as the place to continue", 
   );
 });
 
-test("guide programme appends a real composition and restores Reader return position", async ({
+test("product programme appends a real composition and restores Reader return position", async ({
   page,
   context,
+  request,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(
@@ -152,7 +153,7 @@ test("guide programme appends a real composition and restores Reader return posi
     },
   );
   await page.goto("/account");
-  const slug = `series-journey-${String(Date.now())}`;
+  const slug = `series-journey-${randomUUID()}`;
   const created = await fullStackBrowserRequest(
     page,
     "/api/authoring/collections",
@@ -172,13 +173,12 @@ test("guide programme appends a real composition and restores Reader return posi
     })
     .parse(await created.json());
   try {
-    // Материалы практик и задания прогона перенесены из источника, а в руководство из редактора
-    // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
-    // идентификаторы называет сам прогон.
-    const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];
-    if (practiceIds === undefined)
-      throw new Error("Missing isolated practice fixture");
-    const importedPracticeIds = new Set(practiceIds.split(","));
+    // Список не показывает источник. Запускатор передаёт все импортированные Material IDs,
+    // включая урок и страницы заданий формата c: продукт Platform не принимает такой состав.
+    const importedIds = process.env["FULLSTACK_IMPORTED_MATERIAL_IDS"];
+    if (importedIds === undefined)
+      throw new Error("Missing isolated imported Material fixtures");
+    const importedMaterialIds = new Set(importedIds.split(","));
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
       const response = await fullStackBrowserRequest(
@@ -198,7 +198,7 @@ test("guide programme appends a real composition and restores Reader return posi
           .filter(
             (item) =>
               item.publicationState === "published" &&
-              !importedPracticeIds.has(item.materialId),
+              !importedMaterialIds.has(item.materialId),
           )
           .map((item) => item.materialId),
       );
@@ -216,7 +216,7 @@ test("guide programme appends a real composition and restores Reader return posi
       .parse(await orderResponse.json());
     // Материал практики перенесён из источника: продукт из редактора его не принимает, и отказ
     // называет именно его, а не завершившуюся сессию (#841).
-    const [importedPracticeId] = importedPracticeIds;
+    const [importedPracticeId] = importedMaterialIds;
     const refused = await fullStackBrowserRequest(
       page,
       "/api/authoring/series/order",
@@ -243,6 +243,12 @@ test("guide programme appends a real composition and restores Reader return posi
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
     await page.goto(`/products/${slug}/programme?page=1`);
+    // `load` наступает, пока на экране программа на общих данных; личная часть заменяет её дерево
+    // позже (ADR 0027). Прокрутка находит кнопку один раз и после замены держит оторванный узел
+    // (#993), поэтому сначала ждём личную часть: «всё открыто» пишет только она.
+    await expect(
+      page.getByText("13 материалов · всё открыто").filter({ visible: true }),
+    ).toBeVisible();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page
       .getByRole("button", { name: "Показать ещё уроки" })
@@ -277,20 +283,42 @@ test("guide programme appends a real composition and restores Reader return posi
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
-    await page
-      .getByRole("tab", { name: "Дополнительные материалы", exact: true })
-      .click();
-    await page.getByRole("tab", { name: /^Программа/u }).click();
+    const sections = page.getByRole("navigation", { name: "Разделы продукта" });
+    await sections.getByRole("button", { name: /^Материалы/u }).click();
+    await sections.getByRole("button", { name: /^Программа/u }).click();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await prepareEvidenceDirectory("issue-529");
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(
         snapshots,
         `programme-continuous-${testInfo.project.name}.png`,
       ),
-      fullPage: true,
     });
   } finally {
+    // The route borrows published seed Materials. Detach them before archiving the temporary product,
+    // otherwise its archive can hide a standalone Material from the next viewport's guest Reader.
+    const orderResponse = await fullStackBrowserRequest(
+      page,
+      `/api/authoring/series/${collection.id}/order`,
+    );
+    const { order } = z
+      .object({
+        kind: z.literal("ready"),
+        order: z.object({ orderVersion: z.string() }),
+      })
+      .parse(await orderResponse.json());
+    const cleared = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/series/order",
+      "PUT",
+      {
+        seriesId: collection.id,
+        expectedOrderVersion: order.orderVersion,
+        orderedMaterialIds: JSON.stringify([]),
+        confirmedProductRemovals: JSON.stringify([collection.id]),
+      },
+    );
+    expect(await cleared.json()).toMatchObject({ kind: "saved" });
     const archived = await fullStackBrowserRequest(
       page,
       "/api/authoring/collections/archive",
@@ -304,4 +332,14 @@ test("guide programme appends a real composition and restores Reader return posi
     );
     expect(await archived.json()).toMatchObject({ kind: "saved" });
   }
+  const apiBaseUrl =
+    process.env["FULLSTACK_API_BASE_URL"] ?? "http://127.0.0.1:3001";
+  const standalone = await request.get(
+    `${apiBaseUrl}/materials/demo-295-samostoyatelnaya-zametka`,
+  );
+  expect(standalone.status()).toBe(200);
+  expect(await standalone.json()).toMatchObject({
+    kind: "available",
+    projection: { slug: "demo-295-samostoyatelnaya-zametka" },
+  });
 });

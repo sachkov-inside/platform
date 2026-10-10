@@ -2,6 +2,7 @@ import { Extension } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { materialDocumentExtensions } from "@inside/material-blocks/schema";
+import { MaterialQuizNodeView } from "../ui/material-quiz-node-view.client";
 import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 import {
   MaterialLabeledListNodeView,
@@ -50,6 +51,7 @@ const assetNodeView = () => ReactNodeViewRenderer(MaterialAssetNodeView);
 export const materialEditorExtensions = [
   ...materialDocumentExtensions({
     nodeViews: {
+      quiz: () => ReactNodeViewRenderer(MaterialQuizNodeView),
       assetFile: assetNodeView,
       assetImage: assetNodeView,
       // Блоки-формы: их поля нельзя набрать текстом, поэтому автор правит их здесь же.

@@ -1,7 +1,12 @@
-import type { APIResponse, BrowserContext } from "@playwright/test";
+import type {
+  APIResponse,
+  BrowserContext,
+  Page,
+  Request as BrowserRequest,
+} from "@playwright/test";
 import { z } from "zod";
 
-import type { BlockedPassRequest } from "./pass-cells";
+import type { BlockedPassRequest, PassIdentity } from "./pass-cells";
 import {
   learnerMcpReadTools,
   ownerMcpReadTools,
@@ -12,7 +17,8 @@ import {
  * Allowlist запросов production-прохода (#906). Раннер проверяет каждый запрос до отправки: Node
  * `fetch` через `createPassFetch`, запрос browser context через `passContextGet`, страницу через
  * `guardPassContext`. Разрешены чтения (GET и HEAD), MCP POST к названным read-only tools, выдача
- * playback session и закрытый перечень операций входа. Любой другой запрос раннер отклоняет и сам
+ * playback session и закрытый перечень операций входа. Protected storage принимает только GET без
+ * тела после asset-маршрута Web. Любой другой запрос раннер отклоняет и сам
  * не отправляет. Node и запросы context не идут по redirect. Шаг redirect в браузере Playwright не
  * даёт перехватить: `guardPassContext` проверяет его после отправки, и такой шаг вне allowlist
  * делает итог красным. Логику доказывает module-тест
@@ -41,6 +47,8 @@ export interface PassRequest {
   readonly method: string;
   readonly url: string;
   readonly body?: string | null | undefined;
+  /** Непосредственный запрос перед browser redirect; прямое чтение storage запрещено. */
+  readonly redirectedFrom?: Pick<PassRequest, "method" | "url" | "body">;
 }
 
 export type PassRequestDecision =
@@ -101,7 +109,42 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
   const path = normalizedPath(url.pathname);
   if (path === null) return reject("the path is malformed");
 
-  if (origin === productionTarget.web) {
+  if (origin === productionTarget.protectedStorage) {
+    if (method !== "GET" || (request.body != null && request.body !== ""))
+      return reject(
+        "protected storage only allows a bodyless GET asset redirect",
+      );
+    const from = request.redirectedFrom;
+    if (
+      from?.method.toUpperCase() !== "GET" ||
+      (from.body != null && from.body !== "")
+    )
+      return reject(
+        "protected storage requires a bodyless GET from the application asset route",
+      );
+    let source: URL;
+    try {
+      source = new URL(from.url);
+    } catch {
+      return reject("the asset redirect source URL is invalid");
+    }
+    const sourcePath = normalizedPath(source.pathname);
+    if (
+      source.origin !== productionTarget.web ||
+      sourcePath === null ||
+      !/^\/api\/materials\/[^/]+\/assets\/[^/]+(?:\/images\/[0-9]+)?$/u.test(
+        sourcePath,
+      )
+    )
+      return reject(
+        "protected storage requires a redirect from the application asset route",
+      );
+    return allow("read");
+  }
+  if (
+    origin === productionTarget.web ||
+    origin === new URL(productionTarget.ownerMcp).origin
+  ) {
     if (platformRecordingPaths.includes(path))
       return reject(`${path} records a visit`);
     if (named(platformSignIn, method, path)) return allow("platform-sign-in");
@@ -141,8 +184,7 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     if (method === "GET" || method === "HEAD") return allow("read");
     return reject(`${method} ${path} is not a pass operation`);
   }
-  if (method === "GET" || method === "HEAD") return allow("read");
-  return reject(`${method} to ${origin} is not a read`);
+  return reject(`origin ${origin} is not in the pass allowlist`);
 }
 
 /**
@@ -249,6 +291,7 @@ async function withTransportRetries<T>(
       )
         throw error;
       await new Promise((resolve) =>
+        // deterministic-test-allow duration-wait: Transport backoff schedules the next request; the request response is the observed fact.
         setTimeout(resolve, transportRetryPauseMs),
       );
     }
@@ -301,22 +344,42 @@ export async function passContextGet(
  * Browser context прохода: каждый запрос страницы проходит allowlist, отклонённый прерывается и не
  * уходит. Страница может сама слать записи, например прогресс чтения; их перечень `blocked`
  * попадает в отчёт. Шаг redirect route не видит: он проверяется после отправки и при отказе
- * попадает в `blocked` с `sent: true`, а отчёт тогда красный.
+ * попадает в `blocked` с `sent: true`, а отчёт тогда красный. Identity принадлежит context;
+ * клетка закрепляется за страницей при её создании, поэтому поздний запрос не меняет клетку.
  */
 export async function guardPassContext(
   context: BrowserContext,
   blocked: BlockedPassRequest[],
+  scope: {
+    readonly identity: PassIdentity | "anonymous";
+    readonly currentCellId?: () => string | undefined;
+  },
 ): Promise<void> {
+  const pageCells = new WeakMap<Page, string>();
+  context.on("page", (page) => {
+    const cellId = scope.currentCellId?.();
+    if (cellId !== undefined) pageCells.set(page, cellId);
+  });
+  function attribution(request: BrowserRequest) {
+    let cellId: string | undefined;
+    try {
+      cellId = pageCells.get(request.frame().page());
+    } catch {
+      // Service workers and requests without a frame still belong to this identity.
+    }
+    return {
+      identity: scope.identity,
+      ...(cellId === undefined ? {} : { cellId }),
+    };
+  }
+
   context.on("request", (request) => {
     if (request.redirectedFrom() === null) return;
-    const decision = checkPassRequest({
-      method: request.method(),
-      url: request.url(),
-      body: request.postData(),
-    });
+    const decision = checkPassRequest(browserPassRequest(request));
     if (decision.allowed) return;
     const url = new URL(request.url());
     blocked.push({
+      ...attribution(request),
       method: request.method(),
       target: `${url.origin}${url.pathname}`,
       reason: `redirect step: ${decision.reason}`,
@@ -325,18 +388,34 @@ export async function guardPassContext(
   });
   await context.route("**/*", async (route) => {
     const request = route.request();
-    const decision = checkPassRequest({
-      method: request.method(),
-      url: request.url(),
-      body: request.postData(),
-    });
+    const decision = checkPassRequest(browserPassRequest(request));
     if (decision.allowed) return route.continue();
     const url = new URL(request.url());
     blocked.push({
+      ...attribution(request),
       method: request.method(),
       target: `${url.origin}${url.pathname}`,
       reason: decision.reason,
     });
     return route.abort("blockedbyclient");
   });
+}
+
+/** Redirect provenance comes from Playwright, never from page-controlled headers. */
+function browserPassRequest(request: BrowserRequest): PassRequest {
+  const from = request.redirectedFrom();
+  return {
+    method: request.method(),
+    url: request.url(),
+    body: request.postData(),
+    ...(from === null
+      ? {}
+      : {
+          redirectedFrom: {
+            method: from.method(),
+            url: from.url(),
+            body: from.postData(),
+          },
+        }),
+  };
 }

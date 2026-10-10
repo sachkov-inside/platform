@@ -86,12 +86,12 @@ Git; зашифруйте файлы для host и отдельного recover
 | Сообщество v2 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION`, `TELEGRAM_COMMUNITY_MODE`, `TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS`, `TELEGRAM_COMMUNITY_REMOVALS_ENABLED`, `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID` | `inside.community-entitlement.v2`, `live`, `60000`, `true` (решение владельца 04.10.2026), id бота Tribute | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2` |
 | Сообщество: входящие команды | `PLATFORM_COMMUNITY_INTEGRATION_SECRET` | секрет | `TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET`, `TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT=https://<telegram>/integrations/platform/v1/community-entitlements` |
 | Сообщество: разрешение эффекта | `PLATFORM_COMMUNITY_DISPATCH_URL`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` | `https://<platform>/internal/billing-dispatch/authorize` | `TELEGRAM_COMMUNITY_DISPATCH_SECRET` |
-| Сообщество: дата старта в приветствии | `PLATFORM_COHORTS_URL`, `PLATFORM_COHORT_GUIDE_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/cohorts`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
-| Активация курса, Tribute и приглашения `i_` | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/subscription-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
+| Сообщество: дата старта в приветствии | `PLATFORM_COHORTS_URL`, `PLATFORM_COHORT_PRODUCT_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/cohorts`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
+| Активация курса и приглашения `i_` | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/subscription-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
 | Уведомления | `TELEGRAM_NOTIFICATIONS_ENABLED`, `NOTIFICATION_AMQP_URL`, `NOTIFICATION_AUTHORIZE_URL`, `NOTIFICATION_AUTHORIZE_SECRET`, `NOTIFICATION_QUARANTINE_KEY`, `NOTIFICATION_PREFETCH`, `NOTIFICATION_BATCH_SIZE` | AMQPS principal Telegram; `https://<platform>/internal/notifications/dispatch/authorize`; ключ 64 hex | `NOTIFICATIONS_TELEGRAM_SECRET`; principal и vhost из topology Platform |
 | Авторское меню, воронки, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v1/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
-| Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`; тексты `TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON`, `TELEGRAM_MARKETING_CONSENT_CONFIRMATION` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`; тексты согласия — по решению владельца, иначе не заданы | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
-| Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/series/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
+| Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`, `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS`; тексты `TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON`, `TELEGRAM_MARKETING_CONSENT_CONFIRMATION` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`, `30`; тексты согласия — по решению владельца, иначе не заданы | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
+| Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/products/","https://<platform>/series/","https://<platform>/guides/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
 
 Явные отказы при старте:
 
@@ -101,7 +101,7 @@ Git; зашифруйте файлы для host и отдельного recover
 - live-режим без токена бота; неполная пара URL и секрета; HTTP вне loopback, учётные данные,
   query или fragment в URL сервиса, включая `PLATFORM_EVIDENCE_DELIVERY_URL` и
   `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_COHORTS_URL` и `TELEGRAM_SIGN_IN_RETURN_URL`;
-- только одна из `PLATFORM_COHORTS_URL` и `PLATFORM_COHORT_GUIDE_ID`, или `PLATFORM_COHORT_GUIDE_ID`
+- только одна из `PLATFORM_COHORTS_URL` и `PLATFORM_COHORT_PRODUCT_ID`, или `PLATFORM_COHORT_PRODUCT_ID`
   не UUID;
 - неполный набор из трёх текстов согласия `TELEGRAM_MARKETING_CONSENT_*`;
 - `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`, совпадающий с id самого бота или не числовой;
@@ -230,6 +230,12 @@ Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `v
   `apps/telegram/infra/production/compose.yaml`), `telegram.caddy` (копия `apps/telegram/infra/production/telegram.caddy`) и
   `release-manifest.json`.
 
+При упаковке зависимостей Dockerfile использует `pnpm deploy --prod --ignore-scripts --frozen-lockfile`.
+Builder использует архивы из локального store и разрешает запросы метаданных пакетов в registry.
+Это позволяет pnpm проверить отдельный lockfile Telegram; проверка `minimumReleaseAge: 1440`
+из корневого `pnpm-workspace.yaml` сохраняется. Поэтому этап сборки требует доступа к registry,
+даже когда архивы зависимостей уже присутствуют в cache.
+
 Manifest (`inside.telegram.release-manifest.v1`) связывает версию, SHA, образ
 `ghcr.io/sachkov-inside/inside-telegram@sha256:…`, sha256 файлов `compose.yaml` и `telegram.caddy`,
 run публикации и
@@ -321,7 +327,7 @@ Unit regression запускает весь shell script с повреждённ
 Команда печатает длительность restart/readiness и убирает только свои контейнеры, network, volume и image tag.
 Workers и все provider modes выключены; real messages, webhook registration и role writes не выполняются.
 
-`pnpm --filter @inside/telegram exec vitest run test/unit/telegram-deploy-gateway.test.ts`
+`pnpm --filter @inside/telegram test:contracts telegram-deploy-gateway.test.ts`
 отдельно запускает настоящий gateway с изолированным host fixture и синтетическими GitHub/Docker/Caddy boundaries.
 Он проверяет обе source families, rejected repository/workflow/tag/SHA, repeats, interrupted guard и отказ при разных миграциях.
 Эти proofs не заменяют publication-run и production-проверки координатора.
@@ -710,8 +716,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
     `TELEGRAM_ACTIVATION_ENABLED=true` с URL, секретом, `PLATFORM_ACCOUNT_URL` и реестром. Проверка:
     `/start a_<code>` владельца; сообщение с кнопкой в группе курса отправляет только владелец.
     Тот же секрет и URL обслуживают приглашения: владелец выдаёт себе приглашение в кабинете
-    «Доступ», открывает `t.me/<бот>?start=i_<код>` и получает кнопку «Оплатить» или подтверждение
-    подарка. Повторное открытие той же ссылки отвечает тем же результатом. Очередь приглашений
+    «Доступ», открывает `t.me/<бот>?start=i_<код>` и получает кнопку «Оплатить». Повторное открытие той же ссылки отвечает тем же результатом. Очередь приглашений
     после проверки: `select state, diagnostic_code, count(*), max(attempts) from
     invitation_redemptions group by 1, 2;` — строки `retry` с растущим `attempts` означают, что
     Platform не отвечает на `invitations/redeem`; `needs_account` ждут привязки Account.
@@ -741,6 +746,12 @@ TLS и ACL брокера, настоящие сообщения и вступл
 
 ## Проверка и восстановление
 
+Штатный read-only инструмент после deploy описан в
+[production-release](../../../../docs/runbooks/production-release.md#штатная-read-only-проверка-выпуска):
+`pnpm production:verify --host inside-production --application telegram --version vN`.
+Он дополняет проверки ниже; живой `/start` и привязка остаются ручными шагами.
+
+
 Docker healthcheck запускает `dist/operations/check-readiness.js`: проверяет HTTP authentication
 boundary и доступ к мигрированным таблицам собственной базы, без Telegram/Platform запросов.
 Это basic readiness, а не доказательство живого reconciliation или пользовательского связывания.
@@ -763,7 +774,11 @@ boundary и доступ к мигрированным таблицам собс
 очищаются по сроку раз в час (`src/database/retention.ts`). Там же результаты проверок membership
 и их outbox evidence удаляются через `TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS` (по умолчанию 90,
 от 30 до 3650); последняя проверка каждой связанной личности и недоставленное evidence остаются.
-События контактов и связывания, аудит membership и история коммуникаций не удаляются.
+Доставленные события воронки продаж удаляются из `sales_funnel_event_outbox` через
+`TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS` дней после доставки (по умолчанию 30, от 1 до 3650);
+события в остальных состояниях, включая `rejected`, остаются.
+События контактов и связывания, аудит membership и история коммуникаций не удаляются; outbox
+воронки хранит только копии событий для отправки в Platform.
 Потеря upstream не превращается в fresh positive Membership Evidence.
 
 Ограничение частоты запросов одного пользователя описано в

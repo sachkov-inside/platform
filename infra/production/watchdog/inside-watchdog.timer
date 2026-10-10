@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Inside production watchdog every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=5s
+Unit=inside-watchdog.service
+
+[Install]
+WantedBy=timers.target

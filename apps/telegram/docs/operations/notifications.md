@@ -1,7 +1,7 @@
 # Доставка Notifications через Telegram
 
 Реализация [Telegram #56](https://github.com/sachkov-inside/inside-telegram/issues/56)
-исполняет [принятый протокол](../contracts/notifications-v1/protocol.md).
+исполняет [принятый протокол](../../../../docs/contracts/notifications-v1/protocol.md).
 Platform выбирает получателя, текст и категорию, проверяет источник, настройки и свою
 linkRef/linkRevision. Telegram независимо разрешает Account/TelegramIdentity через собственную
 verified `platform_links` и проверяет текущий BotContact. Команда не создаёт связь.

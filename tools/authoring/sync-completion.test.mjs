@@ -8,7 +8,11 @@ import { canonical, checksum, materialRevision } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
-import { materialApplyRequest } from "./local-boundaries.mjs";
+import {
+  materialApplyRequest,
+  taskReceiptSchema,
+  isJournalOperation,
+} from "./local-boundaries.mjs";
 import {
   entryAt,
   itemAt,
@@ -21,7 +25,15 @@ import { z } from "zod";
 
 /** @param {number} n */
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
-const guideId = uuid(900);
+const productId = uuid(900);
+const productIntroductionSchema = z
+  .object({
+    audience: z.string(),
+    outcome: z.string(),
+    prerequisites: z.string(),
+    scope: z.string(),
+  })
+  .strict();
 const productPage = {
   card: null,
   blocks: [{ id: "hero", kind: "hero", lead: "Лид продукта.", highlights: [] }],
@@ -54,7 +66,7 @@ async function fixture(t) {
     summary: "Summary",
     stage: "draft",
     topicId: null,
-    access: "membership",
+    access: "closed",
     showInFeed: false,
     difficulty: null,
     outcomes: [],
@@ -73,7 +85,7 @@ async function fixture(t) {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: "product",
+      productId: "product",
       chapterIds: [],
       materialIds: ["lesson", "video", "old"],
       complete: true,
@@ -96,7 +108,7 @@ async function fixture(t) {
       }),
       row("old"),
     ],
-    guides: [
+    products: [
       {
         sourceId: "product",
         presentation: "ai-first-process",
@@ -160,9 +172,10 @@ async function fixture(t) {
  *   title: string;
  *   materialIds: string[];
  * }} FakeArtifact
- * @typedef {object} FakeGuide
+ * @typedef {object} FakeProduct
  * @property {string} id
  * @property {string} slug
+ * @property {{ audience: string; outcome: string; prerequisites: string; scope: string } | null} [introduction]
  * @property {string} sourceId
  * @property {string} name
  * @property {string} summary
@@ -175,10 +188,10 @@ async function fixture(t) {
  */
 
 // Bodies the double reads; the sync under test builds them, so a missing field fails the test.
-const guideValidationBodySchema = z
+const productValidationBodySchema = z
   .object({ source: z.object({ presentation: z.string() }).passthrough() })
   .passthrough();
-const guideUpdateBodySchema = z
+const productUpdateBodySchema = z
   .object({
     expectedVersion: z.number(),
     introduction: z.unknown().optional(),
@@ -222,9 +235,9 @@ function applicationApi() {
   const videos = new Map();
   /** @type {Map<string, FakeArtifact>} */
   const artifacts = new Map();
-  /** @type {FakeGuide} */
-  const guide = {
-    id: guideId,
+  /** @type {FakeProduct} */
+  const product = {
+    id: productId,
     slug: "product",
     sourceId: "inside-content:product",
     name: "",
@@ -241,7 +254,7 @@ function applicationApi() {
     materials,
     videos,
     artifacts,
-    guide,
+    product,
     pin: { seriesId: uuid(901), version: 3 },
     /** @type {string | undefined} */
     rejectValidation: undefined,
@@ -265,8 +278,8 @@ function applicationApi() {
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
-      if (path === "/authoring/import/guides/validate") {
-        const { source } = guideValidationBodySchema.parse(body);
+      if (path === "/authoring/import/products/validate") {
+        const { source } = productValidationBodySchema.parse(body);
         assert.ok(source, "validation carries the page");
         if (api.rejectValidation !== undefined)
           throw Object.assign(new Error(api.rejectValidation), { status: 422 });
@@ -277,10 +290,10 @@ function applicationApi() {
           );
         return { valid: true };
       }
-      if (path === "/authoring/import/guides/reserve")
-        return structuredClone(guide);
-      if (path === "/authoring/collections?kind=guide")
-        return [structuredClone(guide)];
+      if (path === "/authoring/import/products/reserve")
+        return structuredClone(product);
+      if (path === "/authoring/collections?kind=product")
+        return [structuredClone(product)];
       if (path === "/authoring/home-pin" && body === undefined)
         return structuredClone(api.pin);
       if (path === "/authoring/home-pin") {
@@ -289,36 +302,38 @@ function applicationApi() {
         api.pin = { seriesId: pin.seriesId, version: api.pin.version + 1 };
         return structuredClone(api.pin);
       }
-      if (path === "/authoring/import/guides/update") {
-        const update = guideUpdateBodySchema.parse(body);
-        assert.equal(update.expectedVersion, guide.version);
-        assert.equal(
-          update.introduction,
-          undefined,
-          "The editor-owned introduction is never imported",
-        );
-        Object.assign(guide, {
+      if (path === "/authoring/import/products/update") {
+        const update = productUpdateBodySchema.parse(body);
+        assert.equal(update.expectedVersion, product.version);
+        Object.assign(product, {
+          ...(update.introduction === undefined
+            ? {}
+            : {
+                introduction: productIntroductionSchema.parse(
+                  update.introduction,
+                ),
+              }),
           name: update.name,
           summary: update.summary,
           slug: update.source.slug,
           presentation: update.source.presentation,
           page: update.source.page,
           pageRejected: false,
-          version: guide.version + 1,
+          version: product.version + 1,
         });
-        return structuredClone(guide);
+        return structuredClone(product);
       }
-      if (path === `/authoring/guides/${guideId}/order`)
+      if (path === `/authoring/products/${productId}/order`)
         return {
           orderVersion: "a".repeat(64),
-          items: (guide.members ?? []).map((materialId) => ({
+          items: (product.members ?? []).map((materialId) => ({
             materialId,
             chapterId: null,
           })),
           chapters: [],
         };
-      if (path === "/authoring/import/guides/composition") {
-        guide.members = compositionBodySchema.parse(body).orderedMaterialIds;
+      if (path === "/authoring/import/products/composition") {
+        product.members = compositionBodySchema.parse(body).orderedMaterialIds;
         return { orderVersion: "b".repeat(64) };
       }
       if (path === "/authoring/import/materials/reserve") {
@@ -415,9 +430,9 @@ function applicationApi() {
         current.cover = { coverId: uuid(next++) };
         return { cover: current.cover };
       }
-      if (path === `/authoring/import/guides/${guideId}/artifacts`) {
+      if (path === `/authoring/import/products/${productId}/artifacts`) {
         assert.ok(body instanceof FormData);
-        assert.equal(body.get("guideSourceId"), "inside-content:product");
+        assert.equal(body.get("productSourceId"), "inside-content:product");
         const sourceId = formText(body, "sourceId");
         const existing = artifacts.get(sourceId);
         const artifact = existing ?? {
@@ -436,7 +451,7 @@ function applicationApi() {
         };
       }
       if (
-        (match = /^\/authoring\/guide-artifacts\/([^/]+)\/materials$/u.exec(
+        (match = /^\/authoring\/product-artifacts\/([^/]+)\/materials$/u.exec(
           path,
         ))
       ) {
@@ -448,7 +463,7 @@ function applicationApi() {
         artifact.materialIds = linkBodySchema.parse(body).materialIds;
         return structuredClone(artifact);
       }
-      if (path === `/authoring/guides/${guideId}/artifacts`)
+      if (path === `/authoring/products/${productId}/artifacts`)
         return {
           artifacts: [...artifacts.values()].map((item) =>
             structuredClone(item),
@@ -490,7 +505,7 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
     valueAt(api.artifacts, "inside-content:checklist").materialIds,
     [lesson.materialId],
   );
-  assert.equal(api.guide.name, "Продукт");
+  assert.equal(api.product.name, "Продукт");
   assert.equal(
     first.notices.some((notice) => /pending|missing/u.test(notice.code)),
     false,
@@ -506,16 +521,16 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
       (path) =>
         /apply|attach|reconcile|content-covers|artifacts$|materials$|update/u.test(
           path,
-        ) && !path.startsWith(`/authoring/guides/${guideId}/artifacts`),
+        ) && !path.startsWith(`/authoring/products/${productId}/artifacts`),
     ),
     false,
     repeated.join("\n"),
   );
 });
 
-test("the product page travels with the Guide: unknown looks stop early, edits write once and a new address keeps the product", async (t) => {
+test("the product page travels with the Product: unknown looks stop early, edits write once and a new address keeps the product", async (t) => {
   const setup = await fixture(t);
-  itemAt(setup.manifest.guides, 0).presentation = "neon";
+  itemAt(setup.manifest.products, 0).presentation = "neon";
   await setup.write();
   const api = applicationApi();
   await assert.rejects(run(setup, api), /presentation 'neon'/u);
@@ -531,33 +546,34 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
     api.calls.map((call) => call.path),
     [
       "/authoring/import/materials/environment",
-      "/authoring/import/guides/validate",
+      "/authoring/import/products/validate",
       "/authoring/import/materials/environment",
-      "/authoring/import/guides/validate",
+      "/authoring/import/products/validate",
     ],
   );
 
-  itemAt(setup.manifest.guides, 0).presentation = "ai-first-process";
+  itemAt(setup.manifest.products, 0).presentation = "ai-first-process";
   await setup.write();
   await run(setup, api);
   assert.deepEqual(
     {
-      presentation: api.guide.presentation,
-      page: api.guide.page,
-      slug: api.guide.slug,
+      presentation: api.product.presentation,
+      page: api.product.page,
+      slug: api.product.slug,
     },
     { presentation: "ai-first-process", page: productPage, slug: "product" },
   );
   const updates = () =>
-    api.calls.filter((call) => call.path === "/authoring/import/guides/update")
-      .length;
+    api.calls.filter(
+      (call) => call.path === "/authoring/import/products/update",
+    ).length;
   const once = updates();
   await run(setup, api);
   assert.equal(updates(), once, "an unchanged product page writes nothing");
   // Журнал прежних переносов не помнит описания: повтор сверяется с тем, что держит цель.
   const journalPath = join(setup.state, "journal.json");
   const forgotten = await readJournalFile(setup.state);
-  for (const entry of Object.values(forgotten.guides)) {
+  for (const entry of Object.values(forgotten.products)) {
     delete entry["version"];
   }
   await writeFile(journalPath, canonical(forgotten));
@@ -569,25 +585,25 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   );
 
   // Нечитаемое описание в цели перезаписывается даже при совпадающем пакете.
-  api.guide.pageRejected = true;
+  api.product.pageRejected = true;
   await run(setup, api);
   assert.equal(updates(), once + 1);
-  assert.equal(api.guide.pageRejected, false);
+  assert.equal(api.product.pageRejected, false);
 
   const edited = {
     ...productPage,
     blocks: [{ ...itemAt(productPage.blocks, 0), lead: "Правка текста." }],
   };
-  itemAt(setup.manifest.guides, 0).page = edited;
-  itemAt(setup.manifest.guides, 0).slug = "product-moved";
+  itemAt(setup.manifest.products, 0).page = edited;
+  itemAt(setup.manifest.products, 0).slug = "product-moved";
   await setup.write();
   const report = await run(setup, api);
   assert.equal(updates(), once + 2);
   assert.deepEqual(
-    { id: api.guide.id, slug: api.guide.slug, page: api.guide.page },
-    { id: guideId, slug: "product-moved", page: edited },
+    { id: api.product.id, slug: api.product.slug, page: api.product.page },
+    { id: productId, slug: "product-moved", page: edited },
   );
-  assert.match(itemAt(report.guides, 0).url, /\/products\/product-moved$/u);
+  assert.match(itemAt(report.products, 0).url, /\/products\/product-moved$/u);
 });
 
 test("Platform checks the whole description before the first write, and an older package keeps the address", async (t) => {
@@ -599,21 +615,22 @@ test("Platform checks the whole description before the first write, and an older
     api.calls.map((call) => call.path),
     [
       "/authoring/import/materials/environment",
-      "/authoring/import/guides/validate",
+      "/authoring/import/products/validate",
     ],
   );
   api.rejectValidation = undefined;
 
   // Пакет, собранный до появления адреса и подписи карточки, ничего не переносит на новый адрес.
-  api.guide.slug = "product-published";
-  delete itemAt(setup.manifest.guides, 0).slug;
-  itemAt(setup.manifest.guides, 0).page = { blocks: productPage.blocks };
+  api.product.slug = "product-published";
+  delete itemAt(setup.manifest.products, 0).slug;
+  itemAt(setup.manifest.products, 0).page = { blocks: productPage.blocks };
   await setup.write();
   await run(setup, api);
-  assert.equal(api.guide.slug, "product-published");
+  assert.equal(api.product.slug, "product-published");
   const updates = () =>
-    api.calls.filter((call) => call.path === "/authoring/import/guides/update")
-      .length;
+    api.calls.filter(
+      (call) => call.path === "/authoring/import/products/update",
+    ).length;
   const once = updates();
   await run(setup, api);
   assert.equal(
@@ -627,16 +644,17 @@ test("an archived product with the same source key does not lend its address", a
   const setup = await fixture(t);
   const api = applicationApi();
   await run(setup, api);
-  api.guide.archived = true;
-  api.guide.slug = "product-archived";
+  api.product.archived = true;
+  api.product.slug = "product-archived";
   const report = await run(setup, api);
   assert.equal(
-    api.guide.slug,
+    api.product.slug,
     "product-archived",
     "the address of an archived record is not reused as a decision",
   );
   assert.deepEqual(
-    report.notices.filter((notice) => notice.code === "guide_archived").length,
+    report.notices.filter((notice) => notice.code === "product_archived")
+      .length,
     1,
   );
 });
@@ -645,30 +663,31 @@ test("a package that names no description leaves the stored page alone", async (
   const setup = await fixture(t);
   const api = applicationApi();
   await run(setup, api);
-  assert.deepEqual(api.guide.page, productPage);
+  assert.deepEqual(api.product.page, productPage);
   const updates = () =>
-    api.calls.filter((call) => call.path === "/authoring/import/guides/update")
-      .length;
+    api.calls.filter(
+      (call) => call.path === "/authoring/import/products/update",
+    ).length;
   const before = updates();
 
-  delete itemAt(setup.manifest.guides, 0).page;
-  delete itemAt(setup.manifest.guides, 0).presentation;
+  delete itemAt(setup.manifest.products, 0).page;
+  delete itemAt(setup.manifest.products, 0).presentation;
   await setup.write();
   await run(setup, api);
   assert.deepEqual(
     {
-      page: api.guide.page,
-      presentation: api.guide.presentation,
+      page: api.product.page,
+      presentation: api.product.presentation,
       updates: updates(),
     },
     { page: productPage, presentation: "ai-first-process", updates: before },
   );
 
   // Снять описание можно только явным null.
-  itemAt(setup.manifest.guides, 0).page = null;
+  itemAt(setup.manifest.products, 0).page = null;
   await setup.write();
   await run(setup, api);
-  assert.equal(api.guide.page, null);
+  assert.equal(api.product.page, null);
 });
 
 test("a replaced cover uses the current cover as its expected version", async (t) => {
@@ -704,7 +723,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
     (row) => row.sourceId !== "old",
   );
   setup.manifest.selection.materialIds = ["lesson", "video"];
-  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
   await setup.write();
   const proposed = await run(setup, api);
   assert.deepEqual(
@@ -746,29 +765,29 @@ test("a video that never becomes ready stops before Save and resumes with the sa
   assert.equal(api.videos.size, 1);
 });
 
-test("supplementary originals join the Guide after the programme without a chapter", async (t) => {
+test("supplementary originals join the Product after the programme without a chapter", async (t) => {
   const setup = await fixture(t);
-  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
-  itemAt(setup.manifest.guides, 0).supplementaryMaterialIds = ["old"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).supplementaryMaterialIds = ["old"];
   await setup.write();
   const api = applicationApi();
   const report = await run(setup, api);
   const ids = ["lesson", "video", "old"].map(
     (id) => valueAt(api.materials, `inside-content:${id}`).materialId,
   );
-  assert.deepEqual(api.guide.members, ids);
+  assert.deepEqual(api.product.members, ids);
   assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, [
-    guideId,
+    productId,
   ]);
   const composition = api.calls.find(
-    (call) => call.path === "/authoring/import/guides/composition",
+    (call) => call.path === "/authoring/import/products/composition",
   );
   assert.deepEqual(
     z.object({ chapterAssignments: z.unknown() }).parse(composition?.body)
       .chapterAssignments,
     {},
   );
-  assert.equal(itemAt(report.guides, 0).mainMaterials, 2);
+  assert.equal(itemAt(report.products, 0).mainMaterials, 2);
 });
 
 test("only loopback HTTP origins are accepted as targets", () => {
@@ -874,7 +893,7 @@ test("an archive whose receipt was stored before the crash stays archived", asyn
     (row) => row.sourceId !== "old",
   );
   setup.manifest.selection.materialIds = ["lesson", "video"];
-  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
   await setup.write();
   await run(setup, api, { archive: ["old"] });
   const journalPath = join(setup.state, "journal.json");
@@ -907,7 +926,7 @@ test("release preview reports video, composition and artifact changes that the s
     unchanged: 3,
     conflict: 0,
   });
-  assert.deepEqual(itemAt(clean.preview.guides, 0), {
+  assert.deepEqual(itemAt(clean.preview.products, 0), {
     sourceId: "product",
     title: "Продукт",
     materials: 3,
@@ -964,7 +983,7 @@ test("release preview reports video, composition and artifact changes that the s
     title: "extra",
   });
   setup.manifest.selection.materialIds.push("extra");
-  itemAt(setup.manifest.guides, 0).materialIds = [
+  itemAt(setup.manifest.products, 0).materialIds = [
     "video",
     "lesson",
     "old",
@@ -987,7 +1006,7 @@ test("release preview reports video, composition and artifact changes that the s
     next.preview.materials.find((item) => item.sourceId === "extra")?.change,
     "new",
   );
-  assert.deepEqual(itemAt(next.preview.guides, 0), {
+  assert.deepEqual(itemAt(next.preview.products, 0), {
     sourceId: "product",
     title: "Продукт",
     materials: 4,
@@ -1000,17 +1019,17 @@ test("release preview reports video, composition and artifact changes that the s
     removed: 0,
     reorderedOrRegrouped: true,
   });
-  itemAt(setup.manifest.guides, 0).title = "Новое имя";
+  itemAt(setup.manifest.products, 0).title = "Новое имя";
   await setup.write();
   const renamed = await previewRelease(setup.packagePath, setup.state, {
     publish: "all",
     origin,
     request: api.request,
   });
-  assert.equal(itemAt(renamed.preview.guides, 0).detailsChange, true);
-  itemAt(setup.manifest.guides, 0).slug = "product-moved";
-  itemAt(setup.manifest.guides, 0).presentation = "default";
-  itemAt(setup.manifest.guides, 0).page = {
+  assert.equal(itemAt(renamed.preview.products, 0).detailsChange, true);
+  itemAt(setup.manifest.products, 0).slug = "product-moved";
+  itemAt(setup.manifest.products, 0).presentation = "default";
+  itemAt(setup.manifest.products, 0).page = {
     ...productPage,
     blocks: [{ ...itemAt(productPage.blocks, 0), lead: "Новый лид." }],
   };
@@ -1025,7 +1044,7 @@ test("release preview reports video, composition and artifact changes that the s
       pageChange,
       slugChange,
       presentationChange,
-    }))(itemAt(redesigned.preview.guides, 0)),
+    }))(itemAt(redesigned.preview.products, 0)),
     {
       pageChange: true,
       slugChange: { from: "product", to: "product-moved" },
@@ -1110,7 +1129,7 @@ test("release preview separates Video access conflicts from plain access changes
   assert.ok(plain);
   assert.equal(plain.change, "changed");
   assert.equal(plain.conflictReason, undefined);
-  assert.deepEqual(plain.accessChange, { from: "membership", to: "free" });
+  assert.deepEqual(plain.accessChange, { from: "closed", to: "free" });
 
   // A legacy journal entry without access still sees the target's current access.
   const journalPath = join(setup.state, "journal.json");
@@ -1139,15 +1158,15 @@ test("release preview separates Video access conflicts from plain access changes
   ).preview.materials.find((item) => item.sourceId === "video");
   assert.ok(replaced);
   assert.equal(replaced.conflictReason, undefined);
-  assert.deepEqual(replaced.accessChange, { from: "membership", to: "free" });
+  assert.deepEqual(replaced.accessChange, { from: "closed", to: "free" });
 });
 
 test("the local product view pins the transferred product on Home once", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
   const report = await run(setup, api, { pinHome: true });
-  assert.equal(report.homePinned, guideId);
-  assert.deepEqual(api.pin, { seriesId: guideId, version: 4 });
+  assert.equal(report.homePinned, productId);
+  assert.deepEqual(api.pin, { seriesId: productId, version: 4 });
   await run(setup, api, { pinHome: true });
   assert.equal(api.pin.version, 4);
 });
@@ -1170,7 +1189,7 @@ test("an import keeps every original a private draft unless its publication is a
   assert.ok(
     report.materials.every((item) => item.publicationState === "draft"),
   );
-  // The checklist would be public by its Guide placement, so it waits for a published owner.
+  // The checklist would be public by its Product placement, so it waits for a published owner.
   assert.equal(api.artifacts.size, 0);
   assert.ok(
     report.notices.some(
@@ -1210,7 +1229,7 @@ test("an import keeps every original a private draft unless its publication is a
     (row) => row.sourceId !== "old",
   );
   setup.manifest.selection.materialIds = ["lesson", "video"];
-  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "video"];
   lesson.markdown = "Текст";
   lesson.links = {};
   await setup.write();
@@ -1225,7 +1244,7 @@ test("a private import stops before any Material write when the target is alread
   itemAt(setup.manifest.materials, 0).markdown = "Новая редакция";
   await setup.write();
   // The product page changes too, so a late check would already have rewritten it.
-  itemAt(setup.manifest.guides, 0).title = "Новое имя продукта";
+  itemAt(setup.manifest.products, 0).title = "Новое имя продукта";
   await setup.write();
   const calls = api.calls.length;
   await assert.rejects(
@@ -1273,6 +1292,7 @@ test("a private lesson imports its practice unpublished", async (t) => {
   const api = applicationApi();
   /** @type {unknown[]} */
   const practiceBodies = [];
+  /** @type {LocalTransport} */
   /** @type {LocalTransport} */
   const request = async (path, body, key, options) => {
     if (path === "/authoring/import/practices/validate") {
@@ -1407,21 +1427,21 @@ test("an interrupted publication resumes only with the same approval", async (t)
   );
 });
 
-test("Guide Tasks travel after their Guide in sync and in an exact release, published only by approval", async (t) => {
+test("Product Tasks travel after their Product in sync and in an exact release, published only by approval", async (t) => {
   const setup = await fixture(t);
-  const guide = itemAt(setup.manifest.guides, 0);
-  guide.chapters = [
+  const product = itemAt(setup.manifest.products, 0);
+  product.chapters = [
     {
       sourceId: "chapter-one",
       title: "Глава 1",
       summary: "",
-      materialIds: [...guide.materialIds],
+      materialIds: [...product.materialIds],
     },
   ];
   /** @param {string} sourceId */
   const task = (sourceId) => ({
     sourceId,
-    guideId: "product",
+    productId: "product",
     chapterId: "chapter-one",
     title: `Задание ${sourceId}`,
     access: /** @type {const} */ ("free"),
@@ -1442,6 +1462,7 @@ test("Guide Tasks travel after their Guide in sync and in an exact release, publ
   /** @type {Record<string, unknown>[]} */
   const applied = [];
   /** @type {LocalTransport} */
+  /** @type {LocalTransport} */
   const request = async (path, body, key, options) => {
     if (path === "/authoring/import/tasks/validate") {
       const { code } = z.object({ code: z.string() }).passthrough().parse(body);
@@ -1451,7 +1472,7 @@ test("Guide Tasks travel after their Guide in sync and in an exact release, publ
       const command = z
         .object({
           code: z.string(),
-          guideId: z.string(),
+          productId: z.string(),
           position: z.number(),
           publicationState: z.enum(["published", "unpublished"]),
           expectedRevision: z.number().nullable(),
@@ -1486,7 +1507,7 @@ test("Guide Tasks travel after their Guide in sync and in an exact release, publ
       ["task-two", 2, "unpublished"],
     ],
   );
-  assert.equal(applied[0]?.["guideId"], api.guide.id);
+  assert.equal(applied[0]?.["productId"], api.product.id);
   assert.deepEqual(
     report.tasks?.map((item) => item.change),
     ["new", "new"],
@@ -1519,4 +1540,283 @@ test("Guide Tasks travel after their Guide in sync and in an exact release, publ
   assert.equal(tasks.get("task-one")?.publicationState, "published");
   assert.equal(tasks.get("task-two")?.publicationState, "unpublished");
   assert.equal(applied.length, writes + 1);
+});
+
+test("imports source introduction and preserves it when an older package omits the field", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = [];
+  setup.manifest.selection.taskIds = [];
+  const product = itemAt(setup.manifest.products, 0);
+  product.introduction = {
+    audience: "Инженерам",
+    outcome: "Рабочий проект",
+    prerequisites: "TypeScript",
+    scope: "Практика",
+  };
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  const update = api.calls.find(
+    ({ path }) => path === "/authoring/import/products/update",
+  );
+  assert.deepEqual(
+    productUpdateBodySchema.parse(update?.body).introduction,
+    product.introduction,
+  );
+  const calls = api.calls.length;
+  await run(setup, api);
+  assert.equal(
+    api.calls
+      .slice(calls)
+      .some(({ path }) => path === "/authoring/import/products/update"),
+    false,
+  );
+  delete product.introduction;
+  product.title = "Старый пакет меняет название";
+  await setup.write();
+  await run(setup, api);
+  assert.deepEqual(api.product.introduction, {
+    audience: "Инженерам",
+    outcome: "Рабочий проект",
+    prerequisites: "TypeScript",
+    scope: "Практика",
+  });
+});
+
+test("reviewed Product removal choice changes the fingerprint and survives partial release", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  // Keep this tracer focused on composition after Materials committed successfully.
+  setup.manifest.materials = [itemAt(setup.manifest.materials, 2)];
+  setup.manifest.selection.materialIds = ["old"];
+  itemAt(setup.manifest.products, 0).materialIds = ["old"];
+  itemAt(setup.manifest.products, 0).chapters = [
+    {
+      sourceId: "chapter",
+      title: "Chapter",
+      summary: "",
+      materialIds: ["old"],
+    },
+  ];
+  setup.manifest.tasks = [
+    {
+      sourceId: "task-one",
+      productId: "product",
+      chapterId: "chapter",
+      title: "Task",
+      access: "free",
+      relatedMaterialIds: [],
+      publicationState: "published",
+      definition: { schemaVersion: 1, situation: "Synthetic task" },
+      provenance: {
+        repository: "synthetic/content",
+        commit: "a".repeat(40),
+        path: "task.yaml",
+      },
+    },
+  ];
+  await setup.write();
+  api.product.members = [uuid(700)];
+  /** @type {{ key: string | undefined; body: unknown }[]} */
+  const compositionCalls = [];
+  let taskWrites = 0;
+  let loseCompositionResponse = false;
+  /** @type {z.infer<typeof taskReceiptSchema> | null} */
+  let taskReceipt = null;
+  /** @type {{ id: string; name: string; summary: string }[]} */
+  let chapters = [];
+  const orderVersion = () =>
+    checksum(canonical({ members: api.product.members, chapters }));
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === `/authoring/products/${productId}/order`)
+      return {
+        orderVersion: orderVersion(),
+        chapters,
+        items: (api.product.members ?? []).map((materialId) => ({
+          materialId,
+          chapterId: chapters[0]?.id ?? null,
+        })),
+      };
+    if (path === "/authoring/import/tasks/validate")
+      return { valid: true, current: taskReceipt, migration: null };
+    if (path === "/authoring/import/tasks/apply") {
+      taskWrites++;
+      taskReceipt = taskReceiptSchema.parse({
+        taskId: uuid(800),
+        code: "task-one",
+        revision: 1,
+        currentVersion: 1,
+        definitionDigest: "a".repeat(64),
+        publicationState: "published",
+      });
+      return taskReceipt;
+    }
+    if (path === "/authoring/import/products/composition") {
+      const command = z
+        .object({ confirmedProductRemovals: z.array(z.string()).optional() })
+        .passthrough()
+        .parse(body);
+      compositionCalls.push({ key, body: structuredClone(body) });
+      if (!command.confirmedProductRemovals?.includes(productId))
+        throw Object.assign(
+          new Error("product_removal_confirmation_required"),
+          { status: 409 },
+        );
+      await api.request(path, body, key, options);
+      chapters = z
+        .object({
+          chapters: z.array(
+            z.object({ id: z.string(), name: z.string(), summary: z.string() }),
+          ),
+        })
+        .passthrough()
+        .parse(body).chapters;
+      if (loseCompositionResponse) {
+        loseCompositionResponse = false;
+        throw new Error("composition response lost after commit");
+      }
+      return { orderVersion: orderVersion() };
+    }
+    return api.request(path, body, key, options);
+  };
+  const options = {
+    origin: "http://127.0.0.1:4396",
+    publish: /** @type {const} */ ("all"),
+    request,
+  };
+  const original = await previewRelease(
+    setup.packagePath,
+    setup.state,
+    options,
+  );
+  await assert.rejects(
+    applyRelease(original.path, setup.state, { request }),
+    /product_removal_confirmation_required/u,
+  );
+  const before = await readJournalFile(setup.state);
+  assert.equal(taskWrites, 0);
+  const materialWrites = api.count(/materials\/apply/u);
+  const rejected = Object.entries(before.operations).filter(
+    ([, operation]) =>
+      isJournalOperation(operation) && operation.status === "rejected",
+  );
+  assert.equal(rejected.length, 1);
+  assert.equal(itemAt(compositionCalls, 0).key, itemAt(rejected, 0)[0]);
+
+  const unconfirmed = await previewRelease(
+    setup.packagePath,
+    setup.state,
+    options,
+  );
+  const confirmed = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  assert.deepEqual(confirmed.preview.confirmedProductRemovals, [productId]);
+  assert.notEqual(
+    confirmed.preview.fingerprint,
+    unconfirmed.preview.fingerprint,
+  );
+  assert.equal(itemAt(confirmed.preview.materials, 0).change, "unchanged");
+  await assert.rejects(
+    previewRelease(setup.packagePath, setup.state, {
+      ...options,
+      confirmedProductRemovals: [uuid(901)],
+    }),
+    /outside this package's target scope/u,
+  );
+  await assert.rejects(
+    run(
+      setup,
+      { request },
+      {
+        reviewedProductRemovals: [productId],
+      },
+    ),
+    /require a reviewed release/u,
+  );
+  const tamperedPath = join(setup.state, "tampered.json");
+  await writeFile(
+    tamperedPath,
+    canonical({ ...confirmed.preview, confirmedProductRemovals: [uuid(901)] }),
+  );
+  await assert.rejects(
+    applyRelease(tamperedPath, setup.state, { request }),
+    /changed after review/u,
+  );
+  const version = api.product.version;
+  api.product.version++;
+  await assert.rejects(
+    applyRelease(confirmed.path, setup.state, { request }),
+    /environment changed/u,
+  );
+  api.product.version = version;
+  await applyRelease(confirmed.path, setup.state, { request });
+  assert.equal(api.count(/materials\/apply/u), materialWrites);
+  assert.equal(api.materials.size, 1);
+  assert.deepEqual(api.product.members, [uuid(1)]);
+  assert.equal(taskWrites, 1);
+  const after = await readJournalFile(setup.state);
+  for (const [key, operation] of Object.entries(before.operations))
+    assert.deepEqual(after.operations[key], operation);
+  assert.notEqual(
+    itemAt(compositionCalls, 0).key,
+    itemAt(compositionCalls, 1).key,
+  );
+  const repeat = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  await applyRelease(repeat.path, setup.state, { request });
+  assert.equal(api.materials.size, 1);
+  assert.equal(api.count(/materials\/apply/u), materialWrites);
+  assert.equal(taskWrites, 1);
+  // A target may return to its previous composition hash; an old success is not its actual state.
+  const committed = await readJournalFile(setup.state);
+  api.product.members = [uuid(700)];
+  chapters = [];
+  const restored = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  loseCompositionResponse = true;
+  await assert.rejects(
+    applyRelease(restored.path, setup.state, { request }),
+    /composition response lost/u,
+  );
+  const lost = itemAt(compositionCalls, compositionCalls.length - 1);
+  assert.notEqual(lost.key, itemAt(compositionCalls, 1).key);
+  await assert.rejects(
+    applyRelease(unconfirmed.path, setup.state, { request }),
+    /interrupted composition requires/u,
+  );
+  const callsBeforeReplay = compositionCalls.length;
+  await assert.rejects(
+    applyRelease(restored.path, setup.state, { request }),
+    /environment changed/u,
+  );
+  assert.equal(compositionCalls.length, callsBeforeReplay + 1);
+  assert.ok(lost.key);
+  const replayedOperation = entryAt(
+    (await readJournalFile(setup.state)).operations,
+    lost.key,
+  );
+  assert.ok(isJournalOperation(replayedOperation));
+  assert.equal(replayedOperation.status, "applied");
+  const replay = itemAt(compositionCalls, compositionCalls.length - 1);
+  assert.equal(replay.key, lost.key);
+  assert.deepEqual(replay.body, lost.body);
+  const recovered = await previewRelease(setup.packagePath, setup.state, {
+    ...options,
+    confirmedProductRemovals: [productId],
+  });
+  await applyRelease(recovered.path, setup.state, { request });
+  assert.deepEqual(api.product.members, [uuid(1)]);
+  const resumed = await readJournalFile(setup.state);
+  for (const [key, operation] of Object.entries(committed.operations))
+    assert.deepEqual(resumed.operations[key], operation);
+  assert.equal(taskWrites, 1);
+  assert.equal(api.count(/materials\/apply/u), materialWrites);
 });

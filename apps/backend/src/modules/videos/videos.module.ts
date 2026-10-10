@@ -41,7 +41,7 @@ export const VIDEOS = Symbol("VIDEOS");
           provider,
           projects: {
             free: config.kinescope.publicProjectId,
-            membership: config.kinescope.membershipProjectId,
+            closed: config.kinescope.membershipProjectId,
           },
         });
       },

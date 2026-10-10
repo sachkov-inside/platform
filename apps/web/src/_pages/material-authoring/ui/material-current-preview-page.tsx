@@ -9,11 +9,7 @@ import {
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import type { Route } from "next";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
 import {
@@ -21,19 +17,17 @@ import {
   getMaterialPreviewVideo,
 } from "../api/get-material-preview-context";
 export async function MaterialCurrentPreviewPage({
-  guideId,
+  productId,
   materialId,
   returnHref,
 }: {
-  readonly guideId?: string | undefined;
+  readonly productId?: string | undefined;
   readonly materialId: string;
   readonly returnHref: Route;
 }) {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError) {
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required") {
       return (
         <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />
       );
@@ -48,12 +42,13 @@ export async function MaterialCurrentPreviewPage({
         retryHref={authoringMaterialPreviewHref(
           materialId,
           returnHref,
-          guideId,
+          productId,
         )}
         returnHref={returnHref}
       />
     );
   }
+  const accessToken = session.value;
 
   const state = await getCurrentMaterialPreview(materialId, accessToken);
   if (state.kind === "unauthorized") {
@@ -83,7 +78,7 @@ export async function MaterialCurrentPreviewPage({
         retryHref={authoringMaterialPreviewHref(
           materialId,
           returnHref,
-          guideId,
+          productId,
         )}
         returnHref={returnHref}
       />
@@ -92,8 +87,8 @@ export async function MaterialCurrentPreviewPage({
   const [route, video] = await Promise.all([
     getMaterialPreviewRoute({
       accessToken,
-      guideId,
-      guides: state.guides,
+      productId,
+      products: state.products,
       materialId: state.preview.materialId,
       returnHref,
     }),

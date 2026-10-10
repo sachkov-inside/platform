@@ -9,7 +9,7 @@ const fakes = vi.hoisted(() => ({ readTerms: vi.fn() }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/features/billing-checkout.terms.server", () => ({
-  readPublicGuideOfferTerms: fakes.readTerms,
+  readPublicProductOfferTerms: fakes.readTerms,
 }));
 vi.mock("@/_pages/home/api/public-home.public-cache.server", () => ({
   readPublicHome: vi.fn(),

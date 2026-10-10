@@ -1,8 +1,8 @@
 import {
   accessCapabilitySchema,
-  contentScopeSchema,
-  isEmptyContentScope,
-  isGuideCapability,
+  coverageSchema,
+  isEmptyCoverage,
+  isProductCapability,
   isWithheldCapability,
 } from "@inside/access-capabilities";
 import { benefitPeriodsSchema } from "../domain/pricing.js";
@@ -13,7 +13,7 @@ type CatalogOffer = { readonly benefits: readonly string[] };
 export function isProductOffer(offer: CatalogOffer): boolean {
   return offer.benefits.some((value) => {
     const capability = accessCapabilitySchema.safeParse(value);
-    return capability.success && isGuideCapability(capability.data);
+    return capability.success && isProductCapability(capability.data);
   });
 }
 
@@ -22,9 +22,9 @@ export function isProductOffer(offer: CatalogOffer): boolean {
  * единого материала, а продажа — оплату пустоты, поэтому такой тариф не назначается и не продаётся.
  */
 export function tierLacksComposition(
-  offer: CatalogOffer & { readonly contentScope: unknown },
+  offer: CatalogOffer & { readonly coverage: unknown },
 ): boolean {
-  return !isProductOffer(offer) && isEmptyContentScope(offer.contentScope);
+  return !isProductOffer(offer) && isEmptyCoverage(offer.coverage);
 }
 
 /**
@@ -62,10 +62,10 @@ export function productOfferUnsellable(
  * материал в составе. Закрытое живёт внутри продуктов, поэтому состав называет только продукты.
  */
 export function offerGrantsWithheld(
-  offer: CatalogOffer & { readonly contentScope?: unknown },
+  offer: CatalogOffer & { readonly coverage?: unknown },
 ): boolean {
   if (offer.benefits.some(isWithheldCapability)) return true;
-  const scope = contentScopeSchema.safeParse(offer.contentScope);
+  const scope = coverageSchema.safeParse(offer.coverage);
   return scope.success && scope.data.materialIds.length > 0;
 }
 
@@ -78,10 +78,15 @@ export function tierOpenForAssignment(
   offer: CatalogOffer & {
     readonly archived: boolean;
     readonly availableForAssignment: boolean;
-    readonly contentScope: unknown;
+    readonly coverage: unknown;
+    readonly benefitPeriods?: unknown;
   },
 ): boolean {
   return (
+    !productSupportTermMissing({
+      ...offer,
+      benefitPeriods: offer.benefitPeriods,
+    }) &&
     !offer.archived &&
     offer.availableForAssignment &&
     !tierLacksComposition(offer) &&
@@ -89,19 +94,12 @@ export function tierOpenForAssignment(
   );
 }
 
-/** Подписка продаётся только тарифом с составом; разовое предложение продукта её не включает. */
-export function sellsSubscription(
-  offer: CatalogOffer & { readonly contentScope: unknown },
-): boolean {
-  return !isProductOffer(offer) && !tierLacksComposition(offer);
-}
-
 /**
- * Offer, на который выдаётся приглашение «оплата»: подписка с составом и без невыдаваемых прав.
+ * Offer, на который выдаётся приглашение «оплата»: тариф с охватом продуктов и без невыдаваемых прав.
  * Продажу и вариант оплаты проверяет погашение: владелец может выдать ссылку до публикации.
  */
 export function subscriptionOfferForInvitation(
-  offer: CatalogOffer & { readonly contentScope: unknown },
+  offer: CatalogOffer & { readonly coverage: unknown },
 ): boolean {
-  return sellsSubscription(offer) && !offerGrantsWithheld(offer);
+  return !tierLacksComposition(offer) && !offerGrantsWithheld(offer);
 }

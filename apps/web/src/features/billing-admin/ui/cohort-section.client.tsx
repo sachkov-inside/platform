@@ -1,16 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { z } from "zod";
 
 import {
   billingActionClass,
   cohortStageSchema,
+  formatKopecks,
   type CohortStage,
-  type GuideCohort,
+  type ProductCohort,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
-import type { SaveCohortInput } from "../model/admin-operations";
+import {
+  kopecksToRublesText,
+  parseRublesToKopecks,
+  type SaveCohortInput,
+} from "../model/admin-operations";
 import type { contentCatalogOutcomeSchema } from "../model/enrollment-operations";
 import type { AdminCommand } from "./admin-command";
 import {
@@ -23,6 +28,9 @@ import {
   optionalFormText,
 } from "./admin-form.client";
 
+const priceAfterStartError =
+  "Цена после старта — положительная сумма в рублях, например 39 900 или 39 900,50. Оставьте поле пустым, чтобы не показывать её.";
+
 const stageLabels: Record<CohortStage, string> = {
   announcement: "Анонс: без оплаты, глава 1 бесплатно",
   preorder: "Предзаказ до старта",
@@ -32,7 +40,7 @@ const stageLabels: Record<CohortStage, string> = {
 
 export interface CohortSectionProps {
   /** `null` — потоки прочитать не удалось; без текущей редакции сохранение получило бы конфликт. */
-  readonly cohorts: readonly GuideCohort[] | null;
+  readonly cohorts: readonly ProductCohort[] | null;
   readonly content?:
     z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
   readonly pending: boolean;
@@ -42,8 +50,9 @@ export interface CohortSectionProps {
 /**
  * Текущий поток продукта: этап продаж, название, дата старта и событие между потоками. Страница
  * курса показывает их со следующего запроса. Этап не включает продажу: кнопка оплаты появляется,
- * только пока у предложения продукта включена продажа. Новая цена после старта — архив
- * предложения потока и публикация следующего; купленные права не меняются.
+ * только пока у предложения продукта включена продажа. Цена после старта только показывается
+ * зачёркнутой рядом с ценой предзаказа: списание идёт по цене предложения, и в день старта
+ * владелец меняет её в предложении сам. Купленные права не меняются.
  */
 export function CohortSection({
   cohorts,
@@ -52,10 +61,12 @@ export function CohortSection({
   onSaveCohort,
 }: CohortSectionProps) {
   const [editingId, setEditingId] = useState("");
-  const editing = cohorts?.find((cohort) => cohort.guideId === editingId);
-  const guides = content.filter((item) => item.kind === "guide");
-  const guideName = (guideId: string) =>
-    guides.find((item) => item.id === guideId)?.title ?? guideId;
+  const [priceError, setPriceError] = useState<string>();
+  const priceErrorId = useId();
+  const editing = cohorts?.find((cohort) => cohort.productId === editingId);
+  const products = content.filter((item) => item.kind === "product");
+  const productName = (productId: string) =>
+    products.find((item) => item.id === productId)?.title ?? productId;
   return (
     <AdminSection
       description="Этап, название и дата потока видны на странице продукта сразу после сохранения. Анонс никогда не принимает оплату; на остальных этапах кнопка оплаты видна, только пока предложение продукта в продаже."
@@ -73,18 +84,23 @@ export function CohortSection({
           {cohorts.map((cohort) => (
             <li
               className="flex flex-wrap items-center justify-between gap-2"
-              key={cohort.guideId}
+              key={cohort.productId}
             >
               <span className="[overflow-wrap:anywhere]">
-                {guideName(cohort.guideId)} · {cohort.name} ·{" "}
+                {productName(cohort.productId)} · {cohort.name} ·{" "}
                 {stageLabels[cohort.stage]}
                 {cohort.startsOn === null ? "" : ` · старт ${cohort.startsOn}`}
-                {cohort.nextEvent === "" ? "" : ` · ${cohort.nextEvent}`} · r
+                {cohort.nextEvent === "" ? "" : ` · ${cohort.nextEvent}`}
+                {cohort.priceAfterStartKopecks === null
+                  ? ""
+                  : ` · после старта ${formatKopecks(cohort.priceAfterStartKopecks)}`}
+                {" · r"}
                 {cohort.revision}
               </span>
               <Button
                 onClick={() => {
-                  setEditingId(cohort.guideId);
+                  setEditingId(cohort.productId);
+                  setPriceError(undefined);
                 }}
                 variant="outline"
               >
@@ -98,30 +114,41 @@ export function CohortSection({
         className="grid gap-4"
         key={`${editingId}:${String(editing?.revision ?? 0)}`}
         onSubmit={onAdminSubmit((form) => {
+          const price = parseRublesToKopecks(
+            formText(form.get("cohortPriceAfterStart")),
+          );
+          if (!price.ok) {
+            setPriceError(priceAfterStartError);
+            return;
+          }
+          setPriceError(undefined);
           const revision = optionalFormNumber(form.get("cohortRevision"));
           onSaveCohort({
             ...(revision === undefined ? {} : { expectedRevision: revision }),
             value: {
-              guideId: formText(form.get("cohortGuide")),
+              productId: formText(form.get("cohortProduct")),
               name: formText(form.get("cohortName")),
               stage: cohortStageSchema
                 .catch("announcement")
                 .parse(formText(form.get("cohortStage"))),
               startsOn: optionalFormText(form.get("cohortStartsOn")) ?? null,
               nextEvent: formText(form.get("cohortNextEvent")),
+              priceAfterStartKopecks: price.kopecks,
             },
           });
         })}
       >
         <AdminSelect
           label="Продукт"
-          name="cohortGuide"
-          options={guides.map((item) => ({
+          name="cohortProduct"
+          options={products.map((item) => ({
             value: item.id,
             label: item.title,
           }))}
           placeholder="Выберите продукт"
-          {...(editing === undefined ? {} : { defaultValue: editing.guideId })}
+          {...(editing === undefined
+            ? {}
+            : { defaultValue: editing.productId })}
         />
         <AdminField
           defaultValue={editing?.name}
@@ -154,6 +181,28 @@ export function CohortSection({
           maxLength={200}
           name="cohortNextEvent"
         />
+        <AdminField
+          aria-describedby={priceError === undefined ? undefined : priceErrorId}
+          aria-invalid={priceError !== undefined}
+          defaultValue={
+            editing === undefined || editing.priceAfterStartKopecks === null
+              ? undefined
+              : kopecksToRublesText(editing.priceAfterStartKopecks)
+          }
+          hint="Страница курса покажет её зачёркнутой рядом с ценой предзаказа. Списание идёт по цене предложения: в день старта поменяйте её там. Пусто — не показывать."
+          inputMode="decimal"
+          label="Цена после старта, ₽"
+          name="cohortPriceAfterStart"
+        />
+        {priceError === undefined ? null : (
+          <p
+            className="text-sm text-destructive"
+            id={priceErrorId}
+            role="alert"
+          >
+            {priceError}
+          </p>
+        )}
         <AdminField
           defaultValue={editing?.revision}
           hint="Пусто — первый поток этого продукта."

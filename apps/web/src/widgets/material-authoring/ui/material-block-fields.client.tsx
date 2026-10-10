@@ -8,10 +8,10 @@ import {
   type CalloutTone,
 } from "@/entities/material";
 import {
-  guideModeLabels,
-  guideModes,
-  type GuideMode,
-} from "@/shared/guide-mode";
+  productModeLabels,
+  productModes,
+  type ProductMode,
+} from "@/shared/product-mode";
 
 import { variantUnderCursor } from "../model/variant-branch";
 import { Button } from "@/shared/ui/button";
@@ -28,7 +28,7 @@ type BlockFieldsState =
     }
   | { readonly kind: "takeaways"; readonly title: string }
   | {
-      readonly branchMode: GuideMode;
+      readonly branchMode: ProductMode;
       readonly branches: number;
       readonly kind: "variant";
     }
@@ -43,7 +43,7 @@ function blockFieldsState(editor: Editor): BlockFieldsState {
     return { kind: "callout", title: blockTitle(editor, "callout"), tone };
   if (editor.isActive("takeaways"))
     return { kind: "takeaways", title: blockTitle(editor, "takeaways") };
-  const branchMode = guideModes.find((mode) =>
+  const branchMode = productModes.find((mode) =>
     editor.isActive("variantOption", { mode }),
   );
   if (branchMode !== undefined)
@@ -105,8 +105,8 @@ function BlockTitleField({
  */
 function selectBranchMode(
   editor: Editor,
-  mode: GuideMode,
-  currentMode: GuideMode,
+  mode: ProductMode,
+  currentMode: ProductMode,
 ): void {
   const variant = variantUnderCursor(editor.state);
   const occupied = variant?.branchPositions.find((position) => {
@@ -137,12 +137,12 @@ function VariantFields({
   disabled,
   editor,
 }: {
-  readonly branchMode: GuideMode;
+  readonly branchMode: ProductMode;
   readonly branches: number;
   readonly disabled: boolean;
   readonly editor: Editor;
 }) {
-  const missing = guideModes.find((mode) => mode !== branchMode);
+  const missing = productModes.find((mode) => mode !== branchMode);
 
   return (
     <div
@@ -150,9 +150,9 @@ function VariantFields({
       className="mr-auto flex min-w-0 flex-wrap items-center gap-1"
       role="toolbar"
     >
-      {guideModes.map((mode) => (
+      {productModes.map((mode) => (
         <Button
-          aria-label={`Режим ветки: ${guideModeLabels[mode]}`}
+          aria-label={`Режим ветки: ${productModeLabels[mode]}`}
           aria-pressed={mode === branchMode}
           disabled={disabled}
           key={mode}
@@ -166,7 +166,7 @@ function VariantFields({
           type="button"
           variant={mode === branchMode ? "secondary" : "ghost"}
         >
-          {guideModeLabels[mode]}
+          {productModeLabels[mode]}
         </Button>
       ))}
       {branches > 1 || missing === undefined ? null : (
@@ -188,7 +188,7 @@ function VariantFields({
           type="button"
           variant="secondary"
         >
-          Добавить «{guideModeLabels[missing]}»
+          Добавить «{productModeLabels[missing]}»
         </Button>
       )}
       {branches < 2 ? null : (

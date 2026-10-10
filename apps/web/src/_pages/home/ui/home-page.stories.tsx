@@ -15,7 +15,7 @@ import { aiEngineeringCoursePage } from "@/storybook/ai-engineering-course.fixtu
 import {
   aiFirstProductPage,
   aiFirstProductSummary,
-} from "@/storybook/guide-page.fixtures";
+} from "@/storybook/product-page.fixtures";
 import {
   illustratedHome,
   illustratedPinnedHome,
@@ -114,7 +114,7 @@ const mobile: StoryViewport = {
   width: 390,
 };
 const aiFirstPin = {
-  id: "ai-first-guide",
+  id: "ai-first-product",
   cover: null,
   previewItems: [],
   slug: "working-with-agents",
@@ -173,14 +173,17 @@ export const RealDataReady: Story = {
     await expect(canvas.queryByText("База знаний")).not.toBeInTheDocument();
   },
 };
-/** Search on its own row; formats and topics are one chip row, and a second press clears a topic. */
+/**
+ * Поиска на Главной пока нет (решение владельца 09.10.2026): форматы и темы — один ряд чипов,
+ * повторное нажатие снимает тему.
+ */
 export const FeedFilters: Story = {
   args: { result: { kind: "ready", value: home }, feed: feed() },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      await canvas.findByRole("searchbox", { name: "Поиск по материалам" }),
-    ).toBeVisible();
+      canvas.queryByRole("searchbox", { name: "Поиск по материалам" }),
+    ).not.toBeInTheDocument();
     const topics = within(await canvas.findByRole("group", { name: "Тема" }));
     const agents = topics.getByRole("button", { name: "AI-агенты" });
     await expect(
@@ -258,21 +261,21 @@ export const Unavailable: Story = {
     ).toBeVisible();
   },
 };
-export const NoPinnedGuide: Story = {
+export const NoPinnedProduct: Story = {
   args: {
     result: { kind: "ready", value: { ...home, pinnedSeries: null } },
     feed: feed(),
   },
 };
 
-export const AiFirstGuide: Story = {
+export const AiFirstProduct: Story = {
   args: {
     result: { kind: "ready", value: { ...home, pinnedSeries: aiFirstPin } },
     feed: feed(),
   },
 };
-export const AiFirstGuideMobile: Story = {
-  ...AiFirstGuide,
+export const AiFirstProductMobile: Story = {
+  ...AiFirstProduct,
   globals: mobile.globals,
 };
 
@@ -287,7 +290,7 @@ export const AiEngineeringCourse: Story = {
   globals: desktop.globals,
   play: async ({ canvasElement }) => {
     const card = canvasElement.querySelector<HTMLElement>(
-      '[data-guide-presentation="ai-engineering-course"]',
+      '[data-product-presentation="ai-engineering-course"]',
     );
     if (card === null) throw new Error("Карточка курса не отрисована");
     await expect(
@@ -362,7 +365,7 @@ function measureFirstScreen(canvasElement: HTMLElement): FirstScreen {
   if (materials == null || toolbar == null || firstRow == null)
     throw new Error("Первый экран главной отрисован не полностью");
   const featured = frame
-    ?.querySelector(":scope > .home-guide")
+    ?.querySelector(":scope > .home-product")
     ?.getBoundingClientRect();
   const toolbarBox = toolbar.getBoundingClientRect();
   return {
@@ -437,19 +440,19 @@ function loadsInPlace({
   };
 }
 
-export const NoPinnedGuideLoadsInPlace: Story = {
-  args: NoPinnedGuide.args,
+export const NoPinnedProductLoadsInPlace: Story = {
+  args: NoPinnedProduct.args,
   ...loadsInPlace(desktop),
 };
-export const NoPinnedGuideLoadsInPlaceMobile: Story = {
-  args: NoPinnedGuide.args,
+export const NoPinnedProductLoadsInPlaceMobile: Story = {
+  args: NoPinnedProduct.args,
   ...loadsInPlace(mobile),
 };
-export const AiFirstGuideLoadsInPlace: Story = {
-  args: AiFirstGuide.args,
+export const AiFirstProductLoadsInPlace: Story = {
+  args: AiFirstProduct.args,
   ...loadsInPlace(desktop),
 };
-export const AiFirstGuideLoadsInPlaceMobile: Story = {
-  args: AiFirstGuide.args,
+export const AiFirstProductLoadsInPlaceMobile: Story = {
+  args: AiFirstProduct.args,
   ...loadsInPlace(mobile),
 };

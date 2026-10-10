@@ -23,8 +23,8 @@ declare const readingPrisma: ReadingActivityPrismaClient;
 await readingPrisma.material.count();
 await materialsPrisma.readingMaterialState.count();
 
-import type { MembershipEntitlementsPrismaClient } from "../../../../src/modules/membership-entitlements/infrastructure/prisma.js";
-declare const entitlementsPrisma: MembershipEntitlementsPrismaClient;
+import type { AccountRightsPrismaClient } from "../../../../src/modules/account-rights/infrastructure/prisma.js";
+declare const entitlementsPrisma: AccountRightsPrismaClient;
 await accountsPrisma.accessGrant.count();
 await materialsPrisma.legacyClassification.count();
 await entitlementsPrisma.account.count();

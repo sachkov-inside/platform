@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -8,8 +10,7 @@ import {
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import {
   TelegramAccountSignIn,
   type TelegramSignInProvider,
@@ -32,6 +33,8 @@ import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";
 
+registerFixedClock();
+
 let database: TestDatabase;
 let terms: LegalAcceptances;
 const termsText = "Synthetic terms of use 883, not legal terms";
@@ -46,6 +49,7 @@ function termsJournal(prisma: TestDatabase["prisma"]) {
   return new LegalAcceptances({
     prisma,
     terms: termsEdition,
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     now: () => new Date(),
   });
 }
@@ -128,18 +132,15 @@ test("a lost provider response retains one Account and principal, and a fresh pr
       );
     },
   };
-  const membershipEntitlements = assembleMembershipEntitlements({
+  const accountRights = assembleAccountRights({
     prisma: database.prisma,
-    workshopEntitlements: assembleWorkshopEntitlements({
-      prisma: database.prisma,
-    }),
   });
   const signIn = new TelegramAccountSignIn({
     terms,
     accounts,
     prisma: database.prisma,
     provider,
-    membershipEntitlements,
+    accountRights,
   });
   const first = proof("telegram-timeout");
   const established = await accounts.establishAccount({
@@ -167,7 +168,9 @@ test("a lost provider response retains one Account and principal, and a fresh pr
   await database.prisma.telegramLinkTransaction.update({
     where: { principalRef },
     data: {
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(Date.now() - 301000),
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() - 1000),
     },
   });
@@ -213,11 +216,8 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     accounts,
     prisma: database.prisma,
     provider,
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
   });
   const signedIn = proof("telegram-before-terms");
@@ -254,7 +254,9 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   await database.prisma.telegramLinkTransaction.update({
     where: { linkRef: pending.linkRef },
     data: {
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(Date.now() - 301000),
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() - 1000),
       status: "expired",
       // v10 left this field empty; the verified original request is still linkRef.
@@ -269,18 +271,18 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
       returnCorrelation: randomUUID(),
       tokenDigest: randomUUID(),
       status: "recovery_required",
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       createdAt: new Date(),
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       updatedAt: new Date(),
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       expiresAt: new Date(Date.now() + 300000),
     },
   });
   const membership = assembleTelegramMembership({
     prisma: database.prisma,
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
     botStartUrl: "https://t.me/inside_test_bot",
     linkLifetimeMs: 300000,
@@ -343,11 +345,8 @@ test.each(["identity", "correlation"] as const)(
         bindAccount: () =>
           Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
       },
-      membershipEntitlements: assembleMembershipEntitlements({
+      accountRights: assembleAccountRights({
         prisma: database.prisma,
-        workshopEntitlements: assembleWorkshopEntitlements({
-          prisma: database.prisma,
-        }),
       }),
     });
     const first = await signIn.complete(
@@ -391,17 +390,14 @@ test.each([
       prisma: database.prisma,
       emailFingerprintKey: fingerprintKey,
     });
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const accountRights = assembleAccountRights({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     const telegramIdentityRef = randomUUID();
     const signIn = new TelegramAccountSignIn({
       accounts,
       prisma: database.prisma,
-      membershipEntitlements,
+      accountRights,
       terms,
       provider: {
         bindAccount: () =>
@@ -418,7 +414,9 @@ test.each([
     await database.prisma.telegramLinkTransaction.update({
       where: { linkRef: receipt.linkRef },
       data: {
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         createdAt: new Date(Date.now() - 301000),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         expiresAt: new Date(Date.now() - 1000),
         status: "expired",
         providerTransactionRef: null,
@@ -427,7 +425,7 @@ test.each([
     let currentOutcome = outcome;
     const membership = assembleTelegramMembership({
       prisma: database.prisma,
-      membershipEntitlements,
+      accountRights,
       botStartUrl: "https://t.me/inside_test_bot",
       linkLifetimeMs: 300000,
       provider: {
@@ -517,11 +515,8 @@ test("current-account resume uses normal identity authentication and refuses bef
           telegramIdentityRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
         }),
     },
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
   });
   const first = await signIn.complete(signedIn.identity);
@@ -587,9 +582,8 @@ test.each(["resume", "confirm"] as const)(
     try {
       await withExhaustedPool(rollbackDatabase, async (prisma) => {
         const journal = termsJournal(prisma);
-        const membershipEntitlements = assembleMembershipEntitlements({
+        const accountRights = assembleAccountRights({
           prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
         });
         const signIn = new TelegramAccountSignIn({
           prisma,
@@ -598,7 +592,7 @@ test.each(["resume", "confirm"] as const)(
             prisma,
             emailFingerprintKey: fingerprintKey,
           }),
-          membershipEntitlements,
+          accountRights,
           provider: {
             bindAccount: () =>
               Promise.resolve({
@@ -620,7 +614,7 @@ test.each(["resume", "confirm"] as const)(
           throw new Error("Missing confirmed provider receipt");
         const membership = assembleTelegramMembership({
           prisma,
-          membershipEntitlements,
+          accountRights,
           botStartUrl: "https://t.me/inside_test_bot",
           linkLifetimeMs: 300000,
           provider: {

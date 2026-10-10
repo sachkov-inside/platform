@@ -189,12 +189,12 @@ describe("Topic and Playlist authoring", () => {
     );
   });
 
-  test("writes the Guide introduction, preserves it on an ordinary edit and refuses it on a Topic", async () => {
+  test("writes the Product introduction, preserves it on an ordinary edit and refuses it on a Topic", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => true },
     });
-    const guide = await authoring.createContentCollection({
+    const product = await authoring.createContentCollection({
       actor,
       kind: "series",
       name: "Releases",
@@ -208,8 +208,8 @@ describe("Topic and Playlist authoring", () => {
       slug: "delivery",
       summary: "",
     });
-    if (!guide.ok || !topic.ok) throw new Error("Expected collections");
-    expect(guide.value.introduction).toEqual({
+    if (!product.ok || !topic.ok) throw new Error("Expected collections");
+    expect(product.value.introduction).toEqual({
       audience: "",
       outcome: "",
       prerequisites: "",
@@ -225,12 +225,12 @@ describe("Topic and Playlist authoring", () => {
     };
     const written = await authoring.updateContentCollection({
       actor,
-      collectionId: guide.value.id,
-      expectedVersion: guide.value.version,
+      collectionId: product.value.id,
+      expectedVersion: product.value.version,
       introduction,
       kind: "series",
-      name: guide.value.name,
-      summary: guide.value.summary,
+      name: product.value.name,
+      summary: product.value.summary,
     });
     if (!written.ok) throw new Error(written.error.code);
     expect(written.value.introduction).toEqual(introduction);
@@ -238,11 +238,11 @@ describe("Topic and Playlist authoring", () => {
     // An edit that does not carry the introduction keeps the authored text.
     const renamed = await authoring.updateContentCollection({
       actor,
-      collectionId: guide.value.id,
+      collectionId: product.value.id,
       expectedVersion: written.value.version,
       kind: "series",
       name: "Инфраструктура, релизы и продакшен",
-      summary: guide.value.summary,
+      summary: product.value.summary,
     });
     if (!renamed.ok) throw new Error(renamed.error.code);
     expect(renamed.value.introduction).toEqual(introduction);
@@ -251,12 +251,12 @@ describe("Topic and Playlist authoring", () => {
     await expect(
       authoring.updateContentCollection({
         actor,
-        collectionId: guide.value.id,
+        collectionId: product.value.id,
         expectedVersion: written.value.version,
         introduction,
         kind: "series",
         name: renamed.value.name,
-        summary: guide.value.summary,
+        summary: product.value.summary,
       }),
     ).resolves.toEqual(renamed);
 

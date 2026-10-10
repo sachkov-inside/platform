@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 
-import { NestFactory } from "@nestjs/core";
+import { Test } from "@nestjs/testing";
 import type { INestApplicationContext } from "@nestjs/common";
 
 import { AppModule } from "../../src/app.module.js";
@@ -22,7 +22,7 @@ import {
   type DispatchAuthorizationResponse,
   type DispatchDenialReason,
 } from "../../src/modules/community/community-contract.js";
-import fixtures from "../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/billing-v1/fixtures.json" with { type: "json" };
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
@@ -33,6 +33,7 @@ import {
 } from "../support/community-binding.js";
 import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
+import { CLOCK, type Clock } from "../../src/shared/clock.js";
 
 const CHAT = "-1000000000000";
 const db = createDatabase(required(process.env["DATABASE_URL"]));
@@ -57,6 +58,7 @@ const authorization = {
 
 function allow(
   request: DispatchAuthorizationRequest,
+  permitClock: Clock = clock,
 ): DispatchAuthorizationResponse {
   return {
     contractVersion: "inside.billing-dispatch.v1",
@@ -67,7 +69,7 @@ function allow(
     decision: {
       status: "allowed",
       permitRef: randomUUID(),
-      validUntil: new Date(clock.now().getTime() + 5000).toISOString(),
+      validUntil: new Date(permitClock.now().getTime() + 5000).toISOString(),
     },
   };
 }
@@ -233,6 +235,88 @@ afterAll(async () => {
 });
 
 describe("community entitlement inbox", () => {
+  it("preserves a legacy lowercase date-time through set, ledger update and replay", async () => {
+    const who = subject();
+    const grant = command("finite-community-grant", who, {
+      access: { kind: "finite", validUntil: "2030-02-01t00:00:00z" },
+    });
+    expect(parseCommunityRequest(grant).kind).toBe("set");
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const app = provider(who);
+    expect(resultOf(await app.handle(grant)).access).toEqual(grant.access);
+    await app.processDueEffects();
+    expect(resultOf(await app.handle(grant))).toMatchObject({
+      access: grant.access,
+      status: "waiting_for_join",
+    });
+  });
+
+  it("v2 member results carry a group URL on set, status and replay", async () => {
+    const who = subject();
+    chat.membership = "member";
+    const app = new CommunityProvider(
+      db,
+      who.bot,
+      "-1001234567890",
+      clock,
+      authorization,
+      chat,
+      {
+        contractVersion: "inside.community-entitlement.v2",
+      },
+    );
+    const grant = command("lifetime-community-grant", who, {
+      contractVersion: "inside.community-entitlement.v2",
+    });
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    expect(resultOf(await app.handle(grant)).groupUrl).toBeUndefined();
+    await app.processDueEffects();
+    const status = {
+      contractVersion: "inside.community-entitlement.v2",
+      operation: "entitlement.status",
+      operationId: grant.operationId,
+    };
+    expect(resultOf(await app.handle(status))).toMatchObject({
+      observedMembership: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    expect(resultOf(await app.handle(grant))).toMatchObject({
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    expect(
+      resultOf(await app.handle({ ...grant, operationId: randomUUID() })),
+    ).toMatchObject({
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    const ordinaryGroup = new CommunityProvider(
+      db,
+      who.bot,
+      "-12345",
+      clock,
+      authorization,
+      chat,
+      {
+        contractVersion: "inside.community-entitlement.v2",
+      },
+    );
+    expect(
+      resultOf(await ordinaryGroup.handle(status)).groupUrl,
+    ).toBeUndefined();
+    expect(chat.calls).toEqual([]);
+  });
+
   it("keeps a revoke in force when the old grant is replayed", async () => {
     const who = subject();
     const grant = command("finite-community-grant", who);
@@ -1204,6 +1288,7 @@ describe("handing the link over in the private chat", () => {
       welcome: "Synthetic community welcome",
     },
     membershipCheckRetentionDays: 90,
+    salesFunnelEventRetentionDays: 30,
     membershipMode: "disabled",
     membershipReconciliationCadenceMilliseconds: 240_000,
     platformIntegrationSecret: "synthetic_platform_secret",
@@ -1213,19 +1298,30 @@ describe("handing the link over in the private chat", () => {
     workersEnabled: false,
   });
 
-  /** Drives one subject to a stored, still-live link on the real clock. */
-  async function waitingWithLink(who: Subject): Promise<void> {
-    clock.value = new Date();
+  /** Drives one subject to a stored, still-live link on the handoff case's fixed clock. */
+  async function waitingWithLink(
+    who: Subject,
+    caseClock: Clock,
+  ): Promise<void> {
     const grant = command("finite-community-grant", who);
     await seedCommunityBinding(
       db,
       grant.binding,
-      clock.now(),
+      caseClock.now(),
       who.user,
       who.bot,
     );
-    await provider(who).handle(grant);
-    await drain(who);
+    const producer = new CommunityProvider(
+      db,
+      who.bot,
+      CHAT,
+      caseClock,
+      { authorize: (request) => Promise.resolve(allow(request, caseClock)) },
+      new FakeCommunityChat(),
+      { reconciliationCadenceMs: 60_000 },
+    );
+    await producer.handle(grant);
+    for (let cycle = 0; cycle < 8; cycle++) await producer.processDueEffects();
   }
 
   async function ask(
@@ -1252,13 +1348,17 @@ describe("handing the link over in the private chat", () => {
 
   it("delivers the stored link to the contact who asked for it", async () => {
     const who = { ...subject(), bot: "inside-handoff-live" };
+    const caseClock: Clock = { now: () => new Date("2026-09-08T09:00:00Z") };
     const config = appConfig("live", who.bot);
-    const context = await NestFactory.createApplicationContext(
-      AppModule.register(config),
-      { logger: false },
-    );
+    const context = await Test.createTestingModule({
+      imports: [AppModule.register(config)],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(caseClock)
+      .compile();
     try {
-      await waitingWithLink(who);
+      await context.init();
+      await waitingWithLink(who, caseClock);
 
       await ask(context, config, who, 8101);
 
@@ -1277,13 +1377,17 @@ describe("handing the link over in the private chat", () => {
 
   it("stays silent while community effects are disabled", async () => {
     const who = { ...subject(), bot: "inside-handoff-off" };
+    const caseClock: Clock = { now: () => new Date("2026-09-08T09:00:00Z") };
     const config = appConfig("disabled", who.bot);
-    const context = await NestFactory.createApplicationContext(
-      AppModule.register(config),
-      { logger: false },
-    );
+    const context = await Test.createTestingModule({
+      imports: [AppModule.register(config)],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(caseClock)
+      .compile();
     try {
-      await waitingWithLink(who);
+      await context.init();
+      await waitingWithLink(who, caseClock);
 
       await ask(context, config, who, 8102);
 

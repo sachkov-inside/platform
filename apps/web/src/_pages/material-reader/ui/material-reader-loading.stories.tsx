@@ -8,7 +8,7 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guidePurchaseHref } from "@/shared/routing/subscription-route";
+import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import {
   boxOf,
   desktop,
@@ -34,7 +34,7 @@ import { MaterialReaderView } from "./material-reader-view";
 const material = {
   materialId: "02000000-0000-4000-8000-000000000670",
   contentVersion: 1,
-  access: "membership",
+  access: "closed",
   cover: null,
   format: { name: "Гайд", slug: "guide" },
   difficulty: "basic",
@@ -150,8 +150,8 @@ function PersonalPart({
   ) : (
     <MaterialReaderAccess
       invitation={{
-        href: guidePurchaseHref("platform-inside"),
-        kind: "guide",
+        href: productPurchaseHref("platform-inside"),
+        kind: "product",
       }}
       material={material}
       returnTarget={returnTarget}

@@ -41,7 +41,7 @@ export function handleListSubscriptionTiers(
     ),
   );
 }
-export function handleReadSubscriptionEnrollments(
+export function handleReadTariffAssignments(
   request: Request,
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, (form, accessToken) =>
@@ -57,7 +57,7 @@ export function handleReadSubscriptionEnrollments(
     ),
   );
 }
-export function handleAssignSubscriptionEnrollment(
+export function handleAssignTariffAssignment(
   request: Request,
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, (form, accessToken) =>
@@ -79,7 +79,7 @@ export function handleAssignSubscriptionEnrollment(
     ),
   );
 }
-export function handleChangeSubscriptionEnrollment(
+export function handleChangeTariffAssignment(
   request: Request,
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, (form, accessToken) =>

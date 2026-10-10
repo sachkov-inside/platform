@@ -33,10 +33,14 @@ A pull request that adds or changes a surface updates its stories in the same pu
 
 Every route under `apps/web/app` has a page story, except:
 
-| Route                                                               | Reason                                                                                                                                                                |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/authoring/communications`, `/authoring/communications/broadcasts` | The layout answers 404 since #419: broadcasts and funnels moved to the Telegram bot (#396).                                                                           |
-| `/authoring/playlists`, `/authoring/playlists/[seriesId]`           | The same modules as `/authoring/guides` and its editor, whose route files re-export them; the stories use the `/authoring/guides` addresses that production links to. |
+| Route                                                               | Reason                                                                                                                                                                                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/authoring/communications`, `/authoring/communications/broadcasts` | The layout answers 404 since #419: broadcasts and funnels moved to the Telegram bot (#396).                                                                                                                        |
+| `/authoring/playlists`, `/authoring/playlists/[seriesId]`           | Legacy route aliases share `src/_pages/content-collections`, the owner of this surface, with `/authoring/products` and `/authoring/products/[seriesId]`. Production links and page stories use the Product routes. |
+
+`/payment/checkout` resolves an Offer and redirects to `/products/<slug>/buy`.
+Its guest sign-in and signed-in denied states are shown in `Pages/Payment/Checkout`;
+the redirect itself has no rendered page.
 
 ## Agent workflow
 

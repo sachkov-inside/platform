@@ -5,11 +5,7 @@ import {
   BackendConnectionError,
   requestSalesFunnelReport,
 } from "@/shared/api/backend/index.server";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import {
   presentSalesFunnelReport,
@@ -28,7 +24,7 @@ export type SalesFunnelReportOutcome =
 export interface SalesFunnelReportParams {
   readonly from?: string;
   readonly to?: string;
-  readonly guideId?: string;
+  readonly productId?: string;
   readonly chapterId?: string;
 }
 
@@ -50,17 +46,16 @@ type Attempt =
 export async function loadSalesFunnelReport(
   params: SalesFunnelReportParams,
 ): Promise<SalesFunnelReportOutcome> {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError)
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required")
       return { kind: "unauthorized" };
-    throw error;
+    throw new Error("Identity session is unavailable");
   }
+  const accessToken = session.value;
   const period = readReportPeriod(params, new Date());
   const read = async (selection: {
-    readonly guideId?: string;
+    readonly productId?: string;
     readonly chapterId?: string;
   }): Promise<Attempt> => {
     let result;
@@ -86,26 +81,26 @@ export async function loadSalesFunnelReport(
       : { ok: false, status: 502, code: null };
   };
 
-  const guideId = idSchema.safeParse(params.guideId).data;
+  const productId = idSchema.safeParse(params.productId).data;
   const chapterId =
-    guideId === undefined
+    productId === undefined
       ? undefined
       : idSchema.safeParse(params.chapterId).data;
   let attempt = await read({
-    ...(guideId === undefined ? {} : { guideId }),
+    ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
   });
   if (
     !attempt.ok &&
     attempt.code === "chapter_not_found" &&
-    guideId !== undefined
+    productId !== undefined
   )
-    attempt = await read({ guideId });
-  if (!attempt.ok && attempt.code === "guide_not_found")
+    attempt = await read({ productId });
+  if (!attempt.ok && attempt.code === "product_not_found")
     attempt = await read({});
   if (attempt.ok && attempt.report.selection === null) {
-    const first = attempt.report.guides[0];
-    if (first !== undefined) attempt = await read({ guideId: first.id });
+    const first = attempt.report.products[0];
+    if (first !== undefined) attempt = await read({ productId: first.id });
   }
   if (!attempt.ok) {
     if (attempt.status === 401) return { kind: "unauthorized" };

@@ -40,7 +40,7 @@ describe("таблица сценариев доступа", () => {
       "missing cell support/one-time-purchase",
       "unknown cell support/gift-certificate",
       "cell mcp/guest is not applicable without a reason",
-      "missing transition guide-archived",
+      "missing transition product-archived",
       "missing publication scenario standalone-membership-publication-rejected",
       "missing purchase scenario offer-own-terms",
       "purchase scenario subscription-offer-without-tribute-ground sells an Offer it does not list",

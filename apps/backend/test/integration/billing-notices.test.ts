@@ -1,3 +1,8 @@
+import {
+  prepareInvitedQuote,
+  seedPurchaseInvitation,
+} from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -6,13 +11,13 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   assembleBillingNotificationOutbox,
   BillingNotices,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import {
@@ -36,6 +41,7 @@ import {
   syntheticConsentDocuments,
   type RenewalSource,
 } from "./setup/consent-documents.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
@@ -100,7 +106,7 @@ describe("служебные сообщения подписки (реальны
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -188,7 +194,7 @@ describe("служебные сообщения подписки (реальны
           id: offerId,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -381,11 +387,14 @@ describe("служебные сообщения подписки (реальны
     }
     async function buy() {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       const purchase = value(
         await payments.purchase(buyer, {
@@ -429,7 +438,7 @@ describe("служебные сообщения подписки (реальны
             id: nextOfferId,
             name,
             benefits: [...benefits],
-            contentScope: { guideIds: [randomUUID()], materialIds: [] },
+            coverage: { productIds: [randomUUID()], materialIds: [] },
           },
         }),
       );
@@ -453,6 +462,7 @@ describe("служебные сообщения подписки (реальны
           id: nextOfferId,
         }),
       );
+      await seedPurchaseInvitation(db.prisma, buyer, nextOfferId);
       return nextOptionId;
     }
     const cabinet = async () => value(await subscriptions.read(buyer));
@@ -855,56 +865,152 @@ describe("служебные сообщения подписки (реальны
 
   // ------------------------------------------------------------- неоплаченный доступ (#909)
 
-  /** Ручное назначение тарифа: тот же путь, что у подарка по приглашению, — Enrollment с концом. */
+  /** Историческое конечное назначение: новые назначения с #1064 бессрочные. */
   async function assignManual(
     accountId: string,
     startsAt: string,
     endsAt: string | null,
     tierId: string = randomUUID(),
   ) {
-    const assigned = await grants.assignEnrollment(
-      owner,
-      {
-        operationId: randomUUID(),
+    const snapshot = {
+      id: tierId,
+      revision: 1,
+      name: "Исторический срок: материалы",
+      benefits: ["materials", "community"],
+      coverage: { productIds: [randomUUID()], materialIds: [] },
+    };
+    const id = randomUUID();
+    await db.prisma.tariffAssignment.create({
+      data: {
+        id,
         accountId,
-        origin: "manual",
-        sourceRef: `manual-${randomUUID()}`,
         tierId,
         tierRevision: 1,
-        terms: { startsAt, endsAt, endPolicy: "fixed" },
-        billingRef: null,
-        reason: "Ручное назначение для проверки окончания",
-      },
-      {
-        id: tierId,
+        snapshot,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        startsAt: new Date(startsAt),
+        endsAt: endsAt === null ? null : new Date(endsAt),
+        endPolicy: "fixed",
         revision: 1,
-        name: "Подарок: материалы",
-        benefits: ["materials", "community"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        reason: "Historical finite fixture",
       },
-    );
-    if (!assigned.ok) throw new Error(assigned.error.code);
-    return assigned.value;
+    });
+    await db.prisma.accessGrant.create({
+      data: {
+        id: randomUUID(),
+        accountId,
+        enrollmentId: id,
+        source: "manual",
+        sourceRef: `enrollment:${id}`,
+        capabilities: snapshot.benefits,
+        coverage: snapshot.coverage,
+        startsAt: new Date(startsAt),
+        validUntil: endsAt === null ? null : new Date(endsAt),
+        revision: 1,
+        reason: "Historical finite fixture",
+      },
+    });
+    const result = await grants.listEnrollments(owner, accountId);
+    if (!result.ok) throw new Error(result.error.code);
+    const enrollment = result.value.find((row) => row.id === id);
+    if (enrollment === undefined) throw new Error("Historical fixture missing");
+    return enrollment;
   }
   async function moveEnd(
-    enrollment: { id: string; revision: number; startsAt: string },
+    enrollment: { id: string; revision: number },
     endsAt: string,
   ) {
-    const changed = await grants.changeEnrollment(owner, {
-      operationId: randomUUID(),
-      enrollmentId: enrollment.id,
-      expectedRevision: enrollment.revision,
-      action: "change_term",
-      terms: { startsAt: enrollment.startsAt, endsAt, endPolicy: "fixed" },
-      reason: "Перенос срока",
+    // Seed an externally changed historical period to test the notification boundary.
+    await db.prisma.tariffAssignment.update({
+      where: { id: enrollment.id },
+      data: { endsAt: new Date(endsAt), revision: { increment: 1 } },
     });
-    if (!changed.ok) throw new Error(changed.error.code);
-    return changed.value;
+    await db.prisma.accessGrant.updateMany({
+      where: { enrollmentId: enrollment.id },
+      data: { validUntil: new Date(endsAt), revision: { increment: 1 } },
+    });
   }
+
   const endingSubject = "Доступ Inside скоро закончится";
   const endedSubject = "Доступ Inside закончился";
 
-  test("ручной доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
+  test("календарь окончания Enrollment завершает пробег на одном соединении без повторных поводов", async () => {
+    const isolated = await createMigratedTestDatabase();
+    let calendarNow = new Date("2031-03-07T00:00:00Z");
+    const accountId = randomUUID();
+    const tierId = randomUUID();
+    try {
+      await isolated.prisma.account.create({
+        data: {
+          id: accountId,
+          logtoIssuer: "https://identity.example.test",
+          logtoSubject: accountId,
+        },
+      });
+      await isolated.prisma.tariffAssignment.create({
+        data: {
+          id: randomUUID(),
+          accountId,
+          tierId,
+          tierRevision: 1,
+          snapshot: {
+            id: tierId,
+            revision: 1,
+            name: "Исторический срок: материалы",
+            benefits: ["materials"],
+            coverage: { productIds: [randomUUID()], materialIds: [] },
+          },
+          origin: "manual",
+          sourceRef: randomUUID(),
+          startsAt: new Date("2031-01-01T00:00:00Z"),
+          endsAt: new Date("2031-03-10T00:00:00Z"),
+          endPolicy: "fixed",
+          revision: 1,
+          reason: "Historical finite fixture",
+        },
+      });
+      await withExhaustedPool(isolated, async (prisma) => {
+        const notices = new BillingNotices({
+          prisma,
+          enrollments: assembleAccessGrants({
+            prisma,
+            accounts: assembleAccounts({
+              prisma,
+              emailFingerprintKey: "synthetic-notice-fingerprint-000000",
+            }),
+            clock: () => calendarNow,
+          }),
+          clock: () => calendarNow,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 1,
+          refreshed: 0,
+          superseded: 0,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 0,
+          refreshed: 0,
+          superseded: 0,
+        });
+        calendarNow = new Date("2031-03-10T00:00:00Z");
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 1,
+          refreshed: 0,
+          superseded: 1,
+        });
+        expect(value(await notices.scheduleReminders())).toEqual({
+          created: 0,
+          refreshed: 0,
+          superseded: 0,
+        });
+      });
+    } finally {
+      await isolated.dispose();
+    }
+  });
+
+  test("исторический конечный доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
     const s = await scenario({ telegram: true });
     s.at("2031-01-01T00:00:00Z");
     const enrollment = await assignManual(
@@ -922,7 +1028,7 @@ describe("служебные сообщения подписки (реальны
     expect(await s.noticesOf("access_ending")).toMatchObject([
       {
         state: "current",
-        title: "Подарок: материалы",
+        title: "Исторический срок: материалы",
         dueAt: new Date("2031-03-10T00:00:00Z"),
         subscriptionRef: null,
       },
@@ -932,7 +1038,7 @@ describe("служебные сообщения подписки (реальны
       s.sent.filter((message) => message.subject === endingSubject);
     expect(reminders()).toHaveLength(1);
     // Ссылка ведёт на оформление того же Offer, который выдан назначением.
-    const checkout = `${origin}/subscription?offer=${enrollment.tier.id}`;
+    const checkout = `${origin}/payment/checkout?offer=${enrollment.tier.id}`;
     expect(reminders()[0]?.text).toContain(checkout);
     expect(reminders()[0]?.text).toContain("Дата: 2031-03-10T00:00:00.000Z.");
     expect(s.telegramCommands).toHaveLength(1);
@@ -1093,10 +1199,144 @@ describe("служебные сообщения подписки (реальны
         })
       ).snapshot,
     ).offer.id;
-    expect(reminder?.text).toContain(`${origin}/subscription?offer=${offerId}`);
+    expect(reminder?.text).toContain(
+      `${origin}/payment/checkout?offer=${offerId}`,
+    );
     // История покупок о напоминании окончания не рассказывает.
     expect(
       (await s.cabinet()).notices.map((notice) => notice.kind),
     ).not.toContain("access_ending");
+  });
+
+  /** Тариф подписки: Offer её принятых условий, на который выдаётся и Enrollment. */
+  async function subscriptionOf(accountId: string) {
+    const row = await db.prisma.billingSubscription.findFirstOrThrow({
+      where: { accountId, state: { not: "ended" } },
+    });
+    return {
+      row,
+      offerId: subscriptionSnapshotSchema.parse(row.snapshot).offer.id,
+    };
+  }
+  async function cancelRenewal(s: Awaited<ReturnType<typeof scenario>>) {
+    const active = (await s.cabinet()).subscription;
+    value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+  }
+
+  test("оплаченный срок, который продолжает Enrollment на тот же тариф, не заканчивается, и очередь его обходит (#918)", async () => {
+    const s = await scenario();
+    await s.buy();
+    await cancelRenewal(s);
+    const { row: original, offerId } = await subscriptionOf(s.buyer);
+    await assignManual(
+      s.buyer,
+      "2030-01-31T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+      offerId,
+    );
+    // Соседняя подписка без продления кончается позже: ёмкость пробега в одну подписку должна
+    // дойти до неё, а не останавливаться на продолженной.
+    const neighbour = randomUUID();
+    await db.prisma.account.create({
+      data: {
+        id: neighbour,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: neighbour,
+      },
+    });
+    await db.prisma.billingSubscription.create({
+      data: {
+        ...original,
+        id: randomUUID(),
+        accountId: neighbour,
+        snapshot: subscriptionSnapshotSchema.parse(original.snapshot),
+        consent: subscriptionConsentSchema.parse(original.consent),
+        pendingChange: {},
+        paidUntil: new Date(original.paidUntil.getTime() + 60_000),
+      },
+    });
+
+    s.at("2030-02-25T10:01:00Z");
+    value(await s.notices.scheduleReminders(1));
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    expect(
+      await db.prisma.billingNotice.count({
+        where: { accountId: neighbour, kind: "access_ending" },
+      }),
+    ).toBe(1);
+    s.at("2030-02-28T09:59:59Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    await s.pump(s.deliverEmail);
+    expect(s.sent.map((message) => message.subject)).not.toContain(
+      endingSubject,
+    );
+  });
+
+  test("Enrollment на тот же тариф после напоминания закрывает его, отзыв возвращает; свой период и другой тариф окончания не отменяют (#918)", async () => {
+    const s = await scenario();
+    await s.buy();
+    await cancelRenewal(s);
+    const { row: subscription, offerId } = await subscriptionOf(s.buyer);
+    // Enrollment оплаченного периода самой подписки продолжением не считается, даже если его срок
+    // записан дальше конца подписки.
+    const ownPeriods = await db.prisma.tariffAssignment.updateMany({
+      where: { billingRef: subscription.id },
+      data: { endsAt: new Date("2030-03-30T10:00:00Z") },
+    });
+    expect(ownPeriods.count).toBeGreaterThan(0);
+    await assignManual(
+      s.buyer,
+      "2030-01-31T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+    );
+    s.at("2030-02-25T10:00:00Z");
+    value(await s.notices.scheduleReminders());
+    const [reminder] = await s.noticesOf("access_ending");
+    if (reminder === undefined) throw new Error("Ожидалось напоминание");
+    expect(reminder).toMatchObject({ state: "current" });
+    const revision = await db.prisma.billingNoticeRevision.findFirstOrThrow({
+      where: { noticeRef: reminder.id },
+    });
+
+    s.at("2030-02-26T10:00:00Z");
+    const continuation = await assignManual(
+      s.buyer,
+      "2030-02-26T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+      offerId,
+    );
+    expect(await s.notices.resolveNotice(revision.payload)).toEqual({
+      status: "superseded",
+    });
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "superseded" },
+    ]);
+
+    // Отозванное основание доступ не продолжает: напоминание о той же границе возвращается.
+    const revoked = await grants.changeEnrollment(owner, {
+      operationId: randomUUID(),
+      enrollmentId: continuation.id,
+      expectedRevision: continuation.revision,
+      action: "revoke",
+      terms: {
+        startsAt: continuation.startsAt,
+        endsAt: continuation.endsAt,
+        endPolicy: "fixed",
+      },
+      reason: "Отзыв для проверки окончания",
+    });
+    if (!revoked.ok) throw new Error(revoked.error.code);
+    s.at("2030-02-26T11:00:00Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "current", dueAt: new Date("2030-02-28T10:00:00Z") },
+    ]);
   });
 });

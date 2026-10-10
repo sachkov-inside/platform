@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import {
-  confirmedGuidePurchase,
-  fixedTermGuideOffer,
-  fixedTermGuideQuote,
-  guideWithSupportOffer,
-  guideWithSupportQuote,
+  confirmedProductPurchase,
+  fixedTermProductOffer,
+  fixedTermProductQuote,
+  productWithSupportOffer,
+  productWithSupportQuote,
   legalDocuments,
   verifiedContact,
 } from "@/storybook/billing.fixtures";
@@ -18,11 +18,11 @@ const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 const meta = {
   ...environment,
-  title: "Pages/Guide/Payment",
+  title: "Pages/Product/Payment",
   component: OneTimeCheckoutPanel,
   args: {
-    snapshot: guideWithSupportOffer,
-    quote: guideWithSupportQuote,
+    snapshot: productWithSupportOffer,
+    quote: productWithSupportQuote,
     documents: legalDocuments,
     contact: verifiedContact,
     contactHref: "/account/email",
@@ -111,8 +111,8 @@ export const Ready: Story = {
 /** Предложение с другими сроками показывает до оплаты свои сроки, а не сроки курса. */
 export const FixedTermOffer: Story = {
   args: {
-    snapshot: fixedTermGuideOffer,
-    quote: fixedTermGuideQuote,
+    snapshot: fixedTermProductOffer,
+    quote: fixedTermProductQuote,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -129,6 +129,27 @@ export const FixedTermOffer: Story = {
     await expect(
       terms.getByText(/^Сопровождение — 1 год:/u),
     ).toBeInTheDocument();
+  },
+};
+
+/** Предзаказ: рядом с ценой — зачёркнутая цена после старта и срок, до которого действует цена. */
+export const Preorder: Story = {
+  args: {
+    preorder: {
+      startsOn: "9 ноября",
+      daysLeft: "до старта 31 день",
+      priceAfterStartKopecks:
+        productWithSupportOffer.firstPriceKopecks + 1_000_000,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        /^Цена предзаказа действует до старта потока 9 ноября\./u,
+      ),
+    ).toBeInTheDocument();
+    await expect(canvas.getByText(/Цена после старта:/u)).toBeInTheDocument();
   },
 };
 
@@ -177,7 +198,7 @@ export const ExistingAccess: Story = {
 };
 
 export const Confirmed: Story = {
-  args: { purchase: confirmedGuidePurchase },
+  args: { purchase: confirmedProductPurchase },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Доступ открыт.")).toBeInTheDocument();

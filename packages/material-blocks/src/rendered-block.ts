@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { GuideMode } from "./guide-mode.js";
+import type { ProductMode } from "./product-mode.js";
 
 export type RenderedMark =
   | { readonly kind: "bold" | "code" | "italic" | "strike" }
@@ -27,7 +27,39 @@ export interface MaterialLabeledRow {
  * because `defineMaterialBlock` accepts only a `kind` this union declares, and the wire
  * enumeration is built from the registry rather than from a second list.
  */
+export interface ImageVariants<T> {
+  readonly wideLight: T;
+  readonly wideDark: T;
+  readonly tallLight: T;
+  readonly tallDark: T;
+}
+
+export interface ImageAssetPresentation {
+  readonly assetId: string;
+  readonly height?: number | undefined;
+  readonly width?: number | undefined;
+  readonly variants?:
+    readonly { readonly height: number; readonly width: number }[] | undefined;
+}
+
+export interface RenderedQuiz {
+  readonly kind: "quiz";
+  readonly id: string;
+  readonly prompt: readonly RenderedBlock[];
+  readonly correctOptionId: string;
+  readonly options: readonly {
+    readonly id: string;
+    readonly content: readonly RenderedBlock[];
+    readonly explanation: readonly RenderedBlock[];
+  }[];
+  readonly dontKnow: {
+    readonly explanation: readonly RenderedBlock[];
+    readonly reviewLinks: readonly string[];
+  };
+}
+
 export type RenderedBlock =
+  | RenderedQuiz
   | { readonly content: readonly RenderedText[]; readonly kind: "paragraph" }
   | {
       readonly content: readonly RenderedText[];
@@ -36,7 +68,12 @@ export type RenderedBlock =
     }
   | {
       readonly items: readonly (readonly RenderedBlock[])[];
-      readonly kind: "bullet_list" | "ordered_list";
+      readonly kind: "bullet_list";
+    }
+  | {
+      readonly items: readonly (readonly RenderedBlock[])[];
+      readonly kind: "ordered_list";
+      readonly start?: number | undefined;
     }
   | { readonly content: readonly RenderedBlock[]; readonly kind: "blockquote" }
   | { readonly kind: "code_block"; readonly text: string }
@@ -53,6 +90,7 @@ export type RenderedBlock =
   | {
       readonly content: readonly RenderedBlock[];
       readonly kind: "callout";
+      readonly collapse?: "collapsed" | "expanded" | undefined;
       readonly title?: string | undefined;
       readonly tone:
         | "bad"
@@ -89,7 +127,7 @@ export type RenderedBlock =
       readonly kind: "variant";
       readonly options: readonly {
         readonly content: readonly RenderedBlock[];
-        readonly mode: GuideMode;
+        readonly mode: ProductMode;
       }[];
     }
   | {
@@ -99,6 +137,9 @@ export type RenderedBlock =
       readonly displayWidthPercent?: number | undefined;
       readonly height?: number | undefined;
       readonly kind: "image";
+      readonly sourceSrc?: string | undefined;
+      readonly imageVariants?:
+        ImageVariants<ImageAssetPresentation> | undefined;
       readonly variants?:
         | readonly { readonly height: number; readonly width: number }[]
         | undefined;

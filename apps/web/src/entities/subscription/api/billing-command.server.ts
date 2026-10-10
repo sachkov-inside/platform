@@ -2,11 +2,7 @@ import "server-only";
 import { z } from "zod";
 
 import type { BackendTransportResult } from "@/shared/api/backend/index.server";
-import {
-  getPlatformAccessToken,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
 import {
   billingFailureCodeSchema,
@@ -125,13 +121,7 @@ export async function readAuthenticatedBilling(
   execute: (accessToken: string) => Promise<BackendTransportResult>,
   schema: z.ZodType,
 ): Promise<Response> {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessToken(readLogtoBffConfig());
-  } catch (error) {
-    return error instanceof LogtoSessionUnavailableError
-      ? billingFailureResponse("unauthorized", 401)
-      : billingFailureResponse("unavailable", 503);
-  }
-  return readBillingResource(() => execute(accessToken), schema);
+  return handleAuthenticatedRead(async (accessToken) => {
+    return readBillingResource(() => execute(accessToken), schema);
+  });
 }

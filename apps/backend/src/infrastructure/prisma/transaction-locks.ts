@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Prisma } from "./generated/client.js";
 
 interface AdvisoryLockTransaction {
@@ -27,7 +28,7 @@ export async function lockAccountEntitlementChanges(
 
 /**
  * Serializes every change of what a Material references with the cleanup that trusts it: Save,
- * draft deletion, Guide order and Workshop Cases against orphan Asset cleanup and Video deletion.
+ * draft deletion, Product order against orphan Asset cleanup and Video deletion.
  * Keys are taken in one order, so callers that lock several Materials cannot deadlock each other.
  */
 export async function lockMaterialReferenceChanges(
@@ -56,20 +57,23 @@ export async function lockPracticeImport(
   await lockTransactionKey(transaction, `practice-import:${practiceId}`);
 }
 
-/** Serializes creation and every import of one Guide Task code. */
-export async function lockGuideTaskImport(
+/** Serializes creation and every import of one Product Task code. */
+export async function lockProductTaskImport(
   transaction: AdvisoryLockTransaction,
   code: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `guide-task-import:${code}`);
+  await lockTransactionKey(transaction, `product-task-import:${code}`);
 }
 
 /** Serializes the submissions of one Account, so its rate limit counts committed rows. */
-export async function lockGuideTaskSubmissions(
+export async function lockProductTaskSubmissions(
   transaction: AdvisoryLockTransaction,
   accountId: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `guide-task-submissions:${accountId}`);
+  await lockTransactionKey(
+    transaction,
+    `product-task-submissions:${accountId}`,
+  );
 }
 
 /** Serializes slug allocation, so two first publications cannot take the same slug. */
@@ -210,4 +214,31 @@ export async function lockReadingPair(
     transaction,
     `reading-pair:${accountId}:${materialId}`,
   );
+}
+
+function billingMethodFlowKey(flowRef: string): string {
+  return `billing:method-flow:${flowRef}`;
+}
+
+/** Owns AddCard until its bank session is durably stored; recovery never waits on a live owner. */
+export async function lockBillingMethodFlow(
+  transaction: AdvisoryLockTransaction,
+  flowRef: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, billingMethodFlowKey(flowRef));
+}
+
+export async function tryLockBillingMethodFlow(
+  transaction: { $queryRaw(query: Prisma.Sql): Promise<unknown> },
+  flowRef: string,
+): Promise<boolean> {
+  const rows = z
+    .array(z.strictObject({ acquired: z.boolean() }))
+    .length(1)
+    .parse(
+      await transaction.$queryRaw(Prisma.sql`
+      select pg_try_advisory_xact_lock(hashtextextended(${billingMethodFlowKey(flowRef)}, 0::bigint)) as acquired
+    `),
+    );
+  return rows[0]?.acquired === true;
 }

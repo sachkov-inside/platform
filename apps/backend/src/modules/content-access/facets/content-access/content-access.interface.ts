@@ -22,22 +22,22 @@ export type VideoResource = Readonly<{
   videoId: string;
 }>;
 
-export type GuideArtifactResource = Readonly<{
+export type ProductArtifactResource = Readonly<{
   artifactId: string;
-  kind: "guideArtifact";
+  kind: "productArtifact";
 }>;
 
-/** A Guide Task (#946): its own access class on its Guide; unpublished, only its author reads it. */
-export type GuideTaskResource = Readonly<{
-  kind: "guideTask";
+/** A Product Task (#946): its own access class on its Product; unpublished, only its author reads it. */
+export type ProductTaskResource = Readonly<{
+  kind: "productTask";
   taskId: string;
 }>;
 
 export type Resource =
   | MaterialResource
   | AssetResource
-  | GuideArtifactResource
-  | GuideTaskResource
+  | ProductArtifactResource
+  | ProductTaskResource
   | VideoResource;
 
 export type AccessAction = "read" | "preview" | "download" | "play";
@@ -52,10 +52,10 @@ export type EnforcementPoint =
   | "mcp_material_read"
   | "asset_delivery"
   | "download_delivery"
-  | "guide_artifact_read"
-  | "guide_artifact_delivery"
-  | "guide_task_read"
-  | "guide_task_submit"
+  | "product_artifact_read"
+  | "product_artifact_delivery"
+  | "product_task_read"
+  | "product_task_submit"
   | "playback_token_issue"
   | "video_authorization_callback";
 
@@ -64,6 +64,9 @@ export interface AccessOperation {
   readonly resource: Resource;
   readonly action: AccessAction;
 }
+
+/** Maximum operations in one availability call, including repeated resources. */
+export const CONTENT_ACCESS_BATCH_SIZE = 100;
 
 export interface AccessBatchRequest {
   readonly subject: Subject;
@@ -98,8 +101,6 @@ export type DenyReason =
   | "authentication_required"
   | "membership_required"
   | "membership_expired"
-  | "workshop_access_required"
-  | "workshop_material_locked"
   | "entitlement_stale"
   | "permission_required"
   | "resource_unpublished"
@@ -123,23 +124,23 @@ export type AccessDecision = DecisionMetadata &
       }>
     | Readonly<{
         effect: "allow";
-        reason: "active_membership" | "active_workshop";
+        reason: "active_membership";
         validUntil: string | null;
         checkedContentVersion: number;
       }>
     | Readonly<{ effect: "deny"; reason: DenyReason }>
   );
 
-export interface GuideAccessRequest {
+export interface ProductAccessRequest {
   readonly subject: Subject;
-  readonly guideId: string;
+  readonly productId: string;
 }
 
 /**
- * Открыт ли Guide целиком этому Subject: то же решение по основаниям, что открывает его платные
+ * Открыт ли Product целиком этому Subject: то же решение по основаниям, что открывает его платные
  * материалы, но без перечисления материалов. `unavailable` — ответа нет, основание не прочитано.
  */
-export type GuideAccess = Readonly<{
+export type ProductAccess = Readonly<{
   kind: "open" | "closed" | "unavailable";
 }>;
 
@@ -148,5 +149,5 @@ export interface ContentAccess {
     input: AccessBatchRequest,
   ): Promise<AvailabilityBatchResult>;
   authorize(input: AccessRequest): Promise<AccessDecision>;
-  checkGuideAccess(input: GuideAccessRequest): Promise<GuideAccess>;
+  checkProductAccess(input: ProductAccessRequest): Promise<ProductAccess>;
 }

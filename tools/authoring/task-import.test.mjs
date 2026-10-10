@@ -17,11 +17,11 @@ import {
   validateSourceTasks,
 } from "./task-import.mjs";
 
-const guideUuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const productUuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 /** @param {string} sourceId @param {Partial<import('./package.mjs').ManifestTask>} [overrides] */
 const task = (sourceId, overrides = {}) => ({
   sourceId,
-  guideId: "course",
+  productId: "course",
   chapterId: "chapter-one",
   title: `Задание ${sourceId}`,
   access: /** @type {const} */ ("free"),
@@ -41,7 +41,7 @@ const manifestOf = (tasks) => ({
   schemaVersion: 1,
   sourceNamespace: "synthetic",
   selection: {
-    guideId: "course",
+    productId: "course",
     chapterIds: [],
     materialIds: ["review"],
     complete: true,
@@ -72,7 +72,7 @@ const manifestOf = (tasks) => ({
       artifacts: [],
     },
   ],
-  guides: [
+  products: [
     {
       sourceId: "course",
       title: "Курс",
@@ -105,11 +105,11 @@ const applySchema = z
   .object({
     sourceId: z.string(),
     code: z.string(),
-    guideId: z.uuid(),
+    productId: z.uuid(),
     chapterId: z.uuid(),
     position: z.number().int().positive(),
     title: z.string(),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     definition: z.record(z.string(), z.json()),
     relatedMaterialSourceIds: z.array(z.string()),
     afterMaterialSourceId: z.string().optional(),
@@ -184,7 +184,7 @@ async function fixture(/** @type {import('node:test').TestContext} */ t) {
 
 /** @param {boolean} value */
 const selection = (value) => ({
-  guideIdOf: () => guideUuid,
+  productIdOf: () => productUuid,
   selected: () => value,
 });
 
@@ -208,7 +208,7 @@ test("a task lands in its chapter by the package order and repeats nothing uncha
       ["second", 2, sourceUuid("synthetic:course:chapter:chapter-one")],
     ],
   );
-  assert.equal(f.applied[0]?.guideId, guideUuid);
+  assert.equal(f.applied[0]?.productId, productUuid);
   assert.equal(f.applied[0]?.sourceId, "synthetic:first");
   assert.deepEqual(f.applied[0]?.relatedMaterialSourceIds, [
     "synthetic:review",
@@ -369,7 +369,7 @@ test("a task names the Material of its chapter it follows; another chapter's Mat
   assert.equal(f.applied[1]?.afterMaterialSourceId, undefined);
 });
 
-test("a package names each task's Guide and chapter, keeps codes apart from Materials, and --publish accepts a code", async (t) => {
+test("a package names each task's Product and chapter, keeps codes apart from Materials, and --publish accepts a code", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "task-package-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   /** @param {import('./package.mjs').Manifest} manifest */
@@ -383,12 +383,12 @@ test("a package names each task's Guide and chapter, keeps codes apart from Mate
     1,
   );
   await assert.rejects(
-    load(manifestOf([task("lost", { guideId: "absent" })])),
-    /Guide is not in the package/u,
+    load(manifestOf([task("lost", { productId: "absent" })])),
+    /Product is not in the package/u,
   );
   await assert.rejects(
     load(manifestOf([task("lost", { chapterId: "absent" })])),
-    /chapter is not in its Guide/u,
+    /chapter is not in its Product/u,
   );
   await assert.rejects(
     load(manifestOf([task("review")])),

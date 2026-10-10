@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -14,10 +16,10 @@ import {
   type DeclaredServer,
 } from "../support/declared-api.js";
 import {
-  createScopedGuidesWorld,
-  type ScopedGuide,
-  type ScopedGuidesWorld,
-} from "./setup/scoped-guides.js";
+  createScopedProductsWorld,
+  type ScopedProduct,
+  type ScopedProductsWorld,
+} from "./setup/scoped-products.js";
 import {
   startTestIdentityIssuer,
   type TestIdentityIssuer,
@@ -27,7 +29,9 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
-/** Защищённые чтения, которые матрица проверок доступа называет поверхностями Guide. */
+registerFixedClock();
+
+/** Защищённые чтения, которые матрица проверок доступа называет поверхностями Product. */
 const surfaces = ["body", "assets", "video", "practice-list"] as const;
 type Surface = (typeof surfaces)[number];
 type Exposure = Readonly<Record<Surface, "open" | "closed">>;
@@ -46,8 +50,8 @@ const allClosed: Exposure = {
 
 /**
  * Scoped Account через настоящий Nest HTTP (#903, пробел 7 из #902): API поднят целиком, Account
- * входит подписанным токеном, право — настоящий AccessGrant одного Guide. Тело и список заданий
- * открыты, когда ответ несёт секрет Guide. Файл открыт, когда ответ — подписанная ссылка на его
+ * входит подписанным токеном, право — настоящий AccessGrant одного Product. Тело и список заданий
+ * открыты, когда ответ несёт секрет Product. Файл открыт, когда ответ — подписанная ссылка на его
  * объект; видео — когда выдан DRM-токен воспроизведения. Bytes файла и видео лежат у хранилища и
  * Kinescope, и тест их не читает. Закрытая клетка — статус отказа по контракту маршрута без секрета,
  * ссылки и токена. Ответ access-state и mock authorize доказательством не служат.
@@ -58,7 +62,7 @@ describe("scoped Account access over Nest HTTP", () => {
   let server: DeclaredServer;
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
-  let world: ScopedGuidesWorld;
+  let world: ScopedProductsWorld;
   let config: PlatformConfig;
 
   beforeAll(async () => {
@@ -67,7 +71,7 @@ describe("scoped Account access over Nest HTTP", () => {
       audience: "https://api.scoped-http.test",
     });
     database = await createMigratedTestDatabase();
-    world = await createScopedGuidesWorld(database);
+    world = await createScopedProductsWorld(database);
     config = parsePlatformConfig({
       NODE_ENV: "test",
       DATABASE_URL: database.url,
@@ -88,56 +92,59 @@ describe("scoped Account access over Nest HTTP", () => {
     await identity.close();
   });
 
-  test("anonymous reader gets no protected bytes of either Guide while the public Material stays open", async () => {
+  test("anonymous reader gets no protected bytes of either Product while the public Material stays open", async () => {
     expect(await publicBody(null)).toBe("open");
-    expect(await exposure(world.guideA, null)).toEqual(allClosed);
-    expect(await exposure(world.guideB, null)).toEqual(allClosed);
+    expect(await exposure(world.productA, null)).toEqual(allClosed);
+    expect(await exposure(world.productB, null)).toEqual(allClosed);
   });
 
-  test("Account without entitlement gets no protected bytes of either Guide while the public Material stays open", async () => {
+  test("Account without entitlement gets no protected bytes of either Product while the public Material stays open", async () => {
     const { bearer } = await signedInAccount();
     expect(await publicBody(bearer)).toBe("open");
-    expect(await exposure(world.guideA, bearer)).toEqual(allClosed);
-    expect(await exposure(world.guideB, bearer)).toEqual(allClosed);
+    expect(await exposure(world.productA, bearer)).toEqual(allClosed);
+    expect(await exposure(world.productB, bearer)).toEqual(allClosed);
   });
 
-  test("learner of Guide A reads its body, asset, video and practice list while Guide B stays closed", async () => {
+  test("learner of Product A reads its body, asset, video and practice list while Product B stays closed", async () => {
     const { bearer, accountId } = await signedInAccount();
-    await world.grantGuide(accountId, world.guideA.guideId);
-    expect(await exposure(world.guideA, bearer)).toEqual(allOpen);
-    expect(await exposure(world.guideB, bearer)).toEqual(allClosed);
+    await world.grantProduct(accountId, world.productA.productId);
+    expect(await exposure(world.productA, bearer)).toEqual(allOpen);
+    expect(await exposure(world.productB, bearer)).toEqual(allClosed);
   });
 
-  test("learner of Guide B reads its body, asset, video and practice list while Guide A stays closed", async () => {
+  test("learner of Product B reads its body, asset, video and practice list while Product A stays closed", async () => {
     const { bearer, accountId } = await signedInAccount();
-    await world.grantGuide(accountId, world.guideB.guideId);
-    expect(await exposure(world.guideB, bearer)).toEqual(allOpen);
-    expect(await exposure(world.guideA, bearer)).toEqual(allClosed);
+    await world.grantProduct(accountId, world.productB.productId);
+    expect(await exposure(world.productB, bearer)).toEqual(allOpen);
+    expect(await exposure(world.productA, bearer)).toEqual(allClosed);
   });
 
-  test("expired Guide A grant exposes no protected bytes while the public Material stays open", async () => {
+  test("expired Product A grant exposes no protected bytes while the public Material stays open", async () => {
     const { bearer, accountId } = await signedInAccount();
-    await world.grantExpiredGuide(accountId, world.guideA.guideId);
+    await world.grantExpiredProduct(accountId, world.productA.productId);
     expect(await publicBody(bearer)).toBe("open");
-    expect(await exposure(world.guideA, bearer)).toEqual(allClosed);
+    expect(await exposure(world.productA, bearer)).toEqual(allClosed);
   });
 
-  test("revoking Guide A closes the next request and the earlier playback token while Guide B stays open", async () => {
+  test("revoking Product A closes the next request and the earlier playback token while Product B stays open", async () => {
     const { bearer, accountId } = await signedInAccount();
-    const grantA = await world.grantGuide(accountId, world.guideA.guideId);
-    await world.grantGuide(accountId, world.guideB.guideId);
-    expect(await exposure(world.guideA, bearer)).toEqual(allOpen);
-    const earlier = await playback(world.guideA, bearer);
+    const grantA = await world.grantProduct(
+      accountId,
+      world.productA.productId,
+    );
+    await world.grantProduct(accountId, world.productB.productId);
+    expect(await exposure(world.productA, bearer)).toEqual(allOpen);
+    const earlier = await playback(world.productA, bearer);
     expect(earlier.statusCode).toBe(200);
     const earlierToken = earlier.json<{ drmAuthToken: string }>().drmAuthToken;
-    expect(await providerAuthorization(world.guideA, earlierToken)).toBe(200);
+    expect(await providerAuthorization(world.productA, earlierToken)).toBe(200);
 
     await world.revokeGrant(grantA);
 
-    expect(await exposure(world.guideA, bearer)).toEqual(allClosed);
+    expect(await exposure(world.productA, bearer)).toEqual(allClosed);
     // Токен, выданный до отзыва, Kinescope перепроверяет у Platform: он больше ничего не открывает.
-    expect(await providerAuthorization(world.guideA, earlierToken)).toBe(403);
-    expect(await exposure(world.guideB, bearer)).toEqual(allOpen);
+    expect(await providerAuthorization(world.productA, earlierToken)).toBe(403);
+    expect(await exposure(world.productB, bearer)).toEqual(allOpen);
   });
 
   test("Materials-only and Billing-only Accounts get a typed denial on each other's write next to their own", async () => {
@@ -198,7 +205,10 @@ describe("scoped Account access over Nest HTTP", () => {
             id: offerId,
             name,
             benefits: ["materials"],
-            contentScope: { guideIds: [world.guideA.guideId], materialIds: [] },
+            coverage: {
+              productIds: [world.productA.productId],
+              materialIds: [],
+            },
           },
         },
       });
@@ -277,16 +287,16 @@ describe("scoped Account access over Nest HTTP", () => {
     return "open";
   }
 
-  function playback(guide: ScopedGuide, bearer: string | null) {
+  function playback(product: ScopedProduct, bearer: string | null) {
     return server.inject({
       method: "POST",
-      url: `/materials/${guide.materialId}/videos/${guide.videoId}/playback`,
+      url: `/materials/${product.materialId}/videos/${product.videoId}/playback`,
       headers: headers(bearer),
     });
   }
 
   async function providerAuthorization(
-    guide: ScopedGuide,
+    product: ScopedProduct,
     token: string,
   ): Promise<number> {
     const { callbackUsername, callbackPassword } = config.kinescope;
@@ -297,78 +307,78 @@ describe("scoped Account access over Nest HTTP", () => {
       method: "POST",
       url: "/integrations/kinescope/v1/authorize",
       headers: { authorization: `Basic ${basic}` },
-      payload: { id: guide.providerVideoId, token },
+      payload: { id: product.providerVideoId, token },
     });
     return response.statusCode;
   }
 
   /**
-   * Что Account получает от каждой защищённой поверхности Guide. «open» — тело или список заданий
-   * несут секрет Guide, файл отвечает подписанной ссылкой на свой объект, видео — DRM-токеном.
+   * Что Account получает от каждой защищённой поверхности Product. «open» — тело или список заданий
+   * несут секрет Product, файл отвечает подписанной ссылкой на свой объект, видео — DRM-токеном.
    * «closed» — отказ по контракту маршрута без секрета, ссылки и токена. Любой третий исход роняет
    * тест с описанием ответа.
    */
   async function exposure(
-    guide: ScopedGuide,
+    product: ScopedProduct,
     bearer: string | null,
   ): Promise<Exposure> {
     const auth = headers(bearer);
     const [body, asset, video, practices] = await Promise.all([
       server.inject({
         method: "GET",
-        url: `/materials/${guide.slug}`,
+        url: `/materials/${product.slug}`,
         headers: auth,
       }),
       server.inject({
         method: "GET",
-        url: `/materials/${guide.materialId}/assets/${guide.assetId}?contentVersion=${String(guide.contentVersion)}`,
+        url: `/materials/${product.materialId}/assets/${product.assetId}?contentVersion=${String(product.contentVersion)}`,
         headers: auth,
       }),
-      playback(guide, bearer),
+      playback(product, bearer),
       server.inject({
         method: "GET",
-        url: `/library/materials/${guide.slug}/practices`,
+        url: `/library/materials/${product.slug}/practices`,
         headers: auth,
       }),
     ]);
     return {
       // Закрытое тело отвечает 200 с тизером: отказ — это вид ответа, а не статус.
       body: classify("body", body, {
-        open: body.statusCode === 200 && body.body.includes(guide.bodySecret),
+        open: body.statusCode === 200 && body.body.includes(product.bodySecret),
         closed:
           body.statusCode === 200 &&
           body.json<{ kind: string }>().kind === "teaser" &&
-          !body.body.includes(guide.bodySecret),
+          !body.body.includes(product.bodySecret),
       }),
       // Защищённый файл — короткая подписанная ссылка на объект; отказ маскируется как 404.
       assets: classify("assets", asset, {
         open:
           asset.statusCode === 302 &&
-          (asset.headers.location ?? "").includes(guide.protectedObjectKey),
+          (asset.headers.location ?? "").includes(product.protectedObjectKey),
         closed:
           asset.statusCode === 404 &&
           asset.headers.location === undefined &&
-          !asset.body.includes(guide.protectedObjectKey),
+          !asset.body.includes(product.protectedObjectKey),
       }),
       video: classify("video", video, {
         open:
           video.statusCode === 200 &&
           video.json<{ drmAuthToken: string | null }>().drmAuthToken !== null &&
-          video.body.includes(guide.providerVideoId),
+          video.body.includes(product.providerVideoId),
         closed:
           video.statusCode === 403 &&
           video.json<{ code: string }>().code === "access_denied" &&
-          !video.body.includes(guide.providerVideoId),
+          !video.body.includes(product.providerVideoId),
       }),
       "practice-list": classify("practice-list", practices, {
         open:
           practices.statusCode === 200 &&
-          practices.body.includes(guide.practiceSecret),
+          practices.body.includes(product.practiceSecret),
         closed:
           practices.statusCode === 404 &&
           practices.json<{ code: string }>().code ===
             "practice_not_available" &&
-          !practices.body.includes(guide.practiceSecret),
+          !practices.body.includes(product.practiceSecret),
       }),
     };
   }

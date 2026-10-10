@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -14,6 +15,8 @@ import { migrateToLatest } from "../../src/database/migrator.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { anyString } from "../support/matchers.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
@@ -43,6 +46,7 @@ const config: ApplicationConfig = {
     welcome: "Synthetic community welcome",
   },
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipMode: "disabled",
   membershipReconciliationCadenceMilliseconds: 240_000,
   platformIntegrationSecret: "synthetic_platform_secret",
@@ -221,6 +225,7 @@ function beginLinkBody() {
   return {
     accountRef: "account-ref-a",
     contractVersion: "inside.identity-linking.v1",
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     returnCorrelation: "return-ref-a",
     tokenDigest: "jKKh9RnjKMdeJyPGrUz3N7LTyO3qlo7dUNRlIji0Qk8",

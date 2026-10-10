@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { DevelopmentFeedbackOverlay } from "@/_app/ui/development-feedback-overlay.client";
 import "@/_app/ui/fonts";
-import { readWebRuntimeMode } from "@/shared/config/index.server";
 
 import "./globals.css";
 
@@ -18,14 +16,9 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const showFeedbackOverlay = readWebRuntimeMode() === "development";
-
   return (
     <html lang="ru">
-      <body>
-        {children}
-        {showFeedbackOverlay ? <DevelopmentFeedbackOverlay /> : null}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

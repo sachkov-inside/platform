@@ -214,7 +214,7 @@ export class InvitationRedemption {
       redemption,
       "completed",
       response.ok ? null : response.error.code,
-      invitationAnswer(response, this.clock.now()),
+      invitationAnswer(response),
     );
   }
 

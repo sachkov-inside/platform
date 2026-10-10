@@ -14,20 +14,24 @@ export interface LegalNavigationEntry {
   readonly group: LegalGroup;
 }
 
-export type LegalGroup = "agreement" | "data" | "seller" | "legacy";
+/** Название документа без места в навигации: годится и для снятых с неё документов. */
+export type LegalDocumentLabel = Pick<
+  LegalNavigationEntry,
+  "consentLabel" | "key" | "navLabel"
+>;
+
+export type LegalGroup = "agreement" | "data" | "seller";
 
 export const LEGAL_GROUP_TITLES: Readonly<Record<LegalGroup, string>> = {
   agreement: "Условия и оферты",
   data: "Данные и браузер",
   seller: "Продавец и обращения",
-  legacy: "Прежние покупки",
 };
 
 export const LEGAL_GROUP_ORDER: readonly LegalGroup[] = [
   "agreement",
   "data",
   "seller",
-  "legacy",
 ];
 
 export const LEGAL_NAVIGATION: readonly LegalNavigationEntry[] = [
@@ -53,10 +57,25 @@ export const LEGAL_NAVIGATION: readonly LegalNavigationEntry[] = [
   { key: "privacy", navLabel: "Политика данных", group: "data" },
   { key: "cookies", navLabel: "Cookies и хранение", group: "data" },
   { key: "contacts", navLabel: "Реквизиты и обращения", group: "seller" },
-  { key: "tribute", navLabel: "Покупки через Tribute", group: "legacy" },
 ];
 
-/** Как документ называется в навигации; `null` для ключа вне раздела. */
-export function legalNavigationEntry(key: string): LegalNavigationEntry | null {
-  return LEGAL_NAVIGATION.find((entry) => entry.key === key) ?? null;
+/**
+ * Действующие документы, которых нет в навигации. Условия покупок через Tribute сняты с футера и
+ * списка: Tribute больше не продаёт (решение владельца 09.10.2026). Редакция остаётся по прямому
+ * адресу для прежних покупателей.
+ */
+export const LEGAL_HIDDEN_FROM_NAVIGATION: readonly LegalDocumentLabel[] = [
+  { key: "tribute", navLabel: "Покупки через Tribute" },
+];
+
+/**
+ * Как документ называется в навигации; `null` для ключа вне раздела. Снятый с навигации документ
+ * сохраняет название: прежний покупатель видит его в своих принятых документах.
+ */
+export function legalNavigationEntry(key: string): LegalDocumentLabel | null {
+  return (
+    LEGAL_NAVIGATION.find((entry) => entry.key === key) ??
+    LEGAL_HIDDEN_FROM_NAVIGATION.find((entry) => entry.key === key) ??
+    null
+  );
 }

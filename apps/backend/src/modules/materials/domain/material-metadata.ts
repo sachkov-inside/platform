@@ -9,7 +9,7 @@ import type { Result } from "../result.js";
 import type { ValidationIssue } from "./material-body/material-body.js";
 import { normalizedUuidSchema } from "./uuid.js";
 
-export type MaterialAccess = "free" | "membership" | "workshop";
+export type MaterialAccess = "free" | "closed";
 
 /** How hard a lesson is for the reader who opens it. */
 export const materialDifficulties = [
@@ -33,7 +33,7 @@ export const MATERIAL_OUTCOMES = {
   minPublishedCount: 2,
 } as const;
 
-export interface GuideMembership {
+export interface ProductMembership {
   readonly seriesId: string;
   readonly ordinal: number;
 }
@@ -48,7 +48,7 @@ export interface MaterialMetadataValues {
   readonly topicId: string | null;
   readonly formatId: MaterialFormat | null;
   readonly tagIds: readonly string[];
-  readonly seriesMemberships: readonly GuideMembership[];
+  readonly seriesMemberships: readonly ProductMembership[];
 }
 
 export interface MaterialMetadataSelectionValues extends Omit<
@@ -79,7 +79,7 @@ export type MaterialMetadataValidationError =
 const metadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  access: z.enum(["free", "membership", "workshop"]),
+  access: z.enum(["free", "closed"]),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z
     .array(z.string().trim().min(1).max(MATERIAL_OUTCOMES.maxLength))
@@ -163,7 +163,7 @@ export class MaterialMetadataSelection {
   }
 
   materialize(
-    seriesMemberships: readonly GuideMembership[],
+    seriesMemberships: readonly ProductMembership[],
     slug: string | null,
   ): MaterialMetadata {
     const metadata = MaterialMetadata.create({
@@ -202,7 +202,7 @@ export class MaterialMetadata {
     readonly topicId: string | null,
     readonly formatId: MaterialFormat | null,
     readonly tagIds: readonly string[],
-    readonly seriesMemberships: readonly GuideMembership[],
+    readonly seriesMemberships: readonly ProductMembership[],
   ) {
     Object.freeze(this.outcomes);
     Object.freeze(this.tagIds);
@@ -343,8 +343,7 @@ function requiredPublicationIssues(
       : []),
     // Закрытое живёт внутри продуктов: закрытый материал без руководства купить негде, и открыть
     // его было бы нечем, кроме ручного состава тарифа.
-    ...(metadata.access === "membership" &&
-    metadata.seriesMemberships.length === 0
+    ...(metadata.access === "closed" && metadata.seriesMemberships.length === 0
       ? [{ code: "membership_outside_product", path: "/metadata/seriesIds" }]
       : []),
   ];

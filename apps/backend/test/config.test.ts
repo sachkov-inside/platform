@@ -31,7 +31,7 @@ describe("process configuration", () => {
 
     expect(config).toEqual({
       mode: "test",
-      guideTasks: { submissionsEnabled: true },
+      productTasks: { submissionsEnabled: true },
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
@@ -85,7 +85,7 @@ describe("process configuration", () => {
   it("uses local defaults only in explicit development or test mode", () => {
     expect(parsePlatformConfig({ NODE_ENV: "development" })).toEqual({
       mode: "development",
-      guideTasks: { submissionsEnabled: true },
+      productTasks: { submissionsEnabled: true },
       database: {
         url: "postgresql://inside:inside@127.0.0.1:5432/inside",
       },
@@ -131,15 +131,22 @@ describe("process configuration", () => {
     );
   });
 
-  it("keeps Guide Task submissions closed in production until they are enabled explicitly", () => {
+  it("keeps Product Task submissions closed in production until they are enabled explicitly", () => {
     const local = { NODE_ENV: "test" };
-    expect(parsePlatformConfig(local).guideTasks.submissionsEnabled).toBe(true);
+    expect(parsePlatformConfig(local).productTasks.submissionsEnabled).toBe(
+      true,
+    );
     expect(
-      parsePlatformConfig({ ...local, GUIDE_TASK_SUBMISSIONS_ENABLED: "false" })
-        .guideTasks.submissionsEnabled,
+      parsePlatformConfig({
+        ...local,
+        PRODUCT_TASK_SUBMISSIONS_ENABLED: "false",
+      }).productTasks.submissionsEnabled,
     ).toBe(false);
     expect(() =>
-      parsePlatformConfig({ ...local, GUIDE_TASK_SUBMISSIONS_ENABLED: "yes" }),
+      parsePlatformConfig({
+        ...local,
+        PRODUCT_TASK_SUBMISSIONS_ENABLED: "yes",
+      }),
     ).toThrow();
   });
 
@@ -248,8 +255,8 @@ describe("process configuration", () => {
       "material-assets-worker",
     );
     expect(worker.database).toEqual({ url: database.DATABASE_URL });
-    // Production accepts no Guide Task submission until data policy v4 is published (#946).
-    expect(worker.guideTasks.submissionsEnabled).toBe(false);
+    // Production accepts no Product Task submission until data policy v4 is published (#946).
+    expect(worker.productTasks.submissionsEnabled).toBe(false);
   });
 
   it("rejects invalid database and listen values", () => {
@@ -459,7 +466,7 @@ const demoTerminal = {
   cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1_000_000,
-  returnUrl: "https://inside.example.test/subscription/return",
+  returnUrl: "https://inside.example.test/payment/return",
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
 };
@@ -489,7 +496,7 @@ describe("bank payment contour", () => {
         ...stand,
         TBANK_CONFIG_JSON: JSON.stringify({
           ...demoTerminal,
-          returnUrl: "http://inside.example.test/subscription/return",
+          returnUrl: "http://inside.example.test/payment/return",
         }),
       }),
     ).toThrow(

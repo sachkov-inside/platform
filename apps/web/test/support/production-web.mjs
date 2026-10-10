@@ -8,8 +8,9 @@
  * прогона и убирается при выходе; чужой файл не заменяется. `PRODUCTION_WEB_SKIP_BUILD=1`
  * запускает уже готовую сборку: так проверки одного прогона делят одну сборку.
  */
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,7 @@ const applicationDirectory = resolve(
   "../..",
 );
 const identityPath = resolve(applicationDirectory, "release-identity.json");
+const nextCli = createRequire(import.meta.url).resolve("next/dist/bin/next");
 const port = required("PRODUCTION_WEB_PORT");
 const backendBaseUrl = required("PRODUCTION_WEB_BACKEND_URL");
 const release = { release: "v1", sourceSha: "1".repeat(40) };
@@ -60,13 +62,15 @@ let child;
 function cleanup() {
   rmSync(identityPath, { force: true });
 }
+/** @type {NodeJS.Signals | undefined} */
+let interrupted;
 /** @type {NodeJS.Signals[]} */
 const signals = ["SIGINT", "SIGTERM"];
 for (const signal of signals) {
   process.once(signal, () => {
-    child?.kill(signal);
-    cleanup();
-    process.exit(0);
+    interrupted = signal;
+    process.exitCode = signal === "SIGINT" ? 130 : 143;
+    if (child !== undefined) void stopOwned(child);
   });
 }
 process.once("exit", cleanup);
@@ -77,18 +81,24 @@ process.once("exit", cleanup);
  */
 function run(args) {
   return new Promise((resolveRun, reject) => {
-    child = spawn("pnpm", ["exec", "next", ...args], {
+    child = spawnOwned(process.execPath, [nextCli, ...args], {
       cwd: applicationDirectory,
       env: environment,
       stdio: "inherit",
     });
     child.once("error", reject);
     child.once("exit", (code) => {
-      if (code === 0) resolveRun();
+      if (code === 0 || interrupted !== undefined) resolveRun();
       else reject(new Error(`next ${args[0]} exited with ${String(code)}`));
     });
   });
 }
 
-if (process.env["PRODUCTION_WEB_SKIP_BUILD"] !== "1") await run(["build"]);
-await run(["start", "--hostname", "127.0.0.1", "--port", port]);
+try {
+  if (process.env["PRODUCTION_WEB_SKIP_BUILD"] !== "1") await run(["build"]);
+  if (interrupted === undefined)
+    await run(["start", "--hostname", "127.0.0.1", "--port", port]);
+} finally {
+  if (child !== undefined) await stopOwned(child);
+  cleanup();
+}

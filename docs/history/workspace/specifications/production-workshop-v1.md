@@ -63,7 +63,7 @@ Workshop тренирует этот цикл. Он не обещает grade, �
 В первой версии `Inside Subscription` является одним коммерческим bundle. Пока она активна,
 Platform поддерживает два самостоятельных права:
 
-- Библиотеку через `MembershipEntitlement`;
+- Библиотеку через `AccountRights`;
 - Мастерскую через `WorkshopEntitlement`.
 
 Раздельные права нужны не ради двух текущих тарифов, а чтобы позднее можно было отдельно
@@ -86,7 +86,7 @@ Workshop
 └── 1..N Workshop Tracks
     └── 1..N ordered Track Items
         ├── Material reference ─────────→ Platform Material
-        ├── Laboratory ─────────────────→ guided local experiments
+        ├── Laboratory ─────────────────→ productd local experiments
         └── Production Case ────────────→ design + implementation problem
 ```
 
@@ -153,7 +153,7 @@ repository. Динамические подборки по Topic и Tags мог�
 
 - лаборатория выполняется на компьютере участника;
 - готовая облачная sandbox-среда не предоставляется;
-- участник сам создаёт Docker Compose и необходимые файлы по guide;
+- участник сам создаёт Docker Compose и необходимые файлы по product;
 - команды и checkpoints могут быть приведены прямо в шагах;
 - prompts показывают, как использовать агента для исследования и проверки, не делегируя ему
   решение целиком;
@@ -301,7 +301,7 @@ ContentAccess и WorkshopAccess остаются server-side. Track navigation �
 2. спроектировать Kafka Track, Laboratory и notification Production Case;
 3. на готовом CaseSpec выбрать submission/evaluation boundary;
 4. реализовать versioned Workshop authoring/import, publication и backend ручного Laboratory progress;
-5. связать активную подписку с MembershipEntitlement и WorkshopEntitlement;
+5. связать активную подписку с AccountRights и WorkshopEntitlement;
 6. после завершения текущего visual foundation выбрать интерфейс Track/Laboratory;
 7. подготовить C#/.NET и Python variants, backend operations и выбранную evaluation model;
 8. реализовать полноценный frontend Workshop, Track, Laboratory и Production Case на реальных API;

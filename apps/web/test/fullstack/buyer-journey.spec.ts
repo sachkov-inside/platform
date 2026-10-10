@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
 
+import { fullStackBrowserRequest } from "../support/full-stack-session";
+
 /**
  * Путь покупателя курса целиком (Workspace #238, Platform #775): страница продукта, вход через
  * Telegram у тестового провайдера, бесплатная глава открыта, закрытая — нет, покупка на двойнике
@@ -15,7 +17,7 @@ function stand() {
     })
     .parse({
       controlUrl: process.env["BUYER_JOURNEY_CONTROL_URL"],
-      slug: process.env["BUYER_JOURNEY_GUIDE_SLUG"],
+      slug: process.env["BUYER_JOURNEY_PRODUCT_SLUG"],
     });
 }
 const freeChapter = "/materials/kak-ustroen-inside-platform";
@@ -25,10 +27,22 @@ const freeBody =
 const paidBody = "Закрытое содержимое для участников.";
 const accessRequired = '[data-material-reader-state="access-required"]';
 
-async function signInWithTelegram(page: Page, telegramUserId: string) {
-  if ((page.viewportSize()?.width ?? 1440) < 768)
-    await page.getByRole("link", { name: "Профиль", exact: true }).click();
-  await page.getByRole("button", { name: "Войти", exact: true }).click();
+async function signInWithTelegram(
+  page: Page,
+  telegramUserId: string,
+  slug: string,
+) {
+  // Витрина продукта на телефоне без шапки (решение владельца 09.10.2026): гость входит со
+  // страницы покупки, куда ведёт кнопка витрины.
+  if ((page.viewportSize()?.width ?? 1440) < 768) {
+    await expect(page.locator("[data-mobile-header]")).toBeHidden();
+    await page.goto(`/products/${slug}/buy`);
+    await page
+      .getByRole("button", { name: "Войти и оплатить", exact: true })
+      .click();
+  } else {
+    await page.getByRole("button", { name: "Войти", exact: true }).click();
+  }
   await expect(
     page.getByRole("heading", { name: "Тестовый провайдер входа" }),
   ).toBeVisible();
@@ -41,7 +55,7 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
   await accept.click({ timeout: 30_000 });
   await page.waitForURL((url) => url.pathname !== "/welcome");
   // Вход завершён: вместо «Войти» у человека его аккаунт.
-  const response = await page.request.get("/auth/status");
+  const response = await fullStackBrowserRequest(page, "/auth/status");
   expect(response.ok()).toBe(true);
   const status = z.object({ state: z.string() }).parse(await response.json());
   expect(status.state).toBe("authenticated");
@@ -50,6 +64,8 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
 test("покупатель курса проходит путь от страницы продукта до материалов и общего чата", async ({
   page,
 }, info) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
   const { controlUrl, slug } = stand();
   const telegramUserId =
     info.project.name === "mobile-chromium" ? "775000002" : "775000001";
@@ -62,7 +78,7 @@ test("покупатель курса проходит путь от стран�
   ).toBeVisible();
 
   // Вход через Telegram.
-  await signInWithTelegram(page, telegramUserId);
+  await signInWithTelegram(page, telegramUserId, slug);
 
   // Бесплатная глава открыта, закрытая — только описание с предложением купить продукт.
   await page.goto(freeChapter);
@@ -117,7 +133,10 @@ test("покупатель курса проходит путь от стран�
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
   await expect(page.getByText("Общий чат").first()).toBeVisible();
-  const billingResponse = await page.request.get("/api/account/billing");
+  const billingResponse = await fullStackBrowserRequest(
+    page,
+    "/api/account/billing",
+  );
   expect(billingResponse.ok()).toBe(true);
   const billing = z
     .object({
@@ -143,9 +162,10 @@ test("покупатель курса проходит путь от стран�
   expect(
     paid.some(
       (ground) =>
-        ground.capabilities.some((value) => value.startsWith("guide:")) &&
+        ground.capabilities.some((value) => value.startsWith("product:")) &&
         ground.validUntil === null,
     ),
   ).toBe(true);
   expect(termOf("support")).toEqual(expect.any(String));
+  expect(browserErrors).toEqual([]);
 });

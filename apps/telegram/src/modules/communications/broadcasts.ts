@@ -1,3 +1,4 @@
+import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -207,7 +208,7 @@ async function launchBroadcast(
   if (hasText(row.audience_snapshot_id)) return row;
   // All includes legacy contacts who never entered a marketing funnel. No enrollment is created.
   await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id)
-    select gen_random_uuid(),bot_identity,telegram_user_id from bot_contacts where bot_identity=${row.bot_identity}
+    select gen_random_uuid(),bot_identity,telegram_user_id from (${botContactRows(tx)}) b where bot_identity=${row.bot_identity}
     on conflict(bot_identity,telegram_user_id) do nothing`.execute(tx);
   const audience = row.audience;
   // Shared row locks order the snapshot with a concurrent stop or block: either that change
@@ -215,7 +216,7 @@ async function launchBroadcast(
   // The first part is due at its own offset, so the dispatch queue order matches send time.
   let query = tx
     .selectFrom("communication_contacts as c")
-    .innerJoin("bot_contacts as b", (j) =>
+    .innerJoin(botContactRows(tx).as("b"), (j) =>
       j
         .onRef("b.bot_identity", "=", "c.bot_identity")
         .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),

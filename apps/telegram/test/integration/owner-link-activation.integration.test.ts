@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -37,7 +38,7 @@ const bot = `owner-link-${randomUUID()}`;
 const canonicalChatId = "-1000000000000";
 const courseChatId = "-1000000000001";
 const clock = {
-  value: new Date(),
+  value: new Date(fixedTestInstant()),
   now() {
     return new Date(this.value);
   },
@@ -69,22 +70,13 @@ const rules = {
     sourceRef: "course",
     verificationMode: "course_membership" as const,
   },
-  tribute: {
-    id: randomUUID(),
-    revision: 1,
-    sourceRef: "tribute-roster",
-    verificationMode: "tribute_registry" as const,
-  },
 };
 type Code = keyof typeof rules;
 const bindings = new Map<string, ActivationBinding>();
 /** Chat members by `${chatId}:${userId}`; the canonical chat is listed to prove it is ignored. */
 const members = new Set<string>();
-const tributeRegistry = new Set<string>();
 /** Rules the owner paused on Platform. */
 const paused = new Set<string>();
-/** Identities whose Tribute ground Platform holds as a latched source end. */
-const suspendedTribute = new Set<string>();
 const begins: string[] = [];
 const proofs: ActivationEvidence[] = [];
 const memberLookups: string[] = [];
@@ -123,16 +115,10 @@ const platform: ActivationPlatform = {
   },
   evidence(input) {
     proofs.push(structuredClone(input));
-    const confirmed =
-      input.decision === "member" ||
-      (input.decision === "registry_lookup" &&
-        tributeRegistry.has(input.identityRef));
+    const confirmed = input.decision === "member";
     const key = `${input.sourceRef}:${input.identityRef}`;
     const prior = grants.get(key) ?? 0;
     if (confirmed && prior === 0) grants.set(key, 1);
-    const suspended =
-      input.decision === "registry_lookup" &&
-      suspendedTribute.has(input.identityRef);
     const result: ActivationResult<ActivationResponse> = {
       ok: true,
       value: {
@@ -142,20 +128,8 @@ const platform: ActivationPlatform = {
           ? isTruthy(prior)
             ? "already_active"
             : "active"
-          : input.decision === "registry_lookup"
-            ? "pending_review"
-            : "rejected",
-        enrollment: suspended
-          ? {
-              id: randomUUID(),
-              tier: { name: "Inside", benefits: ["materials", "community"] },
-              origin: "tribute",
-              startsAt: "2026-01-01T00:00:00.000Z",
-              endsAt: "2026-06-01T00:00:00.000Z",
-              state: "suspended_source",
-              renewal: "not_applicable",
-            }
-          : null,
+          : "rejected",
+        enrollment: null,
       },
     };
     return Promise.resolve(result);
@@ -314,7 +288,6 @@ describe("ordinary /start", () => {
   it("checks nothing, grants nothing and queues nobody, even for a linked course member", async () => {
     const person = await linkedPerson();
     members.add(`${courseChatId}:${person.user}`);
-    tributeRegistry.add(person.identityRef);
     await send(person.user);
     await send(person.user);
     await drain();
@@ -433,43 +406,15 @@ describe("the owner link", () => {
     expect(await attempts(person.user)).toEqual([]);
   });
 
-  it("passes a Tribute registry ground to Platform", async () => {
+  it("rejects the retired Tribute code without rights", async () => {
     const person = await linkedPerson();
-    tributeRegistry.add(person.identityRef);
+    const previousGrants = grants.size;
     await send(person.user, "/start a_tribute");
-    await drain();
-    expect(proofs.map((proof) => proof.decision)).toEqual(["registry_lookup"]);
-    expect(grants.get(`tribute-roster:${person.identityRef}`)).toBe(1);
-    expect(await openReviews(person.user)).toEqual([]);
+    await worker.processAvailable();
+    expect(proofs).toEqual([]);
+    expect(grants.size).toBe(previousGrants);
+    expect(grants.has(`course:${person.identityRef}`)).toBe(false);
   });
-
-  it("shows a Tribute ground Platform holds as suspended and queues it for the owner", async () => {
-    const person = await linkedPerson();
-    suspendedTribute.add(person.identityRef);
-    await send(person.user, "/start a_tribute");
-    await drain();
-    const [message] = await activationMessages(person.user);
-    expect(required(message).message_text).toContain(
-      "Источник Tribute завершён",
-    );
-    expect(required(message).message_text).toContain(OWNER_REVIEW);
-    expect(await openReviews(person.user)).toHaveLength(1);
-  });
-
-  it("starts only its own rule and queues nobody who already has a confirmed ground", async () => {
-    const person = await linkedPerson();
-    members.add(`${courseChatId}:${person.user}`);
-    await send(person.user, "/start a_course");
-    await drain();
-    begins.length = 0;
-    await send(person.user, "/start a_tribute");
-    await drain();
-    expect(begins).toEqual(["tribute"]);
-    const last = (await activationMessages(person.user)).at(-1);
-    expect(required(last).message_text).not.toContain(OWNER_REVIEW);
-    expect(await openReviews(person.user)).toEqual([]);
-  });
-
   it("ends an expired retry of a confirmed ground as confirmed", async () => {
     const person = await linkedPerson();
     members.add(`${courseChatId}:${person.user}`);

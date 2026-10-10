@@ -25,11 +25,12 @@ notice.send authorization этого immutable corpus. Community contract/dispat
   не выдавались за локальные ссылки копии. Они разрешаются относительно sourcePath/sourceCommit
   manifest; для исполнения достаточно локальных текстов и specification, сетевого импорта нет.
 
-Platform #403 владеет первой версией wire schema и protocol. Telegram #54 копирует protocol.md,
-schema.json, fixtures.json, scenarios.json, manifest.json и sources/ byte-for-byte
-из merged Platform commit и записывает этот commit в собственном provenance metadata. Изменение
-required field, semantics или enum требует новой contractVersion и согласованной поставки обеих
-сторон; действующий v1 не расширяется неизвестными полями. Обновление digest не заменяет review.
+Platform #403 владеет первой версией wire schema и protocol. После
+[#1054](https://github.com/sachkov-inside/platform/issues/1054) обе стороны читают этот corpus через
+`@inside/contracts`; копирование в Telegram и отдельный consumer provenance отменены.
+[Общий контракт](../README.md) задаёт изменение corpus и самостоятельную поставку приложений.
+Изменение required field, semantics или enum требует новой contractVersion и согласованной
+поставки обеих сторон; действующий v1 не расширяется неизвестными полями. Обновление digest не заменяет review.
 
 Ajv draft-07 и ajv-formats уже используются репозиторием; [официальная документация](https://ajv.js.org/json-schema.html#draft-07-default)
 подтверждает default dialect. Tests проверяют fixtures/shape/hash; chronological, revision,

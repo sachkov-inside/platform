@@ -11,8 +11,8 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
 import {
-  guideModeLabels,
-  isGuideMode,
+  productModeLabels,
+  isProductMode,
   isUnknownArray,
   isUnknownRecord,
 } from "@inside/material-blocks";
@@ -258,12 +258,14 @@ export function MaterialLabeledListNodeView({
  */
 export function MaterialVariantOptionNodeView({ node }: NodeViewProps) {
   const mode: unknown = node.attrs["mode"];
-  const label = isGuideMode(mode) ? guideModeLabels[mode] : "Режим не выбран";
+  const label = isProductMode(mode)
+    ? productModeLabels[mode]
+    : "Режим не выбран";
 
   return (
     <NodeViewWrapper
       className="my-3 rounded-xl border border-border bg-card/60 px-4 py-3"
-      data-material-variant-option={isGuideMode(mode) ? mode : "unknown"}
+      data-material-variant-option={isProductMode(mode) ? mode : "unknown"}
     >
       <p
         className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted-foreground"

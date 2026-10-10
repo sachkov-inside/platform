@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
@@ -20,22 +24,22 @@ import {
 } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import {
-  guidePageSchema,
-  guidePresentationSchema,
-  type GuideSourceFields,
-} from "../../domain/guide-page.js";
-import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
+  productPageSchema,
+  productPresentationSchema,
+  type ProductSourceFields,
+} from "../../domain/product-page.js";
+import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import {
-  GUIDE_INTRODUCTION_FIELD_MAX,
-  type GuideIntroductionDto,
+  PRODUCT_INTRODUCTION_FIELD_MAX,
+  type ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type {
   UpdateContentCollectionError,
   UpdateContentCollectionOperation,
 } from "./update-content-collection.contract.js";
 
-const introductionField = z.string().trim().max(GUIDE_INTRODUCTION_FIELD_MAX);
+const introductionField = z.string().trim().max(PRODUCT_INTRODUCTION_FIELD_MAX);
 
 export const updateContentCollectionCommandSchema = z
   .object({
@@ -51,13 +55,13 @@ export const updateContentCollectionCommandSchema = z
       })
       .strict()
       .optional(),
-    kind: z.enum(["guide", "series", "topic"]),
+    kind: z.enum(["product", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
-    /** Адрес, оформление и страница перенесённого Guide; их пишет только source-scoped импорт. */
+    /** Адрес, оформление и страница перенесённого Product; их пишет только source-scoped импорт. */
     source: z
       .object({
-        page: guidePageSchema.nullable(),
-        presentation: guidePresentationSchema,
+        page: productPageSchema.nullable(),
+        presentation: productPresentationSchema,
         slug: collectionSlug,
       })
       .strict()
@@ -69,7 +73,7 @@ export const updateContentCollectionCommandSchema = z
     ({ introduction, kind }) => kind !== "topic" || introduction === undefined,
     { path: ["introduction"] },
   )
-  .refine(({ kind, source }) => kind === "guide" || source === undefined, {
+  .refine(({ kind, source }) => kind === "product" || source === undefined, {
     path: ["source"],
   });
 
@@ -92,12 +96,20 @@ export function assembleUpdateContentCollection(
       async (transaction, rollback) => {
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
-          const currentSource = await transaction.guide.findUnique({
+          const currentSource = await transaction.product.findUnique({
             where: { id: command.collectionId },
             select: { sourceId: true },
           });
-          if (currentSource !== null && currentSource.sourceId !== sourceId)
-            return rollback({ code: "forbidden" });
+          if (currentSource !== null) {
+            const sourceError = checkContentWrite(contentWriter(sourceId), [
+              {
+                kind: "product",
+                sourceId: currentSource.sourceId,
+                path: "/collectionId",
+              },
+            ]);
+            if (sourceError !== null) return rollback(sourceError);
+          }
         }
         if (command.source !== undefined && sourceId === null)
           return rollback({ code: "forbidden" });
@@ -105,8 +117,8 @@ export function assembleUpdateContentCollection(
           transaction,
           command.kind,
         );
-        // An omitted introduction preserves the stored one, so renaming a Guide
-        // from the collection list never clears text the editor owns.
+        // An omitted introduction preserves the stored one, so renaming a Product
+        // from the collection list never clears the stored text.
         const introduction = command.introduction ?? null;
         const updated = await persistence.updateMetadata({
           expectedVersion: command.expectedVersion,
@@ -163,9 +175,9 @@ export function assembleUpdateContentCollection(
 async function sourceMatches(
   transaction: MaterialsPrismaTransaction,
   id: string,
-  requested: GuideSourceFields,
+  requested: ProductSourceFields,
 ): Promise<boolean> {
-  const current = await transaction.guide.findUnique({
+  const current = await transaction.product.findUnique({
     where: { id },
     select: { page: true, presentation: true, slug: true },
   });
@@ -173,13 +185,13 @@ async function sourceMatches(
     current !== null &&
     current.slug === requested.slug &&
     current.presentation === requested.presentation &&
-    fingerprintCommand(current.page) === fingerprintCommand(requested.page)
+    contractDigest(current.page) === contractDigest(requested.page)
   );
 }
 
 function introductionMatches(
-  current: GuideIntroductionDto | null,
-  requested: GuideIntroductionDto,
+  current: ProductIntroductionDto | null,
+  requested: ProductIntroductionDto,
 ): boolean {
   return (
     current !== null &&

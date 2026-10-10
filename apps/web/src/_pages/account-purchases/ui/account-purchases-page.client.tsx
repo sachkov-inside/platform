@@ -2,6 +2,7 @@
 import type { Route } from "next";
 
 import { BillingContactPanel } from "@/features/billing-contact";
+import { TelegramLinkAction } from "@/features/account-access";
 import { CommunityEntryPanel } from "@/features/community-entry";
 import {
   PurchasesPanel,
@@ -12,7 +13,7 @@ import {
   useSubscriptionOffered,
 } from "@/widgets/account-cabinet";
 
-const storefrontHref: Route = "/subscription";
+const storefrontHref: Route = "/payment/checkout";
 
 /**
  * Раздел «Покупки»: что доступно и по какому основанию, как попасть в сообщество,
@@ -33,7 +34,7 @@ export function AccountPurchasesPage() {
           ? {}
           : {
               communitySlot: (
-                <CommunityEntryPanel telegramHref="/account/access" />
+                <CommunityEntryPanel TelegramAction={TelegramLinkAction} />
               ),
               contactSlot: <BillingContactPanel />,
             })}

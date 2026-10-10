@@ -8,7 +8,7 @@ import {
   type TributeSources,
   tierSnapshotSchema,
   saveTributePolicySchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 
 /** Catalog eligibility and source assignment share the existing pricing lock. */
 export class TributeConvergence {
@@ -38,6 +38,8 @@ export class TributeConvergence {
     const parsed = saveTributePolicySchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
+    const prepared = await this.sources.preparePolicy(actorId, input);
+    if (!prepared.ok) return prepared;
     return this.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({
@@ -55,15 +57,17 @@ export class TributeConvergence {
         revision: row.revision,
         name: row.name,
         benefits: row.benefits,
-        contentScope: row.contentScope,
+        coverage: row.coverage,
       });
-      return this.sources.savePolicy(actorId, input, tier);
+      return prepared.value(tx, tier);
     });
   }
   async apply(actorId: string, input: unknown) {
+    const prepared = await this.sources.prepareApply(actorId, input);
+    if (!prepared.ok) return prepared;
     return this.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
-      const snapshots = await this.sources.previewTiers(actorId, input);
+      const snapshots = await prepared.value.previewTiers(tx);
       if (!snapshots.ok) return snapshots;
       for (const tier of snapshots.value) {
         const current = await tx.billingOffer.findUnique({
@@ -77,29 +81,37 @@ export class TributeConvergence {
             error: { code: "revision_conflict" as const },
           };
       }
-      return this.sources.apply(actorId, input);
+      return prepared.value.apply(tx);
     });
   }
-  sweep(limit = 50) {
-    return this.prisma.$transaction(async (tx) => {
-      await lockBillingPricing(tx);
-      const tiers = await tx.billingOffer.findMany({
-        where: { archived: false, availableForAssignment: true },
-        select: {
-          id: true,
-          benefits: true,
-          contentScope: true,
-          archived: true,
-          availableForAssignment: true,
-        },
+  async sweep(limit = 50) {
+    const candidates = await this.sources.prepareSweep(limit);
+    let attached = 0;
+    let pending = 0;
+    for (const reconcile of candidates) {
+      const result = await this.prisma.$transaction(async (tx) => {
+        await lockBillingPricing(tx);
+        const tiers = await tx.billingOffer.findMany({
+          where: { archived: false, availableForAssignment: true },
+          select: {
+            id: true,
+            benefits: true,
+            coverage: true,
+            archived: true,
+            availableForAssignment: true,
+          },
+        });
+        // Тариф без состава не назначается: подтверждённый источник ждёт, пока состав задан.
+        return reconcile(
+          tx,
+          tiers
+            .filter(tierOpenForAssignment)
+            .map((tier) => z.uuid().parse(tier.id)),
+        );
       });
-      // Тариф без состава не назначается и сверкой: подтверждённый источник ждёт, пока состав задан.
-      return this.sources.sweep(
-        tiers
-          .filter(tierOpenForAssignment)
-          .map((tier) => z.uuid().parse(tier.id)),
-        limit,
-      );
-    });
+      attached += result.attached;
+      pending += result.pending;
+    }
+    return { scanned: candidates.length, attached, pending };
   }
 }

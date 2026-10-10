@@ -146,7 +146,7 @@ describe("Material Reader server adapter", () => {
         Response.json({
           kind: "teaser",
           cacheScope: "private-no-store",
-          projection: { ...publishedProjection, access: "membership" },
+          projection: { ...publishedProjection, access: "closed" },
           access: { availability: "locked", subscriptionOffered: true },
         }),
       ),
@@ -168,7 +168,7 @@ describe("Material Reader server adapter", () => {
           "Назвать части платформы",
           "Найти нужный документ за минуту",
         ],
-        access: "membership",
+        access: "closed",
         cover: {
           coverId: "72000000-0000-4000-8000-000000000022",
           renditions: [{ height: 540, width: 960 }],
@@ -198,7 +198,7 @@ describe("Material Reader server adapter", () => {
         Response.json({
           kind: "teaser",
           cacheScope: "private-no-store",
-          projection: { ...publishedProjection, access: "membership" },
+          projection: { ...publishedProjection, access: "closed" },
           access: { availability: "locked", subscriptionOffered: false },
         }),
       ),

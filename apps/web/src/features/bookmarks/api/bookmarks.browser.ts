@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { queryOptions } from "@tanstack/react-query";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
@@ -36,12 +37,12 @@ export async function getBookmarkStates(materialIds: readonly string[]) {
 /** Состояния закладок личные, поэтому у гостя запрос выключен, а не отбит отказом 401. */
 export function bookmarkStatesQueryOptions(input: {
   readonly materialId: string;
-  readonly signedIn: boolean;
+  readonly accountId: string | null;
 }) {
   return queryOptions({
-    queryKey: ["bookmarks", "states", input.materialId],
+    queryKey: ["bookmarks", input.accountId, "states", input.materialId],
     queryFn: () => getBookmarkStates([input.materialId]),
-    enabled: input.signedIn,
+    enabled: input.accountId !== null,
     retry: false,
   });
 }
@@ -81,24 +82,11 @@ export async function listBookmarkPage(
 ): Promise<BookmarkListResult> {
   const query =
     after === undefined ? "" : `?after=${encodeURIComponent(after)}`;
-  let response: Response;
-  try {
-    response = await fetch(`/api/bookmarks${query}`, {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-    });
-  } catch {
-    return { kind: "unavailable" };
-  }
-  if (response.status === 401) return { kind: "unauthorized" };
-  if (!response.ok) return { kind: "unavailable" };
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return { kind: "unavailable" };
-  }
-  const parsed = bookmarkListPageSchema.safeParse(payload);
+  const result = await requestAuthenticatedRead(`/api/bookmarks${query}`);
+  if (result.kind === "authentication_required")
+    return { kind: "unauthorized" };
+  if (result.kind !== "ready") return { kind: "unavailable" };
+  const parsed = bookmarkListPageSchema.safeParse(result.value);
   return parsed.success
     ? { kind: "ready", ...parsed.data }
     : { kind: "unavailable" };

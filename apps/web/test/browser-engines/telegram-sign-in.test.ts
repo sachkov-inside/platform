@@ -1,6 +1,14 @@
 import { createServer, type Server } from "node:http";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium, webkit, type Browser, type Page } from "@playwright/test";
+import {
+  chromium,
+  webkit,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
   pollIntervalMilliseconds,
@@ -13,6 +21,8 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 import { hasText } from "../../src/shared/lib/text";
+import { captureWebkitFailureDiagnostics } from "../support/webkit-failure-diagnostics";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 let browser: Browser;
 let server: Server;
@@ -98,7 +108,16 @@ async function poll(page: Page) {
 const focusedId = (page: Page) =>
   page.evaluate(() => document.activeElement?.id);
 
-async function open(page: Page, status: InsideTelegramPresentation["status"]) {
+type BrowserStep = <Result>(
+  name: string,
+  operation: () => Result | Promise<Result>,
+) => Promise<Result>;
+
+async function open(
+  page: Page,
+  status: InsideTelegramPresentation["status"],
+  step: BrowserStep = (_name, operation) => Promise.resolve(operation()),
+) {
   offline = false;
   requests = 0;
   state = { status, deepLink: botLink };
@@ -109,13 +128,15 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
       await route.fulfill({ status: offline ? 503 : 200, json: state });
     });
   }
-  await page.goto(`${origin}/api/inside-telegram`);
-  await page.waitForFunction(
-    () =>
-      document.querySelector('[role="status"]')?.textContent !==
-      "Готовим вход…",
+  await step("goto", () => page.goto(`${origin}/api/inside-telegram`));
+  await step("loaded-state", () =>
+    page.waitForFunction(
+      () =>
+        document.querySelector('[role="status"]')?.textContent !==
+        "Готовим вход…",
+    ),
   );
-  await page.evaluate(() => document.fonts.ready);
+  await step("fonts-ready", () => page.evaluate(() => document.fonts.ready));
 }
 
 it("renders every production state without overflow or accessibility violations on desktop and narrow mobile", async () => {
@@ -162,9 +183,8 @@ it("renders every production state without overflow or accessibility violations 
       }
       if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");
-        await page.screenshot({
+        await screenshotWholePage(page, {
           path: `${evidence}/${hasText(process.env["TELEGRAM_UI_ORIGIN"]) ? "logto-" : ""}${status}-${String(width)}.png`,
-          fullPage: true,
         });
       }
     }
@@ -292,26 +312,150 @@ it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
         ).violations,
       ).toEqual([]);
       await prepareEvidenceDirectory("issue-303");
-      await page.screenshot({
+      await screenshotWholePage(page, {
         path: `${evidence}/storybook-pending-${String(width)}.png`,
-        fullPage: true,
       });
       await context.close();
     }
   },
 );
 
-it("keeps the complete Telegram button geometry on narrow WebKit after loading", async () => {
-  const mobileBrowser = await webkit.launch();
-  try {
-    for (const width of [320, 390]) {
-      const page = await mobileBrowser.newPage({
-        viewport: { width, height: 844 },
+it("keeps the complete Telegram button geometry on narrow WebKit after loading", async ({
+  task,
+  onTestFinished,
+  signal,
+}) => {
+  const diagnostics = resolve(
+    import.meta.dirname,
+    "../..",
+    "test-results/browser-engines/telegram-webkit-geometry",
+  );
+  await rm(diagnostics, { recursive: true, force: true });
+  let mobileBrowser: Browser | undefined;
+  let launching: Promise<Browser> | undefined;
+  let context: BrowserContext | undefined;
+  let tracing = false;
+  let traceExport: Promise<void> | undefined;
+  let width: number | undefined;
+  const capture = captureWebkitFailureDiagnostics();
+  const initialResources = capture.snapshot();
+  let pendingStep = "launch";
+  let pendingStartedMilliseconds = capture.elapsedMilliseconds();
+  let lastCompletedStep: string | undefined;
+  const steps: {
+    name: string;
+    width: number | undefined;
+    elapsedMilliseconds: number;
+  }[] = [];
+  const step: BrowserStep = async (name, operation) => {
+    signal.throwIfAborted();
+    pendingStep = name;
+    pendingStartedMilliseconds = capture.elapsedMilliseconds();
+    const started = performance.now();
+    const result = await operation();
+    signal.throwIfAborted();
+    lastCompletedStep = name;
+    steps.push({
+      name,
+      width,
+      elapsedMilliseconds: performance.now() - started,
+    });
+    return result;
+  };
+  const exportTrace = (activeContext: BrowserContext) => {
+    traceExport ??= activeContext.tracing.stop({
+      path: resolve(diagnostics, `trace-${String(width)}.zip`),
+    });
+    return traceExport;
+  };
+
+  // Vitest invokes this hook after a timeout too, while the test's await is still pending.
+  // Save the phase before attempting trace export, including failures before a context exists.
+  onTestFinished(async () => {
+    // End the global log scope before asynchronous failure cleanup can stall.
+    capture.restore();
+    try {
+      if (task.result?.state !== "fail") return;
+      try {
+        const failureObservedMilliseconds = capture.elapsedMilliseconds();
+        const failureResources = await capture.snapshot();
+        await mkdir(diagnostics, { recursive: true });
+        await writeFile(
+          resolve(diagnostics, "failure.json"),
+          JSON.stringify(
+            {
+              pendingStep,
+              lastCompletedStep,
+              width,
+              steps,
+              pendingStartedMilliseconds,
+              failureObservedMilliseconds,
+              pendingElapsedMilliseconds:
+                failureObservedMilliseconds - pendingStartedMilliseconds,
+              resources: {
+                initial: await initialResources,
+                failure: failureResources,
+              },
+            },
+            null,
+            2,
+          ),
+        );
+        // Retain the protocol even if trace export or browser shutdown stalls.
+        await writeFile(
+          resolve(diagnostics, "webkit-log.json"),
+          JSON.stringify(capture.logs(), null, 2),
+        );
+        if (tracing && context !== undefined) {
+          await exportTrace(context);
+        }
+      } finally {
+        // A launch may settle just after Vitest's deadline; still close the browser it created.
+        const failedBrowser =
+          mobileBrowser ?? (await launching?.catch(() => undefined));
+        await failedBrowser?.close();
+      }
+    } finally {
+      capture.restore();
+      if (task.result?.state === "fail") {
+        await mkdir(diagnostics, { recursive: true });
+        await writeFile(
+          resolve(diagnostics, "webkit-log.json"),
+          JSON.stringify(capture.logs(), null, 2),
+        );
+      }
+    }
+  });
+  await initialResources;
+
+  const currentBrowser = await step("launch", () => {
+    launching = webkit.launch();
+    return launching;
+  });
+  mobileBrowser = currentBrowser;
+  for (const currentWidth of [320, 390]) {
+    width = currentWidth;
+    const currentContext = await step("new-context", () =>
+      currentBrowser.newContext({
+        viewport: { width: currentWidth, height: 844 },
         isMobile: true,
         deviceScaleFactor: 3,
-      });
-      await open(page, "pending");
-      const geometry = await page.locator("#bot").evaluate((element) => {
+      }),
+    );
+    context = currentContext;
+    traceExport = undefined;
+    await step("trace-start", () =>
+      currentContext.tracing.start({
+        screenshots: true,
+        snapshots: true,
+        sources: true,
+      }),
+    );
+    tracing = true;
+    const page = await step("new-page", () => currentContext.newPage());
+    await open(page, "pending", step);
+    const geometry = await step("geometry", () =>
+      page.locator("#bot").evaluate((element) => {
         const button = element.getBoundingClientRect();
         const range = document.createRange();
         range.selectNodeContents(element);
@@ -327,24 +471,35 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
           display: getComputedStyle(element).display,
           rects: element.getClientRects().length,
         };
-      });
+      }),
+    );
+    await step("geometry-assertions", () => {
       expect(geometry.display).toBe("flex");
       expect(geometry.rects).toBe(1);
       expect(geometry.button.height).toBeGreaterThanOrEqual(52);
       expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
       expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
       expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
-      if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
-        await prepareEvidenceDirectory("issue-303");
-        await page.screenshot({
+    });
+    if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
+      await prepareEvidenceDirectory("issue-303");
+      await step("screenshot", () =>
+        page.screenshot({
           path: `${evidence}/webkit-${String(width)}.png`,
-        });
-      }
-      await page.close();
+        }),
+      );
     }
-  } finally {
-    await mobileBrowser.close();
+    // Keep a completed trace if closing the page or context itself is what fails.
+    await mkdir(diagnostics, { recursive: true });
+    await step("trace-stop", () => exportTrace(currentContext));
+    tracing = false;
+    await step("page-close", () => page.close());
+    await step("context-close", () => currentContext.close());
+    context = undefined;
   }
+  await step("browser-close", () => currentBrowser.close());
+  mobileBrowser = undefined;
+  await rm(diagnostics, { recursive: true, force: true });
 }, 30000);
 
 it.each(["headers", "body"] as const)(

@@ -1,9 +1,13 @@
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { communicationFunnelsMigration } from "../../src/database/migrations/011-communication-funnels.js";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import type { Migration } from "kysely/migration";
-import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import { createDatabase } from "../../src/database/create-database.js";
 import {
@@ -26,15 +30,32 @@ import {
   privateStartUpdate,
 } from "../support/synthetic-telegram-updates.js";
 
+registerFixedClock();
+
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl))
   throw new Error("DATABASE_URL is required for integration tests");
 const database = createDatabase(databaseUrl);
 beforeAll(() => migrateToLatest(database));
-beforeEach(() => migrateTo(database, "007-owner-identity-recovery"));
+let historicalStep = 0;
+beforeEach(async () => {
+  await migrateTo(database, "007-owner-identity-recovery");
+  // The retained deployment precedes historical steps and Kysely's fixed-time upgrades.
+  const deployedAt = new Date(fixedTestInstant() - 1000).toISOString();
+  await sql`update kysely_migration set timestamp = ${deployedAt}`.execute(
+    database,
+  );
+  historicalStep = 0;
+});
 afterAll(async () => {
-  await migrateToLatest(database);
-  await database.destroy();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(fixedTestInstant());
+  try {
+    await migrateToLatest(database);
+  } finally {
+    vi.useRealTimers();
+    await database.destroy();
+  }
 });
 
 // Reconstruct the real pre-merge histories using their unchanged migrations and ledger keys.
@@ -44,7 +65,10 @@ async function applyHistorical(
 ): Promise<void> {
   await database.transaction().execute(async (transaction) => {
     await migration.up(transaction);
-    await sql`insert into kysely_migration (name, timestamp) values (${name}, ${new Date().toISOString()})`.execute(
+    const appliedAt = new Date(
+      fixedTestInstant() - 500 + historicalStep++,
+    ).toISOString();
+    await sql`insert into kysely_migration (name, timestamp) values (${name}, ${appliedAt})`.execute(
       transaction,
     );
   });
@@ -71,8 +95,8 @@ it.each(["communications-first", "sign-in-first"] as const)(
           owner_account_ref: "synthetic-account",
           revision: 1,
           content: JSON.stringify({ text: "preserved" }),
-          created_at: new Date(),
-          updated_at: new Date(),
+          created_at: new Date(fixedTestInstant()),
+          updated_at: new Date(fixedTestInstant()),
         })
         .execute();
     } else {
@@ -139,7 +163,7 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
     actorRef: "synthetic-owner",
     reason: "Legacy decision",
   };
-  const now = new Date();
+  const now = new Date(fixedTestInstant());
   await sql`insert into community_restriction_decisions
     (operation_id, fingerprint, actor_ref, reason, created_at)
     values (${input.operationId}, ${digest(input)}, ${input.actorRef}, ${input.reason}, ${now})`.execute(
@@ -175,7 +199,7 @@ it.each([
 ])(
   "still rejects missing dependencies for %s at every entrypoint",
   async (migrationName) => {
-    await sql`insert into kysely_migration (name, timestamp) values (${migrationName}, ${new Date().toISOString()})`.execute(
+    await sql`insert into kysely_migration (name, timestamp) values (${migrationName}, ${new Date(fixedTestInstant()).toISOString()})`.execute(
       database,
     );
     try {

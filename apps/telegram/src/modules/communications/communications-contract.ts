@@ -7,7 +7,7 @@ import type {
 } from "./funnel-types.js";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import schema from "./contracts/inside-communications-v1/schema.json" with { type: "json" };
+import schema from "@inside/contracts/inside-communications-v1/schema.json" with { type: "json" };
 
 export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
 export interface Actor {

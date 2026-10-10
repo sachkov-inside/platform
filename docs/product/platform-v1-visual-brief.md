@@ -321,7 +321,7 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
 
 Текущие rendered proofs находятся в Storybook stories `Navigation/Application shell` и
 `Compositions/Material cards`. Laboratory использует Tailwind CSS, shadcn-compatible shared UI
-structure и Agentation как owner-feedback overlay; production routes пока не импортируют workshop
+structure; overlay Agentation снят 09.10.2026 по решению владельца. Production routes пока не импортируют workshop
 runtime или fixtures.
 
 Rendered review 2026-08-24 принял bounded responsive proof Библиотеки как основу следующей
@@ -365,8 +365,8 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - accepted component foundation состоит из реально используемых `Button`, `Select` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
-- Agentation остаётся обязательным feedback overlay каждой frontend-итерации, а Storybook stories
-  являются читаемыми responsive proofs и исполняемыми interaction/accessibility contracts.
+- Storybook stories являются читаемыми responsive proofs и исполняемыми interaction/accessibility
+  contracts; overlay Agentation снят 09.10.2026 по решению владельца.
 
 Reader proof остаётся отделён от production route, backend/client integration, video player,
 closed-access acquisition flow и author editor. Video и closed-access states проходят собственные

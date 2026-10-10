@@ -1,5 +1,8 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
-import { GenericContainer, Wait } from "testcontainers";
 import { expect, onTestFinished, test } from "vitest";
 import {
   assembleAccounts,
@@ -7,25 +10,19 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
-  assembleBillingNotificationOutbox,
   BillingNotices,
   BillingPayments,
-  BillingPricing,
 } from "../../src/modules/billing/index.js";
-import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
 import { Notifications } from "../../src/modules/notifications/index.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { lanes } from "../../src/infrastructure/notification-transport/wire.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
-import { brokerAdmin, queueDepth } from "./setup/broker.js";
+import { startNotificationBroker, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
@@ -34,6 +31,8 @@ import {
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+registerFixedClock();
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -66,35 +65,14 @@ const documents = syntheticConsentDocuments;
  */
 test("подтверждённая оплата доходит до обоих каналов через реальные RabbitMQ и PostgreSQL", async () => {
   const topology = localNotificationTopology("inside-test", 100);
-  const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-    .withExposedPorts(5672)
-    .withCopyContentToContainer([
-      {
-        content: JSON.stringify(topology),
-        target: "/etc/rabbitmq/definitions.json",
-      },
-      {
-        content:
-          "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-        target: "/etc/rabbitmq/rabbitmq.conf",
-      },
-    ])
-    .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-    .start();
+  const broker = await startNotificationBroker({ topology });
   onTestFinished(async () => {
     await broker.stop();
   });
-  const admin = brokerAdmin(broker);
+  const admin = broker.admin;
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
-  const url = (principal: string) =>
-    `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
-  const urls = {
-    billing: url("billing"),
-    materials: url("materials"),
-    notifications: url("notifications"),
-    email: url("email"),
-  };
+  const { urls } = broker;
 
   const protection = billingContactProtection(
     Buffer.alloc(32, 64).toString("base64"),
@@ -120,6 +98,7 @@ test("подтверждённая оплата доходит до обоих �
       revision: 1,
       principalRef: `principal-${buyer}`,
       identityRef: `identity-${buyer}`,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       updatedAt: new Date(),
     },
   });
@@ -129,7 +108,7 @@ test("подтверждённая оплата доходит до обоих �
     emailFingerprintKey: "synthetic-broker-fingerprint-000000",
   });
   const grants = assembleAccessGrants({ prisma: database.prisma, accounts });
-  const pricing = new BillingPricing({
+  const pricing = assembleTestBillingPricing({
     prisma: database.prisma,
     accounts,
     sale: { payments: true, subscriptions: true },
@@ -138,6 +117,7 @@ test("подтверждённая оплата доходит до обоих �
     prisma: database.prisma,
     protection,
     documents,
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     now: () => new Date(),
     sendCode: (message) => {
       codes.set(message.challengeRef, message.code);
@@ -180,7 +160,7 @@ test("подтверждённая оплата доходит до обоих �
         id: offerId,
         name: "Материалы + сопровождение",
         benefits: ["materials", "support"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
       },
     }),
   );
@@ -251,11 +231,10 @@ test("подтверждённая оплата доходит до обоих �
   );
 
   const sent: { subject: string; text: string; email: string }[] = [];
-  const worker = assembleNotificationWorker({
+  const worker = assembleNotificationPipeline({
     config: { urls, prefetch: 2, quarantineCapacity: 100 },
     transport: application.transport,
-    billing: assembleBillingNotificationOutbox(database.prisma),
-    materials: assembleMaterialsNotificationOutbox(database.prisma),
+    prisma: database.prisma,
     processInbox: () =>
       application.sweep((message) => {
         sent.push(message);
@@ -265,11 +244,14 @@ test("подтверждённая оплата доходит до обоих �
   });
 
   const quote = value(
-    await pricing.quote(buyer, {
-      operationId: randomUUID(),
-      paymentOptionId: optionId,
-      optionRevision: 1,
-    }),
+    await pricing.quote(
+      buyer,
+      await prepareInvitedQuote(database.prisma, buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: optionId,
+        optionRevision: 1,
+      }),
+    ),
   );
   const accepted = await contact.acceptConsents(
     buyer,

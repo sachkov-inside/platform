@@ -10,7 +10,7 @@ import { contentCollectionPersistence } from "../../infrastructure/postgres/cont
 import type { ListContentCollectionsOperation } from "./list-content-collections.contract.js";
 
 const querySchema = z
-  .object({ actor: accountId, kind: z.enum(["guide", "series", "topic"]) })
+  .object({ actor: accountId, kind: z.enum(["product", "series", "topic"]) })
   .strict();
 
 export function assembleListContentCollections(

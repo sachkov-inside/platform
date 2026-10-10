@@ -332,17 +332,25 @@ export function continuesAccessEndingReminder(
   return endsAt.getTime() - previousDueAt.getTime() <= ACCESS_ENDING_LEAD_MS;
 }
 
+/** Оплаченный срок подписки и то, продолжает ли доступ за ним другое основание. */
+export interface SubscriptionEndingSubject extends RenewalReminderSubject {
+  /** Enrollment того же Account на тот же Offer действует после конца срока. */
+  readonly continued: boolean;
+}
+
 /**
  * Оплаченный срок без продления — отменённое расписание или отсутствующая привязка — заканчивается
  * так же, как подарок: за три дня приходит напоминание со ссылкой на оформление Offer. Действующее
- * расписание напоминает о списании, а не об окончании.
+ * расписание напоминает о списании, а не об окончании. Доступ, который продолжает Enrollment на
+ * тот же Offer, на конце срока не заканчивается, как и у Enrollment.
  */
 export function planSubscriptionEnding(
-  subject: RenewalReminderSubject,
+  subject: SubscriptionEndingSubject,
   now: Date,
 ): NoticeOccurrence | undefined {
   if (
     subject.scheduled ||
+    subject.continued ||
     subject.ended ||
     subject.paidUntil <= now ||
     subject.paidUntil.getTime() - now.getTime() > ACCESS_ENDING_LEAD_MS

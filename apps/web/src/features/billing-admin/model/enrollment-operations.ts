@@ -1,6 +1,6 @@
 import {
   accessCapabilitySchema,
-  contentScopeEntrySchema,
+  coverageEntrySchema,
 } from "@inside/access-capabilities";
 import { z } from "zod";
 import { tierSchema, enrollmentSchema } from "@/entities/subscription";
@@ -21,7 +21,7 @@ const terms = z.object({
 export const assignEnrollmentInputSchema = z.object({
   operationId,
   accountId: z.uuid(),
-  origin: z.enum(["course", "tribute", "manual"]),
+  origin: z.enum(["course", "manual"]),
   sourceRef: z.string().min(1),
   tierId: z.uuid(),
   tierRevision: z.int().positive(),
@@ -93,9 +93,7 @@ export const activationRuleSchema = z.object({
   tierId: z.uuid(),
   tierRevision: z.int().positive(),
   sourceRef: z.string().min(1).max(256),
-  verificationMode: z
-    .enum(["course_membership", "tribute_registry"])
-    .optional(),
+  verificationMode: z.literal("course_membership").optional(),
   published: z.boolean(),
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime().nullable(),
@@ -166,7 +164,7 @@ export const contentCatalogOutcomeSchema = z.object({
   operationRef: z.uuid(),
   result: z.object({
     outcome: z.literal("content"),
-    items: z.array(contentScopeEntrySchema),
+    items: z.array(coverageEntrySchema),
   }),
 });
 

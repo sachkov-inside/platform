@@ -4,10 +4,11 @@ import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import {
   courseSourceRef,
   tierSnapshotSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
+  Prisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
@@ -15,7 +16,7 @@ import {
   recurringAllowedFor,
   type AccessGrants,
   type invitationViewSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   isOwnerReadOperation,
   ownerAccessFailure,
@@ -53,9 +54,10 @@ import {
 } from "../../features/read-access-roster/read-access-roster.js";
 import {
   offerGrantsWithheld,
+  isProductOffer,
+  productSupportTermMissing,
   subscriptionOfferForInvitation,
   tierLacksComposition,
-  tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -80,12 +82,12 @@ interface Dependencies {
     | "classifyLegacy"
     | "readClassification"
     | "registerSourceEntitlement"
-    | "manageActivationRule"
+    | "prepareActivationRule"
     | "listActivationRules"
-    | "previewEnrollmentExpansion"
+    | "prepareEnrollmentExpansion"
     | "applyEnrollmentExpansion"
     | "readEnrollmentAssignmentReceipt"
-    | "assignEnrollment"
+    | "prepareEnrollmentAssignment"
     | "changeEnrollment"
     | "listEnrollments"
     | "issueInvitation"
@@ -126,6 +128,28 @@ export class BillingOperations {
       if (isOwnerReadOperation(command.operation))
         return await this.dispatch(actorId, command);
       const digest = commandFingerprint(command.operation, command);
+      // Ключ закрепляется до применения, включая команды других семейств и незавершённый аудит.
+      await this.dependencies.prisma.billingOwnerCommandKey.createMany({
+        data: {
+          actorId,
+          operationId: command.operationId,
+          fingerprint: digest,
+          createdAt: this.clock(),
+        },
+        skipDuplicates: true,
+      });
+      const key =
+        await this.dependencies.prisma.billingOwnerCommandKey.findUniqueOrThrow(
+          {
+            where: {
+              actorId_operationId: {
+                actorId,
+                operationId: command.operationId,
+              },
+            },
+          },
+        );
+      if (key.fingerprint !== digest) return ownerFailure("operation_conflict");
       const receipt =
         await this.dependencies.prisma.billingOwnerCommand.findUnique({
           where: {
@@ -135,28 +159,37 @@ export class BillingOperations {
       if (receipt !== null) {
         if (receipt.fingerprint !== digest)
           return ownerFailure("operation_conflict");
-        // Журнал не хранит код приглашения: повтор выдачи читает выданное по id, а Offer, который
-        // могли архивировать после выдачи, заново не проверяет.
-        if (command.operation === "invitations.issue") {
-          const issued = await this.dependencies.grants.readInvitation(
-            actorId,
-            command.operationId,
-          );
-          if (!issued.ok) return invitationFailure(issued.error.code);
-          return {
-            ok: true,
-            operationRef: command.operationId,
-            result: {
-              outcome: "invitation",
-              value: withoutNote(this.ownerInvitation(issued.value)),
-            },
-          };
-        }
-        return storedResult(command.operationId, receipt.result);
+        return await this.replay(actorId, command, receipt.result);
+      }
+      if (key.result !== null) {
+        const restored = await this.replay(actorId, command, key.result);
+        if (!restored.ok) return restored;
+        return await this.record(actorId, command, digest, restored);
       }
       const result = await this.dispatch(actorId, command);
       if (!result.ok) return result;
-      return await this.record(actorId, command, digest, result);
+      await this.dependencies.prisma.billingOwnerCommandKey.updateMany({
+        where: {
+          actorId,
+          operationId: command.operationId,
+          result: { equals: Prisma.DbNull },
+        },
+        data: { result: auditedOutcome(result.result) },
+      });
+      const completed =
+        await this.dependencies.prisma.billingOwnerCommandKey.findUniqueOrThrow(
+          {
+            where: {
+              actorId_operationId: {
+                actorId,
+                operationId: command.operationId,
+              },
+            },
+          },
+        );
+      const restored = await this.replay(actorId, command, completed.result);
+      if (!restored.ok) return restored;
+      return await this.record(actorId, command, digest, restored);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "execute" },
@@ -164,6 +197,35 @@ export class BillingOperations {
         ownerFailure("dependency_unavailable"),
       );
     }
+  }
+
+  private async replay(
+    actorId: string,
+    command: OwnerOperation,
+    outcome: unknown,
+  ): Promise<OwnerResult> {
+    // Ключ и аудит не хранят код приглашения; владеющий интерфейс читает уже выданное без проверки Offer.
+    if (
+      command.operation === "invitations.issue" ||
+      command.operation === "invitations.revoke"
+    ) {
+      const issued = await this.dependencies.grants.readInvitation(
+        actorId,
+        command.operation === "invitations.issue"
+          ? command.operationId
+          : command.invitationId,
+      );
+      if (!issued.ok) return invitationFailure(issued.error.code);
+      return {
+        ok: true,
+        operationRef: command.operationId,
+        result: {
+          outcome: "invitation",
+          value: withoutNote(this.ownerInvitation(issued.value)),
+        },
+      };
+    }
+    return storedResult(command.operationId, outcome);
   }
 
   /**
@@ -199,7 +261,7 @@ export class BillingOperations {
       if (receipt === null) throw error;
       if (receipt.fingerprint !== digest)
         return ownerFailure("operation_conflict");
-      return storedResult(command.operationId, receipt.result);
+      return await this.replay(actorId, command, receipt.result);
     }
   }
 
@@ -373,6 +435,9 @@ export class BillingOperations {
           : ownerAccessFailure(result.error.code);
       }
       case "activationRules.save": {
+        const { operation: _operation, ...input } = command;
+        const prepared = await grants.prepareActivationRule(actorId, input);
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -386,7 +451,10 @@ export class BillingOperations {
           if (
             command.value.published &&
             row !== null &&
-            (tierLacksComposition(row) || offerGrantsWithheld(row))
+            (!isProductOffer(row) ||
+              tierLacksComposition(row) ||
+              offerGrantsWithheld(row) ||
+              productSupportTermMissing(row))
           )
             return ownerFailure("state_conflict");
           if (
@@ -394,8 +462,7 @@ export class BillingOperations {
             row?.revision !== command.value.tierRevision
           )
             return ownerFailure("revision_conflict");
-          const { operation: _operation, ...input } = command;
-          const result = await grants.manageActivationRule(actorId, input);
+          const result = await prepared.save(tx);
           return result.ok
             ? {
                 ok: true,
@@ -406,6 +473,12 @@ export class BillingOperations {
         });
       }
       case "enrollments.previewExpansion": {
+        const { operation: _operation, ...input } = command;
+        const prepared = await grants.prepareEnrollmentExpansion(
+          actorId,
+          input,
+        );
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -415,18 +488,17 @@ export class BillingOperations {
           if (row.revision !== command.tierRevision)
             return ownerFailure("revision_conflict");
           if (offerGrantsWithheld(row)) return ownerFailure("state_conflict");
-          const { operation: _operation, ...input } = command;
-          const result = await grants.previewEnrollmentExpansion(
-            actorId,
-            input,
-            {
-              id: row.id,
-              revision: row.revision,
-              name: row.name,
-              benefits: row.benefits,
-              contentScope: row.contentScope,
+          const result = await prepared.preview(tx, {
+            id: row.id,
+            revision: row.revision,
+            name: row.name,
+            benefits: row.benefits,
+            benefitPeriods: row.benefitPeriods,
+            coverage: row.coverage ?? {
+              productIds: [],
+              materialIds: [],
             },
-          );
+          });
           return result.ok
             ? {
                 ok: true,
@@ -469,7 +541,8 @@ export class BillingOperations {
             revision: row.revision,
             name: row.name,
             benefits: row.benefits,
-            contentScope: row.contentScope,
+            benefitPeriods: row.benefitPeriods,
+            coverage: row.coverage ?? { productIds: [], materialIds: [] },
           });
           return tier.success
             ? [
@@ -499,7 +572,7 @@ export class BillingOperations {
         };
       }
       case "enrollments.assign": {
-        if (command.origin === "platform_payment")
+        if (command.origin !== "manual" && command.origin !== "course")
           return ownerFailure("forbidden");
         const { operation: _operation, ...requested } = command;
         if (command.origin === "course" && command.courseSource === undefined)
@@ -534,7 +607,12 @@ export class BillingOperations {
                       ? "dependency_unavailable"
                       : receipt.error.code,
               );
-        return prisma.$transaction(async (tx) => {
+        const prepared = await grants.prepareEnrollmentAssignment(
+          actorId,
+          input,
+        );
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
+        return prisma.$transaction(async function assignEnrollmentWithTier(tx) {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
             where: { id: command.tierId },
@@ -544,21 +622,22 @@ export class BillingOperations {
           if (row.revision !== command.tierRevision)
             return ownerFailure("revision_conflict");
           // Тариф без состава дал бы чат без материалов, а отдельный материал и `reviews` не выдаются.
-          if (tierLacksComposition(row) || offerGrantsWithheld(row))
+          if (
+            tierLacksComposition(row) ||
+            offerGrantsWithheld(row) ||
+            productSupportTermMissing(row)
+          )
             return ownerFailure("state_conflict");
           const tier = tierSnapshotSchema.safeParse({
             id: row.id,
             revision: row.revision,
             name: row.name,
             benefits: row.benefits,
-            contentScope: row.contentScope,
+            benefitPeriods: row.benefitPeriods,
+            coverage: row.coverage ?? { productIds: [], materialIds: [] },
           });
           if (!tier.success) return ownerFailure("invalid_request");
-          const result = await grants.assignEnrollment(
-            actorId,
-            input,
-            tier.data,
-          );
+          const result = await prepared.assign(tx, tier.data);
           return result.ok
             ? {
                 ok: true,
@@ -692,6 +771,7 @@ export class BillingOperations {
       case "refunds.execute":
         return await executeRefund(
           { prisma, bank: this.dependencies.bank, clock: this.clock },
+          actorId,
           command,
         );
       case "refunds.read": {
@@ -853,12 +933,7 @@ export class BillingOperations {
           where: { id: command.offerId },
         });
         if (row === null || row.archived) return ownerFailure("not_found");
-        // Оплата ведёт на страницу оформления подписки, подарок назначает тариф без оплаты.
-        if (
-          command.mode === "purchase"
-            ? !subscriptionOfferForInvitation(row)
-            : !tierOpenForAssignment(row)
-        )
+        if (!subscriptionOfferForInvitation(row))
           return ownerFailure("state_conflict");
         const { operation: _operation, ...requested } = command;
         const result = await grants.issueInvitation(actorId, requested, {
@@ -936,7 +1011,6 @@ export class BillingOperations {
       offerId: view.offerId,
       offerRevision: view.offerRevision,
       mode: view.mode,
-      giftMonths: view.giftMonths,
       note: view.note,
       state: view.state,
       issuedAt: view.issuedAt,
@@ -963,7 +1037,6 @@ function withoutNote(invitation: OwnerInvitation) {
     offerId: invitation.offerId,
     offerRevision: invitation.offerRevision,
     mode: invitation.mode,
-    giftMonths: invitation.giftMonths,
     state: invitation.state,
     issuedAt: invitation.issuedAt,
     expiresAt: invitation.expiresAt,
@@ -990,7 +1063,6 @@ function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
       offerId: value.offerId,
       offerRevision: value.offerRevision,
       mode: value.mode,
-      giftMonths: value.giftMonths,
       state: value.state,
       issuedAt: value.issuedAt,
       expiresAt: value.expiresAt,
@@ -1077,7 +1149,7 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
       return command.value.id;
     // Поток адресуется своим продуктом.
     case "cohorts.save":
-      return command.value.guideId;
+      return command.value.productId;
     case "offers.archive":
     case "offers.publish":
     case "offers.unpublish":

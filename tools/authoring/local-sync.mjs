@@ -1,4 +1,8 @@
 // @ts-check
+import { z } from "zod";
+import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
+import { materialImageAssetIds } from "./package.mjs";
+import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
 import {
   practicesFollowLessons,
@@ -8,6 +12,8 @@ import {
 } from "./practice-import.mjs";
 import {
   replayTaskImports,
+  assertTaskReplayAccess,
+  resolveTaskAccess,
   syncSourceTasks,
   validateSourceTasks,
 } from "./task-import.mjs";
@@ -21,8 +27,8 @@ import {
   canonical,
   checksum,
   materialRevision,
-  guideShellScope,
-  isGuideShell,
+  productShellScope,
+  isProductShell,
 } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
@@ -48,6 +54,10 @@ import {
   failureStatus,
 } from "./target.mjs";
 import { waitUntilReady } from "./video.mjs";
+import {
+  canonicalAuthoringRequest,
+  fingerprintAccess,
+} from "./compatibility.mjs";
 
 // Kept for callers of the isolated editor runtime; every target is loopback-only.
 export const reviewOrigin = resolveLocalTarget("editor");
@@ -56,13 +66,13 @@ export const localRequest = localTransport(reviewOrigin);
 /**
  * @typedef {import("./package.mjs").Manifest} Manifest
  * @typedef {import("./package.mjs").ManifestMaterial} ManifestMaterial
- * @typedef {import("./package.mjs").ManifestGuide} ManifestGuide
+ * @typedef {import("./package.mjs").ManifestProduct} ManifestProduct
  * @typedef {import("./package.mjs").ManifestAsset} ManifestAsset
  * @typedef {ManifestMaterial["artifacts"][number]} ManifestArtifact
- * @typedef {import("./local-boundaries.mjs").StoredGuide} StoredGuide
+ * @typedef {import("./local-boundaries.mjs").StoredProduct} StoredProduct
  * @typedef {import("./local-boundaries.mjs").LocalRequest} LocalRequest
  * @typedef {import("./journal.mjs").Journal} Journal
- * @typedef {"free" | "membership"} DefaultAccess
+ * @typedef {"free" | "closed"} DefaultAccess
  * @typedef {{ code: string; message: string; path?: string; line?: number }} SyncNotice
  * @typedef {object} SyncReport
  * @property {string} packageId
@@ -75,12 +85,12 @@ export const localRequest = localTransport(reviewOrigin);
  *   programmeUrl: string;
  *   mainMaterials: number;
  *   supplementaryMaterials: { sourceId: string; url: string }[];
- * }[]} guides
+ * }[]} products
  * @property {{ sourceId: string }[]} archived
  * @property {{ sourceId: string; url: string | null }[]} archiveProposals
  * @property {SyncNotice[]} notices
  * @property {string} [homePinned]
- * @property {"guide-shell"} [scope]
+ * @property {"product-shell"} [scope]
  * @property {import("./task-import.mjs").TaskChange[]} [tasks]
  * @typedef {object} SyncOptions
  * @property {string} [origin]
@@ -92,6 +102,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {boolean} [pinHome]
  * @property {PublishSelection} [publish]
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
+ * @property {string[]} [reviewedTaskAccess] Explicit Task access from the reviewed release only.
+ * @property {string[]} [reviewedProductRemovals] Scoped Product removal choices from the reviewed release.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -142,14 +154,14 @@ export { materialRevision } from "./package.mjs";
 export const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 
 /**
- * Guides whose programme or supplementary part contains this original.
+ * Products whose programme or supplementary part contains this original.
  *
  * @param {Manifest} manifest
  * @param {ManifestMaterial} row
  */
 export function productsOf(manifest, row) {
-  return manifest.guides.filter((guide) =>
-    [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(
+  return manifest.products.filter((product) =>
+    [...product.materialIds, ...product.supplementaryMaterialIds].includes(
       row.sourceId,
     ),
   );
@@ -160,7 +172,7 @@ export function productsOf(manifest, row) {
  *
  * @param {{
  *   revision: string;
- *   metadata: unknown;
+ *   metadata: Record<string, unknown>;
  *   primaryVideoId: string | null;
  *   videoChapters: unknown;
  *   publicationState: PublicationState;
@@ -176,7 +188,10 @@ function materialDigest({
   return checksum(
     canonical({
       revision,
-      metadata,
+      metadata: {
+        ...metadata,
+        access: fingerprintAccess(metadata["access"]),
+      },
       ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}),
       ...(publicationState === "published" ? {} : { publicationState }),
     }),
@@ -194,7 +209,7 @@ function materialDigest({
 export function publicationPolicy(manifest, publish) {
   if (publish === "all") return () => "published";
   const selected = new Set(normalizeSourceIds(manifest, publish));
-  // A Guide Task is selected for publication by its code, like a Material by its source (#946).
+  // A Product Task is selected for publication by its code, like a Material by its source (#946).
   const present = new Set(
     [
       ...manifest.materials.map((row) => row.sourceId),
@@ -255,7 +270,7 @@ export function publicationConflict(row, current, desired) {
  * @param {ManifestMaterial} row
  * @param {{
  *   topicIds: Map<string, string>;
- *   guideIds: Map<string, string>;
+ *   productIds: Map<string, string>;
  *   defaultAccess: DefaultAccess;
  *   primaryVideoId: string | null;
  *   publicationState: DesiredPublication;
@@ -264,7 +279,7 @@ export function publicationConflict(row, current, desired) {
 export function desiredMaterial(
   manifest,
   row,
-  { topicIds, guideIds, defaultAccess, primaryVideoId, publicationState },
+  { topicIds, productIds, defaultAccess, primaryVideoId, publicationState },
 ) {
   const metadata = {
     title: row.title,
@@ -275,8 +290,8 @@ export function desiredMaterial(
     topicId: row.topicId === null ? null : topicIds.get(row.topicId),
     formatId: row.kind,
     tagIds: [],
-    seriesIds: productsOf(manifest, row).map((guide) =>
-      guideIds.get(guide.sourceId),
+    seriesIds: productsOf(manifest, row).map((product) =>
+      productIds.get(product.sourceId),
     ),
   };
   const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
@@ -293,58 +308,70 @@ export function desiredMaterial(
   };
 }
 
-const guideTeaserLimit = 500;
+const productTeaserLimit = 500;
 
 /**
  * The product teaser: the whole summary when it fits, otherwise its first paragraph.
  *
- * @param {Pick<ManifestGuide, "sourceId" | "summary">} guide
+ * @param {Pick<ManifestProduct, "sourceId" | "summary">} product
  */
-export function guideTeaser(guide) {
-  if (guide.summary.length <= guideTeaserLimit)
-    return { teaser: guide.summary, partial: false };
-  const [first = ""] = guide.summary.split(/\n\s*\n/u);
-  if (first.length > guideTeaserLimit)
+export function productTeaser(product) {
+  if (product.summary.length <= productTeaserLimit)
+    return { teaser: product.summary, partial: false };
+  const [first = ""] = product.summary.split(/\n\s*\n/u);
+  if (first.length > productTeaserLimit)
     throw new Error(
-      `Guide ${guide.sourceId}: first paragraph exceeds the ${String(guideTeaserLimit)} character teaser limit`,
+      `Product ${product.sourceId}: first paragraph exceeds the ${String(productTeaserLimit)} character teaser limit`,
     );
   return { teaser: first, partial: true };
 }
 
 /**
- * Everything the source owns about a Guide besides its programme (ADR 0026). The page keeps the
+ * Everything the source owns about a Product besides its programme (ADR 0026). The page keeps the
  * shape Platform stores, so an absent Home card caption is not a change. A package that names no
  * address leaves the current one alone: an older package must not move a published product.
  *
- * @param {ManifestGuide} guide
- * @param {StoredGuide} [current]
+ * @param {ManifestProduct} product
+ * @param {StoredProduct} [current]
  */
-export function guideDetails(guide, current) {
+export function productDetails(product, current) {
   // Пакет, который не называет описание или оформление, оставляет их прежними: так старый пакет не
   // стирает страницу. Снять описание можно явным `page: null` в манифесте.
   const page =
-    guide.page === undefined
+    product.page === undefined
       ? (current?.page ?? null)
-      : guide.page === null
+      : product.page === null
         ? null
-        : { card: guide.page.card ?? null, blocks: guide.page.blocks };
+        : { card: product.page.card ?? null, blocks: product.page.blocks };
   return {
-    name: guide.title.trim(),
-    summary: guideTeaser(guide).teaser.trim(),
-    slug: guide.slug ?? current?.slug ?? guide.sourceId,
-    presentation: guide.presentation ?? current?.presentation ?? "default",
+    name: product.title.trim(),
+    summary: productTeaser(product).teaser.trim(),
+    slug: product.slug ?? current?.slug ?? product.sourceId,
+    presentation: product.presentation ?? current?.presentation ?? "default",
     page,
+    ...(product.introduction === undefined
+      ? {}
+      : {
+          introduction: {
+            audience: product.introduction.audience.trim(),
+            outcome: product.introduction.outcome.trim(),
+            prerequisites: product.introduction.prerequisites.trim(),
+            scope: product.introduction.scope.trim(),
+          },
+        }),
   };
 }
 /**
  * Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит.
  *
- * @param {StoredGuide} current
- * @param {ReturnType<typeof guideDetails>} details
+ * @param {StoredProduct} current
+ * @param {ReturnType<typeof productDetails>} details
  */
-export function guideDetailsMatch(current, details) {
+export function productDetailsMatch(current, details) {
   // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
   return (
+    (details.introduction === undefined ||
+      canonical(current.introduction) === canonical(details.introduction)) &&
     current.pageRejected !== true &&
     current.name === details.name &&
     current.summary === details.summary &&
@@ -361,29 +388,32 @@ export function guideDetailsMatch(current, details) {
  * @param {Manifest} manifest
  * @param {import("./target.mjs").LocalTransport} send
  */
-export async function validateGuidePages(manifest, send) {
-  for (const guide of manifest.guides) {
-    const details = guideDetails(guide);
+export async function validateProductPages(manifest, send) {
+  for (const product of manifest.products) {
+    const details = productDetails(product);
     // Адрес проверяется только когда пакет его называет: продукт на своём адресе не должен падать
     // из-за формы чужого ключа. Новый продукт с непригодным ключом остановит reserve — он идёт до
     // записи материалов.
     const source = {
       presentation: details.presentation,
       page: details.page,
-      ...(guide.slug === undefined ? {} : { slug: guide.slug }),
+      ...(product.slug === undefined ? {} : { slug: product.slug }),
     };
-    const path = "/authoring/import/guides/validate";
+    const path = "/authoring/import/products/validate";
     try {
       parseLocalResponse(
         path,
         await send(path, {
-          sourceId: sourceKey(manifest, guide.sourceId),
+          sourceId: sourceKey(manifest, product.sourceId),
+          ...(details.introduction === undefined
+            ? {}
+            : { introduction: details.introduction }),
           source,
         }),
       );
     } catch (error) {
       throw new Error(
-        `Product ${guide.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${errorMessage(error)}`,
+        `Product ${product.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${errorMessage(error)}`,
         { cause: error },
       );
     }
@@ -400,12 +430,12 @@ function errorMessage(error) {
 
 /**
  * @param {Manifest} manifest
- * @param {ManifestGuide} guide
+ * @param {ManifestProduct} product
  */
-export function guideChapters(manifest, guide) {
-  return guide.chapters.map((chapter) => ({
+export function productChapters(manifest, product) {
+  return product.chapters.map((chapter) => ({
     id: sourceUuid(
-      `${sourceKey(manifest, guide.sourceId)}:chapter:${chapter.sourceId}`,
+      `${sourceKey(manifest, product.sourceId)}:chapter:${chapter.sourceId}`,
     ),
     name: chapter.title,
     summary: chapter.summary,
@@ -413,23 +443,23 @@ export function guideChapters(manifest, guide) {
 }
 
 /**
- * The composition a Guide shell release sends: the package's chapter list over the Materials the
+ * The composition a Product shell release sends: the package's chapter list over the Materials the
  * target already holds, in their current order and chapters. A placed Material whose chapter the
  * package drops would lose its placement, so that shell is refused before any write.
  *
  * @param {Manifest} manifest
- * @param {ManifestGuide} guide
+ * @param {ManifestProduct} product
  * @param {{ items: { materialId: string; chapterId: string | null }[] }} order
  */
-export function guideShellComposition(manifest, guide, order) {
-  const chapters = guideChapters(manifest, guide);
+export function productShellComposition(manifest, product, order) {
+  const chapters = productChapters(manifest, product);
   const ids = new Set(chapters.map((chapter) => chapter.id));
   const ungrouped = order.items.filter(
     (item) => item.chapterId !== null && !ids.has(item.chapterId),
   ).length;
   if (ungrouped > 0)
     throw new Error(
-      `Product ${guide.sourceId}: the Guide shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
+      `Product ${product.sourceId}: the Product shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
     );
   return {
     chapters,
@@ -462,10 +492,10 @@ export function artifactFingerprint(asset, artifact, access) {
  * Artifacts a product carries, each with the Materials that declare it and the access it needs.
  *
  * @param {Manifest} manifest
- * @param {ManifestGuide} guide
+ * @param {ManifestProduct} product
  * @param {DefaultAccess} defaultAccess
  */
-export function artifactDeclarations(manifest, guide, defaultAccess) {
+export function artifactDeclarations(manifest, product, defaultAccess) {
   /**
    * The access starts free and is raised below once every declaring Material is known.
    *
@@ -475,10 +505,15 @@ export function artifactDeclarations(manifest, guide, defaultAccess) {
    * >}
    */
   const declared = new Map();
-  for (const id of [...guide.materialIds, ...guide.supplementaryMaterialIds]) {
+  for (const id of [
+    ...product.materialIds,
+    ...product.supplementaryMaterialIds,
+  ]) {
     const row = manifest.materials.find((item) => item.sourceId === id);
     if (row === undefined)
-      throw new Error(`Guide ${guide.sourceId} names a missing Material ${id}`);
+      throw new Error(
+        `Product ${product.sourceId} names a missing Material ${id}`,
+      );
     for (const artifact of row.artifacts) {
       const entry = declared.get(artifact.sourceId) ?? {
         artifact,
@@ -498,12 +533,8 @@ export function artifactDeclarations(manifest, guide, defaultAccess) {
   }
   for (const entry of declared.values()) {
     const accesses = entry.owners.map((row) => row.access ?? defaultAccess);
-    if (accesses.includes("workshop"))
-      throw new Error(
-        `${entry.owners[0]?.sourcePath ?? entry.artifact.sourceId}: workshop Materials cannot carry Guide artifacts`,
-      );
     // One artifact serves every declaring Material, so it is paid when any of them is.
-    entry.access = accesses.includes("membership") ? "membership" : "free";
+    entry.access = accesses.includes("closed") ? "closed" : "free";
   }
   return declared;
 }
@@ -524,13 +555,15 @@ export function normalizeSourceIds(manifest, ids) {
  * @param {Manifest} manifest
  */
 export function archiveProposalKeys(journal, manifest) {
-  // A Guide shell names no Material, so its absent Materials say nothing about removal.
-  if (isGuideShell(manifest)) return [];
+  // A Product shell names no Material, so its absent Materials say nothing about removal.
+  if (isProductShell(manifest)) return [];
   const present = new Set(
-    manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
+    [...manifest.materials, ...(manifest.tasks ?? [])].map((row) =>
+      sourceKey(manifest, row.sourceId),
+    ),
   );
   const selected = new Set(
-    manifest.guides.map((guide) => sourceKey(manifest, guide.sourceId)),
+    manifest.products.map((product) => sourceKey(manifest, product.sourceId)),
   );
   return Object.entries(journal.materials)
     .filter(
@@ -541,8 +574,8 @@ export function archiveProposalKeys(journal, manifest) {
         // A private draft was never public, so a missing original has nothing to withdraw.
         entry.publicationState !== "draft" &&
         // Entries recorded before products were tracked belong to any product selection.
-        (entry.guideSourceIds
-          ? entry.guideSourceIds.some((id) => selected.has(id))
+        (entry.productSourceIds
+          ? entry.productSourceIds.some((id) => selected.has(id))
           : selected.size > 0),
     )
     .map(([key]) => key);
@@ -559,7 +592,7 @@ export async function syncLocal(
   {
     origin = reviewOrigin,
     request: transport,
-    defaultAccess = "membership",
+    defaultAccess = "closed",
     archive = [],
     sleep = delay,
     videoAttempts = 20,
@@ -567,6 +600,8 @@ export async function syncLocal(
     publish = [],
     accessToken,
     reviewed = false,
+    reviewedTaskAccess = [],
+    reviewedProductRemovals = [],
     reconcileOnly = false,
   } = {},
 ) {
@@ -579,14 +614,39 @@ export async function syncLocal(
   const reader = target.reader;
   const send = transport ?? transportFor(target, accessToken);
   /** @type {LocalRequest} */
-  const request = async (path, body, key, options) =>
-    parseLocalResponse(path, await send(path, body, key, options));
-  if (!["free", "membership"].includes(defaultAccess))
+  const request = async (path, body, key, options) => {
+    const command = canonicalAuthoringRequest({ path, body });
+    return parseLocalResponse(
+      path,
+      await send(command.path, command.body, key, options),
+    );
+  };
+  if (!["free", "closed"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
-  const pkg = await loadPackage(packagePath);
-  const shell = isGuideShell(pkg.manifest);
+  if (!reviewed && reviewedTaskAccess.length > 0)
+    throw new Error("Task access choices require a reviewed release preview");
+  if (!reviewed && reviewedProductRemovals.length > 0)
+    throw new Error(
+      "Product removal choices require a reviewed release preview",
+    );
+  const confirmedProductRemovals = z
+    .array(z.uuid())
+    .max(100)
+    .parse(reviewedProductRemovals);
+  const original = await loadPackage(packagePath);
+  const pkg = {
+    ...original,
+    manifest: resolveTaskAccess(original.manifest, reviewedTaskAccess).manifest,
+  };
+  for (const task of pkg.manifest.tasks ?? [])
+    if (task.access === null)
+      throw new Error(
+        `${task.sourceId}: Task access requires a preview decision`,
+      );
+  preflightTaskPages(pkg);
+  const shell = isProductShell(pkg.manifest);
   if (shell && archive.length)
-    throw new Error("A Guide shell release never archives Materials");
+    throw new Error("A Product shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
   const publicationOfKey = publicationPolicy(pkg.manifest, publish);
@@ -595,12 +655,53 @@ export async function syncLocal(
     publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
   const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
   if (!reconcileOnly) {
-    await validateGuidePages(pkg.manifest, send);
+    await validateProductPages(pkg.manifest, send);
     await validateSourcePractices(manifest, request);
-    await validateSourceTasks(pkg.manifest, request);
   }
+  if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
+    await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    if (pkg.manifest.schemaVersion === 2)
+      assertTaskReplayAccess(pkg.manifest, journal);
+    for (const task of pkg.manifest.tasks ?? [])
+      if (
+        journal.materials[sourceKey(pkg.manifest, task.sourceId)] !== undefined
+      )
+        throw new Error(
+          `${task.sourceId}: material_to_task_migration requires a release decision`,
+        );
+    /** @param {Record<string, unknown>} body */
+    async function applyComposition(body) {
+      const command = { path: "/authoring/import/products/composition", body };
+      const previous = Object.values(journal.operations).flatMap((entry) => {
+        if (!isJournalOperation(entry)) return [];
+        const parsed = z
+          .object({ path: z.string(), body: z.record(z.string(), z.unknown()) })
+          .passthrough()
+          .safeParse(entry.request);
+        if (!parsed.success) return [];
+        const request = canonicalAuthoringRequest(parsed.data);
+        return canonical({ path: request.path, body: request.body }) ===
+          canonical(command)
+          ? [{ entry, request: parsed.data }]
+          : [];
+      });
+      const latest = previous.at(-1);
+      // Order versions are state hashes: an earlier success cannot stand for a later return to that state.
+      const repeat =
+        latest?.entry.status === "applied" &&
+        parseLocalResponse(
+          "/authoring/import/products/composition",
+          latest.entry.result,
+        ).orderVersion !== body["expectedOrderVersion"];
+      const operation = repeat
+        ? { ...command, compositionAttempt: previous.length }
+        : (latest?.request ?? command);
+      return applyJournaled(context, operation, (operation, key) =>
+        request(operation.path, operation.body, key),
+      );
+    }
     const resources = (journal.resources ??= {});
     /** @type {SyncReport} */
     const report = {
@@ -608,11 +709,11 @@ export async function syncLocal(
       applied: 0,
       unchanged: 0,
       materials: [],
-      guides: [],
+      products: [],
       archived: [],
       archiveProposals: [],
       notices: [...pkg.manifest.diagnostics],
-      ...(shell ? { scope: guideShellScope.value } : {}),
+      ...(shell ? { scope: productShellScope.value } : {}),
     };
     const rows = new Map(
       pkg.manifest.materials.map((row) => [row.sourceId, row]),
@@ -655,7 +756,7 @@ export async function syncLocal(
     };
 
     // Reconcile receipts before reading versions, including a crash between receipt and material cache.
-    // A Guide shell writes no Material; an interrupted Material sync resumes with its own package.
+    // A Product shell writes no Material; an interrupted Material sync resumes with its own package.
     for (const entry of shell ? [] : Object.values(journal.operations)) {
       const operation = isJournalOperation(entry)
         ? materialApplyRequest(entry.request)
@@ -713,11 +814,38 @@ export async function syncLocal(
         (key) => publicationOfKey(key) === "published",
       );
     }
+    // A lost composition response is retried with its exact original bytes and key.
+    for (const entry of Object.values(journal.operations)) {
+      if (!isJournalOperation(entry) || entry.status !== "pending") continue;
+      const operation = z
+        .object({
+          path: z.literal("/authoring/import/products/composition"),
+          body: z
+            .object({
+              confirmedProductRemovals: z.array(z.uuid()).optional(),
+            })
+            .passthrough(),
+        })
+        .passthrough()
+        .safeParse(entry.request);
+      if (!operation.success) continue;
+      if (
+        (operation.data.body.confirmedProductRemovals ?? []).some(
+          (id) => !confirmedProductRemovals.includes(id),
+        )
+      )
+        throw new Error(
+          "An interrupted composition requires its reviewed Product removal choices",
+        );
+      await applyJournaled(context, operation.data, (replayed, key) =>
+        request(replayed.path, replayed.body, key),
+      );
+    }
     // Only the writes this journal already started are completed; nothing new is sent.
     if (reconcileOnly) return report;
 
     // Reservations only create empty private drafts, so every publication conflict is found before
-    // the first topic, Guide or Material write.
+    // the first topic, Product or Material write.
     /**
      * @type {Map<
      *   string,
@@ -733,7 +861,7 @@ export async function syncLocal(
      */
     const currentMaterials = new Map();
     /** @type {Map<string, string>} */
-    const links = new Map();
+    const links = taskLinks(pkg.manifest);
     for (const row of rows.values()) {
       const previous = journal.materials[sourceId(row.sourceId)];
       const reserved =
@@ -779,11 +907,14 @@ export async function syncLocal(
     }
 
     const teasers = new Map(
-      pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]),
+      pkg.manifest.products.map((product) => [
+        product.sourceId,
+        productTeaser(product),
+      ]),
     );
     if ([...teasers.values()].some(({ partial }) => partial)) {
       report.notices.push({
-        code: "guide_description_partial",
+        code: "product_description_partial",
         message:
           "Кратким описанием продукта стал первый абзац. Полное описание страницы переносится отдельными блоками ключа page.",
       });
@@ -815,6 +946,7 @@ export async function syncLocal(
      */
     const convert = (row, links, images) =>
       convertMarkdown(row.markdown, {
+        readerBlocks: row.readerBlocks,
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
         link: (href) => {
@@ -830,29 +962,34 @@ export async function syncLocal(
           if (/^(https?:|mailto:|#)/u.test(href)) return href;
           throw new Error(`${row.sourcePath}: undeclared local link: ${href}`);
         },
+        imageVariants: (href) => resolveImageVariants(row, href, images),
         image: (href) => {
-          const id = row.images[href] ?? row.images[decodeURI(href)];
+          const key = imageSourceKey(row.images, href);
+          const id = key === undefined ? undefined : row.images[key];
           if (id === undefined || !images.has(id))
             throw new Error(`${row.sourcePath}: unresolved image: ${href}`);
           return valueAt(images, id);
         },
       });
+    /** @type {Map<string,string>} */
     const placeholderLinks = new Map(
       [...rows.keys()].map((id) => [id, `/materials/${id}`]),
     );
+    for (const [id, url] of taskLinks(pkg.manifest))
+      placeholderLinks.set(id, url);
     const placeholderImages = new Map(
       pkg.manifest.assets.map((asset) => [
         asset.sourceId,
         sourceUuid(asset.sourceId),
       ]),
     );
-    /** @type {Map<string, StoredGuide>} */
-    const guides = new Map();
+    /** @type {Map<string, StoredProduct>} */
+    const products = new Map();
     // Цель называет свой адрес и ключ источника, поэтому перенос не выдумывает адрес из ключа.
-    const storedGuides =
-      pkg.manifest.guides.length === 0
+    const storedProducts =
+      pkg.manifest.products.length === 0
         ? []
-        : await request("/authoring/collections?kind=guide");
+        : await request("/authoring/collections?kind=product");
     /**
      * Ставит обложку урока или продукта через source-scoped маршрут. У маршрута нет ключа
      * идемпотентности, поэтому перед запросом пишется пометка: повтор после потерянного ответа
@@ -901,20 +1038,20 @@ export async function syncLocal(
     /**
      * Обложка продукта — файл Content, как обложка урока: перенос ставит её тем же source-scoped
      * маршрутом и помнит хеш, поэтому повтор без изменений ничего не загружает.
-     * @param {import("./package.mjs").Manifest["guides"][number]} guide
-     * @param {StoredGuide} current
+     * @param {import("./package.mjs").Manifest["products"][number]} product
+     * @param {StoredProduct} current
      * @param {string} key
      */
-    async function syncGuideCover(guide, current, key) {
-      const entry = journal.guides[key];
-      const coverAssetId = guide.coverAssetId ?? null;
+    async function syncProductCover(product, current, key) {
+      const entry = journal.products[key];
+      const coverAssetId = product.coverAssetId ?? null;
       if (entry === undefined) return;
       const knownCoverId = entry.coverId ?? storedCoverId(current["cover"]);
       if (coverAssetId === null) {
         if (entry.coverSha256 !== undefined && entry.coverSha256 !== null)
           report.notices.push({
             code: "cover_removal_pending",
-            message: `Обложка продукта ${guide.sourceId} убрана из оригинала; снимите её в Platform вручную`,
+            message: `Обложка продукта ${product.sourceId} убрана из оригинала; снимите её в Platform вручную`,
           });
         return;
       }
@@ -922,12 +1059,12 @@ export async function syncLocal(
       if (entry.coverSha256 === asset.sha256) return;
       const coverId = await uploadCover({
         route: `/authoring/import/content-covers/series/${current.id}`,
-        pendingKey: `cover-pending:guide:${current.id}`,
+        pendingKey: `cover-pending:product:${current.id}`,
         sourceKey: key,
         expectedCoverId: knownCoverId,
         asset,
       });
-      journal.guides[key] = {
+      journal.products[key] = {
         ...entry,
         coverId,
         coverSha256: asset.sha256,
@@ -937,53 +1074,58 @@ export async function syncLocal(
 
     // The shell's chapter check runs before its first write.
     if (shell)
-      for (const guide of pkg.manifest.guides) {
-        const stored = storedGuides.find(
+      for (const product of pkg.manifest.products) {
+        const stored = storedProducts.find(
           (item) =>
-            item.sourceId === sourceId(guide.sourceId) &&
+            item.sourceId === sourceId(product.sourceId) &&
             item.archived !== true,
         );
         if (stored === undefined) continue;
-        const order = await request(`/authoring/guides/${stored.id}/order`);
-        guideShellComposition(pkg.manifest, guide, order);
+        const order = await request(`/authoring/products/${stored.id}/order`);
+        productShellComposition(pkg.manifest, product, order);
       }
-    for (const guide of pkg.manifest.guides) {
-      if (!guide.complete)
+    for (const product of pkg.manifest.products) {
+      if (!product.complete)
         throw new Error(
-          "This first local programme adapter requires a complete Guide selection",
+          "This first local programme adapter requires a complete Product selection",
         );
-      const key = sourceId(guide.sourceId);
+      const key = sourceId(product.sourceId);
       try {
         // Архивный продукт с тем же ключом адрес не подсказывает, и о нём говорит отчёт.
-        const sameSource = storedGuides.filter((item) => item.sourceId === key);
+        const sameSource = storedProducts.filter(
+          (item) => item.sourceId === key,
+        );
         const stored = sameSource.find((item) => item.archived !== true);
         if (stored === undefined && sameSource.length > 0) {
           report.notices.push({
-            code: "guide_archived",
-            message: `Продукт ${guide.sourceId} в Platform архивирован: перенос продолжает его запись, восстановление остаётся решением владельца.`,
+            code: "product_archived",
+            message: `Продукт ${product.sourceId} в Platform архивирован: перенос продолжает его запись, восстановление остаётся решением владельца.`,
           });
         }
-        const reserved = journal.guides[key];
+        const reserved = journal.products[key];
         const address =
-          guide.slug ?? stored?.slug ?? reserved?.slug ?? guide.sourceId;
-        let current = await request("/authoring/import/guides/reserve", {
+          product.slug ?? stored?.slug ?? reserved?.slug ?? product.sourceId;
+        let current = await request("/authoring/import/products/reserve", {
           sourceId: key,
-          name: guide.title.trim(),
+          name: product.title.trim(),
           slug: address,
-          summary: guideTeaser(guide).teaser.trim(),
+          summary: productTeaser(product).teaser.trim(),
         });
-        const details = guideDetails(guide, current);
-        journal.guides[key] = {
-          ...journal.guides[key],
-          guideId: current.id,
+        const details = productDetails(product, current);
+        journal.products[key] = {
+          ...journal.products[key],
+          productId: current.id,
           slug: current.slug,
         };
         // The page is checked here, before any Material is written; an unchanged product writes nothing.
-        if (!guideDetailsMatch(current, details)) {
-          current = await request("/authoring/import/guides/update", {
+        if (!productDetailsMatch(current, details)) {
+          current = await request("/authoring/import/products/update", {
             sourceId: key,
             collectionId: current.id,
             expectedVersion: current.version,
+            ...(details.introduction === undefined
+              ? {}
+              : { introduction: details.introduction }),
             name: details.name,
             summary: details.summary,
             source: {
@@ -992,37 +1134,50 @@ export async function syncLocal(
               page: details.page,
             },
           });
-          journal.guides[key] = {
-            ...journal.guides[key],
+          journal.products[key] = {
+            ...journal.products[key],
             slug: current.slug,
             version: current.version,
           };
         }
-        guides.set(guide.sourceId, current);
+        products.set(product.sourceId, current);
         await persist();
-        await syncGuideCover(guide, current, key);
+        await syncProductCover(product, current, key);
       } catch (error) {
-        throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
+        throw new Error(`Product ${product.sourceId}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
     }
 
+    for (const task of pkg.manifest.tasks ?? [])
+      links.set(
+        task.sourceId,
+        `/products/${valueAt(products, task.productId).slug}/tasks/${task.sourceId}`,
+      );
+
     if (shell) {
-      for (const guide of pkg.manifest.guides) {
-        const current = valueAt(guides, guide.sourceId);
-        const order = await request(`/authoring/guides/${current.id}/order`);
-        const composition = guideShellComposition(pkg.manifest, guide, order);
+      for (const product of pkg.manifest.products) {
+        const current = valueAt(products, product.sourceId);
+        const order = await request(`/authoring/products/${current.id}/order`);
+        const composition = productShellComposition(
+          pkg.manifest,
+          product,
+          order,
+        );
         // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
-        await request("/authoring/import/guides/composition", {
-          sourceId: sourceId(guide.sourceId),
+        await applyComposition({
+          sourceId: sourceId(product.sourceId),
           seriesId: current.id,
+          ...(confirmedProductRemovals.includes(current.id)
+            ? { confirmedProductRemovals: [current.id] }
+            : {}),
           expectedOrderVersion: order.orderVersion,
           orderedMaterialIds: composition.orderedMaterialIds,
           chapters: composition.chapters,
         });
-        report.guides.push({
-          title: guide.title,
+        report.products.push({
+          title: product.title,
           url: `${reader}/products/${current.slug}`,
           programmeUrl: `${reader}/products/${current.slug}/programme`,
           mainMaterials: order.items.length,
@@ -1038,9 +1193,11 @@ export async function syncLocal(
       return finish();
     }
 
-    // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
-    // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
-    const guideIds = new Map([...guides].map(([id, guide]) => [id, guide.id]));
+    // Paid Materials must belong to a product, so validation uses the reserved Products' real identities.
+    // Supplementary originals are Product members outside chapters: the product's "Additional Materials" part.
+    const productIds = new Map(
+      [...products].map(([id, product]) => [id, product.id]),
+    );
     /**
      * @param {ManifestMaterial} row
      * @param {string | null} primaryVideoId
@@ -1048,12 +1205,12 @@ export async function syncLocal(
     const desired = (row, primaryVideoId) =>
       desiredMaterial(pkg.manifest, row, {
         topicIds,
-        guideIds,
+        productIds,
         defaultAccess,
         primaryVideoId,
         publicationState: publicationOf(row),
       });
-    // Validate every document before changing any previously correct Material; only empty Guide shells
+    // Validate every document before changing any previously correct Material; only empty Product shells
     // and private reservations exist so far.
     for (const row of rows.values()) {
       if (
@@ -1082,6 +1239,8 @@ export async function syncLocal(
     for (const row of rows.values()) {
       if (publicationOf(row) !== "published") continue;
       const drafts = [...new Set(Object.values(row.links))].filter((id) => {
+        if ((pkg.manifest.tasks ?? []).some((task) => task.sourceId === id))
+          return false;
         const linked = rows.get(id);
         return linked !== undefined && publicationOf(linked) === "draft";
       });
@@ -1177,7 +1336,7 @@ export async function syncLocal(
       } else {
         /** @type {Map<string, string>} */
         const images = new Map();
-        for (const assetId of new Set(Object.values(row.images))) {
+        for (const assetId of materialImageAssetIds(row)) {
           const asset = valueAt(assets, assetId);
           const upload = await imageUpload(await readAsset(asset), asset);
           const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;
@@ -1237,8 +1396,8 @@ export async function syncLocal(
         access: desiredMetadata.access,
         primaryVideoId,
         url: valueAt(links, row.sourceId),
-        guideSourceIds: productsOf(pkg.manifest, row).map((guide) =>
-          sourceId(guide.sourceId),
+        productSourceIds: productsOf(pkg.manifest, row).map((product) =>
+          sourceId(product.sourceId),
         ),
         ...cover,
       });
@@ -1289,14 +1448,14 @@ export async function syncLocal(
       return { coverId, coverSha256: asset.sha256 };
     }
 
-    for (const guide of pkg.manifest.guides) {
+    for (const product of pkg.manifest.products) {
       try {
-        const current = valueAt(guides, guide.sourceId);
-        const order = await request(`/authoring/guides/${current.id}/order`);
-        const chapters = guideChapters(pkg.manifest, guide);
+        const current = valueAt(products, product.sourceId);
+        const order = await request(`/authoring/products/${current.id}/order`);
+        const chapters = productChapters(pkg.manifest, product);
         const chapterAssignments = Object.fromEntries(
-          guide.chapters.flatMap((chapter, index) => {
-            // guideChapters keeps the order of guide.chapters.
+          product.chapters.flatMap((chapter, index) => {
+            // productChapters keeps the order of product.chapters.
             const chapterId = chapters[index]?.id;
             if (chapterId === undefined)
               throw new Error(`Chapter ${chapter.sourceId} has no identity`);
@@ -1307,48 +1466,57 @@ export async function syncLocal(
           }),
         );
         const orderedMaterialIds = [
-          ...guide.materialIds,
-          ...guide.supplementaryMaterialIds,
+          ...product.materialIds,
+          ...product.supplementaryMaterialIds,
         ].map((id) => valueAt(currentMaterials, id).materialId);
-        await request("/authoring/import/guides/composition", {
-          sourceId: sourceId(guide.sourceId),
+        await applyComposition({
+          sourceId: sourceId(product.sourceId),
           seriesId: current.id,
+          ...(confirmedProductRemovals.includes(current.id)
+            ? { confirmedProductRemovals: [current.id] }
+            : {}),
           expectedOrderVersion: order.orderVersion,
           orderedMaterialIds,
           chapters,
           chapterAssignments,
         });
-        await syncArtifacts(guide, current);
-        report.guides.push({
-          title: guide.title,
+        await syncArtifacts(product, current);
+        report.products.push({
+          title: product.title,
           url: `${reader}/products/${current.slug}`,
           programmeUrl: `${reader}/products/${current.slug}/programme`,
-          mainMaterials: guide.materialIds.length,
-          supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({
-            sourceId: id,
-            url: `${reader}${links.get(id)}`,
-          })),
+          mainMaterials: product.materialIds.length,
+          supplementaryMaterials: product.supplementaryMaterialIds.map(
+            (id) => ({
+              sourceId: id,
+              url: `${reader}${links.get(id)}`,
+            }),
+          ),
         });
       } catch (error) {
-        throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
+        throw new Error(`Product ${product.sourceId}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
     }
 
     /**
-     * Material artifacts become authoring-owned Guide artifacts linked back to every Material that
+     * Material artifacts become authoring-owned Product artifacts linked back to every Material that
      * declares them.
      *
-     * @param {ManifestGuide} guide
-     * @param {StoredGuide} current
+     * @param {ManifestProduct} product
+     * @param {StoredProduct} current
      */
-    async function syncArtifacts(guide, current) {
-      const guideSource = sourceId(guide.sourceId);
-      const declared = artifactDeclarations(pkg.manifest, guide, defaultAccess);
+    async function syncArtifacts(product, current) {
+      const productSource = sourceId(product.sourceId);
+      const declared = artifactDeclarations(
+        pkg.manifest,
+        product,
+        defaultAccess,
+      );
       for (const [artifactSourceId, declaration] of declared) {
         const { artifact, access } = declaration;
-        // Guide artifacts are public by placement, so one declared only by private drafts waits for publication.
+        // Product artifacts are public by placement, so one declared only by private drafts waits for publication.
         const owners = declaration.owners.filter(
           (row) => publicationOf(row) === "published",
         );
@@ -1370,10 +1538,10 @@ export async function syncLocal(
         if (receipt?.fingerprint !== fingerprint) {
           const bytes = await readAsset(asset);
           const outcome = await request(
-            `/authoring/import/guides/${current.id}/artifacts`,
+            `/authoring/import/products/${current.id}/artifacts`,
             fileForm(
               {
-                guideSourceId: guideSource,
+                productSourceId: productSource,
                 sourceId: sourceId(artifactSourceId),
                 title: artifact.title,
                 purpose: "",
@@ -1406,7 +1574,7 @@ export async function syncLocal(
           .sort();
         if (canonical(receipt.materialIds) !== canonical(materialIds)) {
           await request(
-            `/authoring/guide-artifacts/${receipt.artifactId}/materials`,
+            `/authoring/product-artifacts/${receipt.artifactId}/materials`,
             { materialIds },
             undefined,
             { method: "PUT" },
@@ -1415,7 +1583,9 @@ export async function syncLocal(
           await persist();
         }
       }
-      const placed = await request(`/authoring/guides/${current.id}/artifacts`);
+      const placed = await request(
+        `/authoring/products/${current.id}/artifacts`,
+      );
       const expected = new Set([...declared.keys()].map(sourceId));
       for (const artifact of placed.artifacts) {
         if (
@@ -1432,7 +1602,7 @@ export async function syncLocal(
     for (const row of rows.values()) {
       if (row.artifacts.length && productsOf(pkg.manifest, row).length === 0)
         report.notices.push({
-          code: "artifacts_need_guide",
+          code: "artifacts_need_product",
           path: row.sourcePath,
           message:
             "Артефакты самостоятельного материала переносятся только вместе с продуктом",
@@ -1442,7 +1612,8 @@ export async function syncLocal(
     await syncSourcePractices(manifest, context, request);
     if ((pkg.manifest.tasks ?? []).length)
       report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
-        guideIdOf: (id) => valueAt(guides, id).id,
+        productIdOf: (id) => valueAt(products, id).id,
+        pageOf: (task) => importTaskPage(pkg, task, context, request, links),
         selected: (key) => publicationOfKey(key) === "published",
       });
 
@@ -1524,21 +1695,21 @@ export async function syncLocal(
     }
 
     async function pinProduct() {
-      const [product] = pkg.manifest.guides;
-      if (pkg.manifest.guides.length !== 1 || product === undefined)
+      const [product] = pkg.manifest.products;
+      if (pkg.manifest.products.length !== 1 || product === undefined)
         throw new Error(
           "Pinning Home needs exactly one product in the package",
         );
-      const guideId = valueAt(guides, product.sourceId).id;
+      const productId = valueAt(products, product.sourceId).id;
       const pin = await request("/authoring/home-pin");
-      if (pin.seriesId !== guideId)
+      if (pin.seriesId !== productId)
         await request(
           "/authoring/home-pin",
-          { seriesId: guideId, expectedVersion: pin.version },
+          { seriesId: productId, expectedVersion: pin.version },
           undefined,
           { method: "PUT" },
         );
-      report.homePinned = guideId;
+      report.homePinned = productId;
     }
   });
 }
@@ -1584,6 +1755,6 @@ if (
     publish: publishOption(values),
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, products: report.products, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
   );
 }

@@ -18,7 +18,11 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import { readBillingPurchaseStatus } from "../api/billing-checkout.browser";
-import { recallPurchase } from "../model/checkout";
+import {
+  purchaseConfirmationRemembered,
+  recallPurchase,
+  rememberConfirmedPurchase,
+} from "../model/checkout";
 
 /** Банк ответил окончательно: дальше состояние меняет только сверка, а не опрос страницы. */
 const settledStates: ReadonlySet<AttemptState> = new Set([
@@ -167,11 +171,17 @@ export function PurchaseReturnView({
 export interface PurchaseReturnPanelProps {
   readonly accountHref: Route;
   readonly accessSlot?: ReactNode;
+  /**
+   * Объявляет подтверждённую покупку остальным вкладкам браузера. Состоянием покупателя владеет
+   * другой срез, поэтому объявление передаёт страница.
+   */
+  readonly onPurchaseConfirmed: () => void;
 }
 
 export function PurchaseReturnPanel({
   accountHref,
   accessSlot,
+  onPurchaseConfirmed,
 }: PurchaseReturnPanelProps) {
   // sessionStorage существует только в браузере: снимок сервера пуст, поэтому гидратация
   // не расходится, а ссылка на покупку появляется сразу после неё.
@@ -197,15 +207,21 @@ export function PurchaseReturnPanel({
   const result = query.data;
   const confirmed = result?.ok === true && result.value.state === "confirmed";
   const router = useRouter();
-  // Подтверждённая оплата открывает уроки, а страницы, открытые в этой вкладке, пока банк ещё
-  // думал, браузер помнит с замками. Кеш маршрутов сбрасывается один раз, в момент подтверждения:
-  // страница, к которой вернулись из памяти, запускает эффекты заново, поэтому сброс помнит себя.
-  const refreshed = useRef(false);
+  // Подтверждённая оплата открывает уроки, а страницы, открытые в этой вкладке и в соседних, пока
+  // банк ещё думал, браузер помнит с замками. Соседние вкладки узнают о покупке из объявления.
+  // Оболочка этой вкладки тоже его слышит и перечитывает страницу ещё раз; прямой сброс остаётся
+  // для обновления страницы с уроками независимо от доставки объявления. Один раз на покупку:
+  // страница, к которой вернулись из памяти, запускает эффекты заново, а перезагрузка читает ту же
+  // подтверждённую покупку.
+  const handled = useRef(false);
   useEffect(() => {
-    if (!confirmed || refreshed.current) return;
-    refreshed.current = true;
+    if (!confirmed || purchaseRef === null || handled.current) return;
+    handled.current = true;
+    if (purchaseConfirmationRemembered(purchaseRef)) return;
+    rememberConfirmedPurchase(purchaseRef);
     router.refresh();
-  }, [confirmed, router]);
+    onPurchaseConfirmed();
+  }, [confirmed, onPurchaseConfirmed, purchaseRef, router]);
   return (
     <PurchaseReturnView
       accessSlot={accessSlot}

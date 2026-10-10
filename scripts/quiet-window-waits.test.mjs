@@ -12,14 +12,8 @@ const scannedFile = /\.(?:[cm]?[jt]s|tsx)$/u;
 const quietWindow = /["'`]networkidle["'`]/gu;
 const thisCheck = "scripts/quiet-window-waits.test.mjs";
 
-/** Единственное разрешённое окно тишины: исключение из «Waiting in tests» (#758). */
-const allowedQuietWindow = {
-  file: "apps/web/test/navigation/instant-navigation.spec.ts",
-  helper: /(?:async )?function viewportPrefetchDrained\b[^{]*\{[\s\S]*?\n\}/u,
-};
-
 /**
- * Ожидания окна тишины сети вне разрешённого помощника: файл и число таких ожиданий.
+ * Ожидания окна тишины сети: файл и число таких ожиданий.
  *
  * @param {ReadonlyMap<string, string>} sources путь относительно корня → текст файла
  * @returns {string[]}
@@ -28,11 +22,7 @@ function quietWindowViolations(sources) {
   /** @type {string[]} */
   const violations = [];
   for (const [file, text] of sources) {
-    const checked =
-      file === allowedQuietWindow.file
-        ? text.replace(allowedQuietWindow.helper, "")
-        : text;
-    const found = checked.match(quietWindow)?.length ?? 0;
+    const found = text.match(quietWindow)?.length ?? 0;
     if (found > 0) violations.push(`${file}: ${String(found)}`);
   }
   return violations;
@@ -55,7 +45,7 @@ function scannedSources() {
   return sources;
 }
 
-test("a quiet network window is refused outside the one allowed helper", () => {
+test("a quiet network window is refused even in the former allowed helper", () => {
   const helper = [
     "/** Упоминание networkidle в комментарии не ожидание. */",
     "async function viewportPrefetchDrained(",
@@ -65,28 +55,31 @@ test("a quiet network window is refused outside the one allowed helper", () => {
     "}",
   ].join("\n");
   assert.deepEqual(
-    quietWindowViolations(new Map([[allowedQuietWindow.file, helper]])),
-    [],
+    quietWindowViolations(
+      new Map([
+        ["apps/web/test/navigation/instant-navigation.spec.ts", helper],
+      ]),
+    ),
+    ["apps/web/test/navigation/instant-navigation.spec.ts: 1"],
   );
   const elsewhere = 'await page.waitForLoadState("networkidle");';
   assert.deepEqual(
     quietWindowViolations(
       new Map([
-        [allowedQuietWindow.file, `${helper}\n\n${elsewhere}\n`],
+        [
+          "apps/web/test/navigation/instant-navigation.spec.ts",
+          `${helper}\n\n${elsewhere}\n`,
+        ],
         ["scripts/browser-smoke.mjs", elsewhere],
       ]),
     ),
-    [`${allowedQuietWindow.file}: 1`, "scripts/browser-smoke.mjs: 1"],
+    [
+      "apps/web/test/navigation/instant-navigation.spec.ts: 2",
+      "scripts/browser-smoke.mjs: 1",
+    ],
   );
 });
 
-test("repository tests and browser scripts wait for networkidle only in the allowed helper", () => {
-  const sources = scannedSources();
-  const allowed = sources.get(allowedQuietWindow.file) ?? "";
-  assert.match(
-    allowed.match(allowedQuietWindow.helper)?.[0] ?? "",
-    quietWindow,
-    "the allowed quiet window moved; update the exception in CODING_STANDARDS.md",
-  );
-  assert.deepEqual(quietWindowViolations(sources), []);
+test("repository tests and browser scripts never wait for networkidle", () => {
+  assert.deepEqual(quietWindowViolations(scannedSources()), []);
 });

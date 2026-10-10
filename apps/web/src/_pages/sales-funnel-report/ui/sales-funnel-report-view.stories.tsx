@@ -14,7 +14,7 @@ import { SalesFunnelReportState } from "./sales-funnel-report-states";
 import { SalesFunnelReportView } from "./sales-funnel-report-view";
 
 const environment = authoringPageEnvironment("/authoring/sales-funnel");
-const guideId = "00000000-0000-4000-8000-000000000816";
+const productId = "00000000-0000-4000-8000-000000000816";
 const chapterId = "00000000-0000-4000-8000-000000000817";
 
 const report: SalesFunnelReport = {
@@ -23,9 +23,9 @@ const report: SalesFunnelReport = {
     from: "2030-02-28T21:00:00.000Z",
     to: "2030-03-31T21:00:00.000Z",
   },
-  guides: [
+  products: [
     {
-      id: guideId,
+      id: productId,
       name: "Inside AI Engineering",
       chapters: [
         { id: chapterId, name: "Глава 1. Проекты и локальный MCP" },
@@ -36,7 +36,7 @@ const report: SalesFunnelReport = {
       ],
     },
   ],
-  selection: { guideId, chapterId },
+  selection: { productId, chapterId },
   lastBotEventReceivedAt: "2030-04-01T08:55:00.000Z",
   rows: [
     {

@@ -8,9 +8,9 @@ import { describe, expect, it } from "vitest";
 import { HttpSalesFunnelAdapter } from "../../src/adapters/platform/http-sales-funnel.adapter.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
-import fixtures from "../../src/contracts/inside-sales-funnel-events-v1/fixtures.json" with { type: "json" };
-import provenance from "../../src/contracts/inside-sales-funnel-events-v1/provenance.json" with { type: "json" };
-import schema from "../../src/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-sales-funnel-events-v1/fixtures.json" with { type: "json" };
+import provenance from "@inside/contracts/inside-sales-funnel-events-v1/provenance.json" with { type: "json" };
+import schema from "@inside/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
 import {
   SALES_FUNNEL_EVENTS_VERSION,
   salesFunnelEventId,
@@ -36,12 +36,14 @@ const event: SalesFunnelEvent = {
 };
 
 describe("inside.sales-funnel-events.v1 contract", () => {
-  it("keeps the vendored files as recorded in their provenance", () => {
+  it("keeps the shared corpus at its recorded historical digests", () => {
     for (const [file, sha256] of Object.entries(provenance.files))
       expect(
         createHash("sha256")
           .update(
-            readFileSync(`src/contracts/inside-sales-funnel-events-v1/${file}`),
+            readFileSync(
+              `../../docs/contracts/inside-sales-funnel-events-v1/${file}`,
+            ),
           )
           .digest("hex"),
       ).toBe(sha256);

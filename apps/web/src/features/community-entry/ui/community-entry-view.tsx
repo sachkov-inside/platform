@@ -1,5 +1,3 @@
-import type { Route } from "next";
-import Link from "next/link";
 import {
   Check,
   CircleCheck,
@@ -21,8 +19,8 @@ export interface CommunityEntryViewProps {
   /** `null`, пока первое чтение не завершилось: блок не мелькает у покупки без сообщества. */
   readonly entry: CommunityEntry | null;
   readonly error?: boolean;
-  /** Раздел кабинета, где Telegram подключается к аккаунту. */
-  readonly telegramHref: Route;
+  /** Кнопка подключения Telegram: открывает бота с кодом привязки. */
+  readonly telegramAction: ReactNode;
 }
 
 /** Состояния, в которых путь в группу ещё идёт или уже пройден. */
@@ -39,8 +37,8 @@ const passedSteps = {
   member: 3,
 } as const satisfies Record<PathEntry["kind"], number>;
 
-/** Кнопки блока одной ширины отступов: обе ведут к следующему шагу пути. */
-const pathActionClass = cn(billingActionClass, "px-4");
+/** Кнопки блока используют одинаковые отступы. */
+export const pathActionClass = cn(billingActionClass, "px-4");
 
 /**
  * Что вспомогательные технологии объявляют при смене состояния. Объявление живёт в карточке, а не
@@ -54,14 +52,14 @@ const announcements = {
 } as const satisfies Record<PathEntry["kind"], string>;
 
 /**
- * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот по
- * `/community`, поэтому путь показан тремя шагами: Telegram, ссылка от бота, группа. Адреса
- * группы здесь нет, и участник видит пройденный путь без кнопки.
+ * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот: сам
+ * после подключения Telegram или по `/community`. Поэтому путь показан тремя шагами: Telegram,
+ * ссылка от бота, группа. Участник видит пройденный путь и кнопку, если бот передал адрес группы.
  */
 export function CommunityEntryView({
   entry,
   error = false,
-  telegramHref,
+  telegramAction,
 }: CommunityEntryViewProps) {
   if (error) {
     return (
@@ -87,7 +85,7 @@ export function CommunityEntryView({
   return (
     <CommunityCard announcement={announcements[entry.kind]}>
       <EntryPath entry={entry} />
-      <PathAction entry={entry} telegramHref={telegramHref} />
+      <PathAction entry={entry} telegramAction={telegramAction} />
     </CommunityCard>
   );
 }
@@ -106,7 +104,9 @@ function EntryPath({ entry }: { readonly entry: PathEntry }) {
       title: "Получить ссылку у бота",
       hint: preparing
         ? "Готовим вход в сообщество — обычно меньше минуты, блок обновится сам."
-        : "Бот выдаёт личную ссылку по /community.",
+        : entry.kind === "link_telegram"
+          ? "После подключения бот сам пришлёт личную ссылку."
+          : "Бот выдаёт личную ссылку по /community.",
     },
     {
       key: "group",
@@ -176,10 +176,10 @@ function EntryPath({ entry }: { readonly entry: PathEntry }) {
 
 function PathAction({
   entry,
-  telegramHref,
+  telegramAction,
 }: {
   readonly entry: PathEntry;
-  readonly telegramHref: Route;
+  readonly telegramAction: ReactNode;
 }) {
   switch (entry.kind) {
     case "join":
@@ -197,20 +197,27 @@ function PathAction({
         </div>
       );
     case "link_telegram":
+      return <div className="mt-6">{telegramAction}</div>;
+    case "member":
       return (
         <div className="mt-6">
-          <Button asChild className={pathActionClass}>
-            <Link href={telegramHref}>Подключить Telegram</Link>
-          </Button>
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
+            Вы уже в сообществе Inside — группа есть в вашем Telegram.
+          </p>
+          {entry.groupUrl === undefined ? null : (
+            <Button asChild className={cn(pathActionClass, "mt-4")}>
+              <a
+                href={entry.groupUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <UsersRound aria-hidden="true" />
+                Открыть группу
+              </a>
+            </Button>
+          )}
         </div>
-      );
-    case "member":
-      // Сюда встанет «Открыть группу», когда Platform узнает адрес группы (#823).
-      return (
-        <p className="mt-6 flex items-center gap-2 text-sm font-semibold">
-          <CircleCheck aria-hidden="true" className="size-4 shrink-0" />
-          Вы уже в сообществе Inside — группа есть в вашем Telegram.
-        </p>
       );
     case "preparing":
       return null;

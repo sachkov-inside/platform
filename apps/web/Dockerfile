@@ -1,7 +1,8 @@
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS toolchain
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
+    && npm install --global corepack@0.36.0 \
     && corepack enable \
     && corepack install --global pnpm@11.27.1 \
     && chown -R node:node /corepack
@@ -14,6 +15,7 @@ USER node
 FROM toolchain AS dependencies
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
+COPY --chown=node:node patches ./patches
 COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
 COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
@@ -26,6 +28,7 @@ COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
+COPY --chown=node:node docs/contracts ./docs/contracts
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
@@ -53,7 +56,7 @@ FROM development AS production-build
 
 RUN pnpm --filter @inside/web build
 
-FROM node:24.21.0-alpine3.24@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS web-production
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

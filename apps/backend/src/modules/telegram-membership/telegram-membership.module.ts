@@ -32,13 +32,14 @@ import {
 import {
   ACCESS_GRANTS,
   type AccessGrants,
-  MEMBERSHIP_ENTITLEMENTS,
-  MembershipEntitlementsModule,
-  type MembershipEntitlements,
-} from "../membership-entitlements/index.js";
+  ACCOUNT_RIGHTS,
+  AccountRightsModule,
+  type AccountRights,
+} from "../account-rights/index.js";
 import { TelegramEvidenceController } from "./adapters/nest/telegram-evidence.controller.js";
 import { AccountTelegramMembershipController } from "./adapters/nest/account-telegram-membership.controller.js";
 import { TelegramLinkController } from "./adapters/nest/telegram-link.controller.js";
+import { PendingLinkConfirmationPump } from "./adapters/nest/pending-link-confirmation.pump.js";
 import { assembleTelegramMembership } from "./facets/telegram-membership/assemble-telegram-membership.js";
 import type { TelegramMembership } from "./facets/telegram-membership/telegram-membership.interface.js";
 import { HttpTelegramLinkProvider } from "./infrastructure/http/http-telegram-link-provider.js";
@@ -51,7 +52,7 @@ import {
 @Module({
   imports: [
     AccountsModule,
-    MembershipEntitlementsModule,
+    AccountRightsModule,
     PrismaModule,
     BillingModule,
     TelegramAccountLinksModule,
@@ -67,6 +68,7 @@ import {
     TelegramEvidenceController,
   ],
   providers: [
+    PendingLinkConfirmationPump,
     {
       provide: SubscriptionActivation,
       inject: [
@@ -96,21 +98,21 @@ import {
       inject: [
         ACCOUNTS,
         PrismaClientProvider,
-        MEMBERSHIP_ENTITLEMENTS,
+        ACCOUNT_RIGHTS,
         PLATFORM_CONFIG,
         LegalAcceptances,
       ],
       useFactory: (
         accounts: Accounts,
         prisma: PrismaClientProvider,
-        membershipEntitlements: MembershipEntitlements,
+        accountRights: AccountRights,
         config: PlatformConfig,
         terms: LegalAcceptances,
       ) =>
         new TelegramAccountSignIn({
           accounts,
           prisma,
-          membershipEntitlements,
+          accountRights,
           terms,
           provider: new HttpTelegramSignInProvider(
             config.identity.telegramSignInProviderUrl,
@@ -131,14 +133,14 @@ import {
       provide: TELEGRAM_MEMBERSHIP,
       inject: [
         PrismaClientProvider,
-        MEMBERSHIP_ENTITLEMENTS,
+        ACCOUNT_RIGHTS,
         TELEGRAM_LINK_PROVIDER,
         PLATFORM_CONFIG,
         BillingPricing,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
-        membershipEntitlements: MembershipEntitlements,
+        accountRights: AccountRights,
         provider: TelegramLinkProvider,
         config: PlatformConfig,
         pricing: BillingPricing,
@@ -148,7 +150,7 @@ import {
           linkLifetimeMs: config.telegramMembership.linkLifetimeMs,
           subscriptionForSale: (accountId) =>
             pricing.hasOffersForSale(accountId),
-          membershipEntitlements,
+          accountRights,
           ...(config.telegramMembership.supportUrl === undefined
             ? {}
             : { membershipSupportUrl: config.telegramMembership.supportUrl }),

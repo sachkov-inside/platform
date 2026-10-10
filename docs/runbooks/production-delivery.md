@@ -167,7 +167,35 @@ Web по адресу `/_health/ready` требует готовый API с те
 Значения конфигурации, полные ответы и тексты исключений не выводятся.
 
 Внутренний предел — три секунды, внешний `timeout` Docker — пять секунд, чтобы причина успела
-попасть в журнал. Интервал пять секунд, число попыток и начальный период ожидания не изменены.
+попасть в журнал.
+
+Каждая проверка запускает Node (у брокера — виртуальную машину Erlang), поэтому частота проверок
+задаёт их цену в CPU. На production-smoke `api`, `mcp`, `web`, воркеры, брокер и PostgreSQL в покое
+занимали 0,75 CPU при проверках раз в 5 секунд и 0,17 CPU при нынешних интервалах; замеры записаны
+в #654. Docker отмечает отказ после `retries` неудачных проверок подряд, поэтому
+`interval × retries` — наибольшее время от последней успешной проверки до отметки `unhealthy`.
+Зависшая проверка добавляет к каждой попытке свой `timeout`.
+
+| Процесс | `interval` | `retries` | Отказ отмечен через | `start_period` | `start_interval` | Отказ при запуске, около |
+| --- | --- | --- | --- | --- | --- | --- |
+| `api`, `mcp`, пять воркеров | 30 с | 2 | 60 с | 40 с | 2 с | 70 с |
+| `web` | 30 с | 3 | 90 с | 40 с | 2 с | 100 с |
+| `rabbitmq` | 30 с | 3 | 90 с | 40 с | 5 с | 100 с |
+
+До #654 отказ отмечался через 60 секунд у `api`, `mcp` и воркеров, через 90 у `web` и через 180 у
+брокера; при запуске — примерно через 65, 95 и 195 секунд. В `start_period` Docker проверяет
+процесс через `start_interval`, поэтому `up --wait` при выкладке видит готовность так же быстро,
+как при прежнем интервале 5 секунд. Неудачи в `start_period` не считаются отказом. После него
+Docker переходит на `interval`, поэтому не готовый процесс отмечается примерно через
+`start_period + (retries − 1) × interval`; к этому добавляются шаг `start_interval` и время самих
+проверок. Брокер на сервере запускается около 10 секунд. Правила для значений проверяет тест
+`scripts/production-runtime-contract.test.mjs`.
+
+Две неудачные проверки подряд у `api`, `mcp` и воркеров уже дают `unhealthy`: например, когда
+PostgreSQL дважды не ответил с промежутком 30 секунд. Поэтому
+[сторож production](production-monitoring.md) сообщает об `unhealthy` только после двух своих запусков
+подряд.
+
 Docker отмечает контейнер как `unhealthy`, когда проверка устойчиво не проходит. Это отметка
 состояния: `restart: unless-stopped` относится к завершению основного процесса и сама по себе
 не перезапускает контейнер из-за `unhealthy`. Команда проверки завершает только свой процесс.
@@ -209,12 +237,12 @@ docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"r
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
-- web at `inside.sachkov.dev`;
+- web at `sachkov.dev`, with temporary no-store redirects from `www.sachkov.dev` and old browser pages;
 - the API and MCP routes listed with method, caller and credential in
   [public API routes](production-release.md#public-api-routes); a contract test keeps that table equal
   to the Caddy fragment.
 
-Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
+Unknown `/integrations/*` and `/internal/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
 validation.
 
@@ -225,6 +253,9 @@ reports; the budget, the trusted `X-Forwarded-For` and the reasons live in
 [ADR 0028](../adr/0028-web-edge-hardening.md). Application containers drop every kernel
 capability, carry memory and process limits, and backend processes run with a read-only root and a
 private `/tmp`; the numbers are in [VPS resources](production-release.md#vps-resources).
+
+The [primary-domain cutover](primary-domain-cutover.md) owns DNS/Logto/env changes and recovery.
+Maintenance covers apex, www and the old domain. MCP resources remain on `inside.sachkov.dev`.
 
 ### Telegram sign-in configuration
 
@@ -304,7 +335,7 @@ operation and digest-bound manifest, back to the first failed deployment after t
 (or failed `v1` without successful state). Missing or conflicting history fails before mutation.
 Before accepting the transition, the failed
 image proves an exact live schema after completed migrations, or a compatible prefix if migration
-execution was interrupted. The new candidate then follows the normal maintenance, pull,
+execution was interrupted. The new candidate then follows the normal pre-pull, maintenance,
 compatibility, worker drain and forward-migration sequence. Its successful state keeps the last
 successful application as `previous`, preserves the failed operation in `operation-history/`, and
 does not offer rollback to the failed application version. If the repair candidate also fails, its
@@ -334,7 +365,7 @@ Before maintenance, the deployed backend image runs
 `node dist/migrations/migrate.js --verify-schema-identity <sha256:identity>` against the
 server-owned migration connection, with image pulling disabled. This command never creates a table
 or applies a migration: it requires the exact journaled Platform migration prefix and PgBoss schema
-version. After maintenance and exact image pulls, `--verify-schema-compatible` accepts an empty
+version. After exact image pre-pulls and maintenance, `--verify-schema-compatible` accepts an empty
 first-deploy database or an ordered, checksum-valid prefix that the candidate can migrate forward.
 Drift, gaps and migrations unknown to the image are rejected.
 
@@ -376,12 +407,12 @@ readiness. A before/after database digest
 proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash
-node --test \
-  scripts/deployment-workflow-contract.test.mjs \
-  scripts/inside-deploy-gateway.test.mjs \
-  scripts/production-deployment.test.mjs \
-  scripts/production-runtime-bundle.test.mjs \
-  scripts/release-rollback-proof.test.mjs
+bash scripts/heavy-check.sh node --test \
+  scripts/contracts/deployment-workflow-contract.test.mjs \
+  scripts/contracts/inside-deploy-gateway.test.mjs \
+  scripts/contracts/production-deployment.test.mjs \
+  scripts/contracts/production-runtime-bundle.test.mjs \
+  scripts/contracts/release-rollback-proof.test.mjs
 pnpm compose:production:smoke
 ```
 
@@ -389,6 +420,16 @@ The first command drives `v1 → v2 → retry → rollback` and injected failure
 temporary host filesystem while replacing only Docker, Caddy and HTTP at their system seams. The
 Compose proof uses real images, PostgreSQL, networks and worker locks. Both own their resources and
 remove them on exit; neither uses production credentials or contacts the production host.
+
+Production smoke inherits the worker healthcheck from `compose.production.yaml`, including its
+40 s startup grace and 2 s startup probe interval. It does not override the failure policy.
+When `PRODUCTION_SMOKE_ARTIFACT_DIR` is set, before shutdown on failure it captures each
+unhealthy/exited/dead container's State (including
+Health probe history) and last 100 log lines. The job prints State and the last 30 log lines.
+`PRODUCTION_SMOKE_ARTIFACT_DIR` selects the artifact directory; CI uploads it for seven days.
+Development CI uses the same collector before its final shutdown.
+The checksum failure/recovery proof derives its observation bound from the workers' effective
+healthcheck interval, timeout and retries; it does not change the healthcheck policy.
 
 ## Publish the next ordinal release
 

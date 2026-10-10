@@ -1,3 +1,4 @@
+import type { AccountsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type {
   VerifiedAccountIdentity,
   VerifiedAccountSignIn,
@@ -41,7 +42,11 @@ export type PermissionDecision =
   | { readonly ok: false; readonly error: PermissionError };
 
 export interface Accounts {
-  readIdentityForLink(accountId: string): Promise<
+  /** A caller with an open transaction passes it to keep this read on the same connection. */
+  readIdentityForLink(
+    accountId: string,
+    transaction?: Pick<AccountsPrisma, "account">,
+  ): Promise<
     | {
         readonly issuer: string;
         readonly subject: string;

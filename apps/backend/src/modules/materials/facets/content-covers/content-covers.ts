@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { materialId } from "../../domain/material-identifiers.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -89,7 +93,7 @@ export interface ContentCovers {
   readonly change: (
     command: ChangeContentCoverCommand,
   ) => Promise<ChangeContentCoverResult>;
-  /** Changes the cover of a Material or Guide owned by exactly this authoring source. */
+  /** Changes the cover of a Material or Product owned by exactly this authoring source. */
   readonly changeImported: (
     command: ChangeContentCoverCommand,
     sourceId: string,
@@ -299,8 +303,9 @@ async function changeCurrentCover(
     const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
     if (
       ownerSourceId !== undefined &&
-      ownerSourceId !== sourceId &&
-      (command.owner.kind === "material" || sourceId !== null)
+      checkContentWrite(contentWriter(sourceId), [
+        { kind: "cover", sourceId: ownerSourceId, path: "/owner" },
+      ]) !== null
     ) {
       if (nextCoverId !== null)
         await abandonCover(transaction, nextCoverId, "forbidden");
@@ -387,7 +392,7 @@ async function readCurrentCoverId(
       )?.coverId;
     case "series":
       return (
-        await transaction.guide.findUnique({
+        await transaction.product.findUnique({
           where: { id: owner.id },
           select: { coverId: true },
         })
@@ -406,7 +411,7 @@ async function readOwnerSourceId(
       )?.sourceId;
     case "series":
       return (
-        await transaction.guide.findUnique({
+        await transaction.product.findUnique({
           where: { id: owner.id },
           select: { sourceId: true },
         })
@@ -444,7 +449,7 @@ async function writeCurrentCoverId(
       });
       return;
     case "series":
-      await transaction.guide.update({
+      await transaction.product.update({
         data: { coverId, updatedAt: new Date() },
         where: { id: owner.id },
       });

@@ -54,7 +54,7 @@ export interface CommunityWelcomeCohort {
   /** Public `GET /billing/cohorts` of Platform. */
   readonly url: string;
   /** The course's product UUID in Platform: the response names products only by it. */
-  readonly guideId: string;
+  readonly productId: string;
 }
 
 export interface ApplicationConfig {
@@ -101,6 +101,8 @@ export interface ApplicationConfig {
   readonly port: number;
   /** Absent in a partial test configuration: no consent prompt, no delivery. */
   readonly salesFunnel?: SalesFunnelConfig | undefined;
+  /** Days a delivered sales funnel event stays in its outbox after delivery. */
+  readonly salesFunnelEventRetentionDays: number;
   /** Absent means `DEFAULT_SENDER_RATE`. */
   readonly senderRate?: SenderRate | undefined;
   readonly signInEnabled?: boolean | undefined;
@@ -183,6 +185,15 @@ export function loadApplicationConfig(
     30,
     3650,
     "TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS",
+  );
+  // Delivered sales funnel events expire after the configured period (30 days by default,
+  // counted from delivery, #980). Platform answers a re-sent event as a duplicate.
+  const salesFunnelEventRetentionDays = parseBoundedInteger(
+    environment["TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS"],
+    30,
+    1,
+    3650,
+    "TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS",
   );
 
   const evidenceDeliveryMode =
@@ -511,6 +522,7 @@ export function loadApplicationConfig(
     platformIntegrationSecret,
     port: parsePort(environment["PORT"]),
     salesFunnel,
+    salesFunnelEventRetentionDays,
     signInEnabled,
     ...(hasText(signInIntegrationSecret) ? { signInIntegrationSecret } : {}),
     ...(hasText(signInReturnUrl) ? { signInReturnUrl } : {}),
@@ -625,19 +637,21 @@ function loadCommunityWelcomeCohort(
 ): CommunityWelcomeCohort | undefined {
   const url =
     presentText(environment["PLATFORM_COHORTS_URL"]?.trim()) ?? undefined;
-  const guideId =
-    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ?? undefined;
-  if (!hasText(url) && !hasText(guideId)) return undefined;
-  if (!hasText(url) || !hasText(guideId))
+  const productId =
+    presentText(environment["PLATFORM_COHORT_PRODUCT_ID"]?.trim()) ??
+    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ??
+    undefined;
+  if (!hasText(url) && !hasText(productId)) return undefined;
+  if (!hasText(url) || !hasText(productId))
     throw new Error(
-      "PLATFORM_COHORTS_URL and PLATFORM_COHORT_GUIDE_ID are set together",
+      "PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID are set together",
     );
   assertServiceEndpoint(url, "PLATFORM_COHORTS_URL");
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      guideId,
+      productId,
     )
   )
-    throw new Error("PLATFORM_COHORT_GUIDE_ID must be a UUID");
-  return { url, guideId };
+    throw new Error("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
+  return { url, productId };
 }

@@ -90,7 +90,6 @@ export const accessSummarySchema = z.object({
     opened: count,
     purchaseOpened: count,
     paid: count,
-    gifted: count,
     expired: count,
     revoked: count,
   }),
@@ -216,7 +215,10 @@ export function groundActions(ground: PersonGround): GroundActions {
     return { extend: false, revoke: false, restore: false };
   if (ground.kind === "enrollment")
     return {
-      extend: ground.source !== "course" && ground.state !== "revoked",
+      extend:
+        ground.source !== "course" &&
+        ground.source !== "manual" &&
+        ground.state !== "revoked",
       revoke: live,
       restore: ground.state === "revoked",
     };
@@ -332,9 +334,7 @@ export function eligibilitySave(
       ...(offer.availableForAssignment === undefined
         ? {}
         : { availableForAssignment: offer.availableForAssignment }),
-      ...(offer.contentScope === undefined
-        ? {}
-        : { contentScope: offer.contentScope }),
+      ...(offer.coverage === undefined ? {} : { coverage: offer.coverage }),
       ...(offer.benefitPeriods === undefined
         ? {}
         : { benefitPeriods: [...offer.benefitPeriods] }),

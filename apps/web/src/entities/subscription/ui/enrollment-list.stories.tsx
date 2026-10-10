@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import type { Enrollment } from "../model/enrollment";
@@ -18,14 +19,14 @@ const course: Enrollment = {
     revision: 1,
     name: "Подписка Inside",
     benefits: ["materials", "community"],
-    contentScope: {
-      guideIds: ["62000000-0000-4000-8000-000000000004"],
+    coverage: {
+      productIds: ["62000000-0000-4000-8000-000000000004"],
       materialIds: [],
     },
   },
   content: [
     {
-      kind: "guide",
+      kind: "product",
       id: "62000000-0000-4000-8000-000000000004",
       title: "Инженерная практика",
       slug: "engineering-practice",
@@ -94,3 +95,56 @@ export const Expired: Story = {
   },
 };
 export const Empty: Story = { args: { items: [] } };
+
+/** Course materials and community remain; support has its own six-month deadline. */
+export const CourseTariffTerms: Story = {
+  args: {
+    items: [
+      {
+        ...course,
+        tier: {
+          ...course.tier,
+          name: "Тариф курса",
+          benefits: [
+            productCapability("62000000-0000-4000-8000-000000000004"),
+            "community",
+            "support",
+          ],
+          coverage: { productIds: [], materialIds: [] },
+          benefitPeriods: [{ capability: "support", months: 6 }],
+        },
+        benefitTerms: [
+          {
+            capability: productCapability(
+              "62000000-0000-4000-8000-000000000004",
+            ),
+            startsAt: course.startsAt,
+            endsAt: null,
+            revoked: false,
+          },
+          {
+            capability: "community",
+            startsAt: course.startsAt,
+            endsAt: null,
+            revoked: false,
+          },
+          {
+            capability: "support",
+            startsAt: course.startsAt,
+            endsAt: "2027-03-14T10:00:00Z",
+            revoked: false,
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Поддержка: до 14 марта 2027 г."),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Срок", { exact: true }),
+    ).not.toBeInTheDocument();
+  },
+};

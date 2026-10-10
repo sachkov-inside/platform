@@ -1,8 +1,11 @@
-import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense } from "react";
 import { expect, waitFor } from "storybook/test";
 
-import type { MaterialPreview } from "@/entities/material";
+import {
+  MaterialReadingScope,
+  type MaterialPreview,
+} from "@/entities/material";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
   boxOf,
@@ -59,7 +62,7 @@ function material(
 }
 
 const video = { name: "Видео", slug: "video" } as const;
-const guide = { name: "Гайд", slug: "guide" } as const;
+const product = { name: "Гайд", slug: "guide" } as const;
 const savedMaterials = [
   material(
     5,
@@ -75,7 +78,7 @@ const savedMaterials = [
     video,
     481,
   ),
-  material(1, "granitsy-moduley", "Границы модулей без лишних слоёв", guide),
+  material(1, "granitsy-moduley", "Границы модулей без лишних слоёв", product),
 ];
 
 /** Тот же ответ, что отдаёт BFF `/api/bookmarks` маршруту. */
@@ -95,6 +98,25 @@ const readyList: MutationFetch = () =>
   bookmarksResponse(200, { items: savedMaterials, nextCursor: null });
 
 type Account = "authenticated" | "guest";
+
+/** The production shell supplies the resolved Account through MaterialReadingScope. */
+function bookmarkAccountScope(account: Account): Decorator {
+  return (Story) => (
+    <MaterialReadingScope
+      value={{
+        accountId:
+          account === "guest" ? null : "20000000-0000-4000-8000-000000000542",
+        resolved: true,
+        states: new Map(),
+        failed: false,
+        register: () => () => undefined,
+        refresh: () => Promise.resolve(),
+      }}
+    >
+      <Story />
+    </MaterialReadingScope>
+  );
+}
 
 /** Карточки списка; у футера оболочки свои пункты, их счёт не касается страницы. */
 function savedItems(canvasElement: HTMLElement) {
@@ -117,7 +139,7 @@ function bookmarksRoute(
       getQueryClient().removeQueries({ queryKey: ["bookmarks"] });
       return fetchBeforeRender(respond)();
     },
-    decorators: environment.decorators,
+    decorators: [bookmarkAccountScope(account), ...environment.decorators],
     parameters: environment.parameters,
   };
 }
@@ -193,7 +215,7 @@ export const Empty: Story = {
   },
 };
 
-/** Гость: BFF отвечает 401, страница предлагает войти. */
+/** Гость: оболочка сообщает об отсутствии Account, страница предлагает войти без личного запроса. */
 export const SignInRequired: Story = {
   ...bookmarksRoute("guest", () => bookmarksResponse(401)),
   globals: mobile.globals,
@@ -264,7 +286,10 @@ function loadsInPlace({
       getQueryClient().removeQueries({ queryKey: ["bookmarks"] });
       return fetchBeforeRender(heldList())();
     },
-    decorators: environment.decorators,
+    decorators: [
+      bookmarkAccountScope("authenticated"),
+      ...environment.decorators,
+    ],
     parameters: environment.parameters,
     globals,
     play: async ({ canvasElement }) => {

@@ -29,8 +29,11 @@ sale_offer_id=00000000-0000-4000-8000-000000000527
 probe_container_memory=512m
 container_exit_poll_attempts=20
 container_log_poll_attempts=30
-worker_health_poll_attempts=20
 database_lock_poll_attempts=20
+foundation_sql_poll_attempts=30
+ecr_public_anonymous_pull_interval_seconds=1
+# pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
+# locally and in CI (#728).
 pgboss_job_poll_attempts=20
 production_smoke_poll_interval_seconds=1
 readiness_http_retry_attempts=10
@@ -38,6 +41,7 @@ readiness_http_retry_delay_seconds=1
 worker_drain_observation_seconds=1
 worker_drain_lock_safety_timeout_seconds=300
 worker_drain_lock_backend_pid=""
+drain_job_id=""
 worker_stop_timeout_seconds=20
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
@@ -60,6 +64,8 @@ export PRODUCTION_SMOKE_HTTP_PORT="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 export PRODUCTION_SMOKE_HTTPS_PORT="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
 export PLATFORM_BROKER_NETWORK="${project_name}-broker"
 
+source scripts/production-public-probe.sh
+
 application_compose=(
   docker compose
   --project-name "$project_name"
@@ -70,6 +76,7 @@ foundation_compose=(
   docker compose
   --project-name "$foundation_project"
   --file infra/production/database/compose.yaml
+  --file scripts/fixtures/production-runtime/compose.database-smoke.yaml
 )
 
 cleanup() {
@@ -78,6 +85,8 @@ cleanup() {
   trap - EXIT
 
   if ((test_status != 0)) && [[ -n "$artifact_dir" ]] && mkdir -p "$artifact_dir"; then
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir" "${application_compose[@]}" || true
+    bash scripts/compose-failure-diagnostics.sh "$artifact_dir/foundation" "${foundation_compose[@]}" || true
     "${application_compose[@]}" ps --all >"$artifact_dir/compose-ps.txt" 2>&1 || true
     "${application_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/compose.log" 2>&1 || true
     "${foundation_compose[@]}" logs --no-color --tail 500 >"$artifact_dir/foundation.log" 2>&1 || true
@@ -152,7 +161,7 @@ KINESCOPE_WEBHOOK_USERNAME=inside-production-smoke-webhook
 KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
 KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
 KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
-TBANK_CONFIG_JSON={"environment":"production","terminalKey":"INSIDEPRODUCTIONSMOKE","password":"inside-production-smoke-terminal-password","bindingEncryptionKey":"$smoke_encryption_key","recurringCardConfirmed":false,"cardOnlyHostedConfirmed":false,"minimumKopecks":100,"maximumKopecks":30000000,"returnUrl":"https://inside.sachkov.dev/subscription/return","notificationUrl":"https://inside.sachkov.dev/billing/tbank/notification","receipt":{"taxation":"usn_income","tax":"none"}}
+TBANK_CONFIG_JSON={"environment":"production","terminalKey":"INSIDEPRODUCTIONSMOKE","password":"inside-production-smoke-terminal-password","bindingEncryptionKey":"$smoke_encryption_key","recurringCardConfirmed":false,"cardOnlyHostedConfirmed":false,"minimumKopecks":100,"maximumKopecks":30000000,"returnUrl":"https://inside.sachkov.dev/payment/return","notificationUrl":"https://inside.sachkov.dev/billing/tbank/notification","receipt":{"taxation":"usn_income","tax":"none"}}
 BILLING_CONTACT_ENCRYPTION_KEY=$smoke_encryption_key
 BILLING_CONTACT_SMTP_HOST=smtp.production-smoke.invalid
 BILLING_CONTACT_SMTP_PORT=587
@@ -223,7 +232,8 @@ LOGTO_AUDIENCE=https://api.production-smoke.invalid
 LOGTO_APP_ID=inside-production-smoke
 LOGTO_APP_SECRET=inside-production-smoke-app-secret
 LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
-WEB_BASE_URL=https://inside.sachkov.dev
+WEB_BASE_URL=https://sachkov.dev
+LEARNER_MCP_URL=https://inside.sachkov.dev/mcp/learning
 EOF
 }
 
@@ -289,6 +299,25 @@ wait_for_container_exit() {
   exit 1
 }
 
+wait_for_foundation_sql() {
+  local attempt
+  local result
+  for ((attempt = 1; attempt <= foundation_sql_poll_attempts; attempt += 1)); do
+    # The temporary init-server listens on Unix sockets only; require the main server over TCP.
+    if result="$("${foundation_compose[@]}" exec -T postgres sh -c '
+      PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=1 PGOPTIONS="-c statement_timeout=1000" \
+        psql --no-psqlrc --host 127.0.0.1 --username postgres --dbname postgres \
+          --set ON_ERROR_STOP=1 --tuples-only --no-align --command "select 1;"
+    ' 2>/dev/null)" && [[ "$result" == "1" ]]; then
+      return
+    fi
+    sleep "$production_smoke_poll_interval_seconds"
+  done
+  echo "Foundation PostgreSQL did not answer TCP SQL within $foundation_sql_poll_attempts attempts" >&2
+  "${foundation_compose[@]}" logs --no-color --tail 100 postgres >&2 || true
+  exit 1
+}
+
 wait_for_container_log() {
   local container_name=$1
   local expected=$2
@@ -313,10 +342,9 @@ application_data_digest() {
     --schema assets \
     --schema materials \
     --schema member_profiles \
-    --schema membership_entitlements \
+    --schema account_rights \
     --schema telegram_membership \
     --schema videos \
-    --schema workshop \
     | sed '/^\\restrict /d; /^\\unrestrict /d' \
     | shasum -a 256 \
     | cut -d ' ' -f 1
@@ -337,54 +365,52 @@ read_schema_marker() {
   ' "$1"
 }
 
-assert_public_status() {
-  local method=$1
-  local path=$2
-  local expected=$3
-  local actual
-  local body_path="$runtime_config_dir/public-response-body"
-  actual="$(curl \
-    --cacert "$runtime_config_dir/caddy-root.crt" \
-    --noproxy '*' \
-    --output "$body_path" \
-    --request "$method" \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
-    --silent \
-    --write-out '%{http_code}' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
-  if [[ "$actual" != "$expected" ]]; then
-    echo "Expected $method $path to return $expected, received $actual" >&2
-    exit 1
-  fi
-  if [[ "$expected" == "404" ]]; then
-    if [[ -s "$body_path" ]]; then
-      echo "Expected $method $path to return an empty fail-closed body" >&2
-      exit 1
-    fi
-  elif [[ ! -s "$body_path" ]]; then
-    echo "Expected $method $path to return a non-empty response body" >&2
-    exit 1
-  fi
-}
 
 wait_for_worker_health() {
   local expected=$1
   local worker
   local attempt
+  local worker_health_poll_attempts=0
+  local worker_container_id health_configuration worker_state worker_index
+  local worker_container_ids=()
+  local transition_attempts
+  # Observe the production policy: two failed probes at 30 s cannot fit in the old 20 s window.
+  # Read the effective container config so this observation bound follows its owning contract.
+  for worker in "${application_workers[@]}"; do
+    worker_container_id="$("${application_compose[@]}" ps --quiet "$worker")" || exit "$?"
+    if [[ -z "$worker_container_id" ]]; then
+      echo "Missing production worker container: $worker" >&2
+      exit 1
+    fi
+    health_configuration="$(docker container inspect "$worker_container_id" --format '{{json .Config.Healthcheck}}')" || exit "$?"
+    transition_attempts="$(node scripts/production-worker-health-budget.mjs "$worker" "$health_configuration" "$production_smoke_poll_interval_seconds")" || exit "$?"
+    worker_container_ids+=("$worker_container_id")
+    if ((transition_attempts > worker_health_poll_attempts)); then
+      worker_health_poll_attempts=$transition_attempts
+    fi
+  done
   for ((attempt = 1; attempt <= worker_health_poll_attempts; attempt += 1)); do
     local all_match=true
-    for worker in "${application_workers[@]}"; do
-      if [[ "$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.State.Health.Status}}')" != "$expected" ]]; then
+    for ((worker_index = 0; worker_index < ${#application_workers[@]}; worker_index += 1)); do
+      worker="${application_workers[$worker_index]}"
+      worker_container_id="${worker_container_ids[$worker_index]}"
+      worker_state="$(docker container inspect "$worker_container_id" --format '{{.State.Health.Status}}')" || exit "$?"
+      case "$worker_state" in
+        starting|healthy|unhealthy) ;;
+        *) echo "Invalid health state for production worker $worker: $worker_state" >&2; exit 1 ;;
+      esac
+      if [[ "$worker_state" != "$expected" ]]; then
         all_match=false
       fi
     done
     if [[ "$all_match" == true ]]; then
+      printf 'Production workers reached health state %s: %s\n' "$expected" "${application_workers[*]}"
       return
     fi
     sleep "$production_smoke_poll_interval_seconds"
   done
   echo "Workers did not reach health state $expected" >&2
-  "${application_compose[@]}" ps >&2
+  "${application_compose[@]}" ps >&2 || true
   exit 1
 }
 
@@ -430,6 +456,35 @@ wait_for_pgboss_job_state() {
   exit 1
 }
 
+# The worker claims one job at a time, the oldest first, so the in-flight job is not always the
+# probe: the hourly schedule "17 * * * *" can enqueue a cleanup job just before it (#728). The
+# drain job is the active cleanup job once a session waits for the table lock: that job stays in
+# flight until the lock goes.
+wait_for_active_cleanup_job() {
+  local attempt
+  local active_job_id
+  for ((attempt = 1; attempt <= pgboss_job_poll_attempts; attempt += 1)); do
+    active_job_id="$("${foundation_compose[@]}" exec -T postgres psql \
+      --username postgres \
+      --dbname inside \
+      --tuples-only \
+      --no-align \
+      --command "select id from pgboss.job where name = 'material-assets.cleanup' and state = 'active' and exists (select 1 from pg_locks where relation = 'assets.material_assets'::regclass and not granted);")"
+    if [[ "$active_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+      drain_job_id="$active_job_id"
+      echo "Worker drain job $drain_job_id (probe $probe_job_id) waited for the table lock after $attempt checks"
+      return
+    fi
+    sleep "$production_smoke_poll_interval_seconds"
+  done
+  echo "No active material-assets.cleanup job waited for the table lock" >&2
+  "${foundation_compose[@]}" exec -T postgres psql \
+    --username postgres \
+    --dbname inside \
+    --command "select id, state, created_on, started_on from pgboss.job where name = 'material-assets.cleanup' order by created_on; select pid, mode, granted from pg_locks where relation = 'assets.material_assets'::regclass;" >&2
+  exit 1
+}
+
 write_runtime_configuration
 write_foundation_configuration
 
@@ -461,6 +516,7 @@ write_broker_configuration
 
 "${foundation_compose[@]}" config --quiet
 "${foundation_compose[@]}" up --detach --build --wait postgres
+wait_for_foundation_sql
 
 "${foundation_compose[@]}" exec -T postgres createdb \
   --username postgres \
@@ -511,6 +567,13 @@ if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; 
   echo "Production runtime resolved a moving image tag" >&2
   exit 1
 fi
+# ECR Public permits one anonymous pull per second. Separate commands keep Compose graph
+# ordering from admitting both images together; wait a full interval after the first completes.
+# This controls our two pulls, not other clients sharing the provider quota. Do not retry failures.
+"${application_compose[@]}" config --images rabbitmq caddy-smoke
+"${application_compose[@]}" --parallel 1 pull rabbitmq
+sleep "$ecr_public_anonymous_pull_interval_seconds"
+"${application_compose[@]}" --parallel 1 pull caddy-smoke
 "${application_compose[@]}" up --detach --wait
 
 docker run --rm \
@@ -624,25 +687,25 @@ if curl \
 fi
 
 data_before="$(application_data_digest)"
-home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
 if [[ "$home_response" != *"Sachkov Inside"* ]]; then
   echo "Caddy did not serve the Platform home" >&2
   exit 1
 fi
 # Bundled creator artwork must survive standalone packaging and the real edge route.
 curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
   --output "$runtime_config_dir/home-avatar.webp" \
-  "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/images/kirill-mini-app.webp"
+  "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/images/kirill-mini-app.webp"
 if ! cmp -s apps/web/public/images/kirill-mini-app.webp "$runtime_config_dir/home-avatar.webp"; then
   echo "Bundled creator avatar differs from the approved bundled asset" >&2
   exit 1
 fi
 # The edge pins HTTPS for a year and the production CSP names no local development origin.
 home_headers="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
-  --dump-header - --output /dev/null "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
-if ! grep -qi '^strict-transport-security: max-age=31536000; includeSubDomains' <<<"$home_headers"; then
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --dump-header - --output /dev/null "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+if ! tr -d '\r' <<<"$home_headers" | grep -qix 'strict-transport-security: max-age=31536000'; then
   echo "Caddy did not send HSTS" >&2
   exit 1
 fi
@@ -658,10 +721,10 @@ sign_in_budget=60
 sign_in_statuses=""
 for attempt in $(seq 1 $((sign_in_budget + 1))); do
   sign_in_statuses+="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+    --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
     --request POST --header "X-Forwarded-For: 198.51.100.${attempt}" \
     --output /dev/null --write-out '%{http_code} ' \
-    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
+    "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
 done
 if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 "$sign_in_budget"))429 " ]]; then
   echo "Sign-in rate limit did not engage after $sign_in_budget requests: $sign_in_statuses" >&2
@@ -669,9 +732,9 @@ if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 "$sign_in_budget"))429
 fi
 # Public Next not-found pages carry HTML; integration 404 responses remain empty and fail closed.
 retired_library_status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
   --silent --show-error --output /dev/null --write-out '%{http_code}' \
-  "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
+  "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
 if [[ "$retired_library_status" != "404" ]]; then
   echo "Retired Library route should return 404, got $retired_library_status" >&2
   exit 1
@@ -689,6 +752,29 @@ assert_public_status GET /integrations/kinescope/v1/unknown 404
 assert_public_status GET /health/ready 404
 # Each payment and Telegram callback reaches the API only as POST and stops at its own credential.
 assert_public_status POST /billing/tbank/notification 400
+# The host reaches containerized Caddy as a non-loopback peer. Forged forwarding headers cannot
+# turn a real external rejection into a verification probe in the API log.
+assert_public_status POST /billing/tbank/notification 400 inside.sachkov.dev \
+  --header 'X-Inside-Production-Verify: bank-webhook-rejection' \
+  --header 'X-Forwarded-For: 127.0.0.1' \
+  --header 'Forwarded: for=127.0.0.1'
+for ((attempt = 1; attempt <= container_log_poll_attempts; attempt += 1)); do
+  api_probe_logs="$("${application_compose[@]}" logs --no-color api)"
+  api_probe_rejections="$(grep '"event":"request_completed"' <<<"$api_probe_logs" |
+    grep '"route":"/billing/tbank/notification"' | grep -c '"statusCode":400' || true)"
+  if ((api_probe_rejections >= 2)); then
+    break
+  fi
+  sleep "$production_smoke_poll_interval_seconds"
+done
+if ((api_probe_rejections < 2)); then
+  echo "API did not log both bank rejection requests" >&2
+  exit 1
+fi
+if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
+  echo "Caddy forwarded an external production verification marker" >&2
+  exit 1
+fi
 assert_public_status POST /integrations/tribute/v1/webhook 401
 assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
 assert_public_status POST /integrations/telegram/v1/invitations/redeem 401
@@ -707,15 +793,68 @@ if ! grep -q '"items"' "$runtime_config_dir/public-response-body"; then
   exit 1
 fi
 for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do
-  internal_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
-    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
-    --write-out '\n%{http_code}' "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${internal_path}")"
-  # Only the exact POST reaches the API; anything else is the public not-found page, never an API JSON answer.
-  if [[ "${internal_response##*$'\n'}" != "404" || "$internal_response" == \{* ]]; then
-    echo "Expected GET $internal_path to stay outside the API" >&2
+  assert_public_status GET "$internal_path" 404
+done
+
+# The browser moves hosts, while provider and MCP identities keep their old URLs.
+assert_redirect() {
+  local host=$1 path=$2 expected_status=$3 target=$4
+  local headers="$runtime_config_dir/redirect-headers"
+  local status
+  status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+    --resolve "${host}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent --show-error \
+    --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
+    "https://${host}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
+  if [[ "$status" != "$expected_status" ]] ||
+    ! tr -d '\r' <"$headers" | grep -Fqix "location: $target" ||
+    ! grep -qi '^cache-control: no-store' "$headers"; then
+    echo "Unexpected redirect for $host$path: $status" >&2
+    cat "$headers" >&2
     exit 1
   fi
+}
+for host in inside.sachkov.dev www.sachkov.dev; do
+  assert_redirect "$host" '/map?q=typescript&topic=testing' 302 'https://sachkov.dev/map?q=typescript&topic=testing'
+  assert_redirect "$host" '/series/inside-ai-engineering?from=legacy' 302 'https://sachkov.dev/series/inside-ai-engineering?from=legacy'
+  assert_redirect "$host" '/library' 302 'https://sachkov.dev/library'
 done
+assert_redirect inside.sachkov.dev '/callback?code=secret-code&state=secret-state' 303 'https://sachkov.dev/?authentication=failed'
+if grep -Eq 'secret-code|secret-state' "$runtime_config_dir/redirect-headers"; then
+  echo 'Old callback leaked code/state' >&2
+  exit 1
+fi
+assert_public_status GET /map 200 sachkov.dev
+assert_public_status GET /practice-review-setup.txt 200 sachkov.dev
+if ! grep -Fq 'https://inside.sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body" ||
+  grep -Fq 'https://sachkov.dev/mcp/learning' "$runtime_config_dir/public-response-body"; then
+  echo 'Web advertised a changed learner MCP resource URL' >&2
+  exit 1
+fi
+for host in sachkov.dev inside.sachkov.dev; do
+  for path in /health /health/ready /_health/ready /integrations/unknown; do
+    assert_public_status GET "$path" 404 "$host"
+  done
+done
+for path in /mcp /mcp/learning /.well-known/oauth-protected-resource/mcp /.well-known/oauth-protected-resource/mcp/learning; do
+  assert_public_status GET "$path" 404 sachkov.dev
+done
+assert_public_status GET /mcp/learning 401
+assert_public_status GET /.well-known/oauth-protected-resource/mcp/learning 200
+
+# Reload the real maintenance fragment; every browser hostname must stay unavailable.
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/maintenance.Caddyfile --adapter caddyfile
+for host in sachkov.dev inside.sachkov.dev www.sachkov.dev; do
+  assert_public_status GET / 503 "$host"
+  assert_public_status POST /billing/tbank/notification 503 "$host"
+done
+# The DNS bridge must point toward the still-active old app before the final cutover.
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/stage.Caddyfile --adapter caddyfile
+for host in sachkov.dev www.sachkov.dev; do
+  assert_redirect "$host" '/map?q=typescript' 302 'https://inside.sachkov.dev/map?q=typescript'
+done
+assert_public_status GET / 200
+"${application_compose[@]}" exec -T caddy-smoke caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+
 data_after="$(application_data_digest)"
 if [[ "$data_before" != "$data_after" ]]; then
   echo "Basic production smoke changed application/provider data" >&2
@@ -843,7 +982,7 @@ docker create \
 docker start "$drain_lock_container" >/dev/null
 wait_for_material_asset_table_lock
 
-drain_job_id="$(docker run \
+probe_job_id="$(docker run \
   --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/material-assets-worker.env" \
@@ -864,11 +1003,11 @@ drain_job_id="$(docker run \
     if (jobId === null) throw new Error("Could not enqueue worker drain probe");
     process.stdout.write(jobId);
   ')"
-if [[ ! "$drain_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
-  echo "Worker drain probe returned an invalid PgBoss job id: $drain_job_id" >&2
+if [[ ! "$probe_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+  echo "Worker drain probe returned an invalid PgBoss job id: $probe_job_id" >&2
   exit 1
 fi
-wait_for_pgboss_job_state "$drain_job_id" active
+wait_for_active_cleanup_job
 
 old_worker_container="$("${application_compose[@]}" ps --quiet material-assets-worker)"
 docker kill --signal TERM "$old_worker_container" >/dev/null

@@ -177,7 +177,7 @@ export function MaterialMetadataPanel({
               </SelectItem>
               <SelectItem
                 className={authoringSelectItemClassName}
-                value="membership"
+                value="closed"
               >
                 Для участников
               </SelectItem>

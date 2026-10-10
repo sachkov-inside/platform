@@ -9,7 +9,7 @@ import {
   validOwnAccessResponse,
 } from "../../src/modules/subscription-activation/activation-contract.js";
 import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { conforming, requestUrl } from "../support/json.js";
 import { required } from "../support/required.js";
 
@@ -172,7 +172,7 @@ describe("own-access next steps", () => {
     );
   });
 
-  it("keeps independent active course and paid Guide grounds visible", () => {
+  it("keeps independent active course and paid Product grounds visible", () => {
     const pending = accessWith("pending_verification");
     const text = ownAccessText({
       ...pending,
@@ -193,7 +193,7 @@ describe("own-access next steps", () => {
       grounds: [
         {
           source: "paid",
-          capabilities: ["guide:synthetic-guide", "community"],
+          capabilities: ["product:synthetic-product", "community"],
           startsAt: "2030-01-01T00:00:00.000Z",
           validUntil: null,
           active: true,

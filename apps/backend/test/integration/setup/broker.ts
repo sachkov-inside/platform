@@ -1,6 +1,117 @@
-import type { StartedTestContainer } from "testcontainers";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  GenericContainer,
+  Wait,
+  type StartedTestContainer,
+} from "testcontainers";
 import { expect } from "vitest";
 import { z } from "zod";
+import {
+  LOCAL_NOTIFICATION_BROKER_CREDENTIALS,
+  NOTIFICATION_BROKER_IMAGE,
+  type localNotificationTopology,
+} from "../../../src/infrastructure/notification-transport/topology.js";
+import type { NotificationPrincipal } from "../../../src/infrastructure/notification-transport/wire.js";
+
+const testBrokerHeartbeatSeconds = 5;
+
+/** Each call owns one disposable broker, its local principal URLs and any TLS files. */
+export async function startNotificationBroker(input: {
+  topology: ReturnType<typeof localNotificationTopology>;
+  tls?: boolean;
+}) {
+  const vhost = input.topology.vhosts[0]?.name;
+  if (vhost === undefined) throw new Error("Notification broker needs a vhost");
+  const tls = input.tls ?? false;
+  const port = tls ? 5671 : 5672;
+  const definitions =
+    "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n";
+  const files = [
+    {
+      content: JSON.stringify(input.topology),
+      target: "/etc/rabbitmq/definitions.json",
+    },
+  ];
+  let directory: string | undefined;
+  let caFile: string | undefined;
+  let broker: StartedTestContainer;
+  try {
+    if (tls) {
+      directory = await mkdtemp(
+        join(tmpdir(), "platform-notification-broker-"),
+      );
+      caFile = join(directory, "cert.pem");
+      const keyFile = join(directory, "key.pem");
+      execFileSync(
+        "openssl",
+        [
+          "req",
+          "-x509",
+          "-newkey",
+          "rsa:2048",
+          "-nodes",
+          "-days",
+          "1",
+          "-subj",
+          "/CN=localhost",
+          "-addext",
+          "subjectAltName=DNS:localhost,IP:127.0.0.1",
+          "-keyout",
+          keyFile,
+          "-out",
+          caFile,
+        ],
+        { stdio: "ignore" },
+      );
+      files.push(
+        { content: await readFile(caFile, "utf8"), target: "/tmp/cert.pem" },
+        { content: await readFile(keyFile, "utf8"), target: "/tmp/key.pem" },
+      );
+    }
+    files.push({
+      content:
+        (tls
+          ? "listeners.tcp = none\nlisteners.ssl.default = 5671\nssl_options.certfile = /tmp/cert.pem\nssl_options.keyfile = /tmp/key.pem\nssl_options.cacertfile = /tmp/cert.pem\nssl_options.verify = verify_none\nssl_options.fail_if_no_peer_cert = false\n"
+          : "") + definitions,
+      target: "/etc/rabbitmq/rabbitmq.conf",
+    });
+    let container = new GenericContainer(NOTIFICATION_BROKER_IMAGE)
+      .withExposedPorts(port)
+      .withCopyContentToContainer(files)
+      .withWaitStrategy(Wait.forLogMessage(/Server startup complete/));
+    if (tls) container = container.withStartupTimeout(120_000);
+    broker = await container.start();
+  } catch (error) {
+    if (directory !== undefined)
+      await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
+  const url = (principal: NotificationPrincipal, environment = vhost) =>
+    `${tls ? "amqps" : "amqp"}://${LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames[principal]}:${LOCAL_NOTIFICATION_BROKER_CREDENTIALS.password}@${broker.getHost()}:${broker.getMappedPort(port)}/${environment}${tls ? `?heartbeat=${String(testBrokerHeartbeatSeconds)}` : ""}`;
+  return {
+    urls: {
+      billing: url("billing"),
+      materials: url("materials"),
+      notifications: url("notifications"),
+      email: url("email"),
+    },
+    url,
+    caFile,
+    admin: brokerAdmin(broker),
+    diagnostics: () => brokerDiagnostics(broker, vhost),
+    async stop() {
+      try {
+        await broker.stop();
+      } finally {
+        if (directory !== undefined)
+          await rm(directory, { recursive: true, force: true });
+      }
+    },
+  };
+}
 
 /** Runs `rabbitmqctl` inside the broker container and fails the test on a non-zero exit. */
 export function brokerAdmin(broker: StartedTestContainer) {
@@ -9,6 +120,48 @@ export function brokerAdmin(broker: StartedTestContainer) {
     expect(result.exitCode, result.output).toBe(0);
     return result.output;
   };
+}
+
+/** Failure evidence, including a stopped/unreachable broker; never replaces the original failure. */
+export async function brokerDiagnostics(
+  broker: StartedTestContainer,
+  vhost: string,
+): Promise<string> {
+  const commands = [
+    [
+      "list_queues",
+      "name",
+      "messages_ready",
+      "messages_unacknowledged",
+      "consumers",
+      "state",
+    ],
+    ["list_consumers"],
+  ];
+  const results = await Promise.all(
+    commands.map(async ([command, ...columns]) => {
+      try {
+        // Bound CLI startup too: rabbitmqctl's own timeout starts after Erlang has loaded.
+        const result = await broker.exec([
+          "timeout",
+          "5",
+          "rabbitmqctl",
+          "--timeout",
+          "5",
+          command ?? "list_queues",
+          "-p",
+          vhost,
+          ...columns,
+          "--formatter",
+          "json",
+        ]);
+        return `${String(command)} (exit ${String(result.exitCode)}): ${result.output.replace(/\s+/gu, " ")}`;
+      } catch (error) {
+        return `${String(command)} unavailable: ${String(error)}`;
+      }
+    }),
+  );
+  return results.join(" | ");
 }
 
 const queues = z.array(z.object({ name: z.string(), messages: z.number() }));

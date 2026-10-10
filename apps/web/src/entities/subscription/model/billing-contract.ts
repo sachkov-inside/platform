@@ -1,19 +1,15 @@
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { coverageSchema } from "@inside/access-capabilities";
 import { z } from "zod";
 // Словарь прав и вывод состава доступа живут в `@inside/access-capabilities`: покупатель видит
 // на витрине ровно то, что сервер потом выдаёт, потому что это один и тот же вывод.
 export {
   accessCapabilitySchema,
   accessComposition,
-  guideCapability,
-  isGuideCapability,
+  productCapability,
+  isProductCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
-import {
-  accessCapabilitySchema,
-  guideCapability,
-  isGuideCapability,
-} from "@inside/access-capabilities";
+import { accessCapabilitySchema } from "@inside/access-capabilities";
 
 /**
  * Кому Offer продаётся: всем, прежним подписчикам Tribute или только по приглашению. В прежних
@@ -46,7 +42,7 @@ export const offerSchema = z.object({
   /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
   published: z.boolean().optional(),
   availableForAssignment: z.boolean().optional(),
-  contentScope: contentScopeSchema.nullable().optional(),
+  coverage: coverageSchema.nullable().optional(),
   eligibility: offerEligibilitySchema.optional(),
 });
 /** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
@@ -76,8 +72,8 @@ export const priceSnapshotSchema = z.object({
   renewalPriceKopecks: z.number().int().positive(),
 });
 /**
- * Текущий поток продукта из каталога: этап продаж, название, дата старта и событие между
- * потоками. Этап выбирает обещание страницы, но деньги принимает только включённое предложение.
+ * Текущий поток продукта из каталога: этап продаж, название, дата старта, событие между
+ * потоками и цена после старта. Этап выбирает обещание страницы, но деньги принимает только включённое предложение.
  */
 export const cohortStageSchema = z.enum([
   "announcement",
@@ -85,19 +81,25 @@ export const cohortStageSchema = z.enum([
   "running",
   "between",
 ]);
-export const guideCohortSchema = z.object({
-  guideId: z.uuid(),
+export const productCohortSchema = z.object({
+  productId: z.uuid(),
   revision: z.number().int().positive(),
   name: z.string().min(1),
   stage: cohortStageSchema,
   startsOn: z.iso.date().nullable(),
   nextEvent: z.string(),
+  /**
+   * Цена после старта в копейках только для витрины: страница показывает её зачёркнутой рядом с
+   * ценой предзаказа, а списывается всегда цена предложения. `null` — не показывать. Прежний
+   * backend поля не присылает, поэтому его отсутствие читается как `null`.
+   */
+  priceAfterStartKopecks: z.number().int().positive().nullable().default(null),
 });
-export const guideCohortsSchema = z.object({
-  items: z.array(guideCohortSchema),
+export const productCohortsSchema = z.object({
+  items: z.array(productCohortSchema),
 });
 export type CohortStage = z.infer<typeof cohortStageSchema>;
-export type GuideCohort = z.infer<typeof guideCohortSchema>;
+export type ProductCohort = z.infer<typeof productCohortSchema>;
 export const offersPageSchema = z.object({
   items: z.array(priceSnapshotSchema),
   nextCursor: z.uuid().nullable(),
@@ -320,49 +322,11 @@ export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";
 }
 
-/**
- * Витрина подписки показывает только то, что продаётся по расписанию. Разовая продажа
- * руководства живёт на его собственной странице, а снятые с продажи позиции не выводятся.
- * Остальной состав каталога страница не выбирает: две карточки не зашиты как единственная модель.
- */
+/** Группировка уже допущенных сервером вариантов по способу оплаты, без повторной проверки продажи. */
 export function publicSubscriptionOffers(
   offers: readonly PriceSnapshot[],
 ): readonly PriceSnapshot[] {
-  return offers.filter(
-    (snapshot) =>
-      !snapshot.offer.archived &&
-      !snapshot.paymentOption.archived &&
-      paymentMode(snapshot) === "subscription" &&
-      !snapshot.offer.benefits.every(isGuideCapability),
-  );
-}
-
-/**
- * Как сегодня продаётся руководство: его разовые варианты, от дешёвого к дорогому — например,
- * руководство отдельно и руководство с сопровождением. Это единственное место, которое отвечает
- * на вопрос, поэтому программа и страница оплаты не могут разойтись и завести читателя в тупик.
- * Руководство продаётся, только когда владелец завёл ему цену, поэтому пустой список — это
- * «не продаётся», а не ошибка. Равные цены разводит стабильный идентификатор, чтобы порядок
- * не зависел от ответа сервера.
- */
-export function guidePurchaseOffers(
-  offers: readonly PriceSnapshot[],
-  guideId: string,
-): readonly PriceSnapshot[] {
-  const capability = guideCapability(guideId);
-  return [...offers]
-    .filter(
-      (snapshot) =>
-        !snapshot.offer.archived &&
-        !snapshot.paymentOption.archived &&
-        paymentMode(snapshot) === "one_time" &&
-        snapshot.offer.benefits.includes(capability),
-    )
-    .sort((left, right) =>
-      left.firstPriceKopecks !== right.firstPriceKopecks
-        ? left.firstPriceKopecks - right.firstPriceKopecks
-        : left.paymentOption.id.localeCompare(right.paymentOption.id),
-    );
+  return offers.filter((snapshot) => paymentMode(snapshot) === "subscription");
 }
 
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

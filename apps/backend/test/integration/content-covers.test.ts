@@ -1,7 +1,20 @@
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
@@ -19,6 +32,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -63,14 +78,29 @@ describe("ContentCovers", () => {
     },
   };
 
+  beforeEach(() => {
+    signed.length = 0;
+  });
+
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
-    await seedLocalDevelopment(database.prisma);
+    const instant = fixedTestInstant();
+    // Background publications precede the material whose cover this catalog page checks.
+    vi.setSystemTime(instant - 1);
+    try {
+      await seedLocalDevelopment(database.prisma);
+    } finally {
+      vi.setSystemTime(instant);
+    }
     const material = await database.prisma.material.findUniqueOrThrow({
       where: { slug: "kak-ustroen-inside-platform" },
       select: { id: true },
     });
     materialId = material.id;
+    await database.prisma.publishedMaterial.update({
+      where: { materialId },
+      data: { publishedAt: new Date(instant) },
+    });
   });
 
   afterAll(async () => {
@@ -138,6 +168,7 @@ describe("ContentCovers", () => {
       before.every(({ publicObjectKey }) => stored.has(publicObjectKey)),
     ).toBe(true);
     const graceMs = 1_000;
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const orphanObservedAt = new Date(Date.now() + graceMs * 2);
     const maintenance = assembleContentCoverMaintenance({
       prisma: database.prisma,
@@ -279,6 +310,7 @@ describe("ContentCovers", () => {
     });
     await maintenance.cleanup({
       graceMs: 1_000,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 2_000),
     });
     expect(
@@ -301,6 +333,7 @@ describe("ContentCovers", () => {
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await maintenance.cleanup({
       graceMs: 1_000,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 4_000),
     });
     expect(
@@ -340,6 +373,7 @@ describe("ContentCovers", () => {
           await objectStorage.delete(namespace, key);
         },
       },
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     }).cleanup({ graceMs: 1_000, now: new Date(Date.now() + 2_000) });
     await deletionStarted.promise;
     let replacement;
@@ -419,6 +453,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       const now = new Date(Date.now() + 2_000);
       try {
         await maintenance.cleanup({ graceMs: 1_000, now });
@@ -466,7 +501,7 @@ describe("ContentCovers", () => {
       const id = randomUUID();
       const row = { id, name: "Disposable cover owner", slug: `cleanup-${id}` };
       if (kind === "topic") await database.prisma.topic.create({ data: row });
-      else await database.prisma.guide.create({ data: row });
+      else await database.prisma.product.create({ data: row });
       const covers = assembleContentCovers({
         prisma: database.prisma,
         objectStorage,
@@ -487,7 +522,7 @@ describe("ContentCovers", () => {
       });
       if (kind === "topic")
         await database.prisma.topic.delete({ where: { id } });
-      else await database.prisma.guide.delete({ where: { id } });
+      else await database.prisma.product.delete({ where: { id } });
       await expect(
         database.prisma.contentCoverRendition.findMany({ where: { coverId } }),
       ).resolves.toEqual(keys);
@@ -495,6 +530,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       const now = new Date(Date.now() + 2_000);
       await maintenance.cleanup({ graceMs: 1_000, now });
       await maintenance.cleanup({

@@ -26,13 +26,9 @@ The repository is a pnpm workspace with two applications:
 The process-layout decision is recorded in
 [`ADR 0001`](docs/adr/0001-one-backend-multiple-entrypoints.md).
 
-The separately built, non-service Go Workshop evaluator lives under `tools/workshop-evaluator`.
-Its canonical wire schemas and cross-language conformance corpus live under `contracts/workshop`;
-neither participant code nor evaluator execution enters the Platform API/worker runtime.
-
 The backend also owns the production Telegram Membership consumer. Authenticated Account requests
 begin and confirm a short-lived `/start` link through the provider HTTP adapter; authenticated
-evidence enters a durable inbox and updates `MembershipEntitlements`. Material and profile reads
+evidence enters a durable inbox and updates `AccountRights`. Material and profile reads
 continue to use only the local PostgreSQL projection and never call Telegram. The controlled
 compatibility evidence is recorded in
 [`docs/verification/telegram-membership-conformance.md`](docs/verification/telegram-membership-conformance.md).
@@ -74,9 +70,6 @@ pnpm build
 pnpm check
 pnpm check:full
 
-pnpm workshop:contracts:check
-pnpm workshop:evaluator:test
-pnpm workshop:evaluator:generate
 ```
 
 `pnpm docs:check` validates agent-document pointers and current Materials documentation invariants.
@@ -92,9 +85,6 @@ an installed host toolchain.
 Pull requests into `main` run four parallel application checks and the required aggregate
 `CI Gate`. See the [continuous integration runbook](docs/runbooks/continuous-integration.md) for
 the exact jobs, security boundary, diagnostics, cleanup and future release reuse contract.
-Changes to Workshop schemas or evaluator source additionally build, execute and checksum native
-artifacts on the three beta hosts. The evaluator's own
-[`README`](tools/workshop-evaluator/README.md) documents that bounded workflow.
 
 See the [runtime configuration contract](docs/runbooks/runtime-configuration.md) for the typed
 NestJS and Next.js configuration model, local `.env`, server-owned production env files and Docker
@@ -118,19 +108,13 @@ The local adapter does not provision Logto clients, service identities or produc
 Content reaches production through the reviewed release with the owner's one-time sign-in; see
 [Content production delivery](docs/runbooks/content-production-delivery.md).
 
-## Docker-only smoke and shutdown
+## Compose smoke and shutdown
 
 The smoke needs the published demonstration catalogue, so it runs in a disposable project with its own
 volumes and the local ports; stop the shared stand first.
 
-```bash
-(
-  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
-  docker compose up --detach --build --wait
-  bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
-```
+Use the [guarded Compose smoke recipe](docs/runbooks/local-development.md#start-from-a-fresh-clone).
+It needs host Python 3 and Bash, and keeps one shared slot until shutdown. It needs no host Node.js or pnpm.
 
 The smoke verifies web → API → PostgreSQL, OpenAPI, MCP protected-resource metadata, the
 unauthenticated fail-closed boundary and the idempotent seeded Material. On the shared stand, normal shutdown preserves

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -9,6 +9,7 @@ import {
 
 import {
   announceEnrollmentChange,
+  subscribeEnrollmentChange,
   billingErrorMessage,
   type BillingCommandResult,
   type BillingFailureCode,
@@ -22,11 +23,10 @@ import {
   revokeAccessGrant,
 } from "../api/billing-admin.browser";
 import {
-  assignSubscriptionEnrollment,
-  changeSubscriptionEnrollment,
+  assignTariffAssignment,
+  changeTariffAssignment,
   listSubscriptionTiers,
 } from "../api/enrollments.browser";
-import { issueInvitation } from "../api/invitations.browser";
 import {
   endOfMoscowDay,
   noPeopleFilters,
@@ -35,17 +35,13 @@ import {
 } from "../model/access-operations";
 import {
   accessSummaryQueryKey,
-  invitationsQueryKey,
   peopleQueryKey,
 } from "../model/access-query-keys";
-import {
-  invitationOfferNames,
-  type Invitation,
-} from "../model/invitation-operations";
+import { refreshAccessRead } from "../model/access-refresh";
+import { invitationOfferNames } from "../model/invitation-operations";
 import {
   PeopleView,
   type AssignRequest,
-  type GiftRequest,
   type GroundChangeRequest,
 } from "./people-view.client";
 
@@ -72,16 +68,19 @@ export function PeoplePanel({
   readonly offers: readonly PriceSnapshot[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribeEnrollmentChange((announcementId) => {
+        void refreshAccessRead(cache, peopleQueryKey, announcementId);
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   // Начало назначения читается при первой отправке и не меняется у повтора той же операции.
   const assignmentStarts = useRef(new Map<string, string>());
   const [filters, setFilters] = useState<PeopleFilters>(noPeopleFilters);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
-  const [gift, setGift] = useState<{
-    accountId: string;
-    invitation: Invitation;
-  } | null>(null);
   const people = useInfiniteQuery({
     queryKey: [...peopleQueryKey, filters],
     initialPageParam: null as string | null,
@@ -114,8 +113,14 @@ export function PeoplePanel({
     (row) => row.availableForAssignment && !row.archived,
   );
   function refresh() {
-    void cache.invalidateQueries({ queryKey: peopleQueryKey });
-    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+    void cache.invalidateQueries(
+      { queryKey: peopleQueryKey },
+      { cancelRefetch: false },
+    );
+    void cache.invalidateQueries(
+      { queryKey: accessSummaryQueryKey },
+      { cancelRefetch: false },
+    );
   }
   const change = useMutation({
     retry: false,
@@ -142,41 +147,13 @@ export function PeoplePanel({
       }
       completeOperation(task.slot);
       assignmentStarts.current.clear();
-      announceEnrollmentChange();
+      const announcementId = announceEnrollmentChange();
+      void refreshAccessRead(cache, peopleQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       setFailure(null);
       setMessage(task.message);
-      refresh();
     },
   });
-  const giving = useMutation({
-    mutationFn: (task: {
-      readonly accountId: string;
-      readonly input: Parameters<typeof issueInvitation>[0];
-    }) => issueInvitation(task.input),
-    onError: () => {
-      setFailure(
-        "Ответ не получен. Повторите то же действие: повтор не создаст второе приглашение.",
-      );
-    },
-    onSuccess: (result, { accountId }) => {
-      if (!result.ok) {
-        setMessage("");
-        setFailure(
-          result.code === "state_conflict"
-            ? "Этот тариф не открыт для назначения: подарить его нельзя."
-            : billingErrorMessage(result.code),
-        );
-        return;
-      }
-      completeOperation(`gift:${accountId}`);
-      setFailure(null);
-      setMessage("Подарочное приглашение готово.");
-      setGift({ accountId, invitation: result.value.result.value });
-      void cache.invalidateQueries({ queryKey: invitationsQueryKey });
-      void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
-    },
-  });
-
   function changeGround(request: GroundChangeRequest) {
     const { ground, action, reason } = request;
     const endsAt =
@@ -208,7 +185,7 @@ export function PeoplePanel({
         slot,
         message,
         run: () =>
-          changeSubscriptionEnrollment({
+          changeTariffAssignment({
             ...command,
             operationId: operationId(slot, command),
           }),
@@ -257,14 +234,14 @@ export function PeoplePanel({
     }
     const slot = `assign:${request.accountId}`;
     const id = operationId(slot, request);
-    const startsAt =
-      assignmentStarts.current.get(id) ?? new Date().toISOString();
-    assignmentStarts.current.set(id, startsAt);
     change.mutate({
       slot,
       message: "Тариф назначен. Платёж и списания не создавались.",
-      run: () =>
-        assignSubscriptionEnrollment({
+      run: () => {
+        const startsAt =
+          assignmentStarts.current.get(id) ?? new Date().toISOString();
+        assignmentStarts.current.set(id, startsAt);
+        return assignTariffAssignment({
           operationId: id,
           accountId: request.accountId,
           origin: "manual",
@@ -274,32 +251,12 @@ export function PeoplePanel({
           tierRevision: tier.tier.revision,
           terms: {
             startsAt,
-            endsAt:
-              request.until === null ? null : endOfMoscowDay(request.until),
+            endsAt: null,
             endPolicy: "fixed",
           },
           billingRef: null,
           reason: request.reason,
-        }),
-    });
-  }
-
-  function giveGift(request: GiftRequest) {
-    const input = {
-      offerId: request.offerId,
-      mode: "gift" as const,
-      giftMonths: request.giftMonths,
-      note: request.note,
-    };
-    giving.mutate({
-      accountId: request.accountId,
-      // Слот и нагрузка называют человека: потерянный ответ для одного не отдаётся другому.
-      input: {
-        operationId: operationId(`gift:${request.accountId}`, {
-          ...input,
-          accountId: request.accountId,
-        }),
-        ...input,
+        });
       },
     });
   }
@@ -310,11 +267,10 @@ export function PeoplePanel({
         id: row.tier.id,
         name: row.tier.name,
       }))}
-      busy={change.isPending || giving.isPending}
+      busy={change.isPending}
       error={people.error?.message ?? tiers.error?.message ?? null}
       failure={failure}
       filters={filters}
-      gift={gift}
       hasMore={people.hasNextPage}
       loading={people.isPending}
       loadingMore={people.isFetchingNextPage}
@@ -325,18 +281,7 @@ export function PeoplePanel({
       }))}
       onAssign={assign}
       onChangeGround={changeGround}
-      onCopy={(text) => {
-        void navigator.clipboard.writeText(text).then(
-          () => {
-            setMessage("Скопировано.");
-          },
-          () => {
-            setMessage("Скопируйте ссылку вручную.");
-          },
-        );
-      }}
       onFiltersChange={setFilters}
-      onGift={giveGift}
       onLoadMore={() => {
         void people.fetchNextPage();
       }}

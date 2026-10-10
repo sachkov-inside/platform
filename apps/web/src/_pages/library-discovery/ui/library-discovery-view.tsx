@@ -26,15 +26,15 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { StatusPanel } from "@/shared/ui/status-panel";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
-import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
-import { GuideProductView } from "./guide-product-view";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
+import { ProductLandingView } from "./product-landing-view";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -58,10 +58,16 @@ export function LibraryDiscoveryView({
   offerTerms = null,
   result,
   returnTarget = homeMaterialReaderReturnTarget,
+  statusCall,
+  heroBadge,
 }: {
-  readonly artifacts?: ReaderGuideArtifactsResult;
+  readonly artifacts?: ReaderProductArtifactsResult;
   /** Личная часть первого экрана продукта: плашка потока и кнопка по этапу продаж. */
   readonly heroCall?: ReactNode;
+  /** Личная часть нижнего блока продукта: плашка набора на поток. */
+  readonly statusCall?: ReactNode;
+  /** Наклейка «до старта N дней» на анимации первого экрана. */
+  readonly heroBadge?: ReactNode;
   /** Сроки предложения продукта для подстановок в его описании. */
   readonly offerTerms?: OneTimeOfferTerms | null;
   readonly result: ResolvedDiscoveryResult;
@@ -70,12 +76,14 @@ export function LibraryDiscoveryView({
   if (result.discoveryKind === "series") {
     const entry = freeEntryHref(result);
     return (
-      <GuideProductView
+      <ProductLandingView
         artifacts={artifacts}
         heroCall={heroCall}
         offerTerms={offerTerms}
         result={result}
         returnTarget={returnTarget}
+        statusCall={statusCall}
+        heroBadge={heroBadge}
         {...(entry === undefined ? {} : { freeEntryHref: entry })}
       />
     );
@@ -448,6 +456,6 @@ function DiscoveryStatus({
 function freeEntryHref(result: ResolvedDiscoveryResult): Route | undefined {
   if (result.kind !== "ready") return undefined;
   return result.items.some((item) => item.availability === "available")
-    ? guideProgrammeHref(result.reference.slug)
+    ? productProgrammeHref(result.reference.slug)
     : undefined;
 }

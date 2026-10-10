@@ -7,7 +7,7 @@ import {
   readPublicSiteOrigin,
 } from "@/shared/link-preview/index.server";
 import {
-  guidePath,
+  productPath,
   HOME_PATH,
   LEGAL_PATH,
   legalDocumentPath,
@@ -36,8 +36,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   return [
     ...alwaysPublic,
-    ...index.guideSlugs.map((slug) => ({
-      url: publicPageUrl(origin, guidePath(slug)),
+    ...index.productSlugs.map((slug) => ({
+      url: publicPageUrl(origin, productPath(slug)),
     })),
     ...index.topicSlugs.map((slug) => ({
       url: publicPageUrl(origin, topicPath(slug)),

@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ContentAccess } from "../../../content-access/index.js";
-import type { LearningTasks } from "../../../guide-tasks/index.js";
+import type { LearningTasks } from "../../../product-tasks/index.js";
 import type { PublishedMaterialReader } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
 import type {
   DiscoverPublishedMaterialsQuery,
-  GuideChapterTaskDto,
+  ProductChapterTaskDto,
   PublishedMaterialDiscoveryResult,
 } from "./discover-published-materials.contract.js";
 
@@ -36,7 +36,7 @@ const querySchema = z
   );
 
 /**
- * A generated catalog view. A Guide programme also places its published tasks in chapters when the
+ * A generated catalog view. A Product programme also places its published tasks in chapters when the
  * caller passes `tasks`; a caller that only needs the main path, such as the series continuation,
  * leaves it out and every chapter then lists no tasks.
  */
@@ -55,11 +55,12 @@ export async function discoverPublishedMaterials(
     first: parsed.data.first,
     kind: parsed.data.kind,
     slug: parsed.data.slug,
+    subject: query.subject,
   });
   if (!page.ok) {
     return page;
   }
-  const tasksByChapter = new Map<string, GuideChapterTaskDto[]>();
+  const tasksByChapter = new Map<string, ProductChapterTaskDto[]>();
   if (
     tasks !== undefined &&
     parsed.data.kind === "series" &&
@@ -67,7 +68,7 @@ export async function discoverPublishedMaterials(
   ) {
     const listed = await tasks.chapterTasks({
       subject: query.subject,
-      guideId: page.value.reference.id,
+      productId: page.value.reference.id,
     });
     if (!listed.ok)
       return {

@@ -69,11 +69,15 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
       assertNodeBasesPinnedByDigest(path, dockerfile);
+      assert.match(
+        dockerfile,
+        /npm install --global corepack@\d+\.\d+\.\d+(?:\s|$)/u,
+      );
       assert.match(
         dockerfile,
         new RegExp(
@@ -98,6 +102,7 @@ describe("supported toolchain contract", () => {
         "apps/backend/prisma ./apps/backend/prisma",
         "tsconfig.base.json",
         "tsconfig.node-lib.json",
+        "patches ./patches",
       ]) {
         const copyPosition = dockerfile.indexOf(input);
         assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
@@ -173,16 +178,17 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
-  it("hides the development indicator where the mobile dock is used", () => {
-    // Сторожит звенья проводки: убери любое — и перекрытие дока индикатором вернётся молча,
-    // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
+  it("hides the development indicator where the course bars are used", () => {
+    // Сторожит звенья проводки: убери любое — и перекрытие нижних панелей курса индикатором
+    // вернётся молча, одними лишь плавающими промахами. Причину и выбор держит
+    // `apps/web/next.config.ts`; без переменной индикатор стоит внизу слева.
     const nextConfig = read("apps/web/next.config.ts");
 
     assert.match(
       nextConfig,
       /process\.env\["HIDE_DEV_INDICATOR"\] === "true"/u,
     );
-    assert.match(nextConfig, /devIndicators: false/u);
+    assert.match(nextConfig, /devIndicators: hideDevIndicator \? false/u);
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(
       read("apps/web/playwright.config.ts"),
@@ -251,9 +257,9 @@ describe("supported toolchain contract", () => {
       rootPackage.scripts["lint"],
       "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     );
-    assert.equal(rootPackage.devDependencies["oxlint"], "1.85.0");
+    assert.equal(rootPackage.devDependencies["oxlint"], "1.86.0");
     assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2003");
-    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.151.0");
+    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.152.0");
 
     for (const dependency of [
       "eslint",
@@ -536,7 +542,7 @@ describe("supported toolchain contract", () => {
       webPackage.devDependencies["@storybook/nextjs-vite"],
       undefined,
     );
-    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.0");
+    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.1");
     assert.equal(
       webPackage.devDependencies["openapi-typescript-codegen"],
       "0.31.0",
@@ -630,7 +636,7 @@ describe("supported toolchain contract", () => {
             " AS web-production",
           ),
         ),
-      /apps\/web\/Dockerfile: FROM node:/u,
+      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
     );
     const workspace = read("pnpm-workspace.yaml");
     assert.notDeepEqual(
@@ -643,6 +649,24 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("rejects a production Node base that differs from the shared runtime", () => {
+    const dockerfile = read("apps/web/Dockerfile");
+    assert.throws(
+      () =>
+        assertNodeBasesPinnedByDigest(
+          "apps/web/Dockerfile",
+          dockerfile.replace(
+            new RegExp(
+              `FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
+              "u",
+            ),
+            "FROM public.ecr.aws/docker/library/node:22.0.0-$1 AS web-production",
+          ),
+        ),
+      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
+    );
+  });
+
   it("uses explicit container version tags", () => {
     const localImageLines = read("compose.yaml")
       .split("\n")
@@ -651,7 +675,10 @@ describe("supported toolchain contract", () => {
     assert.ok(
       localImageLines.every((line) => {
         const image = line.trim();
-        return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
+        return (
+          /:[A-Za-z0-9][^\s@]*(?:@sha256:[a-f0-9]{64})?$/u.test(image) &&
+          !/:latest$/u.test(image)
+        );
       }),
     );
     assert.match(
@@ -736,9 +763,10 @@ describe("supported toolchain contract", () => {
       composeImage,
       "compose.yaml must declare the object-storage image",
     );
-    assert.ok(
-      composeImage.includes("@sha256:"),
-      "object-storage image must be pinned by digest",
+    assert.equal(
+      composeImage,
+      "ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "object-storage must use the official GHCR source with the unchanged RustFS digest",
     );
     assert.ok(
       read(
@@ -945,7 +973,9 @@ const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
  * @param {string} dockerfile
  */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
-  const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
+  const nodeBases =
+    dockerfile.match(/^FROM public\.ecr\.aws\/docker\/library\/node:\S+/gmu) ??
+    [];
   assert.ok(
     nodeBases.length > 1,
     `${path} must build its production stage from Node`,
@@ -953,7 +983,10 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
   for (const base of nodeBases) {
     assert.match(
       base,
-      /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u,
+      new RegExp(
+        `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-[^\\s@]+@sha256:[a-f0-9]{64}$`,
+        "u",
+      ),
       `${path}: ${base}`,
     );
   }

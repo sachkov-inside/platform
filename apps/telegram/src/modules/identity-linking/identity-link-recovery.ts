@@ -8,7 +8,7 @@ import {
   type IdentityLinkRecoveriesTable,
 } from "../../database/database.js";
 import { CLOCK, type Clock } from "../../shared/clock.js";
-import { recordAccountLinked } from "../sales-funnel/sales-funnel-events.js";
+import { LINK_EFFECTS, type LinkEffects } from "./link-effects.js";
 import { lockIdentityLinkAccount } from "./identity-link-account-lock.js";
 import { isOpaqueRef } from "./identity-linking-validation.js";
 
@@ -56,6 +56,7 @@ export class IdentityLinkRecovery {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
     @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(LINK_EFFECTS) private readonly effects: LinkEffects,
   ) {}
 
   async preview(
@@ -121,21 +122,12 @@ export class IdentityLinkRecovery {
         )
         .where("state", "=", "conflict")
         .executeTakeFirstOrThrow();
-      await transaction
-        .insertInto("membership_checks")
-        .values({
-          attempt_count: 0,
-          available_at: targetLinkedAt,
-          completed_at: null,
-          created_at: targetLinkedAt,
-          diagnostic_code: null,
-          locked_at: null,
-          source_ref: `owner-recovery:${command.recoveryRef}`,
-          state: "pending",
-          telegram_identity_ref: ready.transfer.telegramIdentityRef,
-        })
-        .onConflict((conflict) => conflict.column("source_ref").doNothing())
-        .execute();
+      await this.effects.initialCheck(
+        transaction,
+        `owner-recovery:${command.recoveryRef}`,
+        ready.transfer.telegramIdentityRef,
+        targetLinkedAt,
+      );
       await transaction
         .insertInto("identity_link_recoveries")
         .values({
@@ -154,7 +146,7 @@ export class IdentityLinkRecovery {
         })
         .execute();
 
-      await recordAccountLinked(transaction, {
+      await this.effects.accountLinked(transaction, {
         botIdentity: ready.transfer.botIdentity,
         telegramUserId: ready.transfer.telegramUserId,
         telegramIdentityRef: ready.transfer.telegramIdentityRef,

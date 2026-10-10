@@ -3,6 +3,7 @@ export {
   getHome,
   HomeBackdrop,
   HomePage,
+  readLearningDestination,
   readPublicHome,
   fillPinnedOfferTerms,
   readPublicHomeWithOfferTerms,

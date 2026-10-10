@@ -9,7 +9,15 @@ services:
       - notification-broker-data:/var/lib/rabbitmq
       - notification-local-ca:/local-ca
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      test:
+        [
+          "CMD",
+          "su-exec",
+          "rabbitmq",
+          "rabbitmq-diagnostics",
+          "-q",
+          "check_running",
+        ]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -45,10 +53,11 @@ services:
       object-storage:
         condition: service_healthy
     init: true
+    restart: unless-stopped
     stop_grace_period: 15s
 
   object-storage:
-    image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+    image: ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
     env_file:
       - ./config/compose/local/object-storage.env
     ports:
@@ -74,7 +83,7 @@ services:
       - object-storage-rustfs-data:/data
 
   postgres:
-    image: postgres:18.4-alpine3.23
+    image: public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e
     env_file:
       - ./config/compose/local/postgres.env
     ports:
@@ -320,7 +329,7 @@ services:
 
   logto-postgres:
     profiles: [identity]
-    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    image: public.ecr.aws/docker/library/postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
     env_file:
       - ./config/compose/local/logto-postgres.env
     healthcheck:

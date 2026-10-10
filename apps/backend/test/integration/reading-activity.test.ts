@@ -1,4 +1,6 @@
-import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { registerFixedClock } from "../support/fixed-clock.js";
+
+import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -15,10 +17,9 @@ import {
   PublishedMaterialSelection,
   PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   PersonalHome,
   ReadingActivity,
@@ -30,6 +31,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+registerFixedClock();
+
 const actor = randomUUID();
 const accountId = randomUUID();
 const topicId = randomUUID();
@@ -40,7 +43,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   let second: PlatformPrisma;
   let reading: ReadingActivity;
   let materials: ReturnType<typeof assembleMaterials>;
-  let membership: ReturnType<typeof assembleLegacyCohortFixture>;
+  let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
   let composition: PublishedSeriesComposition;
   let membershipNow: Date | undefined;
 
@@ -55,12 +58,10 @@ describe("ReadingActivity on PostgreSQL", () => {
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
     });
-    membership = assembleLegacyCohortFixture({
+    membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => membershipNow ?? new Date(),
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     composition = new PublishedSeriesComposition(database.prisma);
     reading = assembleReading(database.prisma);
@@ -81,7 +82,8 @@ describe("ReadingActivity on PostgreSQL", () => {
         accountPermissions: {
           hasMaterialsManage: () => Promise.resolve(false),
         },
-        membershipEntitlements: membership,
+        accountRights: membership,
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         clock: () => membershipNow ?? new Date(),
       }),
       composition,
@@ -89,7 +91,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   }
   async function material(
     seriesIds: string[] = [],
-    access: "free" | "membership" = "free",
+    access: "free" | "closed" = "free",
   ) {
     const created = await materials.authoring.createDraft({
       actor,
@@ -153,7 +155,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   }
   async function series() {
     const id = randomUUID();
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: { id, slug: `series-${id}`, name: "Reading series" },
     });
     return id;
@@ -285,7 +287,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   test("free non-member and revoked member retain private marks; protected marks still require current access", async () => {
     const free = await material();
     // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
-    const protectedId = await material([await series()], "membership");
+    const protectedId = await material([await series()], "closed");
     const memberId = checkedAccountId(randomUUID());
     expect(await reading.setReadingState(command(free))).toMatchObject({
       ok: true,
@@ -307,7 +309,9 @@ describe("ReadingActivity on PostgreSQL", () => {
           principalRef: `principal-${memberId}`,
           decision,
           reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
           checkedAt: new Date().toISOString(),
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
           validUntil: new Date(Date.now() + 240_000).toISOString(),
           telegramIdentityRef: `telegram-${memberId}`,
           evidenceRef: randomUUID(),
@@ -318,7 +322,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       await database.prisma.legacyClassification.update({
         where: { accountId: memberId },
         data: {
-          bridgeContentScope: { guideIds: [], materialIds: [protectedId] },
+          bridgeCoverage: { productIds: [], materialIds: [protectedId] },
         },
       });
       if (version === 1)
@@ -355,7 +359,8 @@ describe("ReadingActivity on PostgreSQL", () => {
 
   test("positive Membership evidence expires by time without deleting previous marks", async () => {
     const memberId = checkedAccountId(randomUUID());
-    const id = await material([await series()], "membership");
+    const id = await material([await series()], "closed");
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const checkedAt = new Date();
     const validUntil = new Date(checkedAt.getTime() + 240_000);
     const accepted = await membership.acceptEvidence({
@@ -377,7 +382,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(accepted).toMatchObject({ ok: true });
     await database.prisma.legacyClassification.update({
       where: { accountId: memberId },
-      data: { bridgeContentScope: { guideIds: [], materialIds: [id] } },
+      data: { bridgeCoverage: { productIds: [], materialIds: [id] } },
     });
     expect(
       await reading.setReadingState({ ...command(id), accountId: memberId }),
@@ -430,7 +435,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         materials.materialContent,
       ),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: membership,
+      accountRights: membership,
     });
     const authorize = vi.fn((input: Parameters<typeof access.authorize>[0]) =>
       access.authorize(input),
@@ -438,7 +443,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const lockedReading = new ReadingActivity({
       prisma: database.prisma,
       materialContent: materials.materialContent,
-      contentAccess: { authorize },
+      contentAccess: { ...access, authorize },
       composition,
     });
     const pending = lockedReading.setReadingState(command(id));
@@ -468,15 +473,18 @@ describe("ReadingActivity on PostgreSQL", () => {
         composition,
         materialContent: materials.materialContent,
         contentAccess: {
+          ...access,
           authorize: () =>
             Promise.resolve({
               effect: "allow",
               reason: "active_membership",
               policyVersion: "content-access-v1",
               decisionId: randomUUID(),
+              // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
               decidedAt: new Date().toISOString(),
               checkedContentVersion: mode === "version" ? 1 : 4,
               validUntil: new Date(
+                // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
                 Date.now() + (mode === "expiry" ? -1_000 : 240_000),
               ).toISOString(),
             }),
@@ -490,41 +498,41 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(await counts(id)).toEqual([0, 0]);
   });
 
-  test("a transferred Guide keeps reader progress when its address changes", async () => {
+  test("a transferred Product keeps reader progress when its address changes", async () => {
     const seriesId = await series();
     const lesson = await material([seriesId]);
-    // Imported Guides accept only imported lessons, so the source is attached after composition.
-    await database.prisma.guide.update({
+    // Imported Products accept only imported lessons, so the source is attached after composition.
+    await database.prisma.product.update({
       where: { id: seriesId },
-      data: { sourceId: "inside-content:progress-guide" },
+      data: { sourceId: "inside-content:progress-product" },
     });
-    const reserved = await materials.authoring.reserveSourceGuide({
+    const reserved = await materials.authoring.reserveSourceProduct({
       actor,
-      sourceId: "inside-content:progress-guide",
+      sourceId: "inside-content:progress-product",
       name: "Progress",
-      slug: "progress-guide",
+      slug: "progress-product",
       summary: "",
     });
     if (!reserved.ok) throw new Error(reserved.error.code);
     expect(await reading.setReadingState(command(lesson))).toMatchObject({
       ok: true,
     });
-    const moved = await materials.authoring.updateSourceGuide({
+    const moved = await materials.authoring.updateSourceProduct({
       actor,
-      sourceId: "inside-content:progress-guide",
+      sourceId: "inside-content:progress-product",
       collectionId: seriesId,
       expectedVersion: reserved.value.version,
       name: reserved.value.name,
       summary: "",
       source: {
-        slug: "progress-guide-moved",
+        slug: "progress-product-moved",
         presentation: "default",
         page: null,
       },
     });
     expect(moved).toMatchObject({
       ok: true,
-      value: { slug: "progress-guide-moved" },
+      value: { slug: "progress-product-moved" },
     });
     expect(
       await reading.getSeriesProgress({ accountId, seriesId }),
@@ -548,7 +556,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         ok: true,
         value: { read: 1, total: 1, allRead: true },
       });
-    const extra = await material([a], "membership");
+    const extra = await material([a], "closed");
     expect(
       await reading.getSeriesProgress({ accountId, seriesId: a }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 2, allRead: false } });
@@ -606,8 +614,9 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await reading.getSeriesProgress({ accountId, seriesId: b }),
     ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
-    await database.prisma.guide.update({
+    await database.prisma.product.update({
       where: { id: b },
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual(
@@ -707,9 +716,8 @@ describe("ReadingActivity on PostgreSQL", () => {
           accountPermissions: {
             hasMaterialsManage: () => Promise.resolve(false),
           },
-          membershipEntitlements: assembleMembershipEntitlements({
+          accountRights: assembleAccountRights({
             prisma,
-            workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
           }),
         });
         const home = new PersonalHome({

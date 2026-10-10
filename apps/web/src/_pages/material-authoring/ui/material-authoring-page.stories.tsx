@@ -1,8 +1,22 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
+import { act, Profiler } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  fn,
+  mocked,
+  spyOn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 
 import {
   authoringMaterialsRootHref,
+  authoringProductEditorHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import {
@@ -28,6 +42,12 @@ import {
 } from "./material-authoring.fixtures";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
+import { MaterialMetadataPanel } from "@/widgets/material-authoring/ui/material-metadata-panel.client";
+import { MaterialAuthoringHeader } from "@/widgets/material-authoring/ui/material-authoring-chrome.client";
+import { ContentCoverEditor } from "@/features/content-covers";
+import { MaterialVideoAuthoring } from "@/features/material-video";
+
+const typingProfile = fn<(duration: number) => void>();
 const editorPath = `/authoring/materials/${materialId}`;
 const environment = authoringPageEnvironment(editorPath);
 
@@ -105,6 +125,25 @@ export const Editing: Story = {
     await expect(
       canvas.getByRole("button", { name: "Предпросмотр" }),
     ).toBeEnabled();
+  },
+};
+
+/** Материал открыт из предпросмотра продукта: возврат ведёт в редактор продукта (#837). */
+export const FromProductEditor: Story = {
+  args: {
+    returnHref: authoringProductEditorHref(
+      "95000000-0000-4000-8000-000000000010",
+    ),
+  },
+  name: "Открыт из редактора продукта",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Вернуться к продукту" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Вернуться к материалам" }),
+    ).toBeNull();
   },
 };
 
@@ -314,9 +353,9 @@ const publishedPresentation = {
 } as const;
 
 const removalRequired = {
-  guides: [
+  products: [
     {
-      guideId: materialAuthoringPresentation.draft.seriesIds[0],
+      productId: materialAuthoringPresentation.draft.seriesIds[0],
       holders: 12,
       name: "Создание Platform Inside",
     },
@@ -338,7 +377,7 @@ export const Published: Story = {
 };
 
 /** Снятие с публикации уберёт материал из купленного продукта: сервер просит подтверждения. */
-export const GuideRemovalConfirmation: Story = {
+export const ProductRemovalConfirmation: Story = {
   name: "Подтверждение снятия из купленного продукта",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({
@@ -363,13 +402,13 @@ export const GuideRemovalConfirmation: Story = {
     await expect(
       (await canvas.findAllByText("Снят с публикации")).length,
     ).toBeGreaterThan(0);
-    await expect(savedField("confirmedGuideRemovals")).toBe(
-      removalRequired.guides[0].guideId,
+    await expect(savedField("confirmedProductRemovals")).toBe(
+      removalRequired.products[0].productId,
     );
   },
 };
 
-export const GuideRemovalCancelled: Story = {
+export const ProductRemovalCancelled: Story = {
   name: "Снятие из купленного продукта отменено",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({ PUT: removalRequired }),
@@ -536,143 +575,240 @@ export const LessonBlocksEditing: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Редактор · блоки урока",
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const openMenu = async () => {
+    const errors = spyOn(console, "error");
+    try {
+      const canvas = within(canvasElement);
+      const waitForEditorFocus = async () => {
+        await waitFor(() =>
+          expect(
+            canvas.getByRole("textbox", { name: "Содержимое материала" }),
+          ).toHaveFocus(),
+        );
+      };
+      const openMenu = async () => {
+        const actEnvironment: unknown = Reflect.get(
+          globalThis,
+          "IS_REACT_ACT_ENVIRONMENT",
+        );
+        // Включаем проверки React, как обвязка Storybook, и восстанавливаем среду после act.
+        Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+        try {
+          // Самостоятельный act владеет активацией кнопки и фокусом поиска (#609).
+          await act(() => {
+            canvas.getByRole("button", { name: "Добавить блок" }).click();
+            return Promise.resolve();
+          });
+        } finally {
+          Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", actEnvironment);
+        }
+        await expect(
+          canvas.getByRole("textbox", { name: "Найти блок" }),
+        ).toHaveFocus();
+        return canvas.getByRole("dialog", { name: "Добавить блок" });
+      };
+      /**
+       * Узел редактора по его разметке. Отсутствие узла — это «блок не появился», и падение обязано
+       * сказать именно это: сравнение `null` с матчером сообщает лишь, что получено не HTMLElement,
+       * и разбор такого падения начинается с чтения истории вместо чтения причины.
+       */
+      const blockNode = (selector: string, missing: string) => {
+        const node = canvasElement.querySelector(selector);
+        if (node === null) throw new Error(missing);
+        return node;
+      };
+
+      let menu = await openMenu();
+      for (const name of [
+        "Заголовок H4",
+        "Ключевая мысль",
+        "Итоги",
+        "Промпт",
+        "Ресурс",
+        "Термины",
+        "Совет",
+        "Важно",
+        "Пример",
+        "Хорошо",
+        "Плохо",
+        "Определение",
+        "Задание",
+      ]) {
+        await expect(within(menu).getByRole("button", { name })).toBeVisible();
+      }
+
       await userEvent.click(
-        canvas.getByRole("button", { name: "Добавить блок" }),
+        within(menu).getByRole("button", { name: "Совет" }),
       );
-      return canvas.getByRole("dialog", { name: "Добавить блок" });
-    };
-    /**
-     * Узел редактора по его разметке. Отсутствие узла — это «блок не появился», и падение обязано
-     * сказать именно это: сравнение `null` с матчером сообщает лишь, что получено не HTMLElement,
-     * и разбор такого падения начинается с чтения истории вместо чтения причины.
-     */
-    const blockNode = (selector: string, missing: string) => {
-      const node = canvasElement.querySelector(selector);
-      if (node === null) throw new Error(missing);
-      return node;
-    };
+      await waitForEditorFocus();
+      await expect(
+        blockNode(
+          'aside[data-callout="tip"]',
+          "Врезка «Совет» не появилась в редакторе",
+        ),
+      ).toBeVisible();
 
-    let menu = await openMenu();
-    for (const name of [
-      "Заголовок H4",
-      "Ключевая мысль",
-      "Итоги",
-      "Промпт",
-      "Ресурс",
-      "Термины",
-      "Совет",
-      "Важно",
-      "Пример",
-      "Хорошо",
-      "Плохо",
-      "Определение",
-      "Задание",
-    ]) {
-      await expect(within(menu).getByRole("button", { name })).toBeVisible();
-    }
-
-    await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
-    await expect(
-      blockNode(
-        'aside[data-callout="tip"]',
-        "Врезка «Совет» не появилась в редакторе",
-      ),
-    ).toBeVisible();
-
-    const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
-    await expect(tip).toHaveAttribute("aria-pressed", "true");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Вид врезки: Важно" }),
-    );
-    const warning = blockNode(
-      'aside[data-callout="warning"]',
-      "Врезка не сменила вид на «Важно»",
-    );
-    await expect(warning).toBeVisible();
-    await expect(warning).toHaveTextContent("Важно");
-
-    await fillByPaste(
-      inputField(canvasElement, "Название врезки"),
-      "Не забудьте",
-    );
-    await expect(
-      blockNode(
+      // Фокус и DOM блока уже готовы; панель ещё следует за выбором редактора через React.
+      const tip = await canvas.findByRole("button", {
+        name: "Вид врезки: Совет",
+      });
+      await expect(tip).toHaveAttribute("aria-pressed", "true");
+      await userEvent.click(
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
+      );
+      const warning = blockNode(
         'aside[data-callout="warning"]',
-        "Врезка «Важно» исчезла после ввода названия",
-      ),
-    ).toHaveTextContent("Не забудьте");
+        "Врезка не сменила вид на «Важно»",
+      );
+      await expect(warning).toBeVisible();
+      await expect(warning).toHaveTextContent("Важно");
 
-    menu = await openMenu();
-    await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
-    await expect(
-      blockNode(
-        'section[data-material-block="takeaways"]',
-        "Блок «Итоги» не появился в редакторе",
-      ),
-    ).toBeVisible();
-    await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue(
-      "Итоги урока",
-    );
+      await fillByPaste(
+        inputField(canvasElement, "Название врезки"),
+        "Не забудьте",
+      );
+      await expect(
+        blockNode(
+          'aside[data-callout="warning"]',
+          "Врезка «Важно» исчезла после ввода названия",
+        ),
+      ).toHaveTextContent("Не забудьте");
 
-    menu = await openMenu();
-    await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await fillByPaste(
-      inputField(canvasElement, "Название ресурса"),
-      "Спецификация",
-    );
-    await fillByPaste(
-      inputField(canvasElement, "Адрес ресурса"),
-      "https://example.com/spec",
-    );
-    await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
-      "https://example.com/spec",
-    );
+      menu = await openMenu();
+      await userEvent.click(
+        within(menu).getByRole("button", { name: "Итоги" }),
+      );
+      await waitForEditorFocus();
+      await expect(
+        blockNode(
+          'section[data-material-block="takeaways"]',
+          "Блок «Итоги» не появился в редакторе",
+        ),
+      ).toBeVisible();
+      await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue(
+        "Итоги урока",
+      );
 
-    menu = await openMenu();
-    await userEvent.click(
-      within(menu).getByRole("button", { name: "Термины" }),
-    );
-    // Единственный набор по знаку в этой истории, и он нарочно остаётся: три подряд идущие
-    // транзакции проверяют, что поле формы не теряет фокус после первого же знака.
-    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", {
-      delay: null,
-    });
-    await expect(canvas.getByLabelText("Метка строки 1")).toHaveValue("ADR");
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Добавить строку" }),
-    );
-    await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
+      menu = await openMenu();
+      await userEvent.click(
+        within(menu).getByRole("button", { name: "Ресурс" }),
+      );
+      await waitForEditorFocus();
+      await fillByPaste(
+        inputField(canvasElement, "Название ресурса"),
+        "Спецификация",
+      );
+      await fillByPaste(
+        inputField(canvasElement, "Адрес ресурса"),
+        "https://example.com/spec",
+      );
+      await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
+        "https://example.com/spec",
+      );
 
-    // Буфер обмена восстанавливает узел из разметки, поэтому название обязано быть в
-    // DOM-атрибуте, а не только в тексте. Карточка ресурса и термины показывают в редакторе
-    // собственную форму, поэтому их разметку проверяет не эта story, а схема документа.
-    await expect(
-      blockNode(
-        "aside[data-callout]",
-        "Врезка пропала из документа к концу истории",
-      ),
-    ).toHaveAttribute("data-callout-title", "Не забудьте");
-    await expect(
-      blockNode(
-        'section[data-material-block="takeaways"]',
-        "Блок «Итоги» пропал из документа к концу истории",
-      ),
-    ).toHaveAttribute("data-takeaways-title", "Итоги урока");
+      menu = await openMenu();
+      await userEvent.click(
+        within(menu).getByRole("button", { name: "Термины" }),
+      );
+      // Единственный набор по знаку в этой истории, и он нарочно остаётся: три подряд идущие
+      // транзакции проверяют, что поле формы не теряет фокус после первого же знака.
+      await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", {
+        delay: null,
+      });
+      await expect(canvas.getByLabelText("Метка строки 1")).toHaveValue("ADR");
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Добавить строку" }),
+      );
+      await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
-    // Панель блока принадлежит текущей врезке: вернувшись в неё, автор снова меняет её вид.
-    const callout = blockNode(
-      "aside[data-callout] [data-callout-body] p",
-      "Тело врезки не найдено: панель блока не к чему вернуть",
-    );
-    await userEvent.click(callout);
-    await expect(
-      canvas.getByRole("button", { name: "Вид врезки: Важно" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(canvas.getByLabelText("Название врезки")).toHaveValue(
-      "Не забудьте",
-    );
+      // Буфер обмена восстанавливает узел из разметки, поэтому название обязано быть в
+      // DOM-атрибуте, а не только в тексте. Карточка ресурса и термины показывают в редакторе
+      // собственную форму, поэтому их разметку проверяет не эта story, а схема документа.
+      await expect(
+        blockNode(
+          "aside[data-callout]",
+          "Врезка пропала из документа к концу истории",
+        ),
+      ).toHaveAttribute("data-callout-title", "Не забудьте");
+      await expect(
+        blockNode(
+          'section[data-material-block="takeaways"]',
+          "Блок «Итоги» пропал из документа к концу истории",
+        ),
+      ).toHaveAttribute("data-takeaways-title", "Итоги урока");
+
+      // Панель блока принадлежит текущей врезке: вернувшись в неё, автор снова меняет её вид.
+      const callout = blockNode(
+        "aside[data-callout] [data-callout-body] p",
+        "Тело врезки не найдено: панель блока не к чему вернуть",
+      );
+      await userEvent.click(callout);
+      // Завершаем симуляцию выбора синхронно: обвязка клика могла уже восстановить старый курсор.
+      const document = canvasElement.ownerDocument;
+      const selection = document.getSelection();
+      if (selection === null) throw new Error("Выбор текста недоступен");
+      selection.collapse(callout, 0);
+      document.dispatchEvent(new Event("selectionchange"));
+      await expect(
+        await canvas.findByRole("button", { name: "Вид врезки: Важно" }),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expect(canvas.getByLabelText("Название врезки")).toHaveValue(
+        "Не забудьте",
+      );
+      await expect(errors).not.toHaveBeenCalled();
+    } finally {
+      errors.mockRestore();
+    }
+  },
+};
+
+/** Возврат во врезку не зависит от нативного события и восстановления старого DOM-выбора (#1191). */
+export const LessonBlocksEditingDelayedSelection: Story = {
+  ...LessonBlocksEditing,
+  name: "Редактор · блоки урока, отложенный выбор",
+  beforeEach: ({ canvasElement }) => {
+    const document = canvasElement.ownerDocument;
+    let previousSelection: Range | null = null;
+    const isCalloutReturn = (event: MouseEvent) => {
+      const callout = canvasElement.querySelector(
+        "aside[data-callout] [data-callout-body] p",
+      );
+      return (
+        event.target instanceof Node &&
+        callout?.contains(event.target) === true &&
+        canvasElement.querySelector(
+          '[data-material-block-form="labeledList"]',
+        ) !== null
+      );
+    };
+    const rememberSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event)) return;
+      const selection = document.getSelection();
+      previousSelection =
+        selection !== null && selection.rangeCount > 0
+          ? selection.getRangeAt(0).cloneRange()
+          : null;
+    };
+    const restoreSelection = (event: MouseEvent) => {
+      if (!isCalloutReturn(event) || previousSelection === null) return;
+      const selection = document.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(previousSelection);
+    };
+    const delayNativeSelection = (event: Event) => {
+      if (event.isTrusted) event.stopImmediatePropagation();
+    };
+    document.addEventListener("selectionchange", delayNativeSelection, true);
+    document.addEventListener("mousedown", rememberSelection, true);
+    document.addEventListener("mouseup", restoreSelection);
+    return () => {
+      document.removeEventListener(
+        "selectionchange",
+        delayNativeSelection,
+        true,
+      );
+      document.removeEventListener("mousedown", rememberSelection, true);
+      document.removeEventListener("mouseup", restoreSelection);
+    };
   },
 };
 
@@ -1007,3 +1143,236 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+/** Real page and real children; spies count renders without replacing their implementations. */
+export const WorkspaceTyping: Story = {
+  name: "Редактор · набор документа не перерисовывает соседние панели",
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  decorators: [
+    (Story) => (
+      <Profiler
+        id="material-page"
+        onRender={(_id, _phase, duration) => {
+          typingProfile(duration);
+        }}
+      >
+        <Story />
+      </Profiler>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const paragraph = canvasElement.querySelector(".ProseMirror > p");
+    if (!(paragraph instanceof HTMLElement))
+      throw new Error("No editable paragraph");
+    await userEvent.click(paragraph);
+    const parts = [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialVideoAuthoring,
+      MaterialAuthoringHeader,
+    ];
+    for (const part of parts) {
+      await expect(mocked(part)).toHaveBeenCalled();
+      mocked(part).mockClear();
+    }
+    await userEvent.keyboard(" и");
+    await expect(
+      (await canvas.findAllByText("Не сохранено")).length,
+    ).toBeGreaterThan(0);
+    for (const part of parts.slice(0, 3))
+      await expect(
+        mocked(part),
+        "First document edit rerendered an unrelated panel",
+      ).not.toHaveBeenCalled();
+    await expect(mocked(MaterialAuthoringHeader)).toHaveBeenCalledTimes(1);
+    mocked(MaterialAuthoringHeader).mockClear();
+    typingProfile.mockClear();
+    const text = " текст документа без лишних рендеров";
+    const start = performance.now();
+    await userEvent.keyboard(text);
+    const elapsed = performance.now() - start;
+    const react = typingProfile.mock.calls.reduce(
+      (sum, [duration]) => sum + duration,
+      0,
+    );
+    console.info(
+      "[646-typing]",
+      JSON.stringify({
+        characters: text.length,
+        millisecondsPerCharacter: elapsed / text.length,
+        reactMilliseconds: react,
+        commits: typingProfile.mock.calls.length,
+        renders: parts.map((part) => mocked(part).mock.calls.length),
+      }),
+    );
+    await expect(paragraph).toHaveTextContent(text.trim());
+    for (const part of parts)
+      await expect(
+        mocked(part),
+        "Typing rerendered a part unrelated to the document",
+      ).not.toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("document")).toContain(text.trim());
+    // Positive control: metadata changes still reach every dependent part and the next save.
+    const title = canvas.getByLabelText("Название");
+    await userEvent.type(title, "!", { delay: null });
+    await expect(
+      canvas.getByRole("heading", { name: "Developer Pipeline без магии!" }),
+    ).toBeVisible();
+    for (const part of [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialAuthoringHeader,
+    ])
+      await expect(mocked(part)).toHaveBeenCalled();
+    await expect(mocked(MaterialVideoAuthoring)).not.toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("title")).toBe("Developer Pipeline без магии!");
+    await expect(savedField("document")).toContain(text.trim());
+  },
+};
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <MaterialAuthoringPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — правка",
+        );
+      },
+      /Сохранено сейчас/u,
+    );
+  },
+};
+
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — отказ",
+        );
+      },
+      "Повторить",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText(/Сохранено сейчас/u),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const NewerEditAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const title = canvas.getByRole("textbox", { name: "Название" });
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.clear(title);
+        await userEvent.type(title, "Первая правка");
+      },
+      /Сохранено сейчас/u,
+      undefined,
+      async () => {
+        await userEvent.clear(title);
+        await userEvent.type(title, "Новая правка");
+      },
+    );
+    await expect(title).toHaveValue("Новая правка");
+    await expect(savedField("title")).toBe("Новая правка");
+  },
+};
+
+export const ImportedCollapsibleAdvice: Story = {
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        document: {
+          type: "doc",
+          content: [
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Мой совет",
+                collapse: "collapsed",
+                nodeId: "94000000-0000-4000-8000-000000000301",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "94000000-0000-4000-8000-000000000302" },
+                  content: [
+                    { type: "text", text: "Тело импортированного совета" },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "callout",
+              attrs: {
+                kind: "tip",
+                title: "Открытый совет",
+                collapse: "expanded",
+                nodeId: "94000000-0000-4000-8000-000000000303",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "94000000-0000-4000-8000-000000000304" },
+                  content: [{ type: "text", text: "Открытое тело" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Тело импортированного совета"),
+    ).toBeVisible();
+    const collapsed = canvasElement.querySelector(
+      'aside[data-callout-collapse="collapsed"]',
+    );
+    const expanded = canvasElement.querySelector(
+      'aside[data-callout-collapse="expanded"]',
+    );
+    await expect(collapsed).not.toBeNull();
+    await expect(expanded).not.toBeNull();
+    await userEvent.type(canvas.getByLabelText("Название"), "!", {
+      delay: null,
+    });
+    await expect(
+      (await canvas.findAllByText(/Сохранено сейчас/u)).length,
+    ).toBeGreaterThan(0);
+    const saved = savedField("document");
+    if (typeof saved !== "string") throw new Error("Autosave must send a body");
+    await expect(saved).toContain('"collapse":"collapsed"');
+    await expect(saved).toContain('"collapse":"expanded"');
+    await expect(saved).toContain("Тело импортированного совета");
+  },
+};

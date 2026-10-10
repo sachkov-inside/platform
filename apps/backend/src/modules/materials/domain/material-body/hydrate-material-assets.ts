@@ -24,15 +24,39 @@ function hydrateBlock(
   // Only asset blocks carry presentation the registry cannot know; every other block is
   // already complete once its nested blocks are hydrated.
   if (hydrated.kind === "image") {
+    const hydrateImage = (image: { readonly assetId: string }) => {
+      const presentation = byId.get(image.assetId);
+      return presentation?.kind === "image"
+        ? {
+            assetId: image.assetId,
+            height: presentation.height,
+            width: presentation.width,
+            variants: presentation.variants,
+          }
+        : image;
+    };
+    const imageVariants = hydrated.imageVariants;
+    const withVariants =
+      imageVariants === undefined
+        ? hydrated
+        : {
+            ...hydrated,
+            imageVariants: {
+              wideLight: hydrateImage(imageVariants.wideLight),
+              wideDark: hydrateImage(imageVariants.wideDark),
+              tallLight: hydrateImage(imageVariants.tallLight),
+              tallDark: hydrateImage(imageVariants.tallDark),
+            },
+          };
     const asset = byId.get(hydrated.assetId);
     return asset?.kind === "image"
       ? {
-          ...hydrated,
+          ...withVariants,
           height: asset.height,
           variants: asset.variants,
           width: asset.width,
         }
-      : hydrated;
+      : withVariants;
   }
   if (hydrated.kind === "file") {
     const asset = byId.get(hydrated.assetId);

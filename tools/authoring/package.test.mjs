@@ -19,7 +19,7 @@ const material = {
   summary: "Summary",
   stage: "draft",
   topicId: null,
-  access: "membership",
+  access: "closed",
   showInFeed: false,
   difficulty: null,
   outcomes: [],
@@ -36,13 +36,13 @@ const fixture = () => ({
   schemaVersion: 1,
   sourceNamespace: "inside-content",
   selection: {
-    guideId: null,
+    productId: null,
     chapterIds: [],
     materialIds: ["one"],
     complete: true,
   },
   materials: [material],
-  guides: [],
+  products: [],
   assets: [],
   diagnostics: [],
 });
@@ -58,7 +58,7 @@ test("package selection, paid access and raw checksum survive loading", async (t
   const path = join(root, "package.json");
   await writeFile(path, canonical(fixture()));
   const loaded = await loadPackage(path);
-  assert.equal(loaded.manifest.materials[0]?.access, "membership");
+  assert.equal(loaded.manifest.materials[0]?.access, "closed");
   assert.equal(loaded.id.length, 64);
   const invalid = fixture();
   invalid.selection.materialIds = ["missing"];

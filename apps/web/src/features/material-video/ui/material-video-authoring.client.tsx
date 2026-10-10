@@ -23,7 +23,9 @@ import {
 } from "../api/video-authoring.browser";
 import {
   clearBrowserVideoUploadAttempt,
+  clearBrowserVideoUploadAttemptsForVideo,
   getOrCreateBrowserVideoUploadAttempt,
+  recordBrowserVideoUploadAttempt,
   type BrowserVideoUploadAttempt,
 } from "../api/video-upload-attempt.browser";
 import {
@@ -54,7 +56,7 @@ export function MaterialVideoAuthoring({
   primaryVideo,
   unselectedUpload,
 }: {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly deleteVideoId: string | null;
   readonly disabled: boolean;
   readonly latestVideoDeletion: MaterialAuthoringVideo | null;
@@ -261,6 +263,10 @@ export function MaterialVideoAuthoring({
       ...browserAttempt,
       videoId: initialized.value.video.videoId,
     };
+    recordBrowserVideoUploadAttempt(
+      browserAttempt,
+      initialized.value.video.videoId,
+    );
     detachReplacedUpload(replaced, initialized.value.video.videoId);
     setVideo(initialized.value.video);
     if (
@@ -352,6 +358,11 @@ export function MaterialVideoAuthoring({
           .catch(() => undefined);
         if (uploadAttempt.current)
           clearBrowserVideoUploadAttempt(uploadAttempt.current);
+        if (activeVideo !== null)
+          clearBrowserVideoUploadAttemptsForVideo(
+            materialId,
+            activeVideo.videoId,
+          );
         uploadAttempt.current = null;
         setVideo(null);
         setRecoveredVideoId(null);
@@ -372,7 +383,7 @@ export function MaterialVideoAuthoring({
 }
 
 export interface MaterialVideoAuthoringViewProps {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly activeVideo: MaterialAuthoringVideo | null;
   readonly deletionPendingSave: boolean;
   readonly deletionVideo: MaterialAuthoringVideo | null;
@@ -545,7 +556,7 @@ export function MaterialVideoAuthoringView({
             htmlFor="provider-video-id"
           >
             ID видео · проект «
-            {access === "membership" ? "Для участников" : "Публичный"}»
+            {access === "closed" ? "Для участников" : "Публичный"}»
             <input
               className="h-10 min-w-0 rounded-xl border border-input bg-background px-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={disabled}
@@ -558,11 +569,7 @@ export function MaterialVideoAuthoringView({
           </label>
           <Button
             className="self-end"
-            disabled={
-              disabled ||
-              providerVideoId.trim().length === 0 ||
-              phase === "processing"
-            }
+            disabled={busy || providerVideoId.trim().length === 0}
             onClick={onAttach}
             type="button"
             variant="secondary"

@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -10,9 +11,9 @@ import {
   seedFullStackPractice,
   startPracticeReadProxy,
 } from "./full-stack-practice.mjs";
+import { seedFullStackTaskC } from "./full-stack-task-c.mjs";
 import { seedFullStackTask } from "./full-stack-task.mjs";
 
-import { signalProcessGroup } from "./process-group-signal.mjs";
 import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,6 +23,7 @@ if (pnpmExecutable === undefined) {
   throw new Error("Run the full-stack smoke through the pinned pnpm CLI");
 }
 const pnpmPath = pnpmExecutable;
+const fullStackBrowserCommand = "test:fullstack";
 
 // Only an explicitly exported DATABASE_URL may point the smoke at another database; a personal `.env`
 // usually names the stand database, which this smoke must never migrate, seed or rewrite.
@@ -66,7 +68,7 @@ childEnvironment["OBJECT_STORAGE_ENDPOINT"] =
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
 const stackAuthorPermission = "materials:manage";
 // Отдельные identities проверок доступа (#904). У каждой ровно одно основание: одно разрешение или
-// ничего. Доступ к одному Guide ученик получает в самом сценарии, без bridge и `allGuides`.
+// ничего. Доступ к одному Product ученик получает в самом сценарии, без bridge и `wholePlatform`.
 const separateAccessIdentities = [
   {
     subject: "fullstack-materials-only",
@@ -79,9 +81,9 @@ const separateAccessIdentities = [
     sessionVariable: "FULLSTACK_LOGTO_BILLING_ONLY_SESSION",
   },
   {
-    subject: "fullstack-guide-a-learner",
+    subject: "fullstack-product-a-learner",
     permission: undefined,
-    sessionVariable: "FULLSTACK_LOGTO_GUIDE_A_LEARNER_SESSION",
+    sessionVariable: "FULLSTACK_LOGTO_PRODUCT_A_LEARNER_SESSION",
   },
   {
     subject: "fullstack-reader-a",
@@ -147,7 +149,6 @@ writeFileSync(
  *   name: string;
  *   child: import("node:child_process").ChildProcess;
  *   output: string[];
- *   detached: boolean;
  * }} ProcessEntry
  */
 const developmentHealthSchema = z
@@ -284,6 +285,10 @@ try {
     apiBaseUrl,
     browserAccessToken.token,
   );
+  const taskCFixture = await seedFullStackTaskC(
+    apiBaseUrl,
+    browserAccessToken.token,
+  );
   const fullStackSession =
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
@@ -293,8 +298,18 @@ try {
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
-    FULLSTACK_TASK_GUIDE_SLUG: taskFixture.guideSlug,
+    FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
+    FULLSTACK_MATERIAL_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.materialImageVariants,
+    ),
+    FULLSTACK_TASK_IMAGE_VARIANTS: JSON.stringify(
+      taskCFixture.taskImageVariants,
+    ),
+    FULLSTACK_TASK_C_PRODUCT_SLUG: taskCFixture.productSlug,
+    FULLSTACK_TASK_C_CODE: taskCFixture.code,
+    FULLSTACK_TASK_C_CLOSED_CODE: taskCFixture.closedCode,
+    FULLSTACK_TASK_C_CLOSED_ASSET_ID: taskCFixture.closedAssetId,
     // The learner's agent (#948): a refresh token it exchanges for a learner MCP token when it
     // needs one, so the token is fresh however late in the run the scenario starts.
     FULLSTACK_LEARNING_MCP_URL: learningMcpUrl,
@@ -302,10 +317,11 @@ try {
     FULLSTACK_NON_MEMBER_REFRESH_TOKEN: fullStackIdentity.createRefreshToken(
       "fullstack-non-member",
     ),
-    FULLSTACK_PRACTICE_MATERIAL_IDS: [
+    FULLSTACK_IMPORTED_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,
       taskFixture.materialId,
+      ...taskCFixture.materialIds,
     ].join(","),
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
@@ -349,7 +365,7 @@ if (interruptedSignal !== undefined) {
 }
 
 function fullStackTestArguments() {
-  const arguments_ = ["--filter", "@inside/web", "test:fullstack"];
+  const arguments_ = ["--filter", "@inside/web", fullStackBrowserCommand];
   const grep = process.env["FULLSTACK_TEST_GREP"]?.trim();
   if (grep !== undefined && grep.length > 0) {
     arguments_.push("--grep", grep);
@@ -361,21 +377,21 @@ function fullStackTestArguments() {
  * @param {string} name
  * @param {string[]} arguments_
  * @param {NodeJS.ProcessEnv} environment
- * @param {boolean} [detached]
  * @returns {ProcessEntry}
  */
-function startPnpm(name, arguments_, environment, detached = true) {
+function startPnpm(name, arguments_, environment) {
+  if (interruptedSignal !== undefined)
+    throw new Error("Full-stack smoke interrupted");
   /** @type {string[]} */
   const output = [];
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
-    detached: detached && process.platform !== "win32",
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const entry = { name, child, output, detached };
+  const entry = { name, child, output };
   activeProcesses.add(entry);
-  child.once("exit", () => activeProcesses.delete(entry));
+  child.once("error", (error) => output.push(String(error)));
   child.stdout?.on("data", (/** @type {Buffer} */ chunk) =>
     retainOutput(output, chunk),
   );
@@ -390,16 +406,22 @@ function startPnpm(name, arguments_, environment, detached = true) {
  * @param {NodeJS.ProcessEnv} [environment]
  */
 async function runPnpm(arguments_, environment = childEnvironment) {
-  const entry = startPnpm("pnpm", arguments_, environment, false);
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => {
-    entry.child.once("exit", (code) => resolveExit(code));
-  });
-  const exitCode = await exited;
-  if (exitCode !== 0) {
-    throw new Error(
-      `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
-    );
+  const entry = startPnpm("pnpm", arguments_, environment);
+  if (arguments_.includes(fullStackBrowserCommand)) {
+    // Stream browser measurements before the bounded failure log can evict their chunks.
+    entry.child.stdout?.pipe(process.stdout, { end: false });
+    entry.child.stderr?.pipe(process.stderr, { end: false });
+  }
+  try {
+    const exitCode = await commandExit(entry.child);
+    if (exitCode !== 0) {
+      throw new Error(
+        `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
+      );
+    }
+  } finally {
+    await stopOwned(entry.child);
+    activeProcesses.delete(entry);
   }
 }
 
@@ -449,7 +471,9 @@ async function waitForHttp(url, entries) {
   while (Date.now() < deadline) {
     assertProcessesRunning(entries);
     try {
-      const response = await globalThis.fetch(url);
+      const response = await globalThis.fetch(url, {
+        signal: AbortSignal.timeout(30_000),
+      });
       if (response.ok) {
         return response;
       }
@@ -481,7 +505,14 @@ function assertHealth(value) {
 
 /** @param {ProcessEntry[]} entries */
 function assertProcessesRunning(entries) {
-  const stopped = entries.find(({ child }) => child.exitCode !== null);
+  if (interruptedSignal !== undefined)
+    throw new Error("Full-stack smoke interrupted");
+  const stopped = entries.find(
+    ({ child }) =>
+      child.pid === undefined ||
+      child.exitCode !== null ||
+      child.signalCode !== null,
+  );
   if (stopped !== undefined) {
     throw new Error(
       `${stopped.name} exited early:\n${stopped.output.join("")}`,
@@ -489,32 +520,9 @@ function assertProcessesRunning(entries) {
   }
 }
 
-/** @param {ProcessEntry} entry */
-async function stopProcess({ child, detached }) {
-  if (child.pid === undefined || child.exitCode !== null) {
-    return;
-  }
-  if (process.platform === "win32" || !detached) {
-    child.kill("SIGTERM");
-  } else if (!signalProcessGroup(child.pid, "SIGTERM")) {
-    child.kill("SIGTERM");
-  }
-  await Promise.race([
-    new Promise((resolveExit) => child.once("exit", resolveExit)),
-    new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    if (process.platform === "win32" || !detached) {
-      child.kill("SIGKILL");
-    } else if (!signalProcessGroup(child.pid, "SIGKILL")) {
-      child.kill("SIGKILL");
-    }
-  }
-}
-
 function cleanup() {
   cleanupPromise ??= Promise.all(
-    [...activeProcesses].map((entry) => stopProcess(entry)),
+    [...activeProcesses].map((entry) => stopOwned(entry.child)),
   ).then(() => undefined);
   return cleanupPromise;
 }

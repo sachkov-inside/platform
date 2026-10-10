@@ -33,13 +33,13 @@ import {
 import { BillingPricing } from "../../../billing/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
 import {
-  MEMBERSHIP_ENTITLEMENTS,
-  type MembershipEntitlements,
-} from "../../../membership-entitlements/index.js";
+  ACCOUNT_RIGHTS,
+  type AccountRights,
+} from "../../../account-rights/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
-  guidePageCardSchema,
-  guidePageHeroSchema,
+  productPageCardSchema,
+  productPageHeroSchema,
 } from "../../../materials/index.js";
 import {
   publishedCatalogFacetHttpSchema,
@@ -52,8 +52,8 @@ const homeContentHttpSchema = z
     pinnedSeries: publishedCatalogFacetHttpSchema
       .extend({
         presentation: z.string(),
-        card: guidePageCardSchema.nullable(),
-        hero: guidePageHeroSchema.nullable(),
+        card: productPageCardSchema.nullable(),
+        hero: productPageHeroSchema.nullable(),
       })
       .nullable(),
     topics: z.array(publishedCatalogFacetHttpSchema),
@@ -79,7 +79,7 @@ export class ReadHomeContentController {
     @Inject(PUBLISHED_MATERIAL_READER)
     private readonly publishedMaterialReader: Pick<
       PublishedMaterialReader,
-      "listProjections" | "readHomePinnedSeries"
+      "readHomeProjections"
     >,
     @Inject(CONTENT_ACCESS)
     private readonly contentAccess: Pick<
@@ -88,11 +88,8 @@ export class ReadHomeContentController {
     >,
     @Inject(VIDEOS)
     private readonly videos: Pick<Videos, "loadReadyDurations">,
-    @Inject(MEMBERSHIP_ENTITLEMENTS)
-    private readonly membershipEntitlements: Pick<
-      MembershipEntitlements,
-      "resolveForAccess"
-    >,
+    @Inject(ACCOUNT_RIGHTS)
+    private readonly accountRights: Pick<AccountRights, "resolveForAccess">,
     @Inject(BillingPricing)
     private readonly pricing: BillingPricing,
   ) {}
@@ -124,7 +121,7 @@ export class ReadHomeContentController {
       this.publishedMaterialReader,
       this.contentAccess,
       this.videos,
-      this.membershipEntitlements,
+      this.accountRights,
       await this.pricing.hasOffersForSale(account?.accountId),
       account === undefined
         ? anonymousSubject

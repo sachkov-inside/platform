@@ -8,7 +8,7 @@ import { contentCoverSchema } from "./content-cover";
 export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
   .object({
     materialId: z.uuid().optional(),
-    access: z.enum(["free", "membership", "workshop"]),
+    access: z.enum(["free", "closed"]),
     availability: z.enum(["available", "locked", "unavailable"]),
     cover: contentCoverSchema.nullable().optional(),
     difficulty: materialDifficultySchema.nullable().optional(),
@@ -46,7 +46,7 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
 
 export const publishedMaterialProjectionSchema = z
   .object({
-    access: z.enum(["free", "membership", "workshop"]),
+    access: z.enum(["free", "closed"]),
     availability: z.enum(["available", "locked", "unavailable"]),
     contentVersion: z.number().int().positive(),
     cover: contentCoverSchema.nullable(),

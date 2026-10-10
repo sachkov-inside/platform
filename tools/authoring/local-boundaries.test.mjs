@@ -26,7 +26,7 @@ async function fixture(t) {
       schemaVersion: 1,
       sourceNamespace: "inside-content",
       selection: {
-        guideId: null,
+        productId: null,
         chapterIds: [],
         materialIds: ["one"],
         complete: true,
@@ -57,7 +57,7 @@ async function fixture(t) {
           artifacts: [],
         },
       ],
-      guides: [],
+      products: [],
       assets: [],
       diagnostics: [],
     }),
@@ -85,15 +85,15 @@ test("each local path selects the schema its response type names", () => {
     typedKind("/authoring/import/tasks/validate", "taskValidation"),
     typedKind("/authoring/import/tasks/apply", "taskReceipt"),
     typedKind("/authoring/collections?kind=topic", "topics"),
-    typedKind("/authoring/collections?kind=guide", "guides"),
+    typedKind("/authoring/collections?kind=product", "products"),
     typedKind("/authoring/collections", "topic"),
     typedKind("/authoring/import/materials/validate", "valid"),
-    typedKind("/authoring/import/guides/validate", "valid"),
+    typedKind("/authoring/import/products/validate", "valid"),
     typedKind("/authoring/import/materials/reserve", "materialReceipt"),
     typedKind("/authoring/import/materials/apply", "materialReceipt"),
-    typedKind("/authoring/import/guides/reserve", "guide"),
-    typedKind("/authoring/import/guides/update", "guide"),
-    typedKind("/authoring/import/guides/composition", "order"),
+    typedKind("/authoring/import/products/reserve", "product"),
+    typedKind("/authoring/import/products/update", "product"),
+    typedKind("/authoring/import/products/composition", "order"),
     typedKind("/authoring/home-pin", "homePin"),
     typedKind(`/authoring/materials/${id}/assets`, "assetReceipt"),
     typedKind(`/authoring/materials/${id}/videos/attach`, "video"),
@@ -102,10 +102,10 @@ test("each local path selects the schema its response type names", () => {
     typedKind(`/authoring/materials/${id}`, "material"),
     typedKind(`/authoring/import/content-covers/material/${id}`, "coverChange"),
     typedKind(`/authoring/import/content-covers/series/${id}`, "coverChange"),
-    typedKind(`/authoring/import/guides/${id}/artifacts`, "artifactOutcome"),
-    typedKind(`/authoring/guides/${id}/artifacts`, "guideArtifacts"),
-    typedKind(`/authoring/guide-artifacts/${id}/materials`, "artifact"),
-    typedKind(`/authoring/guides/${id}/order`, "guideOrder"),
+    typedKind(`/authoring/import/products/${id}/artifacts`, "artifactOutcome"),
+    typedKind(`/authoring/products/${id}/artifacts`, "productArtifacts"),
+    typedKind(`/authoring/product-artifacts/${id}/materials`, "artifact"),
+    typedKind(`/authoring/products/${id}/order`, "productOrder"),
   ])
     assert.equal(localResponseKind(path), kind, path);
   assert.throws(
@@ -137,15 +137,15 @@ const malformedResponses = [
     },
   ],
   [
-    "/authoring/import/guides/reserve",
+    "/authoring/import/products/reserve",
     { id, slug: "guide", name: "Guide", summary: "", version: null },
   ],
   [
-    "/authoring/import/guides/update",
+    "/authoring/import/products/update",
     { id, slug: "guide", name: "Guide", summary: "", version: 0 },
   ],
-  [`/authoring/guides/${id}/order`, { orderVersion: "corrupt" }],
-  ["/authoring/import/guides/composition", { orderVersion: null }],
+  [`/authoring/products/${id}/order`, { orderVersion: "corrupt" }],
+  ["/authoring/import/products/composition", { orderVersion: null }],
 ];
 for (const [path, response] of malformedResponses)
   test(`rejects malformed response at ${path}`, () =>
@@ -201,7 +201,7 @@ test("corrupt recovery entries fail before replay and leave the original journal
       schemaVersion: 1,
       target: reviewOrigin,
       materials: {},
-      guides: {},
+      products: {},
       operations: { [key]: entry },
     });
     const path = join(state, "journal.json");
@@ -240,9 +240,10 @@ test("legacy cache entries remain readable and exact generic pending requests ar
         url: "/materials/one",
       },
     },
-    guides: {},
+    products: {},
     operations: {
       [key]: { status: "pending", request },
+      [`task-page-asset:${id}:file:${"c".repeat(64)}`]: { assetId: id },
       [`image:${id}:${"b".repeat(64)}`]: {
         assetId: id,
         presentation: { width: 640 },
@@ -254,8 +255,23 @@ test("legacy cache entries remain readable and exact generic pending requests ar
     () =>
       parseJournal({
         ...journal,
-        operations: { "authoring:wrong-key": { status: "pending", request } },
+        operations: {
+          ...journal.operations,
+          "authoring:wrong-key": { status: "pending", request },
+        },
       }),
     /fingerprint mismatch/,
+  );
+  assert.throws(
+    () =>
+      parseJournal({
+        ...journal,
+        operations: {
+          [`task-page-asset:${id}:image:${"c".repeat(64)}`]: {
+            assetId: "invalid",
+          },
+        },
+      }),
+    /Invalid UUID/,
   );
 });

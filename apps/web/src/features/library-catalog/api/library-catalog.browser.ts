@@ -139,6 +139,7 @@ async function parseCatalogResponse(
 }
 
 export function homeFeedQueryOptions(query: LibrarySearchQuery) {
+  if (query.q.length > 0) return libraryCatalogQueryOptions(query);
   return createLibraryCatalogQueryOptions(
     ({ after, signal }) => {
       const search = serializeLibrarySearchQuery(

@@ -10,7 +10,7 @@ const projection = {
   summary: "О чём урок.",
   difficulty: null,
   outcomes: [],
-  access: "membership",
+  access: "closed",
   cover: null,
   publishedAt: "2026-08-25T05:00:00.000Z",
   primaryVideoId: null,

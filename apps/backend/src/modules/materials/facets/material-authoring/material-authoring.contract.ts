@@ -12,7 +12,7 @@ import type {
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
 import type { ContentCoverProjection } from "../content-covers/content-covers.js";
 
-export interface GuideMembershipInput {
+export interface ProductMembershipInput {
   readonly seriesId: string;
   readonly ordinal: number;
 }
@@ -34,7 +34,7 @@ export interface MaterialMetadataDto extends Omit<
   "seriesIds"
 > {
   readonly slug: string | null;
-  readonly seriesMemberships: readonly GuideMembershipInput[];
+  readonly seriesMemberships: readonly ProductMembershipInput[];
 }
 
 export interface MaterialDto {
@@ -93,8 +93,8 @@ export type InvalidPublicationTransitionError = {
   readonly targetState: PublicationState;
 };
 /** Руководство с держателями права, из которого операция убрала бы опубликованный материал. */
-export interface HeldGuideRemoval {
-  readonly guideId: string;
+export interface HeldProductRemoval {
+  readonly productId: string;
   readonly name: string;
   readonly holders: number;
 }
@@ -102,9 +102,9 @@ export interface HeldGuideRemoval {
  * Снять опубликованный материал из купленного руководства можно только подтверждением: команда
  * повторяется с перечисленными руководствами, а снятие записывается в журнал.
  */
-export type GuideRemovalConfirmationRequiredError = {
-  readonly code: "guide_removal_confirmation_required";
-  readonly guides: readonly HeldGuideRemoval[];
+export type ProductRemovalConfirmationRequiredError = {
+  readonly code: "product_removal_confirmation_required";
+  readonly products: readonly HeldProductRemoval[];
 };
 export type DraftDeletionForbiddenError = {
   readonly code: "draft_deletion_forbidden";

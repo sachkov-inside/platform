@@ -8,7 +8,7 @@ import {
 } from "@/storybook/story-environment";
 import {
   reviewedSubmissions,
-  submissionsGuideId,
+  submissionsProductId,
   submissionsSecondChapter,
 } from "@/storybook/task-submissions.fixtures";
 
@@ -113,7 +113,7 @@ export const ReportIsText: Story = {
 const saveSpy = fn((input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve(
     (input instanceof Request ? input.url : input.toString()).endsWith(
-      "/api/authoring/guide-tasks/feedback",
+      "/api/authoring/product-tasks/feedback",
     )
       ? Response.json({
           kind: "saved",
@@ -169,7 +169,7 @@ export const FeedbackSaves: Story = {
 export const FilteredByChapter: Story = {
   args: {
     selection: {
-      guideId: submissionsGuideId,
+      productId: submissionsProductId,
       chapterId: submissionsSecondChapter,
     },
     submissions: {
@@ -224,7 +224,7 @@ export const Empty: Story = {
 
 export const EmptyFilter: Story = {
   args: {
-    selection: { guideId: submissionsGuideId },
+    selection: { productId: submissionsProductId },
     submissions: { ...reviewedSubmissions, submissions: [] },
   },
   play: async ({ canvasElement }) => {

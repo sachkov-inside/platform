@@ -8,6 +8,10 @@ export type { AccountTelegramMembership } from "./model/account-telegram-members
 export { AccountTelegramPanel } from "./ui/account-telegram-panel.client";
 export { AccountTelegramLinkPanel } from "./ui/account-telegram-link-panel.client";
 export {
+  TelegramLinkAction,
+  type TelegramLinkActionProps,
+} from "./ui/telegram-link-action.client";
+export {
   AccountTelegramOnboarding,
   openTelegramOnboarding,
   telegramOnboardingDismissalKey,

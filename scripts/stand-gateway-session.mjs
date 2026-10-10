@@ -1,7 +1,7 @@
 // @ts-check
 // Runs one piece of work through the stand's authoring gateway: reuses a running gateway or starts
 // one for the duration of the work, because the gateway acts as the stand owner while it runs.
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -27,7 +27,7 @@ async function isGatewayRunning(origin) {
 
 /** @param {string} email */
 function startGateway(email) {
-  const child = spawn(
+  const child = spawnOwned(
     process.execPath,
     [
       resolve(root, "scripts/authoring-stand-gateway.mjs"),
@@ -52,8 +52,10 @@ function startGateway(email) {
       () => reject(new Error("The authoring gateway did not start in time")),
       gatewayStartTimeoutMs,
     );
-    child.stdout.on("data", (chunk) => {
-      if (String(chunk).includes("Authoring gateway for the stand")) {
+    let output = "";
+    child.stdout?.on("data", (chunk) => {
+      output += String(chunk);
+      if (output.includes("Authoring gateway for the stand")) {
         clearTimeout(timer);
         accept();
       }
@@ -63,6 +65,10 @@ function startGateway(email) {
       reject(
         new Error(`The authoring gateway stopped with code ${String(code)}`),
       );
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
     });
   });
   return { child, ready };
@@ -110,16 +116,27 @@ export async function withStandGateway(email, work) {
   const gateway = (await isGatewayRunning(origin))
     ? undefined
     : startGateway(email);
-  for (const signal of ["SIGINT", "SIGTERM"]) {
-    process.once(signal, () => {
-      gateway?.child.kill("SIGTERM");
-      process.exit(1);
-    });
+  if (gateway === undefined) return work(origin);
+  const child = gateway.child;
+  /** @param {NodeJS.Signals} signal */
+  async function interrupted(signal) {
+    await stopOwned(child);
+    process.exit(signal === "SIGINT" ? 130 : 143);
   }
+  const interrupt = () => {
+    void interrupted("SIGINT");
+  };
+  const terminate = () => {
+    void interrupted("SIGTERM");
+  };
+  process.once("SIGINT", interrupt);
+  process.once("SIGTERM", terminate);
   try {
-    await gateway?.ready;
+    await gateway.ready;
     return await work(origin);
   } finally {
-    gateway?.child.kill("SIGTERM");
+    process.removeListener("SIGINT", interrupt);
+    process.removeListener("SIGTERM", terminate);
+    await stopOwned(child);
   }
 }

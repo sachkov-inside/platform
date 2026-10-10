@@ -17,9 +17,9 @@ import {
   readConfirmedTelegramLink,
 } from "../../infrastructure/persistence/confirmed-telegram-link.js";
 import type {
-  MembershipEntitlements,
+  AccountRights,
   MembershipEvidenceAcceptance,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
@@ -30,6 +30,7 @@ import type {
   AccountMembershipState,
   AccountTelegramLinkState,
   AccountTelegramMembershipResult,
+  PendingLinkConfirmationReport,
   TelegramLinkResult,
   TelegramLinkState,
   TelegramMembership,
@@ -44,7 +45,7 @@ export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
   readonly clock?: () => Date;
   readonly linkLifetimeMs: number;
-  readonly membershipEntitlements: MembershipEntitlements;
+  readonly accountRights: AccountRights;
   /** Предлагается ли подписка этому Account; гостю — без Account. */
   readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
   readonly membershipSupportUrl?: string;
@@ -113,6 +114,9 @@ export function assembleTelegramMembership(
           { ok: false, error: { code: "unavailable" } },
         );
       }
+    },
+    confirmPendingLinks(limit) {
+      return confirmPendingLinks(dependencies, limit, clock());
     },
   };
   return Object.freeze(membership);
@@ -221,7 +225,7 @@ async function readAccountPresentation(
   now: Date,
 ): Promise<AccountTelegramMembershipResult> {
   const [access, linkedTransaction, latestTransaction] = await Promise.all([
-    dependencies.membershipEntitlements.resolveForAccess(account),
+    dependencies.accountRights.resolveForAccess(account),
     readConfirmedTelegramLink(dependencies.prisma, account),
     dependencies.prisma.telegramLinkTransaction.findFirst({
       where: { accountId: account },
@@ -315,7 +319,7 @@ function accountLinkState(
 }
 
 function accountMembershipState(
-  state: Awaited<ReturnType<MembershipEntitlements["resolveForAccess"]>>,
+  state: Awaited<ReturnType<AccountRights["resolveForAccess"]>>,
   subscriptionForSale: boolean,
 ): AccountMembershipState {
   switch (state.kind) {
@@ -451,7 +455,7 @@ async function confirmLink(
   if (confirmation.kind === "linked") {
     return dependencies.prisma.$transaction(async (prisma) => {
       await lockTelegramMembershipLink(prisma, account);
-      const binding = await dependencies.membershipEntitlements.bindPrincipal(
+      const binding = await dependencies.accountRights.bindPrincipal(
         {
           accountId: accountId(transaction.accountId),
           principalRef: transaction.principalRef,
@@ -487,6 +491,42 @@ async function confirmLink(
   );
 }
 
+async function confirmPendingLinks(
+  dependencies: TelegramMembershipDependencies,
+  limit: number,
+  now: Date,
+): Promise<PendingLinkConfirmationReport> {
+  // Ссылка из бота живёт недолго: ждать возврата человека на сайт значит потерять привязку.
+  const waiting = await dependencies.prisma.telegramLinkTransaction.findMany({
+    where: {
+      expiresAt: { gt: now },
+      providerIdentityRef: null,
+      OR: [
+        { status: "pending" },
+        // Временный сбой Telegram не останавливает фоновые попытки до конца срока ссылки.
+        { status: "unavailable", providerTransactionRef: { not: null } },
+      ],
+    },
+    orderBy: [{ updatedAt: "asc" }, { linkRef: "asc" }],
+    take: limit,
+    select: { accountId: true, linkRef: true },
+  });
+  let linked = 0;
+  let pending = 0;
+  for (const link of waiting) {
+    const result = await confirmLink(
+      dependencies,
+      link.accountId,
+      link.linkRef,
+      now,
+    );
+    if (!result.ok) continue;
+    if (result.state.status === "linked") linked += 1;
+    if (result.state.status === "pending") pending += 1;
+  }
+  return { linked, pending };
+}
+
 async function acceptEvidence(
   dependencies: TelegramMembershipDependencies,
   command: AcceptTelegramEvidenceCommand,
@@ -509,7 +549,7 @@ async function acceptEvidence(
   if (link?.status !== "linked") {
     return { ok: false, error: { code: "principal_mismatch" } };
   }
-  return dependencies.membershipEntitlements.acceptEvidence({
+  return dependencies.accountRights.acceptEvidence({
     accountId: accountId(link.accountId),
     deliveryId: command.deliveryId,
     evidence: command.evidence,

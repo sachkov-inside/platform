@@ -6,6 +6,7 @@
 export {
   LEGAL_GROUP_ORDER,
   LEGAL_GROUP_TITLES,
+  LEGAL_HIDDEN_FROM_NAVIGATION,
   LEGAL_NAVIGATION,
   legalNavigationEntry,
   type LegalGroup,

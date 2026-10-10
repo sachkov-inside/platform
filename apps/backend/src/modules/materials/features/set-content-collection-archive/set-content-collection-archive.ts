@@ -18,7 +18,10 @@ import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
 } from "./set-content-collection-archive.contract.js";
-import { hasText } from "../../../../infrastructure/contracts/text.js";
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 
 const commandSchema = z
   .object({
@@ -26,7 +29,7 @@ const commandSchema = z
     archived: z.boolean(),
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["guide", "series", "topic"]),
+    kind: z.enum(["product", "series", "topic"]),
   })
   .strict();
 
@@ -48,11 +51,18 @@ export function assembleSetContentCollectionArchive(
       async (transaction, rollback) => {
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
-          const source = await transaction.guide.findUnique({
+          const source = await transaction.product.findUnique({
             where: { id: command.collectionId },
             select: { sourceId: true },
           });
-          if (hasText(source?.sourceId)) return rollback({ code: "forbidden" });
+          const sourceError = checkContentWrite(contentWriter(), [
+            {
+              kind: "archive",
+              sourceId: source?.sourceId ?? null,
+              path: "/collectionId",
+            },
+          ]);
+          if (sourceError !== null) return rollback(sourceError);
         }
         const persistence = contentCollectionPersistence(
           transaction,

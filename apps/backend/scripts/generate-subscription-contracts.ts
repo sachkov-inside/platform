@@ -7,7 +7,7 @@ import {
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
   redeemInvitationSchema,
-} from "../src/modules/membership-entitlements/index.js";
+} from "../src/modules/account-rights/index.js";
 import {
   bindingLookupResponseSchema,
   activationResponseSchema,

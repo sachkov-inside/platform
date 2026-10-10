@@ -1,15 +1,20 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn(), manage: vi.fn() }));
+const fakes = vi.hoisted(() => ({
+  token: vi.fn<() => Promise<string>>(),
+  renderToken: vi.fn<() => Promise<string>>(),
+  manage: vi.fn(),
+}));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestManageBilling: fakes.manage,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: (mode: "route" | "rsc"): Promise<string> =>
+      mode === "rsc" ? fakes.renderToken() : fakes.token(),
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
 }));
 
 import {
@@ -55,6 +60,7 @@ const problem = (code: string, status: number) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fakes.token.mockResolvedValue("owner-token");
+  fakes.renderToken.mockResolvedValue("owner-render-token");
 });
 
 it("даёт каждой владельческой операции собственный маршрут и дискриминатор", async () => {
@@ -355,9 +361,11 @@ it("читает владельческий каталог, где остают�
     }),
   );
   await expect(loadBillingOffersForOwner()).resolves.toEqual([]);
+  // Каталог читает серверный рендер: токен он берёт без записи cookie.
+  expect(fakes.token).not.toHaveBeenCalled();
   expect(fakes.manage).toHaveBeenCalledWith(
     expect.objectContaining({ operation: "offers.list", limit: 100 }),
-    "owner-token",
+    "owner-render-token",
   );
 });
 
@@ -365,7 +373,7 @@ it("поиск подтверждённого получателя закрыт 
   const { handleLookupSubscriptionRecipient } =
     await import("@/features/billing-admin.server");
   const { LogtoSessionUnavailableError } =
-    await import("@/shared/auth/platform-access-token.server");
+    await import("@/shared/auth/session-adapter.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
   const response = await handleLookupSubscriptionRecipient(
     command("/api/authoring/billing/recipients/lookup", {
@@ -399,7 +407,7 @@ it("поиск получателя передаёт точную identity и н
   );
 });
 
-it("owner payments retain local one-time Guide purchases and their filter", async () => {
+it("owner payments retain local one-time Product purchases and their filter", async () => {
   const paid = {
     purchaseRef,
     accountId,
@@ -416,7 +424,7 @@ it("owner payments retain local one-time Guide purchases and their filter", asyn
         id: offerId,
         revision: 1,
         name: "Guide",
-        benefits: ["guide:" + offerId],
+        benefits: ["product:" + offerId],
         archived: false,
       },
       paymentOption: {

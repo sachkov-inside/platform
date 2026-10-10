@@ -1,5 +1,22 @@
 import type { Decorator, Preview } from "@storybook/react-vite";
-import { Agentation } from "agentation";
+import { sb } from "storybook/test";
+
+// Transparent render counters for the authoring performance story; production functions still run.
+sb.mock(
+  "../src/widgets/material-authoring/ui/material-metadata-panel.client.tsx",
+  { spy: true },
+);
+sb.mock(
+  "../src/widgets/material-authoring/ui/material-authoring-chrome.client.tsx",
+  { spy: true },
+);
+sb.mock("../src/features/content-covers/ui/content-cover-editor.client.tsx", {
+  spy: true,
+});
+sb.mock(
+  "../src/features/material-video/ui/material-video-authoring.client.tsx",
+  { spy: true },
+);
 
 import { QueryProvider } from "@/_app/ui/query-provider.client";
 
@@ -11,19 +28,12 @@ import "./story-frame.css";
 
 // Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
 const withStoryFrame: Decorator = (Story) => {
-  const isTestRun = import.meta.env.MODE === "test";
-
   return (
     <QueryProvider>
       <div data-story-frame>
         <div className="contents" data-story-content>
           <Story />
         </div>
-        {!isTestRun ? (
-          <div data-agentation-root>
-            <Agentation className="platform-agentation" />
-          </div>
-        ) : null}
       </div>
     </QueryProvider>
   );

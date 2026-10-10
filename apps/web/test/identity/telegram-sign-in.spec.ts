@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import {
   expect,
   test,
@@ -10,24 +11,19 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 import { waitPastAccessTokenExpiry } from "./access-token-expiry";
+import { requiredEnvironment } from "./environment";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
-if (
-  process.env["WEB_BASE_URL"] === undefined ||
-  process.env["WEB_BASE_URL"] === "" ||
-  process.env["LOGTO_ENDPOINT"] === undefined ||
-  process.env["LOGTO_ENDPOINT"] === ""
-)
-  throw new Error(
-    "Explicit isolated WEB_BASE_URL and LOGTO_ENDPOINT are required",
-  );
-
-const webBaseUrl = process.env["WEB_BASE_URL"];
+let webBaseUrl: string;
+let logtoEndpoint: string;
+test.beforeAll(() => {
+  webBaseUrl = requiredEnvironment("WEB_BASE_URL");
+  logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
+});
 const statusSchema = z.object({
   status: z.string(),
   requestRef: z.uuid().optional(),
 });
-// The guard above already requires an explicit endpoint.
-const logtoEndpoint = process.env["LOGTO_ENDPOINT"];
 const webhookEndpoint =
   process.env["TELEGRAM_PROOF_WEBHOOK_URL"] ??
   "http://127.0.0.1:3606/webhooks/telegram";
@@ -35,10 +31,10 @@ const webhookSecret =
   process.env["TELEGRAM_PROOF_WEBHOOK_SECRET"] ??
   "inside-299-synthetic-webhook";
 const telegramUserId = 29900001;
-let lastUpdateId = Date.now() % 1_000_000_000;
+let lastUpdateId = randomInt(1, 1_000_000_000);
 function nextUpdateId() {
   // Parallel /start messages must not share the provider inbox deduplication key.
-  lastUpdateId = Math.max(lastUpdateId + 1, Date.now() % 1_000_000_000);
+  lastUpdateId += 1;
   return lastUpdateId;
 }
 
@@ -82,7 +78,7 @@ async function confirm(
     update_id: nextUpdateId(),
     message: {
       message_id: 1,
-      date: Math.floor(Date.now() / 1000),
+      date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
       from,
       chat,
       text: `/start ${challenge.token}`,
@@ -100,7 +96,7 @@ async function confirm(
             chat_instance: "synthetic",
             message: {
               message_id: 2,
-              date: Math.floor(Date.now() / 1000),
+              date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
               chat,
             },
             data: `signin:${action}:${challenge.requestRef}`,
@@ -142,17 +138,15 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
 }) => {
   const challenge = await start(page);
   await prepareEvidenceDirectory("issue-299");
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: evidencePath("issue-299", "telegram-waiting-desktop.png"),
-    fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: evidencePath("issue-299", "telegram-waiting-mobile.png"),
-    fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1024 });
   const foreign = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -165,7 +159,7 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   await expect(
     page.getByRole("button", { name: "Выйти", exact: true }),
   ).toBeVisible();
-  const signedInAt = Date.now();
+  const signedInAt = performance.now();
   const before = await createProfile(page);
   await waitPastAccessTokenExpiry(page, signedInAt);
   const refreshed = await page.request.get("/auth/status");
@@ -251,7 +245,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   page,
   request,
 }) => {
-  const userId = 29910000 + (Date.now() % 1_000_000);
+  const userId = 29910000 + randomInt(1_000_000);
   const email = `telegram-${String(userId)}@example.test`;
   await page.goto("/");
   if ((page.viewportSize()?.width ?? 1440) < 768)
@@ -319,7 +313,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
           update_id: nextUpdateId(),
           message: {
             message_id: 1,
-            date: Math.floor(Date.now() / 1000),
+            date: Math.floor(Date.parse("2026-10-07T09:00:00Z") / 1000),
             from: { id: userId, is_bot: false, first_name: "Synthetic" },
             chat: { id: userId, type: "private" },
             text: `/start ${token}`,
@@ -364,7 +358,7 @@ test("two fresh Logto interactions for one Telegram identity converge on one Acc
     baseURL: webBaseUrl,
   });
   const other = await otherContext.newPage();
-  const userId = 39910000 + (Date.now() % 1_000_000);
+  const userId = 39910000 + randomInt(1_000_000);
   try {
     const [first, second] = await Promise.all([start(page), start(other)]);
     await Promise.all([
@@ -427,9 +421,8 @@ for (const [status, copy] of [
     await expect(page.getByRole("status")).toContainText(copy);
     await expect(page.locator("#bot")).toBeHidden();
     await expect(page.getByRole("link", { name: "Через почту" })).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: evidencePath("issue-299", `telegram-${status}-mobile.png`),
-      fullPage: true,
     });
   });
 }

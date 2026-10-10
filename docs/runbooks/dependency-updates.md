@@ -1,7 +1,9 @@
 # Dependency update policy
 
-Platform tracks the latest supported production-stable toolchain, not Current, preview or nightly
-releases. Every package, runtime and upstream container image uses an explicit version. The Node
+Platform tracks the latest supported stable toolchain, excluding preview and nightly releases.
+Node normally follows LTS; the owner approved Node 26 Current for Platform and Telegram on
+2026-10-06 (#989). Current major migrations require an explicit owner decision and the same full
+verification as an LTS migration. Every package, runtime and upstream container image uses an explicit version. The Node
 base of the application Dockerfiles is pinned by tag and multi-platform digest, so a re-published
 tag cannot change the next release; Compose files use readable version tags for other upstream
 images. Third-party GitHub Actions are pinned by release commit SHA with the version in a comment.
@@ -23,10 +25,11 @@ A red dependency pull request is triaged in the same weekly pass, never left to 
 incompatibility in the pull request itself (for example regenerate a drifted contract), or close it
 with the reason and `@dependabot ignore this minor version` or an `ignore` entry here.
 
-`@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
-runtime, declarations, Docker base and CI as one reviewed migration. Actions and the Node base
-digest are advanced only by reviewed Dependabot pull requests, which update the SHA or digest
-together with its version comment or tag. Managed harness workflows are pinned in the Workspace
+`@types/node` stays on the same major as `.node-version`. A Node major change updates the
+runtime, declarations, Docker base and CI as one reviewed migration. Actions advance through
+reviewed Dependabot pull requests, which update the SHA together with its version comment. Node
+base tags and digests advance together through reviewed dependency pull requests, including
+owner-approved major migrations. Managed harness workflows are pinned in the Workspace
 package ([workspace#211](https://github.com/sachkov-inside/workspace/issues/211)).
 
 Repository dependency changes preserve:
@@ -57,7 +60,14 @@ Overrides never force a peer range onto an incompatible tool; the TypeScript 7 r
 
 ## Current baseline
 
-Node `24.21.0` is the latest production LTS; Node 26 is Current and is not the production baseline.
+Node `26.10.0` is the shared Platform and Telegram baseline (#989). It is Current, not LTS;
+this migration prepares the owner-approved runtime change and does not release or deploy it.
+Node major changes remain separate reviewed migrations, with merge decided by the owner.
+Application Dockerfiles install Corepack `0.36.0` explicitly because Node 26 does not bundle it;
+Corepack then installs the exact pnpm version from `packageManager`. CI uses `.node-version`
+and `pnpm/action-setup`, so it does not depend on a bundled Corepack.
+The Logto server keeps its own digest-pinned upstream image in `infra/identity/logto/Dockerfile`;
+its runtime belongs to that external service, not the application Node pin.
 The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
@@ -78,8 +88,8 @@ template implementation has no TypeScript dependency. Storybook uses `@storybook
 
 Keep strict peer dependencies enabled and do not add peer overrides to force an incompatible tool
 onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
-publishes a compatible stable release, or rejected. Storybook MCP `10.6.0` is part of the baseline
-(#871): its stable dependency graph installs without an additional peer override, and
+publishes a compatible stable release, or rejected. Storybook MCP `10.6.1` is part of the baseline
+(#871, #987): its stable dependency graph installs without an additional peer override, and
 `pnpm peers check` passes. Its component manifest uses the existing `react-docgen` path;
 `scripts/toolchain-contract.test.mjs` keeps that path and the matching MCP/framework versions.
 

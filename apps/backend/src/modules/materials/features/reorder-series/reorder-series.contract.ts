@@ -1,18 +1,18 @@
 import type {
   ForbiddenError,
-  GuideRemovalConfirmationRequiredError,
+  ProductRemovalConfirmationRequiredError,
   InvalidContentError,
   InvalidReferenceError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
-import type { GuideChapterDraft } from "../../shared/guide-chapters.js";
+import type { ProductChapterDraft } from "../../shared/product-chapters.js";
 import type { SeriesNotFoundError } from "../load-series-order/load-series-order.contract.js";
 import type { Result } from "../../result.js";
 
 export interface ReorderSeriesCommand {
   readonly actor: string;
   /** The complete ordered chapter list; omitted keeps the current chapters unchanged. */
-  readonly chapters?: readonly GuideChapterDraft[] | undefined;
+  readonly chapters?: readonly ProductChapterDraft[] | undefined;
   /** Material to chapter placement; omitted keeps the placement of retained Materials. */
   readonly chapterAssignments?: Readonly<Record<string, string>> | undefined;
   readonly expectedOrderVersion: string;
@@ -20,7 +20,7 @@ export interface ReorderSeriesCommand {
   readonly stepGroups?: Readonly<Record<string, string>> | undefined;
   readonly seriesId: string;
   /** Подтверждённое снятие опубликованных материалов из руководства с держателями права. */
-  readonly confirmedGuideRemovals?: readonly string[] | undefined;
+  readonly confirmedProductRemovals?: readonly string[] | undefined;
 }
 
 export interface ReorderSeriesReceiptDto {
@@ -34,7 +34,7 @@ export type StaleSeriesOrderError = {
 };
 export type ReorderSeriesError =
   | ForbiddenError
-  | GuideRemovalConfirmationRequiredError
+  | ProductRemovalConfirmationRequiredError
   | InvalidContentError
   | InvalidReferenceError
   | SeriesNotFoundError

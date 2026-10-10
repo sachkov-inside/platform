@@ -123,7 +123,7 @@ export function requestContentCollectionArchive(
 
 export function requestMaterialDraftCreation(
   input: {
-    readonly access: "free" | "membership";
+    readonly access: "free" | "closed";
     readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
     readonly formatId: MaterialFormat | null;
@@ -175,8 +175,8 @@ export function requestCurrentMaterial(
 
 export function requestMaterialSave(
   input: {
-    readonly access: "free" | "membership";
-    readonly confirmedGuideRemovals?: readonly string[];
+    readonly access: "free" | "closed";
+    readonly confirmedProductRemovals?: readonly string[];
     readonly deleteVideoId: string | null;
     readonly detachVideoIds: readonly string[];
     readonly difficulty: MaterialDifficulty | null;
@@ -219,9 +219,11 @@ export function requestMaterialSave(
           },
           publicationState: input.publicationState,
           primaryVideoId: input.primaryVideoId,
-          ...(input.confirmedGuideRemovals === undefined
+          ...(input.confirmedProductRemovals === undefined
             ? {}
-            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
+            : {
+                confirmedProductRemovals: [...input.confirmedProductRemovals],
+              }),
         },
       }),
     200,
@@ -294,8 +296,8 @@ export function requestSeriesOrder(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new MaterialAuthoringService(request).loadAuthoringGuideOrder({
-        guideId: seriesId,
+      new MaterialAuthoringService(request).loadAuthoringProductOrder({
+        productId: seriesId,
       }),
     200,
     { accessToken },
@@ -310,7 +312,7 @@ export function requestSeriesReorder(
       readonly summary: string;
     }[];
     readonly chapterAssignments?: Readonly<Record<string, string>>;
-    readonly confirmedGuideRemovals?: readonly string[];
+    readonly confirmedProductRemovals?: readonly string[];
     readonly expectedOrderVersion: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups?: Readonly<Record<string, string>>;
@@ -320,8 +322,8 @@ export function requestSeriesReorder(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new MaterialAuthoringService(request).reorderAuthoringGuide({
-        guideId: input.seriesId,
+      new MaterialAuthoringService(request).reorderAuthoringProduct({
+        productId: input.seriesId,
         requestBody: {
           expectedOrderVersion: input.expectedOrderVersion,
           orderedMaterialIds: [...input.orderedMaterialIds],
@@ -334,9 +336,11 @@ export function requestSeriesReorder(
           ...(input.chapterAssignments === undefined
             ? {}
             : { chapterAssignments: { ...input.chapterAssignments } }),
-          ...(input.confirmedGuideRemovals === undefined
+          ...(input.confirmedProductRemovals === undefined
             ? {}
-            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
+            : {
+                confirmedProductRemovals: [...input.confirmedProductRemovals],
+              }),
         },
       }),
     200,

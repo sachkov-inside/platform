@@ -4,14 +4,11 @@
 [#50](https://github.com/sachkov-inside/platform/issues/50), уточнённый решением
 [#132](https://github.com/sachkov-inside/platform/issues/132) о едином mutable `Material` и
 owner decision в [#120](https://github.com/sachkov-inside/platform/issues/120) не создавать
-persistent authorization audit в v1, и расширенный
-[#263](https://github.com/sachkov-inside/platform/issues/263) для Workshop Materials.
+persistent authorization audit в v1.
 
-Workshop-specific extension #263 остаётся implemented case-first foundation. Для нового Kafka
-Track обычные Material targets используют только `free | membership`; legacy `workshop`
-requirement и `WorkshopMaterialAccess` применяются только к явно связанным CaseMaterials до
-решения Kafka evaluation research о reuse/supersede. Laboratory и Production Case delivery принадлежат отдельному
-`WorkshopAccess` из [Workshop specification](workshop-tracks.md), а не этому Module.
+[ADR 0033](../adr/0033-product-tariff-payment-model.md) отменяет Мастерскую и подарочный режим
+приглашения. Мастерская удалена в [#1063](https://github.com/sachkov-inside/platform/issues/1063);
+сценарии подарка ниже описывают код до отдельной задачи удаления.
 
 ## Решение
 
@@ -100,7 +97,7 @@ caller не передаёт.
 - [ADR 0006](../adr/0006-logto-session-and-local-account.md) запрещает второй Platform session,
   generic Principal и speculative M2M identity;
 - [Platform specification](platform-v1.md) закрепляет Platform-owned `ContentAccess`, отдельный
-  `MembershipEntitlement` и protected-load-after-allow;
+  `AccountRights` и protected-load-after-allow;
 - Workspace contract `inside.membership-evidence.v1` задаёт внешний evidence format и
   максимальную пятиминутную validity; Platform хранит exact schema/fixtures и не читает соседний
   checkout или GitHub во время build/runtime;
@@ -118,7 +115,6 @@ caller не передаёт.
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
 | MaterialAsset | Production upload/read/download adapters реализованы в #180. | Version-bound route передаёт `assetId` в exact Asset/Action allow, сверяет `checkedContentVersion` и current body reference до private locator; Membership presign ограничен `validUntil`. |
 | Video | Owning module и delivery adapter существуют. | Token issue и provider callback повторно используют exact ContentAccess decision; protected credential ограничен validity решения. |
-| Legacy CaseMaterial | Case-first foundation #263 публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; новый Track не использует эту связь для обычных Materials до этого решения. |
 
 ## Subject и authorization facts
 
@@ -138,7 +134,7 @@ Accounts.checkPermission({ accountId, permission: "materials:manage" })
 одного availability batch; его нельзя переносить в JWT, Logto cookie, React state, следующую request или
 `validUntil`-lease. Revocation действует на следующую protected operation.
 
-`MembershipEntitlement` — отдельное заключение Platform о доступе Account к closed
+`AccountRights` — отдельное заключение Platform о доступе Account к closed
 content из независимых paid/manual/legacy оснований. Его срок конечный либо явно бессрочный
 (`validUntil: null`). Объединение возможностей и ограниченный evidence bridge определяет
 [локальный контракт прав](subscription-billing-v1.md#реализованный-access-foundation-404). Оно не является ролью или permission. `Member Profile`, nickname/avatar, `ReadingState`,
@@ -149,8 +145,7 @@ practice/progress и Telegram presentation data не участвуют в autho
 Owning resource adapter разрешает opaque IDs в минимальные internal facts:
 
 - owning Material, его `draft | published | unpublished` state и current `contentVersion`;
-- `free | membership` requirement для обычного Material; legacy `workshop` только для CaseMaterial,
-  явно связанного foundation #263;
+- `free | membership` requirement для Material;
 - attachment relationship и вид Asset/Video, когда такие modules реально появятся.
 
 Caller не передаёт slug, access class, publication state, content version, storage key, signed URL,
@@ -163,16 +158,16 @@ Valid pairs:
 - inline Asset: `read | preview`;
 - downloadable Asset: `download | preview`;
 - Video: `play | preview`;
-- Guide Task: `read` ([#946](https://github.com/sachkov-inside/platform/issues/946)).
+- Product Task: `read` ([#946](https://github.com/sachkov-inside/platform/issues/946)).
 
 Normal `read | download | play` никогда не открывают `draft` или `unpublished`, кроме одного
-исключения: снятое с публикации задание (Guide Task) по `read` открыто автору с `materials:manage`
+исключения: снятое с публикации задание (Product Task) по `read` открыто автору с `materials:manage`
 (`materials_manager`) и закрыто всем остальным (`resource_unpublished`). Факты задания отдаёт port
-`GuideTaskResourceFactsAdapter`, который реализует Module `guide-tasks`: класс доступа
-`free | membership`, Guide задания, публикация и номер текущей версии требований. `free` открыт
-всем; `membership` решает MembershipEntitlements по Guide задания тем же путём, что Guide Artifact:
-право `guide:<id>` или `materials`, чей ContentScope покрывает этот Guide. Точки применения —
-`guide_task_read` (список, чтение, история сдач) и `guide_task_submit` (каждая сдача). `preview` выбирает
+`ProductTaskResourceFactsAdapter`, который реализует Module `product-tasks`: класс доступа
+`free | membership`, Product задания, публикация и номер текущей версии требований. `free` открыт
+всем; `membership` решает AccountRights по Product задания тем же путём, что Product Artifact:
+право `product:<id>` или `materials`, чей Coverage покрывает этот Product. Точки применения —
+`product_task_read` (список, чтение, история сдач) и `product_task_submit` (каждая сдача). `preview` выбирает
 текущее сохранённое состояние Material и требует `materials:manage`. Эта permission также покрывает
 полный authoring workflow, включая publish, unpublish и смену access class; validation и lifecycle
 invariants остаются в Materials и не становятся частью `ContentAccess`.
@@ -189,8 +184,6 @@ type DenyReason =
   | "authentication_required"
   | "membership_required"
   | "membership_expired"
-  | "workshop_access_required"
-  | "workshop_material_locked"
   | "entitlement_stale"
   | "permission_required"
   | "resource_unpublished"
@@ -211,7 +204,7 @@ type AccessDecision = Readonly<{
     }>
   | Readonly<{
       effect: "allow";
-      reason: "active_membership" | "active_workshop";
+      reason: "active_membership";
       validUntil: Instant | null;
       checkedContentVersion: ContentVersion;
     }>
@@ -220,7 +213,7 @@ type AccessDecision = Readonly<{
 ```
 
 `public_resource` и `materials_manager` не получают fabricated expiry. Permission проверяется
-заново на следующей operation. `active_membership` и `active_workshop` содержат `validUntil`, не
+заново на следующей operation. `active_membership` содержит `validUntil`, не
 позже соответствующего current entitlement. Derived delivery credential обязан быть привязан к
 exact Account/resource/action и жить не дольше `min(decision.validUntil, adapterDeliveryCap)`;
 при доказанном бессрочном праве null оставляет конечный `adapterDeliveryCap`. Это относится
@@ -239,12 +232,7 @@ Deterministic reason precedence:
 5. Current `materials:manage`: `materials_manager`, включая current saved preview и обычное чтение
    published membership-материала без Membership.
 6. Preview без permission: `permission_required`.
-7. Legacy CaseMaterial normal delivery: вызвать `WorkshopMaterialAccess` без permission или Membership
-   fallback; доступный Material даёт `active_workshop`, закрытый reveal —
-   `workshop_material_locked`, отсутствие current Workshop grant/material binding —
-   `workshop_access_required`. Concrete facet сворачивает unreadable Workshop projection в
-   `unavailable`; thrown coordination failure даёт `dependency_unavailable`.
-8. Membership normal delivery: resolve current Membership; active даёт `active_membership`, absence —
+7. Membership normal delivery: resolve current Membership; active даёт `active_membership`, absence —
    `membership_required`, confirmed expiry/removal — `membership_expired`, stale positive после
    `validUntil` без принятого нового evidence — `entitlement_stale`, unreadable local projection —
    `dependency_unavailable`.
@@ -257,24 +245,14 @@ Deterministic reason precedence:
 | Draft `preview` | authentication required | permission required | permission required | permission required | materials manager |
 | Draft normal delivery | unpublished | unpublished | unpublished | unpublished | unpublished |
 
-Legacy CaseMaterial delivery имеет отдельную matrix и не использует Membership/permission fallback:
-
-| Subject / Workshop state | Нет current grant | Current grant, reveal locked | Current grant, immediate/revealed |
-|---|---|---|---|
-| Anonymous | authentication required | authentication required | authentication required |
-| Account, включая member/manager | workshop access required | workshop material locked | active workshop |
-
 Active Membership не даёт preview, authoring или publish. Permission не создаёт fake
-`MembershipEntitlement` или Workshop grant. Profile и activity facts не меняют ни одну строку
-matrix.
+`AccountRights`. Profile и activity facts не меняют ни одну строку matrix.
 
 `checkAvailabilityMany` coarse-проецирует те же current facts:
 
 - allow → `available`;
 - любой известный published membership-resource без доказанного allow, включая dependency outage,
   → `locked`;
-- published legacy CaseMaterial с current grant, но ещё не выполненной reveal policy → `locked`;
-- legacy CaseMaterial без current grant или при unreadable Workshop facet → `unavailable`;
 - invalid/unpublished/unknown resource → `unavailable`.
 
 Availability не возвращает reason, decision ID или validity и не разрешает body, private locator,
@@ -308,17 +286,18 @@ video locators и иные связанные с body ресурсы в projecti
 Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
 `support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
 `one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
-`tier-via-invitation-gift` (#908), `hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
+`hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
 `moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
 `tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
 `support-kept-by-other-ground`, `material-added-to-product`,
-`material-removed-from-product`, `guide-archived`, `tier-composition-change`,
+`material-removed-from-product`, `product-archived`, `tier-composition-change`,
 `tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
 Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
 `subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground`; приглашения
 (#908): `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
-`invitation-offer-after-gift-invitation` — какие права и на какой срок выдаёт покупка предложения и
-кому предложение продаётся. Переход `expiry` проверяет и подарок по приглашению.
+`gift invitation cannot grant access or purchase admission` — какие права и на какой срок выдаёт покупка предложения и
+кому предложение продаётся. Подарочный столбец удалён в #1064; отрицательный сценарий
+проверяет, что прежний режим приглашения не выдаёт права или допуск к покупке.
 У каждой клетки стабильное имя `<строка>/<столбец>`.
 
 `pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);
@@ -331,12 +310,12 @@ video locators и иные связанные с body ресурсы в projecti
 закрываются, а CommunityEntitlement в тот же момент получает `denied` без запаса: пересчёт
 запускает сама граница (`nextBoundary`), а не следующее изменение прав.
 
-## MembershipEntitlements
+## AccountRights
 
 `ContentAccess` зависит от узкого access-oriented interface:
 
 ```ts
-interface MembershipEntitlements {
+interface AccountRights {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
 }
 ```
@@ -439,18 +418,15 @@ inputs или persistent authorization facts.
 apps/backend/src/modules/
   accounts/                  # trusted Account resolution + current materials:manage
   content-access/            # batch orchestration + policy
-  membership-entitlements/  # bounded projection + monotonic evidence application
+  account-rights/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
-  workshop/                  # grants + legacy CaseMaterial/reveal facet; WorkshopAccess owner
 ```
 
 `ContentAccess` объявляет access-oriented `MaterialResourceFacts` port; Materials реализует его
 поверх своей persistence и возвращает только minimal policy facts без protected body. Port
 поддерживает bulk facts для availability и single facts для authorize. `ContentAccess` не читает
 Materials tables напрямую, а Materials transport не импортирует policy implementation.
-Asset/Video ports существуют вместе с owning real consumers. Для legacy CaseMaterial policy
-ContentAccess зависит только от `WorkshopMaterialAccess`, а не от Workshop tables или full
-application API. Новый `WorkshopAccess` не входит в ContentAccess и не доставляет Material body.
+Asset/Video ports существуют вместе с owning real consumers.
 
 V1 не создаёт generic RBAC/ABAC DSL, `Account × Material` matrix, `content_grants`, exported SQL
 predicate, generic repository/UoW или speculative service Account. Future tier/purchase/manual

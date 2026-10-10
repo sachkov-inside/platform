@@ -11,6 +11,12 @@ import type {
   MaterialAuthoringPresentation,
 } from "../model/presentation";
 import { presentText } from "@/shared/lib/text";
+import {
+  authoringMaterialsRootHref,
+  authoringReturnActionLabel,
+} from "@/shared/routing/authoring";
+
+const defaultBackLabel = authoringReturnActionLabel(authoringMaterialsRootHref);
 
 interface MaterialAuthoringChromeProps {
   readonly actions: MaterialAuthoringActions;
@@ -28,7 +34,7 @@ export function MaterialAuthoringHeader({
       <div className="mx-auto flex max-w-[80rem] flex-wrap items-center justify-between gap-3">
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
           <Button
-            aria-label="Вернуться к материалам"
+            aria-label={presentation.backLabel ?? defaultBackLabel}
             onClick={actions.onBack}
             size="icon-lg"
             type="button"
@@ -155,7 +161,7 @@ export function MaterialAuthoringBlockingState({
             title="Материал больше не найден"
           />
           <Button onClick={actions.onBack} type="button">
-            Вернуться к материалам
+            {presentation.backLabel ?? defaultBackLabel}
           </Button>
         </div>
       </div>

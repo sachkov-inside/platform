@@ -3,8 +3,9 @@
 Platform #307 owns the Account-authorized HTTP/MCP consumer and Telegram author authorization.
 The product authority is the accepted
 [Workspace communications contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
-Telegram owns the physical schema and mutable communications state. Its pinned revision is recorded
-in [the vendored snapshot](../../apps/backend/src/modules/communications/contracts/inside-communications-v1/snapshot.json).
+Telegram owns mutable communications state. Both applications use the
+[shared schema](../contracts/inside-communications-v1/schema.json) in `@inside/contracts`.
+[The snapshot](../contracts/inside-communications-v1/snapshot.json) records its historical origin.
 Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
 
 ## Editor ownership
@@ -31,7 +32,7 @@ same confirmed-link seam. Integration tests cover its Telegram-only Account and 
 without implicit communications grants. Real Logto/provider end-to-end sign-in remains separately
 verified by #299; #307 does not claim a new credentialed sign-in run.
 
-`POST /integrations/telegram/v1/communications/authorize` implements the vendored
+`POST /integrations/telegram/v1/communications/authorize` implements the shared
 `authorizationRequest`/`authorizationResponse`. A separate service bearer credential authenticates
 Telegram. Account subjects resolve the external reference to the current link and Account permission.
 Telegram subjects additionally match the configured bot identity and exact stored provider identity.
@@ -108,7 +109,7 @@ explicit owner operations; #307 does not configure a real author or send real me
 
 `pnpm --filter @inside/backend communications:generate` derives typed Zod codecs from the pinned
 provider schema. `communications:check` verifies deterministic output and runs in backend guardrails.
-The generator rejects schema vocabulary it cannot represent. The vendored positive/negative fixtures
+The generator rejects schema vocabulary it cannot represent. The shared positive/negative fixtures
 run against both the generated codecs and the original JSON Schema. Public input rejection and
 cross-module import negative fixtures protect the consumer seam without neighboring checkouts.
 
@@ -148,12 +149,16 @@ Membership or purchase.
 
 Set `TELEGRAM_TRACKING_ORIGIN` to the exact HTTPS public Platform origin. It is optional and disables
 tracking when absent. Configure Telegram's `PLATFORM_TRACKING_REDIRECT_URL` as that origin plus
-`/communications/visit`; its permitted targets must match Platform `/materials/<slug>` and
-`/series/<slug>` routes. The route accepts only an opaque `token`; caller-supplied destination URLs
+`/communications/visit`; its permitted targets match Platform `/materials/<slug>` and
+`/products/<slug>` routes, including the existing `/series/<slug>` and `/guides/<slug>`
+redirect compatibility. The route accepts only an opaque `token`; caller-supplied destination URLs
 are ignored. It resolves through the authenticated provider with `serviceRef: platform-tracking`,
 then independently checks origin, canonical content path, HTTPS, no credentials/query/fragment.
 Invalid or unresolved tokens return a safe 404/503. GET returns private no-store, no-referrer 302;
-HEAD does not create hits. Destination routes still run their normal ContentAccess checks.
+HEAD does not create hits. Product destinations must exist and not be archived; a missing or archived
+Product returns `not_found` before a hit is recorded, and a failed Product lookup returns `unavailable`.
+A public Product page does not promise free access to its programme. Material bodies still run their
+normal ContentAccess checks.
 
 Only named TelegramBot, facebookexternalhit, Twitterbot, Slackbot-LinkExpanding, Discordbot,
 Googlebot and bingbot user agents are marked `known_automation`. Other traffic is `unknown`, never
@@ -214,7 +219,14 @@ compatible revisions, simulated coverage, and the separate credentialed gate.
 
 Set `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` to the canonical public Platform origin, matching
 `WEB_BASE_URL`. Without it publication/preview fail closed. The Materials-owned `PublicContentTargets`
-facet checks linked Materials and Series for publication, free access and complete composition;
+facet owns URL parsing for both validation and tracking. It checks linked Materials for publication
+and free access. `/products/<slug>` and its `/series/<slug>` and `/guides/<slug>` compatibility routes
+name a public Product page: existence and non-archived state are required, regardless of programme
+composition or Material access. The legacy `check({ kind: "series", slug })` interface retains its
+free, complete composition check; these URLs no longer select that legacy check. Public destination
+paths use lowercase alphanumeric slug segments separated by hyphens, with at most 120 characters;
+credentials, query, fragment, trailing slash, extra path segments and encoded slugs are rejected.
+Content validation ignores foreign origins; tracking rejects them.
 Communications validates Platform URLs in plain text, buttons and Telegram URL/text_link entities (including bare-domain entities) before a fresh
 publish and adds URL-specific failures to preview. An already committed publish replay stays owned
 by the provider receipt. Content access is still checked by the public Reader; this point-in-time
@@ -251,8 +263,7 @@ Delegated MCP получает `communications_templates_list` и те же save
 текущий authenticated Account и communications:manage остаются единственным авторским основанием.
 Публикация и запуск по-прежнему отдельны от сохранения. Provider runtime поставляется в
 [Telegram #39](https://github.com/sachkov-inside/inside-telegram/pull/39), shared decision —
-[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Schema snapshot pinned
-на commit из `contracts/inside-communications-v1/snapshot.json`; production enablement не меняется.
+[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Историческое происхождение схемы записано в `docs/contracts/inside-communications-v1/snapshot.json`; оба приложения читают общий пакет.
 
 ## Создание воронок из сохранённых постов (#316)
 
@@ -270,7 +281,8 @@ Telegram [#40](https://github.com/sachkov-inside/inside-telegram/pull/40) исп
 `POST /integrations/telegram/v1/communications/validate-content` перед публикацией из бота.
 Контракт `contentValidationRequest/Response` передаёт выбранные сообщения вместе с подтверждённым
 автором. Endpoint проверяет bearer credential, актуальную связь и `communications:manage`, затем
-доступность Material/Series через `PublicContentTargets`. Он не обращается к Telegram; поэтому
+доступность Material и публичных страниц Product через `PublicContentTargets`
+по [контракту публичных целей](#funnel-management-ui). Он не обращается к Telegram; поэтому
 проверка безопасна при удерживаемых ботом блокировках определения. Ошибка конфигурации или базы
 возвращает 503, недоступные цели — структурированные причины. Для установки требуются
 `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN` в Platform и `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL` в

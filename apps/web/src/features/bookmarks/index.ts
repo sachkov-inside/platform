@@ -16,3 +16,5 @@ export type {
   BookmarkState,
   BookmarkStateResult,
 } from "./model/bookmark-contract";
+
+export { useBookmarkChanges } from "./model/use-bookmark-changes.client";

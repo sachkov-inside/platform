@@ -12,7 +12,7 @@ import type {
   DeleteMaterialDraftResult,
 } from "@/features/material-lifecycle";
 import type { MaterialAuthoringVideo } from "@/features/material-video";
-import type { GuideRemoval } from "@/shared/lib/guide-removal";
+import type { ProductRemoval } from "@/shared/lib/product-removal";
 
 export type MaterialSaveState =
   | { readonly kind: "clean" }
@@ -28,7 +28,7 @@ export interface MaterialSelectOption {
 
 export interface MaterialDraftPresentation {
   readonly sourcePath?: string;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly canDelete: boolean;
   readonly cover?: ContentCover | null | undefined;
   readonly document: JSONContent;
@@ -72,8 +72,8 @@ export interface MaterialPreviewPresentation {
   readonly topic: string;
   readonly publicationState: "draft" | "published" | "unpublished";
   /**
-   * Основное видео материала. Плеер работает только у опубликованного урока, поэтому предпросмотр
-   * называет состояние видео словами. Без поля строка о видео не выводится.
+   * Основное видео материала. Готовое видео предпросмотр показывает плеером и у черновика; когда
+   * видео нет или оно не готово, состояние названо словами. Без поля о видео ничего не выводится.
    */
   readonly video?: MaterialPreviewVideo;
 }
@@ -81,9 +81,11 @@ export interface MaterialPreviewPresentation {
 export type MaterialPreviewVideo =
   | { readonly kind: "none" }
   | {
+      readonly durationSeconds?: number | undefined;
       readonly kind: "attached";
       readonly ready: boolean;
       readonly title: string;
+      readonly videoId: string;
     }
   | { readonly kind: "unavailable" };
 
@@ -108,11 +110,11 @@ export interface MaterialPreviewRouteSection {
  */
 export type MaterialPreviewRoutePresentation =
   | {
-      readonly guideName: string;
+      readonly productName: string;
       readonly kind: "ready";
       readonly next: MaterialPreviewRouteItem | null;
       /** Другие руководства этого материала: переход открывает его в их маршруте. */
-      readonly otherGuides: readonly {
+      readonly otherProducts: readonly {
         readonly href: Route;
         readonly name: string;
       }[];
@@ -153,6 +155,11 @@ export type MaterialWorkspaceBlockingState =
 
 export interface MaterialAuthoringPresentation {
   readonly availableFormats: readonly MaterialSelectOption[];
+  /**
+   * Подпись возврата: к списку материалов или в редактор продукта, откуда открыт материал (#837).
+   * Страница редактора задаёт её по адресу возврата; без неё возврат ведёт к списку материалов.
+   */
+  readonly backLabel?: string;
   readonly availableSeries: readonly MaterialSelectOption[];
   readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];
@@ -167,7 +174,7 @@ export interface MaterialAuthoringPresentation {
   readonly noticeRevision: number;
   /** Снятие опубликованного материала из купленных продуктов ждёт подтверждения автора. */
   readonly removalConfirmation?: {
-    readonly guides: readonly GuideRemoval[];
+    readonly products: readonly ProductRemoval[];
     readonly pending: boolean;
   } | null;
   readonly save: MaterialSaveState;
@@ -181,9 +188,9 @@ export type MaterialDraftField =
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
   /** Автор оставляет материал в купленных продуктах: снятие отменяется. */
-  readonly onCancelGuideRemoval: () => void;
+  readonly onCancelProductRemoval: () => void;
   /** Автор подтверждает снятие материала из купленных продуктов. */
-  readonly onConfirmGuideRemoval: () => void;
+  readonly onConfirmProductRemoval: () => void;
   readonly onConflictAction: (
     action: "compare" | "copy" | "open_current",
   ) => void;

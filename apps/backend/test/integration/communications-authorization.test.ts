@@ -1,11 +1,12 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { TelegramAccountSignIn } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/telegram-account-sign-in.js";
 /** The first sign-in screen is already passed in these scenarios. */
 const acceptedTerms = {
   checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }),
 };
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -20,6 +21,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const issuer = "https://communications.test/oidc";
 const secret = "synthetic-authorization-secret";
@@ -37,6 +40,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     ownerId = (
       await bootstrapOwnerAccount(database.prisma, { issuer, subject: "owner" })
     ).accountId;
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = new Date();
     await database.prisma.telegramLinkTransaction.create({
       data: {
@@ -319,17 +323,14 @@ describe("communications permission and confirmed author HTTP authorization", ()
       prisma: database.prisma,
       emailFingerprintKey: "synthetic-sign-in-fingerprint-key",
     });
-    const entitlements = assembleMembershipEntitlements({
+    const entitlements = assembleAccountRights({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     const signIn = new TelegramAccountSignIn({
       terms: acceptedTerms,
       accounts,
       prisma: database.prisma,
-      membershipEntitlements: entitlements,
+      accountRights: entitlements,
       provider: {
         bindAccount: () =>
           Promise.resolve({

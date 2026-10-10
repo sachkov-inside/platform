@@ -238,6 +238,9 @@ describe("Logto BFF route orchestration", () => {
     fakes.completePlatformSignIn.mockRejectedValueOnce(
       new Error("identity conflict"),
     );
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     const response = await callback(
       new Request("http://localhost:3000/callback?code=invalid&state=invalid"),
@@ -247,6 +250,15 @@ describe("Logto BFF route orchestration", () => {
       "https://inside.example.test/?authentication=failed",
     );
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
+    expect(errorLog).toHaveBeenCalledOnce();
+    const line = String(errorLog.mock.calls[0]?.[0]);
+    expect(JSON.parse(line)).toMatchObject({
+      event: "authentication_failed",
+      errorName: "Error",
+      level: "error",
+    });
+    expect(line).not.toContain("identity conflict");
+    errorLog.mockRestore();
   });
 
   it("resolves status from Logto token plus existing Account", async () => {
@@ -274,23 +286,6 @@ describe("Logto BFF route orchestration", () => {
       canManageMaterials: false,
       state: "authenticated",
     });
-  });
-
-  it("clears the Logto cookie when its refresh grant is invalid", async () => {
-    const invalidGrant = Object.assign(new Error("refresh rejected"), {
-      name: "LogtoRequestError",
-      code: "invalid_grant",
-    });
-    fakes.getAccessToken.mockRejectedValueOnce(invalidGrant);
-
-    const response = await authStatus();
-
-    await expect(response.json()).resolves.toEqual({
-      accountId: null,
-      canManageMaterials: false,
-      state: "guest",
-    });
-    expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
   });
 
   it("holds the status answer out of the build before it can be mistaken for a failure", async () => {

@@ -21,6 +21,13 @@ TLS заканчивается на системном Caddy, поэтому `St
 `inside.sachkov.dev`. Preload не включён: его снятие занимает месяцы и затрагивает весь
 `sachkov.dev`, это отдельное решение владельца. Next.js HSTS не дублирует.
 
+### Дополнение 09.10.2026: основной домен #421
+
+После применения [#421](https://github.com/sachkov-inside/platform/issues/421) Caddy выдаёт
+годовой HSTS также на `sachkov.dev` и `www.sachkov.dev`, без `includeSubDomains`.
+Старый `inside.sachkov.dev` сохраняет `includeSubDomains`. Перенос не распространяет прежнюю
+политику на все поддомены apex. Maintenance применяет ту же границу.
+
 ## `'unsafe-inline'` в `script-src` остаётся
 
 Next.js передаёт браузеру данные React (RSC payload) встроенными скриптами
@@ -41,8 +48,8 @@ Next.js передаёт браузеру данные React (RSC payload) вс�
 
 Остальная политика не меняется и ограничивает последствия внедрённого скрипта: `default-src
 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`,
-`connect-src` только на свой origin и Kinescope; в разработке к нему добавлен сервер замечаний
-Agentation `http://127.0.0.1:4747` (#808). `'unsafe-eval'` разрешён только в разработке.
+`connect-src` только на свой origin и Kinescope; сервер замечаний Agentation из разработки снят
+вместе с панелью (решение владельца 09.10.2026). `'unsafe-eval'` разрешён только в разработке.
 Локальные адреса хранилища (`http://127.0.0.1:*`, `http://localhost:9000`) входят в `img-src`
 только в разработке. Единственное исключение — production-сборка `pnpm smoke:fullstack`: она ходит
 в локальное хранилище и получает его адрес явно через `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`; сборка

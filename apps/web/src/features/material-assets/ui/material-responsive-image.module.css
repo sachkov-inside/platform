@@ -1,0 +1,38 @@
+.container {
+  container-type: inline-size;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Reserve the composition before hydration measures the actual article column. */
+.composition {
+  --light: calc(1 - var(--theme-is-dark, 0));
+  --dark: var(--theme-is-dark, 0);
+  aspect-ratio: calc(
+      var(--tall-light-width) * var(--light) + var(--tall-dark-width) *
+        var(--dark)
+    ) /
+    calc(
+      var(--tall-light-height) * var(--light) + var(--tall-dark-height) *
+        var(--dark)
+    );
+  position: relative;
+}
+
+.composition > div {
+  position: absolute;
+  inset: 0;
+}
+
+@container (min-width: 560px) {
+  .composition {
+    aspect-ratio: calc(
+        var(--wide-light-width) * var(--light) + var(--wide-dark-width) *
+          var(--dark)
+      ) /
+      calc(
+        var(--wide-light-height) * var(--light) + var(--wide-dark-height) *
+          var(--dark)
+      );
+  }
+}

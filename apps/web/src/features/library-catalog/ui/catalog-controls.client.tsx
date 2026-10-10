@@ -53,7 +53,8 @@ export function CatalogControls({
 }
 
 /** Высота поля поиска. Её же занимает место поиска, пока данных ещё нет. */
-const searchFieldHeight = "min-h-14";
+/** Поле поиска: 44 px на телефоне по мобильной норме, 56 px на широком экране. */
+const searchFieldHeight = "min-h-11 sm:min-h-14";
 
 /**
  * Место поиска в состоянии загрузки: высота та же, что у настоящего поля, но собственного
@@ -83,7 +84,7 @@ export function LibrarySearchControl({
           Поиск по материалам
         </label>
         <div
-          className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}
+          className={`relative flex ${searchFieldHeight} items-center gap-2.5 rounded-xl bg-muted px-3.5 sm:gap-3 sm:rounded-2xl sm:px-4`}
         >
           <Search
             aria-hidden="true"
@@ -291,7 +292,7 @@ function TopicOption({
         type="radio"
         value={value}
       />
-      <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+      <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
         {label}
         {count === undefined ? null : <span className="text-xs">{count}</span>}
       </span>
@@ -340,7 +341,7 @@ function CatalogFormatFieldset({
               type="radio"
               value={option.slug ?? ""}
             />
-            <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+            <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
               {option.label}
               {option.slug !== null && counts.has(option.slug) ? (
                 <span className="text-xs">{counts.get(option.slug)}</span>

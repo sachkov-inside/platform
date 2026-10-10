@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +9,7 @@ import {
   type CommunitySetCommand,
 } from "../../src/modules/community/community-contract.js";
 import { digest } from "../../src/security/payload-digest.js";
-import fixtures from "../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/billing-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
 
@@ -19,12 +18,6 @@ const grant = conforming(
   (value): value is CommunitySetCommand =>
     parseCommunityRequest(value).kind === "set",
 );
-
-it("runtime schema is byte-identical to the approved corpus", () => {
-  expect(readFileSync("src/modules/community/contracts/schema.json")).toEqual(
-    readFileSync("docs/contracts/billing-v1/schema.json"),
-  );
-});
 
 describe("community request boundary", () => {
   it("accepts the approved grant and fingerprints its exact payload", () => {

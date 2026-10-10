@@ -1,7 +1,4 @@
-import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
-import { contactLock } from "../communications/communication-state.js";
-import { updateMarketingAvailability } from "../communications/marketing-preferences.js";
-import { sql } from "kysely";
+import { CONTACT_EFFECTS, type ContactEffects } from "./contact-effects.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
@@ -27,6 +24,7 @@ export class BotContacts {
     @Inject(DATABASE) private readonly database: Database,
     @Inject(APPLICATION_CONFIG)
     private readonly config: ApplicationConfig,
+    @Inject(CONTACT_EFFECTS) private readonly effects: ContactEffects,
   ) {}
 
   async observeStart(
@@ -35,7 +33,7 @@ export class BotContacts {
   ): Promise<ContactOutcome> {
     return this.database.transaction().execute(async (transaction) => {
       // Only this BotContact is serialized: marketing dispatch and planning never delay /start.
-      await contactLock(
+      await this.effects.lock(
         transaction,
         this.config.botIdentity,
         start.telegramUserId,
@@ -48,7 +46,7 @@ export class BotContacts {
         .forNoKeyUpdate()
         .executeTakeFirst();
 
-      await updateMarketingAvailability(
+      await this.effects.availability(
         transaction,
         start.botIdentity,
         start.telegramUserId,
@@ -86,10 +84,10 @@ export class BotContacts {
           existing.contactability === "blocked" ? "reactivated" : "refreshed";
       }
 
-      await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id)
-        values(gen_random_uuid(),${start.botIdentity},${start.telegramUserId})
-        on conflict(bot_identity,telegram_user_id) do nothing`.execute(
+      await this.effects.ensure(
         transaction,
+        start.botIdentity,
+        start.telegramUserId,
       );
 
       await transaction
@@ -107,18 +105,13 @@ export class BotContacts {
 
       if (responseKind === "none") return { contact, responsePlanned: false };
 
-      const responsePlanned = await enqueueReply(transaction, {
-        botIdentity: start.botIdentity,
-        telegramUserId: start.telegramUserId,
-        privateChatId: start.privateChatId,
-        messageText:
-          responseKind === "link-receipt"
-            ? this.config.linkReceiptText
-            : this.config.welcomeText,
-        sourceKey: `telegram-update:${start.botIdentity}:${start.updateId}`,
-        triggerUpdateId: start.updateId,
-        now: start.observedAt,
-      });
+      const responsePlanned = await this.effects.reply(
+        transaction,
+        start,
+        responseKind === "link-receipt"
+          ? this.config.linkReceiptText
+          : this.config.welcomeText,
+      );
 
       return { contact, responsePlanned };
     });
@@ -128,12 +121,12 @@ export class BotContacts {
     observation: VerifiedPrivateContactability,
   ): Promise<boolean> {
     return this.database.transaction().execute(async (transaction) => {
-      await contactLock(
+      await this.effects.lock(
         transaction,
         this.config.botIdentity,
         observation.telegramUserId,
       );
-      await updateMarketingAvailability(
+      await this.effects.availability(
         transaction,
         observation.botIdentity,
         observation.telegramUserId,

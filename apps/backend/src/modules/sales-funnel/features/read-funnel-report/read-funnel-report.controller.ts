@@ -48,7 +48,7 @@ export class ReadFunnelReportController {
   @ApiOperation({
     operationId: "readSalesFunnelReport",
     summary:
-      "Read the aggregated sales funnel of one Guide by bot source for the owner",
+      "Read the aggregated sales funnel of one Product by bot source for the owner",
   })
   @ApiQuery({
     name: "from",
@@ -61,9 +61,9 @@ export class ReadFunnelReportController {
     schema: toOpenApiSchema(funnelReportQuerySchema.shape.to),
   })
   @ApiQuery({
-    name: "guideId",
+    name: "productId",
     required: false,
-    schema: toOpenApiSchema(funnelReportQuerySchema.shape.guideId),
+    schema: toOpenApiSchema(funnelReportQuerySchema.shape.productId),
   })
   @ApiQuery({
     name: "chapterId",
@@ -88,7 +88,7 @@ export class ReadFunnelReportController {
   @ApiResponse({
     status: 404,
     content: problemDetailsContent(
-      problemDetailsSchema(404, ["guide_not_found", "chapter_not_found"]),
+      problemDetailsSchema(404, ["product_not_found", "chapter_not_found"]),
     ),
   })
   @ApiResponse({
@@ -117,8 +117,8 @@ export class ReadFunnelReportController {
           "forbidden",
           "Sales report permission required",
         );
-      case "guide_not_found":
-        throw problemException(404, "guide_not_found", "Guide not found");
+      case "product_not_found":
+        throw problemException(404, "product_not_found", "Product not found");
       case "chapter_not_found":
         throw problemException(404, "chapter_not_found", "Chapter not found");
       case "dependency_unavailable":

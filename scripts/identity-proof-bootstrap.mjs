@@ -124,10 +124,14 @@ async function main() {
   await ensureSignInPhrases(api);
   await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);
-  // Учебный доступ стенда настраивает тот же модуль, что и production (#938).
-  const learner = onStand
-    ? await provisionLearnerAccess(api, { resource: standLearnerMcpUrl })
-    : undefined;
+  // Учебный доступ стенда и изолированного SDK proof настраивает production модуль (#938).
+  const learnerResource = onStand
+    ? standLearnerMcpUrl
+    : process.env["IDENTITY_PROOF_LEARNER_MCP_URL"];
+  const learner =
+    learnerResource === undefined
+      ? undefined
+      : await provisionLearnerAccess(api, { resource: learnerResource });
   await writeRuntimeEnvironment(
     application.id,
     applicationSecret,
@@ -578,6 +582,9 @@ async function writeRuntimeEnvironment(
     IDENTITY_EMAIL_FINGERPRINT_KEY:
       existing["IDENTITY_EMAIL_FINGERPRINT_KEY"] ?? randomSecret(),
     WEB_BASE_URL: webBaseUrl,
+    ...(learnerClientId === undefined || onStand
+      ? {}
+      : { IDENTITY_PROOF_LEARNER_CLIENT_ID: learnerClientId }),
   };
   await mkdir(dirname(envPath), { recursive: true });
   await writeEnvFile(envPath, mergeEnv(current, updates));

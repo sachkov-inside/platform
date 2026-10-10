@@ -16,7 +16,7 @@ export interface NativeReviewInput {
   readonly outputMode?: "json" | "text";
   /**
    * The tested profile. `practice-v2` reads only and exposes one practice tool. `task-v3` (#946)
-   * exposes the four Guide Task tools and a shell, because procedure v3 lets the learner consent to
+   * exposes the four Product Task tools and a shell, because procedure v3 lets the learner consent to
    * one named command; writes to the project stay outside the profile.
    */
   readonly profile?: "practice-v2" | "task-v3";

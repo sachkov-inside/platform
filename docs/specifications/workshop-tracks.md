@@ -1,14 +1,15 @@
 # Workshop Tracks and Laboratories application specification
 
-Статус: **снят с плана**. 16.09.2026 владелец снял Мастерскую и первый Kafka Track с плана и
+Статус: **отменён** [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026:
+Мастерской не будет, документ — только история. Модуль `workshop`, оценщик и вид доступа удалены
+в [#1063](https://github.com/sachkov-inside/platform/issues/1063). Раньше, 16.09.2026, владелец снял Мастерскую и первый Kafka Track с плана и
 удалил их задачи. Документ сохраняется как историческая запись repository-local contract. Он
 реализовывал подтверждённую shared границу
 [Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
 
 Дата исходного контракта: 2026-09-04. Отложен в текущем этапе Materials/Series.
 Текущий scope задаёт [MVP brief](../product/platform-mvp-brief.md); этот документ не является
-поручением реализовать Workshop или обещанием текущей подписки. Существующие foundations
-сохраняются. Возобновление работы требует отдельной задачи, а не переименования Series в Tracks.
+поручением реализовать Workshop или обещанием текущей подписки.
 
 ## 1. Результат и authority
 
@@ -23,8 +24,7 @@ learner progress и requirements первого Kafka-среза. Shared product
 implementation tickets и не угадываются здесь заранее.
 
 Прежняя [case-first application specification](./production-workshop-v1.md) больше не является
-текущим продуктовым контрактом. Уже реализованные foundations остаются доступными, но их повторное
-использование требует явного соответствия этой specification.
+текущим продуктовым контрактом. Её runtime foundations удалены в #1063; описание ниже сохраняет прежний контракт.
 
 ## 2. Product boundary
 
@@ -153,7 +153,7 @@ observable checkpoint. Optional поля `predictionPrompt`, `observationPrompt`
 `conclusionPrompt` поддерживают цикл «предположил → запустил → наблюдал → сделал вывод», но ни одно
 из них не является required gate.
 
-Step может содержать commands/config snippets, но guide должен объяснять назначение существенных
+Step может содержать commands/config snippets, но product должен объяснять назначение существенных
 частей. Простое копирование непрозрачного готового environment не удовлетворяет first-lab
 contract.
 
@@ -214,7 +214,7 @@ route-level fallback.
 
 Одна active Inside subscription поддерживает две отдельные Platform authorities:
 
-- `MembershipEntitlement` для Library/Materials;
+- `AccountRights` для Library/Materials;
 - `WorkshopEntitlement` для protected Workshop content.
 
 Одно accepted `MembershipEvidence` создаёт, продлевает и завершает оба bounded grants через их

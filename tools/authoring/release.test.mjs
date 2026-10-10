@@ -25,7 +25,7 @@ async function fixture(t) {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: null,
+      productId: null,
       chapterIds: [],
       materialIds: ["one"],
       complete: true,
@@ -56,7 +56,7 @@ async function fixture(t) {
         artifacts: [],
       },
     ],
-    guides: [],
+    products: [],
     assets: [],
     diagnostics: [],
   };
@@ -92,7 +92,7 @@ function api(mode = "development") {
     async request(path, body, key) {
       if (path.endsWith("/environment")) return { mode };
       if (path === "/authoring/collections?kind=topic") return [];
-      if (path === "/authoring/collections?kind=guide") return [];
+      if (path === "/authoring/collections?kind=product") return [];
       if (path.endsWith("/validate")) return { valid: true };
       if (path === `/authoring/materials/${materialId}`)
         return structuredClone(material);
@@ -378,8 +378,5 @@ test("the trusted production target matches the production API configuration", a
   assert.equal(production.issuer, env["LOGTO_ISSUER"]);
   assert.equal(production.resource, env["LOGTO_AUDIENCE"]);
   assert.equal(production.reader, env["PUBLIC_SITE_ORIGIN"]);
-  assert.equal(
-    production.id,
-    `${String(env["PUBLIC_SITE_ORIGIN"])}/authoring-api`,
-  );
+  assert.equal(production.id, "https://inside.sachkov.dev/authoring-api");
 });

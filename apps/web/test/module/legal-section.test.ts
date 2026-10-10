@@ -2,7 +2,11 @@ import { currentLegalEditions } from "@inside/legal";
 import { legalDocumentKeys } from "@inside/legal/document";
 import { expect, it } from "vitest";
 
-import { LEGAL_GROUP_ORDER, LEGAL_NAVIGATION } from "@/entities/legal-document";
+import {
+  LEGAL_GROUP_ORDER,
+  LEGAL_HIDDEN_FROM_NAVIGATION,
+  LEGAL_NAVIGATION,
+} from "@/entities/legal-document";
 import {
   purchaseConsentPolicy,
   type LegalDocument,
@@ -12,10 +16,13 @@ import {
   legalEditionPath,
 } from "@/shared/routing/public-page-path";
 
-it("раздел показывает каждый действующий документ ровно один раз", () => {
+it("раздел показывает каждый действующий документ ровно один раз, кроме явно снятых", () => {
   const listed = LEGAL_NAVIGATION.map((entry) => entry.key);
 
-  expect([...listed].sort()).toEqual([...legalDocumentKeys].sort());
+  // Снятый с навигации документ назван явно: новый документ не может пропасть из раздела молча.
+  const hidden = LEGAL_HIDDEN_FROM_NAVIGATION.map((entry) => entry.key);
+  expect([...listed, ...hidden].sort()).toEqual([...legalDocumentKeys].sort());
+  for (const key of hidden) expect(listed).not.toContain(key);
   expect(new Set(listed).size).toBe(listed.length);
   for (const entry of LEGAL_NAVIGATION) {
     expect(LEGAL_GROUP_ORDER).toContain(entry.group);

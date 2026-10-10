@@ -1,3 +1,4 @@
+import type { ReadHomeProjectionsOperation } from "../../features/read-home-projections/read-home-projections.contract.js";
 import type {
   ReadPublishedPracticeOperation,
   ListPublishedPracticesOperation,
@@ -10,6 +11,7 @@ import type { ReadPublishedMaterialOperation } from "../../features/read-publish
 export interface PublishedMaterialReader {
   readonly readPractice: ReadPublishedPracticeOperation;
   readonly listPractices: ListPublishedPracticesOperation;
+  readonly readHomeProjections: ReadHomeProjectionsOperation;
   readonly readHomePinnedSeries: ReadHomePinnedSeriesOperation;
   readonly discoverProjections: DiscoverPublishedMaterialProjectionsOperation;
   readonly listProjections: ListPublishedMaterialProjectionsOperation;

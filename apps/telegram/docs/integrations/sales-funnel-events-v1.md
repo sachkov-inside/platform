@@ -4,8 +4,8 @@ Platform owns the contract `inside.sales-funnel-events.v1` and the Sales Funnel 
 ([platform#816](https://github.com/sachkov-inside/platform/issues/816), Platform document
 `docs/integrations/sales-funnel-events-v1.md`). This document describes the Telegram side delivered
 by [Telegram #118](https://github.com/sachkov-inside/inside-telegram/issues/118). The request and
-receipt schemas are vendored verbatim from Platform's OpenAPI operation `recordSalesFunnelBotEvents`
-in [`src/contracts/inside-sales-funnel-events-v1/`](../../src/contracts/inside-sales-funnel-events-v1/);
+receipt schemas describe Platform's OpenAPI operation `recordSalesFunnelBotEvents`
+in [`docs/contracts/inside-sales-funnel-events-v1/`](../../../../docs/contracts/inside-sales-funnel-events-v1/);
 replace them only from a newer Platform OpenAPI.
 
 ## Events
@@ -61,7 +61,11 @@ keeps a `409` from rejecting unrelated events.
 - Every other answer, an invalid receipt or a transport failure retries the same event with backoff
   up to five minutes, without limit.
 - With delivery disabled, events stay queued and are sent once delivery is enabled.
+- The hourly retention cycle deletes a delivered event `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS`
+  days after its delivery (default 30). A repeated
+  emission of the same fact after that is sent again and Platform answers it as a duplicate.
+  Events in any other state, `rejected` included, stay.
 
 The behaviour is exercised by `test/integration/sales-funnel-events.integration.test.ts` against a
-local double that validates the vendored schema and applies Platform's duplicate and conflict rules,
+local double that validates the shared schema and applies Platform's duplicate and conflict rules,
 and by `test/unit/sales-funnel.test.ts`.

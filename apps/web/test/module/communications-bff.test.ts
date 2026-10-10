@@ -9,13 +9,14 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestCommunicationVisit: mocks.visit,
   requestCommunicationsTemplate: mocks.request,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: mocks.session,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: mocks.session,
+    baseUrl: () => "https://inside.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.test" }),
-}));
+
 import {
   handleBroadcastLaunch,
   handleBroadcastPause,

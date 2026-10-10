@@ -2,7 +2,7 @@ import type { AccountId } from "../../../accounts/index.js";
 import type {
   MembershipEvidenceAcceptance,
   MembershipEvidenceSource,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 
 export type TelegramLinkStatus =
   | "conflict"
@@ -85,4 +85,15 @@ export interface TelegramMembership {
   acceptEvidence(
     command: AcceptTelegramEvidenceCommand,
   ): Promise<MembershipEvidenceAcceptance>;
+  /**
+   * Фоновый проход: завершает привязки, которые человек начал в боте, без его возврата на сайт.
+   * Бросает исключение при сбое базы; сбой Telegram остаётся состоянием привязки.
+   */
+  confirmPendingLinks(limit: number): Promise<PendingLinkConfirmationReport>;
 }
+
+/** Итог одного фонового прохода: сколько привязок завершено и сколько ещё ждут `/start`. */
+export type PendingLinkConfirmationReport = Readonly<{
+  linked: number;
+  pending: number;
+}>;

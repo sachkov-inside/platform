@@ -6,7 +6,7 @@ import { dependencyFailure } from "../../../infrastructure/observability/index.j
 
 /**
  * Delivery policy shared by every protected download this module serves.
- * Both Material assets and Guide Artifacts hand the reader either public
+ * Both Material assets and Product Artifacts hand the reader either public
  * immutable bytes or one short-lived signed address, under the same rules.
  */
 

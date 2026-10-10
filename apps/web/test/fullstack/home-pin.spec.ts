@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 test("author Home pin persists for guests and members, replaces and removes through the real BFF", async ({
   page,
@@ -38,7 +39,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       },
       { times: 1 },
     );
-    await page.goto("/authoring/guides");
+    await page.goto("/authoring/products");
     const releaseName = "Demo · Релиз своего проекта";
     const pin = page.getByRole("list", { name: "Все продукты" });
     const pinButton = () =>
@@ -63,18 +64,17 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await expect(
       pin.getByRole("button", { name: `Снять закреп «${releaseName}»` }),
     ).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: testInfo.outputPath("authoring-pin.png"),
-      fullPage: true,
     });
     const editorHref = await pin
       .getByRole("link", { name: new RegExp(releaseName, "u") })
       .getAttribute("href");
-    expect(editorHref).toMatch(/^\/authoring\/guides\//u);
-    if (editorHref === null) throw new Error("Guide editor link is missing");
-    // Legacy deep links open the same editor and the same persisted Guide selection.
+    expect(editorHref).toMatch(/^\/authoring\/products\//u);
+    if (editorHref === null) throw new Error("Product editor link is missing");
+    // Legacy deep links open the same editor and the same persisted Product selection.
     await page.goto(
-      editorHref.replace("/authoring/guides/", "/authoring/playlists/"),
+      editorHref.replace("/authoring/products/", "/authoring/playlists/"),
     );
     await expect(
       page.getByRole("textbox", { name: "Название продукта" }),
@@ -94,23 +94,21 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await expect(
       page.getByText("Продукт закреплён на главной.", { exact: true }),
     ).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("guide-editor.png"),
-      fullPage: true,
+    await screenshotWholePage(page, {
+      path: testInfo.outputPath("product-editor.png"),
     });
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(page.viewportSize()?.width ?? 1440);
-    await page.screenshot({
-      path: testInfo.outputPath("guide-editor-text-200.png"),
-      fullPage: true,
+    await screenshotWholePage(page, {
+      path: testInfo.outputPath("product-editor-text-200.png"),
     });
     await page.reload();
     await page
       .getByRole("button", { name: "Все продукты", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/authoring\/guides$/u);
+    await expect(page).toHaveURL(/\/authoring\/products$/u);
     await expect(
       pin.getByRole("button", { name: `Снять закреп «${releaseName}»` }),
     ).toBeVisible();
@@ -123,15 +121,15 @@ test("author Home pin persists for guests and members, replaces and removes thro
         viewer.getByRole("link", { name: "Открыть продукт", exact: true }),
       ).toHaveAttribute("href", "/products/demo-series-release?from=%2F");
       await expect(
-        viewer.locator(".home-guide-animation:visible"),
+        viewer.locator(".home-product-animation:visible"),
       ).toBeVisible();
       await expect(
         viewer.getByRole("button", { name: "Остановить анимацию" }),
       ).toHaveCount(0);
     }
-    // The guide scenes fade in and out for about five seconds; a fading scene reads as low contrast.
+    // The product scenes fade in and out for about five seconds; a fading scene reads as low contrast.
     await guestPage
-      .locator(".home-guide-animation:visible")
+      .locator(".home-product-animation:visible")
       .evaluate((element) =>
         Promise.all(
           element

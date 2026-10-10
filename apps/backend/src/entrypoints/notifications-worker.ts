@@ -14,9 +14,7 @@ import {
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { PrismaClientProvider } from "../infrastructure/prisma/index.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { assembleNotificationWorker } from "../infrastructure/notification-transport/worker.js";
-import { assembleBillingNotificationOutbox } from "../modules/billing/index.js";
-import { assembleMaterialsNotificationOutbox } from "../modules/materials/index.js";
+import { assembleNotificationPipeline } from "./notifications-worker/assemble-notification-pipeline.js";
 import {
   Notifications,
   assembleNotificationEmailSender,
@@ -42,10 +40,9 @@ async function bootstrap() {
     config.billingContact && config.notificationDelivery
       ? assembleNotificationEmailSender(config.billingContact)
       : undefined;
-  const worker = assembleNotificationWorker({
+  const worker = assembleNotificationPipeline({
     config: config.notifications,
-    billing: assembleBillingNotificationOutbox(prisma),
-    materials: assembleMaterialsNotificationOutbox(prisma),
+    prisma,
     transport: notifications.transport,
     processInbox: () => notifications.sweep(sendEmail),
     // Каждый проход разбора входящих вместе с его наблюдениями — своя единица работы в журнале.

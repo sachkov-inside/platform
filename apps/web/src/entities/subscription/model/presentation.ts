@@ -1,8 +1,8 @@
 import {
   capabilitiesOpening,
-  type ContentScope,
+  type Coverage,
 } from "@inside/access-capabilities";
-import { accessComposition, isGuideCapability } from "./billing-contract";
+import { accessComposition, isProductCapability } from "./billing-contract";
 import type {
   AccessCapability,
   AccessSource,
@@ -125,12 +125,12 @@ export function longestTerm(terms: readonly (number | null)[]): number | null {
 /**
  * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
  */
-export function contentScopeSummary(
-  scope: Pick<ContentScope, "guideIds" | "allGuides">,
+export function coverageSummary(
+  scope: Pick<Coverage, "productIds" | "wholePlatform">,
 ): string {
-  return scope.allGuides === true
+  return scope.wholePlatform === true
     ? "Все продукты платформы, включая новые"
-    : `Продукты: ${String(scope.guideIds.length)}`;
+    : `Продукты: ${String(scope.productIds.length)}`;
 }
 
 /**
@@ -239,7 +239,7 @@ export function offerCompositionLabel(offer: BillingOffer): string {
   // падежа, а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
   const parts: { readonly alone: string; readonly after: string }[] = [];
   const benefits = accessComposition(offer.benefits);
-  if (benefits.some(isGuideCapability)) {
+  if (benefits.some(isProductCapability)) {
     parts.push({ alone: "Продукт", after: "продуктом" });
   }
   if (benefits.includes("materials")) {
@@ -354,8 +354,9 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "unavailable":
       return "Данные оплаты сейчас недоступны. Повторите позже.";
     case "unauthorized":
-    case "forbidden":
       return "Сессия завершилась. Войдите снова.";
+    case "forbidden":
+      return "У вас нет права на это действие.";
     case "not_found":
       return "Мы не нашли эту операцию.";
     case "invalid_request":

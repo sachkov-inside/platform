@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -13,6 +14,8 @@ import type {
   TelegramMembership,
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
+
+registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
@@ -45,6 +48,7 @@ const config: ApplicationConfig = {
   },
   membershipMode: "disabled",
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipReconciliationCadenceMilliseconds: cadenceMilliseconds,
   platformIntegrationSecret: "synthetic_platform_secret",
   port: 3002,
@@ -498,12 +502,12 @@ describe("durable Membership reconciliation", () => {
     });
     clock.set(new Date("2030-01-01T00:04:00.000Z"));
 
-    const startedAt = Date.now();
+    const startedAt = performance.now();
     const outcome = await provider.reconcileDue(
       { maxDurationMs: 50, maxItems: 1 },
       clock,
     );
-    const elapsedMilliseconds = Date.now() - startedAt;
+    const elapsedMilliseconds = performance.now() - startedAt;
     hangingRead.resume();
     expect(outcome).toMatchObject({ failed: 1, processed: 1 });
     expect(elapsedMilliseconds).toBeLessThan(500);

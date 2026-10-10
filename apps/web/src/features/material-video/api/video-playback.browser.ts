@@ -16,11 +16,14 @@ export type MaterialVideoPlaybackSession = z.infer<typeof sessionSchema>;
 
 export async function createMaterialVideoPlaybackSession(input: {
   readonly materialId: string;
+  /** Author preview of the current saved Material: the backend checks `materials:manage`. */
+  readonly preview?: boolean;
   readonly videoId: string;
 }): Promise<MaterialVideoPlaybackSession | null> {
   const formData = new FormData();
   formData.set("materialId", input.materialId);
   formData.set("videoId", input.videoId);
+  if (input.preview === true) formData.set("preview", "true");
   const response = await requestSameOriginMutation(
     "/api/material-video-playback-sessions",
     "POST",

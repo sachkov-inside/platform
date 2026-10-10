@@ -4,7 +4,8 @@ import type { ReadingActivityPrismaClient } from "../../../../infrastructure/pri
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import {
-  discoverPublishedMaterials,
+  projectPublishedCatalogAvailability,
+  addPublishedCatalogDurations,
   type PublishedMaterialCatalogFacetDto,
 } from "../../../content-library/index.js";
 import type {
@@ -28,7 +29,10 @@ export interface SeriesContinuationDependencies {
   readonly prisma: ReadingActivityPrismaClient;
   readonly composition: Pick<PublishedSeriesComposition, "read">;
   readonly reader: Pick<PublishedMaterialReader, "discoverProjections">;
-  readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">;
+  readonly contentAccess: Pick<
+    ContentAccess,
+    "checkAvailabilityMany" | "checkProductAccess"
+  >;
   readonly videos: Pick<Videos, "loadReadyDurations" | "loadProgressMany">;
 }
 export type SeriesContinuationResult =
@@ -54,25 +58,12 @@ export async function getSeriesContinuation(
     return { ok: false, error: { code: "invalid_request" } };
   try {
     const subject = { kind: "account" as const, accountId: accountId(account) };
-    const series = await discoverPublishedMaterials(
-      dependencies.reader,
-      dependencies.contentAccess,
-      {
-        loadReadyDurations: async (ids) => {
-          try {
-            const result = await dependencies.videos.loadReadyDurations(ids);
-            return result.ok ? result : { ok: true as const, value: [] };
-          } catch (error) {
-            return dependencyFailure(
-              { module: "reading-activity", operation: "loadReadyDurations" },
-              error,
-              { ok: true as const, value: [] },
-            );
-          }
-        },
-      },
-      { kind: "series", slug, first: MAX_SERIES_MATERIALS, subject },
-    );
+    const series = await dependencies.reader.discoverProjections({
+      kind: "series",
+      slug,
+      first: MAX_SERIES_MATERIALS,
+      subject,
+    });
     if (!series.ok)
       return {
         ok: false,
@@ -83,10 +74,20 @@ export async function getSeriesContinuation(
               : "dependency_unavailable",
         },
       };
+    const projected = await projectPublishedCatalogAvailability(
+      dependencies.contentAccess,
+      subject,
+      series.value.items,
+    );
+    if (!projected.ok)
+      return { ok: false, error: { code: "dependency_unavailable" } };
+    const items = projected.items;
+
     if (series.value.hasNext)
       return { ok: false, error: { code: "dependency_unavailable" } };
     const composition = await dependencies.composition.read(
       series.value.reference.id,
+      { subject, contentAccess: dependencies.contentAccess },
     );
     if (!composition.ok)
       return {
@@ -98,7 +99,6 @@ export async function getSeriesContinuation(
               : "dependency_unavailable",
         },
       };
-    const items = series.value.items;
     const ids = items.map((item) => item.materialId);
     const [states, visited] = await Promise.all([
       dependencies.prisma.readingMaterialState.findMany({
@@ -124,12 +124,37 @@ export async function getSeriesContinuation(
         ? undefined
         : (items.slice(lastIndex).find(availableUnread) ??
           items.slice(0, lastIndex).find(availableUnread));
+    const previews = items.slice(0, 3);
+    const selected = await addPublishedCatalogDurations(
+      {
+        loadReadyDurations: async (ids) => {
+          try {
+            const result = await dependencies.videos.loadReadyDurations(ids);
+            return result.ok ? result : { ok: true as const, value: [] };
+          } catch (error) {
+            return dependencyFailure(
+              { module: "reading-activity", operation: "loadReadyDurations" },
+              error,
+              { ok: true as const, value: [] },
+            );
+          }
+        },
+      },
+      next === undefined || previews.includes(next)
+        ? previews
+        : [...previews, next],
+    );
+    if (!selected.ok)
+      return { ok: false, error: { code: "dependency_unavailable" } };
+    const selectedNext = selected.items.find(
+      (item) => item.materialId === next?.materialId,
+    );
     const resumes = await loadMaterialResumes(
       dependencies,
       subject,
-      next === undefined ? [] : [next],
+      selectedNext === undefined ? [] : [selectedNext],
     );
-    // The discovery reference carries Guide-page facts this projection does not publish, so the
+    // The discovery reference carries Product-page facts this projection does not publish, so the
     // catalog facet names its own fields: a spread would ship the next added one as an undeclared
     // key and every strict reader of this response would drop the whole continuation.
     const {
@@ -147,7 +172,7 @@ export async function getSeriesContinuation(
           count: items.length,
           id,
           name,
-          previewItems: items.slice(0, 3),
+          previewItems: selected.items.slice(0, 3),
           slug: collectionSlug,
           summary,
         },

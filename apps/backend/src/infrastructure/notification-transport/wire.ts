@@ -3,7 +3,7 @@ import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { z } from "zod";
 import { redactText } from "../observability/index.js";
-import { notificationSchema } from "./schema.generated.js";
+import notificationSchema from "@inside/contracts/notifications-v1/schema.json" with { type: "json" };
 import { hasText } from "../contracts/text.js";
 
 export const NOTIFICATION_MESSAGE_MAX_BYTES = 16 * 1024;

@@ -81,6 +81,7 @@ const config: ApplicationConfig = {
   marketingEnabled: false,
   membershipMode: "live",
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipReconciliationCadenceMilliseconds: 30_000,
   platformEvidenceDeliverySecret: required("CONFORMANCE_EVIDENCE_SECRET"),
   platformEvidenceDeliveryUrl: evidenceUrl,

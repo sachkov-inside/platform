@@ -11,9 +11,9 @@ Platform #434 владеет wire schema и protocol; Workspace #152 — shared 
 - [sources/notifications-v1.txt](sources/notifications-v1.txt): bytes shared specification;
   относительные ссылки исходника относятся к sourcePath/sourceCommit из manifest.
 
-Telegram #54 копирует весь bundle byte-for-byte, кроме этого repository-local README, и сохраняет
-exact Platform source SHA/status в собственном provenance.json. Candidate source из ещё не merged
-PR обозначается явно; merge порядок Workspace → Platform → Telegram. Runtime не импортирует чужие
-source/package/DB. Изменение semantics/required fields/enum после принятия требует новой version
-и согласованного corpus обеих сторон. Старый billing corpus остаётся неизменяемым для community;
-его notification shapes больше не являются target новой реализации.
+После [#1054](https://github.com/sachkov-inside/platform/issues/1054) Telegram и backend читают
+этот corpus через `@inside/contracts`. Прежние копии bundle и отдельный consumer provenance удалены.
+Manifest хранит историческое происхождение corpus; текущий порядок изменения и самостоятельной
+поставки задаёт [общий контракт](../README.md). Изменение semantics/required fields/enum после
+принятия требует новой version и согласованного corpus обеих сторон. Старый billing corpus
+остаётся неизменяемым для community; его notification shapes больше не являются target новой реализации.

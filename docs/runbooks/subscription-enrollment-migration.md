@@ -1,28 +1,28 @@
 # Локальная миграция тарифов #624
 
 Миграция 0063 создаёт Enrollment, ActivationRule, ActivationAttempt, SourceEntitlement и
-content_scope_baseline; добавляет scope к AccessGrant и legacy bridge. Не запускайте production
+coverage_baseline; добавляет scope к AccessGrant и legacy bridge. Не запускайте production
 операции по этому runbook без отдельного разрешения владельца.
 
 ## До применения
 
-Снимите backup выбранной локальной БД. Preview должен перечислить текущие неархивные Guide,
+Снимите backup выбранной локальной БД. Preview должен перечислить текущие неархивные Product,
 опубликованные Material, grants с materials, включённые legacy bridges и опубликованные
-subscription offers. Baseline включает текущие неархивные Guide целиком, включая их будущие шаги,
+subscription offers. Baseline включает текущие неархивные Product целиком, включая их будущие шаги,
 и только уже опубликованные отдельные Material. Проверьте состав с владельцем перед внешним rollout.
 
 ```sql
 SELECT id, name, slug, archived_at FROM materials.series WHERE archived_at IS NULL ORDER BY id;
 SELECT id, title, slug FROM materials.materials WHERE publication_state = 'published' ORDER BY id;
-SELECT source, count(*) FROM membership_entitlements.access_grants
+SELECT source, count(*) FROM account_rights.access_grants
  WHERE capabilities @> ARRAY['materials']::text[] GROUP BY source;
-SELECT classification, bridge_enabled, count(*) FROM membership_entitlements.legacy_classifications
+SELECT classification, bridge_enabled, count(*) FROM account_rights.legacy_classifications
  GROUP BY classification, bridge_enabled;
 SELECT id, name, published FROM billing.offers WHERE published AND EXISTS
  (SELECT 1 FROM billing.payment_options WHERE offer_id = billing.offers.id AND mode = 'subscription');
 ```
 
-Scope допускает максимум 1000 Guide и 1000 Material. При превышении требуется отдельный rollout
+Scope допускает максимум 1000 Product и 1000 Material. При превышении требуется отдельный rollout
 с расширением поддерживаемых границ, а не усечение. Идентичности pending course sources передаются
 через owner sources.register. Не выводите из presence в Telegram факт покупки или согласия.
 
@@ -33,7 +33,7 @@ Scope допускает максимум 1000 Guide и 1000 Material. При п
 Testcontainers и не занимают owner runtime. Проверка ниже создаёт и удаляет собственные test databases:
 
 ```bash
-pnpm --filter @inside/backend test:integration subscription-enrollments subscription-activation community-entitlements migrations --maxWorkers=2
+pnpm --filter @inside/backend test:integration tariff-assignments subscription-activation community-entitlements migrations --maxWorkers=2
 pnpm --filter @inside/backend contracts:check
 pnpm api:check
 pnpm mcp:check
@@ -44,8 +44,8 @@ pnpm mcp:check
 сообщения связываются по purchase source; банковские snapshots и receipts остаются исходными.
 
 Проверьте сохранность прежних grant IDs, capability lists, starts_at, valid_until и revoked_at.
-Сравните purchases/consents/receipts с backup. Новый отдельный Guide должен быть закрыт для старого
-baseline, новый шаг уже включённого Guide — открыт. Новые неплатёжные назначения не создают rows
+Сравните purchases/consents/receipts с backup. Новый отдельный Product должен быть закрыт для старого
+baseline, новый шаг уже включённого Product — открыт. Новые неплатёжные назначения не создают rows
 в billing.purchases. Перед запуском real provider требуется его отдельная проверка v2.
 
 ## Откат

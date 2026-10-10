@@ -1,7 +1,9 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../../src/modules/guide-tasks/index.js";
+} from "../../src/modules/product-tasks/index.js";
 import {
   CONTENT_ACCESS,
   type ContentAccess,
@@ -57,12 +59,14 @@ import {
   managementSchemas,
   type ProviderRequest,
 } from "../../src/modules/communications/communications-contract.js";
-import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
-import scenarios from "../../src/modules/communications/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import scenarios from "@inside/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
 import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const issuer = "https://communications.test/oidc";
 const audience = "https://communications.test/api";
@@ -194,6 +198,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
           ).accountId,
         );
       if (subject !== "unlinked") {
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         const now = new Date();
         await database.prisma.telegramLinkTransaction.create({
           data: {
@@ -299,6 +304,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   function token(subject: string) {
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const issuedAt = Math.floor(Date.now() / 1_000);
     return new SignJWT({})
       .setProtectedHeader({ alg: "ES384", kid: "communications-key" })
@@ -574,7 +580,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   for (const scenario of scenarios) {
-    test(`vendored consumer scenario: ${scenario.name}`, async () => {
+    test(`shared consumer scenario: ${scenario.name}`, async () => {
       for (const step of scenario.steps) {
         const request = requestSchema.parse(step.request);
         if (!("accountRef" in request.actor))

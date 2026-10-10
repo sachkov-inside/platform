@@ -1,3 +1,4 @@
+import { botContactRows } from "../bot-contacts/contact-access.js";
 import { hasText } from "../../shared/text.js";
 import {
   aggregateRow,
@@ -187,7 +188,7 @@ export async function readStatistics(
     select count(*)::int total, count(*) filter(where b.contactability='reachable')::int reachable,
       count(*) filter(where b.contactability='blocked')::int blocked,
       count(*) filter(where not coalesce(c.marketing_enabled,true))::int off
-    from bot_contacts b left join communication_contacts c using(bot_identity,telegram_user_id) where b.bot_identity=${bot}`.execute(
+    from (${botContactRows(tx)}) b left join communication_contacts c using(bot_identity,telegram_user_id) where b.bot_identity=${bot}`.execute(
     tx,
   );
   const participants = await sql<{
@@ -227,7 +228,7 @@ export async function readStatistics(
   );
   let contacts = tx
     .selectFrom("communication_contacts as c")
-    .innerJoin("bot_contacts as b", (j) =>
+    .innerJoin(botContactRows(tx).as("b"), (j) =>
       j
         .onRef("b.bot_identity", "=", "c.bot_identity")
         .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),

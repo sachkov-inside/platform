@@ -2,6 +2,7 @@ import { internalRoute } from "@/shared/routing/internal-route";
 import { describe, expect, it } from "vitest";
 
 import {
+  catalogReaderReturnHref,
   seriesReaderReturnHref,
   collectionDiscoveryHref,
   materialReaderHref,
@@ -10,8 +11,8 @@ import {
 } from "@/shared/routing/material-reader";
 
 describe("Material Reader navigation", () => {
-  it("preserves Guide and legacy contexts, page and selected Material", () => {
-    for (const prefix of ["guides", "series"]) {
+  it("preserves Product and legacy contexts, page and selected Material", () => {
+    for (const prefix of ["products", "guides", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({
         href,
@@ -30,6 +31,17 @@ describe("Material Reader navigation", () => {
       ).toBe("home");
     }
     expect(parseMaterialReaderReturnTarget(undefined).kind).toBe("home");
+  });
+
+  it("keeps a saved Guide programme return route", () => {
+    expect(parseMaterialReaderReturnTarget("/guides/course/programme")).toEqual(
+      {
+        href: "/guides/course/programme",
+        kind: "series",
+        seriesSlug: "course",
+        label: "Назад к программе",
+      },
+    );
   });
 
   it("round-trips Home feed, Playlist, Topic and Profile origins", () => {
@@ -139,5 +151,31 @@ describe("Series return context", () => {
     expect(
       parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind,
     ).toBe("home");
+  });
+});
+
+describe("Catalog return context", () => {
+  it("returns from a lesson to the Materials catalog and its card", () => {
+    const href = catalogReaderReturnHref(
+      internalRoute("/products/ai-engineering/programme?page=2"),
+      "how-mcp-works",
+    );
+    expect(href).toBe(
+      "/products/ai-engineering/programme?part=materials&at=how-mcp-works",
+    );
+    const reader = materialReaderHref("how-mcp-works", href);
+    expect(
+      parseMaterialReaderReturnTarget(
+        new URL(reader, "https://x.test").searchParams.get("from") ?? undefined,
+      ).href,
+    ).toBe(href);
+    expect(
+      parseMaterialReaderReturnTarget(
+        "/products/ai-engineering/programme?part=other",
+      ).kind,
+    ).toBe("home");
+    expect(parseMaterialReaderReturnTarget(href).label).toBe(
+      "Назад к материалам",
+    );
   });
 });

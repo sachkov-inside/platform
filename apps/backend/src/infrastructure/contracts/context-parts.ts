@@ -21,7 +21,7 @@ export interface ContextPart {
 }
 
 /**
- * One numbered part of a serialized learner context, as lesson practice and Guide Task reads
+ * One numbered part of a serialized learner context, as lesson practice and Product Task reads
  * return it: whole-content and per-part SHA-256, the part count and the next part to request.
  */
 export function contextPart(

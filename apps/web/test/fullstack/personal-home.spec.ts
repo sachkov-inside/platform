@@ -7,6 +7,7 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 async function dismissOnboarding(page: Page) {
   const dismiss = page.getByRole("button", {
@@ -68,10 +69,9 @@ async function screenshot(page: Page, project: string, surface: string) {
     await page.evaluate(() => {
       window.scrollTo(0, document.documentElement.scrollHeight);
     });
-  await page.screenshot({
-    path: resolve(directory, `${project}-inline-${surface}.png`),
-    fullPage: !captureViewport,
-  });
+  const path = resolve(directory, `${project}-inline-${surface}.png`);
+  if (captureViewport) await page.screenshot({ path });
+  else await screenshotWholePage(page, { path });
 }
 test("profile continuation opens the real series, persists marks and reconciles a lost visible open", async ({
   page,
@@ -149,7 +149,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
   const rowBefore = await nextRow.boundingBox();
   await page.route(
-    "**/api/reading-progress/guide-continuation",
+    "**/api/reading-progress/product-continuation",
     async (route) => {
       await route.fulfill({ status: 503 });
     },
@@ -158,7 +158,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0);
   expect(await nextRow.boundingBox()).toEqual(rowBefore);
-  await page.unroute("**/api/reading-progress/guide-continuation");
+  await page.unroute("**/api/reading-progress/product-continuation");
   await returnToStaleTab(page);
   await expect(current.locator("[data-material-slug]")).toHaveAttribute(
     "data-material-slug",
@@ -182,9 +182,9 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await current
     .getByRole("link", { name: "Гайд для проверки прогресса", exact: true })
     .click();
-  const guideMark = await unmark(page, "Изучено");
-  await guideMark.click();
-  await expect(guideMark).toHaveAttribute("aria-pressed", "true");
+  const productMark = await unmark(page, "Изучено");
+  await productMark.click();
+  await expect(productMark).toHaveAttribute("aria-pressed", "true");
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toHaveCount(0);
   await expect(
@@ -337,14 +337,46 @@ test("profile continuation preserves the account form through errors and exclude
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0);
   expect(opens).toEqual([]);
+  // The account form can render while continuation is still loading. Hold that first read to
+  // exercise this order without relying on machine speed; a focus during it shares the request.
+  const initialReadGate = Promise.withResolvers<undefined>();
+  const initialReadStarted = Promise.withResolvers<undefined>();
+  await page.route(
+    "**/api/personal-home",
+    async (route) => {
+      initialReadStarted.resolve(undefined);
+      await initialReadGate.promise;
+      await route.continue();
+    },
+    { times: 1 },
+  );
   await page.goto("/account");
   const field = page.getByRole("textbox").first();
   await expect(field).toBeVisible();
   const before = await field.boundingBox();
+  await initialReadStarted.promise;
+  const continuation = page.getByRole("region", {
+    name: "Продолжить обучение",
+  });
+  await expect(continuation.getByRole("status")).toHaveText(
+    "Загружаем продолжение обучения…",
+  );
+  initialReadGate.resolve(undefined);
+  // The rendered successful read pins the start of its freshness window. Advancing the clock
+  // before it settles would leave fresh data after focus, without ever requesting the mock 503.
+  await expect(continuation).toContainText(
+    /Откройте материал|Продолжить обучение/u,
+  );
   await page.route("**/api/personal-home", async (route) => {
     await route.fulfill({ status: 503 });
   });
+  const failedContinuation = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/personal-home") &&
+      response.status() === 503,
+  );
   await returnToStaleTab(page);
+  await failedContinuation;
   await expect(
     page.getByText("Не удалось загрузить продолжение обучения."),
   ).toBeVisible();

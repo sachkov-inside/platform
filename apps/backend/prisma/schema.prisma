@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "guide_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
 }
 
 model Account {
@@ -117,7 +117,7 @@ model MembershipBinding {
 
   @@unique([accountId, principalRef], map: "membership_account_bindings_pair_unique")
   @@map("account_bindings")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model MembershipEvidenceReceipt {
@@ -138,7 +138,7 @@ model MembershipEvidenceReceipt {
   @@index([accountId, receivedAt(sort: Desc), deliveryId(sort: Desc)], map: "membership_evidence_receipts_account_received_idx")
   @@index([retainUntil], map: "membership_evidence_receipts_retention_idx")
   @@map("evidence_receipts")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model MembershipProjection {
@@ -153,130 +153,7 @@ model MembershipProjection {
   updatedAt           DateTime @map("updated_at") @db.Timestamptz
 
   @@map("current_projections")
-  @@schema("membership_entitlements")
-}
-
-model WorkshopEntitlement {
-  id                 String   @id @db.Uuid
-  accountId          String   @map("account_id") @db.Uuid
-  workshopScope      String   @map("workshop_scope") @db.VarChar(128)
-  startsAt           DateTime @map("starts_at") @db.Timestamptz
-  validUntil         DateTime @map("valid_until") @db.Timestamptz
-  grantSource        String   @map("grant_source") @db.VarChar(64)
-  grantedBy          String   @map("granted_by") @db.Uuid
-  idempotencyKey     String   @map("idempotency_key") @db.VarChar(200)
-  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
-  createdAt          DateTime @map("created_at") @db.Timestamptz
-
-  @@unique([grantedBy, idempotencyKey], map: "workshop_entitlements_idempotency_unique")
-  @@index([accountId, workshopScope, validUntil(sort: Desc)], map: "workshop_entitlements_access_idx")
-  @@map("entitlements")
-  @@schema("workshop")
-}
-
-model WorkshopMembershipEntitlementProjection {
-  accountId           String   @id @map("account_id") @db.Uuid
-  principalRef        String   @unique(map: "workshop_membership_entitlement_principal_unique") @map("principal_ref") @db.VarChar(256)
-  decision            String
-  evidenceRef         String   @map("evidence_ref") @db.VarChar(256)
-  evidenceVersion     BigInt   @map("evidence_version") @db.BigInt
-  evidenceFingerprint String   @map("evidence_fingerprint") @db.Char(64)
-  checkedAt           DateTime @map("checked_at") @db.Timestamptz
-  validUntil          DateTime @map("valid_until") @db.Timestamptz
-  updatedAt           DateTime @map("updated_at") @db.Timestamptz
-
-  @@map("membership_entitlement_projections")
-  @@schema("workshop")
-}
-
-model WorkshopCase {
-  id               String               @id @db.Uuid
-  slug             String               @unique(map: "workshop_cases_slug_unique") @db.VarChar(120)
-  workshopScope    String               @map("workshop_scope") @db.VarChar(128)
-  lifecycle        String
-  currentVersionId String?              @unique(map: "workshop_cases_current_version_unique") @map("current_version_id") @db.Uuid
-  createdAt        DateTime             @map("created_at") @db.Timestamptz
-  updatedAt        DateTime             @map("updated_at") @db.Timestamptz
-  currentVersion   WorkshopCaseVersion? @relation("WorkshopCurrentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
-  versions         WorkshopCaseVersion[] @relation("WorkshopCaseVersions")
-
-  @@map("cases")
-  @@schema("workshop")
-}
-
-model WorkshopCaseVersion {
-  id                     String                 @id @db.Uuid
-  caseId                 String                 @map("case_id") @db.Uuid
-  caseVersion            String                 @map("case_version") @db.VarChar(128)
-  schemaVersion          String                 @map("schema_version") @db.VarChar(128)
-  caseSpec               Json                   @map("case_spec")
-  contentDigest          String                 @map("content_digest") @db.Char(64)
-  sourceRepository       String                 @map("source_repository") @db.VarChar(256)
-  sourceCommit           String                 @map("source_commit") @db.Char(40)
-  artifacts              Json
-  publicationFingerprint String                 @map("publication_fingerprint") @db.Char(64)
-  publishedBy            String                 @map("published_by") @db.Uuid
-  idempotencyKey         String                 @map("idempotency_key") @db.VarChar(200)
-  publishedAt            DateTime               @map("published_at") @db.Timestamptz
-  withdrawnAt            DateTime?              @map("withdrawn_at") @db.Timestamptz
-  workshopCase           WorkshopCase           @relation("WorkshopCaseVersions", fields: [caseId], references: [id], onDelete: Restrict)
-  currentFor             WorkshopCase?          @relation("WorkshopCurrentVersion")
-  materials              WorkshopCaseMaterial[]
-  hintReveals            WorkshopHintReveal[]
-  solutionReveals        WorkshopSolutionReveal[]
-
-  @@unique([caseId, caseVersion], map: "workshop_case_versions_domain_version_unique")
-  @@unique([sourceRepository, sourceCommit, contentDigest], map: "workshop_case_versions_source_unique")
-  @@unique([publishedBy, idempotencyKey], map: "workshop_case_versions_idempotency_unique")
-  @@map("case_versions")
-  @@schema("workshop")
-}
-
-model WorkshopCaseMaterial {
-  caseVersionId String              @map("case_version_id") @db.Uuid
-  materialId    String              @map("material_id") @db.Uuid
-  role          String
-  ordinal       Int
-  releasePolicy String              @map("release_policy")
-  hintKey       String?             @map("hint_key") @db.VarChar(128)
-  caseVersion   WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
-
-  @@id([caseVersionId, materialId], map: "workshop_case_materials_primary")
-  @@unique([caseVersionId, ordinal], map: "workshop_case_materials_ordinal_unique")
-  @@map("case_materials")
-  @@schema("workshop")
-}
-
-model WorkshopHintReveal {
-  id                 String              @id @db.Uuid
-  accountId          String              @map("account_id") @db.Uuid
-  caseVersionId      String              @map("case_version_id") @db.Uuid
-  hintKey            String              @map("hint_key") @db.VarChar(128)
-  idempotencyKey     String              @map("idempotency_key") @db.VarChar(200)
-  requestFingerprint String              @map("request_fingerprint") @db.Char(64)
-  revealedAt         DateTime            @map("revealed_at") @db.Timestamptz
-  caseVersion        WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
-
-  @@unique([accountId, caseVersionId, hintKey], map: "workshop_hint_reveals_identity_unique")
-  @@unique([accountId, idempotencyKey], map: "workshop_hint_reveals_idempotency_unique")
-  @@map("hint_reveals")
-  @@schema("workshop")
-}
-
-model WorkshopSolutionReveal {
-  id                 String              @id @db.Uuid
-  accountId          String              @map("account_id") @db.Uuid
-  caseVersionId      String              @map("case_version_id") @db.Uuid
-  reason             String
-  idempotencyKey     String              @map("idempotency_key") @db.VarChar(200)
-  requestFingerprint String              @map("request_fingerprint") @db.Char(64)
-  revealedAt         DateTime            @map("revealed_at") @db.Timestamptz
-  caseVersion        WorkshopCaseVersion @relation(fields: [caseVersionId], references: [id], onDelete: Restrict)
-
-  @@unique([accountId, caseVersionId], map: "workshop_solution_reveals_identity_unique")
-  @@unique([accountId, idempotencyKey], map: "workshop_solution_reveals_idempotency_unique")
-  @@map("solution_reveals")
-  @@schema("workshop")
+  @@schema("account_rights")
 }
 
 model TelegramLinkTransaction {
@@ -322,7 +199,7 @@ model Tag {
   @@schema("materials")
 }
 
-model Guide {
+model Product {
   sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
   slug          String    @unique(map: "series_slug_unique")
@@ -344,7 +221,7 @@ model Guide {
   @@schema("materials")
 }
 
-model GuideArtifact {
+model ProductArtifact {
   id              String    @id @db.Uuid
   title           String    @db.VarChar(200)
   purpose         String    @default("") @db.VarChar(1000)
@@ -361,17 +238,17 @@ model GuideArtifact {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
-  versions      GuideArtifactVersion[]
-  placements    GuideArtifactPlacement[]
-  materialLinks GuideArtifactMaterialLink[]
+  versions      ProductArtifactVersion[]
+  placements    ProductArtifactPlacement[]
+  materialLinks ProductArtifactMaterialLink[]
 
-  @@unique([sourceId], map: "guide_artifacts_source_unique")
-  @@index([state, updatedAt(sort: Desc)], map: "guide_artifacts_state_idx")
-  @@map("guide_artifacts")
+  @@unique([sourceId], map: "product_artifacts_source_unique")
+  @@index([state, updatedAt(sort: Desc)], map: "product_artifacts_state_idx")
+  @@map("product_artifacts")
   @@schema("materials")
 }
 
-model GuideArtifactVersion {
+model ProductArtifactVersion {
   artifactId          String    @map("artifact_id") @db.Uuid
   version             Int
   contentKind         String    @map("content_kind")
@@ -388,51 +265,51 @@ model GuideArtifactVersion {
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   supersededAt        DateTime? @map("superseded_at") @db.Timestamptz
 
-  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  artifact ProductArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
 
-  @@id([artifactId, version], map: "guide_artifact_versions_primary")
-  @@map("guide_artifact_versions")
+  @@id([artifactId, version], map: "product_artifact_versions_primary")
+  @@map("product_artifact_versions")
   @@schema("materials")
 }
 
-model GuideArtifactPlacement {
+model ProductArtifactPlacement {
   artifactId String   @map("artifact_id") @db.Uuid
-  guideId    String   @map("guide_id") @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  artifact ProductArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
 
-  @@id([artifactId, guideId], map: "guide_artifact_placements_primary")
-  @@index([guideId, createdAt], map: "guide_artifact_placements_guide_idx")
-  @@map("guide_artifact_placements")
+  @@id([artifactId, productId], map: "product_artifact_placements_primary")
+  @@index([productId, createdAt], map: "product_artifact_placements_product_idx")
+  @@map("product_artifact_placements")
   @@schema("materials")
 }
 
-model GuideArtifactMaterialLink {
+model ProductArtifactMaterialLink {
   artifactId String   @map("artifact_id") @db.Uuid
   materialId String   @map("material_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  artifact ProductArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
 
-  @@id([artifactId, materialId], map: "guide_artifact_material_links_primary")
-  @@index([materialId], map: "guide_artifact_material_links_material_idx")
-  @@map("guide_artifact_material_links")
+  @@id([artifactId, materialId], map: "product_artifact_material_links_primary")
+  @@index([materialId], map: "product_artifact_material_links_material_idx")
+  @@map("product_artifact_material_links")
   @@schema("materials")
 }
 
-model GuideChapter {
+model ProductChapter {
   id        String   @id @db.Uuid
-  guideId   String   @map("guide_id") @db.Uuid
+  productId   String   @map("product_id") @db.Uuid
   name      String
   summary   String   @default("")
   ordinal   Int
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  @@unique([id, guideId], map: "guide_chapters_identity_unique")
-  @@unique([guideId, ordinal], map: "guide_chapters_ordinal_unique")
-  @@map("guide_chapters")
+  @@unique([id, productId], map: "product_chapters_identity_unique")
+  @@unique([productId, ordinal], map: "product_chapters_ordinal_unique")
+  @@map("product_chapters")
   @@schema("materials")
 }
 
@@ -487,7 +364,7 @@ model MaterialTag {
   @@schema("materials")
 }
 
-model GuideMembership {
+model ProductMembership {
   stepGroup  String? @map("step_group")
   chapterId  String? @map("chapter_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
@@ -587,7 +464,7 @@ model PublishedMaterialTag {
   @@schema("materials")
 }
 
-model PublishedMaterialGuideMembership {
+model PublishedMaterialProductMembership {
   materialId String @map("material_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
   ordinal    Int
@@ -598,17 +475,17 @@ model PublishedMaterialGuideMembership {
   @@schema("materials")
 }
 
-model GuideMaterialRemoval {
+model ProductMaterialRemoval {
   id             String   @id @db.Uuid
-  guideId        String   @map("guide_id") @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
   materialId     String   @map("material_id") @db.Uuid
   actorAccountId String   @map("actor_account_id") @db.Uuid
   holders        Int
   operation      String
   removedAt      DateTime @map("removed_at") @db.Timestamptz
 
-  @@index([guideId, removedAt(sort: Desc)], map: "guide_material_removals_guide_idx")
-  @@map("guide_material_removals")
+  @@index([productId, removedAt(sort: Desc)], map: "product_material_removals_product_idx")
+  @@map("product_material_removals")
   @@schema("materials")
 }
 
@@ -816,7 +693,7 @@ model ReadingMaterialState {
 
 model ReaderPreferences {
   accountId String @id @map("account_id") @db.Uuid
-  guideMode String @map("guide_mode")
+  productMode String @map("product_mode")
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@map("reader_preferences")
   @@schema("reading_activity")
@@ -874,7 +751,7 @@ model AccessGrant {
   source       String
   sourceRef    String    @map("source_ref") @db.VarChar(256)
   capabilities String[]
-  contentScope Json? @map("content_scope")
+  coverage Json? @map("coverage")
   enrollmentId String? @map("enrollment_id") @db.Uuid
   startsAt     DateTime  @map("starts_at") @db.Timestamptz
   validUntil   DateTime? @map("valid_until") @db.Timestamptz
@@ -885,7 +762,7 @@ model AccessGrant {
   @@unique([source, sourceRef])
   @@index([accountId], map: "access_grants_account_idx")
   @@map("access_grants")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model AccessReceipt {
@@ -898,7 +775,7 @@ model AccessReceipt {
 
   @@id([scope, operationId])
   @@map("access_receipts")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model AccessBatchPreview {
@@ -912,7 +789,7 @@ model AccessBatchPreview {
 
   @@unique([actorId, operationId])
   @@map("access_batch_previews")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model LegacyClassification {
@@ -922,13 +799,13 @@ model LegacyClassification {
   reason         String   @db.VarChar(1000)
   verifiedAt     DateTime @map("verified_at") @db.Timestamptz
   revision       Int
-  bridgeContentScope Json? @map("bridge_content_scope")
+  bridgeCoverage Json? @map("bridge_coverage")
   bridgeBenefits String[] @default(["materials", "community"]) @map("bridge_benefits")
   bridgeEnabled  Boolean  @default(false) @map("bridge_enabled")
   tributeStopped Boolean  @default(false) @map("tribute_stopped")
 
   @@map("legacy_classifications")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model AccessChange {
@@ -943,7 +820,7 @@ model AccessChange {
 
   @@index([accountId, revision], map: "access_changes_account_idx")
   @@map("access_changes")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model TelegramAccountLinkState {
@@ -1035,6 +912,18 @@ model TelegramCommunityAuthorization {
   @@schema("telegram_membership")
 }
 
+model TelegramCommunityProjectionRetry {
+  accountId     String   @id @map("account_id") @db.Uuid
+  attemptId     String   @map("attempt_id") @db.Uuid
+  nextAttemptAt DateTime @map("next_attempt_at") @db.Timestamptz
+  errorCode     String?  @map("error_code")
+  updatedAt     DateTime @map("updated_at") @db.Timestamptz
+
+  @@index([nextAttemptAt, accountId], map: "community_projection_retries_due_idx")
+  @@map("community_projection_retries")
+  @@schema("telegram_membership")
+}
+
 model TelegramCommunityProjectionCursor {
   id             Int      @id @db.SmallInt
   accessRevision Int      @default(0) @map("access_revision")
@@ -1054,7 +943,7 @@ model BillingOffer {
   archived Boolean @default(false)
   published Boolean @default(false)
   availableForAssignment Boolean @default(false) @map("available_for_assignment")
-  contentScope Json? @map("content_scope")
+  coverage Json? @map("coverage")
   eligibility String @default("everyone")
   options BillingPaymentOption[]
   @@map("offers")
@@ -1099,15 +988,16 @@ model BillingSurveyRespondent {
   @@map("survey_respondents")
   @@schema("billing")
 }
-model BillingGuideCohort {
-  guideId String @id @map("guide_id") @db.Uuid
+model BillingProductCohort {
+  productId String @id @map("product_id") @db.Uuid
   revision Int
   name String
   stage String
   startsOn DateTime? @map("starts_on") @db.Date
   nextEvent String @default("") @map("next_event")
+  priceAfterStartKopecks BigInt? @map("price_after_start_kopecks")
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
-  @@map("guide_cohorts")
+  @@map("product_cohorts")
   @@schema("billing")
 }
 model BillingPricingCommand {
@@ -1616,6 +1506,17 @@ model BillingPaymentMethodFlow {
   @@map("payment_method_flows")
   @@schema("billing")
 }
+model BillingOwnerCommandKey {
+  result Json?
+  refundRef String? @map("refund_ref") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  @@id([actorId, operationId])
+  @@map("owner_command_keys")
+  @@schema("billing")
+}
 model BillingOwnerCommand {
   sequence BigInt @default(autoincrement())
   actorId String @map("actor_id") @db.Uuid
@@ -1706,7 +1607,7 @@ model BillingNoticeRevision {
   @@schema("billing")
 }
 
-model SubscriptionEnrollment {
+model TariffAssignment {
   id String @id @db.Uuid
   accountId String @map("account_id") @db.Uuid
   tierId String @map("tier_id") @db.Uuid
@@ -1723,8 +1624,8 @@ model SubscriptionEnrollment {
   reason String @db.VarChar(1000)
   @@unique([origin, sourceRef])
   @@index([accountId])
-  @@map("subscription_enrollments")
-  @@schema("membership_entitlements")
+  @@map("tariff_assignments")
+  @@schema("account_rights")
 }
 
 model Invitation {
@@ -1747,7 +1648,7 @@ model Invitation {
   revision Int
   @@index([issuedAt(sort: Desc), id], map: "invitations_issued_idx")
   @@map("invitations")
-  @@schema("membership_entitlements")
+  @@schema("account_rights")
 }
 
 model ActivationRule {
@@ -1764,7 +1665,7 @@ model ActivationRule {
  endsAt DateTime? @map("ends_at") @db.Timestamptz
  reason String @db.VarChar(1000)
  @@map("activation_rules")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 model SourceEntitlement {
  tributeState Json? @map("tribute_state")
@@ -1782,7 +1683,7 @@ model SourceEntitlement {
  checkedAt DateTime @map("checked_at") @db.Timestamptz
  @@unique([origin, sourceRef])
  @@map("source_entitlements")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 model ActivationAttempt {
  id String @id @db.Uuid
@@ -1793,7 +1694,7 @@ model ActivationAttempt {
  result Json
  expiresAt DateTime @map("expires_at") @db.Timestamptz
  @@map("activation_attempts")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 
 model TributePolicy {
@@ -1805,7 +1706,7 @@ model TributePolicy {
  temporaryUntil DateTime? @map("temporary_until") @db.Timestamptz
  reason String @db.VarChar(1000)
  @@map("tribute_policies")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 model TributeInbox {
  id String @id @db.Uuid
@@ -1822,7 +1723,7 @@ model TributeInbox {
  @@index([eventKey])
  @@index([state, receivedAt])
  @@map("tribute_inbox")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 
 model TributeImportReview {
@@ -1836,7 +1737,7 @@ model TributeImportReview {
  reason String @db.VarChar(1000)
  @@index([state,id])
  @@map("tribute_import_reviews")
- @@schema("membership_entitlements")
+ @@schema("account_rights")
 }
 
 model PracticeDefinition {
@@ -1886,11 +1787,11 @@ model SalesFunnelBotEvent {
   @@schema("sales_funnel")
 }
 
-model GuideTask {
+model ProductTask {
   id                       String   @id @db.Uuid
   code                     String   @unique(map: "tasks_code_unique")
   sourceId                 String   @unique(map: "tasks_source_unique") @map("source_id")
-  guideId                  String   @map("guide_id") @db.Uuid
+  productId                  String   @map("product_id") @db.Uuid
   chapterId                String   @map("chapter_id") @db.Uuid
   position                 Int
   title                    String
@@ -1898,19 +1799,20 @@ model GuideTask {
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
   afterMaterialSourceId    String?  @map("after_material_source_id")
   publicationState         String   @map("publication_state")
+  page                     Json?
   currentVersion           Int      @map("current_version")
   revision                 Int
   createdAt                DateTime @map("created_at") @db.Timestamptz
   updatedAt                DateTime @map("updated_at") @db.Timestamptz
 
-  versions GuideTaskVersion[]
+  versions ProductTaskVersion[]
 
-  @@index([guideId, chapterId, position, code], map: "tasks_chapter_order")
+  @@index([productId, chapterId, position, code], map: "tasks_chapter_order")
   @@map("tasks")
-  @@schema("guide_tasks")
+  @@schema("product_tasks")
 }
 
-model GuideTaskVersion {
+model ProductTaskVersion {
   taskId           String   @map("task_id") @db.Uuid
   version          Int
   definition       Json
@@ -1920,15 +1822,15 @@ model GuideTaskVersion {
   sourceCommit     String   @map("source_commit") @db.Char(40)
   sourcePath       String   @map("source_path")
 
-  task        GuideTask             @relation(fields: [taskId], references: [id])
-  submissions GuideTaskSubmission[]
+  task        ProductTask             @relation(fields: [taskId], references: [id])
+  submissions ProductTaskSubmission[]
 
   @@id([taskId, version], map: "task_versions_primary")
   @@map("task_versions")
-  @@schema("guide_tasks")
+  @@schema("product_tasks")
 }
 
-model GuideTaskImportReceipt {
+model ProductTaskImportReceipt {
   actorId            String @map("actor_id") @db.Uuid
   operation          String
   idempotencyKey     String @map("idempotency_key")
@@ -1937,10 +1839,10 @@ model GuideTaskImportReceipt {
 
   @@id([actorId, operation, idempotencyKey], map: "import_receipts_primary")
   @@map("import_receipts")
-  @@schema("guide_tasks")
+  @@schema("product_tasks")
 }
 
-model GuideTaskSubmission {
+model ProductTaskSubmission {
   id                 String   @id @db.Uuid
   accountId          String   @map("account_id") @db.Uuid
   taskId             String   @map("task_id") @db.Uuid
@@ -1957,26 +1859,26 @@ model GuideTaskSubmission {
   uncommittedChanges Boolean? @map("uncommitted_changes")
   submittedAt        DateTime @map("submitted_at") @db.Timestamptz
 
-  version  GuideTaskVersion         @relation(fields: [taskId, taskVersion], references: [taskId, version], map: "submissions_version_exists")
-  feedback GuideTaskAuthorFeedback?
+  version  ProductTaskVersion         @relation(fields: [taskId, taskVersion], references: [taskId, version], map: "submissions_version_exists")
+  feedback ProductTaskAuthorFeedback?
 
   @@unique([accountId, submissionKey], map: "submissions_key_unique")
   @@index([accountId, taskId, submittedAt(sort: Desc), id], map: "submissions_account_task")
   @@index([accountId, submittedAt], map: "submissions_account_time")
   @@index([taskId, submittedAt(sort: Desc), id], map: "submissions_task_time")
   @@map("submissions")
-  @@schema("guide_tasks")
+  @@schema("product_tasks")
 }
 
-model GuideTaskAuthorFeedback {
+model ProductTaskAuthorFeedback {
   submissionId String    @id @map("submission_id") @db.Uuid
   comment      String?
   reviewedAt   DateTime? @map("reviewed_at") @db.Timestamptz
   updatedBy    String    @map("updated_by") @db.Uuid
   updatedAt    DateTime  @map("updated_at") @db.Timestamptz
 
-  submission GuideTaskSubmission @relation(fields: [submissionId], references: [id])
+  submission ProductTaskSubmission @relation(fields: [submissionId], references: [id])
 
   @@map("author_feedback")
-  @@schema("guide_tasks")
+  @@schema("product_tasks")
 }

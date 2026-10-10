@@ -4,8 +4,12 @@ import {
   enrollmentStateLabels,
   type Enrollment,
 } from "../model/enrollment";
-import { isWithheldCapability } from "@inside/access-capabilities";
-import { contentScopeSummary, formatBillingDate } from "../model/presentation";
+import {
+  tariffCoverage,
+  isWithheldCapability,
+  isProductCapability,
+} from "@inside/access-capabilities";
+import { coverageSummary, formatBillingDate } from "../model/presentation";
 import { accessComposition } from "../model/billing-contract";
 export function EnrollmentList({
   items,
@@ -15,9 +19,9 @@ export function EnrollmentList({
   const groups = Map.groupBy(items, (item) =>
     JSON.stringify([
       item.tier.benefits.toSorted(),
-      item.tier.contentScope.allGuides === true,
-      item.tier.contentScope.guideIds.toSorted(),
-      item.tier.contentScope.materialIds.toSorted(),
+      item.tier.coverage.wholePlatform === true,
+      item.tier.coverage.productIds.toSorted(),
+      item.tier.coverage.materialIds.toSorted(),
     ]),
   );
   return (
@@ -77,7 +81,11 @@ export function EnrollmentList({
                     </>
                   )}
                   <dt>Материалы</dt>
-                  <dd>{contentScopeSummary(item.tier.contentScope)}</dd>
+                  <dd>
+                    {coverageSummary(
+                      tariffCoverage(item.tier.benefits, item.tier.coverage),
+                    )}
+                  </dd>
                   <dt>Поддержка</dt>
                   <dd>
                     {item.tier.benefits.includes("support")
@@ -97,14 +105,12 @@ export function EnrollmentList({
                       : "Следующего списания нет"}
                   </dd>
                 </dl>
-                {item.benefitTerms && item.origin === "platform_payment" ? (
+                {item.benefitTerms ? (
                   <ul className="grid gap-1 text-sm">
                     {item.benefitTerms
                       .filter((term) => !isWithheldCapability(term.capability))
                       .map((term) => (
-                        <li
-                          key={`${benefitLabel(term.capability)}:${term.startsAt}`}
-                        >
+                        <li key={`${term.capability}:${term.startsAt}`}>
                           {term.revoked
                             ? `${benefitLabel(term.capability)}: отозвано`
                             : term.endsAt === null
@@ -125,7 +131,7 @@ export function EnrollmentList({
                           {entry.slug !== null && entry.available ? (
                             <Link
                               className="underline underline-offset-4"
-                              href={`/${entry.kind === "guide" ? "products" : "materials"}/${encodeURIComponent(entry.slug)}`}
+                              href={`/${entry.kind === "product" ? "products" : "materials"}/${encodeURIComponent(entry.slug)}`}
                             >
                               {entry.title}
                             </Link>
@@ -175,6 +181,8 @@ function benefitLabel(capability: string): string {
     case "support":
       return "Поддержка";
     default:
-      return capability;
+      return isProductCapability(capability)
+        ? "Материалы продукта"
+        : capability;
   }
 }

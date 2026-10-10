@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { mkdtemp, readFile, writeFile, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withGitSnapshot } from "./git-local.mjs";
+import { exportCommittedPackage, withGitSnapshot } from "./git-local.mjs";
 
 const execute = promisify(execFile);
 /** @param {import("node:test").TestContext} t */
@@ -85,4 +85,47 @@ test("invalid refs never run the exporter; failed export cleans up the snapshot"
   );
   assert.notEqual(temporary, "");
   await assert.rejects(access(temporary));
+});
+
+// Process adapter contract: real committed snapshot, supplied Content subprocess double.
+test("Platform product selection reaches Content export-platform as --guide", async (t) => {
+  const { root } = await repository(t);
+  const state = join(root, "state");
+  /** @type {{ command: string; args: string[] }[]} */
+  const calls = [];
+  const result = await exportCommittedPackage(
+    root,
+    "inside-ai-engineering",
+    state,
+    "HEAD",
+    async (command, args, options) => {
+      calls.push({ command, args });
+      assert.ok(options?.cwd);
+      assert.equal(
+        await readFile(join(options.cwd, "lesson.md"), "utf8"),
+        "Committed lesson",
+      );
+      return { stdout: join(state, "packages", "hash"), stderr: "" };
+    },
+  );
+  assert.deepEqual(calls, [
+    {
+      command: "uv",
+      args: [
+        "run",
+        "--frozen",
+        "python",
+        "tools/content.py",
+        "export-platform",
+        "--guide",
+        "inside-ai-engineering",
+        "--output",
+        join(state, "packages"),
+      ],
+    },
+  ]);
+  assert.equal(
+    result.packagePath,
+    join(state, "packages", "hash", "package.json"),
+  );
 });

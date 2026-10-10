@@ -201,12 +201,89 @@ test("«Покупки» ведут в сообщество Inside", async ({ pa
 
   await page.goto("/account/purchases");
 
-  // Без подключённого Telegram бот не узнает покупателя: сначала подключение.
+  // Без подключённого Telegram бот не узнает покупателя: сначала подключение, прямо из блока.
   await expect(
     page
       .getByRole("region", { name: "Сообщество Inside" })
-      .getByRole("link", { name: "Подключить Telegram" }),
-  ).toHaveAttribute("href", "/account/access");
+      .getByRole("button", { name: "Подключить Telegram" }),
+  ).toBeEnabled();
+});
+
+test("участник открывает группу из «Покупок»", async ({ page }) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        value: { kind: "member", groupUrl: "https://t.me/c/1234567890/1" },
+      },
+    }),
+  );
+  await page.goto("/account/purchases");
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  const link = community.getByRole("link", { name: "Открыть группу" });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+});
+
+test("повторное подключение Telegram после reload открывает прежний бот", async ({
+  page,
+}) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
+  );
+  const deepLink = "https://t.me/inside_test_bot?start=opaque";
+  let begins = 0;
+  await page.route("**/api/account/telegram-link/begin", (route) => {
+    begins += 1;
+    return route.fulfill({
+      json: {
+        kind: "received",
+        state: {
+          ...(begins === 1 ? { deepLink } : {}),
+          expiresAt: "2030-01-01T00:05:00.000Z",
+          linkRef: "62000000-0000-4000-8000-000000000001",
+          status: "pending",
+        },
+      },
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: () => ({
+        close: () => undefined,
+        location: {
+          replace: (url: string) => {
+            sessionStorage.setItem("test.telegram-opened", url);
+          },
+        },
+        opener: null,
+      }),
+    });
+  });
+  await page.goto("/account/purchases");
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect(
+    community.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", deepLink);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("test.telegram-opened");
+  });
+  await page.reload();
+  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect(
+    community.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", deepLink);
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
+    )
+    .toBe(deepLink);
+  expect(begins).toBe(2);
 });
 
 test("кабинет полезен без подписки и не предлагает её раздел", async ({
@@ -279,39 +356,42 @@ test("завершённая подписка не возвращает разд
   );
 });
 
-test("оболочка напоминает о неподключённом Telegram", async ({
-  page,
-}, testInfo) => {
-  const mode = navigationMode(testInfo.project.name);
-  await stubAccount(page, { telegram: "unlinked" });
+const telegramReminderTest = test.extend({ video: "retain-on-failure" });
 
-  await page.goto(mode === "desktop" ? "/account/purchases" : "/");
+telegramReminderTest(
+  "оболочка напоминает о неподключённом Telegram",
+  async ({ page }, testInfo) => {
+    const mode = navigationMode(testInfo.project.name);
+    await stubAccount(page, { telegram: "unlinked" });
 
-  if (mode === "desktop") {
-    const reminder = page.getByRole("button", {
-      name: "Telegram не подключён. Подключить",
-    });
-    await expect(reminder).toBeVisible();
+    await page.goto(mode === "desktop" ? "/account/purchases" : "/");
 
-    // Окно открывается поверх текущей страницы: маршрут не меняется.
-    await page
-      .getByRole("button", { name: "Закрыть подключение Telegram" })
-      .click();
-    await reminder.click();
+    if (mode === "desktop") {
+      const reminder = page.getByRole("button", {
+        name: "Telegram не подключён. Подключить",
+      });
+      await expect(reminder).toBeVisible();
 
-    await expect(
-      page.getByRole("heading", { name: "Подключите Telegram" }),
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/account\/purchases$/u);
-  } else {
-    await expect(
-      page
-        .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("link", { name: "Профиль" })
-        .locator("span[aria-hidden='true']"),
-    ).toHaveCount(1);
-  }
-});
+      // Окно открывается поверх текущей страницы: маршрут не меняется.
+      await page
+        .getByRole("button", { name: "Закрыть подключение Telegram" })
+        .click();
+      await reminder.click();
+
+      await expect(
+        page.getByRole("heading", { name: "Подключите Telegram" }),
+      ).toBeVisible();
+      await expect(page).toHaveURL(/\/account\/purchases$/u);
+    } else {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Мобильная навигация" })
+          .getByRole("link", { name: "Профиль" })
+          .locator("span[aria-hidden='true']"),
+      ).toHaveCount(1);
+    }
+  },
+);
 
 test("подключённый Telegram не оставляет напоминания", async ({
   page,
@@ -469,7 +549,10 @@ function contactState() {
 async function confirmContactOn(
   page: Page,
   state: ReturnType<typeof contactState>,
-  { stallOwnReread = false }: { stallOwnReread?: boolean } = {},
+  {
+    stallOwnReread = false,
+    checkNativeScroll = false,
+  }: { stallOwnReread?: boolean; checkNativeScroll?: boolean } = {},
 ) {
   if (stallOwnReread)
     // Своё перечитывание не отвечает: соседние поверхности не должны его дожидаться.
@@ -497,13 +580,52 @@ async function confirmContactOn(
   await page.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
   await page.getByRole("button", { name: "Получить код", exact: true }).click();
   await page.getByLabel("Код из письма").fill("123456");
-  await page
-    .getByRole("button", { name: "Подтвердить email", exact: true })
-    .click();
+  const confirm = page.getByRole("button", {
+    name: "Подтвердить email",
+    exact: true,
+  });
+  if (checkNativeScroll) {
+    const notice = page.getByRole("region", { name: "Хранение в браузере" });
+    await expect(notice).toBeVisible();
+    // Нативная прокрутка учитывает плашки оболочки, прежде чем Playwright поправит положение кнопки.
+    await confirm.evaluate((button) => {
+      button.scrollIntoView({ block: "nearest" });
+    });
+    await expect
+      .poll(() =>
+        confirm.evaluate((button) => {
+          const rect = button.getBoundingClientRect();
+          const notice = document.querySelector(
+            'section[aria-label="Хранение в браузере"]',
+          );
+          return (
+            notice !== null &&
+            rect.top >= 0 &&
+            rect.bottom <= notice.getBoundingClientRect().top &&
+            button.contains(
+              document.elementFromPoint(
+                rect.x + rect.width / 2,
+                rect.y + rect.height / 2,
+              ),
+            )
+          );
+        }),
+      )
+      .toBe(true);
+  }
+  await confirm.click();
   await expect(
     page.getByText("Email подтверждён.", { exact: true }),
   ).toBeVisible();
 }
+
+test("прокрутка к подтверждению оставляет кнопку выше баннера хранения", async ({
+  page,
+}) => {
+  const state = contactState();
+  await stubAccount(page, { contact: state.read });
+  await confirmContactOn(page, state, { checkNativeScroll: true });
+});
 
 test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
   page,
@@ -587,10 +709,11 @@ test("без объявлений подтвердившая поверхнос�
 }) => {
   const state = contactState();
   await stubAccount(page, { contact: state.read });
-  // Браузер без BroadcastChannel: соседние поверхности такое подтверждение не услышат, но та,
-  // где его совершили, обязана показать адрес и здесь.
+  // Отключены межвкладочный канал и запасные события window: подтвердившая поверхность
+  // обязана показать адрес благодаря собственному перечитыванию.
   await page.addInitScript(() => {
     Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    window.dispatchEvent = () => true;
   });
 
   await confirmContactOn(page, state);
@@ -807,10 +930,10 @@ test("начатая привязка карты видна в разделе «
 test("без объявлений записавшая поверхность обновляется сама", async ({
   context,
 }) => {
-  // Браузер без BroadcastChannel: соседние поверхности запись не услышат, но та, где её
-  // совершили, обязана показать новый ответ.
+  // Отключены оба способа объявления: поверхность должна обновить данные из ответа команды.
   await context.addInitScript(() => {
     Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    window.dispatchEvent = () => true;
   });
 
   const subscription = await context.newPage();
@@ -859,7 +982,7 @@ for (const [state, label] of [
                   revision: 1,
                   name: "История тарифа",
                   benefits: ["community"],
-                  contentScope: { guideIds: [], materialIds: [] },
+                  coverage: { productIds: [], materialIds: [] },
                 },
                 origin: "manual",
                 startsAt: "2030-01-01T00:00:00.000Z",

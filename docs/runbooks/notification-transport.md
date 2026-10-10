@@ -16,8 +16,7 @@ No AMQP or management port is published to the host. Local broker passwords are 
 values, never production credentials. `docker compose down` preserves both broker data and CA.
 
 Topology is generated from `src/infrastructure/notification-transport/topology.ts` and the wire
-route map. `pnpm --filter @inside/backend notifications:generate` regenerates the schema snapshot
-and local definitions; `notifications:check` rejects drift. There are six topic exchanges and eight
+route map. `pnpm --filter @inside/backend notifications:generate` regenerates local definitions; `notifications:check` rejects drift. There are six topic exchanges and eight
 quorum queues, with independent capacity and manual-ack prefetch per lane. Default capacity is
 1,000 messages / 16,384,000 bytes (1,000 × 16 KiB) per queue; overshoot at the broker's rejection
 boundary is possible.
@@ -60,8 +59,8 @@ Each lane has an independent relay loop and consumer channel. Subscription satur
 consume the material/result channel's prefetch or delay its publisher confirms. The worker acquires
 the existing PostgreSQL generation lease and validates the exact migration registry before reporting
 ready. On shutdown it removes readiness before cleanup, cancels consumers, drains active receipt writes
-within the shared ten-second budget and closes broker/Prisma resources. Broker disconnect or receipt-storage failure removes readiness and stops the worker;
-restart it after the dependency is restored. No nack/requeue hot loop acknowledges missing receipts.
+within the shared ten-second budget and closes broker/Prisma resources. Broker disconnect or receipt-storage failure removes readiness and stops the worker process.
+No nack/requeue hot loop acknowledges missing receipts.
 
 ## Observation and recovery
 
@@ -70,7 +69,12 @@ count/oldest timestamp and retained quarantine count; never message text, recipi
 Unconfirmed publication logs `operator_attention`; inbox work older than five minutes does likewise.
 `publishedAt` is broker acceptance only. `completedAt` is application processing, never a sent receipt.
 
-For an outage, restore the broker/PostgreSQL and restart only the owned `notifications-worker`.
+For an outage, restore the broker/PostgreSQL. Development Compose runs `notifications-worker`
+without watch and uses `restart: unless-stopped`, so an application exit restarts its container;
+it returns to readiness once its dependencies are available. Production already runs the compiled
+entrypoint directly with the same restart policy. A worker stopped explicitly stays stopped;
+restart only the owned worker in that case. The optional host `dev:notifications-worker` keeps
+`tsx watch`; after a dependency failure, restart that host command explicitly.
 Pending outbox rows retry with the same IDs; accepted pending inbox rows survive the restart. Do not
 purge queues, reset volumes, delete deduplication keys or create replacement operation IDs.
 

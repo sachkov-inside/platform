@@ -33,6 +33,7 @@ export type RecursiveSchema1schema0 = ({
 } | {
   items: Array<Array<RecursiveSchema1schema0>>;
   kind: 'ordered_list';
+  start?: number;
 } | {
   content: Array<RecursiveSchema1schema0>;
   kind: 'blockquote';
@@ -50,6 +51,7 @@ export type RecursiveSchema1schema0 = ({
     }>;
   }>;
 } | {
+  collapse?: 'collapsed' | 'expanded';
   content: Array<RecursiveSchema1schema0>;
   kind: 'callout';
   title?: string;
@@ -98,7 +100,46 @@ export type RecursiveSchema1schema0 = ({
   caption?: string;
   displayWidthPercent?: number;
   height?: number;
+  imageVariants?: {
+    tallDark: {
+      assetId: string;
+      height?: number;
+      variants?: Array<{
+        height: number;
+        width: number;
+      }>;
+      width?: number;
+    };
+    tallLight: {
+      assetId: string;
+      height?: number;
+      variants?: Array<{
+        height: number;
+        width: number;
+      }>;
+      width?: number;
+    };
+    wideDark: {
+      assetId: string;
+      height?: number;
+      variants?: Array<{
+        height: number;
+        width: number;
+      }>;
+      width?: number;
+    };
+    wideLight: {
+      assetId: string;
+      height?: number;
+      variants?: Array<{
+        height: number;
+        width: number;
+      }>;
+      width?: number;
+    };
+  };
   kind: 'image';
+  sourceSrc?: string;
   variants?: Array<{
     height: number;
     width: number;
@@ -111,4 +152,18 @@ export type RecursiveSchema1schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
+} | {
+  correctOptionId: string;
+  dontKnow: {
+    explanation: Array<RecursiveSchema1schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'quiz';
+  options: Array<{
+    content: Array<RecursiveSchema1schema0>;
+    explanation: Array<RecursiveSchema1schema0>;
+    id: string;
+  }>;
+  prompt: Array<RecursiveSchema1schema0>;
 });

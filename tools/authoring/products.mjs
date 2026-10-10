@@ -28,7 +28,7 @@ const pinSchema = z.object({ seriesId: z.uuid().nullable() }).passthrough();
  */
 export async function listProducts(request) {
   const [rows, pin] = await Promise.all([
-    request("/authoring/collections?kind=guide"),
+    request("/authoring/collections?kind=product"),
     request("/authoring/home-pin"),
   ]);
   const pinned = pinSchema.parse(pin).seriesId;

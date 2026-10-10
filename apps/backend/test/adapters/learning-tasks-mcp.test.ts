@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
-import { taskReviewProtocol } from "../../src/modules/guide-tasks/domain/review-protocol.js";
+import { taskReviewProtocol } from "../../src/modules/product-tasks/domain/review-protocol.js";
 import { practiceReviewProtocol } from "../../src/modules/content-library/features/read-learning-practice/review-protocol.js";
 import {
   committedLearnerToolSurfacePath,
@@ -30,7 +30,7 @@ async function connect() {
   return client;
 }
 
-describe("Guide Task tools on the learner MCP", () => {
+describe("Product Task tools on the learner MCP", () => {
   test("the endpoint lists exactly the committed learner tool surface, including the four task tools", async () => {
     const client = await connect();
     try {

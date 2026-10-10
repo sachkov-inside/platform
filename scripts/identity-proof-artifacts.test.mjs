@@ -45,6 +45,7 @@ const proofVersionsSchema = z
     postgres: pinnedImageSchema,
     mailpit: pinnedImageSchema,
     logtoNext: z.string(),
+    logtoNode: z.string(),
   })
   .passthrough();
 /** @type {z.ZodType<(input: unknown) => unknown>} */
@@ -118,6 +119,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
     compose,
     standCompose,
     packageSource,
+    rootPackageSource,
     hardeningPatch,
   ] = await Promise.all([
     readFile(new URL("versions.json", proofRoot), "utf8"),
@@ -125,10 +127,14 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
     readFile(new URL("compose.yaml", proofRoot), "utf8"),
     readFile(new URL("compose.yaml", root), "utf8"),
     readFile(new URL("apps/web/package.json", root), "utf8"),
+    readFile(new URL("package.json", root), "utf8"),
     readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
   ]);
   const versions = proofVersionsSchema.parse(JSON.parse(versionsSource));
   const webPackage = packageManifestSchema.parse(JSON.parse(packageSource));
+  const rootPackage = packageManifestSchema.parse(
+    JSON.parse(rootPackageSource),
+  );
 
   assert.equal(versions.logto.version, "1.44.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
@@ -150,6 +156,8 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(standCompose, new RegExp(versions.postgres.digest, "u"));
   assert.match(standCompose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
+  assert.equal(webPackage.devDependencies["@logto/node"], versions.logtoNode);
+  assert.equal(rootPackage.devDependencies["@logto/node"], versions.logtoNode);
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
   // Logto 1.42+ refuses to start on a database without the alterations of its version.
   const [productionCompose, productionLogtoEnv] = await Promise.all([

@@ -32,12 +32,12 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
-  "guide_artifact_material_links",
-  "guide_artifact_placements",
-  "guide_artifact_versions",
-  "guide_artifacts",
-  "guide_chapters",
-  "guide_material_removals",
+  "product_artifact_material_links",
+  "product_artifact_placements",
+  "product_artifact_versions",
+  "product_artifacts",
+  "product_chapters",
+  "product_material_removals",
   "home_series_pin",
   "material_related_pins",
   "material_search_documents",
@@ -67,7 +67,7 @@ const accountTables = [
   "legal_acceptances",
 ] as const;
 
-const membershipEntitlementTables = [
+const accountRightsTables = [
   "access_batch_previews",
   "access_changes",
   "access_grants",
@@ -75,13 +75,13 @@ const membershipEntitlementTables = [
   "account_bindings",
   "activation_attempts",
   "activation_rules",
-  "content_scope_baseline",
+  "coverage_baseline",
   "current_projections",
   "evidence_receipts",
   "invitations",
   "legacy_classifications",
   "source_entitlements",
-  "subscription_enrollments",
+  "tariff_assignments",
   "tribute_import_reviews",
   "tribute_inbox",
   "tribute_policies",
@@ -101,6 +101,7 @@ const telegramMembershipTables = [
   "community_desired_states",
   "community_operations",
   "community_projection_cursor",
+  "community_projection_retries",
   "link_transactions",
 ] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -110,15 +111,6 @@ const videoTables = [
   "upload_attempts",
   "videos",
   "webhook_inbox",
-] as const;
-const workshopTables = [
-  "case_materials",
-  "case_versions",
-  "cases",
-  "entitlements",
-  "hint_reveals",
-  "membership_entitlement_projections",
-  "solution_reveals",
 ] as const;
 
 const legacyMigrations = [
@@ -251,17 +243,19 @@ describe("Platform migrations", () => {
         "0078_invitations",
         "0079_guide_tasks",
         "0080_guide_task_placement_and_form",
+        "0081_remove_workshop",
+        "0082_domain_names",
+        "0083_task_pages",
+        "0084_owner_command_keys",
+        "0085_community_projection_retries",
+        "0086_product_cohort_price_after_start",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
     await expectTables(testDatabase, "materials", materialTables);
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
-    await expectTables(
-      testDatabase,
-      "membership_entitlements",
-      membershipEntitlementTables,
-    );
+    await expectTables(testDatabase, "account_rights", accountRightsTables);
     await expectTables(testDatabase, "member_profiles", memberProfileTables);
     await expectTables(
       testDatabase,
@@ -277,7 +271,7 @@ describe("Platform migrations", () => {
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
-    await expectTables(testDatabase, "guide_tasks", [
+    await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
       "submissions",
@@ -286,7 +280,7 @@ describe("Platform migrations", () => {
     ]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
-    await expectTables(testDatabase, "workshop", workshopTables);
+    await expectTables(testDatabase, "workshop", []);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -311,10 +305,10 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
-          'guide_tasks',
+          'product_tasks',
           'sales_funnel',
           'materials',
-          'membership_entitlements',
+          'account_rights',
           'telegram_membership',
           'workshop'
         )
@@ -494,17 +488,17 @@ describe("Platform migrations", () => {
         appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
       });
       await expect(
-        database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow(
-          {
-            where: { accountId: "8a000000-0000-4000-8000-000000000001" },
-          },
+        database.prisma.$queryRaw(
+          Prisma.sql`select principal_ref as "principalRef", decision, evidence_version as "evidenceVersion", valid_until as "validUntil" from workshop.membership_entitlement_projections where account_id = '8a000000-0000-4000-8000-000000000001'::uuid`,
         ),
-      ).resolves.toMatchObject({
-        principalRef: "workshop-migration-principal",
-        decision: "member",
-        evidenceVersion: 7n,
-        validUntil: new Date("2030-05-01T00:05:00Z"),
-      });
+      ).resolves.toMatchObject([
+        {
+          principalRef: "workshop-migration-principal",
+          decision: "member",
+          evidenceVersion: 7n,
+          validUntil: new Date("2030-05-01T00:05:00Z"),
+        },
+      ]);
     } finally {
       await database.dispose();
     }
@@ -926,6 +920,12 @@ describe("Platform migrations", () => {
           "0078_invitations",
           "0079_guide_tasks",
           "0080_guide_task_placement_and_form",
+          "0081_remove_workshop",
+          "0082_domain_names",
+          "0083_task_pages",
+          "0084_owner_command_keys",
+          "0085_community_projection_retries",
+          "0086_product_cohort_price_after_start",
         ],
       });
 
@@ -946,7 +946,7 @@ describe("Platform migrations", () => {
       );
       expect(materials).toEqual([
         {
-          access: "membership",
+          access: "closed",
           body: {
             type: "doc",
             content: [
@@ -974,7 +974,7 @@ describe("Platform migrations", () => {
           title: "Draft title",
         },
         {
-          access: "membership",
+          access: "closed",
           body: {
             type: "doc",
             content: [
@@ -1109,14 +1109,14 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
-    | "guide_tasks"
+    | "product_tasks"
     | "sales_funnel"
     | "accounts"
     | "assets"
     | "identity_principals"
     | "materials"
     | "member_profiles"
-    | "membership_entitlements"
+    | "account_rights"
     | "telegram_membership"
     | "videos"
     | "workshop",
@@ -1131,5 +1131,5 @@ async function expectTables(
       and table_type = 'BASE TABLE'
     order by table_name
   `);
-  expect(tables.map(({ name }) => name)).toEqual(expected);
+  expect(tables.map(({ name }) => name)).toEqual([...expected].sort());
 }

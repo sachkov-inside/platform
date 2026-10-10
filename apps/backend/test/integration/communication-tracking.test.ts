@@ -1,5 +1,8 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest";
+import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import {
   TrackingVisits,
@@ -11,6 +14,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 const origin = "https://inside.test";
 const token = "a".repeat(43);
 const config = {
@@ -25,7 +30,7 @@ let database: TestDatabase;
 let now: Date;
 let outage = false;
 let loseAck = false;
-let target = `${origin}/materials/test-guide`;
+let target = `${origin}/materials/test-product`;
 const fetcher: typeof fetch = (_url, init) => {
   if (typeof init?.body !== "string")
     throw new Error("Expected serialized envelope");
@@ -62,6 +67,7 @@ function visits() {
     database.prisma,
     provider,
     origin,
+    new PublicContentTargets(database.prisma),
     undefined,
     () => now,
   );
@@ -76,10 +82,11 @@ beforeEach(async () => {
   await database.prisma.communicationTrackingHit.deleteMany();
   received.clear();
   calls.length = 0;
+  // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   now = new Date();
   outage = false;
   loseAck = false;
-  target = `${origin}/materials/test-guide`;
+  target = `${origin}/materials/test-product`;
 });
 
 test("safe target only, opaque tokens and invalid provider destinations never create events", async () => {
@@ -87,12 +94,12 @@ test("safe target only, opaque tokens and invalid provider destinations never cr
     kind: "invalid",
   });
   for (const value of [
-    "https://evil.test/materials/guide",
+    "https://evil.test/materials/product",
     `${origin}/api/authoring`,
-    `${origin}/materials/guide?redirect=evil`,
+    `${origin}/materials/product?redirect=evil`,
     `${origin}/materials/%2f%2fevil`,
-    `https://user@inside.test/materials/guide`,
-    `${origin}/materials/guide#fragment`,
+    `https://user@inside.test/materials/product`,
+    `${origin}/materials/product#fragment`,
   ]) {
     target = value;
     expect(isSafeTrackingTarget(value, origin)).toBe(false);
@@ -104,6 +111,46 @@ test("safe target only, opaque tokens and invalid provider destinations never cr
   expect(isSafeTrackingTarget(`${origin}/series/example-series`, origin)).toBe(
     true,
   );
+});
+
+test("resolves canonical Product pages and compatibility routes, refusing missing Products", async () => {
+  await database.prisma.product.create({
+    data: {
+      id: randomUUID(),
+      slug: "tracking-product",
+      name: "Tracking Product",
+    },
+  });
+  for (const route of ["products", "series", "guides"]) {
+    target = `${origin}/${route}/tracking-product`;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "resolved",
+      safeUrl: target,
+    });
+    target = `${origin}/${route}/missing-product`;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "not_found",
+    });
+  }
+  for (const value of [
+    "https://evil.test/products/tracking-product",
+    `${origin}/products/tracking-product?redirect=evil`,
+    `${origin}/products/tracking-product#fragment`,
+  ]) {
+    target = value;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "unavailable",
+    });
+  }
+  await database.prisma.product.update({
+    where: { slug: "tracking-product" },
+    data: { archivedAt: new Date("2026-01-01T00:00:00Z") },
+  });
+  target = `${origin}/products/tracking-product`;
+  expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+    kind: "not_found",
+  });
+  expect(await visits().backlog()).toMatchObject({ kind: "ready", pending: 3 });
 });
 
 test("provider outage retains durable backlog and live age; a new instance retries the same event", async () => {
@@ -173,6 +220,7 @@ test("a PostgreSQL write failure does not break resolved navigation and is obser
       tx,
       provider,
       origin,
+      new PublicContentTargets(tx),
       reportFailure,
     ).resolve({ token, traffic: "unknown" });
     expect(result).toEqual({ kind: "resolved", safeUrl: target });

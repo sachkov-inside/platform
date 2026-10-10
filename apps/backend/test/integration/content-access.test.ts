@@ -1,4 +1,4 @@
-import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
@@ -8,12 +8,11 @@ import {
 import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
-  assembleDeterministicMembershipEntitlements,
+  assembleDeterministicAccountRights,
   type MaterialResourceFacts,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -23,7 +22,7 @@ const accountId = checkedAccountId("83000000-0000-4000-8000-000000000001");
 const material: MaterialResourceFacts = {
   materialId: materialId("83000000-0000-4000-8000-000000000002"),
   publicationState: "published",
-  access: "membership",
+  access: "closed",
   contentVersion: 7,
   primaryVideoId: null,
 };
@@ -61,7 +60,7 @@ describe("ContentAccess current Platform facts", () => {
         findOne: () => Promise.resolve(material),
       },
       accountPermissions: assembleCurrentAccountPermissions(accounts),
-      membershipEntitlements: assembleDeterministicMembershipEntitlements(),
+      accountRights: assembleDeterministicAccountRights(),
     });
     const request = {
       subject: { kind: "account" as const, accountId },
@@ -122,12 +121,9 @@ describe("ContentAccess current Platform facts", () => {
       prisma: testDatabase.prisma,
       emailFingerprintKey: "content-access-test-fingerprint-key",
     });
-    const membershipEntitlements = assembleLegacyCohortFixture({
+    const accountRights = assemblePriorParticipantsFixture({
       prisma: testDatabase.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: testDatabase.prisma,
-        clock: () => currentTime,
-      }),
+
       clock: () => currentTime,
     });
     const contentAccess = assembleContentAccess({
@@ -136,7 +132,7 @@ describe("ContentAccess current Platform facts", () => {
         findOne: () => Promise.resolve(material),
       },
       accountPermissions: assembleCurrentAccountPermissions(accounts),
-      membershipEntitlements,
+      accountRights,
       clock: () => currentTime,
       decisionId: () => "membership-decision-id",
     });
@@ -149,7 +145,7 @@ describe("ContentAccess current Platform facts", () => {
     };
 
     await expect(
-      membershipEntitlements.acceptEvidence({
+      accountRights.acceptEvidence({
         accountId,
         deliveryId: "content-access-member-link",
         source: "link_time",
@@ -159,8 +155,8 @@ describe("ContentAccess current Platform facts", () => {
     await testDatabase.prisma.legacyClassification.update({
       where: { accountId },
       data: {
-        bridgeContentScope: {
-          guideIds: [],
+        bridgeCoverage: {
+          productIds: [],
           materialIds: [material.materialId],
         },
       },
@@ -176,7 +172,7 @@ describe("ContentAccess current Platform facts", () => {
     });
 
     await expect(
-      membershipEntitlements.acceptEvidence({
+      accountRights.acceptEvidence({
         accountId,
         deliveryId: "content-access-member-removal",
         source: "member_status_event",

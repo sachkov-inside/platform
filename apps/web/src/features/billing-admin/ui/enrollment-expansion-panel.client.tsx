@@ -5,7 +5,7 @@ import type { z } from "zod";
 import {
   announceEnrollmentChange,
   billingErrorMessage,
-  contentScopeSummary,
+  coverageSummary,
   type Enrollment,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -137,7 +137,7 @@ export function EnrollmentExpansionPanel({
         >
           <p>
             Будет обновлено назначений: {preview.targets.length}. Состав:{" "}
-            {contentScopeSummary(preview.tier.contentScope)}. Права:{" "}
+            {coverageSummary(preview.tier.coverage)}. Права:{" "}
             {preview.tier.benefits.join(", ")}.
           </p>
           <p>

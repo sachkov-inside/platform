@@ -4,10 +4,12 @@ import type { MaterialId } from "../../../../infrastructure/contracts/material-i
 export interface MaterialResourceFacts {
   readonly materialId: MaterialId;
   readonly publicationState: "draft" | "published" | "unpublished";
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "closed";
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
-  readonly guideIds?: readonly string[];
+  readonly productIds?: readonly string[];
+  /** All published Product placements are archived; reading requires one of those Product rights. */
+  readonly archivedOnly?: boolean;
 }
 
 export interface MaterialResourceFactsAdapter {
@@ -28,42 +30,42 @@ export interface AssetResourceFactsAdapter {
   findOne(assetId: string): Promise<AssetResourceFacts | null>;
 }
 
-export interface GuideArtifactResourceFacts {
-  readonly access: "free" | "membership";
+export interface ProductArtifactResourceFacts {
+  readonly access: "free" | "closed";
   readonly archived: boolean;
   readonly artifactId: string;
-  readonly guideIds: readonly string[];
+  readonly productIds: readonly string[];
   readonly version: number;
 }
 
-export interface GuideArtifactResourceFactsAdapter {
+export interface ProductArtifactResourceFactsAdapter {
   findMany(
     artifactIds: readonly string[],
-  ): Promise<readonly GuideArtifactResourceFacts[]>;
-  findOne(artifactId: string): Promise<GuideArtifactResourceFacts | null>;
+  ): Promise<readonly ProductArtifactResourceFacts[]>;
+  findOne(artifactId: string): Promise<ProductArtifactResourceFacts | null>;
 }
 
-/** What Content Access needs to decide on a Guide Task; Guide Tasks implement this port. */
-export interface GuideTaskResourceFacts {
+/** What Content Access needs to decide on a Product Task; Product Tasks implement this port. */
+export interface ProductTaskResourceFacts {
   readonly taskId: string;
-  readonly access: "free" | "membership";
-  readonly guideId: string;
+  readonly access: "free" | "closed";
+  readonly productId: string;
   readonly published: boolean;
   /** The current Task Version number. */
   readonly version: number;
 }
 
-export interface GuideTaskResourceFactsAdapter {
+export interface ProductTaskResourceFactsAdapter {
   findMany(
     taskIds: readonly string[],
-  ): Promise<readonly GuideTaskResourceFacts[]>;
-  findOne(taskId: string): Promise<GuideTaskResourceFacts | null>;
+  ): Promise<readonly ProductTaskResourceFacts[]>;
+  findOne(taskId: string): Promise<ProductTaskResourceFacts | null>;
 }
 
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "closed";
 }
 
 export interface VideoResourceFactsAdapter {
@@ -75,49 +77,35 @@ export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
 
-/** Workshop access to one Material; Workshop answers it. */
-export type WorkshopMaterialAccessState =
-  | Readonly<{ availability: "available"; validUntil: string }>
-  | Readonly<{ availability: "locked" | "unavailable" }>;
-
-/** The Workshop decision Content Access needs. Workshop implements this port. */
-export interface WorkshopMaterialAccess {
-  resolve(
-    accountId: AccountId,
-    materialId: MaterialId,
-  ): Promise<WorkshopMaterialAccessState>;
-}
-
 /** A Membership decision for one resource; Membership Entitlements answers it. */
 export type MembershipAccessState =
   | Readonly<{ kind: "active"; validUntil: string | null }>
   | Readonly<{ kind: "required" | "expired" | "stale" | "unavailable" }>;
 
 /** The Membership decisions Content Access needs. Membership Entitlements implements this port. */
-export interface MembershipEntitlements {
+export interface AccountRights {
   resolveManyForAccess?(
     accountId: AccountId,
     resources: readonly {
-      guideIds: readonly string[];
+      productIds: readonly string[];
       materialId?: string | undefined;
     }[],
   ): Promise<readonly MembershipAccessState[]>;
   resolveForAccess(
     accountId: AccountId,
-    guideIds?: readonly string[],
+    productIds?: readonly string[],
     materialId?: string,
   ): Promise<MembershipAccessState>;
 }
 
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;
-  readonly guideArtifactResourceFacts?: GuideArtifactResourceFactsAdapter;
-  readonly guideTaskResourceFacts?: GuideTaskResourceFactsAdapter;
+  readonly productArtifactResourceFacts?: ProductArtifactResourceFactsAdapter;
+  readonly productTaskResourceFacts?: ProductTaskResourceFactsAdapter;
   readonly videoResourceFacts?: VideoResourceFactsAdapter;
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
-  readonly membershipEntitlements: MembershipEntitlements;
-  readonly workshopMaterialAccess?: WorkshopMaterialAccess;
+  readonly accountRights: AccountRights;
   readonly clock?: () => Date;
   readonly decisionId?: () => string;
 }

@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { beginTelegramLink } from "../api/begin-telegram-link.browser";
 import { confirmTelegramLink } from "../api/confirm-telegram-link.browser";
+import {
+  clearTelegramLinkSession,
+  resolveTelegramLinkDeepLink,
+} from "./telegram-link-session.browser";
 
 export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
   const [deepLink, setDeepLink] = useState<string | null>(null);
@@ -39,14 +43,19 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
     if (telegramWindow !== null) telegramWindow.opener = null;
     try {
       const result = await beginMutation.mutateAsync();
-      if (result.kind === "received" && result.state.deepLink !== undefined) {
-        setDeepLink(result.state.deepLink);
+      const resolvedDeepLink =
+        result.kind === "received"
+          ? resolveTelegramLinkDeepLink(result.state)
+          : null;
+      setDeepLink(resolvedDeepLink);
+      if (result.kind !== "received") clearTelegramLinkSession();
+      if (result.kind === "received" && resolvedDeepLink !== null) {
         automaticLinkRef.current = result.state.linkRef;
         setAutomaticConfirmation(true);
         if (telegramWindow === null) {
-          window.location.assign(result.state.deepLink);
+          window.location.assign(resolvedDeepLink);
         } else {
-          telegramWindow.location.replace(result.state.deepLink);
+          telegramWindow.location.replace(resolvedDeepLink);
         }
       } else {
         telegramWindow?.close();
@@ -66,6 +75,11 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
       const result = await confirmMutation.mutateAsync(linkRef);
       if (result.kind === "received" && result.state.status !== "pending") {
         setDeepLink(null);
+        clearTelegramLinkSession();
+      }
+      if (result.kind === "unauthorized") {
+        setDeepLink(null);
+        clearTelegramLinkSession();
       }
       await onRefresh();
       if (

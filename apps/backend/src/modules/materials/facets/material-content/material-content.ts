@@ -1,3 +1,4 @@
+import { loadMaterialProductAccessFacts } from "../../shared/product-composition.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -27,7 +28,8 @@ export interface MaterialAccessFacts {
   readonly access: MaterialAccess;
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
-  readonly guideIds?: readonly string[];
+  readonly productIds?: readonly string[];
+  readonly archivedOnly?: boolean;
 }
 
 type MaterialContentError =
@@ -39,7 +41,7 @@ export interface MaterialContent {
     materialId: MaterialId,
     transaction?: Pick<
       MaterialsPrisma,
-      "material" | "publishedMaterialGuideMembership"
+      "material" | "publishedMaterialProductMembership" | "product"
     >,
   ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>>;
   findAccessFactsMany(
@@ -73,7 +75,7 @@ export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
 const accessFactsRowSchema = z.object({
   id: z.uuid(),
   publicationState: z.enum(["draft", "published", "unpublished"]),
-  access: z.enum(["free", "membership", "workshop"]),
+  access: z.enum(["free", "closed"]),
   contentVersion: z.bigint(),
   primaryVideoId: z.uuid().nullable(),
 });
@@ -107,7 +109,7 @@ export function assembleMaterialContent(dependencies: {
       materialIdValue: MaterialId,
       transaction: Pick<
         MaterialsPrisma,
-        "material" | "publishedMaterialGuideMembership"
+        "material" | "publishedMaterialProductMembership" | "product"
       > = dependencies.prisma,
     ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>> {
       const parsed = normalizedUuidSchema.safeParse(materialIdValue);
@@ -138,19 +140,12 @@ export function assembleMaterialContent(dependencies: {
             ),
           };
         }
-        const memberships =
-          await transaction.publishedMaterialGuideMembership.findMany({
-            where: { materialId: parsed.data },
-            select: { seriesId: true },
-          });
+        const productFacts = await loadMaterialProductAccessFacts(transaction, [
+          parsed.data,
+        ]);
         return {
           ok: true,
-          value: {
-            ...facts,
-            ...(memberships.length > 0
-              ? { guideIds: memberships.map((value) => value.seriesId) }
-              : {}),
-          },
+          value: { ...facts, ...productFacts.get(parsed.data) },
         };
       } catch (error) {
         return {
@@ -183,19 +178,13 @@ export function assembleMaterialContent(dependencies: {
             primaryVideoId: true,
           },
         });
-        const memberships =
-          await dependencies.prisma.publishedMaterialGuideMembership.findMany({
-            where: { materialId: { in: checkedMaterialIds } },
-            select: { materialId: true, seriesId: true },
-          });
+        const productFacts = await loadMaterialProductAccessFacts(
+          dependencies.prisma,
+          checkedMaterialIds,
+        );
         const facts: (MaterialAccessFacts | undefined)[] = rows.map((row) => {
           const fact = toAccessFacts(row);
-          const guideIds = memberships
-            .filter((value) => value.materialId === row.id)
-            .map((value) => value.seriesId);
-          return (
-            fact && { ...fact, ...(guideIds.length > 0 ? { guideIds } : {}) }
-          );
+          return fact && { ...fact, ...productFacts.get(row.id) };
         });
         if (facts.some((item) => item === undefined)) {
           return {

@@ -21,18 +21,18 @@ import {
 const environment = authoringPageEnvironment("/authoring/billing");
 const accountId = "00000000-0000-4000-8000-0000000000c1";
 const purchaseRef = "00000000-0000-4000-8000-0000000000b1";
-const guideId = "62000000-0000-4000-8000-000000000814";
+const productId = "62000000-0000-4000-8000-000000000814";
 
 const content = [
   {
-    kind: "guide",
-    id: guideId,
+    kind: "product",
+    id: productId,
     title: "AI Engineering",
     slug: "ai-engineering",
     available: true,
   },
   {
-    kind: "guide",
+    kind: "product",
     id: "62000000-0000-4000-8000-000000000004",
     title: "Инженерная практика",
     slug: "engineering-practice",
@@ -47,8 +47,8 @@ const assignmentOnlyTier = {
     revision: 2,
     name: "Подписка Inside",
     benefits: ["materials", "community"],
-    contentScope: {
-      guideIds: ["62000000-0000-4000-8000-000000000004"],
+    coverage: {
+      productIds: ["62000000-0000-4000-8000-000000000004"],
       materialIds: [],
     },
   },
@@ -108,12 +108,13 @@ const meta = {
     offers: billingOffers,
     cohorts: [
       {
-        guideId,
+        productId,
         revision: 3,
         name: "Поток 1",
         stage: "preorder",
         startsOn: "2026-10-20",
         nextEvent: "",
+        priceAfterStartKopecks: 3_990_000,
       },
     ],
   },
@@ -147,7 +148,7 @@ export const Catalog: Story = {
     ).toBeVisible();
     const sections = [
       "Тарифы и назначения",
-      "Ссылки активации курса и Tribute",
+      "Ссылки активации курса",
       "Подтверждение до регистрации",
       "Перенос доступа из Tribute",
       "Действующий каталог",
@@ -178,6 +179,27 @@ export const Catalog: Story = {
     await expect(
       page.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
+
+    const main = page.getByRole("main");
+    const skipLink = page.getByRole("link", { name: "Перейти к содержанию" });
+    await expect(skipLink).toHaveAttribute("href", `#${main.id}`);
+    main.focus();
+    await expect(main).toHaveFocus();
+
+    const lastSection = page.getByRole("heading", { name: "Права участника" });
+    await expect(lastSection.getBoundingClientRect().top).toBeGreaterThan(
+      main.getBoundingClientRect().bottom,
+    );
+    await expect(getComputedStyle(main).overflowY).toBe("auto");
+    lastSection.scrollIntoView({ block: "start" });
+    await expect(main.scrollTop).toBeGreaterThan(0);
+    await expect(
+      lastSection.getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(main.getBoundingClientRect().top);
+    await expect(
+      lastSection.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
+    main.scrollTop = 0;
   },
 };
 
@@ -261,6 +283,24 @@ export const CatalogLoading: Story = {
   },
 };
 
+export const PermissionDenied: Story = {
+  args: { offers: [], cohorts: null },
+  beforeEach: withReplies({
+    "content/list": billingRefused("forbidden"),
+    "tiers/list": billingRefused("forbidden"),
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const notices = await page.findAllByText(
+      "У вас нет права на это действие.",
+    );
+    for (const notice of notices) await expect(notice).toBeVisible();
+    await expect(
+      page.queryByText("Сессия завершилась. Войдите снова."),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const CatalogUnavailable: Story = {
   beforeEach: withReplies({ "content/list": billingRefused("unavailable") }),
   play: async ({ canvasElement }) => {
@@ -278,7 +318,7 @@ export const ProductCohort: Story = {
   beforeEach: withReplies({
     "cohorts/save": billingOk({
       outcome: "catalog",
-      value: { id: guideId, revision: 4, archived: false },
+      value: { id: productId, revision: 4, archived: false },
     }),
   }),
   play: async ({ canvasElement }) => {
@@ -288,15 +328,45 @@ export const ProductCohort: Story = {
     ).toBeVisible();
     await userEvent.click(page.getByRole("button", { name: "Изменить" }));
     await expect(page.getByLabelText("Название потока")).toHaveValue("Поток 1");
+    await expect(page.getByLabelText("Цена после старта, ₽")).toHaveValue(
+      "39900",
+    );
     await userEvent.click(
       page.getByRole("button", { name: "Сохранить поток" }),
     );
     await waitFor(() =>
       expect(lastRequest("cohorts/save")).toMatchObject({
         expectedRevision: 3,
-        value: { guideId, name: "Поток 1", stage: "preorder" },
+        value: {
+          productId,
+          name: "Поток 1",
+          stage: "preorder",
+          priceAfterStartKopecks: 3_990_000,
+        },
       }),
     );
+  },
+};
+
+/** Цена после старта не положительна: форма объясняет ошибку и не отправляет поток. */
+export const ProductCohortInvalidPriceAfterStart: Story = {
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      await page.findByRole("button", { name: "Изменить" }),
+    );
+    const price = page.getByLabelText("Цена после старта, ₽");
+    await userEvent.clear(price);
+    await userEvent.type(price, "-100");
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить поток" }),
+    );
+    await expect(
+      await page.findByText(
+        /Цена после старта — положительная сумма в рублях/u,
+      ),
+    ).toBeVisible();
+    await expect(price).toHaveAttribute("aria-invalid", "true");
   },
 };
 

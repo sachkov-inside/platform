@@ -1,3 +1,7 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -80,11 +84,11 @@ function Fixture({
         items: empty ? [] : chaptered ? chapteredItems : items,
       },
     });
-    queryClient.setQueryData(["guide-artifacts", collection.id], {
+    queryClient.setQueryData(["product-artifacts", collection.id], {
       artifacts: [],
       kind: "ready",
     });
-    queryClient.setQueryData(["guide-artifacts", "reusable"], {
+    queryClient.setQueryData(["product-artifacts", "reusable"], {
       artifacts: [],
       kind: "ready",
     });
@@ -99,7 +103,7 @@ function Fixture({
 
 /** Адрес редактора, на который ведёт список продуктов: идентификатор совпадает с продуктом. */
 const environment = authoringPageEnvironment(
-  `/authoring/guides/${collection.id}`,
+  `/authoring/products/${collection.id}`,
 );
 
 const meta = {
@@ -196,6 +200,18 @@ export const Imported: Story = {
         canvas.getByRole("navigation", { name: "Навигация продукта" }),
       ).queryByRole("button", { name: "В архив" }),
     ).toBeNull();
+    // Предпросмотр только читает сохранённое, поэтому он есть и у продукта из источника (#837).
+    await expect(
+      canvas.getByRole("link", { name: "Предпросмотр главы «Сборка»" }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining(
+        `from=${encodeURIComponent(`/authoring/products/${importedCollection.id}`)}`,
+      ),
+    );
+    await expect(
+      canvas.getByRole("link", { name: "Предпросмотр «Проверка релиза»" }),
+    ).toBeVisible();
     for (const name of [
       "Добавить главу",
       "Добавить материал",
@@ -270,5 +286,57 @@ export const KeyboardReorder: Story = {
         .querySelector("li"),
     ).toHaveTextContent("Сборка контейнера");
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+  },
+};
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <SeriesEditorPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", {
+            name: "Название продукта",
+          }),
+          " — правка",
+        );
+      },
+      "Настройки сохранены",
+      () =>
+        Response.json({
+          kind: "saved",
+          collection: { ...collection, version: 2 },
+        }),
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", {
+            name: "Название продукта",
+          }),
+          " — правка",
+        );
+      },
+      "Повторить сохранение",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText("Настройки сохранены"),
+    ).not.toBeInTheDocument();
   },
 };

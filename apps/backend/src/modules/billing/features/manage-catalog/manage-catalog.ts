@@ -1,7 +1,3 @@
-import {
-  isEmptyContentScope,
-  isGuideCapability,
-} from "@inside/access-capabilities";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -136,15 +132,17 @@ async function changeCatalog(
           "availableForAssignment" in current &&
           current.availableForAssignment);
       const scope =
-        command.value.contentScope === undefined &&
+        command.value.coverage === undefined &&
         current !== null &&
-        "contentScope" in current
-          ? current.contentScope
-          : command.value.contentScope;
+        "coverage" in current
+          ? current.coverage
+          : command.value.coverage;
       if (
         assignable &&
-        (isEmptyContentScope(scope) ||
-          command.value.benefits.some((value) => isGuideCapability(value)))
+        tierLacksComposition({
+          benefits: command.value.benefits,
+          coverage: scope,
+        })
       )
         return failure("invalid_request");
       if (
@@ -166,13 +164,13 @@ async function changeCatalog(
       if (
         offerGrantsWithheld({
           benefits: command.value.benefits,
-          contentScope: scope,
+          coverage: scope,
         })
       )
         return failure("invalid_request");
       // Допуск, как и признак назначения, наследуется от прежней редакции, если команда его не
       // называет: сохранение формой без этого поля не открывает Offer всем.
-      const { contentScope, availableForAssignment, eligibility, ...value } =
+      const { coverage, availableForAssignment, eligibility, ...value } =
         command.value;
       const data = {
         ...value,
@@ -180,11 +178,10 @@ async function changeCatalog(
           ? {}
           : { availableForAssignment }),
         ...(eligibility === undefined ? {} : { eligibility }),
-        ...(contentScope === undefined
+        ...(coverage === undefined
           ? {}
           : {
-              contentScope:
-                contentScope === null ? Prisma.JsonNull : contentScope,
+              coverage: coverage === null ? Prisma.JsonNull : coverage,
             }),
         benefitPeriods: periods,
         revision,
@@ -315,15 +312,17 @@ async function changeCatalog(
 
 /**
  * Поток продукта меняется на месте: страница и бот читают текущую запись, а купленные права от неё
- * не зависят. Смена цены после старта — это архив предложения потока и публикация следующего.
+ * не зависят. Цена после старта у потока только показывается зачёркнутой рядом с ценой
+ * предзаказа; списывает деньги всегда предложение, и его смена в день старта — архив предложения
+ * потока и публикация следующего (решение владельца 08.10.2026).
  */
 async function saveCohort(
   tx: BillingPrisma,
   command: Extract<ManageCatalogCommand, { operation: "cohorts.save" }>,
 ): Promise<ManageCatalogResult> {
-  const { guideId, startsOn, ...value } = command.value;
-  const current = await tx.billingGuideCohort.findUnique({
-    where: { guideId },
+  const { productId, startsOn, ...value } = command.value;
+  const current = await tx.billingProductCohort.findUnique({
+    where: { productId },
     select: { revision: true },
   });
   if (current?.revision !== command.expectedRevision)
@@ -335,10 +334,10 @@ async function saveCohort(
     revision,
     updatedAt: new Date(),
   };
-  await tx.billingGuideCohort.upsert({
-    where: { guideId },
-    create: { guideId, ...data },
+  await tx.billingProductCohort.upsert({
+    where: { productId },
+    create: { productId, ...data },
     update: data,
   });
-  return { ok: true, value: { id: guideId, revision, archived: false } };
+  return { ok: true, value: { id: productId, revision, archived: false } };
 }

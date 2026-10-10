@@ -1,0 +1,5 @@
+# Disposable runtime smoke does not test backups or contact a real S3 endpoint.
+# Foundation init enables archiving; the command-line setting wins over ALTER SYSTEM.
+services:
+  postgres:
+    command: ["postgres", "-c", "archive_mode=off"]

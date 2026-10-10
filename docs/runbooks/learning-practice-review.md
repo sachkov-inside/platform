@@ -37,22 +37,22 @@ path, but is an author assertion, not independent cryptographic attestation of G
 current Content exporter needs a follow-up to emit this optional metadata. Synthetic packages already
 exercise the seam; that follow-up and the first chapter do not block the technical practice cycle.
 
-## Guide Tasks and review protocol v3 (#946)
+## Product Tasks and review protocol v3 (#946)
 
-A Guide Task replaces lesson practice for the course chapters
+A Product Task replaces lesson practice for the course chapters
 ([ADR 0030](../adr/0030-guide-task-module.md), specification
 [#939](https://github.com/sachkov-inside/platform/issues/939)). Both work side by side until Content
 moves chapters 0–1 to tasks; lesson practice keeps protocol v2 and everything below about it.
 
-**Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `guideId` and
-`chapterId` (source IDs of a Guide and chapter in the same package), `title`, `access`,
+**Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `productId` and
+`chapterId` (source IDs of a Product and chapter in the same package), `title`, `access`,
 `definition`, `relatedMaterialIds`, optional `afterMaterialId`, `publicationState` and
 `provenance`. The order of a chapter's tasks in `tasks[]` is their order in the chapter, so a package
-carries a chapter's complete task list; Content exports a whole Guide. `afterMaterialId` (#947) names
+carries a chapter's complete task list; Content exports a whole Product. `afterMaterialId` (#947) names
 a Material of the same chapter: the programme shows the task right after it, and without it at the
 start of the chapter; a Material outside the chapter fails the package before any write. `authoring:sync-local`, `authoring:sync-git-local`
 and `authoring:release preview|apply` validate every task before the first write and import it after
-its Guide through `/authoring/import/tasks/{validate,apply}` with an idempotency key and the expected
+its Product through `/authoring/import/tasks/{validate,apply}` with an idempotency key and the expected
 task revision. A task becomes published only when `--publish <code>` or `--publish-all` selects it;
 `publicationState: unpublished` in Content withdraws it; a task the package omits stays unchanged. A
 release preview lists each task as `new`, `changed`, `unchanged` or `conflict`, and apply refuses a
@@ -60,7 +60,7 @@ conflict. A changed definition digest creates the next Task Version; title, acce
 the Material it follows, related Materials and publication change only the task revision.
 
 **Protocol v3.** One text,
-[`review-protocol.ts`](../../apps/backend/src/modules/guide-tasks/domain/review-protocol.ts), reaches
+[`review-protocol.ts`](../../apps/backend/src/modules/product-tasks/domain/review-protocol.ts), reaches
 the agent twice: the MCP prompt `review_task` with the task code, and `learning_task_read`. Compared
 with v2 it changes four rules. The agent only reads by default and runs a command only after the
 learner consents to that exact command. It marks evidence obtained by a run (`obtainedByRun`). It
@@ -70,7 +70,7 @@ and additional criteria each get exactly one status; a violation of an additiona
 failure. Task, criteria, course material and project files stay untrusted data.
 
 **Learner MCP.** `learning_tasks_list` returns the published tasks the learner can open, optionally
-within one Guide, with the date of their latest own submission. `learning_task_read` returns the
+within one Product, with the date of their latest own submission. `learning_task_read` returns the
 current Task Version, protocol v3 and related Materials in canonical JSON parts pinned by
 `contextVersion` and `contentSha256`; a change between parts answers
 `task_context_version_mismatch` or `task_content_changed`. A task without access answers
@@ -92,8 +92,8 @@ Data policy v4 (§5–6) lets a learner ask the operator
 to delete one submission or all of them; the Author Feedback goes with it. The operator checks the
 requester as the policy says and finds the Account id. This production procedure requires migration
 `0082` from [#1065](https://github.com/sachkov-inside/platform/issues/1065), which renames `guide_tasks`
-to `product_tasks`. Root verifies that the migration has run before this procedure is used. The v4
-source branch predates that migration; its historical schema name is not the production target.
+to `product_tasks`. Root verifies that the migration has run before this procedure is used. Before #1065,
+the schema was named `guide_tasks`; that historical name is not the production target.
 Then, in `psql` on the Platform database after the migration, delete the feedback first, because its
 foreign key has no cascade:
 
@@ -118,10 +118,10 @@ the API, which obeys the same setting and the same hourly bound.
 
 ### Enabling submissions in production
 
-After #1065, `PRODUCT_TASK_SUBMISSIONS_ENABLED` turns submission on. In the historical source
-before #1065 this setting was named `GUIDE_TASK_SUBMISSIONS_ENABLED`. The production procedure below
-uses the name after #1065; Root verifies the runtime version first. It defaults to `true` locally
-and to `false` in production, where `learning_task_submit` and the page
+`PRODUCT_TASK_SUBMISSIONS_ENABLED` turns submission on after
+[#1065](https://github.com/sachkov-inside/platform/issues/1065). Root verifies the runtime version
+and migration `0082` before this procedure. The setting defaults to `true` locally and to `false`
+in production, where `learning_task_submit` and the page
 form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
 publishes data policy v4 and Root verifies that release. Enabling submissions is a separate later
 Root step. The policy covers submissions, review reports, notes and repository links:

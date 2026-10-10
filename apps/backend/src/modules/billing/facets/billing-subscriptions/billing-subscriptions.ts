@@ -1,3 +1,4 @@
+import { usableRenewalBinding } from "../../shared/renewal-schedule.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -7,11 +8,13 @@ import {
 import {
   lockBillingPricing,
   lockBillingSubscription,
+  lockBillingMethodFlow,
+  tryLockBillingMethodFlow,
   type BillingPrisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import {
   offerEligibilitySchema,
   offerSchema,
@@ -50,7 +53,7 @@ import {
   paymentFailure,
   type PaymentResult,
 } from "../../features/purchase-subscription/purchase-subscription.contract.js";
-import type { Tbank } from "../../infrastructure/tbank/tbank.js";
+import { bankTimeoutMs, type Tbank } from "../../infrastructure/tbank/tbank.js";
 import {
   lifecycleWindow,
   renewalCancelledSourceRef,
@@ -62,7 +65,6 @@ import {
 import type { BillingNotices } from "../billing-notices/billing-notices.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import {
-  offerAdmits,
   readPurchaseGrounds,
   type PurchaseGrounds,
 } from "../../shared/offer-eligibility.js";
@@ -72,7 +74,15 @@ import {
   inFlightStates,
 } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
+import { saleCapability } from "../../domain/sale-capability.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
+
+// The live-owner transaction covers the unchanged bank timeout plus a database persistence window.
+const methodFlowRecoveryAgeMs = 10_000;
+const methodFlowPersistenceBudgetMs = 5_000;
+const methodFlowTransactionTimeoutMs =
+  bankTimeoutMs + methodFlowPersistenceBudgetMs;
 
 const changeQuoteLifetimeMs = 15 * 60 * 1_000;
 const changeReceiptSchema = z.strictObject({
@@ -204,20 +214,21 @@ export class BillingSubscriptions {
     const contact = await this.dependencies.contact.read(accountId);
     if (!contact.ok) return paymentFailure("dependency_unavailable");
     if (!contact.contact) return paymentFailure("contact_required");
-    const consent = await acceptRecurringConsent(
+    const accepted = await acceptRecurringConsent(
       this.dependencies.contact,
       accountId,
       command.operationId,
       command.consentEvidenceRefs,
       contact.documents,
     );
-    if (!consent) return paymentFailure("consent_required");
+    if (accepted.status === "unavailable")
+      return paymentFailure("dependency_unavailable");
+    if (accepted.status === "absent") return paymentFailure("consent_required");
+    const consent = accepted.consent;
     // Возобновление снова включает списания, поэтому проходит ту же проверку, что и покупка.
     const legacy =
       await this.dependencies.grants.readLegacyClassification(accountId);
     if (!legacy.ok) return paymentFailure("dependency_unavailable");
-    if (!legacy.recurringAllowed)
-      return paymentFailure("legacy_review_required");
     return this.transition(
       accountId,
       command.operationId,
@@ -228,8 +239,17 @@ export class BillingSubscriptions {
         // Возобновляется только действующий оплаченный срок на прежних условиях.
         if (row.state !== "canceled" || row.paidUntil <= now)
           return paymentFailure("not_found");
-        if (!hasText(row.bindingCiphertext) || row.bindingRevokedAt !== null)
-          return paymentFailure("method_unavailable");
+        const bank = this.dependencies.bank;
+        const admission = paymentAdmission({
+          context: "resume",
+          snapshot: subscriptionSnapshotSchema.parse(row.snapshot),
+          sale: saleCapability(bank?.config, true),
+          grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
+          recurringAllowed: legacy.recurringAllowed,
+
+          bindingAvailable: usableRenewalBinding(row),
+        });
+        if (!admission.ok) return paymentFailure(admission.error.code);
         await advanceSubscription(
           tx,
           row,
@@ -260,6 +280,9 @@ export class BillingSubscriptions {
         accountId,
       );
       if (grounds === null) return paymentFailure("dependency_unavailable");
+      const legacy =
+        await this.dependencies.grants.readLegacyClassification(accountId);
+      if (!legacy.ok) return paymentFailure("dependency_unavailable");
       return await this.dependencies.prisma.$transaction(
         async (tx): Promise<PaymentResult<ChangeQuoteResult>> => {
           const now = this.clock();
@@ -296,6 +319,7 @@ export class BillingSubscriptions {
             command.paymentOptionId,
             now,
             grounds,
+            legacy.recurringAllowed,
           );
           if (!plan.ok) return plan;
           // У отменённого расписания нет следующего периода: остаётся только повышение текущего срока.
@@ -355,6 +379,9 @@ export class BillingSubscriptions {
       accountId,
     );
     if (grounds === null) return paymentFailure("dependency_unavailable");
+    const legacy =
+      await this.dependencies.grants.readLegacyClassification(accountId);
+    if (!legacy.ok) return paymentFailure("dependency_unavailable");
     let accepted: z.infer<typeof changeReceiptSchema> | undefined;
     try {
       const previous = await prisma.billingSubscriptionCommand.findUnique({
@@ -398,6 +425,7 @@ export class BillingSubscriptions {
           plan.snapshot.paymentOption.id,
           now,
           grounds,
+          legacy.recurringAllowed,
         );
         if (!current.ok) throw new CommandFailure(current.error.code);
         if (
@@ -457,11 +485,7 @@ export class BillingSubscriptions {
           return value;
         }
         if (!bank) throw new CommandFailure("method_unavailable");
-        if (
-          !hasText(row.bindingCiphertext) ||
-          !hasText(row.bindingRef) ||
-          row.bindingRevokedAt !== null
-        )
+        if (!usableRenewalBinding(row))
           throw new CommandFailure("method_unavailable");
         if (
           (await tx.billingPurchase.count({
@@ -621,14 +645,19 @@ export class BillingSubscriptions {
           : paymentFailure("operation_conflict");
       const prepared = await prisma.$transaction(
         async (tx): Promise<PaymentResult<string>> => {
-          const now = this.clock();
-          const row = await tx.billingSubscription.findFirst({
+          const found = await tx.billingSubscription.findFirst({
             where: { accountId, state: { not: "ended" } },
+            select: { id: true },
           });
-          if (!row) return paymentFailure("not_found");
+          if (!found) return paymentFailure("not_found");
+          await lockBillingSubscription(tx, found.id);
+          const row = await tx.billingSubscription.findUniqueOrThrow({
+            where: { id: found.id },
+          });
+          if (row.state === "ended") return paymentFailure("not_found");
           if (row.revision !== command.expectedRevision)
             return paymentFailure("revision_conflict");
-          await lockBillingSubscription(tx, row.id);
+          const now = this.clock();
           if (
             (await tx.billingPaymentMethodFlow.count({
               where: { subscriptionRef: row.id, state: "started" },
@@ -665,15 +694,26 @@ export class BillingSubscriptions {
       );
     }
     try {
-      const session = await bank.addCard(accountId);
-      await prisma.billingPaymentMethodFlow.update({
-        where: { id: flowRef },
-        data: {
-          requestKey: session.requestKey,
-          formUrl: session.formUrl,
-          updatedAt: this.clock(),
+      await prisma.$transaction(
+        async (tx) => {
+          await lockBillingMethodFlow(tx, flowRef);
+          const flow = await tx.billingPaymentMethodFlow.findUniqueOrThrow({
+            where: { id: flowRef },
+          });
+          // Recovery can own a lost attempt before this request reaches AddCard.
+          if (flow.state !== "started" || flow.requestKey !== flow.id) return;
+          const session = await bank.addCard(accountId);
+          await tx.billingPaymentMethodFlow.updateMany({
+            where: { id: flowRef, state: "started", requestKey: flowRef },
+            data: {
+              requestKey: session.requestKey,
+              formUrl: session.formUrl,
+              updatedAt: this.clock(),
+            },
+          });
         },
-      });
+        { timeout: methodFlowTransactionTimeoutMs },
+      );
     } catch (error) {
       reportDependencyFailure(
         { module: "billing", operation: "changeMethod" },
@@ -730,13 +770,27 @@ export class BillingSubscriptions {
   }
 
   /** Серверная сверка сессий привязки: новый способ применяется только по доказанному token. */
-  async reconcileMethodFlows(
-    limit = 20,
-  ): Promise<PaymentResult<{ inspected: number; applied: number }>> {
+  async reconcileMethodFlows(limit = 20): Promise<
+    PaymentResult<{
+      status: "ready" | "configuration_idle";
+      inspected: number;
+      applied: number;
+      failed: number;
+    }>
+  > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     const { prisma, bank } = this.dependencies;
-    if (!bank?.config.cardBinding) return paymentFailure("method_unavailable");
+    if (!bank?.config.cardBinding)
+      return {
+        ok: true,
+        value: {
+          status: "configuration_idle",
+          inspected: 0,
+          applied: 0,
+          failed: 0,
+        },
+      };
     try {
       const rows = await prisma.billingPaymentMethodFlow.findMany({
         where: {
@@ -747,18 +801,31 @@ export class BillingSubscriptions {
         orderBy: { createdAt: "asc" },
         take: limit,
       });
-      let applied = 0;
+      let applied = 0,
+        failed = 0;
       for (const row of rows) {
         const now = this.clock();
         if (row.requestKey === row.id) {
-          // Ответ банка потерян: локальная сессия закрывается, новая начинается отдельной командой.
-          await prisma.billingPaymentMethodFlow.updateMany({
-            where: { id: row.id, state: "started" },
-            data: {
-              state: "rejected",
-              observedStatus: "no_bank_session",
-              updatedAt: now,
-            },
+          await prisma.$transaction(async (tx) => {
+            if (!(await tryLockBillingMethodFlow(tx, row.id))) return;
+            const flow = await tx.billingPaymentMethodFlow.findUniqueOrThrow({
+              where: { id: row.id },
+            });
+            if (flow.state !== "started" || flow.requestKey !== flow.id) return;
+            const recoveryTime = this.clock();
+            if (
+              recoveryTime.getTime() - flow.createdAt.getTime() <
+              methodFlowRecoveryAgeMs
+            )
+              return;
+            await tx.billingPaymentMethodFlow.updateMany({
+              where: { id: flow.id, state: "started", requestKey: flow.id },
+              data: {
+                state: "rejected",
+                observedStatus: "no_bank_session",
+                updatedAt: recoveryTime,
+              },
+            });
           });
           continue;
         }
@@ -770,6 +837,7 @@ export class BillingSubscriptions {
             { module: "billing", operation: "reconcileMethodFlows" },
             error,
           );
+          failed += 1;
           continue;
         }
         if (!observed.success || observed.errorCode !== "0") {
@@ -839,7 +907,10 @@ export class BillingSubscriptions {
           return 1;
         });
       }
-      return { ok: true, value: { inspected: rows.length, applied } };
+      return {
+        ok: true,
+        value: { status: "ready", inspected: rows.length, applied, failed },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "reconcileMethodFlows" },
@@ -855,6 +926,7 @@ export class BillingSubscriptions {
     paymentOptionId: string,
     now: Date,
     grounds: PurchaseGrounds,
+    recurringAllowed: boolean,
   ): Promise<PaymentResult<ChangePlan>> {
     const { bank } = this.dependencies;
     const target = await tx.billingPaymentOption.findUnique({
@@ -870,8 +942,6 @@ export class BillingSubscriptions {
       return paymentFailure("not_found");
     // Смена варианта — тоже покупка Offer: ограничение допуска действует и здесь.
     const eligibility = offerEligibilitySchema.parse(target.offer.eligibility);
-    if (!offerAdmits({ id: target.offer.id, eligibility }, grounds))
-      return paymentFailure("not_eligible");
     const current = subscriptionSnapshotSchema.parse(row.snapshot);
     if (
       target.id === current.paymentOption.id &&
@@ -887,6 +957,7 @@ export class BillingSubscriptions {
         archived: target.offer.archived,
         published: target.offer.published,
         eligibility,
+        coverage: target.offer.coverage,
         ...(Array.isArray(target.offer.benefitPeriods) &&
         target.offer.benefitPeriods.length > 0
           ? { benefitPeriods: target.offer.benefitPeriods }
@@ -908,6 +979,16 @@ export class BillingSubscriptions {
       firstPriceKopecks: Number(target.priceKopecks),
       renewalPriceKopecks: Number(target.priceKopecks),
     });
+    if (target.mode !== "subscription")
+      return paymentFailure("invalid_request");
+    const admission = paymentAdmission({
+      context: "change",
+      snapshot,
+      sale: saleCapability(bank?.config, true),
+      grounds,
+      recurringAllowed,
+    });
+    if (!admission.ok) return paymentFailure(admission.error.code);
     const plan = planSubscriptionChange({
       currentMonths: current.paymentOption.months,
       targetMonths: target.months,
@@ -928,12 +1009,16 @@ export class BillingSubscriptions {
         },
       };
     if (!bank) return paymentFailure("method_unavailable");
-    // Границы терминала подтверждены capability и не выдумываются в коде.
-    if (
-      plan.topUpKopecks < bank.config.minimumKopecks ||
-      plan.topUpKopecks > bank.config.maximumKopecks
-    )
-      return paymentFailure("unsupported_amount");
+    const charge = paymentAdmission({
+      context: "change",
+      snapshot,
+      sale: saleCapability(bank.config, true),
+      grounds,
+      recurringAllowed,
+
+      chargeKopecks: plan.topUpKopecks,
+    });
+    if (!charge.ok) return paymentFailure(charge.error.code);
     return {
       ok: true,
       value: {

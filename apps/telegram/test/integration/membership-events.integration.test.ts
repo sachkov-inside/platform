@@ -1,10 +1,24 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { linkEffects } from "../../src/application/link-effects.js";
+import { contactEffects } from "../../src/application/contact-effects.js";
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
+import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
+import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { Communications } from "../../src/modules/communications/communications.js";
 import { DisabledAuthorAuthorization } from "../../src/modules/communications/author-authorization.js";
 import { sql } from "kysely";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { ApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -38,6 +52,8 @@ import {
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { canonicalMembershipUpdate } from "../support/synthetic-telegram-updates.js";
 
+registerFixedClock();
+
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
@@ -69,6 +85,7 @@ const config: ApplicationConfig = {
   },
   membershipMode: "disabled",
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipReconciliationCadenceMilliseconds: 240_000,
   platformIntegrationSecret: "synthetic_platform_secret",
   port: 3002,
@@ -380,7 +397,7 @@ describe("durable Membership events", () => {
 
     const inbox = new TelegramUpdateInbox(database);
     const metrics = new RuntimeMetrics();
-    const linking = new IdentityLinking(database, clock);
+    const linking = new IdentityLinking(database, clock, linkEffects);
     const processor = new TelegramUpdateProcessor(
       {
         start: () => Promise.resolve(),
@@ -388,7 +405,7 @@ describe("durable Membership events", () => {
       },
       inbox,
       config,
-      new BotContacts(database, config),
+      new BotContacts(database, config, contactEffects),
       linking,
       metrics,
       provider,
@@ -405,7 +422,12 @@ describe("durable Membership events", () => {
         new DisabledCommunityDispatchAuthorization(),
         new DisabledTelegramCommunityChat(),
       ),
-      new StartResponseDeliveryQueue(database, config),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        config,
+        signInReplyEligibility,
+      ),
       new GrammyUpdateAdapter(),
       { start: () => Promise.resolve(), retry: () => Promise.resolve() },
     );
@@ -1111,18 +1133,27 @@ describe("durable Membership events", () => {
       .then(() => {
         transitionCompleted = true;
       });
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(transitionCompleted).toBe(false);
-
-    platform.resume();
-    await expect(processing).resolves.toBe("delivered");
-    await transition;
+    let restoreDate: (() => void) | undefined;
+    try {
+      await advisoryLockWaiting(
+        database,
+        `membership-provider-delivery:${config.botIdentity}`,
+      );
+      restoreDate = useTimeoutClock();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(transitionCompleted).toBe(false);
+    } finally {
+      restoreDate?.();
+      platform.resume();
+      await expect(processing).resolves.toBe("delivered");
+      await transition;
+    }
     expect(transitionCompleted).toBe(true);
   });
 });
 
 async function confirmLink(telegramUserId: string) {
-  await new BotContacts(database, config).observeStart(
+  await new BotContacts(database, config, contactEffects).observeStart(
     {
       botIdentity: config.botIdentity,
       observedAt: linkedAt,
@@ -1132,7 +1163,7 @@ async function confirmLink(telegramUserId: string) {
     },
     "link-receipt",
   );
-  const linking = new IdentityLinking(database, clock);
+  const linking = new IdentityLinking(database, clock, linkEffects);
   const challenge = await linking.register({
     accountRef: "account-ref-a",
     expiresAt: new Date(linkedAt.getTime() + 60_000),

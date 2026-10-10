@@ -2,6 +2,7 @@ import type {
   ContentCollectionNotFoundError,
   ForbiddenError,
   InvalidContentError,
+  InvalidReferenceError,
   StaleContentCollectionVersionError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -23,6 +24,7 @@ export type SetContentCollectionArchiveError =
   | ContentCollectionNotFoundError
   | ForbiddenError
   | InvalidContentError
+  | InvalidReferenceError
   | StaleContentCollectionVersionError
   | SystemError;
 

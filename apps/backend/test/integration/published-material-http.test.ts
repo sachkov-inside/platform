@@ -56,7 +56,7 @@ describe("published Material HTTP contract", () => {
       projection: {
         slug: "developer-pipeline-bez-poteri-konteksta",
         title: "Developer Pipeline без потери контекста",
-        access: "membership",
+        access: "closed",
       },
     });
     // Локальный seed продаёт только руководство, а подписку не продаёт: разовое предложение
@@ -171,7 +171,7 @@ describe("published Material HTTP contract", () => {
     expect(catalog.items.slice(0, 2)).toMatchObject([
       {
         slug: "developer-pipeline-bez-poteri-konteksta",
-        access: "membership",
+        access: "closed",
         availability: "locked",
       },
       {
@@ -488,7 +488,7 @@ describe("published Material HTTP contract", () => {
     }
   });
 
-  test("reports the subscription as not offered without a variant on sale and as offered with one", async () => {
+  test("never advertises a subscription to a guest, including when a variant is on sale", async () => {
     // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
     // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
     const seeded = await testDatabase.prisma.billingOffer.findMany({
@@ -530,7 +530,7 @@ describe("published Material HTTP contract", () => {
         revision: 1,
         name: "Материалы",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
         published: true,
       },
     });
@@ -547,7 +547,7 @@ describe("published Material HTTP contract", () => {
     const home = (
       await server.inject({ method: "GET", url: "/library/home" })
     ).json<{ membership: unknown }>();
-    expect(home.membership).toEqual({ kind: "inactive" });
+    expect(home.membership).toEqual({ kind: "notOffered" });
     const teaser = (
       await server.inject({
         method: "GET",
@@ -556,7 +556,7 @@ describe("published Material HTTP contract", () => {
     ).json<{ access: unknown }>();
     expect(teaser.access).toEqual({
       availability: "locked",
-      subscriptionOffered: true,
+      subscriptionOffered: false,
     });
   });
 });

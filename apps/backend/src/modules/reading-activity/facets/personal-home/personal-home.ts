@@ -20,7 +20,7 @@ export class PersonalHome {
       readonly prisma: ReadingActivityPrismaClient;
       readonly contentAccess: Pick<
         ContentAccess,
-        "authorize" | "checkAvailabilityMany"
+        "authorize" | "checkAvailabilityMany" | "checkProductAccess"
       >;
       readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
       readonly composition: Pick<PublishedSeriesComposition, "read">;

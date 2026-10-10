@@ -1,10 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import {
+  COMMUNITY_RECONCILIATION_INTERVAL_MS,
   sameAccess,
   communityAccessSchema,
   communityResultSchema,
@@ -35,6 +37,7 @@ import {
 import {
   projectCommunityEntitlement,
   readLinkChangedAccounts,
+  readBoundaryChangedAccounts,
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
@@ -64,6 +67,7 @@ export interface CommunitySweepReport {
 }
 
 const OPERATION_HISTORY_LIMIT = 20;
+const MEMBER_OBSERVATION_MAX_AGE_MS = 2 * COMMUNITY_RECONCILIATION_INTERVAL_MS;
 /** Сколько Account с наблюдением просматривает один запрос списка оператора. */
 const MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT = 1000;
 
@@ -87,7 +91,7 @@ export class CommunityEntitlements {
 
   /** Какой переход в сообщество показать самому Account; правило живёт здесь, а не в интерфейсе. */
   async readOwnCommunityEntry(accountId: string): Promise<OwnCommunityEntry> {
-    const { admission, linked, membership } =
+    const { admission, linked, membership, groupUrl } =
       await this.resolveOwnAdmission(accountId);
     // Непрочитанные факты не превращаются в совет подключить Telegram: блока просто нет.
     if (linked === null || admission.state === "no_access")
@@ -100,7 +104,7 @@ export class CommunityEntitlements {
       return { kind: "restricted" };
     if (admission.state !== "ready") return { kind: "preparing" };
     return membership === "member"
-      ? { kind: "member" }
+      ? { kind: "member", ...(groupUrl === undefined ? {} : { groupUrl }) }
       : { kind: "join", botUrl: this.dependencies.botStartUrl };
   }
 
@@ -109,6 +113,7 @@ export class CommunityEntitlements {
     /** `null`, когда связь с Telegram не удалось прочитать. */
     readonly linked: boolean | null;
     readonly membership: ObservedMembership;
+    readonly groupUrl?: string;
   }> {
     const unresolved = {
       admission: { admissionRestriction: null, state: "checking" as const },
@@ -125,7 +130,8 @@ export class CommunityEntitlements {
     ]);
     if (!access.ok || !binding.ok) return unresolved;
     const linked = binding.binding !== null;
-    if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
+    const now = this.clock();
+    if (!accessAllows(communityAccessFor(access.capabilities), now))
       return {
         ...unresolved,
         admission: { admissionRestriction: null, state: "no_access" },
@@ -154,6 +160,19 @@ export class CommunityEntitlements {
     )
       return { ...unresolved, linked };
     const restriction = result.data.admissionRestriction;
+    const responseAge =
+      operation?.resultAt === null || operation?.resultAt === undefined
+        ? null
+        : now.getTime() - operation.resultAt.getTime();
+    const providerObservationAge =
+      now.getTime() - new Date(result.data.updatedAt).getTime();
+    const freshObservation =
+      operation?.errorCode === null &&
+      responseAge !== null &&
+      responseAge >= 0 &&
+      responseAge <= MEMBER_OBSERVATION_MAX_AGE_MS &&
+      providerObservationAge >= 0 &&
+      providerObservationAge <= MEMBER_OBSERVATION_MAX_AGE_MS;
     return {
       admission: {
         admissionRestriction: restriction,
@@ -168,6 +187,9 @@ export class CommunityEntitlements {
       },
       linked,
       membership: result.data.observedMembership,
+      ...(result.data.groupUrl === undefined || !freshObservation
+        ? {}
+        : { groupUrl: result.data.groupUrl }),
     };
   }
 
@@ -202,37 +224,67 @@ export class CommunityEntitlements {
       limit,
     });
     const accounts = new Set<string>(changed.ok ? changed.accountIds : []);
-    const due = await prisma.telegramCommunityDesiredState.findMany({
-      where: { nextBoundary: { lte: now } },
-      orderBy: { nextBoundary: "asc" },
-      take: limit,
-      select: { accountId: true },
-    });
-    for (const row of due) accounts.add(row.accountId);
+    for (const accountId of await readBoundaryChangedAccounts(
+      prisma,
+      limit,
+      now,
+    )) {
+      accounts.add(accountId);
+    }
     for (const accountId of await readLinkChangedAccounts(prisma, limit)) {
       accounts.add(accountId);
     }
+    const retries = await prisma.telegramCommunityProjectionRetry.findMany({
+      where: { nextAttemptAt: { lte: now } },
+      orderBy: [{ nextAttemptAt: "asc" }, { accountId: "asc" }],
+      take: limit,
+      select: { accountId: true },
+    });
+    for (const retry of retries) accounts.add(retry.accountId);
 
-    const inWindow = new Set(changed.ok ? changed.accountIds : []);
     let failed = 0;
-    let windowFailed = false;
     for (const accountId of accounts) {
+      // Persist the responsibility before projection. A crash may repeat work, but
+      // advancing the audit cursor can never forget an unfinished Account.
+      const attemptId = randomUUID();
+      await prisma.telegramCommunityProjectionRetry.upsert({
+        where: { accountId },
+        create: { accountId, attemptId, nextAttemptAt: now, updatedAt: now },
+        update: { attemptId, updatedAt: now },
+      });
       const projection = await projectCommunityEntitlement(
         this.dependencies,
         accountId,
         now,
       );
-      if (projection.ok) continue;
+      if (projection.ok) {
+        await prisma.telegramCommunityProjectionRetry.deleteMany({
+          where: { accountId, attemptId },
+        });
+        continue;
+      }
       failed += 1;
-      // Only a failure inside the cursor's own window may hold the cursor back;
-      // an unrelated boundary or link Account must not stall the audit trail.
-      if (inWindow.has(accountId)) windowFailed = true;
+      await prisma.telegramCommunityProjectionRetry.updateMany({
+        where: { accountId, attemptId },
+        data: {
+          errorCode: projection.error.code,
+          nextAttemptAt: new Date(
+            now.getTime() + COMMUNITY_RECONCILIATION_INTERVAL_MS,
+          ),
+          updatedAt: now,
+        },
+      });
     }
-    if (changed.ok && !windowFailed && changed.cursor > afterRevision) {
+    if (changed.ok && changed.cursor > afterRevision) {
       await prisma.telegramCommunityProjectionCursor.upsert({
         where: { id: 1 },
         create: { id: 1, accessRevision: changed.cursor, updatedAt: now },
-        update: { accessRevision: changed.cursor, updatedAt: now },
+        update: {},
+      });
+      // Concurrent sweeps must not move the shared cursor backwards.
+      await prisma.telegramCommunityProjectionCursor.updateMany({
+        where: { id: 1, accessRevision: { lt: changed.cursor } },
+        data: { accessRevision: changed.cursor, updatedAt: now },
       });
     }
 

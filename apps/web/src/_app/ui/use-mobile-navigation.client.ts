@@ -162,7 +162,9 @@ export function useMobileNavigation(
     if (destination === null || destination.href.split("?")[0] !== pathname)
       return;
     pending.current = null;
-    const main = document.getElementById("content");
+    const main = document.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
     if (main === null) return;
     let frame = 0;
     const stop = () => {
@@ -230,6 +232,7 @@ export function useMobileNavigation(
 
 function readScrollTop(): number {
   return window.matchMedia("(min-width: 64rem)").matches
-    ? (document.getElementById("content")?.scrollTop ?? 0)
+    ? (document.querySelector<HTMLElement>("[data-application-content]")
+        ?.scrollTop ?? 0)
     : window.scrollY;
 }

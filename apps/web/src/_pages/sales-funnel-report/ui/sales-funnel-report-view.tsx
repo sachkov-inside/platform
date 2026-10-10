@@ -18,7 +18,7 @@ const cardClass =
  * Replace through #819 after Storybook acceptance.
  */
 export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
-  const guide = view.guides.find((item) => item.id === view.guideId);
+  const product = view.products.find((item) => item.id === view.productId);
   return (
     <SalesFunnelReportFrame>
       <header className="grid gap-2">
@@ -40,13 +40,13 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
         <Field label="Продукт">
           <select
             className={fieldClass}
-            defaultValue={view.guideId ?? ""}
-            name="guideId"
+            defaultValue={view.productId ?? ""}
+            name="productId"
           >
-            {view.guides.length === 0 ? (
+            {view.products.length === 0 ? (
               <option value="">Продуктов нет</option>
             ) : null}
-            {view.guides.map((item) => (
+            {view.products.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
@@ -57,13 +57,13 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
           <select
             className={fieldClass}
             defaultValue={view.chapterId ?? ""}
-            disabled={guide === undefined || guide.chapters.length === 0}
+            disabled={product === undefined || product.chapters.length === 0}
             name="chapterId"
           >
-            {guide === undefined || guide.chapters.length === 0 ? (
+            {product === undefined || product.chapters.length === 0 ? (
               <option value="">Глав нет</option>
             ) : null}
-            {guide?.chapters.map((item) => (
+            {product?.chapters.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
@@ -121,7 +121,7 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
           className="text-xl font-semibold tracking-[-0.02em]"
           id="sales-funnel-table-title"
         >
-          {guide === undefined ? "Шаги бота" : guide.name}
+          {product === undefined ? "Шаги бота" : product.name}
         </h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           {formatPeriod(view.from, view.to)}, по московскому времени

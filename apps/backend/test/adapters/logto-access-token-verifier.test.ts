@@ -1,3 +1,8 @@
+import {
+  registerFixedClock,
+  fixedTestInstant,
+} from "../support/fixed-clock.js";
+
 import { createServer } from "node:http";
 
 import {
@@ -11,9 +16,11 @@ import { beforeAll, describe, expect, test } from "vitest";
 
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
 
+registerFixedClock();
+
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.inside.example.test";
-const now = Math.floor(Date.now() / 1_000);
+const now = Math.floor(fixedTestInstant() / 1_000);
 
 describe("Logto access token verifier", () => {
   let privateKey: CryptoKey;

@@ -5,13 +5,13 @@ export {
 } from "./blocks/callout.js";
 export { variantOptionType } from "./blocks/variant.js";
 export {
-  defaultGuideMode,
-  guideModeLabels,
-  guideModes,
-  guideModeSchema,
-  isGuideMode,
-  type GuideMode,
-} from "./guide-mode.js";
+  defaultProductMode,
+  productModeLabels,
+  productModes,
+  productModeSchema,
+  isProductMode,
+  type ProductMode,
+} from "./product-mode.js";
 export type {
   MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,
@@ -25,7 +25,7 @@ export {
   mapMaterialBlockChildren,
   materialBlockChildren,
   materialBlockHeading,
-  materialBlockResource,
+  materialBlockResources,
   materialBlockText,
 } from "./extract.js";
 export type { JsonObject, JsonPrimitive, JsonValue } from "./json.js";
@@ -66,3 +66,24 @@ export {
   renderedBlockSchema,
   renderedMaterialBodySchema,
 } from "./rendered-block-schema.js";
+
+export type {
+  ImageVariants,
+  ImageAssetPresentation,
+} from "./rendered-block.js";
+
+export {
+  quizContentSchema,
+  readerBlocksSchema,
+  type QuizContent,
+  type ContentReaderBlock,
+} from "./quiz-content.js";
+export { materialHeadingAnchors } from "./heading-anchors.js";
+export type { RenderedQuiz } from "./rendered-block.js";
+
+export {
+  materialQuizReferenceIssue,
+  materialQuizReferencesValid,
+} from "./quiz-document.js";
+
+export { resourceCardUrlValid } from "./blocks/resource-card.js";

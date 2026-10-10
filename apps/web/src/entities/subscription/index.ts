@@ -10,9 +10,8 @@ export {
   currentBillingSchema,
   ownPaymentSchema,
   noticeViewSchema,
-  guideCapability,
-  guidePurchaseOffers,
-  isGuideCapability,
+  productCapability,
+  isProductCapability,
   offerEligibilitySchema,
   offerSchema,
   offersPageSchema,
@@ -27,7 +26,7 @@ export {
   verifiedContactSchema,
   type AccessCapability,
   type CohortStage,
-  type GuideCohort,
+  type ProductCohort,
   type AttemptKind,
   type AttemptState,
   type BillingFailure,
@@ -58,7 +57,7 @@ export {
   attemptStateLabel,
   benefitLines,
   benefitTerms,
-  contentScopeSummary,
+  coverageSummary,
   billingErrorMessage,
   capabilityLabel,
   formatBillingDate,
@@ -129,3 +128,17 @@ export {
   announceEnrollmentChange,
   subscribeEnrollmentChange,
 } from "./model/enrollment-events";
+
+export {
+  cohortCountdown,
+  cohortToday,
+  formatCohortDate,
+  formatDaysUntilStart,
+  preorderDiscount,
+  preorderPrice,
+  preorderTerms,
+  type PreorderPrice,
+  type PreorderTerms,
+} from "./model/preorder";
+export { PreorderPriceView } from "./ui/preorder-price";
+export { StartCountdownBadge } from "./ui/start-countdown-badge";

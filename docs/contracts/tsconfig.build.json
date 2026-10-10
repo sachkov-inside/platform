@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.node-lib.json",
+  "compilerOptions": {
+    "rootDir": "community-result",
+    "outDir": "dist"
+  },
+  "include": [
+    "community-result/**/*.ts"
+  ]
+}

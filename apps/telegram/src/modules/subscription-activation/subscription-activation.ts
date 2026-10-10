@@ -442,17 +442,11 @@ export class SubscriptionActivation {
     }
     const rule = begun.value.rule;
     const checkedAt = this.clock.now();
-    const proof: {
-      decision: ActivationEvidence["decision"];
-      retryAfterSeconds?: number;
-    } =
-      rule.verificationMode === "tribute_registry"
-        ? { decision: "registry_lookup" }
-        : await this.proof.check(
-            rule.sourceRef,
-            binding.identityRef,
-            attempt.telegram_user_id,
-          );
+    const proof = await this.proof.check(
+      rule.sourceRef,
+      binding.identityRef,
+      attempt.telegram_user_id,
+    );
     const evidence: ActivationEvidence = {
       contractVersion: ACTIVATION_VERSION,
       audience: "inside.platform.subscription-activation",

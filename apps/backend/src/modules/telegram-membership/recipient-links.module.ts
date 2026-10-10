@@ -3,7 +3,7 @@ import { Global, Module } from "@nestjs/common";
 import {
   RECIPIENT_LINKS,
   type RecipientLinks,
-} from "../membership-entitlements/index.js";
+} from "../account-rights/index.js";
 import { TelegramAccountLinks } from "./facets/telegram-account-links/telegram-account-links.js";
 import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 

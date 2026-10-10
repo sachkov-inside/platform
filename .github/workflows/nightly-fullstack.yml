@@ -37,13 +37,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install browser engine
-        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
+        run: bash scripts/install-playwright-ci.sh chromium
       - name: Use local development configuration
         run: cp .env.example .env
       - name: Start PostgreSQL and Object Storage
         run: pnpm infra:up
       - name: Run full-stack smoke
-        run: pnpm smoke:fullstack
+        run: |
+          mkdir -p ci-artifacts/nightly-fullstack
+          vmstat 5 >ci-artifacts/nightly-fullstack/runner-load.txt &
+          load_sampler=$!
+          trap 'kill "$load_sampler" 2>/dev/null || true' EXIT
+          pnpm smoke:fullstack
       - name: Capture infrastructure diagnostics
         if: ${{ failure() }}
         run: |
@@ -65,3 +70,22 @@ jobs:
       - name: Remove infrastructure
         if: ${{ always() }}
         run: docker compose down --volumes --remove-orphans
+
+  report-failure:
+    name: Report main smoke failure
+    needs: full-stack
+    if: ${{ always() && needs.full-stack.result == 'failure' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/report-nightly-fullstack-failure.sh

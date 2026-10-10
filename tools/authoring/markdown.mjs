@@ -3,8 +3,12 @@ import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import {
   addressableMaterialBlockTypes,
   calloutToneLabels,
+  readerBlocksSchema,
+  renderMaterialBlocks,
+  materialQuizReferenceIssue,
 } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
+import { z } from "zod";
 import { createHash } from "node:crypto";
 
 /**
@@ -25,7 +29,7 @@ const parser = new MarkdownIt({
   linkify: false,
   typographer: false,
 });
-const calloutHeader = /^>\s*\[!([a-z-]+)\][+-]?(?:\s+(.*))?$/u;
+const calloutHeader = /^>\s*\[!([a-z-]+)\]([+-])?(?:\s+(.*))?$/u;
 parser.block.ruler.before(
   "blockquote",
   "inside_callout",
@@ -69,7 +73,9 @@ parser.block.ruler.before(
     token.map = [start, next];
     token.meta = {
       kind: match[1],
-      title: match[2] ?? null,
+      collapse:
+        match[2] === "-" ? "collapsed" : match[2] === "+" ? "expanded" : null,
+      title: match[3] ?? null,
       content: lines.join("\n"),
     };
     state.line = next;
@@ -98,13 +104,15 @@ function calloutMeta(token) {
   const kind = token.meta?.["kind"];
   const title = token.meta?.["title"];
   const content = token.meta?.["content"];
+  const collapse = token.meta?.["collapse"];
   if (
     typeof kind !== "string" ||
     (typeof title !== "string" && title !== null) ||
-    typeof content !== "string"
+    typeof content !== "string" ||
+    (collapse !== null && collapse !== "collapsed" && collapse !== "expanded")
   )
     throw new Error("Callout token lost its description");
-  return { kind, title, content };
+  return { kind, title, content, collapse };
 }
 
 /**
@@ -174,13 +182,15 @@ export function sourceUuid(value) {
  * @param {{
  *   sourcePath: string;
  *   sourceId: string;
+ *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
+ *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
  * }} source
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image },
+  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
 ) {
   /**
    * @param {Token} token
@@ -249,10 +259,13 @@ export function convertMarkdown(
             parent,
             "linked/marked image requires an explicit supported block",
           );
+        const src = attribute(token, "src");
+        const variants = imageVariants?.(src);
         nodes.push({
           type: "assetImage",
           attrs: {
-            assetId: image(attribute(token, "src")),
+            assetId: image(src),
+            ...(variants === undefined ? {} : variants),
             alt: token.content,
             caption: token.attrGet("title"),
           },
@@ -338,14 +351,60 @@ export function convertMarkdown(
           if (!kind) fail(token, `unsupported callout: ${meta.kind}`);
           // The reader already sees the kind's own name, so a title repeating it is dropped.
           const title =
-            meta.title === calloutToneLabels[kind] ? null : meta.title;
-          append({ type: "callout", attrs: { kind, title }, content });
+            meta.collapse === null && meta.title === calloutToneLabels[kind]
+              ? null
+              : meta.title;
+          append({
+            type: "callout",
+            attrs: { kind, title, collapse: meta.collapse },
+            content,
+          });
         }
       } else fail(token, `unsupported Markdown block: ${token.type}`);
     }
     return root;
   };
-  const doc = blocks(parser.parse(markdown, {}));
+  const renderNodes = (/** @type {DocNode[]} */ nodes) => {
+    return renderMaterialBlocks(z.array(z.json()).parse(nodes));
+  };
+  const doc =
+    readerBlocks === undefined
+      ? blocks(parser.parse(markdown, {}))
+      : {
+          type: "doc",
+          content: readerBlocksSchema.parse(readerBlocks).flatMap((block) => {
+            if (block.kind === "markdown")
+              return blocks(parser.parse(block.markdown, {})).content;
+            const rich = (/** @type {string} */ value) =>
+              renderNodes(blocks(parser.parse(value, {})).content);
+            return [
+              {
+                type: "quiz",
+                attrs: {
+                  quiz: {
+                    kind: "quiz",
+                    id: block.id,
+                    prompt: rich(block.promptMarkdown),
+                    correctOptionId: block.correctOptionId,
+                    options: block.options.map((option) => ({
+                      id: option.id,
+                      content: rich(option.markdown),
+                      explanation: rich(option.explanationMarkdown),
+                    })),
+                    dontKnow: {
+                      explanation: rich(block.dontKnow.explanationMarkdown),
+                      reviewLinks: block.dontKnow.reviewLinks,
+                    },
+                  },
+                },
+              },
+            ];
+          }),
+        };
+  if (readerBlocks !== undefined) {
+    const issue = materialQuizReferenceIssue(renderNodes(doc.content));
+    if (issue !== undefined) throw new Error(`${sourcePath}: ${issue}`);
+  }
   /**
    * IDs are stable for unchanged positions, and are independent of filenames and target
    * environments.

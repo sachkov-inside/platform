@@ -22,7 +22,7 @@ export const authoringVideoSchema = z
 
 export const videoSchema = authoringVideoSchema
   .extend({
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     materialId: z.uuid(),
   })
   .strict();

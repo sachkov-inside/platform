@@ -17,7 +17,7 @@ import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
 import {
-  SeriesContinuationSlot,
+  SeriesContinuationAction,
   SeriesRowArticle,
 } from "./series-continuation.client";
 
@@ -121,13 +121,13 @@ export function MaterialCard({
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+          className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-[0.6875rem] font-bold text-primary-foreground sm:size-10 sm:text-xs"
         >
           S
         </span>
-        <div className="min-w-0 text-sm">
+        <div className="min-w-0 text-[0.8125rem] sm:text-sm">
           <strong>Sachkov Inside</strong>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[0.6875rem] text-muted-foreground sm:text-xs">
             {material.format}
             {material.publishedAt === undefined ? null : (
               <>
@@ -146,7 +146,9 @@ export function MaterialCard({
           </p>
         </div>
       </div>
-      <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]">
+      {/* Шкала шрифтов карточки (стандарт 09.10.2026): заголовок 15/17 px, текст 14/15 px —
+          на телефоне как в программе, на широком экране на ступень крупнее. */}
+      <Heading className="mt-3 text-[0.9375rem] font-semibold leading-snug tracking-[-0.02em] sm:mt-4 sm:text-[1.0625rem]">
         <IntentPrefetchLink
           className="no-underline hover:text-action"
           href={readerHref}
@@ -154,7 +156,7 @@ export function MaterialCard({
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      <p className="home-feed-post-copy mt-3 text-base text-body-muted">
+      <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
         {excerpt?.text ?? material.summary}
       </p>
       {link === undefined ? (
@@ -364,67 +366,45 @@ function SeriesMaterialRow({
   return (
     <SeriesRowArticle
       availability={pending ? "pending" : material.availability}
-      className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
+      className="group/row relative flex min-h-14 min-w-0 flex-col justify-center rounded-xl bg-muted/65 px-3 py-2.5 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          {/* Номер урока стоит в плитке: без обложки он и есть её рисунок, с обложкой — метка в углу. */}
+      {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
+          закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        {ordinal === undefined ? null : (
           <span
+            aria-hidden="true"
+            className="w-4 shrink-0 text-left text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-xl sm:leading-6"
             data-series-preview
-            className="relative w-14 shrink-0 overflow-hidden rounded-xl @min-[30rem]/series-entry:w-16 @max-[16rem]/series-entry:hidden"
           >
-            <ContentCoverImage
-              alt=""
-              className={cn(
-                "aspect-square min-h-0 w-full rounded-xl",
-                locked &&
-                  (material.cover ?? null) !== null &&
-                  "scale-110 blur-[3px]",
-              )}
-              cover={material.cover ?? null}
-              fallbackKind={
-                materialPreviewHasVideo(material) ? "video" : "material"
-              }
-              {...(ordinal === undefined || (material.cover ?? null) !== null
-                ? {}
-                : { fallbackLabel: String(ordinal).padStart(2, "0") })}
-              fallbackSeed={material.slug}
-              sizes="4rem"
-            />
-            {(material.cover ?? null) === null ||
-            ordinal === undefined ? null : (
-              <span
-                aria-hidden="true"
-                className="absolute bottom-1 left-1 rounded-md bg-background/92 px-1 text-[0.625rem] font-semibold leading-4 tabular-nums text-foreground"
-              >
-                {String(ordinal).padStart(2, "0")}
-              </span>
-            )}
+            {ordinal}
           </span>
-          <div className="min-w-0">
-            {ordinal === undefined ? null : (
-              <span className="sr-only">Урок {ordinal}. </span>
-            )}
-            <Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
-              <IntentPrefetchLink
-                className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
-                href={readerHref}
-              >
-                {material.title}
-              </IntentPrefetchLink>
-            </Heading>
-            {material.access === "free" &&
-            material.availability === "available" ? (
-              <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">
-                Бесплатно
-              </span>
-            ) : null}
-          </div>
+        )}
+        <span
+          aria-hidden="true"
+          className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
+          data-series-format
+        >
+          {material.format}
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="sr-only">
+            {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
+            {material.format}.{" "}
+          </span>
+          <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
+            <IntentPrefetchLink
+              className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+              href={readerHref}
+            >
+              {material.title}
+            </IntentPrefetchLink>
+          </Heading>
         </div>
-        <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
-            <span className="tabular-nums" data-series-duration>
+            <span className="tabular-nums max-sm:hidden" data-series-duration>
               {duration}
             </span>
           )}
@@ -444,9 +424,9 @@ function SeriesMaterialRow({
           ) : (
             readingStatus
           )}
-          <SeriesContinuationSlot slug={material.slug} />
         </span>
       </div>
+      <SeriesContinuationAction href={readerHref} slug={material.slug} />
     </SeriesRowArticle>
   );
 }

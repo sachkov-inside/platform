@@ -18,17 +18,17 @@ import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
   CONTENT_ACCESS,
-  GUIDE_TASK_RESOURCE_FACTS,
+  PRODUCT_TASK_RESOURCE_FACTS,
   type ContentAccess,
-  type GuideTaskResourceFactsAdapter,
+  type ProductTaskResourceFactsAdapter,
 } from "../content-access/index.js";
 import {
   ACCESS_GRANTS,
-  MEMBERSHIP_ENTITLEMENTS,
-  MembershipEntitlementsModule,
+  ACCOUNT_RIGHTS,
+  AccountRightsModule,
   type AccessGrants,
-  type MembershipEntitlements,
-} from "../membership-entitlements/index.js";
+  type AccountRights,
+} from "../account-rights/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -43,7 +43,7 @@ import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
 import { BillingModule, BillingPricing } from "../billing/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
-import { assembleGuideArtifactResourceFacts } from "./adapters/content-access/guide-artifact-resource-facts.js";
+import { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
 import { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
@@ -76,26 +76,21 @@ import {
 } from "./facets/video-playback/video-playback.js";
 import { MaterialContentModule } from "./material-content.module.js";
 import {
-  WORKSHOP_MATERIAL_ACCESS,
-  WorkshopModule,
-  type WorkshopMaterialAccess,
-} from "../workshop/index.js";
-import {
   assembleContentCovers,
   CONTENT_COVERS,
   type ContentCovers,
 } from "./facets/content-covers/content-covers.js";
 import { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-import { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";
+import { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
 import {
-  GUIDE_ARTIFACTS,
-  type GuideArtifacts,
-} from "./facets/guide-artifacts/guide-artifacts.js";
+  PRODUCT_ARTIFACTS,
+  type ProductArtifacts,
+} from "./facets/product-artifacts/product-artifacts.js";
 import {
-  assembleGuideArtifactDelivery,
-  GUIDE_ARTIFACT_DELIVERY,
-  type GuideArtifactDelivery,
-} from "./features/deliver-guide-artifact/deliver-guide-artifact.js";
+  assembleProductArtifactDelivery,
+  PRODUCT_ARTIFACT_DELIVERY,
+  type ProductArtifactDelivery,
+} from "./features/deliver-product-artifact/deliver-product-artifact.js";
 
 @Module({
   imports: [
@@ -104,9 +99,8 @@ import {
     AccountsModule,
     AssetsModule,
     MaterialContentModule,
-    MembershipEntitlementsModule,
+    AccountRightsModule,
     VideosModule,
-    WorkshopModule,
     BillingModule,
   ],
   providers: [
@@ -140,7 +134,7 @@ import {
           materialAssets,
           videos,
           materialBodyOperations,
-          guideAccessHolders: grants,
+          productAccessHolders: grants,
         });
       },
     },
@@ -172,15 +166,15 @@ import {
       },
     },
     {
-      provide: GUIDE_ARTIFACTS,
+      provide: PRODUCT_ARTIFACTS,
       inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         objectStorage: ObjectStorage,
-      ): GuideArtifacts => {
+      ): ProductArtifacts => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
-        return assembleGuideArtifacts({
+        return assembleProductArtifacts({
           authorPolicy: {
             canManage: (accountId) =>
               accountPermissions.hasMaterialsManage(
@@ -193,20 +187,20 @@ import {
       },
     },
     {
-      provide: GUIDE_ARTIFACT_DELIVERY,
+      provide: PRODUCT_ARTIFACT_DELIVERY,
       inject: [
-        GUIDE_ARTIFACTS,
+        PRODUCT_ARTIFACTS,
         CONTENT_ACCESS,
         OBJECT_STORAGE,
         PLATFORM_CONFIG,
       ],
       useFactory: (
-        artifacts: GuideArtifacts,
+        artifacts: ProductArtifacts,
         contentAccess: ContentAccess,
         objectStorage: ObjectStorage,
         config: PlatformConfig,
-      ): GuideArtifactDelivery =>
-        assembleGuideArtifactDelivery({
+      ): ProductArtifactDelivery =>
+        assembleProductArtifactDelivery({
           artifacts,
           contentAccess,
           objectStorage,
@@ -251,33 +245,30 @@ import {
       inject: [
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
-        GUIDE_ARTIFACTS,
+        PRODUCT_ARTIFACTS,
         VIDEOS,
         ACCOUNTS,
-        MEMBERSHIP_ENTITLEMENTS,
-        WORKSHOP_MATERIAL_ACCESS,
-        GUIDE_TASK_RESOURCE_FACTS,
+        ACCOUNT_RIGHTS,
+        PRODUCT_TASK_RESOURCE_FACTS,
       ],
       useFactory: (
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
-        guideArtifacts: GuideArtifacts,
+        productArtifacts: ProductArtifacts,
         videos: Videos,
         accounts: Accounts,
-        membershipEntitlements: MembershipEntitlements,
-        workshopMaterialAccess: WorkshopMaterialAccess,
-        guideTaskResourceFacts: GuideTaskResourceFactsAdapter,
+        accountRights: AccountRights,
+        productTaskResourceFacts: ProductTaskResourceFactsAdapter,
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
-          guideArtifactResourceFacts:
-            assembleGuideArtifactResourceFacts(guideArtifacts),
-          guideTaskResourceFacts,
+          productArtifactResourceFacts:
+            assembleProductArtifactResourceFacts(productArtifacts),
+          productTaskResourceFacts,
           videoResourceFacts: assembleVideoResourceFacts(videos),
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
-          membershipEntitlements,
-          workshopMaterialAccess,
+          accountRights,
         }),
     },
     {
@@ -329,8 +320,8 @@ import {
     CONTENT_ACCESS,
     CONTENT_COVERS,
     MaterialAnnouncements,
-    GUIDE_ARTIFACTS,
-    GUIDE_ARTIFACT_DELIVERY,
+    PRODUCT_ARTIFACTS,
+    PRODUCT_ARTIFACT_DELIVERY,
     MATERIAL_AUTHORING,
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,

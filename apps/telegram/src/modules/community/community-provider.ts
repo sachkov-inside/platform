@@ -1,3 +1,4 @@
+import { findBotContact } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
@@ -150,6 +151,30 @@ export class CommunityProvider {
   // ---------------------------------------------------------------- inbound
 
   async handle(body: unknown): Promise<CommunityHandled> {
+    const response = await this.handleCommand(body);
+    const result = response.body;
+    if (
+      result?.operation !== "entitlement.result" ||
+      result.contractVersion !== COMMUNITY_V2 ||
+      result.observedMembership !== "member" ||
+      result.admissionRestriction !== "none" ||
+      result.status !== "applied" ||
+      !accessAllows(result.access, this.clock.now())
+    )
+      return response;
+    // Bot API supergroup IDs are -(1_000_000_000_000 + MTProto channel ID).
+    const channelId = -BigInt(this.canonicalChatId) - 1_000_000_000_000n;
+    if (channelId <= 0n) return response;
+    return {
+      status: response.status,
+      body: assertCommunityResult({
+        ...result,
+        groupUrl: `https://t.me/c/${channelId}/1`,
+      }),
+    };
+  }
+
+  private async handleCommand(body: unknown): Promise<CommunityHandled> {
     const parsed = parseCommunityRequest(body, this.version);
     if (parsed.kind === "rejected") {
       // Without a parseable operationId there is no correlation to invent.
@@ -1487,14 +1512,8 @@ export class CommunityProvider {
       false,
     );
     if (!hasText(telegramUserId)) return;
-    const contact = await tx
-      .selectFrom("bot_contacts")
-      .select("private_chat_id")
-      .where("bot_identity", "=", this.bot)
-      .where("telegram_user_id", "=", telegramUserId)
-      .where("contactability", "=", "reachable")
-      .executeTakeFirst();
-    return contact
+    const contact = await findBotContact(tx, this.bot, telegramUserId);
+    return contact?.contactability === "reachable"
       ? { telegramUserId, privateChatId: contact.private_chat_id }
       : undefined;
   }

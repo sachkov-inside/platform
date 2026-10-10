@@ -7,7 +7,7 @@ export function requestSalesFunnelReport(
   query: {
     readonly from: string;
     readonly to: string;
-    readonly guideId?: string;
+    readonly productId?: string;
     readonly chapterId?: string;
   },
   accessToken: string,
@@ -17,7 +17,9 @@ export function requestSalesFunnelReport(
       new SalesFunnelService(request).readSalesFunnelReport({
         from: query.from,
         to: query.to,
-        ...(query.guideId === undefined ? {} : { guideId: query.guideId }),
+        ...(query.productId === undefined
+          ? {}
+          : { productId: query.productId }),
         ...(query.chapterId === undefined
           ? {}
           : { chapterId: query.chapterId }),

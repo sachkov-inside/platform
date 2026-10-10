@@ -1,0 +1,17 @@
+export {
+  fillProductPage,
+  fillProductPageHero,
+  fillOfferTerms,
+  type OfferTerms,
+  readProductPageCard,
+  readProductPageHero,
+  readProductLandingPage,
+  resolveProductPresentation,
+  type ProductPage,
+  type ProductPageBlock,
+  type ProductPageBlockOf,
+  type ProductPageCard,
+  type ProductPageHero,
+  type ProductPresentation,
+  type ProductLandingPage,
+} from "./model/product-page";

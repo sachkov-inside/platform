@@ -1,3 +1,6 @@
+import { probeBotContactStorage } from "../modules/bot-contacts/contact-diagnostics.js";
+import { probeMembershipStorage } from "../modules/membership-evidence/membership-diagnostics.js";
+import { probeIdentityStorage } from "../modules/identity-linking/identity-diagnostics.js";
 import { hasText } from "../shared/text.js";
 import { Client } from "pg";
 
@@ -20,12 +23,9 @@ try {
     throw new Error("Application authentication is not ready");
   }
   await database.connect();
-  await database.query(`
-    select
-      (select count(*) from bot_contacts where false),
-      (select count(*) from membership_reconciliations where false),
-      (select count(*) from identity_link_recoveries where false)
-  `);
+  await probeBotContactStorage(database);
+  await probeMembershipStorage(database);
+  await probeIdentityStorage(database);
 } catch {
   console.error("Telegram application or database is not ready");
   process.exitCode = 1;

@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { CommunityEntryView } from "./community-entry-view";
+import { Button } from "@/shared/ui/button";
+
+import { CommunityEntryView, pathActionClass } from "./community-entry-view";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/purchases");
@@ -13,14 +15,19 @@ const meta = {
   component: CommunityEntryView,
   args: {
     entry: { kind: "join", botUrl },
-    telegramHref: "/account/access",
+    // Слот: настоящую кнопку подставляет страница из раздела «Доступ».
+    telegramAction: (
+      <Button className={pathActionClass} type="button">
+        Подключить Telegram
+      </Button>
+    ),
   },
   parameters: {
     ...environment.parameters,
     docs: {
       description: {
         component:
-          "Переход в сообщество Inside рядом с покупкой. Состояние выбирает сервер; личную ссылку в группу выдаёт бот по /community.",
+          "Переход в сообщество Inside рядом с покупкой. Состояние выбирает сервер; личную ссылку в группу бот присылает сам после подключения Telegram или выдаёт по /community.",
       },
     },
   },
@@ -69,8 +76,12 @@ export const LinkTelegram: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Подключить Telegram" }),
-    ).toHaveAttribute("href", "/account/access");
+      canvas.getByRole("button", { name: "Подключить Telegram" }),
+    ).toBeEnabled();
+    // Возвращаться на сайт не нужно: ссылку бот пришлёт сам.
+    await expect(
+      canvas.getByText("После подключения бот сам пришлёт личную ссылку."),
+    ).toBeInTheDocument();
     await expectCurrentStep(canvasElement, "telegram");
   },
 };
@@ -106,6 +117,22 @@ export const Member: Story = {
     await expectCurrentStep(canvasElement, null);
   },
 };
+export const MemberWithGroup: Story = {
+  args: { entry: { kind: "member", groupUrl: "https://t.me/c/1234567890/1" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const link = canvas.getByRole("link", { name: "Открыть группу" });
+    await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await expectCurrentStep(canvasElement, null);
+  },
+};
+export const MemberWithGroupMobile: Story = {
+  ...MemberWithGroup,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
 export const Restricted: Story = {
   args: { entry: { kind: "restricted" } },
   play: async ({ canvasElement }) => {

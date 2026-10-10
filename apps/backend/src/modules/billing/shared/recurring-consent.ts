@@ -21,21 +21,34 @@ async function readAll(
   contact: ConsentReader,
   accountId: string,
   evidenceRefs: readonly string[],
-): Promise<readonly AcceptedConsent[] | undefined> {
+): Promise<
+  | { status: "read"; evidence: readonly AcceptedConsent[] | undefined }
+  | { status: "unavailable" }
+> {
   const results = await Promise.all(
     evidenceRefs.map((ref) => contact.readConsent(accountId, ref)),
   );
+  if (
+    results.some(
+      (result) => !result.ok && result.error.code === "internal_error",
+    )
+  )
+    return { status: "unavailable" };
   const evidence = results.flatMap((result) =>
     result.ok ? [result.evidence] : [],
   );
   const distinct =
     new Set(evidence.map((item) => item.document.kind)).size ===
     evidence.length;
-  return evidence.length === evidenceRefs.length &&
-    distinct &&
-    evidence.some((item) => item.document.kind === "recurring")
-    ? evidence
-    : undefined;
+  return {
+    status: "read",
+    evidence:
+      evidence.length === evidenceRefs.length &&
+      distinct &&
+      evidence.some((item) => item.document.kind === "recurring")
+        ? evidence
+        : undefined,
+  };
 }
 const sameDocument = (
   accepted: AcceptedDocument,
@@ -46,20 +59,33 @@ const sameDocument = (
   accepted.version === expected.version &&
   accepted.digest === expected.digest;
 
+/** Отсутствие принятого согласия отличается от отказа его источника. */
+export async function inspectRecurringConsent(
+  contact: ConsentReader,
+  accountId: string,
+  consent: unknown,
+): Promise<"valid" | "absent" | "unavailable"> {
+  const parsed = subscriptionConsentSchema.safeParse(consent);
+  if (!parsed.success) return "absent";
+  const read = await readAll(contact, accountId, parsed.data.evidenceRefs);
+  if (read.status === "unavailable") return "unavailable";
+  const evidence = read.evidence;
+  return evidence !== undefined &&
+    parsed.data.documents.every((document) =>
+      evidence.some((item) => sameDocument(item.document, document)),
+    )
+    ? "valid"
+    : "absent";
+}
+
 /** Действующее согласие на списание: те же документы тех же редакций, что приняты при покупке. */
 export async function verifyRecurringConsent(
   contact: ConsentReader,
   accountId: string,
   consent: unknown,
 ): Promise<boolean> {
-  const parsed = subscriptionConsentSchema.safeParse(consent);
-  if (!parsed.success) return false;
-  const evidence = await readAll(contact, accountId, parsed.data.evidenceRefs);
   return (
-    evidence !== undefined &&
-    parsed.data.documents.every((document) =>
-      evidence.some((item) => sameDocument(item.document, document)),
-    )
+    (await inspectRecurringConsent(contact, accountId, consent)) === "valid"
   );
 }
 
@@ -70,9 +96,15 @@ export async function acceptRecurringConsent(
   contextRef: string,
   evidenceRefs: readonly string[],
   published: readonly AcceptedDocument[],
-): Promise<SubscriptionConsent | undefined> {
-  const evidence = await readAll(contact, accountId, evidenceRefs);
-  if (!evidence) return undefined;
+): Promise<
+  | { status: "valid"; consent: SubscriptionConsent }
+  | { status: "absent" }
+  | { status: "unavailable" }
+> {
+  const read = await readAll(contact, accountId, evidenceRefs);
+  if (read.status === "unavailable") return { status: "unavailable" };
+  if (read.evidence === undefined) return { status: "absent" };
+  const evidence = read.evidence;
   if (
     evidence.some(
       (item) =>
@@ -80,17 +112,20 @@ export async function acceptRecurringConsent(
         !published.some((document) => sameDocument(item.document, document)),
     )
   )
-    return undefined;
+    return { status: "absent" };
   const first = evidence[0];
-  if (!first) return undefined;
-  return subscriptionConsentSchema.parse({
-    evidenceRefs: [...evidenceRefs],
-    documents: evidence.map((item) => ({
-      kind: item.document.kind,
-      documentId: item.document.documentId,
-      version: item.document.version,
-      digest: item.document.digest,
-    })),
-    acceptedAt: first.acceptedAt,
-  });
+  if (!first) return { status: "absent" };
+  return {
+    status: "valid",
+    consent: subscriptionConsentSchema.parse({
+      evidenceRefs: [...evidenceRefs],
+      documents: evidence.map((item) => ({
+        kind: item.document.kind,
+        documentId: item.document.documentId,
+        version: item.document.version,
+        digest: item.document.digest,
+      })),
+      acceptedAt: first.acceptedAt,
+    }),
+  };
 }

@@ -1,3 +1,6 @@
+import { Ajv } from "ajv";
+import addFormats from "ajv-formats";
+import schema from "@inside/contracts/platform-billing-cohorts/schema.json" with { type: "json" };
 import { hasText } from "../../shared/text.js";
 import type {
   CommunityWelcomeDetails,
@@ -10,28 +13,51 @@ import {
 
 // The welcome waits for this read, and its personal link lives only minutes.
 const READ_TIMEOUT_MILLISECONDS = 2_000;
-const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ajv = new Ajv({ strict: false });
+addFormats.default(ajv);
+// OpenAPI 3.0 uses boolean exclusiveMinimum; Ajv requires the numeric JSON Schema form.
+const responseSchema: unknown = JSON.parse(
+  JSON.stringify(schema.response),
+  (_key, value: unknown) => {
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("exclusiveMinimum" in value) ||
+      value.exclusiveMinimum !== true ||
+      !("minimum" in value)
+    )
+      return value;
+    const { minimum, ...rest } = value;
+    return { ...rest, exclusiveMinimum: minimum };
+  },
+);
+if (typeof responseSchema !== "object" || responseSchema === null)
+  throw new Error("Invalid cohort response schema");
+const validResponse = ajv.compile(responseSchema);
 
 /**
- * Public `GET /billing/cohorts` of Platform, vendored in `src/contracts/platform-billing-cohorts`: the current stream of every product. The course
+ * Public `GET /billing/cohorts` of Platform, described in `docs/contracts/platform-billing-cohorts`: the current stream of every product. The course
  * is found by its Platform product UUID, because the response carries no slug.
  */
 export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource {
-  private readonly guideId: string;
+  private readonly productId: string;
 
   constructor(
     private readonly endpoint: string,
-    guideId: string,
+    productId: string,
     private readonly fetcher: typeof fetch = fetch,
   ) {
-    this.guideId = guideId.toLowerCase();
+    this.productId = productId.toLowerCase();
   }
 
   async read(): Promise<CommunityWelcomeDetails> {
     let body: unknown;
     try {
       const response = await this.fetcher(this.endpoint, {
-        headers: { accept: "application/json" },
+        headers: {
+          accept: "application/json",
+          "x-inside-domain-names": "products.v1",
+        },
         method: "GET",
         redirect: "error",
         signal: AbortSignal.timeout(READ_TIMEOUT_MILLISECONDS),
@@ -46,6 +72,10 @@ export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource 
       body = await response.json();
     } catch (error) {
       reportFailure("platform.cohort-read", error);
+      return {};
+    }
+    if (!validResponse(body)) {
+      reportCondition("platform.cohort-read", "platform_response_invalid");
       return {};
     }
     const startsOn = this.startsOn(body);
@@ -65,9 +95,9 @@ export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource 
       (item: unknown) =>
         typeof item === "object" &&
         item !== null &&
-        "guideId" in item &&
-        typeof item.guideId === "string" &&
-        item.guideId.toLowerCase() === this.guideId,
+        "productId" in item &&
+        typeof item.productId === "string" &&
+        item.productId.toLowerCase() === this.productId,
     );
     if (cohort === undefined) return null;
     if (
@@ -78,17 +108,6 @@ export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource 
       return undefined;
     const { startsOn } = cohort;
     if (startsOn === null) return null;
-    return typeof startsOn === "string" && calendarDate(startsOn)
-      ? startsOn
-      : undefined;
+    return typeof startsOn === "string" ? startsOn : undefined;
   }
-}
-
-/** A real `YYYY-MM-DD` day: a malformed date is left out rather than printed wrong. */
-function calendarDate(value: string): boolean {
-  if (!CALENDAR_DATE.test(value)) return false;
-  const date = new Date(`${value}T00:00:00Z`);
-  return (
-    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
-  );
 }

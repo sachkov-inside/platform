@@ -1,9 +1,19 @@
 import { randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  test as vitestTest,
+} from "vitest";
 import { z } from "zod";
 
-import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
+import {
+  seedLocalDevelopment,
+  type LocalDevelopmentSeed,
+} from "../../src/development/seed-local-development.js";
 import {
   discoverPublishedMaterials,
   listPublishedMaterials,
@@ -23,27 +33,39 @@ import {
 } from "./setup/test-database.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 
+function testsOnDatabase(database: () => TestDatabase) {
+  return (name: string, body: () => Promise<void>): void => {
+    vitestTest(name, () => database().run(body));
+  };
+}
+
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
+  const test = testsOnDatabase(() => testDatabase);
   let materials: Materials;
+  let first: LocalDevelopmentSeed;
 
-  // Подготовка вне предмета проверки: база с миграциями и сборка читателя каталога.
+  // Первое заполнение готовит каталог; проверка ниже измеряет только повторное заполнение.
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    materials = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: {
-        canManage: () => false,
-      },
+    await testDatabase.run(async () => {
+      first = await seedLocalDevelopment(testDatabase.prisma);
+      materials = assembleMaterials({
+        prisma: testDatabase.prisma,
+        authorPolicy: {
+          canManage: () => false,
+        },
+      });
     });
   });
+
+  afterEach(() => testDatabase.drain());
 
   afterAll(async () => {
     await testDatabase.dispose();
   });
 
   test("publishes a stable multi-page free and closed catalog when repeated", async () => {
-    const first = await seedLocalDevelopment(testDatabase.prisma);
     const second = await seedLocalDevelopment(testDatabase.prisma);
 
     expect(second).toEqual(first);
@@ -63,7 +85,7 @@ describe("local development seed", () => {
     expect(catalog.value.items.slice(0, 2)).toMatchObject([
       {
         slug: "developer-pipeline-bez-poteri-konteksta",
-        access: "membership",
+        access: "closed",
       },
       { slug: "kak-ustroen-inside-platform", access: "free" },
     ]);
@@ -195,33 +217,38 @@ describe("local development seed", () => {
 describe("local development offer catalog", () => {
   const ownerActor = "72000000-0000-4000-8000-000000000590";
   let testDatabase: TestDatabase;
-  let guideId: string;
+  const test = testsOnDatabase(() => testDatabase);
+  let productId: string;
   let owner: BillingPricing;
   let storefront: BillingPricing;
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.prisma);
-    const guide = await testDatabase.prisma.guide.findUniqueOrThrow({
-      select: { id: true },
-      where: { slug: "platform-inside" },
-    });
-    guideId = guide.id;
-    owner = new BillingPricing({
-      prisma: testDatabase.prisma,
-      sale: { payments: true, subscriptions: true },
-      accounts: {
-        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
-      },
-    });
-    storefront = new BillingPricing({
-      prisma: testDatabase.prisma,
-      sale: { payments: true, subscriptions: true },
-      accounts: {
-        checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
-      },
+    await testDatabase.run(async () => {
+      await seedLocalDevelopment(testDatabase.prisma);
+      const product = await testDatabase.prisma.product.findUniqueOrThrow({
+        select: { id: true },
+        where: { slug: "platform-inside" },
+      });
+      productId = product.id;
+      owner = new BillingPricing({
+        prisma: testDatabase.prisma,
+        sale: { payments: true, subscriptions: true },
+        accounts: {
+          checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+        },
+      });
+      storefront = new BillingPricing({
+        prisma: testDatabase.prisma,
+        sale: { payments: true, subscriptions: true },
+        accounts: {
+          checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
+        },
+      });
     });
   });
+
+  afterEach(() => testDatabase.drain());
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -241,7 +268,7 @@ describe("local development offer catalog", () => {
     return first;
   }
 
-  test("keeps subscriptions hidden and one guide purchase on sale without a second set", async () => {
+  test("keeps subscriptions hidden and one product purchase on sale without a second set", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
 
     expect(
@@ -254,7 +281,7 @@ describe("local development offer catalog", () => {
       })),
     ).toEqual([
       {
-        benefits: [`guide:${guideId}`, "support"],
+        benefits: [`product:${productId}`, "support"],
         firstPriceKopecks: 3_000,
         mode: "one_time",
         name: "Руководство «Создание Platform Inside»",
@@ -356,11 +383,16 @@ describe("local development seed after a demo content change", () => {
   const seedActor = "72000000-0000-4000-8000-000000000001";
   const stepTitle = "Demo · Подготовка приложения к релизу";
   let testDatabase: TestDatabase;
+  const test = testsOnDatabase(() => testDatabase);
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.prisma);
+    await testDatabase.run(async () => {
+      await seedLocalDevelopment(testDatabase.prisma);
+    });
   });
+
+  afterEach(() => testDatabase.drain());
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -423,7 +455,7 @@ describe("local development seed after a demo content change", () => {
   /** Всё, что засев мог бы переписать: материалы, их видео и состав руководств. */
   async function writtenState() {
     return {
-      guideMemberships: await testDatabase.prisma.guideMembership.findMany({
+      productMemberships: await testDatabase.prisma.productMembership.findMany({
         orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
         select: {
           materialId: true,

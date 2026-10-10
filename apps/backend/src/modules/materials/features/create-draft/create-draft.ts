@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import type { AuthoringSource } from "../../domain/authoring-source.js";
 import { randomUUID } from "node:crypto";
@@ -26,7 +30,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
-import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
+import { loadChangedProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -95,16 +99,16 @@ export function assembleCreateDraft(
           rollback,
           async () => {
             const newMaterialId = materialId(randomUUID());
-            if (
-              !(await canChangeGuideMemberships(
-                transaction,
-                newMaterialId,
-                selection.value.toValues().seriesIds,
-                source?.id ?? null,
-              ))
-            ) {
-              return rollback({ code: "forbidden" });
-            }
+            const memberships = await loadChangedProductMemberships(
+              transaction,
+              newMaterialId,
+              selection.value.toValues().seriesIds,
+            );
+            const sourceError = checkContentWrite(
+              contentWriter(source?.id ?? null),
+              memberships,
+            );
+            if (sourceError !== null) return rollback(sourceError);
             const sourceSlug =
               source === undefined
                 ? null

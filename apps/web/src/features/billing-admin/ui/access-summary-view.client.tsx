@@ -52,7 +52,7 @@ export function AccessSummaryView(props: AccessSummaryViewProps) {
       </p>
       <AdminSection
         title="Активные"
-        description="Люди с действующим доступом. Платные — оплата, Tribute и разовая покупка; подарочные — приглашение и решение владельца."
+        description="Люди с действующим доступом. Платные — оплата, Tribute и разовая покупка; назначенные — решение владельца."
       >
         {summary.active.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -76,7 +76,7 @@ export function AccessSummaryView(props: AccessSummaryViewProps) {
                     Платные
                   </th>
                   <th className={number} scope="col">
-                    Подарочные
+                    Назначенные
                   </th>
                   <th className={number} scope="col">
                     Курс
@@ -109,7 +109,6 @@ export function AccessSummaryView(props: AccessSummaryViewProps) {
             ["Открыто", summary.invitations.opened],
             ["Оплата открыта", summary.invitations.purchaseOpened],
             ["Оплатили", summary.invitations.paid],
-            ["Подарено", summary.invitations.gifted],
             ["Сгорело", summary.invitations.expired],
             ["Отозвано", summary.invitations.revoked],
           ].map(([label, value]) => (

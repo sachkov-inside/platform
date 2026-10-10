@@ -1,9 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
 import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { platformMigrations } from "../src/migrations/index.js";
 import { stringMatching } from "./support/matchers.js";
@@ -11,19 +12,6 @@ import { stringMatching } from "./support/matchers.js";
 const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("API development process", () => {
-  let process: ChildProcess | undefined;
-
-  afterEach(async () => {
-    if (process?.pid === undefined || process.exitCode !== null) {
-      return;
-    }
-
-    process.kill("SIGTERM");
-    await new Promise<void>((resolveExit) => {
-      process?.once("exit", () => resolveExit());
-    });
-  });
-
   it("serves health through the documented dev command", async () => {
     const port = await findAvailablePort();
     const output: string[] = [];
@@ -33,15 +21,19 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
-    process = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
-      cwd: backendRoot,
-      env: {
-        ...globalThis.process.env,
-        API_HOST: "127.0.0.1",
-        API_PORT: String(port),
+    const process = spawnOwned(
+      globalThis.process.execPath,
+      [pnpmPath, "dev:api"],
+      {
+        cwd: backendRoot,
+        env: {
+          ...globalThis.process.env,
+          API_HOST: "127.0.0.1",
+          API_PORT: String(port),
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    );
     process.stdout?.on("data", (chunk: Buffer) =>
       output.push(chunk.toString()),
     );
@@ -49,26 +41,30 @@ describe("API development process", () => {
       output.push(chunk.toString()),
     );
 
-    const response = await waitForResponse(
-      `http://127.0.0.1:${port}/health`,
-      process,
-      output,
-    );
+    try {
+      const response = await waitForResponse(
+        `http://127.0.0.1:${port}/health`,
+        process,
+        output,
+      );
 
-    expect(response.status, output.join("")).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      database: "reachable",
-      process: "api",
-      release: {
-        release: "development",
-        sourceSha: "0000000000000000000000000000000000000000",
-      },
-      schema: {
-        identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
-        migrationCount: platformMigrations.length,
-      },
-      status: "ready",
-    });
+      expect(response.status, output.join("")).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        database: "reachable",
+        process: "api",
+        release: {
+          release: "development",
+          sourceSha: "0000000000000000000000000000000000000000",
+        },
+        schema: {
+          identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
+          migrationCount: platformMigrations.length,
+        },
+        status: "ready",
+      });
+    } finally {
+      await stopOwned(process);
+    }
   });
 });
 
@@ -101,19 +97,15 @@ async function waitForResponse(
   child: ChildProcess,
   output: readonly string[],
 ): Promise<Response> {
-  const deadline = Date.now() + 10_000;
-
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`Development API exited early:\n${output.join("")}`);
-    }
-
-    try {
-      return await fetch(url);
-    } catch {
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
-    }
-  }
-
-  throw new Error(`Development API did not start:\n${output.join("")}`);
+  return vi.waitFor(
+    async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`Development API exited early:\n${output.join("")}`);
+      }
+      const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+      expect(response.status, output.join("")).toBe(200);
+      return response;
+    },
+    { timeout: 10_000 },
+  );
 }

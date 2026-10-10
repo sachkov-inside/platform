@@ -10,7 +10,7 @@ import {
 
 const { "one-time-purchase": _missing, ...supportWithoutPurchase } =
   accessScenarioTable.cells.support;
-const { "guide-archived": _missingTransition, ...transitionsWithoutOne } =
+const { "product-archived": _missingTransition, ...transitionsWithoutOne } =
   accessScenarioTable.transitions;
 const { "offer-own-terms": _missingPurchase, ...purchasesWithoutOne } =
   accessScenarioTable.purchases;

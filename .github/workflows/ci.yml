@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}
+  # Reruns have their own group: recovery can race a new commit after its API
+  # freshness check, and must not cancel that commit's first attempt (#1085).
+  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:
@@ -24,7 +26,9 @@ env:
 
 jobs:
   static:
-    name: Static checks
+    # Recovery requires this name so pre-#1085 workflows without rerun isolation
+    # cannot be retried after recovery is enabled on the default branch.
+    name: Static checks (isolated reruns)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -69,6 +73,14 @@ jobs:
           browsers: chromium webkit
       - name: Run Storybook and browser-engine checks
         run: pnpm check:ui
+      - name: Upload browser-engine diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: browser-engines-playwright-${{ github.run_attempt }}
+          path: apps/web/test-results/browser-engines
+          if-no-files-found: ignore
+          retention-days: 7
 
   web-e2e:
     name: Web E2E
@@ -111,6 +123,8 @@ jobs:
         uses: ./.github/actions/setup-platform
         with:
           browsers: chromium
+      - name: Verify production SQL contracts on an isolated PostgreSQL
+        run: pnpm production:verify:sql-test
       - name: Run isolated integration tests
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
@@ -143,6 +157,8 @@ jobs:
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
       - name: Run broker, crash and process integration tests one file at a time
+        env:
+          DEBUG: testcontainers:pull
         run: pnpm test:integration:serial
 
   compose-development:
@@ -164,6 +180,8 @@ jobs:
           docker compose --profile storybook build
       - name: Run clean stack smoke and write persistence probes
         run: |
+          docker compose config --images postgres object-storage mailpit
+          docker compose --parallel 1 pull postgres object-storage mailpit
           docker compose up --detach --wait
           bash scripts/compose-stack-smoke.sh
           docker compose exec -T postgres psql \
@@ -193,6 +211,7 @@ jobs:
       - name: Capture failure diagnostics
         if: ${{ failure() }}
         run: |
+          bash scripts/compose-failure-diagnostics.sh ci-artifacts/compose-development docker compose
           mkdir -p ci-artifacts/compose-development
           docker compose ps --all >ci-artifacts/compose-development/compose-ps.txt 2>&1 || true
           docker compose logs --no-color --tail 500 >ci-artifacts/compose-development/compose.log 2>&1 || true
@@ -246,7 +265,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
         env:
           POSTGRES_DB: inside_telegram
           POSTGRES_USER: inside
@@ -257,7 +276,7 @@ jobs:
           --health-cmd "pg_isready -U inside -d inside_telegram"
           --health-interval 2s --health-timeout 3s --health-retries 30
       rabbitmq:
-        image: rabbitmq:4.3-management-alpine
+        image: public.ecr.aws/docker/library/rabbitmq:4.3-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95
         env:
           RABBITMQ_DEFAULT_USER: telegram_checks
           RABBITMQ_DEFAULT_PASS: telegram_checks
@@ -281,8 +300,19 @@ jobs:
         uses: ./.github/actions/setup-platform
       - name: Check Telegram with isolated data services
         run: pnpm --filter @inside/telegram check:full
+      - name: Build and inspect Telegram production image
+        run: |
+          docker build --no-cache --file apps/telegram/infra/production/Dockerfile --tag inside-telegram-ci:check .
+          test "$(docker run --rm --network none --entrypoint node inside-telegram-ci:check --version)" = "v$(cat .node-version)"
+          docker run --rm --network none --entrypoint sh inside-telegram-ci:check -ec '
+            test "$(id -u)" = "1000"
+            test -f dist/main.js
+            node --input-type=module -e "await import(\"./dist/app.module.js\")"
+          '
 
   ci-gate:
+    # Keep this fail-closed gate. ci-gate-recovery.yml handles GitHub finishing
+    # a run before creating it despite nine successful prerequisites (#1085).
     name: CI Gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5

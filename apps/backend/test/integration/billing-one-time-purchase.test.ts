@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -6,10 +8,10 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -55,9 +57,9 @@ const documents = [
   ...syntheticConsentDocuments,
   syntheticConsentDocument("personal_data"),
 ];
-const guidePrice = 290_000;
+const productPrice = 290_000;
 
-describe("one-time guide purchase (real PostgreSQL and real facets; synthetic bank and email only)", () => {
+describe("one-time product purchase (real PostgreSQL and real facets; synthetic bank and email only)", () => {
   let db: TestDatabase;
   let now = new Date("2030-01-31T10:00:00Z");
   let owner: string;
@@ -95,7 +97,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -121,6 +123,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     options: {
       readonly benefitPeriods?: { capability: string; months: number | null }[];
       readonly term?: number;
+      readonly scopedMaterials?: boolean;
       readonly supportMonths?: number | null;
       /** Срок общей группы в Offer; без него группа не называется в составе. */
       readonly communityMonths?: number | null;
@@ -153,8 +156,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       ).ok
     )
       throw new Error("contact");
-    const guideId = randomUUID();
-    const capability = `guide:${guideId}`;
+    const productId = randomUUID();
+    const capability =
+      options.scopedMaterials === true ? "materials" : `product:${productId}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
@@ -166,6 +170,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           // Предложение продукта продаётся только с сопровождением на названный в нём срок.
           id: offerId,
           name: "Руководство «Синтетика»",
+          ...(options.scopedMaterials === true
+            ? { coverage: { productIds: [productId], materialIds: [] } }
+            : {}),
           benefits:
             options.communityMonths === undefined
               ? [capability, "support"]
@@ -193,7 +200,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: guidePrice,
+          priceKopecks: productPrice,
         },
       }),
     );
@@ -214,7 +221,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     // Каждая попытка — свой платёж банка: терминал не сопоставляет два заказа одному PaymentId.
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
     // Банк отвечает про ту сумму, которую у него запросили: сверка отвергает чужую.
-    let amountKopecks = guidePrice;
+    let amountKopecks = productPrice;
     const event = (state: string, extra = {}) => ({
       TerminalKey: terminal.terminalKey,
       OrderId: orderId,
@@ -270,11 +277,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       acknowledgeExistingAccess = false,
     ) {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       const consent = await contact.acceptConsents(
         buyer,
@@ -325,7 +335,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     }
     return {
       buyer,
-      guideId,
+      productId,
       capability,
       offerId,
       optionId,
@@ -339,6 +349,43 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       },
     };
   }
+
+  test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
+    const s = await scenario();
+    const command = await s.command();
+    const original = value(await s.runtime.purchase(s.buyer, command));
+    expect(original.state).toBe("pending");
+    now = new Date("2030-01-31T10:30:00Z");
+    const change = await contact.start(s.buyer, {
+      operationId: randomUUID(),
+      email: `${s.buyer}-updated@example.test`,
+      expectedRevision: 1,
+    });
+    if (!change.ok) throw new Error(change.error.code);
+    expect(
+      await contact.confirm(s.buyer, {
+        operationId: randomUUID(),
+        challengeRef: change.challengeRef,
+        code: codes.get(change.challengeRef),
+      }),
+    ).toMatchObject({ ok: true });
+    expect(value(await s.runtime.purchase(s.buyer, command))).toEqual(original);
+    expect(
+      await s.runtime.purchase(s.buyer, { ...command, contactRevision: 2 }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("разовая оплата состава продукта открывает только оплаченный продукт", async () => {
+    const s = await scenario({ scopedMaterials: true });
+    await s.buy();
+    const otherProduct = randomUUID();
+    const holders = await db.prisma.$transaction((tx) =>
+      grants.countProductHolders(tx, [s.productId, otherProduct]),
+    );
+    expect(holders.get(s.productId)).toBe(1);
+    expect(holders.get(otherProduct)).toBe(0);
+  });
 
   test("оплаченное руководство открывается навсегда и не заводит подписку", async () => {
     const s = await scenario();
@@ -461,8 +508,8 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   });
 
   test("сопровождение живёт срок, названный в Offer, и без названного срока не сохраняется", async () => {
-    const guideId = randomUUID();
-    const capability = `guide:${guideId}`;
+    const productId = randomUUID();
+    const capability = `product:${productId}`;
     // Без названного срока сопровождение разовой покупки стало бы бессрочным по умолчанию.
     expect(
       code(
@@ -527,6 +574,26 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
         }),
       ),
     ).toBe("not_found");
+  });
+
+  test("разовая покупка сохраняет отказ чтения согласия и допускает повтор после восстановления", async () => {
+    const s = await scenario();
+    const command = await s.command(["terms"]);
+    await db.prisma
+      .$executeRaw`ALTER TABLE accounts.legal_acceptances RENAME TO unavailable_legal_acceptances`;
+    try {
+      expect(await s.runtime.purchase(s.buyer, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE accounts.unavailable_legal_acceptances RENAME TO legal_acceptances`;
+    }
+    expect(await s.runtime.purchase(s.buyer, command)).toMatchObject({
+      ok: true,
+      value: { state: "pending" },
+    });
   });
 
   test("разовая покупка не принимает согласие на списания и требует оферту", async () => {
@@ -609,11 +676,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     ).toEqual([]);
     expect(
       code(
-        await pricing.quote(s.buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: s.optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          s.buyer,
+          await prepareInvitedQuote(db.prisma, s.buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: s.optionId,
+            optionRevision: 1,
+          }),
+        ),
       ),
     ).toBe("not_found");
     // Уже выданное право выключением продажи не отзывается.
@@ -638,7 +708,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
             id: s.optionId,
             offerId: s.offerId,
             months: 1,
-            priceKopecks: guidePrice,
+            priceKopecks: productPrice,
           },
         }),
       ),
@@ -674,7 +744,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           id: subscriptionOffer,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -717,11 +787,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     });
     expect(classification.ok).toBe(true);
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: subscriptionOption,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: subscriptionOption,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       s.buyer,
@@ -796,7 +869,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           id: subscriptionOffer,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -835,11 +908,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       ).ok,
     ).toBe(true);
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: subscriptionOption,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: subscriptionOption,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       s.buyer,
@@ -887,7 +963,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(one.items.map((item) => item.paymentOption.id)).toEqual([
       s.optionId,
     ]);
-    expect(one.items[0]?.firstPriceKopecks).toBe(guidePrice);
+    expect(one.items[0]?.firstPriceKopecks).toBe(productPrice);
     expect(
       value(await pricing.offers({ mode: "subscription" })).items.some(
         (item) => item.offer.id === s.offerId,
@@ -897,7 +973,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       value(
         await pricing.offers({
           mode: "one_time",
-          capability: `guide:${randomUUID()}`,
+          capability: `product:${randomUUID()}`,
         }),
       ).items,
     ).toEqual([]);

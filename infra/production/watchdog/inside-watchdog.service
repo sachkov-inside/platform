@@ -1,0 +1,19 @@
+[Unit]
+Description=Inside production watchdog
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/inside/inside-watchdog
+TimeoutStartSec=50s
+Nice=10
+CPUQuota=50%
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+# systemd создаёт /var/lib/inside/watchdog до запуска; без этого ProtectSystem=strict не дал бы
+# смонтировать путь для записи, и служба не стартовала бы.
+StateDirectory=inside/watchdog
+StateDirectoryMode=0700
+UMask=0077

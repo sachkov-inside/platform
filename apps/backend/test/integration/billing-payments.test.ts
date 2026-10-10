@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { Module } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
 import {
@@ -8,11 +10,12 @@ import { AcceptTbankNotificationController } from "../../src/modules/billing/fea
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { fork } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
+import timersPromises from "node:timers/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { once } from "node:events";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleAccounts,
   accountId,
@@ -21,12 +24,11 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
-} from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+  assembleAccountRights,
+} from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -43,10 +45,8 @@ import {
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
 
-// How long a committed database row may take to appear, and how long an unfixed answer would need
-// to arrive. Both are barriers around a committed fact, never a measurement of machine speed.
+// Budgets bound missing durable facts; they do not establish that an operation has started.
 const barrierBudgetMs = 10_000;
-const prematureAnswerGraceMs = 50;
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -100,7 +100,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -167,7 +167,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
           id: offerId,
           name: "Synthetic subscription",
           benefits,
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
           ...(benefitPeriods ? { benefitPeriods } : {}),
         },
       }),
@@ -188,11 +188,14 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       }),
     );
     const quote = value(
-      await pricing.quote(buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        buyer,
+        await prepareInvitedQuote(db.prisma, buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       buyer,
@@ -330,39 +333,63 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const s = await scenario(["materials"]);
     const runtime = s.runtime();
     const release = s.holdInit();
+    let bankAnswerWaitStarted = false;
+    let resumePolling!: () => void;
+    const polling = new Promise<void>((resolve) => {
+      resumePolling = resolve;
+    });
+    const originalDelay = timersPromises.setTimeout;
+    // Observe and hold the bank-answer polling boundary, rather than sleeping for a reply.
+    const delay = vi
+      .spyOn(timersPromises, "setTimeout")
+      .mockImplementation((milliseconds, value, options) => {
+        if (milliseconds !== 200)
+          return originalDelay(milliseconds, value, options);
+        bankAnswerWaitStarted = true;
+        return polling.then(() => value);
+      });
+    syncBuiltinESMExports();
     const sender = runtime.purchase(s.buyer, s.command);
-    await eventually(async () => {
-      expect(
-        (
-          await db.prisma.billingPurchase.findFirst({
-            where: { accountId: s.buyer },
-          })
-        )?.state,
-      ).toBe("sent");
-    }, barrierBudgetMs);
-    const joining = { ...s.command, operationId: randomUUID() };
-    const secondTab = runtime.purchase(s.buyer, joining);
-    // A barrier, not a stopwatch: once the joining call has committed its command row it has already
-    // passed the point where the unfixed code answered straight from the interim row.
-    await eventually(async () => {
-      expect(
-        await db.prisma.billingPurchaseCommand.findUnique({
-          where: {
-            accountId_operationId: {
-              accountId: s.buyer,
-              operationId: joining.operationId,
+    let secondTab: ReturnType<typeof runtime.purchase> | undefined;
+    let secondCompleted = false;
+    try {
+      await eventually(async () => {
+        expect(
+          (
+            await db.prisma.billingPurchase.findFirst({
+              where: { accountId: s.buyer },
+            })
+          )?.state,
+        ).toBe("sent");
+      }, barrierBudgetMs);
+      const joining = { ...s.command, operationId: randomUUID() };
+      secondTab = runtime.purchase(s.buyer, joining).then((result) => {
+        secondCompleted = true;
+        return result;
+      });
+      await eventually(async () => {
+        expect(
+          await db.prisma.billingPurchaseCommand.findUnique({
+            where: {
+              accountId_operationId: {
+                accountId: s.buyer,
+                operationId: joining.operationId,
+              },
             },
-          },
-        }),
-      ).not.toBeNull();
-    }, barrierBudgetMs);
-    expect(
-      await Promise.race([
-        secondTab.then(() => "answered"),
-        delay(prematureAnswerGraceMs).then(() => "waiting"),
-      ]),
-    ).toBe("waiting");
-    release();
+          }),
+        ).not.toBeNull();
+      }, barrierBudgetMs);
+      await vi.waitFor(() => expect(bankAnswerWaitStarted).toBe(true), {
+        timeout: barrierBudgetMs,
+      });
+      expect(secondCompleted).toBe(false);
+    } finally {
+      delay.mockRestore();
+      syncBuiltinESMExports();
+      release();
+      resumePolling();
+      await Promise.all([sender, secondTab]);
+    }
     const [first, second] = await Promise.all([sender, secondTab]);
     expect(s.requests()).toBe(1);
     for (const result of [value(first), value(second)]) {
@@ -448,6 +475,115 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       error: { code: "not_found" },
     });
   });
+
+  test("a historical payment without content scope confirms once and fulfills the compatibility enrollment", async () => {
+    const s = await scenario();
+    const runtime = s.runtime();
+    const purchaseRef = randomUUID();
+    const compatibilityScope = { productIds: [randomUUID()], materialIds: [] };
+    await db.prisma.$executeRaw`
+      UPDATE account_rights.coverage_baseline
+      SET scope = ${JSON.stringify(compatibilityScope)}::jsonb WHERE id = 1
+    `;
+    const { coverage, ...historicalOffer } = s.quote.snapshot.offer;
+    expect(coverage).toBeDefined();
+    const snapshot = { ...s.quote.snapshot, offer: historicalOffer };
+    // Historical conditions cannot be produced by today's catalog or changed after insertion.
+    await db.prisma.billingPromoReservation.create({
+      data: {
+        purchaseRef,
+        accountId: s.buyer,
+        quoteRef: s.quote.quoteRef,
+        state: "sent",
+        snapshot,
+      },
+    });
+    await db.prisma.billingPurchase.create({
+      data: {
+        id: purchaseRef,
+        accountId: s.buyer,
+        quoteRef: s.quote.quoteRef,
+        state: "pending",
+        environment: config.environment,
+        terminalRef: config.terminalKey,
+        amountKopecks: 200_000n,
+        snapshot,
+        acceptance: {
+          command: s.command,
+          evidence: documents.map((document) => ({
+            document,
+            acceptedAt: now.toISOString(),
+          })),
+        },
+        contact: {},
+        fiscalization: "pending",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const confirmation = s.notify("CONFIRMED", { OrderId: purchaseRef });
+    expect(await runtime.notification(confirmation)).toMatchObject({
+      ok: true,
+    });
+    expect(value(await runtime.status(s.buyer, purchaseRef))).toMatchObject({
+      state: "confirmed",
+      access: "preparing",
+      confirmedAt: "2030-01-31T10:00:00.000Z",
+      periodEndsAt: "2030-02-28T10:00:00.000Z",
+    });
+    now = new Date("2030-02-02T14:15:00Z");
+    expect(await runtime.notification(confirmation)).toMatchObject({
+      ok: true,
+    });
+    expect(await runtime.recover()).toMatchObject({ ok: true });
+    expect(value(await runtime.status(s.buyer, purchaseRef))).toMatchObject({
+      state: "confirmed",
+      access: "ready",
+      confirmedAt: "2030-01-31T10:00:00.000Z",
+      periodEndsAt: "2030-02-28T10:00:00.000Z",
+    });
+    const enrollments = await grants.readOwnEnrollments(s.buyer);
+    if (!enrollments.ok) throw new Error(enrollments.error.code);
+    expect(enrollments.value).toHaveLength(1);
+    expect(enrollments.value[0]).toMatchObject({
+      tier: { coverage: compatibilityScope },
+      startsAt: "2030-01-31T10:00:00.000Z",
+      endsAt: "2030-02-28T10:00:00.000Z",
+    });
+  });
+
+  test.each(["pending", "unknown"] as const)(
+    "exact purchase replay restores %s after contact revision and quote expiry",
+    async (state) => {
+      const s = await scenario();
+      if (state === "unknown") s.timeout();
+      const original = value(await s.runtime().purchase(s.buyer, s.command));
+      expect(original.state).toBe(state);
+      now = new Date("2030-01-31T10:30:00Z");
+      const change = await contact.start(s.buyer, {
+        operationId: randomUUID(),
+        email: `${s.buyer}-updated@example.test`,
+        expectedRevision: 1,
+      });
+      if (!change.ok) throw new Error(change.error.code);
+      expect(
+        await contact.confirm(s.buyer, {
+          operationId: randomUUID(),
+          challengeRef: change.challengeRef,
+          code: codes.get(change.challengeRef),
+        }),
+      ).toMatchObject({ ok: true });
+      expect(value(await s.runtime().purchase(s.buyer, s.command))).toEqual(
+        original,
+      );
+      expect(
+        await s
+          .runtime()
+          .purchase(s.buyer, { ...s.command, contactRevision: 2 }),
+      ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+      expect(s.requests()).toBe(1);
+    },
+  );
 
   test("unknown Init survives restart and cannot be retried; CheckOrder confirms once", async () => {
     const s = await scenario();
@@ -588,13 +724,9 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       await db.prisma.accessGrant.count({ where: { accountId: s.buyer } }),
     ).toBe(1);
     expect(s.requests()).toBe(1);
-    const membership = assembleMembershipEntitlements({
+    const membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     expect(await membership.resolveForAccess(accountId(s.buyer))).toMatchObject(
       { kind: "active" },

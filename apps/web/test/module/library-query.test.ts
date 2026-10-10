@@ -68,6 +68,36 @@ describe("Library TanStack Query interface", () => {
     ).toBeUndefined();
   });
 
+  it("searches the full catalog from home and preserves locked paid results", async () => {
+    const paid = {
+      ...readyCatalog.items[0],
+      access: "closed",
+      availability: "locked",
+      slug: "developer-pipeline",
+      title: "Developer Pipeline",
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json({ ...readyCatalog, items: [paid] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient();
+    const query = { ...defaultQuery, q: "Developer Pipeline" };
+    const page = await client.infiniteQuery(homeFeedQueryOptions(query));
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/api/library/materials?q=Developer+Pipeline&sort=newest",
+    );
+    expect(page.pages[0]).toMatchObject({
+      kind: "ready",
+      items: [
+        {
+          access: "closed",
+          availability: "locked",
+          slug: "developer-pipeline",
+        },
+      ],
+    });
+  });
+
   it("binds the home BFF to feed scope and rejects a client override", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(

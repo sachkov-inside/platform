@@ -17,6 +17,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       listProjections: refuse,
       discoverProjections: refuse,
       readHomePinnedSeries: refuse,
+      readHomeProjections: refuse,
     },
     videos: { loadReadyDurations: refuse },
     tasks: {
@@ -37,7 +38,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
           policyVersion: "content-access-v1",
           decidedAt: new Date().toISOString(),
         }),
-      checkGuideAccess: () => Promise.resolve({ kind: "closed" }),
+      checkProductAccess: () => Promise.resolve({ kind: "closed" }),
     },
   };
 }

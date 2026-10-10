@@ -1,5 +1,4 @@
 "use client";
-import { useId, useState } from "react";
 
 import type { PriceSnapshot } from "@/entities/subscription";
 import { hasText } from "@/shared/lib/text";
@@ -8,15 +7,12 @@ import { Button } from "@/shared/ui/button";
 
 import {
   canRevokeInvitation,
-  giftMonthsMax,
-  invitationModeLabel,
   invitationNoteMaxLength,
   invitationOfferChoices,
   invitationOfferNames,
   invitationShareText,
   invitationStateFilters,
   invitationStateLabel,
-  invitationTermLabel,
   invitationUsableUntil,
   type Invitation,
   type InvitationMode,
@@ -24,7 +20,6 @@ import {
   type InvitationStateFilter,
 } from "../model/invitation-operations";
 import {
-  AdminField,
   AdminSection,
   AdminSelect,
   AdminTextArea,
@@ -36,7 +31,6 @@ import {
 export interface IssueInvitationRequest {
   readonly offerId: string;
   readonly mode: InvitationMode;
-  readonly giftMonths: number | null;
   readonly note: string | null;
 }
 
@@ -82,7 +76,7 @@ const stateTone: Record<InvitationState, string> = {
 
 /**
  * Приглашения: личная ссылка на бота, которая открывает человеку оплату выбранного предложения
- * или дарит доступ. Одноразовость, срок жизни и погашение держит Platform; страница выдаёт,
+ * . Одноразовость, срок жизни и погашение держит Platform; страница выдаёт,
  * показывает и отзывает.
  */
 export function InvitationsView(props: InvitationsViewProps) {
@@ -168,14 +162,11 @@ function IssueInvitationForm({
   readonly offers: readonly PriceSnapshot[];
   readonly onIssue: (request: IssueInvitationRequest) => void;
 }) {
-  const [mode, setMode] = useState<InvitationMode>("purchase");
-  const [unlimited, setUnlimited] = useState(false);
-  const modeName = useId();
   const choices = invitationOfferChoices(offers);
   return (
     <AdminSection
       title="Новое приглашение"
-      description="Человек открывает ссылку в Telegram, бот проверяет приглашение и открывает оплату или выдаёт подарок."
+      description="Человек открывает ссылку в Telegram, бот проверяет приглашение и открывает оплату."
     >
       <form
         className="grid gap-4"
@@ -183,11 +174,7 @@ function IssueInvitationForm({
           const note = formText(form.get("invitationNote"));
           onIssue({
             offerId: formText(form.get("invitationOffer")),
-            mode,
-            giftMonths:
-              mode === "gift" && !unlimited
-                ? Number(formText(form.get("invitationGiftMonths")))
-                : null,
+            mode: "purchase",
             note: note.length === 0 ? null : note,
           });
         })}
@@ -201,56 +188,6 @@ function IssueInvitationForm({
           }))}
           placeholder="Выберите предложение"
         />
-        <fieldset className="grid gap-2">
-          <legend className="text-sm font-semibold">Что получит человек</legend>
-          <ModeOption
-            checked={mode === "purchase"}
-            hint="Бот откроет оплату этого предложения."
-            label="Оплата"
-            name={modeName}
-            onSelect={() => {
-              setMode("purchase");
-            }}
-          />
-          <ModeOption
-            checked={mode === "gift"}
-            hint="Доступ выдаётся без оплаты."
-            label="Подарок"
-            name={modeName}
-            onSelect={() => {
-              setMode("gift");
-            }}
-          />
-        </fieldset>
-        {mode === "gift" ? (
-          <fieldset className="grid gap-2">
-            <legend className="text-sm font-semibold">Срок подарка</legend>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                checked={unlimited}
-                className="size-4 rounded border-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                onChange={(event) => {
-                  setUnlimited(event.currentTarget.checked);
-                }}
-                type="checkbox"
-              />
-              Бессрочно
-            </label>
-            {unlimited ? null : (
-              <AdminField
-                hint={`Целое число от 1 до ${String(giftMonthsMax)}.`}
-                inputMode="numeric"
-                label="Месяцев"
-                max={giftMonthsMax}
-                min={1}
-                name="invitationGiftMonths"
-                required
-                step={1}
-                type="number"
-              />
-            )}
-          </fieldset>
-        ) : null}
         <AdminTextArea
           hint={`Для себя: кому и зачем. До ${String(invitationNoteMaxLength)} символов, человек её не видит.`}
           label="Заметка"
@@ -274,36 +211,6 @@ function IssueInvitationForm({
   );
 }
 
-function ModeOption({
-  checked,
-  hint,
-  label,
-  name,
-  onSelect,
-}: {
-  readonly checked: boolean;
-  readonly hint: string;
-  readonly label: string;
-  readonly name: string;
-  readonly onSelect: () => void;
-}) {
-  return (
-    <label className="flex items-start gap-2 text-sm">
-      <input
-        checked={checked}
-        className="mt-0.5 size-4 shrink-0 accent-primary"
-        name={name}
-        onChange={onSelect}
-        type="radio"
-      />
-      <span>
-        <span className="font-semibold">{label}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
-      </span>
-    </label>
-  );
-}
-
 function IssuedInvitation({
   invitation,
   offerName,
@@ -320,7 +227,7 @@ function IssuedInvitation({
       data-issued-invitation
     >
       <p className="font-semibold">
-        Приглашение готово: {invitationModeLabel(invitation.mode).toLowerCase()}
+        Приглашение готово: оплата
         {offerName === undefined ? "" : ` «${offerName}»`}. Оно сработает один
         раз до {formatDate(invitation.expiresAt)}.
       </p>
@@ -389,12 +296,11 @@ function InvitationRow({
   readonly onCopy: (text: string) => void;
   readonly onRevoke: (invitation: Invitation) => void;
 }) {
-  const term = invitationTermLabel(invitation);
   const usableUntil = invitationUsableUntil(invitation);
   const title = offerName ?? "Предложение не найдено в каталоге";
   return (
     <li
-      aria-label={`${title}: ${invitationStateLabel(invitation.state, invitation.mode)}`}
+      aria-label={`${title}: ${invitationStateLabel(invitation.state)}`}
       className="grid min-w-0 gap-2 rounded-xl border border-border p-4 text-sm"
     >
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -405,16 +311,13 @@ function InvitationRow({
             stateTone[invitation.state],
           )}
         >
-          {invitationStateLabel(invitation.state, invitation.mode)}
+          {invitationStateLabel(invitation.state)}
         </span>
       </div>
       <dl className="grid gap-x-6 gap-y-1 text-muted-foreground sm:grid-cols-2">
         <div className="flex gap-2">
           <dt>Вид:</dt>
-          <dd className="text-foreground">
-            {invitationModeLabel(invitation.mode)}
-            {term === null ? "" : ` · ${term}`}
-          </dd>
+          <dd className="text-foreground">Оплата</dd>
         </div>
         <div className="flex gap-2">
           <dt>Выдано:</dt>

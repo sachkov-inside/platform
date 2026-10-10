@@ -21,6 +21,7 @@ import {
   purchaseConsentPolicy,
   type BillingQuote,
   type LegalDocument,
+  type PreorderTerms,
   type PriceSnapshot,
   type PurchaseStatus,
   type VerifiedContact,
@@ -45,6 +46,7 @@ export interface OneTimeCheckoutPanelProps {
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
   readonly pending?: boolean;
+  readonly paymentBlocked?: boolean;
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
   /** Показывать ли состав покупки: панель строит его из того же снимка, что и сводку условий. */
@@ -55,6 +57,8 @@ export interface OneTimeCheckoutPanelProps {
   readonly onRetryQuote: () => void;
   /** Покупатель пришёл по ссылке с промокодом, а расчёт скидку по нему не дал. */
   readonly promoRejected?: boolean;
+  /** Пока поток набирается: день старта и цена после него, зачёркнутая рядом с ценой. */
+  readonly preorder?: PreorderTerms | null;
 }
 
 /**
@@ -92,6 +96,7 @@ export function OneTimeCheckoutPanel({
   existingAccess = false,
   legacyBlocked = false,
   pending = false,
+  paymentBlocked = false,
   error,
   purchase,
   showInclusions = false,
@@ -100,12 +105,20 @@ export function OneTimeCheckoutPanel({
   onRefreshStatus,
   onRetryQuote,
   promoRejected = false,
+  preorder = null,
 }: OneTimeCheckoutPanelProps) {
   const headingId = useId();
   const termsId = useId();
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
+  // Зачёркивать имеет смысл только большую цену: скидка по ссылке может опустить и её.
+  const afterStart =
+    preorder !== null &&
+    preorder.priceAfterStartKopecks !== null &&
+    preorder.priceAfterStartKopecks > conditions.firstPriceKopecks
+      ? preorder.priceAfterStartKopecks
+      : null;
   const terms = oneTimeOfferTerms(conditions);
   // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
   // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
@@ -176,8 +189,22 @@ export function OneTimeCheckoutPanel({
           <span className="text-3xl font-bold tabular-nums tracking-[-0.04em]">
             {formatKopecks(conditions.firstPriceKopecks)}
           </span>
+          {afterStart === null ? null : (
+            <s className="text-lg font-semibold tabular-nums text-white/60">
+              <span className="sr-only">Цена после старта: </span>
+              {formatKopecks(afterStart)}
+            </s>
+          )}
           <span className="text-sm text-white/70">разово</span>
         </p>
+        {preorder === null ? null : (
+          <p className="mt-1 text-sm leading-6 text-white/85">
+            Цена предзаказа действует до старта потока {preorder.startsOn}.
+            {afterStart === null
+              ? ""
+              : ` После старта — ${formatKopecks(afterStart)}.`}
+          </p>
+        )}
         <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
@@ -275,7 +302,7 @@ export function OneTimeCheckoutPanel({
 
       <Button
         className={`mt-6 h-auto min-h-12 w-full whitespace-normal text-base ${billingActionClass}`}
-        disabled={!payable || pending}
+        disabled={!payable || pending || paymentBlocked}
         onClick={onPay}
         size="lg"
         type="button"

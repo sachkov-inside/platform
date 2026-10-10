@@ -36,6 +36,10 @@ export class BankFixture {
   chargeOutcome = "CONFIRMED";
   failCharge = false;
   failInit = false;
+  failState = false;
+  failBindingState = false;
+  private addCardResponseGate: (() => Promise<void>) | undefined;
+  private stateResponseGate: (() => Promise<void>) | undefined;
   binding: { status: string; success: boolean; rebillId: string | undefined } =
     { status: "COMPLETED", success: true, rebillId: "synthetic-new-card" };
 
@@ -64,10 +68,51 @@ export class BankFixture {
     if (!order) throw new Error("Unknown synthetic order");
     order.status = status;
   }
-  client(): Tbank {
-    return new Tbank(this.config, (url, init) =>
-      Promise.resolve(this.respond(url, init)),
-    );
+  gateStateResponses(count: number): void {
+    let arrived = 0;
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.stateResponseGate = () => {
+      arrived += 1;
+      if (arrived === count) {
+        this.stateResponseGate = undefined;
+        release?.();
+      }
+      return gate;
+    };
+  }
+  holdAddCardResponse(): { entered: Promise<void>; release: () => void } {
+    let entered!: () => void;
+    let release!: () => void;
+    const arrived = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.addCardResponseGate = () => {
+      entered();
+      return held;
+    };
+    return {
+      entered: arrived,
+      release: () => {
+        this.addCardResponseGate = undefined;
+        release();
+      },
+    };
+  }
+  client(config: TbankConfig = this.config): Tbank {
+    return new Tbank(config, async (url, init) => {
+      const response = this.respond(url, init);
+      if (typeof url === "string" && url.endsWith("/AddCard"))
+        await this.addCardResponseGate?.();
+      if (typeof url === "string" && url.endsWith("/GetState"))
+        await this.stateResponseGate?.();
+      return response;
+    });
   }
   private respond(
     url: Parameters<typeof fetch>[0],
@@ -114,10 +159,12 @@ export class BankFixture {
         OriginalAmount: order.amount,
       });
     }
-    if (url.endsWith("/GetState"))
+    if (url.endsWith("/GetState")) {
+      if (this.failState) throw new Error("Synthetic GetState timeout");
       return Response.json(
         this.event(this.byPayment(z.string().parse(body.PaymentId))[0]),
       );
+    }
     if (url.endsWith("/CheckOrder")) {
       const orderId = z.string().parse(body.OrderId);
       const order = this.orders.get(orderId);
@@ -150,6 +197,8 @@ export class BankFixture {
       });
     }
     if (url.endsWith("/GetAddCardState")) {
+      if (this.failBindingState)
+        throw new Error("Synthetic GetAddCardState timeout");
       const requestKey = z.string().parse(body.RequestKey);
       if (!this.sessions.has(requestKey))
         throw new Error("Unknown synthetic binding session");

@@ -17,136 +17,139 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("pinned Logto SDK callback corpus", () => {
-  it.each([
-    ["missing state", () => `${redirectUri}?code=${validCode}`],
-    [
-      "replaced state",
-      (state: string) =>
-        `${redirectUri}?code=${validCode}&state=${state}-replaced`,
-    ],
-    ["missing code", (state: string) => `${redirectUri}?state=${state}`],
-    [
-      "provider error",
-      (state: string) =>
-        `${redirectUri}?error=access_denied&error_description=${providerCanary}&state=${state}`,
-    ],
-  ])("rejects %s before token persistence", async (_name, callback) => {
-    const proof = await createProofClient();
-
-    await expect(
-      proof.client.handleSignInCallback(callback(proof.state)),
-    ).rejects.toBeInstanceOf(Error);
-
-    expect(proof.tokenRequests).toHaveLength(0);
-    expect(proof.storage.has(PersistKey.IdToken)).toBe(false);
-    expect(proof.storage.has(PersistKey.RefreshToken)).toBe(false);
-  });
-
-  it("fails closed for a replaced code and wrong PKCE verifier", async () => {
-    for (const mutation of ["code", "verifier"] as const) {
-      const proof = await createProofClient();
-      if (mutation === "verifier") {
-        const session = z
-          .record(z.string(), z.unknown())
-          .parse(
-            JSON.parse(proof.storage.get(PersistKey.SignInSession) ?? "null"),
-          );
-        proof.storage.set(
-          PersistKey.SignInSession,
-          JSON.stringify({ ...session, codeVerifier: "wrong-verifier" }),
-        );
-      }
+describe.each(["confidential", "public"] as const)(
+  "pinned Logto SDK callback corpus (%s)",
+  (appType) => {
+    it.each([
+      ["missing state", () => `${redirectUri}?code=${validCode}`],
+      [
+        "replaced state",
+        (state: string) =>
+          `${redirectUri}?code=${validCode}&state=${state}-replaced`,
+      ],
+      ["missing code", (state: string) => `${redirectUri}?state=${state}`],
+      [
+        "provider error",
+        (state: string) =>
+          `${redirectUri}?error=access_denied&error_description=${providerCanary}&state=${state}`,
+      ],
+    ])("rejects %s before token persistence", async (_name, callback) => {
+      const proof = await createProofClient(appType);
 
       await expect(
-        proof.client.handleSignInCallback(
-          `${redirectUri}?code=${mutation === "code" ? "stolen-code" : validCode}&state=${proof.state}`,
-        ),
+        proof.client.handleSignInCallback(callback(proof.state)),
       ).rejects.toBeInstanceOf(Error);
-      expect(proof.tokenRequests).toHaveLength(1);
+
+      expect(proof.tokenRequests).toHaveLength(0);
       expect(proof.storage.has(PersistKey.IdToken)).toBe(false);
       expect(proof.storage.has(PersistKey.RefreshToken)).toBe(false);
-    }
-  });
+    });
 
-  it("canonicalizes callbacks onto the only registered route", () => {
-    expect(
-      providerCallbackUrl(
-        "https://inside.example.test/callback/wrong?code=opaque&state=opaque",
-        "https://inside.example.test",
-      ),
-    ).toBe("https://inside.example.test/callback?code=opaque&state=opaque");
-  });
+    it("fails closed for a replaced code and wrong PKCE verifier", async () => {
+      for (const mutation of ["code", "verifier"] as const) {
+        const proof = await createProofClient(appType);
+        if (mutation === "verifier") {
+          const session = z
+            .record(z.string(), z.unknown())
+            .parse(
+              JSON.parse(proof.storage.get(PersistKey.SignInSession) ?? "null"),
+            );
+          proof.storage.set(
+            PersistKey.SignInSession,
+            JSON.stringify({ ...session, codeVerifier: "wrong-verifier" }),
+          );
+        }
 
-  it("exchanges one raced callback once and rejects a later replay", async () => {
-    const proof = await createProofClient();
-    const callback = `${redirectUri}?code=${validCode}&state=${proof.state}`;
+        await expect(
+          proof.client.handleSignInCallback(
+            `${redirectUri}?code=${mutation === "code" ? "stolen-code" : validCode}&state=${proof.state}`,
+          ),
+        ).rejects.toBeInstanceOf(Error);
+        expect(proof.tokenRequests).toHaveLength(1);
+        expect(proof.storage.has(PersistKey.IdToken)).toBe(false);
+        expect(proof.storage.has(PersistKey.RefreshToken)).toBe(false);
+      }
+    });
 
-    await Promise.all(
-      Array.from({ length: 20 }, () =>
-        proof.client.handleSignInCallback(callback),
-      ),
-    );
-    expect(proof.tokenRequests).toHaveLength(1);
-    expect(proof.storage.has(PersistKey.IdToken)).toBe(true);
+    it("canonicalizes callbacks onto the only registered route", () => {
+      expect(
+        providerCallbackUrl(
+          "https://inside.example.test/callback/wrong?code=opaque&state=opaque",
+          "https://inside.example.test",
+        ),
+      ).toBe("https://inside.example.test/callback?code=opaque&state=opaque");
+    });
 
-    await expect(
-      createClient(proof.storage).handleSignInCallback(callback),
-    ).rejects.toThrow("Sign-in session not found.");
-    expect(proof.tokenRequests).toHaveLength(1);
-  });
+    it("exchanges one raced callback once and rejects a later replay", async () => {
+      const proof = await createProofClient(appType);
+      const callback = `${redirectUri}?code=${validCode}&state=${proof.state}`;
 
-  it("resumes the durable receipt after audience refresh drops the sign-in claim", async () => {
-    const proof = await createProofClient();
-    await proof.client.handleSignInCallback(
-      `${redirectUri}?code=${validCode}&state=${proof.state}`,
-    );
-    expect(isTelegramSignInToken(await proof.client.getAccessToken())).toBe(
-      true,
-    );
-    const refreshed = await proof.client.getAccessToken(
-      "https://inside.example.test/api",
-    );
-    expect(isTelegramSignInToken(refreshed)).toBe(false);
-    expect(
-      proof.tokenRequests.map((request) => request.get("grant_type")),
-    ).toEqual(["authorization_code", "refresh_token"]);
-    const form = new FormData();
-    form.set(
-      "input",
-      JSON.stringify({
-        operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
-        version: "1",
-        digest: "a".repeat(64),
-      }),
-    );
-    const resumeTelegramSignIn = vi
-      .fn()
-      .mockResolvedValue({ accountId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11" });
-    await expect(
-      executeAcceptTerms(form, refreshed, {
-        accept: () =>
-          Promise.resolve({ ok: true, body: {}, response: Response.json({}) }),
-        resumeTelegramSignIn,
-      }),
-    ).resolves.toEqual({ kind: "accepted" });
-    expect(resumeTelegramSignIn).toHaveBeenCalledWith(refreshed);
-  });
-});
+      await Promise.all(
+        Array.from({ length: 20 }, () =>
+          proof.client.handleSignInCallback(callback),
+        ),
+      );
+      expect(proof.tokenRequests).toHaveLength(1);
+      expect(proof.storage.has(PersistKey.IdToken)).toBe(true);
 
-async function createProofClient() {
+      await expect(
+        createClient(proof.storage, appType).handleSignInCallback(callback),
+      ).rejects.toThrow("Sign-in session not found.");
+      expect(proof.tokenRequests).toHaveLength(1);
+    });
+
+    it("resumes the durable receipt after audience refresh drops the sign-in claim", async () => {
+      const proof = await createProofClient(appType);
+      await proof.client.handleSignInCallback(
+        `${redirectUri}?code=${validCode}&state=${proof.state}`,
+      );
+      expect(isTelegramSignInToken(await proof.client.getAccessToken())).toBe(
+        true,
+      );
+      const refreshed = await proof.client.getAccessToken(
+        "https://inside.example.test/api",
+      );
+      expect(isTelegramSignInToken(refreshed)).toBe(false);
+      expect(
+        proof.tokenRequests.map((request) => request.get("grant_type")),
+      ).toEqual(["authorization_code", "refresh_token"]);
+      const form = new FormData();
+      form.set(
+        "input",
+        JSON.stringify({
+          operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+          version: "1",
+          digest: "a".repeat(64),
+        }),
+      );
+      const resumeTelegramSignIn = vi.fn().mockResolvedValue({
+        accountId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+      });
+      await expect(
+        executeAcceptTerms(form, refreshed, {
+          accept: () =>
+            Promise.resolve({
+              ok: true,
+              body: {},
+              response: Response.json({}),
+            }),
+          resumeTelegramSignIn,
+        }),
+      ).resolves.toEqual({ kind: "accepted" });
+      expect(resumeTelegramSignIn).toHaveBeenCalledWith(refreshed);
+    });
+  },
+);
+
+async function createProofClient(appType: "confidential" | "public") {
   const storage = new Map<string, string>();
   const tokenRequests: URLSearchParams[] = [];
   const accepted = { verifier: undefined as string | undefined };
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = request.url;
       if (url.endsWith("/.well-known/openid-configuration")) {
         return Promise.resolve(
           jsonResponse({
@@ -156,9 +159,11 @@ async function createProofClient() {
         );
       }
       if (url === `${endpoint}/oidc/token`) {
-        const body = new URLSearchParams(
-          typeof init?.body === "string" ? init.body : "",
+        expect(request.method).toBe("POST");
+        expect(request.headers.get("content-type")).toContain(
+          "application/x-www-form-urlencoded",
         );
+        const body = new URLSearchParams(await request.text());
         tokenRequests.push(body);
         if (body.get("grant_type") === "refresh_token") {
           return Promise.resolve(
@@ -196,7 +201,7 @@ async function createProofClient() {
       return Promise.resolve(jsonResponse({ code: "not_found" }, 404));
     }),
   );
-  const client = createClient(storage);
+  const client = createClient(storage, appType);
   let authorizationUrl = "";
   client.adapter.navigate = (url) => {
     authorizationUrl = url;
@@ -213,9 +218,16 @@ async function createProofClient() {
   return { client, state, storage, tokenRequests };
 }
 
-function createClient(storage: Map<string, string>): LogtoClient {
+function createClient(
+  storage: Map<string, string>,
+  appType: "confidential" | "public",
+): LogtoClient {
   const client = new LogtoClient(
-    { appId: "inside-web", appSecret: "inside-web-secret", endpoint },
+    {
+      appId: "inside-web",
+      endpoint,
+      ...(appType === "confidential" ? { appSecret: "inside-web-secret" } : {}),
+    },
     {
       navigate: () => undefined,
       storage: {

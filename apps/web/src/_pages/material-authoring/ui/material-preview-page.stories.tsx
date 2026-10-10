@@ -1,9 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import {
+  numberedListBlocks,
+  expectNumberedLists,
+} from "@/storybook/material-list-start";
 import { expect, userEvent, within } from "storybook/test";
 
 import {
   authoringMaterialPreviewHref,
   authoringMaterialsRootHref,
+  authoringProductEditorHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import { MaterialCurrentPreview } from "@/widgets/material-authoring/preview";
@@ -31,6 +36,9 @@ const editorHref = withAuthoringReturnHref(
   authoringMaterialsRootHref,
 );
 const environment = authoringPageEnvironment(previewPath);
+const productEditorHref = authoringProductEditorHref(
+  "95000000-0000-4000-8000-000000000010",
+);
 
 const meta = {
   ...environment,
@@ -56,6 +64,22 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const OrderedListStart: Story = {
+  args: {
+    preview: {
+      ...materialPreview,
+      blocks: numberedListBlocks,
+      video: { kind: "none" },
+    },
+  },
+  play: async ({ canvasElement }) => expectNumberedLists(canvasElement),
+};
+
+export const OrderedListStartMobile: Story = {
+  ...OrderedListStart,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   await expect(
@@ -124,6 +148,32 @@ export const Published: Story = {
   },
 };
 
+/** Видео ещё обрабатывается: плеера нет, строка называет состояние (#838). */
+export const VideoNotReady: Story = {
+  name: "Черновик · видео не готово",
+  args: {
+    preview: {
+      ...materialPreview,
+      video: {
+        kind: "attached",
+        ready: false,
+        title: "Запись урока",
+        videoId: "03000000-0000-4000-8000-000000000001",
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-preview-video]"),
+    ).toHaveTextContent(
+      "Видео «Запись урока» прикреплено, но ещё не готово к показу.",
+    );
+    await expect(
+      canvasElement.querySelector("[data-video-player-mount]"),
+    ).not.toBeInTheDocument();
+  },
+};
+
 /** Вариантный шаг показан как у читателя: ветка режима по умолчанию и переключатель. */
 export const VariantStep: Story = {
   name: "Вариантный шаг",
@@ -174,11 +224,17 @@ export const EmptyBlocks: Story = {
   },
 };
 
-export const GuideRoute: Story = {
+export const ProductRoute: Story = {
   args: {
     preview: {
       ...materialPreview,
-      video: { kind: "attached", ready: true, title: "Запись урока" },
+      video: {
+        durationSeconds: 754,
+        kind: "attached",
+        ready: true,
+        title: "Запись урока",
+        videoId: "03000000-0000-4000-8000-000000000001",
+      },
     },
     route: materialPreviewRoute,
   },
@@ -209,18 +265,39 @@ export const GuideRoute: Story = {
     ).toHaveAttribute("aria-current", "page");
     await expect(route.getByText("В главе пока нет материалов.")).toBeVisible();
     await expect(route.getByText("Вне глав")).toBeVisible();
+    // Готовое видео черновика предпросмотр показывает плеером, а не строкой.
     await expect(
       canvasElement.querySelector("[data-preview-video]"),
-    ).toHaveTextContent(
-      "Видео «Запись урока» готово. Плеер появится на странице урока после публикации.",
-    );
+    ).not.toBeInTheDocument();
+    await expect(
+      page.getByRole("region", { name: "Видео: Запись урока" }),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Просмотрено" }),
+    ).not.toBeInTheDocument();
     await expect(
       page.getByRole("navigation", { name: "Соседние материалы руководства" }),
     ).toBeVisible();
   },
 };
 
-export const GuideRouteMobile: Story = {
+/** Автор пришёл из редактора продукта: возврат ведёт туда же, а не в список материалов (#837). */
+export const FromProductEditor: Story = {
+  args: {
+    materialsHref: productEditorHref,
+    route: materialPreviewRoute,
+  },
+  name: "Маршрут руководства · из редактора продукта",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("link", { name: "К продукту" }),
+    ).toHaveAttribute("href", productEditorHref);
+    await expect(page.queryByRole("link", { name: "К материалам" })).toBeNull();
+  },
+};
+
+export const ProductRouteMobile: Story = {
   args: { route: materialPreviewRoute },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Маршрут руководства · мобильный",
@@ -232,11 +309,11 @@ export const GuideRouteMobile: Story = {
   },
 };
 
-export const GuideRouteFirstMaterial: Story = {
+export const ProductRouteFirstMaterial: Story = {
   args: {
     route: {
       ...materialPreviewRoute,
-      otherGuides: [
+      otherProducts: [
         { href: materialPreviewRoute.next.href, name: "AI-first процесс" },
       ],
       position: 1,
@@ -253,7 +330,7 @@ export const GuideRouteFirstMaterial: Story = {
   },
 };
 
-export const GuideRouteUnavailable: Story = {
+export const ProductRouteUnavailable: Story = {
   args: {
     preview: { ...materialPreview, video: { kind: "unavailable" } },
     route: { kind: "unavailable", reference: "series-order-response" },

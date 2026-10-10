@@ -4,7 +4,7 @@ pnpm-lock.yaml
 # Markdown keeps its hand-wrapped prose and tables, as in inside-telegram.
 *.md
 
-# Skills are a byte-for-byte copy of their upstream; formatting here would drift from it.
+# Skills keep the bytes of their source (`.agents/skills/PIPELINE.md`); formatting would drift from it.
 .agents/
 .claude/
 
@@ -18,6 +18,14 @@ infra/notifications/local-definitions.json
 
 # Pinned protocol corpora: manifests and consumers compare them as published.
 contracts/
+!scripts/contracts/
+!scripts/contracts/**
+!apps/backend/test/contracts/
+!apps/backend/test/contracts/**
+!apps/web/test/contracts/
+!apps/web/test/contracts/**
+!apps/telegram/test/contracts/
+!apps/telegram/test/contracts/**
 docs/contracts/
 apps/backend/src/modules/*/contracts/
 

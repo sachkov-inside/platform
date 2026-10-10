@@ -4,7 +4,7 @@ import { z } from "zod";
 export const funnelReportQuerySchema = z.strictObject({
   from: z.iso.datetime({ offset: true }),
   to: z.iso.datetime({ offset: true }),
-  guideId: z.uuid().toLowerCase().optional(),
+  productId: z.uuid().toLowerCase().optional(),
   chapterId: z.uuid().toLowerCase().optional(),
 });
 export type FunnelReportQuery = z.infer<typeof funnelReportQuerySchema>;
@@ -26,7 +26,7 @@ export type FunnelSource = z.infer<typeof funnelSourceSchema>;
 /**
  * One count per funnel step. `null` means the step does not apply or cannot be measured for
  * this selection, never zero: the bot steps do not exist outside the bot, and the Platform steps
- * need a selected Guide and chapter.
+ * need a selected Product and chapter.
  */
 export const funnelCountsSchema = z.strictObject({
   entered: countSchema.nullable(),
@@ -40,8 +40,8 @@ export type FunnelCounts = z.infer<typeof funnelCountsSchema>;
 /**
  * Survey respondents of #815 as aggregates only. A username is never linked to an Account (owner
  * decision of 2026-09-30, #818), so a respondent bought when their personal link ended in a
- * confirmed payment for the selected Guide within the period. `paid` is `null` without a selected
- * Guide.
+ * confirmed payment for the selected Product within the period. `paid` is `null` without a selected
+ * Product.
  */
 export const surveyRespondentsSchema = z.strictObject({
   uploaded: countSchema,
@@ -55,7 +55,7 @@ export const funnelReportSchema = z.strictObject({
     from: z.iso.datetime({ offset: true }),
     to: z.iso.datetime({ offset: true }),
   }),
-  guides: z.array(
+  products: z.array(
     z.strictObject({
       id: z.uuid(),
       name: z.string(),
@@ -63,7 +63,7 @@ export const funnelReportSchema = z.strictObject({
     }),
   ),
   selection: z
-    .strictObject({ guideId: z.uuid(), chapterId: z.uuid().nullable() })
+    .strictObject({ productId: z.uuid(), chapterId: z.uuid().nullable() })
     .nullable(),
   /** When the bot's latest event reached Platform; null when none has yet. */
   lastBotEventReceivedAt: z.iso.datetime({ offset: true }).nullable(),
@@ -79,7 +79,7 @@ export type FunnelReport = z.infer<typeof funnelReportSchema>;
 export type FunnelReportErrorCode =
   | "invalid_request"
   | "forbidden"
-  | "guide_not_found"
+  | "product_not_found"
   | "chapter_not_found"
   | "dependency_unavailable";
 

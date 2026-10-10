@@ -1,23 +1,25 @@
+import { z } from "zod";
+import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type {
-  GuidePageCard,
-  GuidePageHero,
+  ProductPageCard,
+  ProductPageHero,
   PublishedMaterialReader,
+  PublishedMaterialProjectionDto,
 } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { AccountRights } from "../../../account-rights/index.js";
 import type {
   PublishedMaterialCatalogFacetDto,
   PublishedMaterialCatalogItemDto,
   PublishedMaterialCatalogResult,
 } from "../list-published-materials/list-published-materials.contract.js";
-import { listPublishedMaterials } from "../list-published-materials/list-published-materials.js";
 
 /** Закреплённый продукт с оформлением его карточки (ADR 0026). */
 export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
-  readonly card: GuidePageCard | null;
-  readonly hero: GuidePageHero | null;
+  readonly card: ProductPageCard | null;
+  readonly hero: ProductPageHero | null;
 }
 
 export interface HomeContentDto {
@@ -38,118 +40,98 @@ export type HomeContentResult =
   | Readonly<{ ok: true; value: HomeContentDto }>
   | Extract<PublishedMaterialCatalogResult, { ok: false }>;
 
-const HOME_MATERIAL_LIMIT = 8;
+const subjectSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("anonymous") }).strict(),
+  z.object({ kind: z.literal("account"), accountId: z.uuid() }).strict(),
+]);
 
 export async function readHomeContent(
-  publishedMaterialReader: Pick<
-    PublishedMaterialReader,
-    "listProjections" | "readHomePinnedSeries"
-  >,
+  publishedMaterialReader: Pick<PublishedMaterialReader, "readHomeProjections">,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
-  membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
+  accountRights: Pick<AccountRights, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentResult> {
-  const [catalog, videos, guides, notes, pin, membership] = await Promise.all([
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: 1,
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        formatSlugs: ["video"],
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        formatSlugs: ["guide"],
-        subject,
-        sort: "newest",
-      },
-    ),
-    listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      videoCatalog,
-      {
-        first: HOME_MATERIAL_LIMIT,
-        formatSlugs: ["note"],
-        subject,
-        sort: "newest",
-      },
-    ),
-    publishedMaterialReader.readHomePinnedSeries(),
-    resolveHomeMembership(membershipEntitlements, subscriptionForSale, subject),
+  if (!subjectSchema.safeParse(subject).success) {
+    return { ok: false, error: { code: "invalid_request_shape" } };
+  }
+  const [home, membership] = await Promise.all([
+    publishedMaterialReader.readHomeProjections(),
+    resolveHomeMembership(accountRights, subscriptionForSale, subject),
   ]);
-  for (const result of [catalog, videos, guides, notes]) {
-    if (!result.ok) return result;
-  }
-  if (!catalog.ok || !videos.ok || !guides.ok || !notes.ok) {
-    throw new TypeError("Home content result narrowing failed");
-  }
-  if (!pin.ok) return pin;
-  const pinnedFacet =
-    pin.value === null
-      ? undefined
-      : catalog.value.facets.series.find(
-          (series) => series.id === pin.value?.id && series.count > 0,
-        );
+  if (!home.ok) return home;
+  const projections = [
+    ...new Map(
+      [
+        ...home.value.videos,
+        ...home.value.guides,
+        ...home.value.notes,
+        ...home.value.playlists.flatMap(({ previewItems }) => previewItems),
+        ...(home.value.pinnedSeries?.previewItems ?? []),
+      ].map((item) => [item.materialId, item]),
+    ).values(),
+  ];
+  const projected = await projectPublishedCatalogItems(
+    contentAccess,
+    videoCatalog,
+    subject,
+    projections,
+  );
+  if (!projected.ok) return projected;
+  const byId = new Map(projected.items.map((item) => [item.materialId, item]));
+  const items = (values: readonly PublishedMaterialProjectionDto[]) =>
+    values.flatMap(({ materialId }) => {
+      const item = byId.get(materialId);
+      return item === undefined ? [] : [item];
+    });
+  const facet = (value: (typeof home.value.playlists)[number]) => ({
+    id: value.id,
+    slug: value.slug,
+    name: value.name,
+    summary: value.summary,
+    count: value.count,
+    cover: value.cover,
+    previewItems: items(value.previewItems),
+  });
+  const pin = home.value.pinnedSeries;
   return {
     ok: true,
     value: {
       pinnedSeries:
-        pin.value === null || pinnedFacet === undefined
+        pin === null
           ? null
           : {
-              id: pinnedFacet.id,
-              slug: pinnedFacet.slug,
-              name: pinnedFacet.name,
-              summary: pinnedFacet.summary,
-              count: pinnedFacet.count,
-              cover: pinnedFacet.cover,
-              previewItems: pinnedFacet.previewItems,
-              presentation: pin.value.presentation,
-              card: pin.value.card,
-              hero: pin.value.hero,
+              id: pin.id,
+              slug: pin.slug,
+              name: pin.name,
+              summary: pin.summary,
+              count: pin.count,
+              cover: pin.cover,
+              previewItems: items(pin.previewItems),
+              presentation: pin.presentation,
+              card: pin.card,
+              hero: pin.hero,
             },
-      topics: catalog.value.facets.topics.slice(0, 8),
-      playlists: catalog.value.facets.series.slice(0, 4),
-      videos: videos.value.items,
-      guides: guides.value.items,
-      notes: notes.value.items,
+      topics: home.value.topics.map(facet),
+      playlists: home.value.playlists.map(facet),
+      videos: items(home.value.videos),
+      guides: items(home.value.guides),
+      notes: items(home.value.notes),
       membership,
     },
   };
 }
 
 async function resolveHomeMembership(
-  membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
+  accountRights: Pick<AccountRights, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentDto["membership"]> {
   if (subject.kind === "anonymous") {
     return subscriptionForSale ? { kind: "inactive" } : { kind: "notOffered" };
   }
-  const state = await membershipEntitlements.resolveForAccess(
-    subject.accountId,
-  );
+  const state = await accountRights.resolveForAccess(subject.accountId);
   if (state.kind === "active") return { kind: "active" };
   return state.kind === "required" || state.kind === "expired"
     ? subscriptionForSale

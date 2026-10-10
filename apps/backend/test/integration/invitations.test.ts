@@ -7,7 +7,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import schema from "../../../../docs/contracts/subscription-activation-v1/schema.json" with { type: "json" };
 import {
   parsePlatformConfig,
@@ -25,7 +25,7 @@ import type {
   OwnerOutcome,
   OwnerResult,
 } from "../../src/modules/billing/domain/owner-operations.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { invitationRedeemResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { InvitationRedemptionController } from "../../src/modules/telegram-membership/features/redeem-invitation/invitation-redemption.controller.js";
@@ -73,6 +73,7 @@ describe("приглашения: выдача владельцем и пога�
   let db: TestDatabase;
   let http: NestFastifyApplication;
   let operations: BillingOperations;
+  let grants: ReturnType<typeof assembleAccessGrants>;
   let now = new Date("2030-01-01T00:00:00.000Z");
   const owner = randomUUID();
   const outsider = randomUUID();
@@ -95,12 +96,14 @@ describe("приглашения: выдача владельцем и пога�
       emailFingerprintKey: "synthetic-invitation-fingerprint-key-00",
     });
     const links = new TelegramAccountLinks(db.prisma);
-    const grants = assembleAccessGrants({
-      prisma: db.prisma,
-      accounts,
-      recipientLinks: links,
-      clock: () => now,
-    });
+    grants = {
+      ...assembleAccessGrants({
+        prisma: db.prisma,
+        accounts,
+        recipientLinks: links,
+        clock: () => now,
+      }),
+    };
     operations = new BillingOperations({
       prisma: db.prisma,
       accounts,
@@ -169,7 +172,7 @@ describe("приглашения: выдача владельцем и пога�
         id,
         name: "Подписка Inside",
         benefits: ["community", "materials"],
-        contentScope: { guideIds: [], materialIds: [], allGuides: true },
+        coverage: { productIds: [], materialIds: [], wholePlatform: true },
         availableForAssignment: overrides.availableForAssignment ?? true,
         published: overrides.published ?? true,
         eligibility: "invitation_only",
@@ -267,7 +270,6 @@ describe("приглашения: выдача владельцем и пога�
       offerId,
       offerRevision: 1,
       mode: "purchase",
-      giftMonths: null,
       state: "issued",
       issuedAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 14 * day).toISOString(),
@@ -333,7 +335,7 @@ describe("приглашения: выдача владельцем и пога�
       failure(await issue({ offerId, mode: "purchase", giftMonths: 3 })),
     ).toBe("invalid_request");
     expect(failure(await issue({ offerId: notAssignable, mode: "gift" }))).toBe(
-      "state_conflict",
+      "invalid_request",
     );
     expect(
       failure(await issue({ offerId, mode: "gift", note: "x".repeat(201) })),
@@ -366,7 +368,7 @@ describe("приглашения: выдача владельцем и пога�
       state: "purchase_ready",
       mode: "purchase",
       offerName: "Подписка Inside",
-      checkoutUrl: `https://inside.example.test/subscription?offer=${offerId}`,
+      checkoutUrl: `https://inside.example.test/payment/checkout?offer=${offerId}`,
     };
     expect(await redeem(issued.code, identityRef)).toEqual(ready);
     expect(await redeem(issued.code, identityRef)).toEqual({
@@ -398,48 +400,126 @@ describe("приглашения: выдача владельцем и пога�
     ).toBe("state_conflict");
   });
 
-  test("подарок назначает Enrollment origin invitation на срок или бессрочно, повтор возвращает его же", async () => {
-    now = new Date("2030-01-31T09:00:00.000Z");
+  test("приглашение не создаёт бесплатное назначение", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
     const offerId = await offer();
+    expect(failure(await issue({ offerId, mode: "gift" }))).toBe(
+      "invalid_request",
+    );
     const identityRef = `telegram:${randomUUID()}`;
     const member = await account(identityRef);
-    const termed = invitation(
-      await issue({ offerId, mode: "gift", giftMonths: 1 }),
+    const issued = invitation(await issue({ offerId, mode: "purchase" }));
+    expect(await redeem(issued.code, identityRef)).toMatchObject({
+      state: "purchase_ready",
+    });
+    expect(
+      await db.prisma.tariffAssignment.count({
+        where: { accountId: member },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: member } }),
+    ).toBe(0);
+  });
+  test("конкурентный повтор отзыва возвращает один результат до записи общего аудита", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
+    const issued = invitation(
+      await issue({ offerId: await offer(), mode: "purchase" }),
     );
-    const granted = await redeem(termed.code, identityRef);
-    if (!("enrollment" in granted)) throw new Error("Expected a gift");
-    expect(granted).toMatchObject({
-      state: "gift_granted",
-      mode: "gift",
-      enrollment: {
-        accountId: member,
-        origin: "invitation",
-        startsAt: now.toISOString(),
-        // Календарный месяц от момента погашения: 31 января — конец февраля.
-        endsAt: "2030-02-28T09:00:00.000Z",
-        endPolicy: "fixed",
-        state: "active",
-        tier: { id: offerId, revision: 1 },
-      },
+    const command = {
+      operation: "invitations.revoke",
+      operationId: randomUUID(),
+      invitationId: issued.id,
+      expectedRevision: issued.revision,
+    };
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
     });
-    now = new Date(now.getTime() + day);
-    const repeated = await redeem(termed.code, identityRef);
-    expect(repeated).toMatchObject({
-      state: "already_redeemed",
-      mode: "gift",
-      enrollment: { id: granted.enrollment.id },
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    const lifetime = invitation(await issue({ offerId, mode: "gift" }));
-    expect(await redeem(lifetime.code, identityRef)).toMatchObject({
-      state: "gift_granted",
-      enrollment: { origin: "invitation", endsAt: null },
-    });
-    const enrollments = await db.prisma.subscriptionEnrollment.findMany({
-      where: { accountId: member },
-    });
-    expect(enrollments.map((row) => row.sourceRef).sort()).toEqual(
-      [termed.id, lifetime.id].sort(),
+    const revoke = grants.revokeInvitation.bind(grants);
+    let firstCall = true;
+    const gate = vi
+      .spyOn(grants, "revokeInvitation")
+      .mockImplementation(async (actor, input) => {
+        const pause = firstCall;
+        firstCall = false;
+        const result = await revoke(actor, input);
+        if (pause) {
+          enter();
+          await resume;
+        }
+        return result;
+      });
+    const first = db.run(() => operations.execute(owner, command));
+    let repeated: OwnerResult | undefined;
+    try {
+      await entered;
+      repeated = await operations.execute(owner, command);
+      expect(invitation(repeated)).toMatchObject({
+        code: issued.code,
+        state: "revoked",
+        revision: 2,
+      });
+    } finally {
+      release();
+      gate.mockRestore();
+      await first;
+    }
+    expect(await first).toEqual(repeated);
+    expect(
+      await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+    ).toMatchObject({ revision: 2 });
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+  });
+
+  test("отзыв восстанавливает результат после сбоя между применением и общим аудитом", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
+    const issued = invitation(
+      await issue({ offerId: await offer(), mode: "purchase" }),
     );
+    const command = {
+      operation: "invitations.revoke",
+      operationId: randomUUID(),
+      invitationId: issued.id,
+      expectedRevision: issued.revision,
+    };
+    await db.prisma
+      .$executeRaw`ALTER TABLE billing.owner_command_keys ADD CONSTRAINT reject_invitation_result CHECK (result IS NULL) NOT VALID`;
+    try {
+      expect(await operations.execute(owner, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      expect(
+        await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+      ).toMatchObject({ revision: 2 });
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE billing.owner_command_keys DROP CONSTRAINT reject_invitation_result`;
+    }
+    const repeated = await operations.execute(owner, command);
+    expect(invitation(repeated)).toMatchObject({
+      code: issued.code,
+      state: "revoked",
+      revision: 2,
+    });
+    expect(await operations.execute(owner, command)).toEqual(repeated);
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+    expect(
+      await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+    ).toMatchObject({ revision: 2 });
   });
 
   test("неоткрытое сгорает за 14 дней, закреплённое без входа — за 30, отозванное и неизвестное не работают", async () => {
@@ -447,7 +527,7 @@ describe("приглашения: выдача владельцем и пога�
     const offerId = await offer();
     const unopened = invitation(await issue({ offerId, mode: "purchase" }));
     const opened = invitation(await issue({ offerId, mode: "purchase" }));
-    const revoked = invitation(await issue({ offerId, mode: "gift" }));
+    const revoked = invitation(await issue({ offerId, mode: "purchase" }));
     const identityRef = `telegram:${randomUUID()}`;
     expect(await redeem(opened.code, identityRef)).toMatchObject({
       state: "needs_account",

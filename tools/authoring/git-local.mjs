@@ -72,21 +72,23 @@ export async function withGitSnapshot(repository, ref, use) {
  * unstaged and untracked files never enter it.
  *
  * @param {string} repository
- * @param {string} guideId
+ * @param {string} productId
  * @param {string} stateDirectory
  * @param {string} [ref]
+ * @param {(command: string, args: string[], options: typeof commandOptions & { cwd: string }) => Promise<{ stdout: string; stderr: string }>} [exporter]
  */
 export async function exportCommittedPackage(
   repository,
-  guideId,
+  productId,
   stateDirectory,
   ref = "HEAD",
+  exporter = execute,
 ) {
   const state = resolve(stateDirectory);
   await mkdir(state, { recursive: true });
   return withGitSnapshot(repository, ref, async ({ snapshot, commit }) => {
     process.stderr.write(`Preparing committed content ${commit}\n`);
-    const { stdout } = await execute(
+    const { stdout } = await exporter(
       "uv",
       [
         "run",
@@ -95,7 +97,7 @@ export async function exportCommittedPackage(
         "tools/content.py",
         "export-platform",
         "--guide",
-        guideId,
+        productId,
         "--output",
         join(state, "packages"),
       ],
@@ -107,21 +109,21 @@ export async function exportCommittedPackage(
 
 /**
  * @param {string} repository
- * @param {string} guideId
+ * @param {string} productId
  * @param {string} stateDirectory
  * @param {string} [ref]
  * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
  */
 export async function syncGitLocal(
   repository,
-  guideId,
+  productId,
   stateDirectory,
   ref = "HEAD",
   options = {},
 ) {
   const state = resolve(stateDirectory);
   const { commit, packagePath: originalPackagePath } =
-    await exportCommittedPackage(repository, guideId, state, ref);
+    await exportCommittedPackage(repository, productId, state, ref);
   const { coursePreview = false, ...syncOptions } = options;
   const packagePath = coursePreview
     ? await prepareCoursePreview(originalPackagePath, state)
@@ -129,7 +131,7 @@ export async function syncGitLocal(
   const report = await syncLocal(packagePath, state, syncOptions);
   const receipt = {
     commit,
-    guideId,
+    productId,
     packagePath,
     originalPackagePath,
     coursePreview,
@@ -154,12 +156,12 @@ if (
       "publish-all": { type: "boolean", default: false },
     },
   });
-  const [repository, guideId, state, ref = "HEAD", ...extra] = positionals;
-  if (!repository || !guideId || !state || extra.length)
+  const [repository, productId, state, ref = "HEAD", ...extra] = positionals;
+  if (!repository || !productId || !state || extra.length)
     throw new Error(
-      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]... [--pin-home]",
+      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY PRODUCT_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]... [--pin-home]",
     );
-  const report = await syncGitLocal(repository, guideId, state, ref, {
+  const report = await syncGitLocal(repository, productId, state, ref, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,
     pinHome: values["pin-home"],
@@ -172,7 +174,7 @@ if (
         packageId: report.packageId,
         applied: report.applied,
         unchanged: report.unchanged,
-        guides: report.guides,
+        products: report.products,
         archived: report.archived,
         archiveProposals: report.archiveProposals,
         tasks: report.tasks ?? [],

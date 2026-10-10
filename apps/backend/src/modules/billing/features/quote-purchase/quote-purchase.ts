@@ -14,10 +14,9 @@ import {
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
-import {
-  offerAdmits,
-  type PurchaseGrounds,
-} from "../../shared/offer-eligibility.js";
+import type { PurchaseGrounds } from "../../shared/offer-eligibility.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
+import type { SaleCapability } from "../../domain/sale-capability.js";
 
 export const quotePurchaseSchema = z.strictObject({
   operationId: idSchema,
@@ -41,6 +40,8 @@ type QuotePurchaseResult = PricingResult<
   | "unsupported_amount"
   | "operation_conflict"
   | "quote_changed"
+  | "method_unavailable"
+  | "legacy_review_required"
   | "not_eligible"
   | "dependency_unavailable"
 >;
@@ -51,6 +52,8 @@ export async function quotePurchase(
   input: unknown,
   clock: () => Date,
   grounds: PurchaseGrounds,
+  sale: SaleCapability,
+  recurringAllowed: boolean,
 ): Promise<QuotePurchaseResult> {
   const parsed = quotePurchaseSchema.safeParse(input);
   const identity = idSchema.safeParse(accountId);
@@ -90,9 +93,14 @@ export async function quotePurchase(
         if (!price.ok) return price;
         if (price.value.paymentOption.revision !== command.optionRevision)
           return failure("quote_changed");
-        // Offer с ограничением допуска не рассчитывается для Account без основания.
-        if (!offerAdmits(price.value.offer, grounds))
-          return failure("not_eligible");
+        const admission = paymentAdmission({
+          context: "quote",
+          snapshot: price.value,
+          sale,
+          grounds,
+          recurringAllowed,
+        });
+        if (!admission.ok) return failure(admission.error.code);
         const expiresAt = new Date(
           now.getTime() + quoteValidityMinutes * 60_000,
         );

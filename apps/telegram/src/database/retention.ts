@@ -13,12 +13,16 @@ const OPERATIONAL_DAYS = 30;
 const PUBLISHED_RESULT_DAYS = 7;
 
 /**
- * Owner-decided periods (inside-telegram#91). Contact, link, Membership audit, communication
- * and notification history has no period and is kept.
+ * Configured periods: the owner decided the membership check period (inside-telegram#91); the
+ * delivered sales funnel events use the configured period (30 days by default, #980), counted
+ * from delivery. Contact, link, Membership audit,
+ * communication and notification history has no period and is kept.
  */
 export interface RetentionPeriods {
   /** Membership check results with their evidence deliveries. */
   readonly membershipCheckDays: number;
+  /** Delivered sales funnel events, counted from delivery (#980). */
+  readonly salesFunnelEventDays: number;
 }
 
 /**
@@ -33,6 +37,7 @@ export async function purgeExpiredRecords(
   const operational = daysBefore(now, OPERATIONAL_DAYS);
   const published = daysBefore(now, PUBLISHED_RESULT_DAYS);
   const checks = daysBefore(now, periods.membershipCheckDays);
+  const funnelEvents = daysBefore(now, periods.salesFunnelEventDays);
   const batches: RawBuilder<unknown>[] = [
     // Settled updates keep only their deduplication key and redacted failure code.
     sql`delete from telegram_updates where (bot_identity, update_id) in (
@@ -63,6 +68,12 @@ export async function purgeExpiredRecords(
     sql`delete from membership_provider_observations where id in (
       select id from membership_provider_observations
       where observed_at < ${operational}
+      limit ${BATCH})`,
+    // Platform holds a delivered sales funnel event and answers a re-sent one as a duplicate.
+    // A rejected event waits for a person.
+    sql`delete from sales_funnel_event_outbox where event_id in (
+      select event_id from sales_funnel_event_outbox
+      where state = 'delivered' and delivered_at < ${funnelEvents}
       limit ${BATCH})`,
     sql`delete from notification_result_outbox where message_id in (
       select message_id from notification_result_outbox

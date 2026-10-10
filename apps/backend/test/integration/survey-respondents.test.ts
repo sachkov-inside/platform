@@ -1,11 +1,13 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingOperations,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import type {
   OwnerOutcome,
@@ -66,7 +68,7 @@ describe("скидка респондентам анкеты: список ни�
   let pricing: BillingPricing;
   const owner = randomUUID();
   const outsider = randomUUID();
-  const guideId = randomUUID();
+  const productId = randomUUID();
   const now = new Date("2030-03-31T10:00:00Z");
 
   beforeAll(async () => {
@@ -94,8 +96,8 @@ describe("скидка респондентам анкеты: список ни�
         list: () =>
           Promise.resolve([
             {
-              kind: "guide",
-              id: guideId,
+              kind: "product",
+              id: productId,
               title: "Синтетический курс",
               slug: "synthetic-course",
               available: true,
@@ -104,7 +106,7 @@ describe("скидка респондентам анкеты: список ни�
         resolve: () => Promise.resolve([]),
       },
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -137,9 +139,9 @@ describe("скидка респондентам анкеты: список ни�
         value: {
           id: offerId,
           name: "Курс",
-          benefits: [guideCapability(guideId), "support"],
+          benefits: [productCapability(productId), "support"],
           benefitPeriods: [
-            { capability: guideCapability(guideId), months: null },
+            { capability: productCapability(productId), months: null },
             { capability: "support", months: 6 },
           ],
         },
@@ -255,7 +257,7 @@ describe("скидка респондентам анкеты: список ни�
 
     const link = asLink(await issue("https://t.me/Synthetic_Beta"));
     expect(link).toMatchObject({ alreadyIssued: false });
-    expect(link.guideSlug).toBe("synthetic-course");
+    expect(link.productSlug).toBe("synthetic-course");
     // Сменённая форма ника ведёт к тому же человеку и не создаёт вторую ссылку.
     expect(asLink(await issue("synthetic_beta"))).toEqual({
       ...link,
@@ -264,12 +266,15 @@ describe("скидка респондентам анкеты: список ни�
 
     const buyer = randomUUID();
     const discounted = value(
-      await pricing.quote(buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-        promoCode: link.code,
-      }),
+      await pricing.quote(
+        buyer,
+        await prepareInvitedQuote(db.prisma, buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+          promoCode: link.code,
+        }),
+      ),
     );
     expect(discounted.snapshot.firstPriceKopecks).toBe(70_000);
     // Без кода и после архивации шаблона публичной скидки нет.

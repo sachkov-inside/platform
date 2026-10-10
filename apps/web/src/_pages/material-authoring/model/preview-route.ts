@@ -9,7 +9,10 @@ import type {
 
 const outsideChaptersName = "Вне глав";
 
-type GuideOrder = Pick<SeriesOrderPresentation, "chapters" | "items" | "name">;
+type ProductOrder = Pick<
+  SeriesOrderPresentation,
+  "chapters" | "items" | "name"
+>;
 
 /**
  * Маршрут руководства для авторского предпросмотра. Порядок показа повторяет страницу
@@ -20,8 +23,8 @@ type GuideOrder = Pick<SeriesOrderPresentation, "chapters" | "items" | "name">;
 export function buildMaterialPreviewRoute(input: {
   readonly currentMaterialId: string;
   readonly hrefOf: (materialId: string) => Route;
-  readonly order: GuideOrder;
-  readonly otherGuides: readonly {
+  readonly order: ProductOrder;
+  readonly otherProducts: readonly {
     readonly href: Route;
     readonly name: string;
   }[];
@@ -64,10 +67,10 @@ export function buildMaterialPreviewRoute(input: {
   const index = sequence.findIndex(({ current }) => current);
   if (index < 0) return null;
   return {
-    guideName: order.name,
+    productName: order.name,
     kind: "ready",
     next: sequence[index + 1] ?? null,
-    otherGuides: input.otherGuides,
+    otherProducts: input.otherProducts,
     position: index + 1,
     previous: sequence[index - 1] ?? null,
     sections,

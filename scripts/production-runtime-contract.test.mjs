@@ -89,6 +89,28 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
+  it("rejects a verifier marker that external peers can forward", () => {
+    for (const caddy of [
+      runtime.caddy.replace(
+        "request_header @external_probe -X-Inside-Production-Verify",
+        "",
+      ),
+      runtime.caddy.replace(
+        "not remote_ip 127.0.0.1 ::1",
+        "not client_ip 127.0.0.1 ::1",
+      ),
+      runtime.caddy.replace(
+        "not remote_ip 127.0.0.1 ::1",
+        "not remote_ip private_ranges",
+      ),
+    ]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, caddy }),
+        /probe marker/u,
+      );
+    }
+  });
+
   it("runs nine application processes from manifest-selected images beside a private broker", () => {
     assertRuntimeContract(runtime);
   });
@@ -330,8 +352,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@learning_mcp path",
-              `\t\t${mcpRoute("additional_mcp", path)}\n\n\t\t@learning_mcp path`,
+              mcpRoute("learning_mcp", "/mcp/learning"),
+              `${mcpRoute("additional_mcp", path)}\n\n\t\t${mcpRoute("learning_mcp", "/mcp/learning")}`,
             ),
             releaseRunbook: runtime.releaseRunbook.replace(
               "| любой | `/mcp/learning` |",
@@ -376,8 +398,8 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           caddy: runtime.caddy.replace(
-            "\t\t@mcp path /mcp\n",
-            "\t\t@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t@mcp path /mcp\n",
+            mcpRoute("mcp", "/mcp"),
+            `@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t${mcpRoute("mcp", "/mcp")}`,
           ),
         }),
       new RegExp(table, "u"),
@@ -402,8 +424,8 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              "\t\t@mcp path /mcp\n",
-              `${route}\n\t\t@mcp path /mcp\n`,
+              mcpRoute("mcp", "/mcp"),
+              `${route}\n\t\t${mcpRoute("mcp", "/mcp")}`,
             ),
           }),
         /not in a form the runbook route check understands/u,
@@ -429,7 +451,7 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           compose: runtime.compose.replace(
-            /image: rabbitmq:[^\n]+/u,
+            /image: public\.ecr\.aws\/docker\/library\/rabbitmq:[^\n]+/u,
             "image: rabbitmq:4.2.4-alpine",
           ),
         }),
@@ -491,11 +513,55 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             [key]: runtime[key].replace(
-              /\theader Strict-Transport-Security[^\n]+\n/u,
+              /\theader(?: @[a-z_]+)? Strict-Transport-Security[^\n]+\n/gu,
               "",
             ),
           }),
         /must send HSTS/u,
+      );
+    }
+  });
+
+  it("probes each process at most every 30 s and marks a failure within 90 s, or 100 s at start", () => {
+    const probes = healthchecks(runtime.compose);
+    assert.equal(probes.length, 5, "api, mcp, web, workers and broker");
+    /** @type {[string, string, RegExp][]} */
+    const changes = [
+      [
+        "interval: 30s\n      timeout: 5s",
+        "interval: 5s\n      timeout: 5s",
+        /probes more often than every 30 s/u,
+      ],
+      [
+        "retries: 3\n      start_period: 40s\n      start_interval: 2s",
+        "retries: 4\n      start_period: 40s\n      start_interval: 2s",
+        /marks a failure later than 90 s/u,
+      ],
+      [
+        "retries: 2\n  start_period: 40s",
+        "retries: 2\n  start_period: 90s",
+        /marks a process that never starts later than 100 s/u,
+      ],
+      [
+        "timeout: 10s",
+        "timeout: 30s",
+        /timeout must be shorter than its interval/u,
+      ],
+      [
+        "start_interval: 2s\n\n",
+        "start_interval: 30s\n\n",
+        /waits longer than 5 s between start probes/u,
+      ],
+    ];
+    for (const [current, changed, reason] of changes) {
+      assert.ok(runtime.compose.includes(current), current);
+      assert.throws(
+        () =>
+          assertRuntimeContract({
+            ...runtime,
+            compose: runtime.compose.replace(current, changed),
+          }),
+        reason,
       );
     }
   });
@@ -514,6 +580,33 @@ describe("production runtime architecture contract", () => {
 
 /** @param {typeof runtime} files */
 function assertRuntimeContract(files) {
+  for (const probe of healthchecks(files.compose)) {
+    if (probe.interval < 30) {
+      throw new Error(
+        `healthcheck probes more often than every 30 s: ${probe.block}`,
+      );
+    }
+    if (probe.interval * probe.retries > 90) {
+      throw new Error(
+        `healthcheck marks a failure later than 90 s: ${probe.block}`,
+      );
+    }
+    if (probe.startPeriod + (probe.retries - 1) * probe.interval > 100) {
+      throw new Error(
+        `healthcheck marks a process that never starts later than 100 s: ${probe.block}`,
+      );
+    }
+    if (probe.startInterval > 5) {
+      throw new Error(
+        `healthcheck waits longer than 5 s between start probes: ${probe.block}`,
+      );
+    }
+    if (probe.timeout >= probe.interval) {
+      throw new Error(
+        `healthcheck timeout must be shorter than its interval: ${probe.block}`,
+      );
+    }
+  }
   if (/^\s+build:/mu.test(files.compose)) {
     throw new Error("production runtime must not build application source");
   }
@@ -577,7 +670,11 @@ function assertRuntimeContract(files) {
       ?.split(/\n {2}[a-z][a-z0-9-]*:\n/u)[0] ?? "";
   if (/^\s+ports:/mu.test(broker))
     throw new Error("production broker must not publish a port");
-  if (!/image: rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(broker)) {
+  if (
+    !/image: public\.ecr\.aws\/docker\/library\/rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(
+      broker,
+    )
+  ) {
     throw new Error("production broker image must be pinned by digest");
   }
   if (
@@ -631,7 +728,7 @@ function assertRuntimeContract(files) {
     ["maintenance.caddy", files.maintenanceCaddy],
   ])) {
     if (
-      !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
+      !/^\theader @legacy_hsts Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
         caddy,
       )
     ) {
@@ -639,6 +736,16 @@ function assertRuntimeContract(files) {
     }
   }
   // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
+  const probeBoundary =
+    "@external_probe not remote_ip 127.0.0.1 ::1\n\t\trequest_header @external_probe -X-Inside-Production-Verify\n";
+  if (
+    !files.caddy.includes(probeBoundary) ||
+    files.caddy.indexOf(probeBoundary) > files.caddy.indexOf("reverse_proxy")
+  ) {
+    throw new Error(
+      "Caddy must strip the probe marker from non-loopback socket peers before proxying",
+    );
+  }
   for (const [name, caddy] of /** @type {const} */ ([
     ["platform.caddy", files.caddy],
     ["host Caddyfile", files.hostCaddy],
@@ -734,8 +841,10 @@ function assertRuntimeContract(files) {
       throw new Error(`${name} must publish only its exact method and path`);
   }
   if (
-    /path \/internal\/\*|path \/billing\/\*|subscription-activation\/\*/u.test(
-      files.caddy,
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      / \/internal\/\*$| \/billing\/\*$|subscription-activation\/\*/u.test(
+        route,
+      ),
     )
   ) {
     throw new Error(
@@ -771,6 +880,38 @@ function assertRuntimeContract(files) {
     caddyProxiedRoutes(files.caddy),
     "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes",
   );
+}
+
+/**
+ * Docker marks a process unhealthy after `retries` failed probes in a row, so `interval × retries`
+ * bounds how late a failure is noticed. Each probe starts Node or the Erlang VM, so the steady
+ * interval sets the CPU cost; `start_interval` keeps the first readiness probe quick for deploy.
+ * @param {string} compose
+ */
+function healthchecks(compose) {
+  return [
+    ...compose.matchAll(
+      /^( *)(?:healthcheck|x-worker-healthcheck): ?(?:&[a-z-]+)?\n((?:\1 {2}.*\n)+)/gmu,
+    ),
+  ].map(([block, , body = ""]) => {
+    /** @param {string} key */
+    const seconds = (key) => {
+      const value = new RegExp(`^ *${key}: (\\d+)s?$`, "mu").exec(body)?.[1];
+      if (value === undefined)
+        throw new Error(
+          `healthcheck must set ${key} in whole seconds: ${block}`,
+        );
+      return Number(value);
+    };
+    return {
+      block,
+      interval: seconds("interval"),
+      retries: seconds("retries"),
+      startInterval: seconds("start_interval"),
+      startPeriod: seconds("start_period"),
+      timeout: seconds("timeout"),
+    };
+  });
 }
 
 /**
@@ -871,11 +1012,20 @@ function caddyProxiedRoutes(caddy) {
   /** @type {Set<string>} */
   const understood = new Set();
   for (const [, name = "", method = "", paths = ""] of caddy.matchAll(
-    /@([a-z_]+) \{\n\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
+    /@([a-z_]+) \{\n(?:\t+host inside\.sachkov\.dev\n)?\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
   )) {
     if (!proxied.has(name)) continue;
     understood.add(name);
-    routes.push(...paths.split(" ").map((path) => `${method} ${path}`));
+    routes.push(
+      ...paths.split(" ").map((path) => `${method || "ANY"} ${path}`),
+    );
+  }
+  for (const [, name = "", paths = ""] of caddy.matchAll(
+    /@([a-z_]+) \{\n\t+host inside\.sachkov\.dev\n\t+path ([^\n]+)\n\t+\}/gu,
+  )) {
+    if (!proxied.has(name)) continue;
+    understood.add(name);
+    routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
   }
   for (const [, name = "", paths = ""] of caddy.matchAll(
     /@([a-z_]+) path ([^\n]+)/gu,
@@ -908,10 +1058,28 @@ function runbookRoutes(runbook) {
 /** Exact Caddy route from a named path matcher to the MCP process. */
 /** @param {string} name @param {string} path */
 function mcpRoute(name, path) {
-  return `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
+  return `@${name} {\n\t\t\thost inside.sachkov.dev\n\t\t\tpath ${path}\n\t\t}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
 }
 
 /** @param {string} value */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+// Smoke must exercise the production lifecycle, not reject a valid cold worker startup (#1251).
+it("production smoke inherits worker startup grace and failure policy", () => {
+  const override = read(
+    "scripts/fixtures/production-runtime/compose.smoke.yaml",
+  );
+  for (const worker of [
+    "material-assets-worker",
+    "profile-avatars-worker",
+    "video-deletions-worker",
+    "billing-worker",
+    "notifications-worker",
+  ]) {
+    const block = override.split(`  ${worker}:\n`)[1]?.split("\n  ")[0];
+    assert.ok(block, `${worker} candidate image is required`);
+    assert.doesNotMatch(block, /healthcheck:/u);
+  }
+});

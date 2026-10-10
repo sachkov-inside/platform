@@ -7,217 +7,22 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentLibraryService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * Read whether the current Account's grounds open a Guide
+   * Read whether the current Account's grounds open a Product
    * @returns any
    * @throws ApiError
    */
-  public readCurrentAccountGuideAccess({
-    guideId,
+  public readCurrentAccountProductAccess({
+    productId,
   }: {
-    guideId: string,
+    productId: string,
   }): CancelablePromise<{
     access: 'open' | 'closed';
   }> {
     return this.httpRequest.request({
       method: 'GET',
-      url: '/accounts/current/guides/{guideId}/access',
+      url: '/accounts/current/products/{productId}/access',
       path: {
-        'guideId': guideId,
-      },
-    });
-  }
-  /**
-   * Read a generated ordered Guide view
-   * @returns any Published Materials in author-defined Guide order
-   * @throws ApiError
-   */
-  public readPublishedGuide({
-    slug,
-  }: {
-    slug: string,
-  }): CancelablePromise<{
-    chapters: Array<{
-      id: string;
-      materialIds: Array<string>;
-      name: string;
-      summary: string;
-      tasks: Array<{
-        access: 'free' | 'membership';
-        afterMaterialId: string | null;
-        availability: 'available' | 'locked' | 'unavailable';
-        code: string;
-        lastSubmittedAt: string | null;
-        title: string;
-      }>;
-    }>;
-    hasNext: boolean;
-    items: Array<{
-      access: 'free' | 'membership' | 'workshop';
-      availability: 'available' | 'locked' | 'unavailable';
-      contentVersion: number;
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
-      format: {
-        id: 'video' | 'guide' | 'note';
-        name: string;
-        slug: 'video' | 'guide' | 'note';
-      };
-      materialId: string;
-      noteExcerpt?: {
-        linkUrl?: string;
-        text: string;
-        truncated: boolean;
-      };
-      outcomes: Array<string>;
-      primaryVideoDurationSeconds?: number;
-      primaryVideoId: string | null;
-      publishedAt: string;
-      seriesMemberships: Array<{
-        ordinal: number;
-        series: {
-          id: string;
-          name: string;
-          slug: string;
-        };
-        stepGroup?: string | null;
-      }>;
-      slug: string;
-      summary: string;
-      tags: Array<{
-        id: string;
-        name: string;
-      }>;
-      title: string;
-      topic: {
-        id: string;
-        name: string;
-        slug: string;
-      };
-    }>;
-    kind: 'series';
-    reference: {
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      hasModeVariants: boolean;
-      id: string;
-      introduction: {
-        audience: string;
-        outcome: string;
-        prerequisites: string;
-        scope: string;
-      } | null;
-      name: string;
-      productPage: {
-        page: {
-          blocks: Array<({
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: 'hero';
-            lead: string;
-          } | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: 'cards';
-            lead: string;
-            note: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'text';
-            paragraphs: Array<string>;
-            title: string;
-          } | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: 'steps';
-            lead: string;
-            link: string;
-            title: string;
-          } | {
-            id: string;
-            items: Array<string>;
-            kind: 'list';
-            text: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'trial';
-            link: string;
-            text: string;
-            title: string;
-          })>;
-          card: {
-            action: string;
-            eyebrow: string;
-            subtitle: string;
-          } | null;
-        } | null;
-        presentation: string;
-      } | null;
-      slug: string;
-      summary: string;
-    };
-    relatedSeries: Array<{
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      id: string;
-      matchingMaterialCount: number;
-      name: string;
-      slug: string;
-      summary: string;
-      totalMaterialCount: number;
-    }>;
-    topics: Array<{
-      cover: {
-        coverId: string;
-        renditions: Array<{
-          height: number;
-          width: number;
-        }>;
-      } | null;
-      id: string;
-      name: string;
-      slug: string;
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/library/guides/{slug}',
-      path: {
-        'slug': slug,
-      },
-      errors: {
-        400: `Discovery slug is malformed`,
-        401: `Optional Account proof is invalid`,
-        404: `Topic, Series or source Material is not published`,
-        500: `Discovery or Account resolution failed internally`,
-        503: `Discovery or Account dependency is unavailable`,
+        'productId': productId,
       },
     });
   }
@@ -228,7 +33,7 @@ export class ContentLibraryService {
    */
   public readHomeContent(): CancelablePromise<{
     guides: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -286,7 +91,7 @@ export class ContentLibraryService {
       kind: 'unknown';
     });
     notes: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -357,7 +162,7 @@ export class ContentLibraryService {
       name: string;
       presentation: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'closed';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -420,7 +225,7 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'closed';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -483,7 +288,7 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'closed';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -535,7 +340,7 @@ export class ContentLibraryService {
       summary: string | null;
     }>;
     videos: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -631,7 +436,7 @@ export class ContentLibraryService {
         id: 'video' | 'guide' | 'note';
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'closed';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -694,7 +499,7 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'closed';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -757,7 +562,7 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'closed';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -810,7 +615,7 @@ export class ContentLibraryService {
       }>;
     };
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -926,7 +731,7 @@ export class ContentLibraryService {
       name: string;
       summary: string;
       tasks: Array<{
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
@@ -936,7 +741,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -1106,6 +911,201 @@ export class ContentLibraryService {
     });
   }
   /**
+   * Read a generated ordered Product view
+   * @returns any Published Materials in author-defined Product order
+   * @throws ApiError
+   */
+  public readPublishedProduct({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    chapters: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+      tasks: Array<{
+        access: 'free' | 'closed';
+        afterMaterialId: string | null;
+        availability: 'available' | 'locked' | 'unavailable';
+        code: string;
+        lastSubmittedAt: string | null;
+        title: string;
+      }>;
+    }>;
+    hasNext: boolean;
+    items: Array<{
+      access: 'free' | 'closed';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+      format: {
+        id: 'video' | 'guide' | 'note';
+        name: string;
+        slug: 'video' | 'guide' | 'note';
+      };
+      materialId: string;
+      noteExcerpt?: {
+        linkUrl?: string;
+        text: string;
+        truncated: boolean;
+      };
+      outcomes: Array<string>;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        stepGroup?: string | null;
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    }>;
+    kind: 'series';
+    reference: {
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      hasModeVariants: boolean;
+      id: string;
+      introduction: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      } | null;
+      name: string;
+      productPage: {
+        page: {
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: string;
+      } | null;
+      slug: string;
+      summary: string;
+    };
+    relatedSeries: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      matchingMaterialCount: number;
+      name: string;
+      slug: string;
+      summary: string;
+      totalMaterialCount: number;
+    }>;
+    topics: Array<{
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      slug: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/{slug}',
+      path: {
+        'slug': slug,
+      },
+      errors: {
+        400: `Discovery slug is malformed`,
+        401: `Optional Account proof is invalid`,
+        404: `Topic, Series or source Material is not published`,
+        500: `Discovery or Account resolution failed internally`,
+        503: `Discovery or Account dependency is unavailable`,
+      },
+    });
+  }
+  /**
    * @deprecated
    * Read a generated ordered Series view
    * @returns any Published Materials in author-defined Series order
@@ -1122,7 +1122,7 @@ export class ContentLibraryService {
       name: string;
       summary: string;
       tasks: Array<{
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
@@ -1132,7 +1132,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -1317,7 +1317,7 @@ export class ContentLibraryService {
       name: string;
       summary: string;
       tasks: Array<{
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
@@ -1327,7 +1327,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {

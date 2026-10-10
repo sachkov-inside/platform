@@ -2,12 +2,15 @@ import {
   Prisma,
   type MaterialsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
-import type { GuidePage, GuideSourceFields } from "../../domain/guide-page.js";
-import { readGuidePageState } from "../../shared/guide-page-reader.js";
+import type {
+  ProductPage,
+  ProductSourceFields,
+} from "../../domain/product-page.js";
+import { readProductPageState } from "../../shared/product-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
-  GuideIntroductionDto,
+  ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import { loadContentCoverProjections } from "./content-cover-projections.js";
@@ -22,8 +25,8 @@ interface ContentCollectionRecord {
   readonly coverId: string | null;
 }
 
-type GuideRecord = ContentCollectionRecord &
-  GuideIntroductionDto & {
+type ProductRecord = ContentCollectionRecord &
+  ProductIntroductionDto & {
     readonly page: unknown;
     readonly presentation: string;
     readonly sourceId: string | null;
@@ -47,10 +50,10 @@ interface ContentCollectionPersistence {
   readonly updateMetadata: (input: {
     readonly expectedVersion: number;
     readonly id: string;
-    readonly introduction: GuideIntroductionDto | null;
+    readonly introduction: ProductIntroductionDto | null;
     readonly name: string;
-    /** Только для перенесённого Guide; отсутствие сохраняет текущие значения. */
-    readonly source?: GuideSourceFields | undefined;
+    /** Только для перенесённого Product; отсутствие сохраняет текущие значения. */
+    readonly source?: ProductSourceFields | undefined;
     readonly summary: string;
   }) => Promise<number>;
 }
@@ -61,7 +64,7 @@ export function contentCollectionPersistence(
 ): ContentCollectionPersistence {
   return kind === "topic"
     ? topicPersistence(prisma)
-    : guidePersistence(prisma, kind);
+    : productPersistence(prisma, kind);
 }
 
 function topicPersistence(
@@ -152,16 +155,16 @@ function topicPersistence(
   };
 }
 
-function guidePersistence(
+function productPersistence(
   prisma: MaterialsPrisma,
-  kind: "guide" | "series",
+  kind: "product" | "series",
 ): ContentCollectionPersistence {
   const project = async (
-    record: GuideRecord | null,
+    record: ProductRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
     const [materialCount, covers] = await Promise.all([
-      prisma.guideMembership.count({ where: { seriesId: record.id } }),
+      prisma.productMembership.count({ where: { seriesId: record.id } }),
       loadContentCoverProjections(
         prisma,
         record.coverId === null ? [] : [record.coverId],
@@ -178,7 +181,7 @@ function guidePersistence(
   };
   return {
     create: async (data) => {
-      const record = await prisma.guide.create({ data });
+      const record = await prisma.product.create({ data });
       return toDto(
         kind,
         record,
@@ -190,10 +193,10 @@ function guidePersistence(
     },
     list: async () => {
       const [records, counts] = await Promise.all([
-        prisma.guide.findMany({
+        prisma.product.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
-        prisma.guideMembership.groupBy({
+        prisma.productMembership.groupBy({
           by: ["seriesId"],
           _count: { _all: true },
         }),
@@ -217,10 +220,10 @@ function guidePersistence(
       );
     },
     load: async (id) =>
-      project(await prisma.guide.findUnique({ where: { id } })),
+      project(await prisma.product.findUnique({ where: { id } })),
     setArchive: async ({ archived, expectedVersion, id }) =>
       (
-        await prisma.guide.updateMany({
+        await prisma.product.updateMany({
           where: { id, version: expectedVersion },
           data: {
             archivedAt: archived ? new Date() : null,
@@ -239,7 +242,7 @@ function guidePersistence(
       summary,
     }) =>
       (
-        await prisma.guide.updateMany({
+        await prisma.product.updateMany({
           where: { id, version: expectedVersion },
           data: {
             name,
@@ -260,7 +263,9 @@ function guidePersistence(
   };
 }
 
-function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
+function introductionOf(
+  record: ProductIntroductionDto,
+): ProductIntroductionDto {
   return {
     audience: record.audience,
     outcome: record.outcome,
@@ -269,8 +274,8 @@ function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
   };
 }
 
-function sourceOf(record: GuideRecord): CollectionSource {
-  const stored = readGuidePageState(record.page, `Guide ${record.slug}`);
+function sourceOf(record: ProductRecord): CollectionSource {
+  const stored = readProductPageState(record.page, `Product ${record.slug}`);
   return {
     page: stored.page,
     pageRejected: stored.rejected,
@@ -280,7 +285,7 @@ function sourceOf(record: GuideRecord): CollectionSource {
 }
 
 interface CollectionSource {
-  readonly page: GuidePage | null;
+  readonly page: ProductPage | null;
   readonly pageRejected: boolean;
   readonly presentation: string;
   readonly sourceId: string | null;
@@ -289,7 +294,7 @@ interface CollectionSource {
 function toDto(
   kind: ContentCollectionKind,
   record: ContentCollectionRecord,
-  introduction: GuideIntroductionDto | null,
+  introduction: ProductIntroductionDto | null,
   materialCount: number,
   cover: ContentCoverProjection | null,
   source: CollectionSource | null,

@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "scripts": {
+    "owner:group-members-report": "tsx src/operations/group-members-report-cli.ts",
     "build": "tsc -p tsconfig.build.json",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm build",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:contracts && pnpm build",
     "check:full": "pnpm check && pnpm test:integration",
     "conformance:communications-provider": "tsx scripts/communications-conformance-provider.ts",
     "conformance:platform-provider": "tsx scripts/platform-conformance-provider.ts",
@@ -33,30 +34,32 @@
     "owner:activation-review": "tsx src/operations/activation-review-cli.ts",
     "owner:activation-announcement": "tsx src/operations/activation-announcement-cli.ts",
     "proof:course:browser": "tsx test/local/course-activation-browser.ts",
-    "proof:course:existing": "node test/local/course-existing-browser.mjs"
+    "proof:course:existing": "node test/local/course-existing-browser.mjs",
+    "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.contract.config.ts"
   },
   "dependencies": {
     "@inside/access-capabilities": "workspace:*",
-    "@nestjs/common": "12.1.0",
-    "@nestjs/core": "12.1.0",
-    "@nestjs/platform-fastify": "12.1.0",
+    "@nestjs/common": "12.1.2",
+    "@nestjs/core": "12.1.2",
+    "@nestjs/platform-fastify": "12.1.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "amqplib": "2.0.1",
+    "amqplib": "2.2.0",
     "fastify": "5.12.5",
     "grammy": "1.46.0",
     "kysely": "0.29.6",
-    "pg": "8.23.0",
+    "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@inside/contracts": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
-    "@nestjs/testing": "12.1.0",
+    "@nestjs/testing": "12.1.2",
     "@playwright/test": "1.63.0",
-    "@types/node": "24.13.6",
+    "@types/node": "26.6.4",
     "@types/pg": "8.23.1",
-    "oxlint": "1.85.0",
+    "oxlint": "1.86.0",
     "oxlint-tsgolint": "7.0.2003",
     "prettier": "3.9.9",
     "tsx": "4.23.15",

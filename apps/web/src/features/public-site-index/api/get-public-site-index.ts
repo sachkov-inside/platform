@@ -16,7 +16,7 @@ export interface PublicSiteIndexMaterial {
 
 export type PublicSiteIndex =
   | {
-      readonly guideSlugs: readonly string[];
+      readonly productSlugs: readonly string[];
       readonly kind: "ready";
       readonly materials: readonly PublicSiteIndexMaterial[];
       readonly topicSlugs: readonly string[];
@@ -54,7 +54,7 @@ const catalogPageSchema = z.object({
  */
 export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   const materials: PublicSiteIndexMaterial[] = [];
-  let guideSlugs: readonly string[] = [];
+  let productSlugs: readonly string[] = [];
   let topicSlugs: readonly string[] = [];
   let after: string | undefined;
 
@@ -64,7 +64,7 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
       return { kind: "unavailable" };
     }
     if (page === 0) {
-      guideSlugs = catalogPage.facets.series.map(({ slug }) => slug);
+      productSlugs = catalogPage.facets.series.map(({ slug }) => slug);
       topicSlugs = catalogPage.facets.topics.map(({ slug }) => slug);
     }
     materials.push(...catalogPage.items);
@@ -75,7 +75,7 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   }
 
   return {
-    guideSlugs,
+    productSlugs,
     kind: "ready",
     materials: materials.slice(0, MAX_MATERIALS),
     topicSlugs,

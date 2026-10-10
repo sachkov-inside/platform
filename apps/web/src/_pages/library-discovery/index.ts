@@ -1,6 +1,6 @@
 export {
-  guideLinkPreview,
-  guideSocialCard,
+  productLinkPreview,
+  productSocialCard,
   topicLinkPreview,
   topicSocialCard,
 } from "./model/collection-link-preview";
@@ -9,10 +9,10 @@ export type {
   LibraryDiscoveryReference,
   LibraryDiscoveryResult,
 } from "@/features/library-discovery";
-export { GuideProgrammeView } from "./ui/guide-programme-view";
+export { ProductProgrammeView } from "./ui/product-programme-view";
 export {
-  GuideProductLoading,
-  GuideProgrammeLoading,
+  ProductLandingLoading,
+  ProductProgrammeLoading,
 } from "./ui/library-discovery-loading";
 export {
   LibraryDiscoveryLoading,

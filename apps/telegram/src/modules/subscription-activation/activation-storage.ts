@@ -6,11 +6,6 @@ import type {
 } from "./activation-contract.js";
 type Timestamp = ColumnType<Date, Date, Date>;
 export interface ActivationTables {
-  telegram_identity_reservations: {
-    bot_identity: string;
-    telegram_user_id: string;
-    identity_ref: string;
-  };
   activation_attempts: {
     attempt_id: string;
     bot_identity: string;

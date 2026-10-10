@@ -1,15 +1,11 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import {
-  reservePort,
-  startWithRoutes,
-  stopProcessGroup,
-  stopServerOnPort,
-} from "./smoke-stand.mjs";
+import { reservePort, startWithRoutes } from "./smoke-stand.mjs";
 
 /**
  * Сквозной путь покупателя курса: страница продукта, вход через Telegram у тестового провайдера,
@@ -23,7 +19,7 @@ const fixtureStateSchema = z.object({
   LOGTO_AUDIENCE: z.string(),
   LOGTO_APP_ID: z.string(),
   CONTROL_URL: z.string(),
-  GUIDE_SLUG: z.string(),
+  PRODUCT_SLUG: z.string(),
 });
 const directory = await mkdtemp(join(tmpdir(), "inside-buyer-journey-"));
 const fixturePath = join(directory, "fixture.json");
@@ -31,21 +27,38 @@ const fixturePath = join(directory, "fixture.json");
 const children = [];
 /** @type {string[]} */
 const output = [];
+/** @type {NodeJS.Signals | undefined} */
+let interruptedSignal;
+/** @type {Promise<void> | undefined} */
+let cleanupPromise;
+function cleanup() {
+  cleanupPromise ??= Promise.all(
+    children.map((child) => stopOwned(child)),
+  ).then(() => undefined);
+  return cleanupPromise;
+}
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
+  process.once(signal, () => {
+    interruptedSignal ??= signal;
+    void cleanup();
+  });
+}
 /**
  * @param {string[]} args
  * @param {Record<string, string>} env
  */
 function start(args, env) {
-  const child = spawn("pnpm", args, {
-    detached: true,
+  if (interruptedSignal !== undefined) throw new Error("Smoke interrupted");
+  const child = spawnOwned("pnpm", args, {
     env: { ...process.env, ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   for (const stream of [child.stdout, child.stderr])
-    stream.on("data", (/** @type {Buffer} */ data) => {
+    stream?.on("data", (/** @type {Buffer} */ data) => {
       output.push(data.toString());
       process.stdout.write(data);
     });
+  child.once("error", (error) => output.push(String(error)));
   children.push(child);
   return child;
 }
@@ -58,7 +71,12 @@ function start(args, env) {
 async function waitFor(operation, child) {
   const end = Date.now() + 180_000;
   while (Date.now() < end) {
-    if (child.exitCode !== null || child.signalCode !== null)
+    if (
+      interruptedSignal !== undefined ||
+      child.pid === undefined ||
+      child.exitCode !== null ||
+      child.signalCode !== null
+    )
       throw new Error(
         `Child exited: ${String(child.exitCode ?? child.signalCode)}`,
       );
@@ -110,7 +128,7 @@ try {
     WEB_BASE_URL: webUrl,
     FULLSTACK_WEB_BASE_URL: webUrl,
     BUYER_JOURNEY_CONTROL_URL: state.CONTROL_URL,
-    BUYER_JOURNEY_GUIDE_SLUG: state.GUIDE_SLUG,
+    BUYER_JOURNEY_PRODUCT_SLUG: state.PRODUCT_SLUG,
   };
   // Адреса, к которым обращается сценарий: сервер без любого из них перезапускается. У адреса,
   // который принимает только POST, существующий маршрут отвечает на GET кодом 405, а не 404.
@@ -119,12 +137,12 @@ try {
     routes: [
       "/",
       "/welcome",
-      `/products/${state.GUIDE_SLUG}`,
-      `/products/${state.GUIDE_SLUG}/buy`,
+      `/products/${state.PRODUCT_SLUG}`,
+      `/products/${state.PRODUCT_SLUG}/buy`,
       "/materials/kak-ustroen-inside-platform",
       "/account",
       "/account/purchases",
-      "/subscription/return",
+      "/payment/return",
       "/auth/status",
       "/auth/sign-in",
       "/api/account",
@@ -156,7 +174,7 @@ try {
         ],
         env,
       ),
-    stop: (web) => stopServerOnPort(web, webPort),
+    stop: (web) => stopOwned(web),
     ready: (web) =>
       waitFor(
         async () =>
@@ -177,17 +195,18 @@ try {
     ],
     env,
   );
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolve) => test.on("exit", resolve));
-  const code = await exited;
+  const code = await commandExit(test);
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
     "Buyer journey passed on desktop and mobile against real Nest/PostgreSQL, the stand bank double and a synthetic Telegram sign-in provider.\n",
   );
 } catch (error) {
   process.stderr.write(output.join("").slice(-18000));
-  throw error;
+  if (interruptedSignal === undefined) throw error;
 } finally {
-  for (const child of children.reverse()) await stopProcessGroup(child);
+  await cleanup();
   await rm(directory, { recursive: true, force: true });
 }
+
+if (interruptedSignal !== undefined)
+  process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;

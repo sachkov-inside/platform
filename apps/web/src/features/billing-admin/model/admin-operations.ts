@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { coverageSchema } from "@inside/access-capabilities";
 
 import {
   accessCapabilitySchema,
@@ -25,7 +25,7 @@ export const saveOfferInputSchema = z.strictObject({
     name: z.string().trim().min(1).max(200),
     benefits: z.array(accessCapabilitySchema).min(1).max(100),
     availableForAssignment: z.boolean().optional(),
-    contentScope: contentScopeSchema.nullable().optional(),
+    coverage: coverageSchema.nullable().optional(),
     /** Без поля сервер сохраняет прежний допуск: форма каталога его не называет. */
     eligibility: offerEligibilitySchema.optional(),
     benefitPeriods: z
@@ -65,18 +65,52 @@ export const savePromotionInputSchema = z.strictObject({
     usageLimit: revision.nullable(),
   }),
 });
-/** Поток продукта задаётся целиком: этап, название, дата старта и событие между потоками. */
+/**
+ * Поток продукта задаётся целиком: этап, название, дата старта, событие между потоками и цена
+ * после старта. Пустая цена после старта — `null`, страница её не показывает.
+ */
 export const saveCohortInputSchema = z.strictObject({
   operationId,
   expectedRevision: revision.optional(),
   value: z.strictObject({
-    guideId: z.uuid(),
+    productId: z.uuid(),
     name: z.string().trim().min(1).max(120),
     stage: cohortStageSchema,
     startsOn: z.iso.date().nullable(),
     nextEvent: z.string().trim().max(200),
+    priceAfterStartKopecks: money.nullable(),
   }),
 });
+/**
+ * Рубли из поля формы в копейки команды: «39900», «39 900» или «39 900,50». Пустое поле — `null`,
+ * то есть цена не показывается; ноль, минус и лишние знаки после запятой — ошибка формы.
+ */
+export function parseRublesToKopecks(
+  text: string,
+):
+  | { readonly ok: true; readonly kopecks: number | null }
+  | { readonly ok: false } {
+  const entry = text.replace(/[\s\u00a0\u202f]/gu, "");
+  if (entry.length === 0) return { ok: true, kopecks: null };
+  const match = /^(\d+)(?:[.,](\d{1,2}))?$/u.exec(entry);
+  if (match === null) return { ok: false };
+  const kopecks =
+    Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
+  // Целое положительное и безопасное для JSON: так же сумму проверяет команда.
+  return money.safeParse(kopecks).success
+    ? { ok: true, kopecks }
+    : { ok: false };
+}
+
+/** Копейки обратно в рубли для поля формы: «39900» или «39900,50». */
+export function kopecksToRublesText(kopecks: number): string {
+  const rubles = Math.trunc(kopecks / 100);
+  const fraction = kopecks % 100;
+  return fraction === 0
+    ? String(rubles)
+    : `${String(rubles)},${String(fraction).padStart(2, "0")}`;
+}
+
 export const archiveInputSchema = z.strictObject({
   operationId,
   expectedRevision: revision,

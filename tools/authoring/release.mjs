@@ -8,8 +8,8 @@ import {
   loadPackage,
   canonical,
   checksum,
-  guideShellScope,
-  isGuideShell,
+  productShellScope,
+  isProductShell,
 } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import {
@@ -26,10 +26,10 @@ import {
   artifactDeclarations,
   artifactFingerprint,
   desiredMaterial,
-  guideChapters,
-  guideDetails,
-  guideDetailsMatch,
-  guideShellComposition,
+  productChapters,
+  productDetails,
+  productDetailsMatch,
+  productShellComposition,
   normalizeSourceIds,
   pendingOperations,
   publicationConflict,
@@ -39,7 +39,7 @@ import {
   valueAt,
   sourceKey,
   syncLocal,
-  validateGuidePages,
+  validateProductPages,
 } from "./local-sync.mjs";
 import {
   assertTargetEnvironment,
@@ -48,7 +48,8 @@ import {
 } from "./target.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
-import { previewTasks } from "./task-import.mjs";
+import { preflightTaskPages } from "./task-page.mjs";
+import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -68,7 +69,7 @@ import { previewTasks } from "./task-import.mjs";
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
- * @typedef {object} GuideChange
+ * @typedef {object} ProductChange
  * @property {string} sourceId
  * @property {string} title
  * @property {"new" | "composition" | "details" | "unchanged"} change
@@ -125,7 +126,7 @@ async function readJournal(stateDirectory, target) {
         schemaVersion: 1,
         target,
         materials: {},
-        guides: {},
+        products: {},
         operations: {},
         resources: {},
       };
@@ -142,6 +143,8 @@ async function readJournal(stateDirectory, target) {
  *   origin: string;
  *   request?: LocalTransport | undefined;
  *   defaultAccess?: DefaultAccess;
+ *   taskAccess?: string[];
+ *   confirmedProductRemovals?: string[];
  *   publish?: import("./local-boundaries.mjs").PublishSelection;
  *   accessToken?: import("./target.mjs").AccessToken | undefined;
  * }} options
@@ -152,8 +155,10 @@ export async function previewRelease(
   {
     origin,
     request: transport,
-    defaultAccess = "membership",
+    defaultAccess = "closed",
     publish = [],
+    taskAccess = [],
+    confirmedProductRemovals = [],
     accessToken,
   },
 ) {
@@ -161,13 +166,16 @@ export async function previewRelease(
   const send = transport ?? transportFor(target, accessToken);
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
-  const pkg = await loadPackage(packagePath);
+  const original = await loadPackage(packagePath);
+  const access = resolveTaskAccess(original.manifest, taskAccess);
+  const pkg = { ...original, manifest: access.manifest };
+  preflightTaskPages(pkg);
   const { manifest } = pkg;
-  const shell = isGuideShell(manifest);
+  const shell = isProductShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  await validateGuidePages(manifest, send);
+  await validateProductPages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
@@ -175,22 +183,40 @@ export async function previewRelease(
   // Продукт узнаётся и без журнала: цель называет свой sourceId, поэтому новый state-каталог не
   // выдаёт уже перенесённый продукт за новый.
   // Пакет одного материала не описывает продукт, поэтому и список продуктов ему не нужен.
-  const storedGuides =
-    manifest.guides.length === 0
+  const storedProducts =
+    manifest.products.length === 0
       ? []
-      : await request("/authoring/collections?kind=guide");
-  const guideIds = new Map(
-    manifest.guides.flatMap((guide) => {
-      const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
-      const stored = storedGuides.find(
+      : await request("/authoring/collections?kind=product");
+  const productIds = new Map(
+    manifest.products.flatMap((product) => {
+      const entry = journal.products[sourceKey(manifest, product.sourceId)];
+      const stored = storedProducts.find(
         (item) =>
-          item.sourceId === sourceKey(manifest, guide.sourceId) &&
+          item.sourceId === sourceKey(manifest, product.sourceId) &&
           item.archived !== true,
       );
-      const id = entry?.guideId ?? stored?.id;
-      return id === undefined ? [] : [[guide.sourceId, id]];
+      const id = entry?.productId ?? stored?.id;
+      return id === undefined ? [] : [[product.sourceId, id]];
     }),
   );
+  const removals = z.array(z.uuid()).max(100).parse(confirmedProductRemovals);
+  const confirmed = [...new Set(removals)].sort();
+  for (const id of confirmed) {
+    if (
+      ![...productIds.values()].includes(id) ||
+      !storedProducts.some(
+        (product) =>
+          product.id === id &&
+          product.archived !== true &&
+          manifest.products.some(
+            (row) => product.sourceId === sourceKey(manifest, row.sourceId),
+          ),
+      )
+    )
+      throw new Error(
+        `Product removal confirmation is outside this package's target scope: ${id}`,
+      );
+  }
   const assets = new Map(
     manifest.assets.map((asset) => [asset.sourceId, asset]),
   );
@@ -237,7 +263,7 @@ export async function previewRelease(
             : `attach:${row.video.kinescopeId}`));
     const { digest } = desiredMaterial(manifest, row, {
       topicIds,
-      guideIds,
+      productIds,
       defaultAccess,
       primaryVideoId: attached,
       publicationState: item.publication,
@@ -304,23 +330,26 @@ export async function previewRelease(
         : {}),
     });
   }
-  /** @type {GuideChange[]} */
-  const guides = [];
-  const currentGuides = storedGuides;
-  for (const guide of manifest.guides) {
-    const programme = [...guide.materialIds, ...guide.supplementaryMaterialIds];
-    const guideId = guideIds.get(guide.sourceId);
+  /** @type {ProductChange[]} */
+  const products = [];
+  const currentProducts = storedProducts;
+  for (const product of manifest.products) {
+    const programme = [
+      ...product.materialIds,
+      ...product.supplementaryMaterialIds,
+    ];
+    const productId = productIds.get(product.sourceId);
     const artifactChanges = [
-      ...artifactDeclarations(manifest, guide, defaultAccess),
+      ...artifactDeclarations(manifest, product, defaultAccess),
     ]
       .filter(([artifactSourceId, { artifact, access }]) => {
         const receipt =
-          guideId === undefined
+          productId === undefined
             ? undefined
             : parseReceipt(
                 artifactReceiptSchema,
                 resources[
-                  `artifact:${guideId}:${sourceKey(manifest, artifactSourceId)}`
+                  `artifact:${productId}:${sourceKey(manifest, artifactSourceId)}`
                 ],
               );
         return (
@@ -334,14 +363,14 @@ export async function previewRelease(
       })
       .map(([artifactSourceId]) => artifactSourceId);
     const stored =
-      guideId === undefined
+      productId === undefined
         ? undefined
-        : currentGuides.find((item) => item.id === guideId);
-    const details = guideDetails(guide, stored);
-    if (guideId === undefined) {
-      guides.push({
-        sourceId: guide.sourceId,
-        title: guide.title,
+        : currentProducts.find((item) => item.id === productId);
+    const details = productDetails(product, stored);
+    if (productId === undefined) {
+      products.push({
+        sourceId: product.sourceId,
+        title: product.title,
         change: "new",
         materials: programme.length,
         artifactChanges,
@@ -349,17 +378,20 @@ export async function previewRelease(
         presentation: details.presentation,
         page: details.page === null ? "none" : "new",
         ...(shell
-          ? { chapterListChange: { added: guide.chapters.length, removed: 0 } }
+          ? {
+              chapterListChange: { added: product.chapters.length, removed: 0 },
+            }
           : {}),
       });
       continue;
     }
-    const order = await request(`/authoring/guides/${guideId}/order`);
-    expected[`${sourceKey(manifest, guide.sourceId)}:order`] =
+    const order = await request(`/authoring/products/${productId}/order`);
+    expected[`${sourceKey(manifest, product.sourceId)}:order`] =
       order.orderVersion;
     // A page edited on the target after the review is drift, not something apply may overwrite.
     if (stored !== undefined)
-      expected[`${sourceKey(manifest, guide.sourceId)}:guide`] = stored.version;
+      expected[`${sourceKey(manifest, product.sourceId)}:product`] =
+        stored.version;
     const ids = new Map(
       programme.map((id) => [
         id,
@@ -367,15 +399,15 @@ export async function previewRelease(
       ]),
     );
     const currentOrder = order.items.map((item) => item.materialId);
-    // A Guide shell keeps the Materials the target holds, in their order and chapters.
+    // A Product shell keeps the Materials the target holds, in their order and chapters.
     const shellComposition = shell
-      ? guideShellComposition(manifest, guide, order)
+      ? productShellComposition(manifest, product, order)
       : undefined;
     const desiredOrder =
       shellComposition?.orderedMaterialIds ??
       programme.map((id) => ids.get(id) ?? `new:${id}`);
     const chapterOf = new Map(
-      guide.chapters.flatMap((chapter) =>
+      product.chapters.flatMap((chapter) =>
         chapter.materialIds.map((id) => [ids.get(id), chapter.title]),
       ),
     );
@@ -388,7 +420,7 @@ export async function previewRelease(
         canonical({ name: chapter.name, summary: chapter.summary }),
       ]),
     );
-    const desiredChapters = guideChapters(manifest, guide);
+    const desiredChapters = productChapters(manifest, product);
     const desiredChapterIds = desiredChapters.map((chapter) => chapter.id);
     const currentChapterIds = order.chapters.map((chapter) => chapter.id);
     const chapterListChange = {
@@ -420,7 +452,7 @@ export async function previewRelease(
         ? { from: stored.presentation ?? "default", to: details.presentation }
         : undefined;
     const detailsChange =
-      stored === undefined || !guideDetailsMatch(stored, details);
+      stored === undefined || !productDetailsMatch(stored, details);
     // A shell that would move a placed Material is refused while composing it.
     const moved = shellComposition
       ? 0
@@ -431,9 +463,9 @@ export async function previewRelease(
               ? null
               : (currentChapters.get(item.chapterId) ?? null)),
         ).length;
-    guides.push({
-      sourceId: guide.sourceId,
-      title: guide.title,
+    products.push({
+      sourceId: product.sourceId,
+      title: product.title,
       materials: programme.length,
       artifactChanges,
       change:
@@ -459,7 +491,7 @@ export async function previewRelease(
         moved > 0,
     });
   }
-  // Guide Tasks follow the Guide; validation reads their target revision without a write.
+  // Product Tasks follow the Product; validation reads their target revision without a write.
   const taskPreview = await previewTasks(
     manifest,
     journal,
@@ -484,14 +516,16 @@ export async function previewRelease(
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
     ...approval,
-    ...(shell ? { scope: guideShellScope.value } : {}),
+    ...(confirmed.length === 0 ? {} : { confirmedProductRemovals: confirmed }),
+    ...(access.choices.length === 0 ? {} : { taskAccess: access.choices }),
+    ...(shell ? { scope: productShellScope.value } : {}),
     // A shell leaves these writes for their own package; the reviewer sees them before apply.
     ...(shell && pendingOperations(journal)
       ? { pendingMaterialWrites: pendingOperations(journal) }
       : {}),
     expected,
     materials,
-    guides,
+    products,
     ...(taskPreview.tasks.length ? { tasks: taskPreview.tasks } : {}),
     archiveProposals,
   };
@@ -517,12 +551,14 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
-    scope: guideShellScope.optional(),
+    scope: productShellScope.optional(),
     publish: publishSelectionSchema.optional(),
+    taskAccess: z.array(z.string()).optional(),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
     pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
-    guides: z.array(z.json()),
+    products: z.array(z.json()),
     tasks: z.array(z.object({ change: z.string() }).passthrough()).optional(),
     archiveProposals: z.array(z.string()),
     fingerprint: z.hash("sha256"),
@@ -576,6 +612,8 @@ export async function applyRelease(
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
   const publish = preview.publish ?? [];
+  const taskAccess = preview.taskAccess ?? [];
+  const confirmedProductRemovals = preview.confirmedProductRemovals ?? [];
   // A write whose outcome was lost is completed with its original key first; if it changed the
   // target, the reviewed plan no longer matches and a new preview is required.
   await syncLocal(preview.packagePath, stateDirectory, {
@@ -584,12 +622,17 @@ export async function applyRelease(
     publish,
     accessToken,
     reconcileOnly: true,
+    reviewed: true,
+    reviewedTaskAccess: taskAccess,
+    reviewedProductRemovals: confirmedProductRemovals,
   });
   // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, {
     origin: target.id,
     request: transport,
     publish,
+    taskAccess,
+    confirmedProductRemovals,
     accessToken,
   });
   if (current.preview.fingerprint !== fingerprint)
@@ -603,6 +646,8 @@ export async function applyRelease(
     publish,
     accessToken,
     reviewed: true,
+    reviewedTaskAccess: taskAccess,
+    reviewedProductRemovals: confirmedProductRemovals,
   });
 }
 
@@ -615,7 +660,7 @@ if (
     options: {
       package: { type: "string" },
       content: { type: "string" },
-      guide: { type: "string" },
+      product: { type: "string" },
       ref: { type: "string", default: "HEAD" },
       target: { type: "string" },
       state: { type: "string" },
@@ -623,9 +668,23 @@ if (
       archive: { type: "string", multiple: true, default: [] },
       publish: { type: "string", multiple: true, default: [] },
       "publish-all": { type: "boolean", default: false },
+      "task-access": { type: "string", multiple: true, default: [] },
+      "confirm-product-removal": {
+        type: "string",
+        multiple: true,
+        default: [],
+      },
     },
   });
   const [command] = positionals;
+  if (command !== "preview" && values["task-access"].length > 0)
+    throw new Error(
+      "--task-access is a preview choice; apply uses the reviewed choices",
+    );
+  if (command !== "preview" && values["confirm-product-removal"].length > 0)
+    throw new Error(
+      "--confirm-product-removal is a preview choice; apply uses the reviewed choices",
+    );
   /** @param {string} value */
   const sessionFor = (value) => {
     const target = releaseTarget(value);
@@ -635,16 +694,16 @@ if (
   };
   if (
     command === "preview" &&
-    (values.package || (values.content && values.guide)) &&
+    (values.package || (values.content && values.product)) &&
     values.target &&
     values.state
   ) {
     // A Content checkout is exported at one committed revision; a ready package is used as given.
     const exported =
-      values.package === undefined && values.content && values.guide
+      values.package === undefined && values.content && values.product
         ? await exportCommittedPackage(
             values.content,
-            values.guide,
+            values.product,
             values.state,
             values.ref,
           )
@@ -657,11 +716,13 @@ if (
       {
         origin: values.target,
         publish: publishOption(values),
+        taskAccess: values["task-access"],
+        confirmedProductRemovals: values["confirm-product-removal"],
         accessToken: sessionFor(values.target),
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z
@@ -673,11 +734,11 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, guides: report.guides, tasks: report.tasks ?? [] }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --guide GUIDE_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

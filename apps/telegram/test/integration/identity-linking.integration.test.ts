@@ -1,3 +1,4 @@
+import { linkEffects } from "../../src/application/link-effects.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash } from "node:crypto";
 
@@ -28,7 +29,7 @@ let linking: IdentityLinking;
 beforeAll(async () => {
   database = createDatabase(databaseUrl);
   await migrateToLatest(database);
-  linking = new IdentityLinking(database, { now: () => now });
+  linking = new IdentityLinking(database, { now: () => now }, linkEffects);
 });
 
 beforeEach(async () => {
@@ -47,6 +48,60 @@ afterAll(async () => {
 });
 
 describe("IdentityLinking", () => {
+  it("rolls back the confirmed link and initial check when the event transaction fails", async () => {
+    const challenge = await linking.register({
+      accountRef: "account-ref-a",
+      returnCorrelation: "return-ref-a",
+      expiresAt: new Date("2030-01-01T00:10:00.000Z"),
+      tokenDigest,
+    });
+    await linking.acceptStart({
+      botIdentity: "inside",
+      telegramUserId: "42",
+      observedAt: now,
+      linkToken: { kind: "digest", digest: tokenDigest },
+    });
+    await sql`create function synthetic_initial_check_fault() returns trigger language plpgsql as $$
+      begin raise exception 'synthetic initial check failure'; end $$;
+      create trigger synthetic_initial_check_fault before insert on membership_checks
+      for each row execute function synthetic_initial_check_fault()`.execute(
+      database,
+    );
+    const confirmation = {
+      accountRef: "account-ref-a",
+      returnCorrelation: "return-ref-a",
+      linkTransactionRef: challenge.linkTransactionRef,
+    };
+    try {
+      await expect(linking.confirm(confirmation)).rejects.toThrow(
+        "synthetic initial check failure",
+      );
+      expect(
+        await database.selectFrom("platform_links").selectAll().execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("membership_checks")
+          .selectAll()
+          .where("source_ref", "=", challenge.linkTransactionRef)
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("link_transactions")
+          .select("state")
+          .where("link_transaction_ref", "=", challenge.linkTransactionRef)
+          .executeTakeFirst(),
+      ).toEqual({ state: "received" });
+    } finally {
+      await sql`drop trigger synthetic_initial_check_fault on membership_checks;
+        drop function synthetic_initial_check_fault()`.execute(database);
+    }
+    await expect(linking.confirm(confirmation)).resolves.toMatchObject({
+      status: "linked",
+    });
+  });
+
   it("links only after Telegram receipt and authenticated confirmation", async () => {
     const challenge = await linking.register({
       accountRef: "account-ref-a",
@@ -232,9 +287,13 @@ describe("IdentityLinking", () => {
       }),
     ).resolves.toEqual({ status: "expired" });
     await expect(
-      new IdentityLinking(database, {
-        now: () => new Date("2030-01-01T00:01:00.000Z"),
-      }).confirm({
+      new IdentityLinking(
+        database,
+        {
+          now: () => new Date("2030-01-01T00:01:00.000Z"),
+        },
+        linkEffects,
+      ).confirm({
         accountRef: "account-ref-a",
         linkTransactionRef: (
           await database

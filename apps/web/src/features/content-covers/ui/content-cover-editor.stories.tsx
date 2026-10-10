@@ -97,9 +97,13 @@ export const MaterialPreview: Story = {
     const canvas = within(canvasElement);
     for (const name of ["Превью 16:9", "Квадратное превью"]) {
       const image = canvas.getByRole<HTMLImageElement>("img", { name });
-      await waitFor(() =>
-        expect(image.complete && image.naturalWidth > 0).toBe(true),
-      );
+      try {
+        await image.decode();
+      } catch (cause) {
+        throw new Error(`Обложка «${name}» не декодировалась: ${image.src}`, {
+          cause,
+        });
+      }
       await expect(image.naturalWidth / image.naturalHeight).toBeCloseTo(
         16 / 9,
         1,

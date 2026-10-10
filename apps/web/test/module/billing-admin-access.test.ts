@@ -28,7 +28,7 @@ import {
   type PersonGround,
 } from "@/features/billing-admin/model/access-operations";
 import {
-  guideOnlyOffer,
+  productOnlyOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -64,7 +64,7 @@ function command(url: string, input: unknown): Request {
 const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
 
 describe("действия карточки человека", () => {
-  it("назначение продлевают, отзывают и восстанавливают, курс только отзывают", () => {
+  it("назначение владельца и курса отзывают и восстанавливают без изменения срока", () => {
     // Назначение из платежа принадлежит Billing: его меняют отмена продления и возврат.
     expect(groundActions(ground)).toEqual({
       extend: false,
@@ -73,7 +73,7 @@ describe("действия карточки человека", () => {
     });
     const manual: PersonGround = { ...ground, source: "manual" };
     expect(groundActions(manual)).toEqual({
-      extend: true,
+      extend: false,
       revoke: true,
       restore: false,
     });
@@ -90,7 +90,7 @@ describe("действия карточки человека", () => {
       }),
     ).toEqual({ extend: false, revoke: false, restore: true });
     expect(groundActions({ ...manual, state: "ended" })).toEqual({
-      extend: true,
+      extend: false,
       revoke: false,
       restore: false,
     });
@@ -153,11 +153,11 @@ describe("тарифы", () => {
       yearly,
       archivedOption,
       archivedOffer,
-      guideOnlyOffer,
+      productOnlyOffer,
     ]);
     expect(rows.map((row) => row.offer.id)).toEqual([
       materialsOffer.offer.id,
-      guideOnlyOffer.offer.id,
+      productOnlyOffer.offer.id,
     ]);
     expect(rows[0]?.options.map((option) => option.months)).toEqual([1, 12]);
     expect(rows[1]?.options[0]?.mode).toBe("one_time");

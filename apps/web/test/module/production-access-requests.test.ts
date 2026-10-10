@@ -9,9 +9,10 @@ import {
   PassRequestRejected,
 } from "../production/pass-requests";
 
-const web = "https://inside.sachkov.dev";
+const web = "https://sachkov.dev";
+const legacyWeb = "https://inside.sachkov.dev";
 const logto = "https://auth.sachkov.dev";
-const mcp = `${web}/mcp/learning`;
+const mcp = `${legacyWeb}/mcp/learning`;
 
 function toolCall(name: string): string {
   return JSON.stringify({
@@ -23,11 +24,38 @@ function toolCall(name: string): string {
 }
 
 describe("production access pass request allowlist", () => {
+  it("allows a bodyless GET storage redirect from the application asset route", () => {
+    expect(
+      checkPassRequest({
+        method: "GET",
+        url: "https://inside-production-protected.storage.yandexcloud.net/materials/m/assets/a/image-960.webp?signature=x",
+        redirectedFrom: {
+          method: "GET",
+          url: `${web}/api/materials/m/assets/a/images/960`,
+        },
+      }),
+    ).toEqual({ allowed: true, operation: "read" });
+  });
+
+  it.each([
+    "https://storage.example.test/signed?token=x",
+    "https://sachkov.dev.example.test/materials/closed",
+    "https://other.sachkov.dev/materials/closed",
+    "https://api.inside.sachkov.dev/materials/closed",
+    "https://sachkov.dev:444/materials/closed",
+  ])("rejects reads outside the three production origins: %s", (url) => {
+    expect(checkPassRequest({ method: "GET", url })).toEqual({
+      allowed: false,
+      reason: `origin ${new URL(url).origin} is not in the pass allowlist`,
+    });
+  });
+
   it.each([
     ["GET", `${web}/materials/closed`],
     ["GET", `${web}/api/materials/m/assets/a`],
     ["HEAD", `${web}/authoring/billing`],
-    ["GET", "https://storage.example.test/signed?token=x"],
+    ["GET", `${legacyWeb}/materials/closed`],
+    ["HEAD", `${logto}/oidc/auth`],
   ])("allows the read %s %s", (method, url) => {
     expect(checkPassRequest({ method, url })).toMatchObject({
       allowed: true,
@@ -111,14 +139,14 @@ describe("production access pass request allowlist", () => {
     expect(
       checkPassRequest({
         method: "POST",
-        url: `${web}/mcp`,
+        url: `${legacyWeb}/mcp`,
         body: toolCall("learning_material_read"),
       }),
     ).toMatchObject({ allowed: false });
   });
 
   it("allows owner MCP POST only to its named read-only tools", () => {
-    const ownerMcp = `${web}/mcp`;
+    const ownerMcp = `${legacyWeb}/mcp`;
 
     expect(
       checkPassRequest({
@@ -318,5 +346,84 @@ describe("production access pass sources", () => {
       });
 
     expect(bypasses).toEqual([]);
+  });
+});
+
+describe("protected storage redirect boundary", () => {
+  const storage =
+    "https://inside-production-protected.storage.yandexcloud.net/materials/m/assets/a/image-960.webp";
+  const redirectedFrom = {
+    method: "GET",
+    url: `${web}/api/materials/m/assets/a/images/960`,
+  };
+  it("rejects direct reads, bodies, other methods, origins and redirect sources", () => {
+    for (const request of [
+      { method: "GET", url: storage },
+      { method: "HEAD", url: storage, redirectedFrom },
+      { method: "POST", url: storage, redirectedFrom },
+      { method: "GET", url: storage, body: "payload", redirectedFrom },
+      {
+        method: "GET",
+        url: storage,
+        redirectedFrom: { ...redirectedFrom, method: "POST" },
+      },
+      {
+        method: "GET",
+        url: storage,
+        redirectedFrom: { ...redirectedFrom, body: "payload" },
+      },
+      {
+        method: "GET",
+        url: storage,
+        redirectedFrom: { method: "GET", url: `${web}/materials/closed` },
+      },
+      {
+        method: "GET",
+        url: storage,
+        redirectedFrom: {
+          method: "GET",
+          url: "https://outside.example.test/api/materials/m/assets/a",
+        },
+      },
+      {
+        method: "GET",
+        url: storage,
+        redirectedFrom: { method: "GET", url: "invalid URL" },
+      },
+      {
+        method: "GET",
+        url: storage.replace("inside-production-protected", "other-bucket"),
+        redirectedFrom,
+      },
+      {
+        method: "GET",
+        url: storage.replace(".net/", ".net:444/"),
+        redirectedFrom,
+      },
+    ])
+      expect(checkPassRequest(request), JSON.stringify(request)).toMatchObject({
+        allowed: false,
+      });
+  });
+  it("also allows the original asset delivery route without an image variant", () => {
+    expect(
+      checkPassRequest({
+        method: "GET",
+        url: storage,
+        redirectedFrom: {
+          method: "GET",
+          url: `${web}/api/materials/m/assets/a?contentVersion=1`,
+        },
+      }),
+    ).toEqual({ allowed: true, operation: "read" });
+  });
+  it("never sends a direct GET or POST storage request through Node", async () => {
+    const send = vi.fn<typeof fetch>();
+    const passFetch = createPassFetch(send);
+    for (const method of ["GET", "POST"])
+      await expect(passFetch(storage, { method })).rejects.toBeInstanceOf(
+        PassRequestRejected,
+      );
+    expect(send).not.toHaveBeenCalled();
   });
 });

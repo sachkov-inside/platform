@@ -1,3 +1,7 @@
+import {
+  variantDiagram,
+  expectVariantDiagram,
+} from "@/storybook/image-variants";
 import type { ComponentProps, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
@@ -8,18 +12,18 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import { calloutTones } from "@/entities/material";
 import { SavedBookmarkAction } from "@/features/bookmarks";
-import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   ReadingProgressProvider,
   SavedReadingAction,
 } from "@/features/reading-progress";
-import { GuideModeProvider, type GuideMode } from "@/shared/guide-mode";
+import { ProductModeProvider, type ProductMode } from "@/shared/product-mode";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import {
-  guidePurchaseHref,
+  productPurchaseHref,
   subscriptionHrefFrom,
 } from "@/shared/routing/subscription-route";
 import {
@@ -32,6 +36,10 @@ import {
 import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import {
+  numberedListBlocks,
+  expectNumberedLists,
+} from "@/storybook/material-list-start";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -353,7 +361,7 @@ const emptyLessonBody = [
 ] as const satisfies readonly ReaderBlock[];
 
 /** Шаг руководства, написанный для обоих режимов, и шаг только для своего проекта. */
-const guideModeBody = [
+const productModeBody = [
   {
     kind: "paragraph",
     content: [
@@ -441,7 +449,7 @@ const guideModeBody = [
   },
 ] as const satisfies readonly ReaderBlock[];
 
-const guideModeReturnTarget = parseMaterialReaderReturnTarget(
+const productModeReturnTarget = parseMaterialReaderReturnTarget(
   "/products/platform-inside",
 );
 
@@ -491,41 +499,41 @@ function accessReadingAction(): ReactNode {
   );
 }
 
-function GuideModeReader({
+function ProductModeReader({
   initialMode,
   withModes = true,
 }: {
-  readonly initialMode: GuideMode;
+  readonly initialMode: ProductMode;
   readonly withModes?: boolean;
 }) {
   return (
-    <GuideModeProvider initialMode={initialMode}>
+    <ProductModeProvider initialMode={initialMode}>
       <MaterialReaderView
         {...readerActions(material.materialId, material.format.slug)}
-        body={guideModeBody}
+        body={productModeBody}
         material={{ ...material, title: "Подготовка к первому прогону" }}
         {...(withModes
           ? {
               // Подсказка встаёт у первого шага, написанного для активного способа.
-              modeHint: { at: 1, node: <GuideModeHint /> },
-              modeSwitch: <GuideModeSwitch signedIn={false} />,
+              modeHint: { at: 1, node: <ProductModeHint /> },
+              modeSwitch: <ProductModeSwitch signedIn={false} />,
             }
           : {})}
         primaryVideo={null}
-        returnTarget={guideModeReturnTarget}
+        returnTarget={productModeReturnTarget}
         seriesContext={{
           currentPosition: 2,
           next: null,
           previous: null,
           series: {
             hasModeVariants: withModes,
-            href: guideModeReturnTarget.href,
+            href: productModeReturnTarget.href,
             name: "Создание Platform Inside",
           },
           totalMaterials: 4,
         }}
       />
-    </GuideModeProvider>
+    </ProductModeProvider>
   );
 }
 
@@ -573,6 +581,16 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const OrderedListStart: Story = {
+  args: { body: numberedListBlocks },
+  play: async ({ canvasElement }) => expectNumberedLists(canvasElement),
+};
+
+export const OrderedListStartMobile: Story = {
+  ...OrderedListStart,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
 
 export const Mobile: Story = {
   args: {},
@@ -672,6 +690,43 @@ export const Mobile: Story = {
         canvasElement.querySelector('[data-reader-return="bottom"]'),
       ).toBeNull();
     });
+  },
+};
+
+/** Replays an initial visible entry queued together with the first scroll-out entry. */
+export const MobileBatchedIntersection: Story = {
+  ...Mobile,
+  name: "Mobile · batched intersections",
+  beforeEach: () => {
+    const NativeObserver = window.IntersectionObserver;
+    window.IntersectionObserver = class extends NativeObserver {
+      constructor(
+        callback: IntersectionObserverCallback,
+        options?: IntersectionObserverInit,
+      ) {
+        let delivered = false;
+        let pending: IntersectionObserverEntry[] = [];
+        super((entries, observer) => {
+          if (
+            delivered ||
+            !entries.some((entry) =>
+              entry.target.hasAttribute("data-reader-return"),
+            )
+          ) {
+            callback(entries, observer);
+            return;
+          }
+          pending.push(...entries);
+          if (!entries.some((entry) => !entry.isIntersecting)) return;
+          delivered = true;
+          callback(pending, observer);
+          pending = [];
+        }, options);
+      }
+    };
+    return () => {
+      window.IntersectionObserver = NativeObserver;
+    };
   },
 };
 
@@ -937,7 +992,7 @@ export const PlaylistReturn: Story = {
         title: "Видео-разбор проверки",
       },
       previous: {
-        href: materialReaderHref("first-guide", playlistReturnTarget.href),
+        href: materialReaderHref("first-product", playlistReturnTarget.href),
         title: "Сначала границы",
       },
       series: {
@@ -1008,7 +1063,7 @@ export const AccessRequired: Story = {
         kind: "subscription",
         href: subscriptionHrefFrom(materialReaderHref(material.slug)),
       }}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1023,7 +1078,7 @@ export const AccessRequired: Story = {
     // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fmaterials%2Fagent-first-skills",
+      "/payment/checkout?from=%2Fmaterials%2Fagent-first-skills",
     );
     await expect(membershipLink).not.toHaveAttribute("target");
     await expect(
@@ -1050,14 +1105,14 @@ export const AccessRequiredMobile: Story = {
 };
 
 /** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
-export const AccessGuidePurchase: Story = {
+export const AccessProductPurchase: Story = {
   render: () => (
     <MaterialReaderAccess
       invitation={{
-        kind: "guide",
-        href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
+        kind: "product",
+        href: productPurchaseHref(material.seriesMemberships[0].series.slug),
       }}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1077,7 +1132,7 @@ export const AccessNotOffered: Story = {
   render: () => (
     <MaterialReaderAccess
       invitation={null}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1248,8 +1303,8 @@ export const LessonBlocksEmpty: Story = {
   },
 };
 
-export const GuideModes: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModes: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1296,8 +1351,8 @@ export const GuideModes: Story = {
   },
 };
 
-export const GuideModesSwitched: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModesSwitched: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1315,8 +1370,8 @@ export const GuideModesSwitched: Story = {
   },
 };
 
-export const GuideModesOtherBranch: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModesOtherBranch: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1338,8 +1393,8 @@ export const GuideModesOtherBranch: Story = {
   },
 };
 
-export const GuideModesMobile: Story = {
-  render: () => <GuideModeReader initialMode="own" />,
+export const ProductModesMobile: Story = {
+  render: () => <ProductModeReader initialMode="own" />,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1350,8 +1405,8 @@ export const GuideModesMobile: Story = {
   },
 };
 
-export const GuideWithoutModes: Story = {
-  render: () => <GuideModeReader initialMode="example" withModes={false} />,
+export const ProductWithoutModes: Story = {
+  render: () => <ProductModeReader initialMode="example" withModes={false} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1363,4 +1418,303 @@ export const GuideWithoutModes: Story = {
       canvas.getByText(/Склонируйте учебный репозиторий/u),
     ).toBeVisible();
   },
+};
+
+export const SourceAnchors: Story = {
+  args: {
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Перейти к разделу",
+            marks: [{ kind: "link", href: "#как-спроектировать-один-этап" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Синтетический материал для проверки прокрутки к нужному заголовку.",
+            marks: [],
+          },
+        ],
+      })),
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "Как спроектировать один этап?",
+            marks: [{ kind: "bold" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Продолжение материала после целевого раздела.",
+            marks: [],
+          },
+        ],
+      })),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole("heading", {
+      name: "Как спроектировать один этап?",
+    });
+    await expect(heading).toHaveAttribute("id", "как-спроектировать-один-этап");
+    const link = canvas.getByRole("link", { name: "Перейти к разделу" });
+    // Vitest supplies a base URL; keep fragment navigation inside its tester iframe.
+    link.addEventListener(
+      "click",
+      (event) => {
+        event.preventDefault();
+        window.location.hash = link.getAttribute("href") ?? "";
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      },
+      { once: true },
+    );
+    const previousUrl = window.location.href;
+    try {
+      await userEvent.click(link);
+      await waitFor(async () => {
+        const y = heading.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
+  },
+};
+export const SourceAnchorsMobile: Story = {
+  ...SourceAnchors,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const SourceAnchorMetadataCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          { kind: "text", text: "material-outcomes-heading", marks: [] },
+        ],
+      },
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "material-outcomes-heading-metadata",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        name: "material-outcomes-heading",
+      }),
+    ).toHaveAttribute("id", "material-outcomes-heading");
+    const ids = Array.from(canvasElement.querySelectorAll("[id]")).map(
+      (node) => node.id,
+    );
+    await expect(new Set(ids).size).toBe(ids.length);
+    await expect(
+      canvas.getByRole("region", { name: "Чему научишься" }),
+    ).toBeInTheDocument();
+  },
+};
+
+/** The owner chose the Content source address when a legacy alias conflicts. */
+export const SourceAnchorLegacyCollision: Story = {
+  args: {
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Первый раздел", marks: [] }],
+      },
+      ...(SourceAnchors.args?.body ?? []).slice(1).map((block) =>
+        block.kind === "heading"
+          ? {
+              ...block,
+              content: [
+                {
+                  kind: "text" as const,
+                  text: "material-section-0",
+                  marks: [],
+                },
+              ],
+            }
+          : block,
+      ),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const target = canvas.getByRole("heading", { name: "material-section-0" });
+    await expect(target).toHaveAttribute("id", "material-section-0");
+    await expect(
+      canvas.getByRole("heading", { name: "Первый раздел" }),
+    ).toHaveAttribute("id", "первый-раздел");
+    await expect(
+      canvasElement.querySelectorAll('[id="material-section-0"]'),
+    ).toHaveLength(1);
+    const previousUrl = window.location.href;
+    try {
+      window.location.hash = "material-section-0";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await waitFor(async () => {
+        const y = target.getBoundingClientRect().top;
+        await expect(y).toBeGreaterThanOrEqual(0);
+        await expect(y).toBeLessThan(160);
+      });
+    } finally {
+      window.history.replaceState(window.history.state, "", previousUrl);
+    }
+  },
+};
+
+/** Shell IDs use punctuation that Content source slugs cannot produce. */
+export const SourceAnchorShellCollision: Story = {
+  args: {
+    body: (SourceAnchors.args?.body ?? []).map((block, index) =>
+      index === 0
+        ? {
+            kind: "paragraph" as const,
+            content: [
+              {
+                kind: "text" as const,
+                text: "Перейти к Content",
+                marks: [{ kind: "link" as const, href: "#content" }],
+              },
+            ],
+          }
+        : block.kind === "heading"
+          ? {
+              ...block,
+              content: [{ kind: "text" as const, text: "Content", marks: [] }],
+            }
+          : block,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: /^Content$/u }),
+    ).toHaveAttribute("id", "content");
+    await expect(
+      canvasElement.ownerDocument.querySelectorAll('[id="content"]'),
+    ).toHaveLength(1);
+    const main = canvasElement.ownerDocument.querySelector(
+      "[data-application-content]",
+    );
+    await expect(main).toHaveAttribute("id", "app:content");
+    await expect(
+      canvas.getByRole("link", { name: /^Перейти к содержанию$/u }),
+    ).toHaveAttribute("href", "#app:content");
+  },
+};
+
+export const ImageVariants: Story = {
+  args: { body: [variantDiagram], material: { ...material, cover: null } },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, false),
+};
+export const ImageVariantsMobile: Story = {
+  ...ImageVariants,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
+};
+
+export const CollapsibleAdvice: Story = {
+  args: {
+    body: [
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Мой совет",
+        collapse: "collapsed",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                text: "Ссылка в раскрытом совете",
+                marks: [{ kind: "link", href: "https://example.com" }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "tip",
+        title: "Открытый совет",
+        collapse: "expanded",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Совет открыт изначально", marks: [] },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "callout",
+        tone: "note",
+        title: "Обычная врезка",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Обычная врезка видна сразу", marks: [] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+    await expect(canvas.getByText("Совет открыт изначально")).toBeVisible();
+    await expect(canvas.getByText("Обычная врезка видна сразу")).toBeVisible();
+    const summary = canvas
+      .getByText("Мой совет", { exact: true })
+      .closest("summary");
+    if (summary === null) throw new Error("Advice must have a summary");
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByRole("link", { name: "Ссылка в раскрытом совете" }),
+    ).toBeVisible();
+    await userEvent.click(summary);
+    await expect(
+      canvas.getByText("Ссылка в раскрытом совете"),
+    ).not.toBeVisible();
+  },
+};
+export const CollapsibleAdviceMobile: Story = {
+  ...CollapsibleAdvice,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

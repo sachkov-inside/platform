@@ -3,23 +3,6 @@ import { describe, expect, test } from "vitest";
 import { MaterialMetadata } from "../../src/modules/materials/domain/material-metadata.js";
 
 describe("MaterialMetadata", () => {
-  test("accepts Workshop as a distinct protected access class", () => {
-    const result = MaterialMetadata.create({
-      title: "Synthetic Workshop hint",
-      summary: "Only a revealed Workshop hint may deliver this body.",
-      slug: "synthetic-workshop-hint",
-      access: "workshop",
-      topicId: "72000000-0000-4000-8000-000000000002",
-      formatId: "guide",
-      difficulty: null,
-      outcomes: [],
-      tagIds: [],
-      seriesMemberships: [],
-    });
-
-    expect(result).toMatchObject({ ok: true });
-  });
-
   test("accepts a structurally valid incomplete draft and reports publish-required fields", () => {
     const result = MaterialMetadata.create({
       title: null,
@@ -55,7 +38,7 @@ describe("MaterialMetadata", () => {
     });
   });
 
-  test("publishes a closed Material only inside a Guide", () => {
+  test("publishes a closed Material only inside a Product", () => {
     const complete = {
       title: "Synthetic closed step",
       summary: "A closed Material lives inside a product.",
@@ -72,9 +55,7 @@ describe("MaterialMetadata", () => {
       return created.value.validateForPublication();
     };
 
-    expect(
-      publication({ access: "membership", seriesMemberships: [] }),
-    ).toEqual({
+    expect(publication({ access: "closed", seriesMemberships: [] })).toEqual({
       ok: false,
       error: {
         code: "invalid_content",
@@ -85,7 +66,7 @@ describe("MaterialMetadata", () => {
     });
     expect(
       publication({
-        access: "membership",
+        access: "closed",
         seriesMemberships: [
           { seriesId: "72000000-0000-4000-8000-000000000003", ordinal: 1 },
         ],

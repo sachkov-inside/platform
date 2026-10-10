@@ -1,10 +1,21 @@
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import {
+  BillingOperations,
+  BillingPricing,
+  registerBillingTools,
+} from "../../src/modules/billing/index.js";
+
+import { registerFixedClock } from "../support/fixed-clock.js";
+
+import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -14,6 +25,8 @@ import {
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
 import { bindConfirmedTributeSource } from "./setup/tribute-source.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -89,7 +102,7 @@ describe("Billing pricing HTTP", () => {
         id: offerId,
         name: "Inside",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
       },
     };
     expect(
@@ -173,7 +186,13 @@ describe("Billing pricing HTTP", () => {
           payload: {
             operation: "paymentOptions.save",
             operationId: randomUUID(),
-            value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 },
+            value: {
+              id: optionId,
+              offerId,
+              mode: "one_time",
+              months: 5,
+              priceKopecks: 500_000,
+            },
           },
         })
       ).statusCode,
@@ -276,7 +295,7 @@ describe("Billing pricing HTTP", () => {
           id: secondOfferId,
           name: "Сопровождение",
           benefits: ["support"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       },
     });
@@ -290,6 +309,7 @@ describe("Billing pricing HTTP", () => {
         value: {
           id: secondOptionId,
           offerId: secondOfferId,
+          mode: "one_time",
           months: 1,
           priceKopecks: 350_000,
         },
@@ -604,7 +624,7 @@ describe("Billing pricing HTTP", () => {
     expect(stale.json()).toMatchObject({ code: "revision_conflict" });
   });
 
-  test("Offer для прежних подписчиков Tribute виден и рассчитывается только Account с подтверждённым периодом Tribute", async () => {
+  test("Offer для прежних подписчиков Tribute требует и подтверждённый период, и приглашение", async () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     async function member(subject: string) {
       const headers = {
@@ -646,7 +666,7 @@ describe("Billing pricing HTTP", () => {
             id: offerId,
             name: "Продление подписки Tribute",
             benefits: ["community", "materials", "support"],
-            contentScope: { guideIds: [], materialIds: [], allGuides: true },
+            coverage: { productIds: [], materialIds: [], wholePlatform: true },
             eligibility: "former_tribute_subscribers",
           },
         })
@@ -706,6 +726,13 @@ describe("Billing pricing HTTP", () => {
       database.prisma,
       subscriber.accountId,
     );
+    expect(await listed(subscriber.headers)).toBe(false);
+    expect((await quote(subscriber.headers)).statusCode).toBe(403);
+    await seedPurchaseInvitation(
+      database.prisma,
+      subscriber.accountId,
+      offerId,
+    );
     expect(await listed(subscriber.headers)).toBe(true);
     expect((await quote(subscriber.headers)).statusCode).toBe(200);
 
@@ -733,7 +760,7 @@ describe("Billing pricing HTTP", () => {
         },
       },
     });
-    const guideId = randomUUID();
+    const productId = randomUUID();
     const save = (value: Record<string, unknown>, expectedRevision?: number) =>
       server.inject({
         method: "POST",
@@ -743,7 +770,7 @@ describe("Billing pricing HTTP", () => {
           operation: "cohorts.save",
           operationId: randomUUID(),
           ...(expectedRevision === undefined ? {} : { expectedRevision }),
-          value: { guideId, ...value },
+          value: { productId, ...value },
         },
       });
     const announcement = {
@@ -751,6 +778,7 @@ describe("Billing pricing HTTP", () => {
       stage: "announcement",
       startsOn: "2026-10-20",
       nextEvent: "",
+      priceAfterStartKopecks: null,
     };
     // Поток — часть каталога: без права billing:manage его не меняют.
     expect((await save(announcement)).statusCode).toBe(403);
@@ -762,24 +790,28 @@ describe("Billing pricing HTTP", () => {
     expect(created.json()).toMatchObject({
       result: {
         outcome: "catalog",
-        value: { id: guideId, revision: 1, archived: false },
+        value: { id: productId, revision: 1, archived: false },
       },
     });
 
-    const read = async () => {
+    const read = async (requestHeaders: Record<string, string> = {}) => {
       const response = await server.inject({
         method: "GET",
         url: "/billing/cohorts",
+        headers: requestHeaders,
       });
       expect(response.statusCode).toBe(200);
       expect(response.headers["cache-control"]).toBe("private, no-store");
-      return response.json<{ items: { guideId: string }[] }>().items;
+      return response.json<{ items: { productId: string }[] }>().items;
     };
-    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
-      guideId,
-      revision: 1,
-      ...announcement,
-    });
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 1,
+        ...announcement,
+      },
+    );
 
     // Этапу, кроме «между потоками», нужна дата; между потоками нужно событие.
     expect(
@@ -795,18 +827,181 @@ describe("Billing pricing HTTP", () => {
       (await save({ ...announcement, stage: "preorder" })).statusCode,
     ).toBe(409);
 
+    // Цена после старта — положительные копейки или null; без поля поток не сохраняется, чтобы
+    // прежняя форма не стёрла цену молча.
+    for (const priceAfterStartKopecks of [-100, 0, 399.5, "39900"])
+      expect(
+        (await save({ ...announcement, priceAfterStartKopecks }, 1)).statusCode,
+      ).toBe(400);
+    const { priceAfterStartKopecks: _omitted, ...withoutPrice } = announcement;
+    expect((await save(withoutPrice, 1)).statusCode).toBe(400);
+
+    // Предзаказ показывает зачёркнутую цену после старта; этап её не ограничивает.
+    const preorder = {
+      ...announcement,
+      stage: "preorder",
+      priceAfterStartKopecks: 3_990_000,
+    };
+    expect((await save(preorder, 1)).statusCode).toBe(200);
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 2,
+        ...preorder,
+      },
+    );
+    // Бот проверяет ответ целиком по закреплённому контракту: цена ему не приходит.
+    const { priceAfterStartKopecks: _price, ...botPreorder } = preorder;
+    expect(
+      (await read({ "x-inside-domain-names": "products.v1" })).find(
+        (item) => item.productId === productId,
+      ),
+    ).toEqual({ productId, revision: 2, ...botPreorder });
+
     const between = {
       name: "Поток 2",
       stage: "between",
       startsOn: null,
       nextEvent: "эфир 15 декабря",
+      priceAfterStartKopecks: null,
     };
-    expect((await save(between, 1)).statusCode).toBe(200);
-    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
-      guideId,
-      revision: 2,
-      ...between,
+    expect((await save(between, 2)).statusCode).toBe(200);
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 3,
+        ...between,
+      },
+    );
+  });
+
+  test("HTTP и MCP отклоняют межсемейный конфликт до применения и узнают одинаковый повтор", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const headers = {
+      authorization: `Bearer ${await signToken({ subject: "owner-command-race", email: "race@example.test" })}`,
+    };
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
+    await acceptCurrentTerms(server, headers);
+    const owner = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "owner-command-race",
+        },
+      },
     });
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner.id, permission: "billing:manage" },
+    });
+    const operations = app.get(BillingOperations);
+    const mcp = new McpServer({ name: "billing-command-test", version: "1" });
+    registerBillingTools(mcp, { accountId: owner.id, billing: operations });
+    const client = new Client({ name: "billing-command-client", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    let release!: () => void;
+    let enter!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pricing = app.get(BillingPricing);
+    const manage = pricing.manage.bind(pricing);
+    const gate = vi
+      .spyOn(pricing, "manage")
+      .mockImplementation(async (actor, input) => {
+        enter();
+        await resume;
+        return manage(actor, input);
+      });
+    const command = {
+      operation: "offers.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "Тариф HTTP/MCP",
+        benefits: ["community"],
+      },
+    };
+    let saving: ReturnType<typeof server.inject> | undefined;
+    try {
+      await Promise.all([
+        mcp.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      saving = server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload: command,
+      });
+      await entered;
+      const arguments_ = {
+        operationId: command.operationId,
+        accountId: owner.id,
+        expectedRevision: 0,
+        classification: "confirmed_new",
+        sourceRef: "synthetic-race",
+        reason: "Межсемейная гонка",
+        bridgeEnabled: false,
+        tributeStopped: false,
+      };
+      const conflict = await client.callTool({
+        name: "billing_grants_classify",
+        arguments: arguments_,
+      });
+      expect(conflict).toMatchObject({
+        isError: true,
+        structuredContent: { ok: false, error: { code: "operation_conflict" } },
+      });
+      const httpConflict = await server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload: { operation: "grants.classify", ...arguments_ },
+      });
+      expect(httpConflict.statusCode).toBe(409);
+      expect(httpConflict.json()).toMatchObject({ code: "operation_conflict" });
+      release();
+      const saved = await saving;
+      expect(saved.statusCode).toBe(200);
+      const repeated = await client.callTool({
+        name: "billing_offers_save",
+        arguments: {
+          operationId: command.operationId,
+          value: command.value,
+        },
+      });
+      expect(repeated.structuredContent).toEqual({
+        ok: true,
+        ...saved.json<Record<string, unknown>>(),
+      });
+      const state = await operations.execute(owner.id, {
+        operation: "grants.readClassification",
+        operationId: randomUUID(),
+        accountId: owner.id,
+      });
+      expect(state).toMatchObject({
+        ok: true,
+        result: {
+          outcome: "classification",
+          value: { classification: "unknown" },
+        },
+      });
+    } finally {
+      release();
+      gate.mockRestore();
+      if (saving !== undefined) await saving;
+      await client.close();
+      await mcp.close();
+    }
   });
 
   async function signToken(
@@ -816,6 +1011,7 @@ describe("Billing pricing HTTP", () => {
       readonly email?: string;
     } = {},
   ): Promise<string> {
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "member@example.test",

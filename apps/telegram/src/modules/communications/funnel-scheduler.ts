@@ -1,10 +1,15 @@
+import {
+  SIGN_IN_REPLY_ELIGIBILITY,
+  type SignInReplyEligibility,
+} from "../outbound/sign-in-reply-eligibility.js";
+import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { hasDueReply } from "../outbound/start-response-delivery-queue.js";
 import { enqueueBroadcastAuthorMenu } from "./author-delivery-menu.js";
 import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
 import { trackedContent } from "./communication-tracking.js";
-import { updateMarketingAvailability } from "./marketing-preferences.js";
+import { blockDeliveryContact } from "./delivery-contactability.js";
 export { relativeDue } from "./funnel-timeline.js";
 import { reconcileFunnels, terminal, started } from "./funnel-timeline.js";
 import { randomUUID } from "node:crypto";
@@ -47,6 +52,7 @@ type DueDelivery = Selectable<DatabaseSchema["communication_deliveries"]> & {
   marketing_enabled: boolean;
 };
 type Claim = {
+  startedAt: Date;
   delivery: DueDelivery;
   attemptId: string;
   chatId: string;
@@ -73,6 +79,8 @@ export class FunnelScheduler {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(COMMUNICATION_TRANSPORT)
     private readonly transport: CommunicationTransport,
+    @Inject(SIGN_IN_REPLY_ELIGIBILITY)
+    private readonly replyEligibility: SignInReplyEligibility,
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
@@ -93,14 +101,14 @@ export class FunnelScheduler {
         "Marketing requires a published default funnel and common intro",
       );
   }
-  async processAvailable(limit = 25): Promise<number> {
-    if (!this.config.marketingEnabled) return 0;
+  async processAvailable(limit = 25, signal?: AbortSignal): Promise<number> {
+    if (!this.config.marketingEnabled || isTruthy(signal?.aborted)) return 0;
     await this.plan();
     let processed = 0;
     // A released claim freed a contact that proved unsendable; it only retries, within bounds.
     for (
       let attempts = 0;
-      processed < limit && attempts < 2 * limit;
+      processed < limit && attempts < 2 * limit && !isTruthy(signal?.aborted);
       attempts++
     ) {
       const outcome = await this.claim();
@@ -124,6 +132,7 @@ export class FunnelScheduler {
         claimed.delivery.delivery_id,
         claimed.attemptId,
         result,
+        claimed.startedAt,
       );
       processed++;
     }
@@ -210,7 +219,7 @@ export class FunnelScheduler {
           "c.contact_id",
           "d.contact_id",
         )
-        .innerJoin("bot_contacts as b", (j) =>
+        .innerJoin(botContactRows(tx).as("b"), (j) =>
           j
             .onRef("b.bot_identity", "=", "c.bot_identity")
             .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
@@ -263,7 +272,15 @@ export class FunnelScheduler {
       await schedulerLock(tx, this.config.botIdentity);
       const now = this.clock.now();
       // A marketing backlog must never reserve capacity ahead of a ready service response.
-      if (await hasDueReply(tx, this.config.botIdentity, now))
+      if (
+        await hasDueReply(
+          tx,
+          this.config.botIdentity,
+          now,
+          this.config.signInEnabled === true,
+          this.replyEligibility,
+        )
+      )
         return { kind: "capacity_busy" } as const;
       // Replies to a contact's own /start go ahead of the funnel and broadcast backlog.
       for (const queue of [REPLY_KINDS, BACKLOG_KINDS]) {
@@ -394,6 +411,7 @@ export class FunnelScheduler {
     return {
       kind: "claimed",
       claim: {
+        startedAt: now,
         delivery,
         attemptId,
         chatId: delivery.private_chat_id,
@@ -483,6 +501,7 @@ export class FunnelScheduler {
     deliveryId: string,
     attemptId: string,
     result: TelegramDeliveryResult,
+    startedAt?: Date,
   ): Promise<void> {
     await this.database.transaction().execute(async (tx) => {
       await schedulerLock(tx, this.config.botIdentity);
@@ -587,19 +606,13 @@ export class FunnelScheduler {
           .select("telegram_user_id")
           .where("contact_id", "=", delivery.contact_id)
           .executeTakeFirstOrThrow();
-        await updateMarketingAvailability(
+        await blockDeliveryContact(
           tx,
           this.config.botIdentity,
           contact.telegram_user_id,
           now,
-          false,
+          startedAt ?? delivery.locked_at ?? new Date(0),
         );
-        await tx
-          .updateTable("bot_contacts")
-          .set({ contactability: "blocked", updated_at: now })
-          .where("bot_identity", "=", this.config.botIdentity)
-          .where("telegram_user_id", "=", contact.telegram_user_id)
-          .execute();
       }
       if (hasText(delivery.broadcast_id))
         await completeBroadcasts(

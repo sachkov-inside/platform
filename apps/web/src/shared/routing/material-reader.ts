@@ -11,6 +11,7 @@ export interface MaterialReaderReturnTarget {
   readonly label:
     | "Назад на Главную"
     | "Назад в профиль"
+    | "Назад к материалам"
     | "Назад к продукту"
     | "Назад к программе"
     | "Назад к теме";
@@ -117,7 +118,9 @@ function readReturnTarget(
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed = toProduct ? ["from", "page", "at"] : ["from"];
+    const part = singleSearchValue(url.searchParams, "part");
+    // `part=materials` — возврат в каталог «Материалы» программы.
+    const allowed = toProduct ? ["from", "page", "at", "part"] : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some(
@@ -130,7 +133,8 @@ function readReturnTarget(
       (url.searchParams.has("page") &&
         (page === undefined || String(readSeriesPage(page)) !== page)) ||
       (url.searchParams.has("at") &&
-        (at === undefined || !slugPattern.test(at)))
+        (at === undefined || !slugPattern.test(at))) ||
+      (url.searchParams.has("part") && part !== "materials")
     ) {
       return undefined;
     }
@@ -141,7 +145,12 @@ function readReturnTarget(
     return {
       href,
       kind: "series",
-      label: match[3] === undefined ? "Назад к продукту" : "Назад к программе",
+      label:
+        match[3] === undefined
+          ? "Назад к продукту"
+          : url.searchParams.get("part") === "materials"
+            ? "Назад к материалам"
+            : "Назад к программе",
       seriesSlug: slug,
     };
   }
@@ -170,6 +179,22 @@ function assertSlug(slug: string): void {
 export function readSeriesPage(value: string | null): number {
   const page = Number(value);
   return Number.isSafeInteger(page) && page > 0 && page <= 10_000 ? page : 1;
+}
+
+/**
+ * Адрес возврата из урока в каталог «Материалы» программы: раздел и карточка, от которой человек
+ * ушёл, — программа откроет каталог и прокрутит к ней.
+ */
+export function catalogReaderReturnHref(
+  href: Route,
+  materialSlug: string,
+): Route {
+  assertSlug(materialSlug);
+  const url = new URL(href, applicationOrigin);
+  url.searchParams.delete("page");
+  url.searchParams.set("part", "materials");
+  url.searchParams.set("at", materialSlug);
+  return internalRoute(`${url.pathname}${url.search}`);
 }
 
 export function seriesReaderReturnHref(
