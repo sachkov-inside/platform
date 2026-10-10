@@ -822,7 +822,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page).toHaveTitle(
     "Создание Platform Inside — продукт · Sachkov Inside",
   );
-  await expectLibraryNavigationActive(page, testInfo);
+  await expectProductLandingNavigation(page, testInfo);
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
@@ -1012,9 +1012,61 @@ function readerNextLink(page: Page, testInfo: TestInfo, productName: string) {
     });
 }
 
+async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== "mobile-chromium") return;
+  // Витрина продукта скрывает шапку телефона и оставляет собственный выход и вход в программу (#1296).
+  const header = page.locator("[data-mobile-header]");
+  await expect(header).toHaveCount(1);
+  await expect(header).toBeHidden();
+  const home = header.getByRole("link", {
+    name: "Главная",
+    exact: true,
+    includeHidden: true,
+  });
+  await expect(home).toHaveCount(1);
+  await expect(home).toBeHidden();
+  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("aria-current", "true");
+
+  const product = page.locator(
+    '[data-product-landing="platform-inside"]:visible',
+  );
+  await expect(product).toHaveCount(1);
+  await expect(product).toBeVisible();
+  const breadcrumb = product.getByRole("navigation", {
+    name: "Хлебные крошки",
+    exact: true,
+  });
+  await expect(breadcrumb).toHaveCount(1);
+  await expect(breadcrumb).toBeVisible();
+  const back = breadcrumb.getByRole("link", {
+    name: "Назад к теме",
+    exact: true,
+  });
+  await expect(back).toHaveCount(1);
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute("href", "/topics/platform?from=%2F");
+  const current = breadcrumb.getByText("Создание Platform Inside", {
+    exact: true,
+  });
+  await expect(current).toHaveCount(1);
+  await expect(current).toBeVisible();
+  await expect(current).toHaveAttribute("aria-current", "page");
+  const programme = product.getByRole("link", {
+    name: "Открыть программу",
+    exact: true,
+  });
+  await expect(programme).toHaveCount(1);
+  await expect(programme).toBeVisible();
+  await expect(programme).toHaveAttribute(
+    "href",
+    "/products/platform-inside/programme",
+  );
+}
+
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== "mobile-chromium") return;
-  // Topic, Product и Reader находятся внутри Главной: выбран раздел, а не его точная страница.
+  // Topic и Reader сохраняют видимую навигацию Главной; витрина продукта отдельно скрывает шапку.
   const home = page
     .locator("[data-mobile-header]")
     .getByRole("link", { name: "Главная", exact: true });
