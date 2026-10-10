@@ -93,12 +93,14 @@ SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` со
 
 ```bash
 node --test scripts/acquisition-diagnostic.test.mjs scripts/acquisition-workflow-contract.test.mjs
-python3 -m unittest discover -s scripts -p "test_acquisition_diagnostic_*.py"
+node scripts/owned-node.mjs --command python3 -m unittest discover -s scripts -p "test_acquisition_diagnostic_*.py"
 node scripts/check-agent-documentation.mjs
 ```
 
 Эти проверки доказывают propagation, secret omission и вызов teardown через диагностический адаптер.
 Python regressions проверяют intake, поздний cache, итоговый resource sample, deadline и ошибки cleanup.
+Repository entry использует внешний `owned-node` supervisor, который закрывает дерево также после SIGKILL unittest owner.
+Без ownership marker guard contracts отказывают до запуска child.
 Они запускают только собственные Python subprocesses; git, Docker и shutdown заменены doubles.
 Workflow contracts проверяют actual job expression на неверных events, SHA, PR, fork и attempt.
 Native qualification contracts используют supplied process/daemon doubles и сохраняют отказ при pending resources.

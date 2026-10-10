@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('guard', ROOT/'scripts/acquisition-diagnostic-guard.py')
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
+sys.path.insert(0, str(ROOT / 'scripts/owned-process'))
+from ownership import TOKEN_PREFIX
+
 PROCESS_ADAPTER_BUDGET_SECONDS = 5
 PROCESS_ADAPTER_CLEANUP_SECONDS = 5
 
@@ -38,6 +41,12 @@ def process_contract_deadline():
 
 
 class GuardContracts(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # Uncatchable test-owner termination requires the external repository supervisor.
+        if not any(key.startswith(TOKEN_PREFIX) for key in os.environ):
+            raise RuntimeError('Run guard contracts through node scripts/owned-node.mjs --command python3')
+
     def exercise(self, payload='', *, growth=False, cleanup_error=False, git_expiry=False,
                  late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False):
         with process_contract_deadline(), tempfile.TemporaryDirectory() as temporary:
