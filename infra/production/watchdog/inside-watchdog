@@ -254,7 +254,9 @@ select 'billing_queue_idle', case when exists (
   select 1 from pgboss.job
    where name = 'billing.payment-recovery' and state = 'completed'
      and completed_on > now() - interval '5 minutes'
-) then 0 else 1 end;
+) then 0 else 1 end
+union all
+select name, value from web_telemetry.health;
 SQL
 
 # Вступление в группу в базе Telegram: операция сообщества завершилась failed или unknown за 10 минут.
@@ -291,6 +293,10 @@ check_database() {
       fulfillment) observe db.fulfillment 1 "Оплат без выдачи доступа дольше 5 минут: $value" "$value" ;;
       notification_outbox) observe db.notification_outbox 1 "Уведомлений в outbox дольше 10 минут: $value" "$value" ;;
       email_effects) observe db.email_effects 1 "Писем без итога дольше 10 минут: $value" "$value" ;;
+      web_telemetry_growth) observe db.web_telemetry_growth 1 "Рост ошибок web за 10 минут (не меньше 10 и втрое больше предыдущего окна)" ;;
+      web_telemetry_digest) observe db.web_telemetry_digest 1 "Новых digest web за 10 минут: $value" "$value" ;;
+      web_telemetry_size) observe db.web_telemetry_size 1 "Телеметрия web достигла 480 MB из бюджета 600 MB" ;;
+      web_telemetry_dropped) observe db.web_telemetry_dropped 1 "Отброшено метрик и ошибок web за сутки: $value" "$value" ;;
       billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
     esac
   done <<<"$rows"
