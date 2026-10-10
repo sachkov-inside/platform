@@ -32,7 +32,7 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
     repository: "sachkov-inside/platform",
     event: {
       action: "labeled",
-      number: 1333,
+      number: 1340,
       label: { name: `1324-acq-${sha}` },
       pull_request: {
         head: { sha, repo: { full_name: "sachkov-inside/platform" } },
@@ -68,7 +68,7 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
     if (field === "head") value.event.pull_request.head.sha = "b".repeat(40);
     if (field === "fork")
       value.event.pull_request.head.repo.full_name = "fork/platform";
-    if (field === "pr") value.event.number = 1334;
+    if (field === "pr") value.event.number = 1333;
     if (field === "attempt") value.run_attempt = 2;
     if (field === "event") value.event_name = "push";
     if (field === "base") value.event.pull_request.base.ref = "other";
