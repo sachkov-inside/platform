@@ -23,6 +23,7 @@ const callsSchema = z.array(
     command: z.string(),
     args: z.array(z.string()),
     source: z.string().optional(),
+    storageOrigin: z.string().optional(),
   }),
 );
 
@@ -55,10 +56,11 @@ async function fixtureGit(root, args) {
   }
 }
 
-/** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
+/** @param {{ freeGiB?: number; productionWeb?: boolean; storagePort?: string; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
 async function launch({
   freeGiB = 50,
   productionWeb = false,
+  storagePort = "9000",
   failedBuild = "",
   failedStartup = false,
   exhaustDisk = false,
@@ -91,7 +93,7 @@ async function launch({
     const adapter = `#!/usr/bin/env node
 import { appendFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
-appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA}) + "\\n");
+appendFileSync(process.env.CALL_LOG, JSON.stringify({command: process.argv[1].endsWith("docker") ? "docker" : "pnpm", args, source: process.env.STAND_WEB_SOURCE_SHA, storageOrigin: process.env.STAND_WEB_OBJECT_STORAGE_ORIGIN}) + "\\n");
 if(args.includes("build") && args.includes(process.env.FAILED_BUILD)) process.exit(9);
 if(args.includes("up") && !args.includes("logto-postgres") && process.env.FAILED_STARTUP === "true") process.exit(1);
 if(args.includes("logs")) process.stdout.write("migrations: primary dependency error\\n");
@@ -158,6 +160,7 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
           RUNNING_STAND: String(runningStand),
           NODE_OPTIONS: "",
           COMPOSE_PROJECT_NAME: "unrelated-project",
+          OBJECT_STORAGE_HOST_PORT: storagePort,
         },
       },
     );
@@ -209,6 +212,7 @@ test("production web uses the exact Git revision instead of a placeholder source
   );
   assert.ok(web);
   assert.equal(web.source, sha);
+  assert.equal(web.storageOrigin, "http://127.0.0.1:9000");
   assert.ok(
     web.args.includes("config/compose/local/production-web.compose.yaml"),
   );
@@ -219,6 +223,25 @@ test("production web uses the exact Git revision instead of a placeholder source
     ["api", "web", "rabbitmq", "logto"],
   );
 });
+
+for (const [name, port, origin] of /** @type {const} */ ([
+  ["default HTTP port", "80", "http://127.0.0.1"],
+  ["configured HTTP port", "9157", "http://127.0.0.1:9157"],
+  ["empty port override", "", "http://127.0.0.1:9000"],
+])) {
+  test(`production stand passes a canonical storage origin for ${name} (CLI adapter)`, async () => {
+    const { result, calls } = await launch({
+      productionWeb: true,
+      storagePort: port,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const web = calls.find(
+      (call) => call.args.includes("build") && call.args.at(-1) === "web",
+    );
+    assert.ok(web);
+    assert.equal(web.storageOrigin, origin);
+  });
+}
 
 test("a failed build cannot start or shut down a stand it never started", async () => {
   const { result, calls } = await launch({ failedBuild: "api" });

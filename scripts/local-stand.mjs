@@ -98,8 +98,14 @@ try {
       );
     }
     const revision = await run("git", ["rev-parse", "HEAD"], { capture: true });
+    const storagePort = process.env["OBJECT_STORAGE_HOST_PORT"];
+    const publishedStoragePort =
+      storagePort === undefined || storagePort === "" ? "9000" : storagePort;
     Object.assign(environment, {
       STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+      STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
+        `http://127.0.0.1:${publishedStoragePort}`,
+      ).origin,
     });
   }
   if (await isComposeRunning()) {

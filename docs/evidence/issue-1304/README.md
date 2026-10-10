@@ -28,7 +28,7 @@ remains the planning envelope, not a claimed final build byte count.
 
 Image-history captures print only IDs/sizes, not `CreatedBy` or environment. Cache captures print
 only IDs/sizes/Shared. Shared cache records overlap: adding every record does not measure physical
-storage. Docker inspect's compressed `Size` also does not measure peak unpack storage. The CLI-reported
+storage. CLI-reported image size also does not measure peak unpack storage. The CLI-reported
 complete image size is retained separately from individual history-layer sizes; neither is a
 measurement of future growth.
 

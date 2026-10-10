@@ -163,7 +163,7 @@ describe("supported toolchain contract", () => {
     assert.match(web, /INSIDE_SOURCE_SHA: \$\{STAND_WEB_SOURCE_SHA:\?/u);
     assert.match(
       web,
-      /CSP_LOCAL_OBJECT_STORAGE_ORIGIN: http:\/\/127\.0\.0\.1:\$\{OBJECT_STORAGE_HOST_PORT:-9000\}/u,
+      /CSP_LOCAL_OBJECT_STORAGE_ORIGIN: \$\{STAND_WEB_OBJECT_STORAGE_ORIGIN:\?/u,
     );
   });
 

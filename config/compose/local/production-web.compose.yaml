@@ -23,7 +23,7 @@ services:
       args:
         INSIDE_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
         INSIDE_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
-        CSP_LOCAL_OBJECT_STORAGE_ORIGIN: http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}
+        CSP_LOCAL_OBJECT_STORAGE_ORIGIN: ${STAND_WEB_OBJECT_STORAGE_ORIGIN:?local:stand sets the canonical storage origin}
     command: ["node", "apps/web/server.js"]
     environment:
       NODE_ENV: production

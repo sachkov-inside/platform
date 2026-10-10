@@ -48,6 +48,9 @@ async function standInput(
     // Config rendering must work without any engine, live stand or registry operation.
     DOCKER_HOST: "unix:///1304-config-only-no-engine.sock",
     STAND_WEB_SOURCE_SHA: "1".repeat(40),
+    STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
+      `http://127.0.0.1:${storagePort === undefined || storagePort === "" ? "9000" : storagePort}`,
+    ).origin,
     ...(storagePort === undefined
       ? {}
       : { OBJECT_STORAGE_HOST_PORT: storagePort }),
@@ -211,6 +214,16 @@ describe("local stand production build input", () => {
     ]);
   });
 
+  it("keeps the default HTTP origin canonical without loosening the Next validator", async () => {
+    const config = await buildHeaders("http://127.0.0.1");
+    expect(localImageOrigins(await policy(config))).toEqual([
+      "http://127.0.0.1",
+    ]);
+    await expect(buildHeaders("http://127.0.0.1:80")).rejects.toThrow(
+      "CSP_LOCAL_OBJECT_STORAGE_ORIGIN",
+    );
+  });
+
   it("uses the default local storage port when no override was configured", async () => {
     const services = await standInput();
     const config = await buildHeaders(
@@ -219,6 +232,19 @@ describe("local stand production build input", () => {
     expect(localImageOrigins(await policy(config))).toEqual([
       "http://127.0.0.1:9000",
     ]);
+  });
+
+  it("canonicalizes the configured default HTTP port before the strict Next header boundary", async () => {
+    const services = await standInput("80");
+    const config = await buildHeaders(
+      services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
+    );
+    expect(localImageOrigins(await policy(config))).toEqual([
+      "http://127.0.0.1",
+    ]);
+    expect(services.api.environment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]).toBe(
+      "http://127.0.0.1:80",
+    );
   });
 
   it("binds API and production web to one source and runtime identity without production API providers", async () => {
