@@ -1,14 +1,18 @@
 """A native BuildKit cache discriminator; run only with an authorized local build slot."""
 import argparse
+import importlib
+import math
+import os
 from pathlib import Path
 import re
 import shlex
-import subprocess
 import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
+run_owned = importlib.import_module("local-build-context-smoke").run_owned
+CONTEXT = "desktop-linux"
 
 
 def dependency_fixture(dockerfile):
@@ -41,6 +45,40 @@ def marker_cached(log):
     return re.search(r'^' + re.escape(header[1]) + r' CACHED$', log, re.M) is not None
 
 
+def capture_owned(command, budget, label):
+    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+        status = run_owned(command, budget, stdout=stdout.fileno(), stderr=stderr.fileno(), label=label)
+        stdout.seek(0)
+        stderr.seek(0)
+        output, error = stdout.read().decode(), stderr.read().decode()
+    sys.stderr.write(error)
+    return status, output, error
+
+
+def local_base_preflight(base):
+    budget = float(os.environ.get('LOCAL_DEPENDENCY_PREFLIGHT_TIMEOUT_SECONDS', '5'))
+    if not math.isfinite(budget) or not 0 < budget <= 5:
+        raise ValueError('Dependency metadata budget must be positive and at most 5 seconds')
+    docker = ['docker', '--context', CONTEXT]
+    status, endpoint, _ = capture_owned(docker + ['context', 'inspect', CONTEXT,
+                                                '--format', '{{.Endpoints.docker.Host}}'], budget,
+                                        'Dependency context preflight')
+    if status:
+        return status
+    if not endpoint.strip().startswith('unix://'):
+        raise ValueError('Dependency fixture requires a local Unix-socket Engine')
+    status, builder, _ = capture_owned(docker + ['buildx', 'inspect', CONTEXT], budget,
+                                       'Dependency builder preflight')
+    if status:
+        return status
+    if (re.findall(r'^Driver:\s*(\S+)\s*$', builder, re.M) != ['docker'] or
+            re.findall(r'^Endpoint:\s*(\S+)\s*$', builder, re.M) != [CONTEXT]):
+        raise ValueError('Dependency fixture requires one Engine-backed builder for the same context')
+    status, _, _ = capture_owned(docker + ['image', 'inspect', base], budget,
+                                 'Dependency immutable-base preflight')
+    return status
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('baseline_web', type=Path, help='Preserved pre-fix Web Dockerfile bytes')
@@ -50,11 +88,10 @@ def main():
     fixtures = [dependency_fixture(path.read_text()) for path in dockerfiles]
     bases = [fixture[0].split(' AS ')[0].removeprefix('FROM ') for fixture in fixtures]
     assert len(set(bases)) == 1 and '@sha256:' in bases[0], 'Immutable base mismatch'
-    # Do not acquire a missing base. The coordinator must provide an existing immutable local base.
-    available = subprocess.run(['docker', 'image', 'inspect', bases[0]],
-                               stdout=subprocess.DEVNULL, check=False)
-    if available.returncode != 0:
-        return available.returncode
+    # No fallback/acquisition here: a distinct grant must provide the exact pinned base first.
+    status = local_base_preflight(bases[0])
+    if status:
+        return status
     with tempfile.TemporaryDirectory(prefix='platform-dependency-cache-') as directory:
         context = Path(directory)
         (context / 'cache-nonce').write_text(context.name)
@@ -74,16 +111,15 @@ def main():
         observations = []
         for label, instructions in zip(['backend', 'baseline-web', 'fixed-web'], fixtures):
             (context / 'Dockerfile').write_text('\n'.join(instructions) + '\n')
-            command = [sys.executable, str(ROOT / 'scripts/local-build-context-smoke.py'),
-                       str(context), str(context / ('output-' + label))]
-            native = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                    text=True, check=False)
-            sys.stdout.write(native.stdout)
-            sys.stderr.write(native.stderr)
-            if native.returncode != 0:
-                return native.returncode
+            command = ['docker', '--context', CONTEXT, 'buildx', 'build', '--builder', CONTEXT,
+                       '--network=none', '--pull=false', '--progress=plain', '--output',
+                       'type=local,dest=' + str(context / ('output-' + label)), str(context)]
+            status, output, error = capture_owned(command, 60, 'Dependency marker build')
+            sys.stdout.write(output)
+            if status:
+                return status
             assert (context / ('output-' + label) / 'dependency-marker').read_text() == 'dependency-executed'
-            observations.append(marker_cached(native.stderr))
+            observations.append(marker_cached(error))
         assert observations == [False, False, True], (
             'Expected cold backend, split baseline Web, then shared fixed Web: ' + str(observations))
         print('BuildKit dependency marker: backend executed; baseline Web duplicated; fixed Web reused.')

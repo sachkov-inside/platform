@@ -8,17 +8,17 @@ import sys
 import threading
 
 
-def main():
-    budget = float(os.environ.get('LOCAL_CONTEXT_BUILD_TIMEOUT_SECONDS', '60'))
+def run_owned(command, budget, *, stdout=None, stderr=None, label="Context build"):
     if not math.isfinite(budget) or not 0 < budget <= 60:
         raise ValueError('Context build budget must be positive and at most 60 seconds')
-    context, output = sys.argv[1:]
-    command = ['docker', 'buildx', 'build', '--network=none', '--pull=false',
-               '--progress=plain', '--output', f'type=local,dest={output}', context]
     read_fd, write_fd = os.pipe()
     supervisor = os.fork()
     if supervisor == 0:
         os.close(write_fd)
+        if stdout is not None:
+            os.dup2(stdout, 1)
+        if stderr is not None:
+            os.dup2(stderr, 2)
         # Survive termination of the command's owner/group to finish descendant cleanup.
         os.setsid()
         if read_fd != 3:
@@ -59,7 +59,7 @@ def main():
         if interrupted is not None:
             return 128 + interrupted
         if expired and result == 143:
-            print('Context build exceeded its execution budget', file=sys.stderr)
+            print(label + ' exceeded its execution budget', file=sys.stderr)
             return 124
         return result if result >= 0 else 128 - result
     finally:
@@ -70,6 +70,14 @@ def main():
             os.waitpid(supervisor, 0)
         except ChildProcessError:
             pass  # Normal completion already reaped the supervisor.
+
+
+def main():
+    budget = float(os.environ.get('LOCAL_CONTEXT_BUILD_TIMEOUT_SECONDS', '60'))
+    context, output = sys.argv[1:]
+    command = ['docker', 'buildx', 'build', '--network=none', '--pull=false',
+               '--progress=plain', '--output', f'type=local,dest={output}', context]
+    return run_owned(command, budget)
 
 
 if __name__ == '__main__':

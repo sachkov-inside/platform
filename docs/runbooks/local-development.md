@@ -330,8 +330,13 @@ It also exercises both development Dockerfiles' real `COPY` instructions and ver
 preserve patch files from the dependency stage.
 The separate native cache discriminator is `python3 scripts/local-dependency-cache-smoke.py <baseline-web-Dockerfile>`
 under the same guarded slot. Supply preserved pre-fix Web Dockerfile bytes. It requires the pinned Node
-base already present locally and uses synthetic bytes at the real dependency COPY paths, without pnpm
-or network access. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
+base already present in the `desktop-linux` Engine. Its bounded preflight requires the local Unix-socket
+context and its single Engine-backed `docker` builder; every build explicitly selects that builder.
+Missing base or a different builder fails before build. Each metadata command has a five-second budget
+and uses the same owned-tree cleanup as the 60-second marker builds. Synthetic bytes retain the real
+dependency COPY paths without running pnpm. `--network=none` isolates RUN; `--pull=false` is not a
+universal registry ban. Any required base acquisition is a separate, explicitly bounded prerequisite
+using the same pinned Node digest, never a fixture fallback. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
 reuse. This isolates the environment/cache seam; it does not measure a whole application build.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
