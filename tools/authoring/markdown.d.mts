@@ -22,7 +22,9 @@ export function convertMarkdown(
       | undefined;
     link: (href: string) => string;
     image: (src: string) => string;
-    term?: ((target: string) => import("./term-references.mjs").TermReference) | undefined;
+    term?:
+      | ((target: string) => import("./term-references.mjs").TermReference)
+      | undefined;
     imageVariants?: (src: string) => ImageVariantResolution | undefined;
   },
 ): { schemaVersion: 1; doc: DocNode & { content: DocNode[] } };
