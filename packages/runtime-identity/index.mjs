@@ -38,7 +38,10 @@ export const runtimeIdentitySchema = z.union([
  * @returns {import("./index.mjs").RuntimeIdentity}
  */
 export function resolveRuntimeIdentity(input) {
-  if (input.mode !== "production") {
+  const localImageIdentity =
+    input.mode === "development" &&
+    input.environment["PLATFORM_LOCAL_RELEASE_IDENTITY"] === "image";
+  if (input.mode !== "production" && !localImageIdentity) {
     return Object.freeze({
       release: input.mode,
       sourceSha: "0".repeat(40),
@@ -47,8 +50,12 @@ export function resolveRuntimeIdentity(input) {
 
   const runtime = parseProductionIdentity(
     {
-      release: required(input.environment, "PLATFORM_RELEASE_VERSION"),
-      sourceSha: required(input.environment, "PLATFORM_SOURCE_SHA"),
+      release: required(
+        input.environment,
+        "PLATFORM_RELEASE_VERSION",
+        input.mode,
+      ),
+      sourceSha: required(input.environment, "PLATFORM_SOURCE_SHA", input.mode),
     },
     "Runtime",
   );
@@ -94,11 +101,14 @@ function parseProductionIdentity(value, label) {
 /**
  * @param {Readonly<Record<string, string | undefined>>} environment
  * @param {string} name
+ * @param {import("./index.mjs").RuntimeMode} mode
  */
-function required(environment, name) {
+function required(environment, name, mode) {
   const value = environment[name]?.trim();
   if (value === undefined || value.length === 0) {
-    throw new Error(`${name} is required in production mode`);
+    throw new Error(
+      `${name} is required ${mode === "production" ? "in production mode" : "for local image identity"}`,
+    );
   }
   return value;
 }

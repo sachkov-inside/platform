@@ -50,7 +50,7 @@ describe("Web security headers", () => {
     }
   });
 
-  it("lets only a full-stack smoke build name its loopback storage origin", async () => {
+  it("lets an explicit local build name only its exact loopback storage origin", async () => {
     const policy = await contentSecurityPolicy(
       "production",
       "http://127.0.0.1:9000",

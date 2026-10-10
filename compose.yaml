@@ -24,10 +24,17 @@ services:
     stop_grace_period: 30s
 
   notifications-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: notifications-worker
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@inside/backend",
+        "exec",
+        "tsx",
+        "src/entrypoints/notifications-worker.ts",
+      ]
     env_file:
       - ./config/compose/local/notifications-worker.env
     volumes:
@@ -97,10 +104,9 @@ services:
       - postgres-data:/var/lib/postgresql
 
   migrations:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: migrations
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["pnpm", "--filter", "@inside/backend", "db:migrate"]
     env_file:
       - ./config/compose/local/migrations.env
     depends_on:
@@ -109,10 +115,9 @@ services:
     restart: "no"
 
   seed:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: seed
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["pnpm", "--filter", "@inside/backend", "db:seed"]
     env_file:
       - ./config/compose/local/seed.env
       # The shared stand hides the demonstration catalogue; the Compose smoke selects `checks`.
@@ -123,10 +128,13 @@ services:
     restart: "no"
 
   api:
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-      target: api
+      target: development
+    command: ["pnpm", "--filter", "@inside/backend", "dev:api"]
     env_file:
       - ./config/compose/local/api.env
       # Значения входа генерирует bootstrap Logto на запуске стенда; второй копии этих значений
@@ -161,10 +169,9 @@ services:
     stop_grace_period: 10s
 
   mcp:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: mcp
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["pnpm", "--filter", "@inside/backend", "dev:mcp"]
     env_file:
       - ./config/compose/local/mcp.env
     depends_on:
@@ -191,10 +198,10 @@ services:
     stop_grace_period: 10s
 
   material-assets-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: material-assets-worker
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command:
+      ["pnpm", "--filter", "@inside/backend", "dev:material-assets-worker"]
     env_file:
       - ./config/compose/local/material-assets-worker.env
     depends_on:
@@ -208,10 +215,10 @@ services:
     stop_grace_period: 10s
 
   profile-avatars-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: profile-avatars-worker
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command:
+      ["pnpm", "--filter", "@inside/backend", "dev:profile-avatars-worker"]
     env_file:
       - ./config/compose/local/profile-avatars-worker.env
     depends_on:
@@ -225,10 +232,10 @@ services:
     stop_grace_period: 10s
 
   video-deletions-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: video-deletions-worker
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command:
+      ["pnpm", "--filter", "@inside/backend", "dev:video-deletions-worker"]
     env_file:
       - ./config/compose/local/video-deletions-worker.env
     depends_on:
@@ -240,10 +247,9 @@ services:
     stop_grace_period: 10s
 
   billing-worker:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: billing-worker
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
     env_file:
       - ./config/compose/local/billing-worker.env
     depends_on:
@@ -255,10 +261,9 @@ services:
     stop_grace_period: 10s
 
   bank-double:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: bank-double
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
     env_file:
       - ./config/compose/local/bank-double.env
     ports:
@@ -355,10 +360,23 @@ services:
       retries: 30
 
   web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: web
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    # Provisional local Web bounds; validate FULL-course peaks before accepting #1332.
+    mem_limit: 6g
+    memswap_limit: 8g
+    restart: unless-stopped
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@inside/web",
+        "dev",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ]
     env_file:
       - ./config/compose/local/web.env
       - path: ./.identity-proof/stand.env
