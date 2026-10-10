@@ -16,14 +16,45 @@ Root сохраняет source SHA, workflow/job identity и runner image versio
 Marker ниже означает явный grant на shutdown всего daemon этого ephemeral runner.
 Он запрещён на shared stand, машине владельца и runner с чужими процессами или контейнерами.
 
-После checkout точного подготовленного commit Root выполняет один раз из корня репозитория:
+Repository-owned entry: `.github/workflows/acquisition-diagnostic.yml`.
+Он получает только `pull_request: labeled` для `main`, same-repository PR #1333 и attempt 1.
+Label должен совпасть с `1324-acquisition-<полный head SHA>`.
+Обычный push, другой label, новый head и rerun не допускают diagnostic job.
+`workflow_dispatch` не подходит до появления workflow на default branch.
+GitHub описывает [labeled events и head checkout](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request).
+
+Root выполняет следующую последовательность после отдельного hosted grant:
+
+1. Дождаться завершения обычного CI после source push.
+2. Зафиксировать reviewed head PR #1333 и проверить отсутствие новых source commits и merge conflicts.
+3. Создать label `1324-acquisition-<полный reviewed head SHA>` и добавить его к PR #1333 ровно один раз.
+4. Наблюдать один run `Acquisition diagnostic 1324`; не использовать rerun или повторное добавление label.
+5. Сохранить run/job identity, actual exits и artifact `acquisition-1324-<SHA>-<run_id>-1`.
+6. Проверить `receipt.json` и независимый `native-closure.json`; принять cleanup только при `pending: 0`.
+7. Удалить diagnostic label после сохранения результата.
+
+Это действие Root выполняет под своей авторизованной GitHub identity, не через workflow `GITHUB_TOKEN`.
+Skipped job, source review и зелёный prerequisite не доказывают выполнение acquisition или завершение #1324.
+Если frozen head изменился, старый label запрещён; новый эксперимент требует решения Root.
+
+Workflow использует `ubuntu-24.04`, `contents: read`, checkout точного head без сохранения credentials.
+Shared `setup-platform` устанавливает frozen dependencies без browsers; prerequisite ограничен 10 минутами.
+Guardian step ограничен 4 минутами, job — 18 минутами; acquisition budget остаётся 180 s.
+SQL prerequisite выполняет только guardian. Workflow не добавляет preload или provider changes.
+`identity.json` содержит только source/workflow/job/run identity и runner image metadata.
+После guardian workflow через существующий `owned-node` дожидается native выхода всего дерева.
+Независимая Linux qualification проверяет process census workspace и inactive Docker/containerd units с MainPID 0.
+Она сохраняет failed status при недоказанном shutdown; always-run upload сохраняет evidence после отказа.
+Потеря VM или SIGKILL всех supervisors по-прежнему требует внешнего lifecycle владельца runner.
+
+Workflow передаёт guardian тот же `github.event.pull_request.head.sha`, что использует checkout:
 
 ```bash
-ACQUISITION_DIAGNOSTIC_EPHEMERAL=1 python3 scripts/acquisition-diagnostic-guard.py \
-  --source-sha '<полный SHA подготовленного commit>' \
-  --output "$RUNNER_TEMP/1324-acquisition"
+node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-guard.py \
+  --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/1324-acquisition"
 ```
 
+Marker `ACQUISITION_DIAGNOSTIC_EPHEMERAL=1` задаёт только отдельно допущенный diagnostic step.
 Output directory должен отсутствовать. Guardian сверяет HEAD и чистоту tracked files.
 Admission требует 20 GiB свободного места. Floor составляет 15 GiB плюс margin 256 MiB.
 Guardian считает Docker data, containerd data, output и временный backend cache вместе.
@@ -61,13 +92,15 @@ SQL child output подавлен; `sql-prerequisite` в `diagnostic.jsonl` со
 Подготовительные проверки используют только существующие dependencies:
 
 ```bash
-node --test scripts/acquisition-diagnostic.test.mjs
-python3 -m unittest discover -s scripts -p test_acquisition_diagnostic_guard.py
+node --test scripts/acquisition-diagnostic.test.mjs scripts/acquisition-workflow-contract.test.mjs
+python3 -m unittest discover -s scripts -p "test_acquisition_diagnostic_*.py"
 node scripts/check-agent-documentation.mjs
 ```
 
 Эти проверки доказывают propagation, secret omission и вызов teardown через диагностический адаптер.
 Python regressions проверяют intake, поздний cache, итоговый resource sample, deadline и ошибки cleanup.
 Они запускают только собственные Python subprocesses; git, Docker и shutdown заменены doubles.
+Workflow contracts проверяют actual job expression на неверных events, SHA, PR, fork и attempt.
+Native qualification contracts используют supplied process/daemon doubles и сохраняют отказ при pending resources.
 Они не доказывают реальный Docker teardown, доступность registry, causal red/green или current-head CI.
 Hosted experiment, whole check, CI queue и rerun принадлежат Root и требуют отдельных grants.
