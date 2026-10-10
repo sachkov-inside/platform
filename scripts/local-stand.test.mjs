@@ -1,6 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   cpSync,
   mkdirSync,
@@ -15,6 +15,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const callsSchema = z.array(
@@ -25,8 +26,37 @@ const callsSchema = z.array(
   }),
 );
 
+/** @param {string} root @param {string[]} args */
+async function fixtureGit(root, args) {
+  const child = spawnOwned(
+    "git",
+    ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args],
+    { cwd: root, timeout: 5_000 },
+  );
+  try {
+    let output = "";
+    let diagnostic = "";
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
+      output += chunk.toString();
+    });
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
+      diagnostic += chunk.toString();
+    });
+    /** @type {Promise<number | null>} */
+    const outcome = new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", resolve);
+    });
+    const status = await outcome;
+    assert.equal(status, 0, diagnostic);
+    return output.trim();
+  } finally {
+    await stopOwned(child);
+  }
+}
+
 /** @param {{ freeGiB?: number; productionWeb?: boolean; failedBuild?: string; failedStartup?: boolean; exhaustDisk?: boolean; dirtySource?: boolean; runningStand?: boolean; diagnosticLog?: boolean }} [options] */
-function launch({
+async function launch({
   freeGiB = 50,
   productionWeb = false,
   failedBuild = "",
@@ -80,32 +110,25 @@ if(args.includes("build") && process.env.EXHAUST_DISK === "true") { writeFileSyn
 fs.statfsSync = (path) => {if(path !== ${JSON.stringify(dockerStorage)} && path !== ${JSON.stringify(join(dockerStorage, "Docker.raw"))}) throw new Error("Budget measured the repository instead of Docker storage"); return {bavail: Number(fs.readFileSync(${JSON.stringify(capacityFile)}, "utf8")) * 1024 ** 3, bsize: 1};};
 os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();`,
     );
-    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    await fixtureGit(root, ["init", "--quiet"]);
     writeFileSync(join(root, "source.txt"), "fixture source\n");
-    execFileSync("git", ["add", "source.txt"], { cwd: root });
-    execFileSync(
-      "git",
-      [
-        "-c",
-        "user.name=Stand Test",
-        "-c",
-        "user.email=stand@example.invalid",
-        "commit",
-        "--quiet",
-        "-m",
-        "fixture",
-      ],
-      { cwd: root },
-    );
+    await fixtureGit(root, ["add", "source.txt"]);
+    await fixtureGit(root, [
+      "-c",
+      "user.name=Stand Test",
+      "-c",
+      "user.email=stand@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "fixture",
+    ]);
     cpSync(join(repositoryRoot, ".gitignore"), join(root, ".gitignore"));
     writeFileSync(
       join(root, ".git/info/exclude"),
       "scripts/\nnode_modules\nbin/\ntmp/\ndocker-storage/\n.gitignore\ncalls.jsonl\ncapacity.txt\ncapacity.mjs\n",
     );
-    const sha = execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: root,
-      encoding: "utf8",
-    }).trim();
+    const sha = await fixtureGit(root, ["rev-parse", "HEAD"]);
     if (dirtySource)
       writeFileSync(join(root, "source.txt"), "modified source\n");
     if (diagnosticLog)
@@ -151,8 +174,8 @@ os.tmpdir = () => ${JSON.stringify(join(root, "tmp"))}; syncBuiltinESMExports();
   }
 }
 
-test("development stand builds one workspace for backend roles and Web", () => {
-  const { result, calls } = launch();
+test("development stand builds one workspace for backend roles and Web", async () => {
+  const { result, calls } = await launch();
   assert.equal(result.status, 0, result.stderr);
   const builds = calls.filter((call) => call.args.includes("build"));
   assert.deepEqual(
@@ -165,8 +188,8 @@ test("development stand builds one workspace for backend roles and Web", () => {
   }
 });
 
-test("insufficient measured disk space refuses before certificates, builds or startup", () => {
-  const { result, calls } = launch({ freeGiB: 19 });
+test("insufficient measured disk space refuses before certificates, builds or startup", async () => {
+  const { result, calls } = await launch({ freeGiB: 19 });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /20 GiB/u);
   assert.ok(
@@ -178,8 +201,8 @@ test("insufficient measured disk space refuses before certificates, builds or st
   );
 });
 
-test("production web uses the exact Git revision instead of a placeholder source SHA", () => {
-  const { result, calls, sha } = launch({ productionWeb: true });
+test("production web uses the exact Git revision instead of a placeholder source SHA", async () => {
+  const { result, calls, sha } = await launch({ productionWeb: true });
   assert.equal(result.status, 0, result.stderr);
   const web = calls.find(
     (call) => call.args.includes("build") && call.args.at(-1) === "web",
@@ -197,8 +220,8 @@ test("production web uses the exact Git revision instead of a placeholder source
   );
 });
 
-test("a failed build cannot start or shut down a stand it never started", () => {
-  const { result, calls } = launch({ failedBuild: "api" });
+test("a failed build cannot start or shut down a stand it never started", async () => {
+  const { result, calls } = await launch({ failedBuild: "api" });
   assert.notEqual(result.status, 0);
   assert.ok(
     !calls.some(
@@ -207,8 +230,8 @@ test("a failed build cannot start or shut down a stand it never started", () => 
   );
 });
 
-test("failed startup prints primary job diagnostics before shutting down without volumes", () => {
-  const { result, calls } = launch({ failedStartup: true });
+test("failed startup prints primary job diagnostics before shutting down without volumes", async () => {
+  const { result, calls } = await launch({ failedStartup: true });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /migrations: primary dependency error/u);
   const logs = calls.findIndex((call) => call.args.includes("logs"));
@@ -218,8 +241,8 @@ test("failed startup prints primary job diagnostics before shutting down without
   assert.ok(!calls[down]?.args.includes("--volumes"));
 });
 
-test("disk exhaustion interrupts an active build before startup", () => {
-  const { result, calls } = launch({ exhaustDisk: true });
+test("disk exhaustion interrupts an active build before startup", async () => {
+  const { result, calls } = await launch({ exhaustDisk: true });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /10 GiB host floor/u);
   assert.ok(
@@ -229,8 +252,11 @@ test("disk exhaustion interrupts an active build before startup", () => {
   );
 });
 
-test("production source edits cannot reuse a committed release identity", () => {
-  const { result, calls } = launch({ productionWeb: true, dirtySource: true });
+test("production source edits cannot reuse a committed release identity", async () => {
+  const { result, calls } = await launch({
+    productionWeb: true,
+    dirtySource: true,
+  });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Commit source changes/u);
   assert.ok(
@@ -240,8 +266,8 @@ test("production source edits cannot reuse a committed release identity", () => 
   );
 });
 
-test("another session's running stand is never built, restarted or stopped", () => {
-  const { result, calls } = launch({ runningStand: true });
+test("another session's running stand is never built, restarted or stopped", async () => {
+  const { result, calls } = await launch({ runningStand: true });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /belongs to another session/u);
   assert.ok(
@@ -254,7 +280,7 @@ test("another session's running stand is never built, restarted or stopped", () 
   );
 });
 
-test("production stand accepts an untracked diagnostic log outside its Docker context", () => {
-  const { result } = launch({ productionWeb: true, diagnosticLog: true });
+test("production stand accepts an untracked diagnostic log outside its Docker context", async () => {
+  const { result } = await launch({ productionWeb: true, diagnosticLog: true });
   assert.equal(result.status, 0, result.stderr);
 });

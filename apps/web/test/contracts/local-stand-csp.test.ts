@@ -19,10 +19,13 @@ const environmentSchema = z.record(z.string(), z.string().nullable());
 const standConfigSchema = z.object({
   services: z.object({
     web: z.object({
-      build: z.object({ args: environmentSchema.default({}) }),
+      build: z.object({ args: environmentSchema.default({}) }).optional(),
+      image: z.string(),
+      command: z.array(z.string()),
       environment: environmentSchema.default({}),
     }),
     api: z.object({
+      image: z.string(),
       build: z.object({ args: environmentSchema.default({}) }),
       environment: environmentSchema.default({}),
     }),
@@ -93,7 +96,10 @@ async function standInput(
       child.once("exit", resolve);
     });
     if (status !== 0) throw new Error(`Compose config failed: ${diagnostic}`);
-    return standConfigSchema.parse(JSON.parse(output)).services;
+    const services = standConfigSchema.parse(JSON.parse(output)).services;
+    if (productionWeb && services.web.build === undefined)
+      throw new Error("Production Web must define its own build");
+    return services;
   } finally {
     await stopOwned(child);
   }
@@ -129,10 +135,63 @@ function localImageOrigins(value: string) {
 describe("local stand production build input", () => {
   afterEach(() => vi.resetModules());
 
+  it.each([false, true])(
+    "requires a Web build only for production (production=%s)",
+    async (productionWeb) => {
+      const root = mkdtempSync(join(tmpdir(), "local-csp-shared-workspace-"));
+      try {
+        mkdirSync(join(root, "bin"));
+        const config = {
+          services: {
+            web: {
+              image: "contract-backend:local",
+              command: [
+                "pnpm",
+                "--filter",
+                "@inside/web",
+                "dev",
+                "--hostname",
+                "0.0.0.0",
+                "--port",
+                "3000",
+              ],
+              environment: {},
+            },
+            api: {
+              image: "contract-backend:local",
+              build: { args: {} },
+              environment: {},
+            },
+            mcp: { environment: {} },
+          },
+        };
+        writeFileSync(
+          join(root, "bin/docker"),
+          `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(JSON.stringify(config))});\n`,
+          { mode: 0o755 },
+        );
+        const input = standInput("9157", productionWeb, {
+          path: `${join(root, "bin")}:${process.env["PATH"] ?? ""}`,
+        });
+        if (productionWeb) {
+          await expect(input).rejects.toThrow(
+            "Production Web must define its own build",
+          );
+        } else {
+          const services = await input;
+          expect(services.web.build).toBeUndefined();
+          expect(services.web.image).toBe(services.api.image);
+        }
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("admits exactly the configured storage origin through the real Compose and Next header boundary", async () => {
     const services = await standInput("9157");
     const config = await buildHeaders(
-      services.web.build.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
+      services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
 
     expect(localImageOrigins(await policy(config))).toEqual([
@@ -155,18 +214,18 @@ describe("local stand production build input", () => {
   it("uses the default local storage port when no override was configured", async () => {
     const services = await standInput();
     const config = await buildHeaders(
-      services.web.build.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
+      services.web.build?.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
     );
     expect(localImageOrigins(await policy(config))).toEqual([
       "http://127.0.0.1:9000",
     ]);
   });
 
-  it("binds API and production web to one image and runtime identity without production API providers", async () => {
+  it("binds API and production web to one source and runtime identity without production API providers", async () => {
     const services = await standInput();
     for (const service of [services.api, services.web]) {
-      expect(service.build.args["INSIDE_RELEASE_VERSION"]).toBe("v1");
-      expect(service.build.args["INSIDE_SOURCE_SHA"]).toBe("1".repeat(40));
+      expect(service.build?.args["INSIDE_RELEASE_VERSION"]).toBe("v1");
+      expect(service.build?.args["INSIDE_SOURCE_SHA"]).toBe("1".repeat(40));
       expect(service.environment["PLATFORM_RELEASE_VERSION"]).toBe("v1");
       expect(service.environment["PLATFORM_SOURCE_SHA"]).toBe("1".repeat(40));
     }
@@ -175,6 +234,8 @@ describe("local stand production build input", () => {
     );
     expect(services.api.environment["NODE_ENV"]).toBe("development");
     expect(services.web.environment["NODE_ENV"]).toBe("production");
+    expect(services.web.image).not.toBe(services.api.image);
+    expect(services.web.command).toEqual(["node", "apps/web/server.js"]);
   });
 
   it("keeps development signed image URLs on the same configured published port", async () => {
@@ -189,9 +250,18 @@ describe("local stand production build input", () => {
     expect(localImageOrigins(await policy(config))).toContain(
       "http://127.0.0.1:*",
     );
-    expect(
-      services.web.build.args["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"],
-    ).toBeUndefined();
+    expect(services.web.build).toBeUndefined();
+    expect(services.web.image).toBe(services.api.image);
+    expect(services.web.command).toEqual([
+      "pnpm",
+      "--filter",
+      "@inside/web",
+      "dev",
+      "--hostname",
+      "0.0.0.0",
+      "--port",
+      "3000",
+    ]);
   });
 
   it("declares the existing validated input only in the Next production build stage", () => {
