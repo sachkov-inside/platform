@@ -173,6 +173,14 @@ the same ownership and non-destructive restart rules as PostgreSQL. The stand's 
 `object-storage-data` is no longer mounted; [Former MinIO objects](#former-minio-objects) copies its
 objects into RustFS.
 
+The local stand and its object-storage integration test acquire RustFS from the publisher's GHCR
+repository (#1310). `compose.yaml` pins the same OCI index digest as the former Docker Hub input;
+the source change preserves the image bytes and version. The [publisher workflow](https://github.com/rustfs/rustfs/blob/main/.github/workflows/docker.yml)
+publishes one build to both registries. The offline toolchain contract checks the exact source and
+digest; acquisition and runtime checks require Docker execution separately.
+The integration test also uses the [shared Testcontainers acquisition contract](continuous-integration.md#integration-suites)
+from #1315.
+
 Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
 upload-init, attach, processing reconciliation and playback without a real credential or outbound
 Kinescope call; its reserved `.invalid` upload endpoint makes the browser complete the simulated

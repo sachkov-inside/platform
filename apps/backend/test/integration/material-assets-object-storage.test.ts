@@ -33,7 +33,7 @@ const buckets = {
   quarantine: "inside-test-quarantine",
 } as const;
 const objectStorageImage =
-  "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff";
+  "ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff";
 const objectStoragePort = 9000;
 const credentials = {
   accessKeyId: "inside-test-access-key",
