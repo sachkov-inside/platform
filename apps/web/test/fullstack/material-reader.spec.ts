@@ -139,22 +139,71 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
 }) => {
   const initialHtml = await (await request.get("/")).text();
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/home/materials" && !url.searchParams.has("after")
+    );
+  });
   await page.goto("/");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   const articles = feed.getByRole("article");
   await expect(articles.first()).toBeVisible();
   const firstSlug = await articles.first().getAttribute("data-material-slug");
-  const firstCount = await articles.count();
-  await articles.last().scrollIntoViewIfNeeded();
-  await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
-  expect(await articles.first().getAttribute("data-material-slug")).toBe(
-    firstSlug,
-  );
-  const locked = await homeFeedCard(
-    page,
-    "Developer Pipeline без потери контекста",
-  );
-  await expect(locked.locator("[data-access-cover=locked]")).toBeVisible();
+  const pageSchema = z.object({
+    kind: z.literal("ready"),
+    items: z.array(
+      z.object({
+        slug: z.string(),
+        access: z.literal("free"),
+        availability: z.literal("available"),
+      }),
+    ),
+    nextCursor: z.string().nullable(),
+    totalCount: z.literal(30),
+  });
+  const slugs: string[] = [];
+  let response = await firstPageResponse;
+  for (const pageSize of [12, 12, 6]) {
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toBe(
+      "public, max-age=30, stale-while-revalidate=60",
+    );
+    const body = await response.text();
+    expect(body).not.toContain("Закрытое содержимое для участников");
+    const catalogPage = pageSchema.parse(JSON.parse(body));
+    expect(catalogPage.items).toHaveLength(pageSize);
+    slugs.push(...catalogPage.items.map((item) => item.slug));
+    await expect(articles).toHaveCount(slugs.length);
+    expect(
+      await articles.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("data-material-slug")),
+      ),
+    ).toEqual(slugs);
+    expect(await articles.first().getAttribute("data-material-slug")).toBe(
+      firstSlug,
+    );
+    if (slugs.length < 30) {
+      expect(catalogPage.nextCursor).not.toBeNull();
+      const nextPageResponse = page.waitForResponse((nextResponse) => {
+        const url = new URL(nextResponse.url());
+        return (
+          url.pathname === "/api/home/materials" &&
+          url.searchParams.get("after") === catalogPage.nextCursor
+        );
+      });
+      await articles.last().scrollIntoViewIfNeeded();
+      response = await nextPageResponse;
+    } else {
+      expect(catalogPage.nextCursor).toBeNull();
+    }
+  }
+  expect(new Set(slugs).size).toBe(30);
+  expect(slugs).not.toContain("developer-pipeline-bez-poteri-konteksta");
+  await expect(
+    feed.getByText("Все материалы загружены", { exact: true }),
+  ).toBeVisible();
+  await expect(feed.locator("[data-access-cover=locked]")).toHaveCount(0);
   await expect(feed).not.toContainText("Закрытое содержимое для участников");
   await expectNoSeriousAccessibilityFindings(page);
 });
@@ -572,11 +621,14 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     0,
   );
 
-  await page.goto("/");
-  const membershipCard = await homeFeedCard(
-    page,
-    "Developer Pipeline без потери контекста",
-  );
+  // Closed cards belong to Topic/Product discovery, including for an authenticated owner.
+  await page.goto("/topics/platform");
+  const membershipCard = page.getByRole("article").filter({
+    has: page.getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    }),
+  });
   await expect(membershipCard).toBeVisible();
   await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
