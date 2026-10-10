@@ -498,6 +498,117 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(await counts(id)).toEqual([0, 0]);
   });
 
+  test("source lesson updates and withdrawal keep its identity and reader mark on republish", async () => {
+    const product = await materials.authoring.reserveSourceProduct({
+      actor,
+      sourceId: "inside-content:source-mark-product",
+      name: "Source mark product",
+      slug: "source-mark-product",
+      summary: "",
+    });
+    if (!product.ok) throw new Error(product.error.code);
+    const source = {
+      id: "inside-content:source-mark-lesson",
+      path: "lessons/original.md",
+      revision: "a".repeat(64),
+      showInFeed: false,
+    };
+    const reserved = await materials.authoring.reserveSourceMaterial({
+      actor,
+      source,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const lesson = reserved.value.materialId;
+    const command = {
+      actor,
+      source,
+      materialId: lesson,
+      expectedContentVersion: reserved.value.contentVersion,
+      idempotencyKey: randomUUID(),
+      publicationState: "published" as const,
+      primaryVideoId: null,
+      metadata: {
+        title: "Source lesson",
+        summary: "Imported lesson",
+        access: "free" as const,
+        topicId,
+        formatId,
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds: [product.value.id],
+      },
+      body: representativeDocument("Original text"),
+    };
+    let applied = await materials.authoring.applySourceMaterial(command);
+    if (!applied.ok) throw new Error(applied.error.code);
+    expect(
+      await reading.setReadingState({
+        accountId,
+        materialId: lesson,
+        isRead: true,
+        expectedVersion: 0,
+        commandId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: true });
+    const marks = await reading.getReadingStates({
+      accountId,
+      materialIds: [lesson],
+    });
+    expect(marks).toMatchObject({
+      ok: true,
+      value: [{ isRead: true, version: 1 }],
+    });
+    for (const [publicationState, revision] of [
+      ["published", "b"],
+      ["unpublished", "c"],
+      ["published", "d"],
+    ] as const) {
+      const update = {
+        ...command,
+        source: {
+          ...source,
+          path: "lessons/renamed.md",
+          revision: revision.repeat(64),
+        },
+        body: representativeDocument(`Edited text ${revision}`),
+        expectedContentVersion: applied.value.contentVersion,
+        publicationState,
+        idempotencyKey: randomUUID(),
+      };
+      applied = await materials.authoring.applySourceMaterial(update);
+      expect(applied).toMatchObject({
+        ok: true,
+        value: { materialId: lesson },
+      });
+      if (!applied.ok) throw new Error(applied.error.code);
+      expect(await materials.authoring.applySourceMaterial(update)).toEqual(
+        applied,
+      );
+      expect(
+        await reading.getSeriesProgress({
+          accountId,
+          seriesId: product.value.id,
+        }),
+      ).toMatchObject({
+        ok: true,
+        value:
+          publicationState === "unpublished"
+            ? { read: 0, total: 0 }
+            : { read: 1, total: 1 },
+      });
+    }
+    expect(
+      await reading.getReadingStates({ accountId, materialIds: [lesson] }),
+    ).toEqual(marks);
+    expect(
+      await reading.getSeriesProgress({
+        accountId: randomUUID(),
+        seriesId: product.value.id,
+      }),
+    ).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
+  });
+
   test("a transferred Product keeps reader progress when its address changes", async () => {
     const seriesId = await series();
     const lesson = await material([seriesId]);
