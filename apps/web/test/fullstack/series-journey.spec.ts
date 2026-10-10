@@ -348,7 +348,7 @@ test("product programme appends a real composition and restores Reader return po
     expect(materialSlug).not.toBeNull();
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    const programmeReturnHref = `/products/${slug}/programme?page=2&at=${materialSlug}`;
+    const programmeReturnHref = `/products/${slug}/programme?page=2&at=${String(materialSlug)}`;
     const programmeReturn = await expectReaderProgrammeReturn(
       page,
       testInfo.project.name === "mobile-chromium"
