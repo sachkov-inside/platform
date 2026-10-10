@@ -287,7 +287,7 @@ prevent production web's source check.
 
 For a bounded real context check, run `bash scripts/heavy-check.sh bash scripts/local-build-context-smoke.sh`.
 It builds a tiny `FROM scratch` fixture without fetching images and removes its own temporary
-files. Its execution budget is 60 seconds; the repository Python supervisor force-stops the command
+files. Each scratch build has a 60-second execution budget; the repository Python supervisor force-stops its command
 tree on deadline and returns124. Ordinary Docker failures retain their original status. It verifies that source/evidence survive `COPY` while reports and synthetic identity are excluded.
 It also exercises both development Dockerfiles' real `COPY` instructions and verifies that they
 preserve patch files from the dependency stage.
