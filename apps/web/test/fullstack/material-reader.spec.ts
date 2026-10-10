@@ -1014,12 +1014,14 @@ function readerNextLink(page: Page, testInfo: TestInfo, productName: string) {
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== "mobile-chromium") return;
-  // Логотип «Главная» стоит в шапке телефона вне списка разделов.
-  await expect(
-    page
-      .locator("[data-mobile-header]")
-      .getByRole("link", { name: "Главная", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  // Topic, Product и Reader находятся внутри Главной: выбран раздел, а не его точная страница.
+  const home = page
+    .locator("[data-mobile-header]")
+    .getByRole("link", { name: "Главная", exact: true });
+  await expect(home).toHaveCount(1);
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("aria-current", "true");
 }
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
