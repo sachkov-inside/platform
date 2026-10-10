@@ -828,46 +828,57 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
   await expect(page).toHaveURL(/\/products\/platform-inside\/programme/u);
-  await expect(page.locator("[data-product-programme]:visible")).toBeVisible();
+  const programme = page.locator(
+    '[data-product-programme="platform-inside"]:visible',
+  );
+  await expect(programme).toHaveCount(1);
+  await expect(programme).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
+  const programmeRows = programme.locator(
+    "[data-series-order] [data-series-ordinal]",
+  );
+  const secondRow = programme.locator('[data-series-ordinal="2"]');
+  await expect(secondRow).toHaveCount(1);
+  await expect(secondRow).toBeVisible();
   await expect(
-    page.locator("[data-series-order] [data-series-ordinal]").nth(1),
-  ).toBeVisible();
-  await expect(
-    page
-      .locator("[data-series-order] [data-series-ordinal]")
-      .evaluateAll((items) =>
-        items
-          .slice(0, 2)
-          .map((item) => item.getAttribute("data-series-ordinal")),
-      ),
+    programmeRows.evaluateAll((items) =>
+      items.slice(0, 2).map((item) => item.getAttribute("data-series-ordinal")),
+    ),
   ).resolves.toEqual(["1", "2"]);
   // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
   await expect(
-    page
+    programme
       .locator("[data-series-order]")
-      .getByText("Как устроен Inside Platform")
-      .first(),
+      .getByRole("link", { name: "Как устроен Inside Platform", exact: true }),
   ).toBeVisible();
   await expect(
     page
       .getByText("Developer Pipeline без потери контекста")
       .filter({ visible: true }),
   ).toBeVisible();
-  const representativeSeriesItem = page
-    .locator("[data-series-order] [data-series-ordinal]")
-    .filter({ hasText: "Как устроен Inside Platform" });
+  const representativeSeriesItem = programmeRows.filter({
+    hasText: "Как устроен Inside Platform",
+  });
+  await expect(representativeSeriesItem).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-route-material",
+    "kak-ustroen-inside-platform",
+  );
   const representativeOrdinal = await representativeSeriesItem.getAttribute(
     "data-series-ordinal",
   );
   expect(representativeOrdinal).not.toBeNull();
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-series-ordinal",
+    "1",
+  );
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "series");
   await captureIssue195Evidence(page, testInfo, "playlist");
   await captureIssue271Evidence(page, testInfo, "playlist");
 
-  await page
+  await representativeSeriesItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
@@ -911,6 +922,12 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
+  await expect(programme).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-series-ordinal",
+    representativeOrdinal ?? "",
+  );
   await expect(representativeSeriesItem).toBeInViewport();
 });
 
