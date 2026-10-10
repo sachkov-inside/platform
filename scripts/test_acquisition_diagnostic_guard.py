@@ -48,7 +48,7 @@ class GuardContracts(unittest.TestCase):
             raise RuntimeError('Run guard contracts through node scripts/owned-node.mjs --command python3')
 
     def exercise(self, payload='', *, growth=False, cleanup_error=False, git_expiry=False,
-                 late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False):
+                 late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False, final_meter_spill=False):
         with process_contract_deadline(), tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)/'result'
             daemon = Path(temporary)/'daemon'
@@ -82,7 +82,10 @@ class GuardContracts(unittest.TestCase):
 
             def measure(paths, _output, timeout, _capacity, **_kwargs):
                 result = run(['sudo', '-n', 'du', '-sk', *map(str, paths)], timeout=timeout)
-                return {'stdout': result.stdout, 'stderr': result.stderr, 'nativeExit': 0, 'pending': 0}
+                text = ('0\t' + 'm'*1021 + '\n') if final_meter_spill and shutdown else ('0\tx\n' if final_meter_spill else result.stdout)
+                if len(text.encode()) > _capacity:
+                    raise subprocess.CalledProcessError(1, ['du', '-sk'], text[:_capacity], '')
+                return {'stdout': text, 'stderr': result.stderr, 'nativeExit': 0, 'pending': 0}
 
             def bounded(command, _cwd, timeout, _capacity):
                 if command[:2] == ['git', 'diff']:
@@ -143,6 +146,40 @@ class GuardContracts(unittest.TestCase):
         self.assertLessEqual(size, 1024**2)
         self.assertNotEqual(status, 0)
         self.assertEqual(receipt['stopReason'], 'diagnostics budget')
+
+    def test_final_meter_and_sdk_share_one_total_intake_budget(self):
+        status, receipt, size, _ = self.exercise("import os; os.write(1,b'x'*(1024**2-512))", final_meter_spill=True)
+        self.assertLessEqual(size + receipt['commandDiagnosticBytes'], 1024**2)
+        self.assertNotEqual(status, 0)
+        self.assertEqual(receipt['daemonShutdownExit'], 0)
+
+    def test_primary_timeout_survives_native_wait_cleanup_failure(self):
+        actual_popen = subprocess.Popen
+        owned = []
+        command = [sys.executable, '-c', 'import time; print("partial-primary",flush=True); time.sleep(30)']
+        def launch(*args, **kwargs):
+            child = actual_popen(*args, **kwargs)
+            owned.append(child)
+            child.wait = lambda **_kwargs: (_ for _ in ()).throw(RuntimeError('wait cleanup failure'))
+            return child
+        try:
+            with patch.object(guard.subprocess, 'Popen', side_effect=launch):
+                with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                    guard.bounded_command(command, ROOT, 1, 4096)
+            self.assertEqual(raised.exception.cmd, command)
+            self.assertIn(b'partial-primary', raised.exception.output)
+            self.assertEqual(raised.exception.command_cleanup_failure, 'RuntimeError')
+            self.assertTrue(raised.exception.native_cleanup_pending)
+        finally:
+            for child in owned:
+                child.wait = subprocess.Popen.wait.__get__(child)
+                try:
+                    child.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    os.killpg(child.pid, signal.SIGKILL)
+                    child.wait(timeout=PROCESS_ADAPTER_CLEANUP_SECONDS)
+                for pipe in (child.stdout, child.stderr):
+                    pipe.close()
 
     def test_final_growth_cannot_report_success(self):
         status, receipt, _, _ = self.exercise(growth=True)

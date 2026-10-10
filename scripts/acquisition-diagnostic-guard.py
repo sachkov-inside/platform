@@ -28,6 +28,7 @@ def bounded_command(command, cwd, timeout, capacity):
     process = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
     chunks = [bytearray(), bytearray()]
     deadline = time.monotonic() + timeout
+    primary = None
     try:
         with selectors.DefaultSelector() as intake:
             intake.register(process.stdout, selectors.EVENT_READ, 0)
@@ -48,12 +49,28 @@ def bounded_command(command, cwd, timeout, capacity):
         if process.returncode:
             raise subprocess.CalledProcessError(process.returncode, command, bytes(chunks[0]), bytes(chunks[1]))
         return subprocess.CompletedProcess(command, 0, chunks[0].decode(errors='ignore'), chunks[1].decode(errors='ignore'))
+    except BaseException as error:
+        primary = error
+        raise
     finally:
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGKILL)
-        process.wait(timeout=max(0.01, deadline-time.monotonic()))
-        process.stdout.close()
-        process.stderr.close()
+        cleanup = None
+        try:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=max(0.01, deadline-time.monotonic()))
+        except BaseException as error:
+            cleanup = error
+        finally:
+            for pipe in (process.stdout, process.stderr):
+                try:
+                    pipe.close()
+                except BaseException as error:
+                    cleanup = cleanup or error
+        if cleanup is not None:
+            if primary is None:
+                raise cleanup
+            primary.command_cleanup_failure = type(cleanup).__name__
+            primary.native_cleanup_pending = True
 
 
 def main():
@@ -79,6 +96,8 @@ def main():
     initial = None
     paths = None
     command_bytes = 0
+    diagnostic_bytes = 0
+    command_pending = False
     measurement_pending = False
 
     def stop(_signal, _frame):
@@ -106,12 +125,24 @@ def main():
         (output / 'command-stage.json').write_text(json.dumps(record))
         return record
 
+    def command_capacity():
+        used = command_bytes + diagnostic_bytes
+        assert used <= 1024**2, 'combined diagnostics budget'
+        return 1024**2 - used
+
+    def account_command(stdout, stderr):
+        nonlocal command_bytes
+        size = len(stdout.encode()) + len(stderr.encode())
+        assert size <= command_capacity(), 'combined diagnostics budget'
+        command_bytes += size
+        receipt['commandDiagnosticBytes'] = command_bytes
+
     def command_failure(error, record):
-        nonlocal command_bytes, measurement_pending
+        nonlocal command_bytes, measurement_pending, command_pending
         def bounded(value):
             nonlocal command_bytes
             value = value.encode() if isinstance(value, str) else value or b''
-            value = value[:max(0, 1024**2 - command_bytes)]
+            value = value[:command_capacity()]
             command_bytes += len(value)
             return value.decode(errors='ignore')
         primary = {**record, 'failureType': type(error).__name__,
@@ -120,6 +151,10 @@ def main():
                    'nativeExit': getattr(error, 'returncode', 124 if isinstance(error, subprocess.TimeoutExpired) else 1),
                    'stdout': bounded(getattr(error, 'output', None)), 'stderr': bounded(getattr(error, 'stderr', None))}
         measurement_pending = measurement_pending or getattr(error, 'meter_cleanup_pending', False)
+        command_pending = command_pending or getattr(error, 'native_cleanup_pending', False)
+        if hasattr(error, 'command_cleanup_failure'):
+            primary['commandCleanupFailureType'] = error.command_cleanup_failure
+            primary['nativeCleanupPending'] = True
         if hasattr(error, 'meter_receipt'):
             primary['meterReceipt'] = error.meter_receipt
             receipt.setdefault('meters', []).append(error.meter_receipt)
@@ -134,9 +169,8 @@ def main():
         nonlocal command_bytes
         record = command_record(command, stage, end)
         try:
-            result = bounded_command(command, root, record['timeoutSeconds'], max(0, 1024**2-command_bytes))
-            command_bytes += len(result.stdout.encode()) + len(result.stderr.encode())
-            receipt['commandDiagnosticBytes'] = command_bytes
+            result = bounded_command(command, root, record['timeoutSeconds'], command_capacity())
+            account_command(result.stdout, result.stderr)
             return result.stdout.strip()
         except Exception as error:
             command_failure(error, record)
@@ -161,12 +195,11 @@ def main():
         command = ['du', '-sk', *map(str, paths)]
         record = command_record(command, 'privileged-measurement', end)
         try:
-            result = meter.measure(paths, output, record['timeoutSeconds'], max(0, 1024**2-command_bytes),
+            result = meter.measure(paths, output, record['timeoutSeconds'], command_capacity(),
                                    cancelled=lambda: interrupted)
             receipt['lastMeter'] = result
             receipt.setdefault('meters', []).append(result)
-            command_bytes += len(result['stdout'].encode()) + len(result['stderr'].encode())
-            receipt['commandDiagnosticBytes'] = command_bytes
+            account_command(result['stdout'], result['stderr'])
             return sum(int(line.split()[0]) * 1024 for line in result['stdout'].splitlines())
         except Exception as error:
             command_failure(error, record)
@@ -231,14 +264,18 @@ def main():
                         if not chunk:
                             intake.unregister(key.fileobj)
                             continue
-                        capacity = max(0, 1024**2 - command_bytes - log.tell())
-                        log.write(chunk[:capacity])
+                        capacity = command_capacity()
+                        written = min(len(chunk), capacity)
+                        log.write(chunk[:written])
+                        diagnostic_bytes += written
+                        receipt['diagnosticBytes'] = diagnostic_bytes
                         if len(chunk) > capacity:
                             reason = 'diagnostics budget'
                             break
                     if reason is not None:
                         break
                 receipt['diagnosticBytes'] = log.tell()
+                command_capacity()
             if reason is not None:
                 receipt['stopReason'] = reason
             else:
@@ -246,7 +283,8 @@ def main():
     except Exception as error:
         receipt['guardFailureType'] = type(error).__name__
     finally:
-        receipt['pending'] = 'measurement cleanup unproven' if measurement_pending else 0
+        receipt['pending'] = ('native command cleanup unproven' if command_pending else
+                              'measurement cleanup unproven' if measurement_pending else 0)
         try:
             if process is not None:
                 if process.poll() is None:
@@ -297,6 +335,11 @@ def main():
                 if measurement_pending:
                     receipt['pending'] = 'measurement cleanup unproven'
             finally:
+                receipt['diagnosticBytes'] = diagnostic_bytes
+                receipt['commandDiagnosticBytes'] = command_bytes
+                receipt['totalDiagnosticBytes'] = diagnostic_bytes + command_bytes
+                if receipt['totalDiagnosticBytes'] > 1024**2:
+                    receipt['stopReason'] = 'diagnostics budget'
                 (output / 'receipt.json').write_text(json.dumps(receipt, indent=2))
     failed = any(key in receipt for key in ('stopReason', 'guardFailureType', 'processCleanupFailureType',
                                             'daemonShutdownFailureType', 'finalSampleFailureType'))
