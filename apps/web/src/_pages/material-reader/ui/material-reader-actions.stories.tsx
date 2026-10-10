@@ -26,6 +26,8 @@ let version = 0;
 let release: (() => void) | undefined;
 let readingFailure: "unavailable" | "denied" | "conflict" | null = null;
 let bookmarkFailure: "unavailable" | "denied" | null = null;
+let initialReadFailure = false;
+const initialReadReleases: (() => void)[] = [];
 const commands: string[] = [];
 function releaseReading() {
   if (release === undefined) throw new Error("Reading save was not submitted");
@@ -57,12 +59,23 @@ const meta = {
     release = undefined;
     readingFailure = null;
     bookmarkFailure = null;
+    initialReadFailure = false;
+    initialReadReleases.length = 0;
     commands.length = 0;
     return fetchBeforeRender(async (input, init) => {
       const path = new URL(
         input instanceof Request ? input.url : String(input),
         window.location.origin,
       ).pathname;
+      if (
+        initialReadFailure &&
+        ["/api/reading-progress/states", "/api/bookmarks/states"].includes(path)
+      ) {
+        await new Promise<void>((resolve) => {
+          initialReadReleases.push(resolve);
+        });
+        return Response.json({ kind: "unavailable" }, { status: 503 });
+      }
       if (path === "/api/reading-progress/states")
         return Response.json({ kind: "ready", states: [readingState()] });
       if (path === "/api/bookmarks/states")
@@ -220,6 +233,54 @@ export const SyncedActions: Story = {
 };
 export const SyncedActionsMobile: Story = {
   ...SyncedActions,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const InitialReadFailureKeepsHeaderPlace: Story = {
+  beforeEach: () => {
+    initialReadFailure = true;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const top = await canvas.findByRole("navigation", {
+      name: "Действия материала",
+    });
+    const header = canvasElement.querySelector("[data-reader-header]");
+    if (header === null) throw new Error("Reader header is missing");
+    await waitFor(() => expect(initialReadReleases).toHaveLength(2));
+    const before = header.getBoundingClientRect().top;
+    for (const releaseRead of initialReadReleases) releaseRead();
+    await waitFor(() =>
+      expect(within(top).getAllByRole("alert")).toHaveLength(2),
+    );
+    await expect(
+      Math.abs(header.getBoundingClientRect().top - before),
+    ).toBeLessThanOrEqual(1);
+    initialReadFailure = false;
+    await userEvent.click(within(top).getByRole("button", { name: "Изучено" }));
+    await waitFor(() =>
+      expect(top.querySelector("[data-reading-action-state]")).toHaveAttribute(
+        "data-reading-action-state",
+        "ready",
+      ),
+    );
+    await userEvent.click(
+      within(top).getByRole("button", { name: "В закладки" }),
+    );
+    await waitFor(() =>
+      expect(top.querySelector("[data-bookmark-action-state]")).toHaveAttribute(
+        "data-bookmark-action-state",
+        "ready",
+      ),
+    );
+    await expect(commands).toHaveLength(0);
+    await expect(
+      within(top).getByRole("button", { name: "В закладки" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  },
+};
+export const InitialReadFailureKeepsHeaderPlaceMobile: Story = {
+  ...InitialReadFailureKeepsHeaderPlace,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 

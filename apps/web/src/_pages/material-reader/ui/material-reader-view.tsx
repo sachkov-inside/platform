@@ -360,7 +360,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
   const links = items.map((item) => (
     <li key={item.id}>
       <a
-        className="flex min-h-10 items-center rounded-lg px-2 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
+        className="flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
         href={`#${item.id}`}
       >
         {item.label}

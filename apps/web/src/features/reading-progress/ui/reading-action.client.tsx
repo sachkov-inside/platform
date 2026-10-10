@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { CheckCircle2, Circle, LoaderCircle } from "lucide-react";
+import { CheckCircle2, Circle, CircleAlert, LoaderCircle } from "lucide-react";
 import { materialReadingLabels } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import type { ReadingActionProps } from "../model/reading-progress-view";
@@ -24,21 +24,23 @@ export function ReadingAction({
   const pending = view.kind === "pending";
   const unavailable = "canMark" in view && !view.canMark && !isRead;
   const message =
-    view.kind === "error"
-      ? "Не сохранено. Нажмите ещё раз."
-      : view.kind === "conflict"
-        ? "Отметка обновлена в другом окне."
-        : loading
-          ? "Загружаем отметку…"
-          : pending
-            ? "Сохраняем отметку…"
-            : unavailable
-              ? "Чтобы отметить материал, нужен доступ к нему."
-              : view.kind === "anonymous"
-                ? "Войдите, чтобы сохранить отметку."
-                : isRead
-                  ? "Отметка сохранена. Нажмите, чтобы снять её."
-                  : "Нажмите, чтобы отметить материал.";
+    view.kind === "load-error"
+      ? "Не удалось загрузить отметку. Нажмите, чтобы повторить."
+      : view.kind === "error"
+        ? "Не сохранено. Нажмите ещё раз."
+        : view.kind === "conflict"
+          ? "Отметка обновлена в другом окне."
+          : loading
+            ? "Загружаем отметку…"
+            : pending
+              ? "Сохраняем отметку…"
+              : unavailable
+                ? "Чтобы отметить материал, нужен доступ к нему."
+                : view.kind === "anonymous"
+                  ? "Войдите, чтобы сохранить отметку."
+                  : isRead
+                    ? "Отметка сохранена. Нажмите, чтобы снять её."
+                    : "Нажмите, чтобы отметить материал.";
   return (
     <div
       className="flex flex-col items-end"
@@ -59,10 +61,13 @@ export function ReadingAction({
         <Button
           aria-describedby={descriptionId}
           aria-disabled={loading || pending || unavailable}
-          aria-pressed={loading ? undefined : isRead}
+          aria-pressed={
+            loading || view.kind === "load-error" ? undefined : isRead
+          }
           className={buttonClassName}
           onClick={() => {
-            if (!loading && !pending && !unavailable)
+            if (view.kind === "load-error") onRefresh();
+            else if (!loading && !pending && !unavailable)
               onSetReadingState(
                 view.kind === "error" ? view.desiredIsRead : !isRead,
               );
@@ -71,7 +76,12 @@ export function ReadingAction({
           type="button"
           variant={isRead ? (compact ? "secondary" : "default") : "outline"}
         >
-          {loading || pending ? (
+          {view.kind === "load-error" ? (
+            <CircleAlert
+              aria-hidden="true"
+              className="text-[var(--callout-bad)]"
+            />
+          ) : loading || pending ? (
             <LoaderCircle
               aria-hidden="true"
               className="animate-spin motion-reduce:animate-none"
@@ -85,19 +95,30 @@ export function ReadingAction({
         </Button>
       )}
       <p
-        aria-live={view.kind === "error" ? "assertive" : "polite"}
+        aria-live={
+          view.kind === "error" || view.kind === "load-error"
+            ? "assertive"
+            : "polite"
+        }
         className={
-          view.kind === "error" || view.kind === "conflict"
+          !compact &&
+          (view.kind === "error" ||
+            view.kind === "load-error" ||
+            view.kind === "conflict")
             ? "mt-2 text-sm text-muted-foreground"
             : "sr-only"
         }
         id={descriptionId}
-        role={view.kind === "error" ? "alert" : "status"}
+        role={
+          view.kind === "error" || view.kind === "load-error"
+            ? "alert"
+            : "status"
+        }
       >
         {message}
       </p>
       {view.kind === "conflict" ? (
-        <Button className="min-h-10 px-0" onClick={onRefresh} variant="link">
+        <Button className="min-h-11 px-0" onClick={onRefresh} variant="link">
           Обновить статус
         </Button>
       ) : null}

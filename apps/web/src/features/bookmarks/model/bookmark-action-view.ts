@@ -2,6 +2,7 @@
 
 export type BookmarkActionView =
   | { readonly kind: "loading" }
+  | { readonly kind: "load-error" }
   | { readonly kind: "anonymous"; readonly loginHref: string }
   | { readonly kind: "ready"; readonly bookmarked: boolean }
   | {

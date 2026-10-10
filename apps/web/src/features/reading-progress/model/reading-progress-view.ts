@@ -1,6 +1,7 @@
 export type ReadingActionView =
   | { readonly kind: "anonymous"; readonly loginHref: string }
   | { readonly kind: "loading" }
+  | { readonly kind: "load-error" }
   | {
       readonly kind: "ready" | "conflict";
       readonly isRead: boolean;

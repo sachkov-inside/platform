@@ -76,22 +76,7 @@ export function SavedReadingAction({
   else if (reading.accountId === null)
     view = { kind: "anonymous", loginHref: "/account" };
   else if (state === undefined) {
-    if (reading.failed)
-      return (
-        <div className="mt-6 text-right" role="alert">
-          <p>Не удалось загрузить отметку.</p>
-          <button
-            className="min-h-11 text-sm font-semibold text-action"
-            onClick={() => {
-              void reading.refresh();
-            }}
-            type="button"
-          >
-            Повторить
-          </button>
-        </div>
-      );
-    view = { kind: "loading" };
+    view = { kind: reading.failed ? "load-error" : "loading" };
   } else if (saving)
     view = {
       kind: "pending",

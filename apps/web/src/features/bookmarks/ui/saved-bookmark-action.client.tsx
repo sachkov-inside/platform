@@ -91,12 +91,10 @@ export function SavedBookmarkAction({
   else if (accountId === null)
     view = { kind: "anonymous", loginHref: "/account" };
   else if (state.isPending) view = { kind: "loading" };
-  else if (data === undefined)
-    view = { kind: "error", bookmarked, desired: !bookmarked };
+  else if (data === undefined) view = { kind: "load-error" };
   else if (data.kind === "unauthorized")
     view = { kind: "anonymous", loginHref: "/account" };
-  else if (data.kind !== "ready")
-    view = { kind: "error", bookmarked, desired: !bookmarked };
+  else if (data.kind !== "ready") view = { kind: "load-error" };
   else if (saving)
     view = {
       kind: "pending",
@@ -116,6 +114,10 @@ export function SavedBookmarkAction({
       compact={compact}
       onToggle={(desired) => {
         if (accountId === null || state.isPending || saving) return;
+        if (data?.kind !== "ready") {
+          void state.refetch();
+          return;
+        }
         mutation.mutate({ materialId, bookmarked: desired, accountId });
       }}
       view={view}
