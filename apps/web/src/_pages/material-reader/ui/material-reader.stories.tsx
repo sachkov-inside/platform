@@ -24,6 +24,7 @@ import {
 } from "@/shared/routing/material-reader";
 import {
   productPurchaseHref,
+  productProgrammeHref,
   subscriptionHrefFrom,
 } from "@/shared/routing/subscription-route";
 import {
@@ -1005,7 +1006,7 @@ export const PlaylistReturn: Story = {
       },
       series: {
         hasModeVariants: false,
-        href: "/products/platform-inside/programme",
+        href: productProgrammeHref("platform-inside"),
         name: "Создание Platform Inside",
       },
       totalMaterials: 3,

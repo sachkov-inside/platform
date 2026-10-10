@@ -492,7 +492,13 @@ export const ChapterTasks: Story = {
     await expect(
       canvasElement.querySelector('[data-programme-task="access-model"]'),
     ).toHaveAttribute("data-task-availability", "locked");
-    await expect(canvas.getByText("6 материалов · 2 задания")).toBeVisible();
+    const chapterHeader = canvas
+      .getByRole("heading", { level: 3, name: "Основа продукта" })
+      .closest("header");
+    if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
+    await expect(
+      within(chapterHeader).getByText("6 материалов · 2 задания"),
+    ).toBeVisible();
     const unavailable = canvasElement.querySelector(
       '[data-programme-task="access-unavailable"]',
     );

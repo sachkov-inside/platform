@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { CatalogBackLink } from "./catalog-back-link";
 
 const meta = {
@@ -21,7 +22,7 @@ export const Home: Story = {
 };
 export const Programme: Story = {
   args: {
-    href: "/products/ai-engineering/programme",
+    href: productProgrammeHref("ai-engineering"),
     label: "Назад к программе",
   },
 };

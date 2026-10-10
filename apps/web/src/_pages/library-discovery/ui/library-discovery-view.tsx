@@ -263,7 +263,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
 
 /** Ряд хлебных крошек и верхний отступ шапки: их же занимает состояние загрузки. */
 const breadcrumbRow = "mt-7";
-const breadcrumbRowHeight = "min-h-10";
+const breadcrumbRowHeight = "min-h-11";
 const heroTopMargin = "mt-5";
 
 /** Место хлебных крошек, пока данных нет: тот же ряд, только без ссылки. */
@@ -273,7 +273,7 @@ function DiscoveryBreadcrumbPlaceholder() {
       aria-hidden="true"
       className={`${breadcrumbRow} ${breadcrumbRowHeight}`}
     >
-      <div className="h-10 w-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+      <div className="h-11 w-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
     </div>
   );
 }

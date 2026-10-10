@@ -8,7 +8,11 @@ import {
   SavedReadingAction,
 } from "@/features/reading-progress";
 import { getQueryClient } from "@/shared/api/query-client";
-import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
+import {
+  materialReaderHref,
+  parseMaterialReaderReturnTarget,
+} from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { MaterialReaderView } from "./material-reader-view";
@@ -16,7 +20,7 @@ import { MaterialReaderView } from "./material-reader-view";
 const materialId = "10000000-0000-4000-8000-000000001336";
 const accountId = "20000000-0000-4000-8000-000000001336";
 const at = "2026-10-10T08:00:00.000Z";
-const programme = "/products/ai-engineering/programme";
+const programme = productProgrammeHref("ai-engineering");
 const environment = publicPageEnvironment("/materials/course-intro", {
   account: "authenticated",
 });
@@ -162,11 +166,11 @@ const meta = {
       },
       previous: {
         title: "Первый урок",
-        href: "/materials/first?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+        href: materialReaderHref("first", programme),
       },
       next: {
         title: "Следующий урок",
-        href: "/materials/next?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+        href: materialReaderHref("next", programme),
       },
     },
     readingAction: (
