@@ -1,9 +1,11 @@
 """Focused guard contracts: native stdout/stderr only, all external commands doubled."""
 import importlib.util
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 import subprocess
+import signal
 import sys
 import tempfile
 import unittest
@@ -14,12 +16,31 @@ ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('guard', ROOT/'scripts/acquisition-diagnostic-guard.py')
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
+PROCESS_ADAPTER_BUDGET_SECONDS = 5
+PROCESS_ADAPTER_CLEANUP_SECONDS = 5
+
+
+@contextmanager
+def process_contract_deadline():
+    # An OS timer stays independent of the guard's supplied monotonic clock.
+    previous_handler = signal.getsignal(signal.SIGALRM)
+
+    def expired(_signal, _frame):
+        raise TimeoutError('Native process contract deadline')
+
+    signal.signal(signal.SIGALRM, expired)
+    previous_timer = signal.setitimer(signal.ITIMER_REAL, PROCESS_ADAPTER_BUDGET_SECONDS)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, *previous_timer)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 class GuardContracts(unittest.TestCase):
     def exercise(self, payload='', *, growth=False, cleanup_error=False, git_expiry=False,
                  late_cache=False, cache_symlink=False, daemon_error=False, forced_timeout=False):
-        with tempfile.TemporaryDirectory() as temporary:
+        with process_contract_deadline(), tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary)/'result'
             daemon = Path(temporary)/'daemon'
             daemon.mkdir()
@@ -94,7 +115,7 @@ class GuardContracts(unittest.TestCase):
                     process.wait = subprocess.Popen.wait.__get__(process)
                     if process.poll() is None:
                         os.killpg(process.pid, 9)
-                    process.wait(timeout=5)
+                    process.wait(timeout=PROCESS_ADAPTER_CLEANUP_SECONDS)
                     if process.stdout is not None:
                         process.stdout.close()
 
@@ -150,6 +171,12 @@ class GuardContracts(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(receipt['nativeExit'], 0)
         self.assertIn('finalAllocatedBytes', receipt)
+
+    def test_native_deadline_stops_a_child_with_frozen_guard_clock(self):
+        status, receipt, _, _ = self.exercise('import signal; signal.pause()')
+        self.assertNotEqual(status, 0)
+        self.assertEqual(receipt['guardFailureType'], 'TimeoutError')
+        self.assertEqual(receipt['daemonShutdownExit'], 0)
 
 
 if __name__ == '__main__':

@@ -8,11 +8,23 @@ import signal
 import subprocess
 import time
 
+EXPERIMENT_SECONDS_MAXIMUM = 180
+CLEANUP_RESERVE_SECONDS = 60
+NATIVE_COMMAND_TIMEOUT_SECONDS = 10
+INTAKE_SAMPLE_INTERVAL_SECONDS = 0.1
+DAEMON_SHUTDOWN_SECONDS_MAXIMUM = 30
+FORCED_PROCESS_STOP_SECONDS_MAXIMUM = 10
+RECEIPT_RESERVE_SECONDS = 2
+FINAL_SAMPLE_RESERVE_SECONDS = NATIVE_COMMAND_TIMEOUT_SECONDS + RECEIPT_RESERVE_SECONDS
+
 
 def main():
     # Admission, external commands, intake and shutdown share one monotonic deadline.
-    deadline = time.monotonic() + 180
-    work_deadline = deadline - 60
+    deadline = time.monotonic() + EXPERIMENT_SECONDS_MAXIMUM
+    work_deadline = deadline - CLEANUP_RESERVE_SECONDS
+    daemon_deadline = deadline - FINAL_SAMPLE_RESERVE_SECONDS
+    process_deadline = daemon_deadline - DAEMON_SHUTDOWN_SECONDS_MAXIMUM
+    graceful_process_deadline = process_deadline - FORCED_PROCESS_STOP_SECONDS_MAXIMUM
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-sha', required=True)
     parser.add_argument('--output', required=True)
@@ -21,7 +33,7 @@ def main():
     output = Path(args.output).resolve()
     output.mkdir(mode=0o700, exist_ok=False)
     receipt = {'sourceSha': args.source_sha, 'logicalAcquisitionsMaximum': 3,
-               'applicationRetries': 0, 'runtimeSecondsMaximum': 180,
+               'applicationRetries': 0, 'runtimeSecondsMaximum': EXPERIMENT_SECONDS_MAXIMUM,
                'growthBytesMaximum': 2 * 1024**3, 'diagnosticBytesMaximum': 1024**2}
     process = None
     interrupted = False
@@ -40,10 +52,10 @@ def main():
         value = os.statvfs(root)
         return value.f_bavail * value.f_frsize
 
-    def remaining(end, maximum=10):
+    def remaining(end, maximum=NATIVE_COMMAND_TIMEOUT_SECONDS):
         seconds = min(maximum, end - time.monotonic())
         if seconds <= 0:
-            raise subprocess.TimeoutExpired('whole acquisition deadline', 180)
+            raise subprocess.TimeoutExpired('whole acquisition deadline', EXPERIMENT_SECONDS_MAXIMUM)
         return seconds
 
     def native(command):
@@ -124,7 +136,7 @@ def main():
                         reason = sample(work_deadline)
                     if reason is not None:
                         break
-                    for key, _events in intake.select(timeout=remaining(work_deadline, 0.1)):
+                    for key, _events in intake.select(timeout=remaining(work_deadline, INTAKE_SAMPLE_INTERVAL_SECONDS)):
                         chunk = os.read(key.fd, 65536)
                         if not chunk:
                             intake.unregister(key.fileobj)
@@ -154,13 +166,13 @@ def main():
                     except ProcessLookupError:
                         pass
                 try:
-                    process.wait(timeout=remaining(deadline - 42))
+                    process.wait(timeout=remaining(graceful_process_deadline))
                 except subprocess.TimeoutExpired:
                     try:
                         os.killpg(process.pid, signal.SIGKILL)
                     except ProcessLookupError:
                         pass
-                    process.wait(timeout=remaining(deadline - 32))
+                    process.wait(timeout=remaining(process_deadline, FORCED_PROCESS_STOP_SECONDS_MAXIMUM))
                 receipt['supervisorExit'] = process.returncode
         except Exception as error:
             receipt['processCleanupFailureType'] = type(error).__name__
@@ -177,7 +189,7 @@ def main():
             if daemon_owned:
                 shutdown = subprocess.run(['sudo', '-n', 'systemctl', 'stop', 'docker.service', 'docker.socket', 'containerd.service'],
                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                          timeout=remaining(deadline - 12, 30))
+                                          timeout=remaining(daemon_deadline, DAEMON_SHUTDOWN_SECONDS_MAXIMUM))
                 receipt['daemonShutdownExit'] = shutdown.returncode
                 if shutdown.returncode != 0:
                     receipt['pending'] = 'daemon shutdown unproven'
@@ -187,7 +199,7 @@ def main():
         finally:
             try:
                 if initial is not None:
-                    final_reason = sample(deadline - 2, final=True)
+                    final_reason = sample(deadline - RECEIPT_RESERVE_SECONDS, final=True)
                     if final_reason is not None:
                         receipt.setdefault('stopReason', final_reason)
             except Exception as error:
