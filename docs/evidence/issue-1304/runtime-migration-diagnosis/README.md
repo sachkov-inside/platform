@@ -24,10 +24,18 @@ command: exit0, PgBoss44, identity
 `sha256:84a286420fbdceab8c67eb392811f58170837f53be99ea0014845600f91b1763`.
 No install or database mutation ran. Both candidate and retained cached runtime accept this schema.
 
-The fix excludes `patches` only from each development COPY. Dependency-stage COPY still includes
-them before its frozen install, so changed patch bytes still invalidate that install cache.
-The native regression uses each real backend/web development COPY in a tiny scratch fixture.
-It failed before the fix and passed for both applications after it. No registry image was fetched.
+The first source fix preserved installed patches with `COPY --exclude=patches`. Its local native
+regression passed, but current-head CI on `ae9d3c2142922fdfe4403ffd6e14d3862793dab4`
+rejected this flag in both Compose jobs: `dockerfile parse error: unknown flag: --exclude`.
+Development job114085295713 and production job114085295845 belong to run38009259715.
+Production's missing candidate image variable followed this parse failure; no runtime was started.
+
+The corrected source keeps ordinary source COPY, then copies `/workspace/patches` from the existing
+`dependencies` stage. That stage still includes patches before its frozen install, so changed
+patch bytes invalidate the install cache. No new Dockerfile frontend or registry input is required.
+The native regression executes both real development COPY sequences in a scratch fixture and
+checks installed patch bytes and timestamps. Native proof and normal launch on this correction
+remain pending until its committed review completes. Historical red/green receipts stay unchanged.
 The launcher now reads bounded migrations/seed logs before failed-startup shutdown. A process
 regression failed before this change and passed after it. pnpm verification remains enabled.
 

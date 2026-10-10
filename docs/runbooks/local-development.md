@@ -262,8 +262,8 @@ The loopback validation and script policy remain in `next.config.ts` / [ADR 0028
 starting containers with `--no-build`. Each invocation asks BuildKit to verify the current source
 inputs, so cached images never bypass source validation. Production web requires a clean Git
 working tree and uses its real `HEAD` SHA as the release identity; commit source edits first.
-Backend and web preserve the patches already copied before the frozen dependency install. Recopying
-them after a cached install changes their timestamps and makes pnpm attempt an unnecessary install.
+Backend and web restore installed patches from the dependency stage after source COPY. Recopying
+them from source after a cached install changes their timestamps and makes pnpm attempt an unnecessary install.
 If startup fails, the launcher prints up to 80 lines from each migration/seed job before shutdown
 removes its containers; reading these diagnostics has a 20-second deadline.
 

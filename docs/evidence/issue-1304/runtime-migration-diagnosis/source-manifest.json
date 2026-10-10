@@ -354,5 +354,28 @@
       "bytes": 46567,
       "sha256": "3d3a1f2cb3c13d80cfa2bd342b3475e624b3ec173378e54f523a1db6f234549a"
     }
-  ]
+  ],
+  "ciParserFailure": {
+    "sourceHead": "ae9d3c2142922fdfe4403ffd6e14d3862793dab4",
+    "run": 38009259715,
+    "primary": "dockerfile parse error: unknown flag: --exclude",
+    "jobs": [
+      {
+        "jobId": 114085295713,
+        "url": "https://github.com/sachkov-inside/platform/actions/runs/38009259715/job/114085295713",
+        "rawPath": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/ci-development-ae9d3c21.log",
+        "bytes": 22313,
+        "sha256": "74af9994aff50b33e1d27468fefced3e7db5b28ce73623adaa3c7233a6ce8bff",
+        "exit": 1
+      },
+      {
+        "jobId": 114085295845,
+        "url": "https://github.com/sachkov-inside/platform/actions/runs/38009259715/job/114085295845",
+        "rawPath": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/ci-production-ae9d3c21.log",
+        "bytes": 29613,
+        "sha256": "cfab1e15870c2e1e944b439d55de3c52b2a898bf076e448d1fb58d1040ce309f",
+        "exit": 1
+      }
+    ]
+  }
 }
