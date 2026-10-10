@@ -144,8 +144,8 @@ describe("local stand production build input", () => {
   it.each([
     {
       productionWeb: false,
-      memoryBytes: "4294967296",
-      memoryAndSwapBytes: "6442450944",
+      memoryBytes: "6442450944",
+      memoryAndSwapBytes: "8589934592",
     },
     {
       productionWeb: true,

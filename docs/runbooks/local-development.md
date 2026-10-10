@@ -259,7 +259,7 @@ There is no hot reload in this mode; after a code change, stop the stand and sta
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 
 Local Web has provisional memory bounds ([#1332](https://github.com/sachkov-inside/platform/issues/1332)):
-development allows 4 GiB of RAM and 6 GiB of RAM plus swap; production Web allows 1 GiB of RAM
+development allows 6 GiB of RAM and 8 GiB of RAM plus swap; production Web allows 1 GiB of RAM
 and 1 GiB of RAM plus swap, so it cannot use swap. `memswap_limit` is the combined total, not
 additional swap. These are container safety caps, not measured FULL-course budgets; actual
 production peaks and available VM headroom must confirm or correct them before runtime acceptance.
