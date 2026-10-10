@@ -92,6 +92,11 @@ esac
   writeFileSync(join(fixture, "sleep"), "#!/bin/bash\nexit 0\n", {
     mode: 0o755,
   });
+  const inheritedEnvironment = {
+    ...process.env,
+    // Default readiness must also hold when an inherited environment opts in.
+    PRODUCTION_SMOKE_CACHE_ONLY: "1",
+  };
   try {
     const result = spawnSync(
       "/bin/bash",
@@ -100,7 +105,8 @@ esac
         encoding: "utf8",
         timeout: 10_000,
         env: {
-          ...process.env,
+          ...inheritedEnvironment,
+          PRODUCTION_SMOKE_CACHE_ONLY: "0",
           PATH: `${fixture}:${process.env["PATH"] ?? ""}`,
           TMPDIR: fixture,
           READINESS_FIXTURE: fixture,
