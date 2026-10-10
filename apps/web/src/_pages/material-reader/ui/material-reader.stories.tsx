@@ -24,6 +24,7 @@ import {
 } from "@/shared/routing/material-reader";
 import {
   productPurchaseHref,
+  productProgrammeHref,
   subscriptionHrefFrom,
 } from "@/shared/routing/subscription-route";
 import {
@@ -470,9 +471,17 @@ function readerActions(
   format: string,
 ): Pick<
   ComponentProps<typeof MaterialReaderView>,
-  "bookmarkAction" | "practiceActions" | "readingAction"
+  | "bookmarkAction"
+  | "practiceActions"
+  | "readingAction"
+  | "topBookmarkAction"
+  | "topReadingAction"
 > {
   return {
+    topReadingAction: (
+      <SavedReadingAction compact format={format} materialId={materialId} />
+    ),
+    topBookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
     readingAction: (
       <SavedReadingAction
         format={format}
@@ -624,7 +633,9 @@ export const Mobile: Story = {
     const readerBody =
       canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     if (readerBody === null) throw new Error("Reader structure is missing");
-    await expect(getComputedStyle(heading).fontSize).toBe("24px");
+    await expect(getComputedStyle(heading).fontSize).toBe("22px");
+    await expect(getComputedStyle(readerBody).fontSize).toBe("15px");
+    await expect(getComputedStyle(readerBody).lineHeight).toBe("24.75px");
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
     await expect(getComputedStyle(readerBody).color).toBe(
       getComputedStyle(heading).color,
@@ -636,7 +647,7 @@ export const Mobile: Story = {
           level: 2,
         }),
       ).fontSize,
-    ).toBe("20px");
+    ).toBe("18px");
     await expect(
       canvas.queryByRole("list", { name: "Теги материала" }),
     ).not.toBeInTheDocument();
@@ -997,21 +1008,31 @@ export const PlaylistReturn: Story = {
       },
       series: {
         hasModeVariants: false,
-        href: playlistReturnTarget.href,
+        href: productProgrammeHref("platform-inside"),
         name: "Создание Platform Inside",
       },
       totalMaterials: 3,
     },
   },
   play: async ({ canvasElement }) => {
-    const links = within(canvasElement).getAllByRole("link", {
-      name: "Все материалы продукта",
-    });
-    await expect(links).toHaveLength(1);
-    await expect(links[0]).toHaveAttribute("href", "/products/platform-inside");
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
       name: "Навигация по продукту «Создание Platform Inside»",
     });
+    await expect(
+      within(seriesNavigation).getByRole("link", { name: "Открыть программу" }),
+    ).toHaveAttribute("href", "/products/platform-inside/programme");
+    const top = await within(canvasElement).findByRole("navigation", {
+      name: "Действия материала",
+    });
+    await expect(
+      within(top).queryByRole("link", { name: "Дальше" }),
+    ).toBeNull();
+    await expect(
+      within(top).getByRole("link", { name: "Назад" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/first-product?from=%2Fproducts%2Fplatform-inside",
+    );
     const readerBody =
       canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     const readerFooter = canvasElement.querySelector<HTMLElement>(
@@ -1027,8 +1048,8 @@ export const PlaylistReturn: Story = {
     ).toBe(true);
     await expect(readerFooter.contains(seriesNavigation)).toBe(true);
     await expect(
-      within(canvasElement).getByRole("link", { name: "Назад к продукту" }),
-    ).toHaveAttribute("href", "/products/platform-inside");
+      within(canvasElement).queryByRole("link", { name: "Назад к продукту" }),
+    ).toBeNull();
     await expect(
       within(canvasElement).queryByText(/· №/u),
     ).not.toBeInTheDocument();
@@ -1202,6 +1223,14 @@ export const ShortMaterial: Story = {
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),
     ).toBeNull();
+    await expect(
+      canvas.getByRole("navigation", { name: "Действия материала" }),
+    ).toBeVisible();
+    await expect(
+      canvas
+        .getByRole("navigation", { name: "Действия материала" })
+        .getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(104);
     // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
     const body = canvasElement.querySelector("[data-reader-body]");
     await expect(
@@ -1327,8 +1356,8 @@ export const ProductModes: Story = {
     await expect(
       canvas.getByText(/Переключить способ можно в шапке урока/u),
     ).toBeVisible();
-    // Сложность и обещание урока видны до основного текста.
-    await expect(canvas.getByText("Сложность: Средний")).toBeVisible();
+    // Уровень сложности не показывается читателю; результаты урока остаются перед текстом.
+    await expect(canvas.queryByText("Сложность: Средний")).toBeNull();
     await expect(
       canvas.getByRole("heading", { name: "Чему научишься" }),
     ).toBeVisible();

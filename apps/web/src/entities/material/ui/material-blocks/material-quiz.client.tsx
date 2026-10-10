@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { Check, CircleHelp, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
-/** Prepared reading content; Reader and stories use the same accepted #1277 A interface. */
+/** Prepared reading content shared by Reader and its stories. */
 export interface MaterialQuizPresentation {
   readonly prompt: ReactNode;
   readonly correctOptionId: string;
@@ -25,32 +26,19 @@ export function MaterialQuiz({
   dontKnow,
 }: MaterialQuizPresentation) {
   const [answer, setAnswer] = useState<string | null>(null);
-  const [all, setAll] = useState(false);
   const quizId = useId();
-  const firstChoice = useRef<HTMLButtonElement>(null);
   const selected = options.find((option) => option.id === answer);
   const correct = options.find((option) => option.id === correctOptionId);
   const result =
-    answer === null
-      ? "Без ответа"
-      : answer === "dontKnow"
-        ? "Не знаю · без оценки"
-        : answer === correctOptionId
-          ? "Правильно"
-          : "Пока неверно";
-  const choose = (id: string) => {
-    setAnswer(id);
-    setAll(false);
-  };
-  const retry = () => {
-    setAnswer(null);
-    setAll(false);
-    firstChoice.current?.focus();
-  };
+    answer === "dontKnow"
+      ? "Не знаю · без оценки"
+      : answer === correctOptionId
+        ? "Правильно"
+        : "Пока неверно";
   const review = dontKnow.reviewLinks.map((href, index) => (
     <a
       key={href}
-      className="mt-3 inline-flex min-h-11 items-center underline underline-offset-4"
+      className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
       href={href}
     >
       Повторить раздел
@@ -61,30 +49,39 @@ export function MaterialQuiz({
     <section
       aria-label="Проверьте понимание"
       data-material-quiz
-      className="my-10 text-base leading-relaxed"
+      className="my-8 rounded-xl border p-4 text-base leading-relaxed sm:p-5"
     >
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-7">
-        <h2 className="text-xl font-semibold">Проверьте понимание</h2>
-        <div className="mt-3">{prompt}</div>
-        <div
-          className="mt-5 space-y-2"
-          role="group"
-          aria-label="Выберите ответ"
-        >
-          {options.map((option, index) => (
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-action text-accent-foreground">
+          <CircleHelp aria-hidden="true" className="size-5" />
+        </span>
+        Проверьте понимание
+      </h2>
+      <div className="mt-3">{prompt}</div>
+      <div className="mt-4 space-y-2" role="group" aria-label="Выберите ответ">
+        {options.map((option, index) => {
+          const chosen = answer === option.id;
+          const optionResult = !chosen
+            ? undefined
+            : option.id === correctOptionId
+              ? "correct"
+              : "incorrect";
+          return (
             <div
               key={option.id}
-              className="relative flex min-h-12 w-full gap-3 rounded-xl border border-border px-4 py-3 text-left"
+              data-quiz-option
+              data-result={optionResult}
+              className="relative flex min-h-11 w-full gap-3 rounded-lg border border-border bg-card px-3 py-2 pr-9 text-left"
             >
               <button
-                ref={index === 0 ? firstChoice : undefined}
                 type="button"
-                aria-pressed={answer === option.id}
+                aria-pressed={chosen}
                 aria-labelledby={`${quizId}-number-${String(index)} ${quizId}-option-${String(index)}`}
+                aria-describedby={chosen ? `${quizId}-feedback` : undefined}
                 onClick={() => {
-                  choose(option.id);
+                  setAnswer(option.id);
                 }}
-                className="absolute inset-0 rounded-xl hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:bg-secondary"
+                className={`absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring${chosen ? "" : " hover:bg-secondary/50"}`}
               />
               <span
                 id={`${quizId}-number-${String(index)}`}
@@ -98,96 +95,61 @@ export function MaterialQuiz({
               >
                 {option.content}
               </div>
-            </div>
-          ))}
-          <Button
-            className="min-h-12"
-            variant="ghost"
-            aria-pressed={answer === "dontKnow"}
-            onClick={() => {
-              choose("dontKnow");
-            }}
-          >
-            Не знаю
-          </Button>
-        </div>
-        {answer === null ? null : (
-          <>
-            <div
-              className="mt-5 rounded-xl bg-secondary p-4"
-              data-quiz-feedback
-            >
-              <p
-                className="font-semibold"
-                style={{
-                  color:
-                    answer === "dontKnow"
-                      ? "var(--foreground)"
-                      : answer === correctOptionId
-                        ? "var(--callout-good)"
-                        : "var(--callout-bad)",
-                }}
-              >
-                {result}
-              </p>
-              {selected === undefined ? (
-                <>
-                  <p className="mt-2 font-semibold">Правильный ответ:</p>
-                  <div className="mt-2">{correct?.content}</div>
-                  <div className="mt-2">{correct?.explanation}</div>
-                  <div className="mt-2">{dontKnow.explanation}</div>
-                  {review}
-                </>
+              {!chosen ? null : optionResult === "correct" ? (
+                <Check
+                  aria-hidden="true"
+                  className="absolute right-3 top-3 size-4"
+                />
               ) : (
-                <>
-                  <p className="mt-2 font-semibold">Ваш ответ:</p>
-                  <div className="mt-2">{selected.content}</div>
-                  <div className="mt-2">{selected.explanation}</div>
-                </>
+                <X
+                  aria-hidden="true"
+                  className="absolute right-3 top-3 size-4"
+                />
               )}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={retry}>
-                Ответить ещё раз
-              </Button>
-              <Button
-                variant="ghost"
-                aria-expanded={all}
-                onClick={() => {
-                  setAll(!all);
-                }}
-              >
-                {all ? "Скрыть объяснения" : "Все объяснения"}
-              </Button>
-            </div>
-          </>
-        )}
-        {all ? (
-          <div className="mt-5 space-y-4 border-t border-border pt-4">
-            <h3 className="font-semibold">Разбор всех вариантов</h3>
-            {options.map((option, index) => (
-              <div key={option.id}>
-                <div className="flex gap-3 font-semibold">
-                  <span>{index + 1}.</span>
-                  <div className="min-w-0">{option.content}</div>
-                </div>
-                <div className="mt-1">{option.explanation}</div>
-              </div>
-            ))}
-            <p className="font-semibold">Не знаю.</p>
-            <div>{dontKnow.explanation}</div>
-            {review}
-          </div>
-        ) : null}
+          );
+        })}
+        <Button
+          className="min-h-11 px-3"
+          variant="ghost"
+          aria-pressed={answer === "dontKnow"}
+          onClick={() => {
+            setAnswer("dontKnow");
+          }}
+        >
+          Не знаю
+        </Button>
       </div>
-      <p
-        className="mt-3 text-sm text-muted-foreground"
-        data-quiz-state
-        aria-live="polite"
-      >
-        Состояние: {result}
-        {all ? " · все объяснения открыты" : ""}
-      </p>
+      <div aria-live="polite" id={`${quizId}-feedback`}>
+        {answer === null ? null : (
+          <div className="mt-3 border-t border-border pt-3" data-quiz-feedback>
+            <p
+              className="text-sm font-semibold"
+              style={{
+                color:
+                  answer === "dontKnow"
+                    ? "var(--foreground)"
+                    : answer === correctOptionId
+                      ? "var(--callout-good)"
+                      : "var(--callout-bad)",
+              }}
+            >
+              {result}
+            </p>
+            {selected === undefined ? (
+              <>
+                <p className="mt-2 text-sm font-semibold">Правильный ответ:</p>
+                <div className="mt-1">{correct?.content}</div>
+                <div className="mt-2">{correct?.explanation}</div>
+                <div className="mt-2">{dontKnow.explanation}</div>
+                {review}
+              </>
+            ) : (
+              <div className="mt-2">{selected.explanation}</div>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

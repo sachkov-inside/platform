@@ -1,8 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, spyOn, userEvent, within } from "storybook/test";
+import { Suspense, use } from "react";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { SavedReadingAction } from "@/features/reading-progress";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import {
+  boxOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+} from "@/storybook/loads-in-place";
 import type { LearningPracticesView } from "../model/learning-practice";
 import { MaterialReaderView } from "./material-reader-view";
 import {
@@ -24,9 +31,11 @@ const descriptor = {
 function PracticeReader({
   result,
   disclosure = false,
+  ready,
 }: {
   readonly result: LearningPracticesView;
   readonly disclosure?: boolean;
+  readonly ready?: Promise<void>;
 }) {
   return (
     <MaterialReaderView
@@ -61,22 +70,48 @@ function PracticeReader({
       primaryVideo={null}
       readingAction={
         <SavedReadingAction
+          compact
           format="guide"
           materialId="02000000-0000-4000-8000-000000000010"
         />
       }
       bookmarkAction={
-        <SavedBookmarkAction materialId="02000000-0000-4000-8000-000000000010" />
+        <SavedBookmarkAction
+          compact
+          materialId="02000000-0000-4000-8000-000000000010"
+        />
       }
       practiceActions={
-        disclosure ? (
-          <LearningPracticeDisclosure connection={connection} result={result} />
-        ) : (
+        disclosure ? undefined : (
           <LearningPracticePrompts connection={connection} result={result} />
         )
       }
+      deferredPracticeActions={
+        disclosure ? (
+          <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
+            {ready === undefined ? (
+              <LearningPracticeDisclosure
+                connection={connection}
+                result={result}
+              />
+            ) : (
+              <DeferredPractice ready={ready} result={result} />
+            )}
+          </Suspense>
+        ) : undefined
+      }
     />
   );
+}
+function DeferredPractice({
+  ready,
+  result,
+}: {
+  readonly ready: Promise<void>;
+  readonly result: LearningPracticesView;
+}) {
+  use(ready);
+  return <LearningPracticeDisclosure connection={connection} result={result} />;
 }
 const environment = publicPageEnvironment("/materials/consultations", {
   account: "authenticated",
@@ -174,16 +209,128 @@ export const PublicLesson: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const slot = canvasElement.querySelector("[data-practice-slot]");
+    const slot = canvasElement.querySelector("[data-practice-summary]");
     await expect(slot?.getBoundingClientRect().height).toBe(44);
     await expect(
       canvas.queryByRole("region", { name: "Проверка практики" }),
     ).not.toBeVisible();
     await userEvent.click(
-      canvas.getByText("Открыть проверку практики", { exact: true }),
+      canvas.getByRole("button", {
+        name: "Открыть проверку практики",
+        exact: true,
+      }),
     );
     await expect(
       canvas.getByRole("region", { name: "Проверка практики" }),
     ).toBeVisible();
   },
 };
+
+export const EmptyDisclosure: Story = {
+  args: { result: { kind: "available", practices: [] }, disclosure: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-practice-summary]"),
+    ).toBeNull();
+    const body = canvasElement.querySelector("[data-reader-body]");
+    const actions = canvasElement.querySelector("[data-material-actions]");
+    if (body === null || actions === null) throw new Error("Reader is missing");
+    await expect(
+      actions.getBoundingClientRect().top - body.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(24);
+  },
+};
+
+/** Short standalone public Reader includes the real site footer, not only its own buttons. */
+function delayedPractice(
+  result: LearningPracticesView,
+  width: 1440 | 390 | 320,
+  enlarged = false,
+): Story {
+  const viewport =
+    width === 1440 ? "desktop1440" : width === 390 ? "mobile390" : "mobile320";
+  return {
+    args: { result, disclosure: true },
+    loaders: stagedLoaders,
+    globals: { viewport: { value: viewport, isRotated: false } },
+    render: (args, { loaded }) => (
+      <PracticeReader {...args} ready={stagedLoadingOf(loaded).personalPart} />
+    ),
+    beforeEach: () => {
+      if (!enlarged) return;
+      const root = document.documentElement;
+      const previous = root.style.fontSize;
+      root.style.fontSize = "200%";
+      return () => {
+        root.style.fontSize = previous;
+      };
+    },
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const canvas = within(canvasElement);
+      const sequence = stagedLoadingOf(loaded);
+      const anchors = [
+        "[data-material-actions]",
+        "footer:has(nav[aria-label='Документы Inside'])",
+      ];
+      await expect(
+        canvasElement.querySelector("[data-practice-loading]"),
+      ).toBeVisible();
+      await expect(
+        canvas.getByRole("navigation", { name: "Документы Inside" }),
+      ).toBeVisible();
+      const before = anchors.map((selector) => boxOf(canvasElement, selector));
+      sequence.deliverPersonalPart();
+      await waitFor(() =>
+        expect(
+          canvasElement.querySelector("[data-practice-loading]"),
+        ).toBeNull(),
+      );
+      const after = anchors.map((selector) => boxOf(canvasElement, selector));
+      await expect(after).toEqual(before);
+      await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+        document.documentElement.clientWidth,
+      );
+      if (result.kind === "available" && result.practices.length === 0) {
+        await expect(
+          canvas.queryByRole("button", { name: "Открыть проверку практики" }),
+        ).toBeNull();
+      } else {
+        await userEvent.click(
+          canvas.getByRole("button", { name: "Открыть проверку практики" }),
+        );
+        await expect(
+          result.kind === "available"
+            ? canvas.getByRole("region", { name: "Проверка практики" })
+            : canvas.getByText("Задания для проверки сейчас недоступны."),
+        ).toBeVisible();
+      }
+    },
+  };
+}
+const empty = { kind: "available", practices: [] } as const;
+const present = { kind: "available", practices: [descriptor] } as const;
+const unavailable = { kind: "unavailable" } as const;
+export const DelayedEmpty: Story = delayedPractice(empty, 1440);
+export const DelayedPresent: Story = delayedPractice(present, 1440);
+export const DelayedUnavailable: Story = delayedPractice(unavailable, 1440);
+export const DelayedEmptyMobile: Story = delayedPractice(empty, 390);
+export const DelayedPresentMobile: Story = delayedPractice(present, 390);
+export const DelayedUnavailableMobile: Story = delayedPractice(
+  unavailable,
+  390,
+);
+export const DelayedEmpty320: Story = delayedPractice(empty, 320);
+export const DelayedPresent320: Story = delayedPractice(present, 320);
+export const DelayedUnavailable320: Story = delayedPractice(unavailable, 320);
+export const DelayedEmptyEnlarged: Story = delayedPractice(empty, 320, true);
+export const DelayedPresentEnlarged: Story = delayedPractice(
+  present,
+  320,
+  true,
+);
+export const DelayedUnavailableEnlarged: Story = delayedPractice(
+  unavailable,
+  320,
+  true,
+);

@@ -73,8 +73,8 @@ type ResolvedMaterial = Extract<
  * Общая часть урока (ADR 0027). Адрес читается здесь, под скелетом маршрута; метаданные и состав
  * продукта приходят из гостевого кеша, поэтому шапка, возврат и соседи по продукту появляются
  * сразу. Личная часть — тело закрытого урока, предложение о покупке, режим прохождения — стримится
- * на место тела. Бесплатное тело не ждёт личных заданий: их закрытая панель занимает одну строку,
- * а полное содержимое появляется только по действию читателя.
+ * на место тела. Бесплатное тело не ждёт личных заданий: их кнопка занимает место в строке
+ * нижних действий, а полное содержимое появляется только по действию читателя.
  */
 export async function MaterialReaderPage({
   params,
@@ -123,7 +123,7 @@ export async function MaterialReaderPage({
       <ResolvedMaterialReader
         productMode={defaultProductMode}
         hintSeen
-        practiceActions={
+        deferredPracticeActions={
           <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
             <PublicMaterialPractice slug={slug} />
           </Suspense>
@@ -154,7 +154,7 @@ export async function MaterialReaderPage({
   );
 }
 
-/** A fixed closed row preserves the prefetched public body and surrounding geometry. */
+/** The existing action row holds private practice without an extra empty loading row. */
 async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
@@ -258,6 +258,7 @@ async function ResolvedMaterialReader({
   productMode,
   hintSeen,
   practiceActions,
+  deferredPracticeActions,
   purchaseProduct: startedPurchaseProduct,
   result,
   returnTarget,
@@ -267,7 +268,8 @@ async function ResolvedMaterialReader({
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseProduct?: Promise<PurchaseProduct | undefined>;
-  readonly practiceActions: ReactNode;
+  readonly practiceActions?: ReactNode;
+  readonly deferredPracticeActions?: ReactNode;
   readonly productMode: ProductMode;
   readonly hintSeen: boolean;
   readonly result: ResolvedMaterial;
@@ -316,17 +318,35 @@ async function ResolvedMaterialReader({
     >
       <ProductModeProvider initialMode={productMode}>
         <MaterialReaderView
+          topReadingAction={
+            <SavedReadingAction
+              compact
+              materialId={result.material.materialId}
+              format={result.material.format.slug}
+            />
+          }
+          topBookmarkAction={
+            <SavedBookmarkAction
+              compact
+              materialId={result.material.materialId}
+            />
+          }
           readingAction={
             <SavedReadingAction
+              compact
               key={result.material.materialId}
               materialId={result.material.materialId}
               format={result.material.format.slug}
             />
           }
           bookmarkAction={
-            <SavedBookmarkAction materialId={result.material.materialId} />
+            <SavedBookmarkAction
+              compact
+              materialId={result.material.materialId}
+            />
           }
           practiceActions={practiceActions}
+          deferredPracticeActions={deferredPracticeActions}
           body={result.body}
           material={result.material}
           {...(showsModes

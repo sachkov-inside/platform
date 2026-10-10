@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 import {
   materialReaderHref,
@@ -59,6 +60,7 @@ export function resolveSeriesReaderContext({
     ({ slug }) => slug === currentMaterialSlug,
   );
   if (currentIndex === -1) return null;
+  const programmeHref = productProgrammeHref(series.reference.slug);
 
   return {
     currentPosition: currentIndex + 1,
@@ -66,7 +68,10 @@ export function resolveSeriesReaderContext({
     previous: toContextItem(series.items[currentIndex - 1], returnTarget.href),
     series: {
       hasModeVariants: series.reference.hasModeVariants ?? false,
-      href: returnTarget.href,
+      href:
+        returnTarget.href.split("?")[0] === programmeHref
+          ? returnTarget.href
+          : programmeHref,
       name: series.reference.name,
     },
     totalMaterials: series.items.length,
