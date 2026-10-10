@@ -19,6 +19,7 @@ test("exact CI observation rejects missing, stale, failed and incomplete runs", 
     ],
     { stdio: "inherit" },
   );
+  // deterministic-test-allow duration-wait: bounds a stuck Python contract process; child exit is the completion barrier.
   const deadline = setTimeout(() => {
     void stopOwned(child);
   }, 10_000);
