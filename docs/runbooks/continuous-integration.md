@@ -85,10 +85,21 @@ References keep the existing version tags and select immutable SHA-256 digests. 
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
-The production smoke prints the resolved RabbitMQ/Caddy references and pulls them sequentially
-with Compose `--parallel 1` before application startup. Development CI does the same for
-PostgreSQL, RustFS and Mailpit before starting its clean-stack smoke. This bounds each job's own
-acquisition concurrency; it does not identify the origin of an unlabelled rate-limit error.
+The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
+separate Compose command before application startup. It waits one second after RabbitMQ finishes
+before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
+concurrency but leaves admission timing and graph order to Compose. The interval bounds this
+pair's own admission; it cannot reserve a quota shared with other clients or prove the historical
+origin of throttling. A Compose call start does not timestamp its individual registry requests.
+Pull completion bounds the end of that opaque request window; the next admission follows that
+completion plus the provider interval. This conservatively separates the two request windows.
+The virtual-time adapter proves this contract, not successful acquisition from AWS; the exact-ref
+runtime smoke and current-head CI must provide that proof.
+Acquisition failures keep their original error and stop startup without a
+retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
+boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
+Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
+smoke; this explicit group contains one ECR Public image, so it has no ECR pair to space.
 Integration serial enables
 `testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
 missing-image or cleanup error. These acquisition paths do not retry a failed pull.
@@ -110,6 +121,22 @@ platform manifests. This input addresses the observed
 Local commands retain the dependency's Ryuk default unless `RYUK_CONTAINER_IMAGE` is set explicitly.
 Other implicit helper inputs remain unchanged. The official-image contract covers the explicit
 inputs listed in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
+
+## Production smoke worker health observations
+
+The production smoke verifies that all five application workers become unhealthy after the
+migration checksum is changed, then become healthy after it is restored. It reads each container's
+effective healthcheck through [Docker's JSON template function](https://docs.docker.com/reference/cli/docker/inspect/#get-a-subsection-in-json-format).
+Docker's [healthcheck representation](https://github.com/moby/docker-image-spec/blob/main/specs-go/v1/image.go)
+uses integer nanoseconds for durations; template display can print `30s` instead.
+The smoke validates the active probe, positive interval/timeout/retries and safe probe-window
+arithmetic before polling the same container IDs. Its existing observation bound remains the
+largest worker probe window plus two polling attempts; the production health policy is unchanged.
+It reports success only after it reads the expected state from every worker in the current round.
+Failed lookups/inspect, incomplete configuration and invalid states stop the owning smoke with
+their primary diagnostics; disposable cleanup retains that failure. These paths do not retry an
+inspect failure. Local Bash process adapters cover these observations and errors in
+`scripts/production-worker-health.test.mjs`; actual CI smoke still proves the Docker boundary.
 
 SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
 If cleanup also fails, setup prints that failure and preserves the original exception.
