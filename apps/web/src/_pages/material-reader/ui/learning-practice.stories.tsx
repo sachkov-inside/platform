@@ -213,11 +213,10 @@ export const PublicLesson: Story = {
     await expect(slot?.getBoundingClientRect().height).toBe(44);
     await expect(
       canvas.queryByRole("region", { name: "Проверка практики" }),
-    ).not.toBeVisible();
+    ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "Открыть проверку практики",
-        exact: true,
+        name: /^Открыть проверку практики$/u,
       }),
     );
     await expect(

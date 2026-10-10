@@ -246,20 +246,27 @@ export const MobileActionPanels: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     for (const name of ["Действия материала", "Действия в конце материала"]) {
-      const panel = canvas.getByRole("navigation", { name, exact: true });
+      const panel = canvas.getByRole("navigation", { name });
       const actions = within(panel);
       await expect(
-        actions.getByRole("link", { name: "Открыть программу", exact: true }),
+        actions.getByRole("link", { name: /^Открыть программу$/u }),
       ).toHaveAttribute("href", programme);
       await expect(
-        actions.getByRole("button", { name: "В закладки", exact: true }),
+        actions.getByRole("button", { name: /^В закладки$/u }),
       ).toBeVisible();
       await expect(
         actions.getByRole("button", { name: "Изучено" }),
       ).toBeVisible();
       await expect(actions.getByText("Изучено", { exact: true })).toBeVisible();
       await expect(actions.queryByRole("link", { name: "Дальше" })).toBeNull();
-      await expect(actions.queryByRole("link", { name: "Назад" })).toBeNull();
+      if (name === "Действия материала")
+        await expect(
+          actions.getByText("Назад", { exact: true }),
+        ).not.toBeVisible();
+      else
+        await expect(
+          actions.queryByRole("link", { name: /^Назад$/u }),
+        ).not.toBeInTheDocument();
       await expect(panel.getBoundingClientRect().height).toBeLessThanOrEqual(
         54,
       );
@@ -278,10 +285,8 @@ export const MobileActionPanels: Story = {
     await expect(
       within(pager).getByText("2 / 3", { exact: true }),
     ).toBeVisible();
-    await expect(canvas.queryByText("Материал 2 из 3")).not.toBeVisible();
-    await expect(
-      canvas.queryByRole("link", { name: "Дальше", exact: true }),
-    ).toBeNull();
+    await expect(canvas.getByText("Материал 2 из 3")).not.toBeVisible();
+    await expect(canvas.getByText("Дальше", { exact: true })).not.toBeVisible();
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
     );

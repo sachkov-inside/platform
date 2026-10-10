@@ -778,6 +778,68 @@ export const ShortSeries: Story = {
 
 const progressResume = { ...resume, materialSlug: "series-material-2" };
 
+/** A failed recheck removes the personal action without moving the following lesson. */
+function ContinuationRecheckFailure() {
+  const [learning, setLearning] = useState<SeriesLearningView>({
+    kind: "ready",
+    read: 1,
+    total: 24,
+    continuation: progressResume,
+  });
+  return (
+    <>
+      <Button
+        onClick={() => {
+          setLearning({ kind: "unavailable" });
+        }}
+      >
+        Сбой повторного чтения продолжения
+      </Button>
+      <SeriesLearningProvider learning={learning}>
+        <ProductProgrammeView result={result} />
+      </SeriesLearningProvider>
+    </>
+  );
+}
+
+export const UnavailablePreservesExpandedRow: Story = {
+  render: () => <ContinuationRecheckFailure />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: /^Продолжить$/u }),
+    ).toBeVisible();
+    const following = canvasElement.querySelector<HTMLElement>(
+      '[data-route-material="series-material-3"]',
+    );
+    if (following === null) throw new Error("Missing following lesson");
+    await canvasElement.ownerDocument.fonts.ready;
+    const before = following.getBoundingClientRect().toJSON();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Сбой повторного чтения продолжения",
+      }),
+    );
+    await expect(
+      canvas.getByText(
+        "Прогресс сейчас не загрузился. Материалы можно читать.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("link", { name: /^Продолжить$/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector('[aria-current="step"]'),
+    ).toBeNull();
+    await expect(following.getBoundingClientRect().toJSON()).toEqual(before);
+  },
+};
+
+export const UnavailablePreservesExpandedRowMobile: Story = {
+  ...UnavailablePreservesExpandedRow,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 /** Ответ прогресса ждёт, пока проверка не измерит программу без него. */
 let deliverProgress: () => void = () => undefined;
 
@@ -1292,6 +1354,29 @@ export const PartSwitchClearsContinuationPosition: Story = {
     await expect(
       canvasElement.querySelector('[data-series-ordinal="1"]'),
     ).toBeVisible();
+  },
+};
+
+export const PartSwitchResetsDesktopScroll: Story = {
+  ...PartSwitchClearsContinuationPosition,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const content = canvasElement.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-series-ordinal="24"]',
+    );
+    if (content === null || last === null)
+      throw new Error("Missing application scroll container or final lesson");
+    last.scrollIntoView({ block: "end" });
+    await waitFor(() => expect(content.scrollTop).toBeGreaterThan(0));
+    await openPart(canvasElement, /^Материалы/u);
+    await openPart(canvasElement, /Программа/u);
+    await waitFor(() => expect(content.scrollTop).toBe(0));
+    await expect(
+      canvasElement.querySelectorAll("[data-series-ordinal]"),
+    ).toHaveLength(12);
   },
 };
 
