@@ -9,16 +9,9 @@ const workflow = readFileSync(
   "utf8",
 );
 
-test("acquisition entry cannot run on publication, another head, fork, PR or rerun", () => {
-  assert.match(
-    workflow,
-    /on:\n {2}pull_request:\n {4}types: \[labeled\]\n {4}branches: \[main\]/u,
-  );
-  assert.doesNotMatch(
-    workflow,
-    /workflow_dispatch:|pull_request_target:|^ {2}push:|^ {2}schedule:/mu,
-  );
-  const expression = workflow
+/** @param {string} source @param {string} labelPrefix @param {string} invalidLabel */
+function assertExactAdmission(source, labelPrefix, invalidLabel) {
+  const expression = source
     .match(/ {4}if: \|\n([\s\S]*?) {4}runs-on:/u)?.[1]
     ?.trim()
     .replace(/^\$\{\{|\}\}$/gu, "");
@@ -33,7 +26,7 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
     event: {
       action: "labeled",
       number: 1340,
-      label: { name: `1324-acq-${sha}` },
+      label: { name: `${labelPrefix}${sha}` },
       pull_request: {
         head: { sha, repo: { full_name: "sachkov-inside/platform" } },
         base: { ref: "main" },
@@ -64,7 +57,7 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
   ]) {
     const value = event();
     if (field === "action") value.event.action = "synchronize";
-    if (field === "label") value.event.label.name = "1324-acquisition";
+    if (field === "label") value.event.label.name = invalidLabel;
     if (field === "head") value.event.pull_request.head.sha = "b".repeat(40);
     if (field === "fork")
       value.event.pull_request.head.repo.full_name = "fork/platform";
@@ -74,6 +67,18 @@ test("acquisition entry cannot run on publication, another head, fork, PR or rer
     if (field === "base") value.event.pull_request.base.ref = "other";
     assert.equal(admitted(value), false, field);
   }
+}
+
+test("acquisition entry cannot run on publication, another head, fork, PR or rerun", () => {
+  assert.match(
+    workflow,
+    /on:\n {2}pull_request:\n {4}types: \[labeled\]\n {4}branches: \[main\]/u,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /workflow_dispatch:|pull_request_target:|^ {2}push:|^ {2}schedule:/mu,
+  );
+  assertExactAdmission(workflow, "1324-acq-", "1324-acquisition");
 });
 
 test("hosted delivery preserves exact guardian, owned native closure and artifacts", () => {
@@ -149,63 +154,9 @@ test("mixed-UID native preflight must succeed before guardian starts", () => {
 
 test("native-only proof needs its own exact-head grant and never invokes acquisition", () => {
   const native = workflow.slice(workflow.indexOf("  native-closure:"));
-  const expression = native
-    .match(/ {4}if: \|\n([\s\S]*?) {4}runs-on:/u)?.[1]
-    ?.trim()
-    .replace(/^\$\{\{|\}\}$/gu, "");
-  assert.ok(expression, "separate native-only route is required");
   const sha = "a".repeat(40);
-  const event = () => ({
-    event_name: "pull_request",
-    run_attempt: 1,
-    repository: "sachkov-inside/platform",
-    event: {
-      action: "labeled",
-      number: 1340,
-      label: { name: `1337-p2-${sha}` },
-      pull_request: {
-        head: { sha, repo: { full_name: "sachkov-inside/platform" } },
-        base: { ref: "main" },
-      },
-    },
-  });
-  const admitted = (/** @type {ReturnType<typeof event>} */ github) => {
-    /** @type {unknown} */
-    const result = runInNewContext(
-      expression,
-      {
-        github,
-        format: (/** @type {string} */ pattern, /** @type {string} */ value) =>
-          pattern.replace("{0}", value),
-      },
-      { timeout: 1000 },
-    );
-    return result;
-  };
-  assert.equal(admitted(event()), true);
-  for (const field of [
-    "action",
-    "label",
-    "head",
-    "fork",
-    "pr",
-    "attempt",
-    "event",
-    "base",
-  ]) {
-    const value = event();
-    if (field === "action") value.event.action = "synchronize";
-    if (field === "label") value.event.label.name = `1324-acq-${sha}`;
-    if (field === "head") value.event.pull_request.head.sha = "b".repeat(40);
-    if (field === "fork")
-      value.event.pull_request.head.repo.full_name = "fork/platform";
-    if (field === "pr") value.event.number = 1333;
-    if (field === "attempt") value.run_attempt = 2;
-    if (field === "event") value.event_name = "push";
-    if (field === "base") value.event.pull_request.base.ref = "other";
-    assert.equal(admitted(value), false, field);
-  }
-  assert.equal(event().event.label.name.length, 48);
+  assertExactAdmission(native, "1337-p2-", `1324-acq-${sha}`);
+  assert.equal(`1337-p2-${sha}`.length, 48);
   assert.match(
     native,
     /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u,

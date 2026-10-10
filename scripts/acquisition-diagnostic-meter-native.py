@@ -20,14 +20,6 @@ NATIVE_PROOF_SECONDS_MAXIMUM = 55
 NATIVE_POLL_SECONDS = 0.02
 
 
-def ready_json(path):
-    # File creation is not a committed JSON record; wait for the complete value.
-    try:
-        return json.loads(path.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-
-
 def wait_fact(read, deadline):
     while True:
         value = read()
@@ -68,7 +60,7 @@ def root_fixture(directory, child_only=False, normal_exit=None):
     child = None
     try:
         child = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--fixture-child', '--output', str(directory)])
-        child_identity = wait_fact(lambda: ready_json(directory / 'child-ready.json'), time.monotonic() + 1)
+        child_identity = wait_fact(lambda: meter.ready_json(directory / 'child-ready.json'), time.monotonic() + 1)
         client = meter.fingerprint(os.getpid())
         monitor = meter.fingerprint(os.getppid())
         assert all(row['uids'][0] == 0 and row['pgid'] == monitor['pid'] for row in (client, child_identity, monitor))
@@ -175,9 +167,9 @@ def client_case(output, client_name, action, evidence, whole_deadline):
     ready = None
     primary = None
     try:
-        launched = wait_fact(lambda: ready_json(directory / 'launched.json'), deadline)
-        ready = wait_fact(lambda: ready_json(directory / 'client-ready.json'), deadline)
-        record.update(launched=launched, fingerprints=ready, transport=ready_json(directory / 'transport.json'))
+        launched = wait_fact(lambda: meter.ready_json(directory / 'launched.json'), deadline)
+        ready = wait_fact(lambda: meter.ready_json(directory / 'client-ready.json'), deadline)
+        record.update(launched=launched, fingerprints=ready, transport=meter.ready_json(directory / 'transport.json'))
         if action == 'caller-sigkill':
             assert live(launched['caller'])
             caller.kill()
@@ -189,7 +181,7 @@ def client_case(output, client_name, action, evidence, whole_deadline):
             subprocess.run(kill, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1, start_new_session=True)
             record['sudoSigkillTarget'] = target
         record['callerExit'] = caller.wait(timeout=max(0.01, deadline - time.monotonic()))
-        record['transportExit'] = ready_json(directory / 'transport-exit.json')
+        record['transportExit'] = meter.ready_json(directory / 'transport-exit.json')
         if action == 'caller-sigkill':
             assert record['callerExit'] == -signal.SIGKILL
         elif action == 'sudo-sigkill':
@@ -297,7 +289,7 @@ def main():
                     break
                 assert time.monotonic() < deadline, 'fixture READY deadline'
                 time.sleep(0.02)
-            ready = wait_fact(lambda: ready_json(started), deadline)
+            ready = wait_fact(lambda: meter.ready_json(started), deadline)
             assert ready['leaf']['uids'][0] == 0 and ready['leaf']['pgid'] == ready['leaf']['pid']
             assert meter.same_process(caller_birth)
             os.kill(caller.pid, signal.SIGKILL)
@@ -306,7 +298,7 @@ def main():
             while not result.exists():
                 assert time.monotonic() < deadline, 'independent root cleaner deadline'
                 time.sleep(0.02)
-            receipt = wait_fact(lambda: ready_json(result), deadline)
+            receipt = wait_fact(lambda: meter.ready_json(result), deadline)
             while meter.same_process(receipt['helper']):
                 assert time.monotonic() < deadline
                 time.sleep(0.02)

@@ -18,6 +18,43 @@ spec.loader.exec_module(meter)
 
 
 class MeterContracts(unittest.TestCase):
+    def test_partial_result_waits_for_committed_receipt_without_a_process(self):
+        receipt = {'pending': 0, 'helper': {'pid': 424242}, 'fingerprints': [],
+                   'stopReason': 'command timeout', 'nativeExit': -signal.SIGKILL,
+                   'command': ['du', '-sk'], 'stdout': 'partial-out', 'stderr': 'partial-err'}
+        reads = []
+        def read(path, *args, **kwargs):
+            self.assertEqual(path.name, 'result.json')
+            reads.append(path)
+            return '{"pending":' if len(reads) == 1 else json.dumps(receipt)
+        def launch(directory, _request):
+            # A supplied producer publishes only the file first; no child is started.
+            (directory / 'result.json').touch()
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(meter, 'fingerprint', return_value={'pid': 424241}), \
+                patch.object(meter, 'same_process', return_value=False), \
+                patch.object(meter.Path, 'read_text', read), \
+                patch.object(meter.time, 'monotonic', return_value=1000), \
+                patch.object(meter.time, 'sleep'):
+            with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                meter.measure([], Path(directory), 3, 4096, launch=launch)
+        self.assertEqual(len(reads), 2)
+        self.assertEqual(raised.exception.meter_receipt, receipt)
+        self.assertFalse(raised.exception.meter_cleanup_pending)
+
+    def test_incomplete_receipt_keeps_original_deadline_without_a_process(self):
+        def launch(directory, _request):
+            (directory / 'result.json').touch()
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(meter, 'fingerprint', return_value={'pid': 424241}), \
+                patch.object(meter.Path, 'read_text', return_value='{"pending":'), \
+                patch.object(meter.time, 'monotonic', side_effect=[1000, 1001, 1003]), \
+                patch.object(meter.time, 'sleep'):
+            with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                meter.measure([], Path(directory), 3, 4096, launch=launch)
+        self.assertEqual(raised.exception.timeout, 3)
+        self.assertTrue(raised.exception.meter_cleanup_pending)
+
     def test_privileged_service_client_has_its_own_root_timeout(self):
         calls = []
         def run(command, **kwargs):

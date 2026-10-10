@@ -72,6 +72,14 @@ def save(directory, name, value, owner_uid):
         os.close(descriptor)
 
 
+def ready_json(path):
+    # File creation precedes JSON completion; callers retain their own deadline.
+    try:
+        return json.loads(path.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
 def worker(directory, request, command, expected_uid):
     """One private leaf; nonprivileged supplied commands are only a maintained test seam."""
     assert os.getuid() == expected_uid
@@ -207,14 +215,15 @@ def measure(paths, output, timeout, capacity, *, launch=launch_unit, fixture=Fal
     cleanup_proven = False
     try:
         launch(directory, request)
-        while not (directory / 'result.json').exists():
+        result = ready_json(directory / 'result.json')
+        while result is None:
             if cancelled() and control is not None:
                 os.close(control)
                 control = None
             if time.monotonic() >= request['deadlineMonotonic'] - 0.1:
                 raise subprocess.TimeoutExpired(['du', '-sk', *request['paths']], timeout)
             time.sleep(0.02)
-        result = json.loads((directory / 'result.json').read_text())
+            result = ready_json(directory / 'result.json')
         while same_process(result['helper']):
             assert time.monotonic() < request['deadlineMonotonic'], 'meter helper native exit unproven'
             time.sleep(0.02)
