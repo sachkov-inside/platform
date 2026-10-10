@@ -539,7 +539,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         seriesIds: [product.value.id],
       },
       body: representativeDocument("Original text"),
-    };
+    } satisfies Parameters<typeof materials.authoring.applySourceMaterial>[0];
     let applied = await materials.authoring.applySourceMaterial(command);
     if (!applied.ok) throw new Error(applied.error.code);
     expect(
