@@ -362,6 +362,10 @@ services:
   web:
     image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
     pull_policy: never
+    # Provisional local Web bounds; validate FULL-course peaks before accepting #1332.
+    mem_limit: 4g
+    memswap_limit: 6g
+    restart: unless-stopped
     command:
       [
         "pnpm",

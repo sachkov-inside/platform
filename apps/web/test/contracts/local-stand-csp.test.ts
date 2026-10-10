@@ -23,6 +23,9 @@ const standConfigSchema = z.object({
       image: z.string(),
       command: z.array(z.string()),
       environment: environmentSchema.default({}),
+      mem_limit: z.string().optional(),
+      memswap_limit: z.string().optional(),
+      restart: z.string().optional(),
     }),
     api: z.object({
       image: z.string(),
@@ -137,6 +140,27 @@ function localImageOrigins(value: string) {
 
 describe("local stand production build input", () => {
   afterEach(() => vi.resetModules());
+
+  it.each([
+    {
+      productionWeb: false,
+      memoryBytes: "4294967296",
+      memoryAndSwapBytes: "6442450944",
+    },
+    {
+      productionWeb: true,
+      memoryBytes: "1073741824",
+      memoryAndSwapBytes: "1073741824",
+    },
+  ])(
+    "bounds local Web memory and restarts unexpected exits (production=$productionWeb)",
+    async ({ productionWeb, memoryBytes, memoryAndSwapBytes }) => {
+      const services = await standInput(undefined, productionWeb);
+      expect(services.web.mem_limit).toBe(memoryBytes);
+      expect(services.web.memswap_limit).toBe(memoryAndSwapBytes);
+      expect(services.web.restart).toBe("unless-stopped");
+    },
+  );
 
   it.each([false, true])(
     "requires a Web build only for production (production=%s)",

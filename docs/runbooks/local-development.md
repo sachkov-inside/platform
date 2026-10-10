@@ -258,6 +258,25 @@ API providers remain in development mode; its explicit local image-identity inpu
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
 the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 
+Local Web has provisional memory bounds ([#1332](https://github.com/sachkov-inside/platform/issues/1332)):
+development allows 4 GiB of RAM and 6 GiB of RAM plus swap; production Web allows 1 GiB of RAM
+and 1 GiB of RAM plus swap, so it cannot use swap. `memswap_limit` is the combined total, not
+additional swap. These are container safety caps, not measured FULL-course budgets; actual
+production peaks and available VM headroom must confirm or correct them before runtime acceptance.
+The local production overlay inherits `restart: unless-stopped` from Web's base service.
+Docker restarts unexpected exits after successful startup; an explicit stop remains stopped.
+An unhealthy probe alone does not restart the container. These local settings do not change
+the release Web's existing 512 MiB deployment cap or other local services.
+
+Before applying these settings to an existing shared stand, its owner must announce the restart.
+Record the current Web `memory.current` and guest `MemAvailable`, then choose the runtime limits
+for the planned workload. Measure production Web's peak and VM headroom through startup and
+FULL-course review; require preserved identities/data, no OOM and no unexpected restart.
+The normal 20 GiB disk admission still applies. A runtime Web cap does not bound BuildKit memory
+or prove that the VM has enough memory for a build. See Docker's
+[memory contract](https://docs.docker.com/engine/containers/resource_constraints/) and
+[restart policy](https://docs.docker.com/engine/containers/start-containers-automatically/).
+
 The local production-web launcher reads the resolved API signed storage endpoint from
 the common learner Compose configuration, including Compose's `.env`/shell interpolation.
 It derives that URL's canonical origin and passes it through

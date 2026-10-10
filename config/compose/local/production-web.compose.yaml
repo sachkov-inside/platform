@@ -16,6 +16,9 @@ services:
       PLATFORM_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:?local:stand sets the exact source revision}
   web:
     image: ${COMPOSE_PROJECT_NAME:-inside-platform}-web-production:local
+    # Standalone Web does not compile routes at runtime; this cap still needs actual peak proof.
+    mem_limit: 1g
+    memswap_limit: 1g
     build:
       context: .
       dockerfile: apps/web/Dockerfile
