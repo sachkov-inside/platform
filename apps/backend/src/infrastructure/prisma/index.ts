@@ -46,6 +46,8 @@ export {
   lockMaterialReferenceChanges,
   lockMaterialSlugAllocation,
   lockPracticeImport,
+  lockTermDefinition,
+  lockTermSource,
   lockProductTaskImport,
   lockProductTaskSubmissions,
   lockNotification,

@@ -173,10 +173,19 @@ export async function previewRelease(
   const { manifest } = pkg;
   const shell = isProductShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
+  const transferManifest = termsForTransfer(manifest, publicationOfKey);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
   await validateProductPages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
+  /** @type {import('./local-boundaries.mjs').LocalRequest} */
+  const termRequest = async (path, body, key) =>
+    parseLocalResponse(path, await send(path, body, key));
+  const terms = await previewSourceTerms(
+    transferManifest,
+    journal,
+    termRequest,
+  );
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -527,6 +536,7 @@ export async function previewRelease(
     materials,
     products,
     ...(taskPreview.tasks.length ? { tasks: taskPreview.tasks } : {}),
+    ...(terms.length ? { terms } : {}),
     archiveProposals,
   };
   const preview = { ...plan, fingerprint: checksum(canonical(plan)) };
@@ -560,6 +570,18 @@ const previewSchema = z
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     products: z.array(z.json()),
     tasks: z.array(z.object({ change: z.string() }).passthrough()).optional(),
+    terms: z
+      .array(
+        z
+          .object({
+            termId: z.uuid(),
+            termVersion: z.number().int().positive().nullable(),
+            publicationState: z.enum(["draft", "published", "unpublished"]),
+            change: z.enum(["new", "changed", "unchanged"]),
+          })
+          .strict(),
+      )
+      .optional(),
     archiveProposals: z.array(z.string()),
     fingerprint: z.hash("sha256"),
   })
@@ -722,7 +744,7 @@ if (
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], terms: preview.terms ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z
@@ -734,7 +756,7 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [], terms: report.terms ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(
@@ -742,3 +764,4 @@ if (
     );
   }
 }
+import { termsForTransfer, previewSourceTerms } from "./term-import.mjs";

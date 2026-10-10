@@ -181,6 +181,20 @@ const practiceValidationSchema = z
   .object({ valid: z.literal(true), current: practiceReceiptSchema.nullable() })
   .strict();
 
+export const termReceiptSchema = z
+  .object({
+    termId: z.uuid(),
+    termVersion: version,
+    definitionDigest: hash,
+    publicationState: publicationStateSchema,
+    sourceId: text.nullable(),
+    sourceRevision: hash.nullable(),
+  })
+  .strict();
+const termValidationSchema = z
+  .object({ valid: z.literal(true), current: termReceiptSchema.nullable() })
+  .strict();
+
 export const taskReceiptSchema = z
   .object({
     taskId: z.uuid(),
@@ -200,6 +214,8 @@ const taskValidationSchema = z
   .strict();
 
 const localResponseSchemas = {
+  termReceipt: termReceiptSchema,
+  termValidation: termValidationSchema,
   practiceReceipt: practiceReceiptSchema,
   practiceValidation: practiceValidationSchema,
   taskReceipt: taskReceiptSchema,
@@ -235,6 +251,10 @@ const localResponseSchemas = {
  * @template {string} P
  * @typedef {P extends "/authoring/import/materials/environment"
  *   ? "environment"
+ *   : P extends "/authoring/import/terms/validate"
+ *   ? "termValidation"
+ *   : P extends "/authoring/import/terms/apply"
+ *   ? "termReceipt"
  *   : P extends "/authoring/import/practices/validate"
  *   ? "practiceValidation"
  *   : P extends "/authoring/import/practices/apply"
@@ -311,6 +331,10 @@ const localResponseSchemas = {
 export function localResponseKind(path) {
   path = canonicalAuthoringRequest({ path }).path;
   switch (path) {
+    case "/authoring/import/terms/validate":
+      return "termValidation";
+    case "/authoring/import/terms/apply":
+      return "termReceipt";
     case "/authoring/import/practices/validate":
       return "practiceValidation";
     case "/authoring/import/practices/apply":

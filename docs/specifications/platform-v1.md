@@ -253,6 +253,14 @@ production trade-off подтверждён evidence, а не заранее д�
 остаются валидными без миграции: `schemaVersion` остаётся 1, а отсутствующее название не пишется
 в документ. Названия видов принадлежат реестру, потому что их печатает и редактор, и читатель.
 
+Backend source #443 добавляет общий mark `term` с UUID определения, Markdown/package `terms-v1`,
+versioned import/save API и текущую публичную проекцию определения без тела подробного Material.
+[Контракт и тестовые заметки](../contracts/authoring-terms-v1/README.md) разделяют source checkpoint
+и доказанную поставку. Миграция 0089 не применена. Собственный Prisma codegen и focused backend TS/lint
+прошли; real PG/access/cache proofs ещё не выполнены. Reader/preview сохраняют UUID в DOM;
+source Storybook proof подготовлен, actual rendering/build ожидает отдельный слот.
+Editor open/save и интерактивные карточки Reader остаются в полном scope #443.
+
 Квиз `quiz` (#1283, #940) импортируется из Content `readerBlocks` v2 на месте вопроса.
 Если `readerBlocks` присутствуют, импорт не использует `markdown` для читательского тела.
 Полный Markdown сохраняется в пакете как снимок исходника. Новый авторский синтаксис не вводится.

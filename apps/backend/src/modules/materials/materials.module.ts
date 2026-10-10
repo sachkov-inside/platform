@@ -105,6 +105,12 @@ import {
   ],
   providers: [
     {
+      provide: PublishedTermReader,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new PublishedTermReader(prisma),
+    },
+    {
       provide: MATERIAL_AUTHORING,
       inject: [
         PrismaClientProvider,
@@ -317,6 +323,7 @@ import {
     },
   ],
   exports: [
+    PublishedTermReader,
     CONTENT_ACCESS,
     CONTENT_COVERS,
     MaterialAnnouncements,
@@ -330,3 +337,4 @@ import {
   ],
 })
 export class MaterialsModule {}
+import { PublishedTermReader } from "./features/read-published-term/read-published-term.js";
