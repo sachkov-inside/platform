@@ -122,6 +122,22 @@ Local commands retain the dependency's Ryuk default unless `RYUK_CONTAINER_IMAGE
 Other implicit helper inputs remain unchanged. The official-image contract covers the explicit
 inputs listed in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
 
+## Production smoke worker health observations
+
+The production smoke verifies that all five application workers become unhealthy after the
+migration checksum is changed, then become healthy after it is restored. It reads each container's
+effective healthcheck through [Docker's JSON template function](https://docs.docker.com/reference/cli/docker/inspect/#get-a-subsection-in-json-format).
+Docker's [healthcheck representation](https://github.com/moby/docker-image-spec/blob/main/specs-go/v1/image.go)
+uses integer nanoseconds for durations; template display can print `30s` instead.
+The smoke validates the active probe, positive interval/timeout/retries and safe probe-window
+arithmetic before polling the same container IDs. Its existing observation bound remains the
+largest worker probe window plus two polling attempts; the production health policy is unchanged.
+It reports success only after it reads the expected state from every worker in the current round.
+Failed lookups/inspect, incomplete configuration and invalid states stop the owning smoke with
+their primary diagnostics; disposable cleanup retains that failure. These paths do not retry an
+inspect failure. Local Bash process adapters cover these observations and errors in
+`scripts/production-worker-health.test.mjs`; actual CI smoke still proves the Docker boundary.
+
 SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
 If cleanup also fails, setup prints that failure and preserves the original exception.
 The historical SQL setup exit 125 in
