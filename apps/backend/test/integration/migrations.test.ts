@@ -65,6 +65,7 @@ const accountTables = [
   "billing_contact_commands",
   "billing_contacts",
   "legal_acceptances",
+  "login_email_intents",
 ] as const;
 
 const accountRightsTables = [
@@ -249,6 +250,7 @@ describe("Platform migrations", () => {
         "0084_owner_command_keys",
         "0085_community_projection_retries",
         "0086_product_cohort_price_after_start",
+        "0088_login_email_intents",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -926,6 +928,7 @@ describe("Platform migrations", () => {
           "0084_owner_command_keys",
           "0085_community_projection_retries",
           "0086_product_cohort_price_after_start",
+          "0088_login_email_intents",
         ],
       });
 

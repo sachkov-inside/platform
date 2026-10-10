@@ -108,7 +108,11 @@ prompt в пределах существующего retry budget; они не 
 - После явного owner GO настроить реальные credentials, webhook с
   `callback_query` и провести mobile/desktop credentialed journey.
 
-Mini App, биллинг и маркетинг в эту поставку не входят.
+В исходную поставку #299 Mini App, биллинг и маркетинг не входили. Расширение #461 использует
+тот же attempt journal, stable subject и reservation/finalization для Mini App. Его отдельный
+[wire protocol](../../../../docs/contracts/mini-app-sign-in-v1/protocol.md) владеет launch approval,
+OIDC binding, replay и receipt. Runtime-проверка расширения пока PENDING; новый Account issuer,
+session table и business permissions не вводятся.
 
 ## Проверка
 

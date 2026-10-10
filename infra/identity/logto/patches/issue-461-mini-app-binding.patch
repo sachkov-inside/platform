@@ -1,0 +1,92 @@
+--- a/packages/core/src/oidc/init.ts
++++ b/packages/core/src/oidc/init.ts
+@@ -24,6 +24,7 @@
+ 
+ import { EnvSet } from '#src/env-set/index.js';
+ import { addOidcEventListeners } from '#src/event-listeners/index.js';
++import { miniAppRequestParameter } from '#src/libraries/inside-mini-app-binding.js';
+ import { type LogtoConfigLibrary } from '#src/libraries/logto-config.js';
+ import koaAppSecretTranspilation from '#src/middleware/koa-app-secret-transpilation.js';
+ import koaAuditLog, { type WithLogContext } from '#src/middleware/koa-audit-log.js';
+@@ -391,7 +392,7 @@
+         return grant;
+       }
+     },
+-    extraParams: Object.values(ExtraParamsKey),
++    extraParams: [...Object.values(ExtraParamsKey), miniAppRequestParameter],
+     extraTokenClaims: async (ctx, token) => {
+       const authenticationContextClaims = getExtraTokenClaimsForAuthenticationContext(ctx, token);
+       const [tokenExchangeClaims, organizationApiResourceClaims, jwtCustomizedClaims] =
+--- a/packages/core/src/libraries/verification-helpers/social-verification.ts
++++ b/packages/core/src/libraries/verification-helpers/social-verification.ts
+@@ -12,6 +12,7 @@
+ import type { Provider } from 'oidc-provider';
+ import { z } from 'zod';
+ 
++import { miniAppBrowserBindingKey, miniAppConnectorScope } from '#src/libraries/inside-mini-app-binding.js';
+ import type { WithLogContext } from '#src/middleware/koa-audit-log.js';
+ import type TenantContext from '#src/tenants/TenantContext.js';
+ import assertThat from '#src/utils/assert-that.js';
+@@ -41,13 +42,13 @@
+     headers: { 'user-agent': userAgent },
+   } = ctx.request;
+ 
+-  const { jti } = await provider.interactionDetails(ctx.req, ctx.res);
++  const { jti, params, result } = await provider.interactionDetails(ctx.req, ctx.res);
+ 
+   return connector.getAuthorizationUri(
+     {
+       state,
+       redirectUri,
+-      scope,
++      scope: connector.metadata.id === 'inside-telegram' ? miniAppConnectorScope(params, result?.[miniAppBrowserBindingKey]) : scope,
+       /**
+        * For POST /authn/saml/:connectorId API, we need to block requests
+        * for non-SAML connector (relies on connectorFactoryId) and use `connectorId`
+@@ -94,7 +95,7 @@
+   }
+ 
+   const userInfo = await getUserInfo(connectorId, connectorData, async () =>
+-    getConnectorSessionResult(ctx, provider)
++    getConnectorSessionResult(ctx, provider, connector.metadata.id === 'inside-telegram')
+   );
+ 
+   log.append(userInfo);
+@@ -116,7 +117,8 @@
+ 
+ export const getConnectorSessionResult = async (
+   ctx: Context,
+-  provider: Provider
++  provider: Provider,
++  preserve = false
+ ): Promise<ConnectorSession> => {
+   const { result } = await provider.interactionDetails(ctx.req, ctx.res);
+ 
+@@ -128,10 +130,12 @@
+ 
+   assertThat(result && signInResult.success, 'session.connector_validation_session_not_found');
+ 
+-  const { connectorSession, ...rest } = result;
+-  await provider.interactionResult(ctx.req, ctx.res, {
+-    ...rest,
+-  });
++  if (!preserve) {
++    const { connectorSession, ...rest } = result;
++    await provider.interactionResult(ctx.req, ctx.res, {
++      ...rest,
++    });
++  }
+ 
+   return signInResult.data.connectorSession;
+ };
+--- a/packages/core/src/routes/experience/classes/verifications/social-verification.ts
++++ b/packages/core/src/routes/experience/classes/verifications/social-verification.ts
+@@ -461,7 +461,7 @@
+     return this.libraries.socials.getUserInfoWithOptionalTokenResponse(
+       connectorId,
+       connectorData,
+-      async () => getConnectorSessionResult(ctx, provider),
++      async () => getConnectorSessionResult(ctx, provider, connector.metadata.id === 'inside-telegram'),
+       ctx
+     );
+   }

@@ -24,6 +24,30 @@ model Account {
   @@schema("accounts")
 }
 
+
+model LoginEmailIntent {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  telegramSubjectRef String @map("telegram_subject_ref") @db.Uuid
+  commandRef String @map("command_ref") @db.Uuid
+  interactionRef String @unique(map: "login_email_intents_interaction_ref_key") @map("interaction_ref") @db.VarChar(128)
+  browserBindingDigest String @map("browser_binding_digest") @db.Char(64)
+  state String
+  candidateFingerprint String? @map("candidate_fingerprint") @db.VarChar(67)
+  verificationRef String? @map("verification_ref") @db.VarChar(128)
+  telegramRequestRef String? @map("telegram_request_ref") @db.Uuid
+  telegramApprovedAt DateTime? @map("telegram_approved_at") @db.Timestamptz
+  reservedAt DateTime? @map("reserved_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  @@unique([accountId, commandRef], map: "login_email_intents_command_unique")
+  @@index([accountId, state], map: "login_email_intents_account_state")
+  @@map("login_email_intents")
+  @@schema("accounts")
+}
+
 model AccountPermission {
   accountId  String   @map("account_id") @db.Uuid
   permission String

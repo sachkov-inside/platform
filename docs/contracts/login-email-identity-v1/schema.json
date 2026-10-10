@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:inside:login-email-identity:v1",
+  "definitions": {
+    "begin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "commandRef": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        }
+      },
+      "required": [
+        "commandRef"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.login-email-identity.v1"
+        },
+        "intentRef": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "ownerIdentity": {
+          "type": "object",
+          "properties": {
+            "issuer": {
+              "type": "string",
+              "pattern": "^https:\\/\\/"
+            },
+            "subject": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "issuer",
+            "subject"
+          ],
+          "additionalProperties": false
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        },
+        "verificationRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "contractVersion",
+        "intentRef",
+        "ownerIdentity",
+        "email",
+        "verificationRef"
+      ],
+      "additionalProperties": false
+    },
+    "reservation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.login-email-identity.v1"
+        },
+        "intentRef": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "ownerIdentity": {
+          "type": "object",
+          "properties": {
+            "issuer": {
+              "type": "string",
+              "pattern": "^https:\\/\\/"
+            },
+            "subject": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "issuer",
+            "subject"
+          ],
+          "additionalProperties": false
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 320,
+          "format": "email",
+          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+        },
+        "verificationRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "telegramProof": {
+          "type": "object",
+          "properties": {
+            "subjectRef": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+            },
+            "requestRef": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+            },
+            "approvedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          "required": [
+            "subjectRef",
+            "requestRef",
+            "approvedAt"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "intentRef",
+        "ownerIdentity",
+        "email",
+        "verificationRef",
+        "telegramProof"
+      ],
+      "additionalProperties": false
+    },
+    "finalization": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.login-email-identity.v1"
+        },
+        "intentRef": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+        },
+        "ownerIdentity": {
+          "type": "object",
+          "properties": {
+            "issuer": {
+              "type": "string",
+              "pattern": "^https:\\/\\/"
+            },
+            "subject": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "issuer",
+            "subject"
+          ],
+          "additionalProperties": false
+        },
+        "receipt": {
+          "type": "object",
+          "properties": {
+            "intentRef": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+            },
+            "state": {
+              "type": "string",
+              "const": "attached"
+            },
+            "email": {
+              "type": "string",
+              "maxLength": 320,
+              "format": "email",
+              "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            }
+          },
+          "required": [
+            "intentRef",
+            "state",
+            "email"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contractVersion",
+        "intentRef",
+        "ownerIdentity",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "contractVersion": {
+              "type": "string",
+              "const": "inside.login-email-identity.v1"
+            },
+            "intentRef": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "reserved",
+                "finalized",
+                "superseded",
+                "reconciliation_required"
+              ]
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            }
+          },
+          "required": [
+            "contractVersion",
+            "intentRef",
+            "status",
+            "expiresAt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "contractVersion": {
+              "type": "string",
+              "const": "inside.login-email-identity.v1"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "unavailable",
+                "identity_conflict",
+                "expired"
+              ]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

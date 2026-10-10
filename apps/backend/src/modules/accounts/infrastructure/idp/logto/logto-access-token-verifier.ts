@@ -83,12 +83,19 @@ export function createLogtoAccessTokenVerifier(
           .safeParse(verified.payload["inside_telegram_sign_in"]);
         if (config.telegramSignInEnabled !== true || !telegram.success)
           return invalidProof();
+        const emailClaim = verified.payload["inside_verified_email"];
+        const email =
+          emailClaim === undefined
+            ? undefined
+            : verifiedEmailSchema.safeParse(emailClaim);
+        if (email !== undefined && !email.success) return invalidProof();
         return {
           ok: true,
           ...verifiedTelegramAccountSignIn({
             issuer: verified.payload.iss,
             subject: verified.payload.sub,
             telegram: telegram.data,
+            ...(email?.success === true ? { verifiedEmail: email.data } : {}),
           }),
         };
       }

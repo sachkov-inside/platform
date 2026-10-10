@@ -1,0 +1,79 @@
+# Source preparation for #461. Launch requires the coordinator's separate bounded runtime slot.
+name: ${MINI_APP_PROOF_PROJECT:?Run scripts/mini-app-identity-proof.mjs prepare}
+
+services:
+  logto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${MINI_APP_PROOF_IMAGE:?Own image tag is required}
+    depends_on:
+      logto-postgres:
+        condition: service_healthy
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0 && npm start",
+      ]
+    environment:
+      ADMIN_ENDPOINT: https://identity.inside.localhost:${MINI_APP_PROOF_ADMIN_PORT:?}
+      ENDPOINT: https://identity.inside.localhost:${MINI_APP_PROOF_LOGTO_PORT:?}
+      DB_URL: postgres://logto:inside-461-synthetic@logto-postgres:5432/logto
+      HTTPS_CERT_PATH: /proof-tls/certificate.pem
+      HTTPS_KEY_PATH: /proof-tls/private-key.pem
+      TRUST_PROXY_HEADER: "0"
+    ports:
+      - "127.0.0.1:${MINI_APP_PROOF_LOGTO_PORT:?}:3001"
+      - "127.0.0.1:${MINI_APP_PROOF_ADMIN_PORT:?}:3002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${MINI_APP_PROOF_TLS_DIRECTORY:?Own TLS directory is required}:/proof-tls:ro
+
+  logto-postgres:
+    image: public.ecr.aws/docker/library/postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    environment:
+      POSTGRES_DB: logto
+      POSTGRES_PASSWORD: inside-461-synthetic
+      POSTGRES_USER: logto
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - logto-postgres-data:/var/lib/postgresql/data
+
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    environment:
+      POSTGRES_DB: inside461
+      POSTGRES_PASSWORD: inside461-synthetic
+      POSTGRES_USER: inside461
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inside461 -d inside461"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:${MINI_APP_PROOF_POSTGRES_PORT:?}:5432"
+    volumes:
+      - platform-postgres-data:/var/lib/postgresql/data
+      - ./proof-461-postgres.sql:/docker-entrypoint-initdb.d/461.sql:ro
+
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "100"
+    ports:
+      - "127.0.0.1:${MINI_APP_PROOF_SMTP_PORT:?}:1025"
+      - "127.0.0.1:${MINI_APP_PROOF_MAILPIT_PORT:?}:8025"
+    volumes:
+      - mailpit-data:/data
+
+volumes:
+  logto-postgres-data:
+  platform-postgres-data:
+  mailpit-data:

@@ -1,0 +1,7 @@
+{
+  "schemaId": "urn:inside:login-email-identity:v1",
+  "source": "apps/backend/src/modules/accounts/facets/login-email-identity/login-email-identity.contract.ts",
+  "issue": "https://github.com/sachkov-inside/platform/issues/461",
+  "fixtures": "synthetic-only",
+  "status": "draft-unconnected-runtime-pending"
+}

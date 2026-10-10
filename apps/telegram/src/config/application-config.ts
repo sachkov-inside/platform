@@ -106,6 +106,7 @@ export interface ApplicationConfig {
   /** Absent means `DEFAULT_SENDER_RATE`. */
   readonly senderRate?: SenderRate | undefined;
   readonly signInEnabled?: boolean | undefined;
+  readonly miniAppEnabled?: boolean | undefined;
   readonly signInIntegrationSecret?: string | undefined;
   /** Public website destination after Account linking; never carries the browser session. */
   readonly signInReturnUrl?: string | undefined;
@@ -152,6 +153,14 @@ export function loadApplicationConfig(
     throw new Error("TELEGRAM_SIGN_IN_ENABLED must be true or false");
   }
   const signInEnabled = signInFlag === "true";
+  const miniAppFlag = environment["TELEGRAM_MINI_APP_ENABLED"] ?? "false";
+  if (miniAppFlag !== "true" && miniAppFlag !== "false")
+    throw new Error("TELEGRAM_MINI_APP_ENABLED must be true or false");
+  const miniAppEnabled = miniAppFlag === "true";
+  if (miniAppEnabled && !signInEnabled)
+    throw new Error(
+      "TELEGRAM_MINI_APP_ENABLED requires TELEGRAM_SIGN_IN_ENABLED",
+    );
   const signInIntegrationSecret = signInEnabled
     ? required(environment, "TELEGRAM_SIGN_IN_INTEGRATION_SECRET")
     : (presentText(
@@ -201,6 +210,8 @@ export function loadApplicationConfig(
   assertExternalMode(evidenceDeliveryMode, "PLATFORM_EVIDENCE_DELIVERY_MODE");
 
   const botToken = environment["TELEGRAM_BOT_TOKEN"];
+  if (miniAppEnabled && !hasText(botToken))
+    throw new Error("TELEGRAM_MINI_APP_ENABLED requires TELEGRAM_BOT_TOKEN");
   if (
     (deliveryMode === "live" || membershipMode === "live") &&
     !hasText(botToken)
@@ -524,6 +535,7 @@ export function loadApplicationConfig(
     salesFunnel,
     salesFunnelEventRetentionDays,
     signInEnabled,
+    miniAppEnabled,
     ...(hasText(signInIntegrationSecret) ? { signInIntegrationSecret } : {}),
     ...(hasText(signInReturnUrl) ? { signInReturnUrl } : {}),
     webhookSecret,

@@ -1,3 +1,4 @@
+import { isLoginEmailReserved } from "../../infrastructure/postgres/login-email-intents.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockAccountRecords,
@@ -25,7 +26,11 @@ export async function establishAccount(
   command: { readonly identity: VerifiedAccountSignIn },
 ): Promise<EstablishAccountResult> {
   if (command.identity.telegram !== undefined) {
-    return establishTelegramAccount(prisma, command.identity);
+    return establishTelegramAccount(
+      prisma,
+      command.identity,
+      emailFingerprintKey,
+    );
   }
   const emailFingerprint = fingerprintEmail(
     command.identity.verifiedEmail,
@@ -54,6 +59,10 @@ export async function establishAccount(
         },
         select: { id: true, emailFingerprint: true },
       });
+
+      if (await isLoginEmailReserved(transaction, emailFingerprint)) {
+        return { ok: false, error: { code: "identity_conflict" } };
+      }
 
       if (existing !== null) {
         const accountId = parseAccountId(existing.id);

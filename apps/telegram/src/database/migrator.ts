@@ -1,4 +1,5 @@
 import { isTruthy } from "../shared/truthiness.js";
+import { miniAppSignInMigration } from "./migrations/031-mini-app-sign-in.js";
 import { invitationRedemptionsMigration } from "./migrations/030-invitation-redemptions.js";
 import { salesFunnelEventsMigration } from "./migrations/029-sales-funnel-events.js";
 import { communityWelcomeMigration } from "./migrations/028-community-welcome.js";
@@ -41,6 +42,7 @@ import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
   "030-invitation-redemptions": invitationRedemptionsMigration,
+  "031-mini-app-sign-in": miniAppSignInMigration,
   "029-sales-funnel-events": salesFunnelEventsMigration,
   "028-community-welcome": communityWelcomeMigration,
   "027-owner-link-activation": ownerLinkActivationMigration,

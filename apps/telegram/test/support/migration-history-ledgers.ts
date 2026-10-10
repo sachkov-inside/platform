@@ -1,0 +1,40 @@
+// Exact retained v5 ledger, independently fixed before Mini App migration031.
+// Its source bytes are guarded by telegram-delivery's frozen f91e564... identity contract.
+export const legacyMigrationNames = [
+  "001-ordinary-start",
+  "002-identity-linking",
+  "003-initial-membership-evidence",
+  "004-durable-membership-events",
+  "005-membership-reconciliation",
+  "006-platform-evidence-conformance",
+  "007-owner-identity-recovery",
+  "008-bot-sign-in",
+  "009-sign-in-reservation",
+  "010-communications-templates",
+  "010-sign-in-message-result",
+  "011-communication-funnels",
+  "012-marketing-preferences",
+  "013-broadcast-analytics",
+  "014-author-admin",
+  "015-author-drafts",
+  "016-notifications",
+  "017-community-entitlements",
+  "018-community-restrictions",
+  "019-subscription-activation",
+  "020-community-effect-provenance",
+  "021-community-restriction-audit",
+  "022-community-tribute-readmission",
+  "023-communication-dispatch-queue",
+  "024-membership-check-retention",
+  "025-update-lanes",
+  "026-known-ground-checks",
+  "027-owner-link-activation",
+  "028-community-welcome",
+  "029-sales-funnel-events",
+  "030-invitation-redemptions",
+] as const;
+
+export const currentMigrationNames = [
+  ...legacyMigrationNames,
+  "031-mini-app-sign-in",
+] as const;
