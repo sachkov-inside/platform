@@ -22,9 +22,6 @@ export function SubscriptionSaleConfirmationProof({
   readonly onConfirm: (tariff: Tariff) => void;
 }) {
   const [pending, setPending] = useState<Tariff | null>(null);
-  const [message, setMessage] = useState(
-    "Прототип предупреждения. Допуск и продажи не меняются.",
-  );
   const trigger = useRef<HTMLElement | null>(null);
 
   return (
@@ -49,12 +46,8 @@ export function SubscriptionSaleConfirmationProof({
                 <TariffsView
                   busy={false}
                   failure={null}
-                  message={message}
-                  onSaveEligibility={() => {
-                    setMessage(
-                      "Прототип не сохраняет допуск и не включает продажу.",
-                    );
-                  }}
+                  message=""
+                  onSaveEligibility={() => {}}
                   onToggleSale={(row) => {
                     setPending(row);
                   }}
@@ -70,9 +63,6 @@ export function SubscriptionSaleConfirmationProof({
                   }}
                   onConfirm={() => {
                     setPending(null);
-                    setMessage(
-                      "Подтверждение принято в прототипе. Продажа не включена.",
-                    );
                     onConfirm(pending);
                   }}
                   trigger={trigger.current}

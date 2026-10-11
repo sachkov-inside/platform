@@ -119,9 +119,7 @@ export const Interaction: Story = {
       expect(trigger).toHaveFocus();
     });
     await expect(args.onConfirm).toHaveBeenCalledExactlyOnceWith(args.tariff);
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Подтверждение принято в прототипе. Продажа не включена.",
-    );
+    await expect(canvas.getByRole("status")).toBeEmptyDOMElement();
     await expect(
       canvas.getByText("Не продаётся", { exact: true }),
     ).toBeVisible();
