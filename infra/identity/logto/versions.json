@@ -11,7 +11,7 @@
   "jose": "6.2.12",
   "postgres": {
     "version": "17.6-alpine",
-    "image": "postgres:17.6-alpine",
+    "image": "public.ecr.aws/docker/library/postgres:17.6-alpine",
     "digest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94"
   },
   "mailpit": {

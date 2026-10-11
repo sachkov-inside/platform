@@ -97,6 +97,7 @@ test("production access observes every live cell in one isolated scenario", asyn
     }
   >();
   const blocked: BlockedPassRequest[] = [];
+  let currentCellId: string | undefined;
 
   /** Факты разрешённых чтений ученика A: по ним проход ищет закрытые bytes у остальных. */
   const learnerA: {
@@ -201,7 +202,10 @@ test("production access observes every live cell in one isolated scenario", asyn
     if (known !== undefined) return known;
     if (failedSignIns.has(actor)) throw failedSignIns.get(actor);
     const context = await browser.newContext({ baseURL: productionTarget.web });
-    await guardPassContext(context, blocked);
+    await guardPassContext(context, blocked, {
+      identity: actor,
+      currentCellId: () => currentCellId,
+    });
     if (actor !== "anonymous") {
       const page = await context.newPage();
       try {
@@ -582,6 +586,7 @@ test("production access observes every live cell in one isolated scenario", asyn
     // Global teardown compares the observations and fails mismatches or missing evidence.
     for (const cell of liveCells) {
       await test.step(cell.id, async () => {
+        currentCellId = cell.id;
         try {
           const { observed, note } = await observeCell(cell.id, browser);
           recordObservation({
@@ -591,6 +596,8 @@ test("production access observes every live cell in one isolated scenario", asyn
           });
         } catch (error) {
           recordProblem(cell.id, error);
+        } finally {
+          currentCellId = undefined;
         }
       });
     }

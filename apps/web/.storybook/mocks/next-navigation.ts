@@ -1,4 +1,7 @@
 import { fn } from "storybook/test";
+import { ReadonlyURLSearchParams } from "next/dist/client/components/navigation.react-server";
+
+export { ReadonlyURLSearchParams };
 
 const router = {
   back: () => undefined,
@@ -18,6 +21,11 @@ export function useRouter() {
   return router;
 }
 
-export function useSearchParams(): URLSearchParams {
-  return new URLSearchParams();
+/** Story fixtures configure the external router before rendering production hooks. */
+export function getStoryRouter() {
+  return router;
 }
+
+export const useSearchParams = fn(
+  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),
+);

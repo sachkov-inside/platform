@@ -1,4 +1,5 @@
 // @ts-check
+import { z } from "zod";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
 import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
@@ -102,6 +103,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {PublishSelection} [publish]
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
  * @property {string[]} [reviewedTaskAccess] Explicit Task access from the reviewed release only.
+ * @property {string[]} [reviewedProductRemovals] Scoped Product removal choices from the reviewed release.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
@@ -599,6 +601,7 @@ export async function syncLocal(
     accessToken,
     reviewed = false,
     reviewedTaskAccess = [],
+    reviewedProductRemovals = [],
     reconcileOnly = false,
   } = {},
 ) {
@@ -622,6 +625,14 @@ export async function syncLocal(
     throw new Error("Explicit local access must be free or membership");
   if (!reviewed && reviewedTaskAccess.length > 0)
     throw new Error("Task access choices require a reviewed release preview");
+  if (!reviewed && reviewedProductRemovals.length > 0)
+    throw new Error(
+      "Product removal choices require a reviewed release preview",
+    );
+  const confirmedProductRemovals = z
+    .array(z.uuid())
+    .max(100)
+    .parse(reviewedProductRemovals);
   const original = await loadPackage(packagePath);
   const pkg = {
     ...original,
@@ -660,6 +671,37 @@ export async function syncLocal(
         throw new Error(
           `${task.sourceId}: material_to_task_migration requires a release decision`,
         );
+    /** @param {Record<string, unknown>} body */
+    async function applyComposition(body) {
+      const command = { path: "/authoring/import/products/composition", body };
+      const previous = Object.values(journal.operations).flatMap((entry) => {
+        if (!isJournalOperation(entry)) return [];
+        const parsed = z
+          .object({ path: z.string(), body: z.record(z.string(), z.unknown()) })
+          .passthrough()
+          .safeParse(entry.request);
+        if (!parsed.success) return [];
+        const request = canonicalAuthoringRequest(parsed.data);
+        return canonical({ path: request.path, body: request.body }) ===
+          canonical(command)
+          ? [{ entry, request: parsed.data }]
+          : [];
+      });
+      const latest = previous.at(-1);
+      // Order versions are state hashes: an earlier success cannot stand for a later return to that state.
+      const repeat =
+        latest?.entry.status === "applied" &&
+        parseLocalResponse(
+          "/authoring/import/products/composition",
+          latest.entry.result,
+        ).orderVersion !== body["expectedOrderVersion"];
+      const operation = repeat
+        ? { ...command, compositionAttempt: previous.length }
+        : (latest?.request ?? command);
+      return applyJournaled(context, operation, (operation, key) =>
+        request(operation.path, operation.body, key),
+      );
+    }
     const resources = (journal.resources ??= {});
     /** @type {SyncReport} */
     const report = {
@@ -770,6 +812,33 @@ export async function syncLocal(
         context,
         request,
         (key) => publicationOfKey(key) === "published",
+      );
+    }
+    // A lost composition response is retried with its exact original bytes and key.
+    for (const entry of Object.values(journal.operations)) {
+      if (!isJournalOperation(entry) || entry.status !== "pending") continue;
+      const operation = z
+        .object({
+          path: z.literal("/authoring/import/products/composition"),
+          body: z
+            .object({
+              confirmedProductRemovals: z.array(z.uuid()).optional(),
+            })
+            .passthrough(),
+        })
+        .passthrough()
+        .safeParse(entry.request);
+      if (!operation.success) continue;
+      if (
+        (operation.data.body.confirmedProductRemovals ?? []).some(
+          (id) => !confirmedProductRemovals.includes(id),
+        )
+      )
+        throw new Error(
+          "An interrupted composition requires its reviewed Product removal choices",
+        );
+      await applyJournaled(context, operation.data, (replayed, key) =>
+        request(replayed.path, replayed.body, key),
       );
     }
     // Only the writes this journal already started are completed; nothing new is sent.
@@ -1097,9 +1166,12 @@ export async function syncLocal(
           order,
         );
         // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
-        await request("/authoring/import/products/composition", {
+        await applyComposition({
           sourceId: sourceId(product.sourceId),
           seriesId: current.id,
+          ...(confirmedProductRemovals.includes(current.id)
+            ? { confirmedProductRemovals: [current.id] }
+            : {}),
           expectedOrderVersion: order.orderVersion,
           orderedMaterialIds: composition.orderedMaterialIds,
           chapters: composition.chapters,
@@ -1397,9 +1469,12 @@ export async function syncLocal(
           ...product.materialIds,
           ...product.supplementaryMaterialIds,
         ].map((id) => valueAt(currentMaterials, id).materialId);
-        await request("/authoring/import/products/composition", {
+        await applyComposition({
           sourceId: sourceId(product.sourceId),
           seriesId: current.id,
+          ...(confirmedProductRemovals.includes(current.id)
+            ? { confirmedProductRemovals: [current.id] }
+            : {}),
           expectedOrderVersion: order.orderVersion,
           orderedMaterialIds,
           chapters,

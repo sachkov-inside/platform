@@ -1,3 +1,4 @@
+import { WebTelemetryHttpModule } from "../../modules/web-telemetry/index.js";
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
@@ -75,6 +76,7 @@ export class ApiModule {
         RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
+        WebTelemetryHttpModule,
         BillingModule,
         ReadingActivityModule,
         BookmarksModule,

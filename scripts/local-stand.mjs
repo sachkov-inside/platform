@@ -8,6 +8,12 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
+import { statfsSync } from "node:fs";
+import { z } from "zod";
+import {
+  createStandBuildBudget,
+  dockerDesktopStoragePath,
+} from "./local-stand-budget.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
@@ -16,6 +22,7 @@ if (pnpmExecutable === undefined) {
   throw new Error("Run the local stand through the pinned pnpm CLI");
 }
 const pnpmPath = pnpmExecutable;
+const standDiskPollIntervalMilliseconds = 250;
 
 // Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
 // должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
@@ -33,21 +40,18 @@ const standPorts = {
 // кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
 // остаётся в режиме разработки с горячей перезагрузкой.
 const productionWeb = process.argv.slice(2).includes("--production-web");
-const composeFiles = productionWeb
-  ? [
-      "--file",
-      "compose.yaml",
-      "--file",
-      "config/compose/local/learner-setup.compose.yaml",
-      "--file",
-      "config/compose/local/production-web.compose.yaml",
-    ]
-  : [
-      "--file",
-      "compose.yaml",
-      "--file",
-      "config/compose/local/learner-setup.compose.yaml",
-    ];
+const learnerComposeFiles = [
+  "--file",
+  "compose.yaml",
+  "--file",
+  "config/compose/local/learner-setup.compose.yaml",
+];
+const composeFiles = [
+  ...learnerComposeFiles,
+  ...(productionWeb
+    ? ["--file", "config/compose/local/production-web.compose.yaml"]
+    : []),
+];
 // The stand is always the shared project, even when a shell still names the disposable smoke one.
 const environment = {
   ...process.env,
@@ -67,6 +71,8 @@ let interruptedSignal;
 let shutdownPromise;
 /** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
+/** @type {ReturnType<typeof createStandBuildBudget> | undefined} */
+let buildBudget;
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
@@ -77,10 +83,89 @@ try {
   // Предпосылки проверяются первыми: без Docker занятость стека не узнать, и отказ должен
   // объяснять причину, а не падать на первом же вызове.
   await runPnpm(["platform:doctor"]);
+  if (productionWeb) {
+    const status = await run(
+      "git",
+      ["status", "--porcelain", "--untracked-files=all"],
+      { capture: true },
+    );
+    if (status.output.trim().length > 0) {
+      throw new Error(
+        "Commit source changes before starting the production web stand so its release identity names the exact source revision.",
+      );
+    }
+    const revision = await run("git", ["rev-parse", "HEAD"], { capture: true });
+    Object.assign(environment, {
+      STAND_WEB_SOURCE_SHA: z.hash("sha1").parse(revision.output.trim()),
+    });
+    // Compose owns interpolation, including .env/shell precedence. Do not load private env_files.
+    const resolved = await run(
+      "docker",
+      [
+        "compose",
+        ...learnerComposeFiles,
+        "--profile",
+        "identity",
+        "config",
+        "--no-env-resolution",
+        "--format",
+        "json",
+      ],
+      { capture: true },
+    );
+    const storage = z
+      .object({
+        services: z.object({
+          api: z.object({
+            environment: z.object({
+              OBJECT_STORAGE_SIGNED_GET_ENDPOINT: z.url(),
+            }),
+          }),
+        }),
+      })
+      .parse(JSON.parse(resolved.output));
+    Object.assign(environment, {
+      STAND_WEB_OBJECT_STORAGE_ORIGIN: new URL(
+        storage.services.api.environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT,
+      ).origin,
+    });
+  }
   if (await isComposeRunning()) {
     throw new Error(
       "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff, or stop the stand with docker compose --profile identity down before pnpm local:stand.",
     );
+  }
+  const storage =
+    process.platform === "darwin"
+      ? dockerDesktopStoragePath(
+          (
+            await run(
+              "lsof",
+              ["-n", "-F", "n", "-c", "/com\\.dock/", "-c", "/Virtual/"],
+              {
+                capture: true,
+              },
+            )
+          ).output,
+        )
+      : (
+          await run("docker", ["info", "--format", "{{.DockerRootDir}}"], {
+            capture: true,
+          })
+        ).output.trim();
+  buildBudget = createStandBuildBudget(() => {
+    const disk = statfsSync(storage);
+    return disk.bavail * disk.bsize;
+  });
+  process.stdout.write(
+    `Local stand disk: ${(buildBudget.initialFreeBytes / 1024 ** 3).toFixed(2)} GiB available on Docker storage.\n`,
+  );
+  // BuildKit checks source inputs even on cache hits. API builds the development workspace for
+  // all backend roles and Web; only production Web needs its separate build and image.
+  for (const service of productionWeb
+    ? ["api", "web", "rabbitmq", "logto"]
+    : ["api", "rabbitmq", "logto"]) {
+    await compose(["build", service]);
   }
   await runPnpm(["identity:proof:certs"]);
   shouldCleanupCompose = true;
@@ -88,14 +173,14 @@ try {
   await compose([
     "up",
     "--detach",
-    "--build",
+    "--no-build",
     "--wait",
     "logto-postgres",
     "logto",
   ]);
   await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
   // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
-  await compose(["up", "--detach", "--build", "--wait"]);
+  await compose(["up", "--detach", "--no-build", "--wait"]);
   shouldCleanupCompose = false;
   process.stdout.write(
     [
@@ -111,6 +196,20 @@ try {
     ].join("\n"),
   );
 } catch (error) {
+  if (shouldCleanupCompose && interruptedSignal === undefined) {
+    // Compose's wait error omits failed job output; read it before shutdown removes containers.
+    try {
+      const diagnostics = await compose(
+        ["logs", "--no-color", "--tail", "80", "migrations", "seed"],
+        { capture: true, cleanup: true },
+      );
+      process.stderr.write(diagnostics.output);
+    } catch {
+      process.stderr.write(
+        "Startup job diagnostics unavailable; keeping the original failure.\n",
+      );
+    }
+  }
   await shutdown();
   if (interruptedSignal === undefined) {
     throw error;
@@ -186,24 +285,44 @@ async function run(
     cwd: repositoryRoot,
     env: { ...environment, ...extraEnvironment },
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
-    ...(cleanup ? { timeout: 60_000 } : {}),
+    ...(capture ? { timeout: 20_000 } : cleanup ? { timeout: 60_000 } : {}),
   });
   activeProcesses.add(child);
+  /** @type {unknown} */
+  let budgetFailure;
+  const budgetMonitor =
+    cleanup || buildBudget === undefined
+      ? undefined
+      : setInterval(() => {
+          try {
+            buildBudget?.assertAvailable();
+          } catch (error) {
+            budgetFailure = error;
+            void stopOwned(child);
+          }
+        }, standDiskPollIntervalMilliseconds);
   let output = "";
+  let diagnostic = "";
   if (capture) {
     child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
     child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
-      output += chunk.toString();
+      diagnostic += chunk.toString();
     });
   }
   try {
     const exitCode = await commandExit(child);
+    if (budgetFailure !== undefined) throw budgetFailure;
+    if (!cleanup) buildBudget?.assertAvailable();
     if (exitCode !== 0) {
-      throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
+      throw new Error(
+        `${label} failed${capture ? `:\n${diagnostic}${output}` : ""}`,
+      );
     }
+    if (capture && diagnostic.length > 0) process.stderr.write(diagnostic);
   } finally {
+    clearInterval(budgetMonitor);
     await stopOwned(child);
     activeProcesses.delete(child);
   }

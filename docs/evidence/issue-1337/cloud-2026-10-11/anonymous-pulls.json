@@ -1,0 +1,70 @@
+[
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+    "mode": "cold",
+    "elapsedSeconds": 10.370717575999947,
+    "exit": 0,
+    "id": "sha256:61963910b6396abf9d7cf63134cd7bbc35e6a67b3d996149b2c0fb136b6cec7e",
+    "architecture": "amd64",
+    "repoDigests": [
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef"
+    ]
+  },
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.2.4-management-alpine@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+    "mode": "cached",
+    "elapsedSeconds": 5.343799894999961,
+    "exit": 0,
+    "id": "sha256:61963910b6396abf9d7cf63134cd7bbc35e6a67b3d996149b2c0fb136b6cec7e",
+    "architecture": "amd64",
+    "repoDigests": [
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef"
+    ]
+  },
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47",
+    "mode": "cold",
+    "elapsedSeconds": 6.201849188999972,
+    "exit": 0,
+    "id": "sha256:4f1f93c6021137bcb533328b7a5447f8a17534498472fde8cc7a84aeaa333611",
+    "architecture": "amd64",
+    "repoDigests": [
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47"
+    ]
+  },
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47",
+    "mode": "cached",
+    "elapsedSeconds": 5.335521107999966,
+    "exit": 0,
+    "id": "sha256:4f1f93c6021137bcb533328b7a5447f8a17534498472fde8cc7a84aeaa333611",
+    "architecture": "amd64",
+    "repoDigests": [
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47"
+    ]
+  },
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.3-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+    "mode": "cold",
+    "elapsedSeconds": 6.413394831000005,
+    "exit": 0,
+    "id": "sha256:2214b2ab489a7df5bd3ad3361717375c32df86f1fe8cf465760733c27cd38759",
+    "architecture": "amd64",
+    "repoDigests": [
+      "rabbitmq@sha256:628bd74c1c7e2a820bf417b32e75eed1bd8d517345d9749ee8bd4076ae393abe",
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95"
+    ]
+  },
+  {
+    "image": "ghcr.io/sachkov-inside/rabbitmq:4.3-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+    "mode": "cached",
+    "elapsedSeconds": 5.672261257000059,
+    "exit": 0,
+    "id": "sha256:2214b2ab489a7df5bd3ad3361717375c32df86f1fe8cf465760733c27cd38759",
+    "architecture": "amd64",
+    "repoDigests": [
+      "rabbitmq@sha256:628bd74c1c7e2a820bf417b32e75eed1bd8d517345d9749ee8bd4076ae393abe",
+      "ghcr.io/sachkov-inside/rabbitmq@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95"
+    ]
+  }
+]

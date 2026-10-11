@@ -69,7 +69,7 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
@@ -112,6 +112,94 @@ describe("supported toolchain contract", () => {
         );
       }
     }
+  });
+
+  it("shares the complete cacheable dependency ancestry between backend and Web", () => {
+    const dependencyAncestry = (/** @type {string} */ dockerfile) =>
+      dockerfile
+        .split("FROM dependencies AS development")[0]
+        ?.replace(/\\\n\s*/gu, " ")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line !== "" && !line.startsWith("#"));
+    // Compare base, environment, user, workdir, every COPY and the install/cache-mount command.
+    // Matching pnpm text alone cannot reuse a snapshot with different inherited environment.
+    assert.deepEqual(
+      dependencyAncestry(read("apps/web/Dockerfile")),
+      dependencyAncestry(read("apps/backend/Dockerfile")),
+      "Both builds must submit the same dependency ancestry to BuildKit",
+    );
+    const stages = read("apps/web/Dockerfile").split(/^FROM /mu);
+    const development = stages.find((stage) =>
+      stage.startsWith("dependencies AS development\n"),
+    );
+    assert.ok(development);
+    assert.match(development, /^ENV NEXT_TELEMETRY_DISABLED=1$/mu);
+    for (const target of ["web", "storybook", "production-build"]) {
+      assert.ok(
+        stages.some((stage) => stage.startsWith(`development AS ${target}\n`)),
+      );
+    }
+    const production = stages.find((stage) =>
+      stage.includes(" AS web-production\n"),
+    );
+    assert.ok(production);
+    assert.match(production, /^ENV NODE_ENV=production \\$/mu);
+    // The standalone production target starts from a fresh base, as before this change.
+    assert.doesNotMatch(production, /NEXT_TELEMETRY_DISABLED/u);
+  });
+
+  it("runs development Web from the backend workspace without a second build", () => {
+    const localCompose = read("compose.yaml");
+    const web = localCompose.match(
+      /^ {2}web:\n(?<body>[\s\S]*?)(?=^ {2}\S|^volumes:)/mu,
+    )?.groups?.["body"];
+    assert.ok(web);
+    assert.match(
+      web,
+      /^ {4}image: \$\{COMPOSE_PROJECT_NAME:-inside-platform\}-backend-development:local$/mu,
+    );
+    assert.doesNotMatch(web, /^ {4}build:/mu);
+    assert.match(web, /^ {4}pull_policy: never$/mu);
+    const command = web.match(/command:\s*(\[[\s\S]*?\])/u)?.[1];
+    assert.ok(command);
+    assert.deepEqual(
+      z.array(z.string()).parse(JSON.parse(command.replace(/,\s*\]/u, "]"))),
+      [
+        "pnpm",
+        "--filter",
+        "@inside/web",
+        "dev",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ],
+    );
+    assert.match(
+      read("config/compose/local/web.env"),
+      /^NEXT_TELEMETRY_DISABLED=1$/mu,
+    );
+  });
+
+  it("builds production Web under a separate image and production command", () => {
+    const web = read("config/compose/local/production-web.compose.yaml").match(
+      /^ {2}web:\n(?<body>[\s\S]*)$/mu,
+    )?.groups?.["body"];
+    assert.ok(web);
+    assert.match(
+      web,
+      /^ {4}image: \$\{COMPOSE_PROJECT_NAME:-inside-platform\}-web-production:local$/mu,
+    );
+    assert.match(web, /^ {6}context: \.$/mu);
+    assert.match(web, /^ {6}dockerfile: apps\/web\/Dockerfile$/mu);
+    assert.match(web, /^ {6}target: web-production$/mu);
+    assert.match(web, /command: \["node", "apps\/web\/server\.js"\]/u);
+    assert.match(web, /INSIDE_SOURCE_SHA: \$\{STAND_WEB_SOURCE_SHA:\?/u);
+    assert.match(
+      web,
+      /CSP_LOCAL_OBJECT_STORAGE_ORIGIN: \$\{STAND_WEB_OBJECT_STORAGE_ORIGIN:\?/u,
+    );
   });
 
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
@@ -636,7 +724,7 @@ describe("supported toolchain contract", () => {
             " AS web-production",
           ),
         ),
-      /apps\/web\/Dockerfile: FROM node:/u,
+      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
     );
     const workspace = read("pnpm-workspace.yaml");
     assert.notDeepEqual(
@@ -657,13 +745,13 @@ describe("supported toolchain contract", () => {
           "apps/web/Dockerfile",
           dockerfile.replace(
             new RegExp(
-              `FROM node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
+              `FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
               "u",
             ),
-            "FROM node:22.0.0-$1 AS web-production",
+            "FROM public.ecr.aws/docker/library/node:22.0.0-$1 AS web-production",
           ),
         ),
-      /apps\/web\/Dockerfile: FROM node:/u,
+      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
     );
   });
 
@@ -675,7 +763,10 @@ describe("supported toolchain contract", () => {
     assert.ok(
       localImageLines.every((line) => {
         const image = line.trim();
-        return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
+        return (
+          /:[A-Za-z0-9][^\s@]*(?:@sha256:[a-f0-9]{64})?$/u.test(image) &&
+          !/:latest$/u.test(image)
+        );
       }),
     );
     assert.match(
@@ -760,9 +851,10 @@ describe("supported toolchain contract", () => {
       composeImage,
       "compose.yaml must declare the object-storage image",
     );
-    assert.ok(
-      composeImage.includes("@sha256:"),
-      "object-storage image must be pinned by digest",
+    assert.equal(
+      composeImage,
+      "ghcr.io/rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "object-storage must use the official GHCR source with the unchanged RustFS digest",
     );
     assert.ok(
       read(
@@ -969,7 +1061,9 @@ const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
  * @param {string} dockerfile
  */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
-  const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
+  const nodeBases =
+    dockerfile.match(/^FROM public\.ecr\.aws\/docker\/library\/node:\S+/gmu) ??
+    [];
   assert.ok(
     nodeBases.length > 1,
     `${path} must build its production stage from Node`,
@@ -978,7 +1072,7 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
     assert.match(
       base,
       new RegExp(
-        `^FROM node:${escapeRegExp(nodeVersion)}-[^\\s@]+@sha256:[a-f0-9]{64}$`,
+        `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-[^\\s@]+@sha256:[a-f0-9]{64}$`,
         "u",
       ),
       `${path}: ${base}`,

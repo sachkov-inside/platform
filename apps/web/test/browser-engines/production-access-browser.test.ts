@@ -47,7 +47,10 @@ it("reports a blocked outside-host navigation as not_checked, never denied", asy
       baseURL: "https://outside.example.test",
     });
     const blocked: BlockedPassRequest[] = [];
-    await guardPassContext(context, blocked);
+    await guardPassContext(context, blocked, {
+      identity: "anonymous",
+      currentCellId: () => cell.id,
+    });
     let problem: string | undefined;
     try {
       await observeBodyPage(context, "closed", snippet);
@@ -57,6 +60,8 @@ it("reports a blocked outside-host navigation as not_checked, never denied", asy
     expect(problem).toContain("ERR_BLOCKED_BY_CLIENT");
     expect(blocked).toEqual([
       {
+        identity: "anonymous",
+        cellId: cell.id,
         method: "GET",
         target: "https://outside.example.test/materials/closed",
         reason:
@@ -146,7 +151,10 @@ it("does not count an outside-host redirect response as anonymous denial", async
         baseURL: "https://sachkov.dev",
       });
       const blocked: BlockedPassRequest[] = [];
-      await guardPassContext(context, blocked);
+      await guardPassContext(context, blocked, {
+        identity: "anonymous",
+        currentCellId: () => cell.id,
+      });
       // Playwright does not intercept the redirect step; the owned responder supplies its final response.
       await context.route("https://sachkov.dev/**", (route) =>
         route.fulfill({ status: 302, headers: { location: target } }),
@@ -160,6 +168,8 @@ it("does not count an outside-host redirect response as anonymous denial", async
       expect(problem).toContain("only HTTPS is allowed");
       expect(blocked).toEqual([
         {
+          identity: "anonymous",
+          cellId: cell.id,
           method: "GET",
           target,
           reason: "redirect step: only HTTPS is allowed",
@@ -192,3 +202,115 @@ it("does not count an outside-host redirect response as anonymous denial", async
     );
   }
 }, 30_000);
+
+it.each(["learner-product-a", "no-entitlement"] as const)(
+  "only the allowed identity gets an asset storage redirect: %s",
+  async (identity) => {
+    // The owned proxy terminates any storage connection locally; this contract never contacts production.
+    const proxy = createServer((_request, response) => {
+      response.writeHead(502);
+      response.end();
+    });
+    proxy.on("connect", (_request, socket) => {
+      socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+    });
+    try {
+      await new Promise<void>((resolve) =>
+        proxy.listen(0, "127.0.0.1", resolve),
+      );
+      const address = proxy.address();
+      if (address === null || typeof address === "string")
+        throw new Error("Missing storage fixture proxy");
+      const browser = await chromium.launch({
+        proxy: { server: `http://127.0.0.1:${String(address.port)}` },
+      });
+      try {
+        const context = await browser.newContext({
+          baseURL: "https://sachkov.dev",
+        });
+        const state =
+          identity === "no-entitlement"
+            ? "account-without-entitlement"
+            : identity;
+        const cellId = `${state}/read-product-a/assets@browser`;
+        let currentCellId = cellId;
+        const blocked: BlockedPassRequest[] = [];
+        await guardPassContext(context, blocked, {
+          identity,
+          currentCellId: () => currentCellId,
+        });
+        const storage =
+          "https://inside-production-protected.storage.yandexcloud.net/materials/m/assets/a/image-960.webp";
+        const storageRequests: { method: string; source: string | null }[] = [];
+        context.on("request", (request) => {
+          if (request.url() === storage)
+            storageRequests.push({
+              method: request.method(),
+              source: request.redirectedFrom()?.url() ?? null,
+            });
+        });
+        await context.route("https://sachkov.dev/api/materials/**", (route) =>
+          route.fulfill(
+            identity === "learner-product-a"
+              ? { status: 302, headers: { location: storage } }
+              : { status: 404, body: "Asset not found" },
+          ),
+        );
+        const page = await context.newPage();
+        const navigation = page.goto(
+          "/api/materials/m/assets/a/images/960?contentVersion=1",
+        );
+        if (identity === "learner-product-a") {
+          // The request failure ends on the local proxy, after Chromium has emitted the actual redirect step.
+          await expect(navigation).rejects.toThrow();
+          expect(storageRequests).toEqual([
+            {
+              method: "GET",
+              source:
+                "https://sachkov.dev/api/materials/m/assets/a/images/960?contentVersion=1",
+            },
+          ]);
+        } else {
+          expect((await navigation)?.status()).toBe(404);
+          expect(storageRequests).toEqual([]);
+        }
+        expect(blocked).toEqual([]);
+        // Close the failed navigation before starting the independent write probe.
+        await page.close();
+        const writePage = await context.newPage();
+        // A later step cannot relabel a request from a page created by the asset cell.
+        currentCellId = `${state}/read-product-a/body@browser`;
+        await writePage.evaluate(async (url) => {
+          try {
+            await fetch(url, { method: "POST", mode: "no-cors" });
+          } catch {
+            /* guard rejects the request */
+          }
+        }, storage);
+        expect(blocked).toEqual([
+          {
+            identity,
+            cellId,
+            method: "POST",
+            target: storage,
+            reason:
+              "protected storage only allows a bodyless GET asset redirect",
+          },
+        ]);
+        await writePage.close();
+        expect(context.pages()).toHaveLength(0);
+      } finally {
+        await browser.close();
+      }
+    } finally {
+      proxy.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        proxy.close((error) => {
+          if (error === undefined) resolve();
+          else reject(error);
+        }),
+      );
+    }
+  },
+  30_000,
+);

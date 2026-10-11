@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { registeredLogSecrets } from "./logto";
 import {
+  passIdentities,
   evaluatePass,
   renderPassMarkdown,
   type BlockedPassRequest,
@@ -33,6 +34,8 @@ const observationSchema = z.object({
 });
 const blockedSchema = z.array(
   z.object({
+    identity: z.enum([...passIdentities, "anonymous"]),
+    cellId: z.string().optional(),
     method: z.string(),
     target: z.string(),
     reason: z.string(),
@@ -131,18 +134,22 @@ function readDirectory<T>(directory: string, parse: (text: string) => T): T[] {
   );
 }
 
-function readBlockedRequests(): BlockedPassRequest[] {
+export function readBlockedRequests(
+  directory: string = blockedDirectory,
+): BlockedPassRequest[] {
   const unique = new Map<string, BlockedPassRequest>();
-  for (const requests of readDirectory(blockedDirectory, (text) =>
+  for (const requests of readDirectory(directory, (text) =>
     blockedSchema.parse(JSON.parse(text)),
   ))
     for (const request of requests)
       unique.set(
-        `${request.method} ${request.target} ${String(request.sent)}`,
+        `${request.identity} ${request.cellId ?? ""} ${request.method} ${request.target} ${String(request.sent)}`,
         request,
       );
   return [...unique.values()].sort((a, b) =>
-    `${a.target} ${a.method}`.localeCompare(`${b.target} ${b.method}`),
+    `${a.identity} ${a.cellId ?? ""} ${a.target} ${a.method}`.localeCompare(
+      `${b.identity} ${b.cellId ?? ""} ${b.target} ${b.method}`,
+    ),
   );
 }
 

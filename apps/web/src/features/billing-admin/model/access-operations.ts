@@ -259,6 +259,20 @@ export interface TariffRow {
   readonly options: readonly TariffOption[];
 }
 /**
+ * Подтверждение включения продажи подписки определяется сохранённым допуском и действующими
+ * вариантами оплаты, не выбором в форме. Снятие с продажи подтверждения не требует.
+ */
+export function requiresSubscriptionSaleConfirmation(
+  row: TariffRow,
+  published: boolean,
+): boolean {
+  return (
+    published &&
+    (row.offer.eligibility ?? "everyone") === "everyone" &&
+    row.options.some((option) => option.mode === "subscription")
+  );
+}
+/**
  * Каталог владельца приходит снимками вариантов оплаты: Offer повторяется в каждом. Тарифы
  * показывают действующие Offer по одному с их действующими вариантами.
  */

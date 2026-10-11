@@ -1,7 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Suspense, use, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import {
+  TaskSubmissionsLoading,
+  TaskSubmissionsRuntime,
+  TaskSubmissionsState,
+  TaskSubmissionsView,
+} from "@/_pages/task-submissions";
+import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import { withMutationFetch } from "@/storybook/mutation-mock";
+import { Button } from "@/shared/ui/button";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -11,27 +20,43 @@ import {
   submissionsProductId,
   submissionsSecondChapter,
 } from "@/storybook/task-submissions.fixtures";
-
-import { TaskSubmissionsState } from "./task-submissions-states";
-import { TaskSubmissionsView } from "./task-submissions-view";
+import {
+  boxOf,
+  desktop,
+  mobile,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  type StagedLoading,
+  type StoryViewport,
+} from "@/storybook/loads-in-place";
 
 const environment = authoringPageEnvironment("/authoring/submissions");
-
+const presentation = presentTaskSubmissions({
+  submissions: reviewedSubmissions,
+  selection: {},
+  continued: false,
+});
 const meta = {
   ...environment,
   title: "Pages/Authoring/Task submissions",
   component: TaskSubmissionsView,
-  args: {
-    continued: false,
-    selection: {},
-    submissions: reviewedSubmissions,
-  },
+  decorators: [
+    (Story) => (
+      <TaskSubmissionsRuntime>
+        <Story />
+      </TaskSubmissionsRuntime>
+    ),
+    ...environment.decorators,
+  ],
+  args: { presentation },
   parameters: {
     ...environment.parameters,
     docs: {
       description: {
         component:
-          "Раздел «Сдачи» автора (#948): сдачи заданий новыми сверху, фильтр по продукту, главе и заданию, отчёт агента ученика как текст и отзыв автора — комментарий и «посмотрел автор». Временный семантический вид до #967.",
+          "Окончательный раздел «Сдачи» (#967), принятый вариант A: очередь слева и один полный отчёт справа; на телефоне последовательно. Общий production-модуль, штатная mutation отзыва и синтетические fixture-данные.",
       },
     },
   },
@@ -39,111 +64,106 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Три сдачи двух глав: отчёт агента, сдача формой с отзывом автора и сдача по прежней версии. */
 export const Submissions: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
       page.getByRole("heading", { level: 1, name: "Сдачи" }),
-    ).toBeInTheDocument();
-    const list = page.getByRole("list", { name: "Сдачи, новые сверху" });
-    const cards = within(list).getAllByRole("listitem", {
-      name: /Онбординг команды|Заявки клиентов/u,
-    });
-    await expect(cards).toHaveLength(3);
-    const newest = within(cards[0] ?? list);
-    await expect(newest.getByText("Через агента")).toBeInTheDocument();
+    ).toBeVisible();
+    const queue = within(page.getByRole("region", { name: "Очередь сдач" }));
+    await expect(queue.getAllByRole("button")).toHaveLength(3);
+    await expect(page.getAllByRole("article")).toHaveLength(1);
+    await expect(page.getByText("telegram:synthetic-01")).toBeVisible();
     await expect(
-      newest.getByText("10000000-0000-4000-8000-000000000001"),
-    ).toBeInTheDocument();
-    await expect(newest.getByText("telegram:synthetic-01")).toBeInTheDocument();
-    await expect(
-      newest.getByRole("link", {
-        name: "https://github.com/learner/devportal",
-      }),
+      page.getByRole("link", { name: "https://github.com/learner/devportal" }),
     ).toHaveAttribute("rel", "noopener noreferrer nofollow");
     await expect(
-      newest.getByText(/commit 4f2a9c1, есть незакоммиченные изменения/u),
-    ).toBeInTheDocument();
-    const oldest = within(cards[2] ?? list);
+      page.getByText(/commit 4f2a9c1, есть незакоммиченные изменения/u),
+    ).toBeVisible();
+    await userEvent.click(queue.getAllByRole("button")[2] ?? canvasElement);
     await expect(
-      oldest.getByText("Версия требований 1 (сейчас 2)"),
-    ).toBeInTheDocument();
-    await expect(oldest.getByText("Без заметки")).toBeInTheDocument();
-    const form = within(cards[1] ?? list);
-    await expect(form.getByText("Через форму")).toBeInTheDocument();
-    await expect(form.getByText("Telegram не привязан")).toBeInTheDocument();
+      page.getByText("Версия требований 1 (сейчас 2)"),
+    ).toBeVisible();
+    await expect(page.getByText("Без заметки")).toBeVisible();
+    await userEvent.click(page.getByText("Критерии версии 1"));
     await expect(
-      form.getByRole("checkbox", { name: "Посмотрел автор" }),
-    ).toBeChecked();
-    await expect(
-      form.getByRole("textbox", { name: /Комментарий для ученика/u }),
-    ).toHaveValue("Хорошо: повтор проверен. Добавь владельца заявки.");
+      page.queryByText("Второй агент проверяет выдачу."),
+    ).not.toBeInTheDocument();
   },
 };
 
-/** Отчёт агента — недоверенный текст: разметка из отчёта видна как текст и не исполняется. */
+export const SelectionKeepsDrafts: Story = {
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const queue = within(page.getByRole("region", { name: "Очередь сдач" }));
+    const choices = queue.getAllByRole("button");
+    await userEvent.type(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+      "Черновик для онбординга",
+    );
+    await userEvent.click(choices[1] ?? canvasElement);
+    await expect(
+      page.getByText(
+        "Проверил сам: заявка создаётся, повтор не создаёт вторую.",
+      ),
+    ).toBeVisible();
+    const second = page.getByRole("textbox", {
+      name: /Комментарий для ученика/u,
+    });
+    await userEvent.clear(second);
+    await userEvent.type(second, "Черновик для заявок");
+    await userEvent.click(choices[0] ?? canvasElement);
+    await expect(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+    ).toHaveValue("Черновик для онбординга");
+    await userEvent.click(choices[1] ?? canvasElement);
+    await expect(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+    ).toHaveValue("Черновик для заявок");
+  },
+};
+
 export const ReportIsText: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    const card = within(
-      page.getAllByRole("listitem", { name: "Онбординг команды" })[0] ??
-        canvasElement,
-    );
-    await userEvent.click(card.getByText("Отчёт агента ученика"));
     await expect(
-      card.getByText("Это отчёт агента ученика, не проверка Platform."),
-    ).toBeVisible();
-    await expect(
-      card.getByText(/<img src=x onerror="alert\(1\)"> Роль читается/u),
+      page.getByText(/<img src=x onerror="alert\(1\)"> Роль читается/u),
     ).toBeVisible();
     await expect(canvasElement.querySelector("img[src='x']")).toBeNull();
-    await expect(card.getByText("Нарушение")).toBeVisible();
+    await expect(page.getByText("Нарушение")).toBeVisible();
     await expect(
-      card.getByText("Обязательно · получено запуском"),
+      page.getByText("Обязательно · получено запуском"),
     ).toBeVisible();
-    await userEvent.click(card.getByText("Критерии версии 2"));
-    // The report names the criterion by its requirement; the version list shows it again.
-    const listed = card.getAllByText("Второй агент проверяет выдачу.");
-    await expect(listed).toHaveLength(2);
-    await expect(listed[1]).toBeVisible();
+    await userEvent.click(page.getByText("Критерии версии 2"));
+    await expect(
+      page.getAllByText("Второй агент проверяет выдачу."),
+    ).toHaveLength(2);
   },
 };
 
-const saveSpy = fn((input: RequestInfo | URL, _init?: RequestInit) =>
+const savedFeedback = {
+  comment: "Проверку роли перенеси на сервер.",
+  reviewedAt: "2026-10-05T17:00:00.000Z",
+  updatedAt: "2026-10-05T17:00:00.000Z",
+};
+const saveSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   Promise.resolve(
-    (input instanceof Request ? input.url : input.toString()).endsWith(
-      "/api/authoring/product-tasks/feedback",
-    )
-      ? Response.json({
-          kind: "saved",
-          authorFeedback: {
-            comment: "Проверку роли перенеси на сервер.",
-            reviewedAt: "2026-10-05T17:00:00.000Z",
-            updatedAt: "2026-10-05T17:00:00.000Z",
-          },
-        })
-      : new Response(null, { status: 404 }),
+    Response.json({ kind: "saved", authorFeedback: savedFeedback }),
   ),
 );
 
-/** Автор отмечает сдачу и пишет комментарий; сохранённый ответ заменяет состояние формы. */
 export const FeedbackSaves: Story = {
   decorators: [withMutationFetch(saveSpy)],
   play: async ({ canvasElement }) => {
     saveSpy.mockClear();
     const page = routeContent(canvasElement);
-    const card = within(
-      page.getAllByRole("listitem", { name: "Онбординг команды" })[0] ??
-        canvasElement,
-    );
-    const save = card.getByRole("button", { name: "Сохранить отзыв" });
+    const save = page.getByRole("button", { name: "Сохранить отзыв" });
     await expect(save).toBeDisabled();
     await userEvent.click(
-      card.getByRole("checkbox", { name: "Посмотрел автор" }),
+      page.getByRole("checkbox", { name: "Посмотрел автор" }),
     );
     await userEvent.type(
-      card.getByRole("textbox", { name: /Комментарий для ученика/u }),
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
       "Проверку роли перенеси на сервер.",
     );
     await userEvent.click(save);
@@ -158,26 +178,85 @@ export const FeedbackSaves: Story = {
       reviewed: "true",
     });
     await expect(
-      await card.findByText(
+      await page.findByText(
         "Сохранено. Ученик увидит отзыв на странице задания.",
       ),
     ).toBeVisible();
+    await expect(save).toBeDisabled();
+    await expect(
+      within(page.getByRole("region", { name: "Очередь сдач" })).getAllByRole(
+        "button",
+      )[0],
+    ).toHaveTextContent("Посмотрел автор");
   },
 };
 
-/** Фильтр по главе: выбраны продукт и глава, задания в списке — только этой главы. */
+export const FeedbackSaveFails: Story = {
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "unavailable" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.type(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+      "Не потеряй этот отзыв",
+    );
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить отзыв" }),
+    );
+    await expect(await page.findByRole("alert")).toHaveTextContent(
+      "Не удалось сохранить",
+    );
+    await expect(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+    ).toHaveValue("Не потеряй этот отзыв");
+    await expect(
+      page.getByRole("button", { name: "Сохранить отзыв" }),
+    ).toBeEnabled();
+  },
+};
+
+export const ExpiredSession: Story = {
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(new Response(null, { status: 401 })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.type(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+      "Черновик при истёкшей сессии",
+    );
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить отзыв" }),
+    );
+    await expect(await page.findByRole("alert")).toHaveTextContent(
+      "Сессия закончилась",
+    );
+    await expect(
+      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+    ).toHaveValue("Черновик при истёкшей сессии");
+  },
+};
+
 export const FilteredByChapter: Story = {
   args: {
-    selection: {
-      productId: submissionsProductId,
-      chapterId: submissionsSecondChapter,
-    },
-    submissions: {
-      ...reviewedSubmissions,
-      submissions: reviewedSubmissions.submissions.filter(
-        (item) => item.task.chapterId === submissionsSecondChapter,
-      ),
-    },
+    presentation: presentTaskSubmissions({
+      continued: false,
+      selection: {
+        productId: submissionsProductId,
+        chapterId: submissionsSecondChapter,
+      },
+      submissions: {
+        ...reviewedSubmissions,
+        submissions: reviewedSubmissions.submissions.filter(
+          (item) => item.task.chapterId === submissionsSecondChapter,
+        ),
+      },
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
@@ -190,17 +269,24 @@ export const FilteredByChapter: Story = {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual(["Все задания", "Заявки клиентов"]);
-    await expect(
-      page.getAllByRole("listitem", { name: /Заявки клиентов/u }),
-    ).toHaveLength(1);
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Продукт" }),
+      "",
+    );
+    await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue("");
+    await expect(page.getByRole("combobox", { name: "Глава" })).toBeDisabled();
+    await expect(task).toHaveValue("");
   },
 };
 
-/** Следующая страница: путь к более ранним сдачам и обратно к новым. */
 export const Paged: Story = {
   args: {
-    continued: true,
-    submissions: { ...reviewedSubmissions, nextCursor: "next-page" },
+    presentation: presentTaskSubmissions({
+      continued: true,
+      cursor: "page-2",
+      selection: {},
+      submissions: { ...reviewedSubmissions, nextCursor: "next-page" },
+    }),
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
@@ -214,39 +300,122 @@ export const Paged: Story = {
 };
 
 export const Empty: Story = {
-  args: { submissions: { ...reviewedSubmissions, submissions: [] } },
-  play: async ({ canvasElement }) => {
-    await expect(
-      routeContent(canvasElement).getByText(/Сдач пока нет/u),
-    ).toBeInTheDocument();
-  },
+  args: { presentation: { ...presentation, rows: [] } },
 };
-
 export const EmptyFilter: Story = {
   args: {
-    selection: { productId: submissionsProductId },
-    submissions: { ...reviewedSubmissions, submissions: [] },
-  },
-  play: async ({ canvasElement }) => {
-    await expect(
-      routeContent(canvasElement).getByText("По этому фильтру сдач нет."),
-    ).toBeInTheDocument();
+    presentation: {
+      ...presentation,
+      selection: { productId: submissionsProductId },
+      rows: [],
+    },
   },
 };
-
+export const Loading: Story = { render: () => <TaskSubmissionsLoading /> };
 export const Forbidden: Story = {
   render: () => <TaskSubmissionsState kind="forbidden" />,
-  play: async ({ canvasElement }) => {
-    await expect(
-      routeContent(canvasElement).getByText("Нет доступа к сдачам"),
-    ).toBeInTheDocument();
-  },
 };
-
 export const Unauthorized: Story = {
   render: () => <TaskSubmissionsState kind="unauthorized" />,
 };
-
 export const Unavailable: Story = {
   render: () => <TaskSubmissionsState kind="unavailable" />,
+};
+
+function ArrivedSubmissions({
+  sequence,
+}: {
+  readonly sequence: StagedLoading;
+}) {
+  use(sequence.sharedPart);
+  return <TaskSubmissionsView presentation={presentation} />;
+}
+
+function loadsInPlace({ globals, width }: StoryViewport): Story {
+  return {
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<TaskSubmissionsLoading />}>
+        <ArrivedSubmissions sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const page = routeContent(canvasElement);
+      await expect(
+        page.getByRole("status", { name: "Загружаем сдачи" }),
+      ).toBeVisible();
+      const anchors = () =>
+        ["title", "filter", "workspace"].map((part) =>
+          originOf(boxOf(canvasElement, `[data-submissions-part='${part}']`)),
+        );
+      const loading = anchors();
+      stagedLoadingOf(loaded).deliverSharedPart();
+      await within(canvasElement).findByRole("region", {
+        name: "Очередь сдач",
+      });
+      await expect(anchors()).toEqual(loading);
+    },
+  };
+}
+export const LoadsInPlace: Story = loadsInPlace(desktop);
+export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+/** RSC reads can arrive out of order after navigating between filtered pages. */
+function FeedbackSnapshots() {
+  const [snapshot, setSnapshot] = useState(1);
+  const incoming = presentTaskSubmissions({
+    continued: false,
+    selection: {},
+    submissions: {
+      ...reviewedSubmissions,
+      submissions: reviewedSubmissions.submissions.slice(0, 1).map((row) => ({
+        ...row,
+        authorFeedback: {
+          comment: `Серверный отзыв ${String(snapshot)}`,
+          reviewedAt: null,
+          updatedAt: `2026-10-11T09:0${String(snapshot)}:00.000Z`,
+        },
+      })),
+    },
+  });
+  return (
+    <div className="h-full min-h-0">
+      <Button
+        onClick={() => {
+          setSnapshot(3);
+        }}
+      >
+        Свежий серверный ответ
+      </Button>
+      <Button
+        onClick={() => {
+          setSnapshot(2);
+        }}
+      >
+        Запоздалый серверный ответ
+      </Button>
+      <TaskSubmissionsView presentation={incoming} />
+    </div>
+  );
+}
+export const FreshFeedbackSurvivesStaleRead: Story = {
+  render: () => <FeedbackSnapshots />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const comment = canvas.getByRole("textbox", {
+      name: /Комментарий для ученика/u,
+    });
+    await userEvent.clear(comment);
+    await userEvent.type(comment, "Серверный отзыв 1");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Свежий серверный ответ" }),
+    );
+    await expect(comment).toHaveValue("Серверный отзыв 3");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Запоздалый серверный ответ" }),
+    );
+    await expect(comment).toHaveValue("Серверный отзыв 3");
+  },
 };

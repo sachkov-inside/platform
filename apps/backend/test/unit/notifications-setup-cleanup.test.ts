@@ -9,6 +9,7 @@ import {
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 
 const lifecycle = vi.hoisted(() => ({
+  define: undefined as (() => void) | undefined,
   setup: undefined as (() => Promise<void>) | undefined,
   teardown: undefined as (() => Promise<void>) | undefined,
 }));
@@ -25,12 +26,14 @@ const adapters = vi.hoisted(() => ({
   startStand: vi.fn<() => Promise<void>>(),
 }));
 
-// Capture the real suites' lifecycle without running their infrastructure scenarios.
+// Capture each real suite's definition; replay it with fresh state for each case.
 vi.mock("vitest", async (importOriginal) => {
   const actual = await importOriginal<typeof Vitest>();
   return {
     ...actual,
-    describe: (_name: string, body: () => void) => body(),
+    describe: (_name: string, body: () => void) => {
+      lifecycle.define = body;
+    },
     test: () => undefined,
     beforeEach: () => undefined,
     afterEach: () => undefined,
@@ -71,16 +74,41 @@ vi.mock("../integration/setup/telegram-provider-stand.js", () => ({
   },
 }));
 
-const { beforeEach, describe, expect, test } =
+const { beforeAll, beforeEach, describe, expect, onTestFinished, test } =
   await vi.importActual<typeof Vitest>("vitest");
 
-async function loadSuite(suite: "transport" | "acceptance") {
-  if (suite === "transport")
-    await import("../integration/notification-transport.test.js");
-  else await import("../integration/notifications-acceptance.test.js");
+type Suite = "transport" | "acceptance";
+const definitions: Partial<Record<Suite, () => void>> = {};
+
+function resetLifecycle() {
+  lifecycle.define = undefined;
+  lifecycle.setup = undefined;
+  lifecycle.teardown = undefined;
+}
+
+// Cold imports belong to the bounded preparation hook, outside case callbacks.
+beforeAll(async () => {
+  for (const suite of ["transport", "acceptance"] as const) {
+    resetLifecycle();
+    if (suite === "transport")
+      await import("../integration/notification-transport.test.js");
+    else await import("../integration/notifications-acceptance.test.js");
+    if (lifecycle.define === undefined)
+      throw new Error("Notifications suite did not register its definition");
+    definitions[suite] = lifecycle.define;
+  }
+});
+
+function loadSuite(suite: Suite) {
+  const define = definitions[suite];
+  if (define === undefined)
+    throw new Error("Notifications suite has not been prepared");
+  resetLifecycle();
+  define();
   const { setup, teardown } = lifecycle;
   if (setup === undefined || teardown === undefined)
     throw new Error("Notifications suite did not register its lifecycle");
+  onTestFinished(teardown);
   return { setup, teardown };
 }
 
@@ -123,10 +151,8 @@ function databaseDouble(
 }
 
 beforeEach(() => {
-  vi.resetModules();
   vi.resetAllMocks();
-  lifecycle.setup = undefined;
-  lifecycle.teardown = undefined;
+  resetLifecycle();
   adapters.pool.query.mockResolvedValue();
   adapters.pool.end.mockResolvedValue();
   adapters.worker.start.mockResolvedValue();
@@ -138,10 +164,44 @@ beforeEach(() => {
 describe.each(["transport", "acceptance"] as const)(
   "Notifications %s setup ownership",
   (suite) => {
+    test("isolates cleanup while another suite instance is still acquiring its broker", async () => {
+      const primary = new Error("database acquisition failed");
+      const firstBroker = brokerDouble();
+      const secondBroker = brokerDouble();
+      let releaseBroker: () => void = () => undefined;
+      const delayedBroker = new Promise<ReturnType<typeof brokerDouble>>(
+        (resolve) => {
+          releaseBroker = () => resolve(firstBroker);
+        },
+      );
+      vi.mocked(startNotificationBroker)
+        .mockImplementationOnce(() => delayedBroker)
+        .mockResolvedValueOnce(secondBroker);
+      vi.mocked(createMigratedTestDatabase).mockRejectedValue(primary);
+      const first = loadSuite(suite);
+      const second = loadSuite(suite);
+      const firstOutcome = expect(first.setup()).rejects.toBe(primary);
+
+      try {
+        await expect(second.setup()).rejects.toBe(primary);
+        releaseBroker();
+        await firstOutcome;
+        await first.teardown();
+        expect(firstBroker.stop).toHaveBeenCalledTimes(1);
+        expect(secondBroker.stop).not.toHaveBeenCalled();
+        await second.teardown();
+        expect(secondBroker.stop).toHaveBeenCalledTimes(1);
+      } finally {
+        releaseBroker();
+        await firstOutcome;
+        await Promise.allSettled([first.teardown(), second.teardown()]);
+      }
+    });
+
     test("preserves acquisition failure before any resource exists", async () => {
       const primary = new Error("broker acquisition failed");
       vi.mocked(startNotificationBroker).mockRejectedValue(primary);
-      const hooks = await loadSuite(suite);
+      const hooks = loadSuite(suite);
 
       await expect(hooks.setup()).rejects.toBe(primary);
       await expect(hooks.teardown()).resolves.toBeUndefined();
@@ -153,7 +213,7 @@ describe.each(["transport", "acceptance"] as const)(
       const broker = brokerDouble();
       vi.mocked(startNotificationBroker).mockResolvedValue(broker);
       vi.mocked(createMigratedTestDatabase).mockRejectedValue(primary);
-      const hooks = await loadSuite(suite);
+      const hooks = loadSuite(suite);
 
       await expect(hooks.setup()).rejects.toBe(primary);
       await expect(hooks.teardown()).resolves.toBeUndefined();
@@ -170,7 +230,7 @@ describe.each(["transport", "acceptance"] as const)(
       vi.mocked(startNotificationBroker).mockResolvedValue(broker);
       vi.mocked(createMigratedTestDatabase).mockResolvedValue(platform);
       vi.mocked(createTestDatabase).mockResolvedValue(provider);
-      const hooks = await loadSuite(suite);
+      const hooks = loadSuite(suite);
 
       await hooks.setup();
       await expect(hooks.teardown()).rejects.toMatchObject({
@@ -197,7 +257,7 @@ describe.each(["transport", "acceptance"] as const)(
       );
       vi.mocked(startNotificationBroker).mockResolvedValue(broker);
       vi.mocked(createMigratedTestDatabase).mockRejectedValue(primary);
-      const hooks = await loadSuite(suite);
+      const hooks = loadSuite(suite);
 
       await expect(hooks.setup()).rejects.toBe(primary);
       await expect(hooks.teardown()).rejects.toMatchObject({
@@ -209,7 +269,7 @@ describe.each(["transport", "acceptance"] as const)(
 );
 
 describe("Notifications acceptance worker ownership", () => {
-  async function arrange() {
+  function arrange() {
     const broker = brokerDouble();
     const platform = databaseDouble();
     const provider = databaseDouble();
@@ -217,7 +277,7 @@ describe("Notifications acceptance worker ownership", () => {
     vi.mocked(createMigratedTestDatabase).mockResolvedValue(platform);
     vi.mocked(createTestDatabase).mockResolvedValue(provider);
     return {
-      hooks: await loadSuite("acceptance"),
+      hooks: loadSuite("acceptance"),
       broker,
       platform,
       provider,
@@ -227,7 +287,7 @@ describe("Notifications acceptance worker ownership", () => {
   test("closes the assembled worker when provider acquisition fails", async () => {
     const primary = new Error("provider acquisition failed");
     adapters.startStand.mockRejectedValue(primary);
-    const { hooks, broker, platform, provider } = await arrange();
+    const { hooks, broker, platform, provider } = arrange();
 
     await expect(hooks.setup()).rejects.toBe(primary);
     await expect(hooks.teardown()).resolves.toBeUndefined();
@@ -245,7 +305,7 @@ describe("Notifications acceptance worker ownership", () => {
     const workerFailure = new Error("worker cleanup failed");
     const poolFailure = new Error("pool cleanup failed");
     const closed: string[] = [];
-    const { hooks, broker, platform, provider } = await arrange();
+    const { hooks, broker, platform, provider } = arrange();
     adapters.worker.start.mockRejectedValue(primary);
     adapters.worker.stop.mockImplementation(() => {
       closed.push("worker");

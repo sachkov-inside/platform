@@ -1,4 +1,4 @@
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
@@ -33,9 +33,25 @@ RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1
 
 FROM dependencies AS development
 
+# Restore installed patch metadata after source COPY: pnpm checks its timestamps.
 COPY --chown=node:node . .
+COPY --from=dependencies --chown=node:node /workspace/patches ./patches
 
 ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
+
+# The production-web stand binds its API to this image's immutable release identity.
+ARG INSIDE_RELEASE_VERSION=""
+ARG INSIDE_SOURCE_SHA=""
+USER root
+RUN if [ -n "$INSIDE_RELEASE_VERSION" ] || [ -n "$INSIDE_SOURCE_SHA" ]; then \
+      node packages/runtime-identity/write-release-identity.mjs \
+        "$INSIDE_RELEASE_VERSION" "$INSIDE_SOURCE_SHA" \
+        /workspace/apps/backend/release-identity.json \
+      && chmod 0444 /workspace/apps/backend/release-identity.json; \
+    fi
+# All local roles share this image; the bank double's volume inherits its writable data directory.
+RUN mkdir -p /data && chown node:node /data
+USER node
 
 FROM dependencies AS release-identity
 
@@ -80,10 +96,6 @@ FROM development AS bank-double
 
 # Журнал двойника принадлежит процессу приложения, поэтому каталог тома создаётся с его владельцем:
 # пустой именованный том наследует владельца каталога образа.
-USER root
-RUN mkdir -p /data && chown node:node /data
-USER node
-
 CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
 
 FROM development AS production-build
@@ -92,7 +104,7 @@ RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production
+FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \

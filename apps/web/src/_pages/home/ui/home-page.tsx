@@ -14,14 +14,19 @@ import { HomeFrame } from "./home-frame";
 export function HomePage({
   result,
   feed,
+  courseCall,
 }: {
   readonly result: HomeResult;
   readonly feed?: ReactNode;
+  readonly courseCall?: ReactNode;
 }) {
   return (
     <HomeFrame>
       {result.kind === "ready" && result.value.pinnedSeries !== null ? (
-        <FeaturedProduct series={result.value.pinnedSeries} />
+        <FeaturedProduct
+          series={result.value.pinnedSeries}
+          courseCall={courseCall}
+        />
       ) : result.kind === "unavailable" ? (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 py-8">
           <p className="text-muted-foreground" role="status">

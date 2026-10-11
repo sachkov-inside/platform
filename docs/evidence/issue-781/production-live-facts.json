@@ -1,0 +1,96 @@
+{
+  "sourceSha": "245dad3b5d6b563c046b1312be55cfa05fb8c851",
+  "route": "/authoring/access",
+  "publicationBoundary": "Both publish and unpublish commands intercepted; eligibility saved/read through real BFF in disposable local database.",
+  "facts": [
+    {
+      "project": "desktop-chromium",
+      "screenshot": "production-live-1440.png",
+      "geometry": {
+        "left": 448,
+        "right": 992,
+        "top": 373,
+        "bottom": 651,
+        "width": 1440,
+        "height": 1024,
+        "clientWidth": 542,
+        "scrollWidth": 542
+      },
+      "axeViolations": 0,
+      "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
+    },
+    {
+      "project": "mobile-chromium",
+      "screenshot": "production-live-390.png",
+      "geometry": {
+        "left": 17,
+        "right": 373,
+        "top": 223,
+        "bottom": 621,
+        "width": 390,
+        "height": 844,
+        "clientWidth": 354,
+        "scrollWidth": 354
+      },
+      "axeViolations": 0,
+      "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
+    },
+    {
+      "project": "mobile-chromium",
+      "screenshot": "production-live-320.png",
+      "geometry": {
+        "left": 17,
+        "right": 303,
+        "top": 61,
+        "bottom": 507,
+        "width": 320,
+        "height": 568,
+        "clientWidth": 284,
+        "scrollWidth": 284
+      },
+      "axeViolations": 0,
+      "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
+    }
+  ],
+  "scenarios": [
+    {
+      "project": "desktop-chromium",
+      "executionViewport": {
+        "width": 1440,
+        "height": 1024
+      },
+      "scope": "Scenario operations execute after restoring the original project viewport; the 320 screenshot proves capture-only facts.",
+      "nativeEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmedOnce": true,
+      "returnedSavedRevisionVerified": true,
+      "reloadReadSavedEligibility": true,
+      "auxiliaryContextRead": {
+        "viewport": "not captured",
+        "savedEligibilityVerified": true,
+        "cleanup": "closed in finally"
+      }
+    },
+    {
+      "project": "mobile-chromium",
+      "executionViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scope": "Scenario operations execute after restoring the original project viewport; the 320 screenshot proves capture-only facts.",
+      "nativeEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmedOnce": true,
+      "returnedSavedRevisionVerified": true,
+      "reloadReadSavedEligibility": true,
+      "auxiliaryContextRead": {
+        "viewport": "not captured",
+        "savedEligibilityVerified": true,
+        "cleanup": "closed in finally"
+      }
+    }
+  ]
+}

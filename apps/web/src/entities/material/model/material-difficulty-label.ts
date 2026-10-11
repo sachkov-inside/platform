@@ -1,6 +1,6 @@
 import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 
-/** Как сложность урока называется читателю: одно слово на уровень, в уроке и в программе. */
+/** Названия уровней сложности в редакторе; Reader не показывает сложность. */
 const labels: Readonly<Record<MaterialDifficulty, string>> = {
   advanced: "Продвинутый",
   basic: "Базовый",

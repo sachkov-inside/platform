@@ -144,6 +144,7 @@ async function readJournal(stateDirectory, target) {
  *   request?: LocalTransport | undefined;
  *   defaultAccess?: DefaultAccess;
  *   taskAccess?: string[];
+ *   confirmedProductRemovals?: string[];
  *   publish?: import("./local-boundaries.mjs").PublishSelection;
  *   accessToken?: import("./target.mjs").AccessToken | undefined;
  * }} options
@@ -157,6 +158,7 @@ export async function previewRelease(
     defaultAccess = "closed",
     publish = [],
     taskAccess = [],
+    confirmedProductRemovals = [],
     accessToken,
   },
 ) {
@@ -197,6 +199,24 @@ export async function previewRelease(
       return id === undefined ? [] : [[product.sourceId, id]];
     }),
   );
+  const removals = z.array(z.uuid()).max(100).parse(confirmedProductRemovals);
+  const confirmed = [...new Set(removals)].sort();
+  for (const id of confirmed) {
+    if (
+      ![...productIds.values()].includes(id) ||
+      !storedProducts.some(
+        (product) =>
+          product.id === id &&
+          product.archived !== true &&
+          manifest.products.some(
+            (row) => product.sourceId === sourceKey(manifest, row.sourceId),
+          ),
+      )
+    )
+      throw new Error(
+        `Product removal confirmation is outside this package's target scope: ${id}`,
+      );
+  }
   const assets = new Map(
     manifest.assets.map((asset) => [asset.sourceId, asset]),
   );
@@ -496,6 +516,7 @@ export async function previewRelease(
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
     ...approval,
+    ...(confirmed.length === 0 ? {} : { confirmedProductRemovals: confirmed }),
     ...(access.choices.length === 0 ? {} : { taskAccess: access.choices }),
     ...(shell ? { scope: productShellScope.value } : {}),
     // A shell leaves these writes for their own package; the reviewer sees them before apply.
@@ -533,6 +554,7 @@ const previewSchema = z
     scope: productShellScope.optional(),
     publish: publishSelectionSchema.optional(),
     taskAccess: z.array(z.string()).optional(),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
     pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
@@ -591,6 +613,7 @@ export async function applyRelease(
     throw new Error("Package differs from the reviewed preview");
   const publish = preview.publish ?? [];
   const taskAccess = preview.taskAccess ?? [];
+  const confirmedProductRemovals = preview.confirmedProductRemovals ?? [];
   // A write whose outcome was lost is completed with its original key first; if it changed the
   // target, the reviewed plan no longer matches and a new preview is required.
   await syncLocal(preview.packagePath, stateDirectory, {
@@ -601,6 +624,7 @@ export async function applyRelease(
     reconcileOnly: true,
     reviewed: true,
     reviewedTaskAccess: taskAccess,
+    reviewedProductRemovals: confirmedProductRemovals,
   });
   // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, {
@@ -608,6 +632,7 @@ export async function applyRelease(
     request: transport,
     publish,
     taskAccess,
+    confirmedProductRemovals,
     accessToken,
   });
   if (current.preview.fingerprint !== fingerprint)
@@ -622,6 +647,7 @@ export async function applyRelease(
     accessToken,
     reviewed: true,
     reviewedTaskAccess: taskAccess,
+    reviewedProductRemovals: confirmedProductRemovals,
   });
 }
 
@@ -643,12 +669,21 @@ if (
       publish: { type: "string", multiple: true, default: [] },
       "publish-all": { type: "boolean", default: false },
       "task-access": { type: "string", multiple: true, default: [] },
+      "confirm-product-removal": {
+        type: "string",
+        multiple: true,
+        default: [],
+      },
     },
   });
   const [command] = positionals;
   if (command !== "preview" && values["task-access"].length > 0)
     throw new Error(
       "--task-access is a preview choice; apply uses the reviewed choices",
+    );
+  if (command !== "preview" && values["confirm-product-removal"].length > 0)
+    throw new Error(
+      "--confirm-product-removal is a preview choice; apply uses the reviewed choices",
     );
   /** @param {string} value */
   const sessionFor = (value) => {
@@ -682,11 +717,12 @@ if (
         origin: values.target,
         publish: publishOption(values),
         taskAccess: values["task-access"],
+        confirmedProductRemovals: values["confirm-product-removal"],
         accessToken: sessionFor(values.target),
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], confirmedProductRemovals: preview.confirmedProductRemovals ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z
@@ -702,7 +738,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

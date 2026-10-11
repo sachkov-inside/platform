@@ -227,6 +227,8 @@ describe("production access pass report", () => {
         deployedSha,
         blockedRequests: [
           {
+            identity: "learner-product-a",
+            cellId: readsProductA.id,
             method: "POST",
             target: "https://inside.sachkov.dev/api/reading-progress/states",
             reason: "POST /api/reading-progress/states is not a read",
@@ -240,6 +242,9 @@ describe("production access pass report", () => {
     expect(markdown).toContain("| production | не проверено |");
     expect(markdown).toContain(`| production | ${productBDeferred} |`);
     expect(markdown).toContain(
+      "identity: `learner-product-a`; клетка: `learner-product-a/read-product-a/body@browser`",
+    );
+    expect(markdown).toContain(
       "- `POST https://inside.sachkov.dev/api/reading-progress/states`",
     );
   });
@@ -251,6 +256,7 @@ describe("production access pass report", () => {
       deployedSha,
       blockedRequests: [
         {
+          identity: "learner-product-a",
           method: "GET",
           target: "https://inside.sachkov.dev/communications/visit",
           reason: "redirect step: /communications/visit records a visit",
@@ -362,4 +368,22 @@ describe("production access pass targets", () => {
     expect(productionTarget.ownerMcp).toBe("https://inside.sachkov.dev/mcp");
     expect(productionTarget.apiResource).toBe("https://api.inside.sachkov.dev");
   });
+});
+
+it("keeps an unsent reading-progress write blocked without making the verdict red", () => {
+  const blocked = {
+    identity: "learner-product-a",
+    cellId: readsProductA.id,
+    method: "POST",
+    target: "https://sachkov.dev/api/reading-progress/states",
+    reason: "POST /api/reading-progress/states is not a read",
+  } as const;
+  const report = evaluatePass({
+    cells: [readsProductA],
+    observations: [{ cellId: readsProductA.id, observed: "allowed" }],
+    deployedSha,
+    blockedRequests: [blocked],
+  });
+  expect(report.verdict).toBe("green");
+  expect(report.blockedRequests).toEqual([blocked]);
 });

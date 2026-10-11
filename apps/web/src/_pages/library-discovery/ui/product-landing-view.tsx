@@ -1,11 +1,4 @@
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  FileDown,
-  Play,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
@@ -30,6 +23,7 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 
 import { countFreeLessons } from "../model/free-lessons";
 import { AiEngineeringCourseView } from "./ai-engineering-course-view";
@@ -186,13 +180,10 @@ function DefaultProductLandingView({
         >
           <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <li>
-              <IntentPrefetchLink
-                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
+              <CatalogBackLink
                 href={returnTarget.href}
-              >
-                <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-                {returnTarget.label}
-              </IntentPrefetchLink>
+                label={returnTarget.label}
+              />
             </li>
             <li className="sr-only">Продукт</li>
             <li aria-current="page" className="sr-only">

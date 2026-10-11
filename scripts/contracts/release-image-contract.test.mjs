@@ -108,7 +108,10 @@ describe("release image contract", () => {
         imageName: "ghcr.io/sachkov-inside/platform-web",
       },
     ]);
-    assert.match(backendDockerfile, /^FROM node:.* AS backend-production$/mu);
+    assert.match(
+      backendDockerfile,
+      /^FROM public\.ecr\.aws\/docker\/library\/node:.* AS backend-production$/mu,
+    );
     assert.match(
       backendDockerfile,
       /^FROM backend-production AS api-production$/mu,

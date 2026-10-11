@@ -28,7 +28,7 @@ names its seam and the stages run in parallel:
 | `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey`; a failed job uploads the Playwright results and the `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; exact-source cache-only proof; pull requests also run clean `pnpm release:images:smoke` |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
@@ -55,6 +55,13 @@ smoke; production deployment commands and access-pass requests keep their existi
 ruleset requires this exact check name; individual job names may evolve without changing the
 branch-protection interface.
 
+The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
+runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
+checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_SMOKE_CACHE_ONLY=1`.
+The already-acquired pinned broker and edge must be present. Separate Actions log groups measure
+preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
+removes its own tags and override and preserves the primary failure if cleanup also fails.
+
 ### Local contract tests
 
 `pnpm check:contracts` owns local process and adapter contracts, separately from unit/module
@@ -77,7 +84,125 @@ in-memory bank-double behaviour remain unit tests. Synchronous Telegram commands
 the deadline sends TERM to its Node owner, which waits for Python's bounded TERM/KILL cleanup before exit.
 Other synchronous contract commands have explicit termination budgets; asynchronous process contracts observe close and register cleanup.
 
+## Official image inputs
+
+CI service containers, application Dockerfile bases, Compose dependencies and explicit
+Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`,
+except RabbitMQ, which uses the public `ghcr.io/sachkov-inside/rabbitmq` mirror.
+References keep the existing version tags and select immutable SHA-256 digests. Release builds
+use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
+Consumers do not need registry credentials for these inputs.
+
+### RabbitMQ mirror
+
+The owner authorized mirroring exactly `4.2.4-management-alpine`, `4.2.4-alpine` and
+`4.3-management-alpine` in #1337. Their original index digests remain unchanged. The
+[`rabbitmq-mirror.yml`](../../.github/workflows/rabbitmq-mirror.yml) trusted publisher copies the
+complete official Docker Hub index with `skopeo copy --all --preserve-digests`, without rebuilding,
+adding labels or converting manifest formats. It then requires anonymous GHCR reading, identical
+index bytes and identical child manifests, including `linux/amd64` and `linux/arm64`. Its artifacts
+retain those manifests. A copy or verification failure fails the publisher; there is no pull retry
+or fallback to another registry.
+
+Publishing uses only the job's `GITHUB_TOKEN` with `packages: write`, never a PAT or AWS account.
+The publisher checks out no candidate code and accepts no image inputs. It runs on a change to its
+workflow on `main`, or on demand on `main`. The owner-authorized bootstrap from
+`fix/1337-release-infrastructure` completed in
+[run 38125155437](https://github.com/sachkov-inside/platform/actions/runs/38125155437), Source
+`bac727908ab087a89e8dbf421830b6b88e19b64a`; its temporary branch trigger has been removed.
+Ordinary pull requests and merge groups retain read-only permissions
+and do not trigger the publisher. A future new version needs a reviewed publisher/input change.
+
+If the organization creates a package privately, change that package's visibility to public in
+GitHub Packages before expecting the anonymous verification or consumers to pass. A successful
+authenticated push alone does not satisfy this contract.
+
+### Remaining ECR inputs
+
+ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
+The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
+separate Compose command before application startup. It waits one second after RabbitMQ finishes
+before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
+concurrency but leaves admission timing and graph order to Compose. The interval bounds this
+pair's own admission; RabbitMQ now comes from GHCR and only Caddy uses ECR in this pair. The
+interval cannot reserve a quota shared with other clients or prove the historical
+origin of throttling. A Compose call start does not timestamp its individual registry requests.
+Pull completion bounds the end of that opaque request window; the next admission follows that
+completion plus the provider interval. This conservatively separates the two request windows.
+The virtual-time adapter proves this contract, not successful acquisition from AWS; the exact-ref
+runtime smoke and current-head CI must provide that proof.
+Acquisition failures keep their original error and stop startup without a
+retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
+boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
+Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
+smoke; this explicit group contains one ECR Public image, so it has no ECR pair to space.
+Integration serial enables
+`testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
+missing-image or cleanup error. These acquisition paths do not retry a failed pull.
+
+Docker publishes this namespace directly ([official announcement](https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-ecr-public/)).
+The [#1306 metadata evidence](../evidence/issue-1306/official-image-manifests.json) records identical
+upstream/ECR index digests and verified `linux/amd64` and `linux/arm64` child manifests.
+Metadata inspection proves availability and identity, not successful execution. Required CI jobs
+still prove service startup, BuildKit builds, Testcontainers and SQL execution.
+
+When changing an image input, verify its tag/digest and required platform manifests against both
+official registries. Keep vendor images at their owning source: RustFS, Logto and Mailpit retain
+their existing references. Shared CI setup exports `RYUK_CONTAINER_IMAGE` to select the
+Testcontainers publisher's `ghcr.io/testcontainers/ryuk:0.14.0` by immutable digest. Its
+[publisher workflow](https://github.com/testcontainers/moby-ryuk/blob/0.14.0/.github/workflows/publish-docker-image.yml)
+publishes to Hub and GHCR; the metadata evidence above records identical index bytes and required
+platform manifests. This input addresses the observed
+[Ryuk Hub token timeout](https://github.com/sachkov-inside/platform/actions/runs/37992936027/job/114031539499).
+Local commands retain the dependency's Ryuk default unless `RYUK_CONTAINER_IMAGE` is set explicitly.
+Other implicit helper inputs remain unchanged. The official-image contract covers the explicit
+inputs listed in `scripts/official-image-inputs.test.mjs`, not every internal dependency pull.
+
+## Production smoke worker health observations
+
+The production smoke verifies that all five application workers become unhealthy after the
+migration checksum is changed, then become healthy after it is restored. It reads each container's
+effective healthcheck through [Docker's JSON template function](https://docs.docker.com/reference/cli/docker/inspect/#get-a-subsection-in-json-format).
+Docker's [healthcheck representation](https://github.com/moby/docker-image-spec/blob/main/specs-go/v1/image.go)
+uses integer nanoseconds for durations; template display can print `30s` instead.
+The smoke validates the active probe, positive interval/timeout/retries and safe probe-window
+arithmetic before polling the same container IDs. Its existing observation bound remains the
+largest worker probe window plus two polling attempts; the production health policy is unchanged.
+It reports success only after it reads the expected state from every worker in the current round.
+Failed lookups/inspect, incomplete configuration and invalid states stop the owning smoke with
+their primary diagnostics; disposable cleanup retains that failure. These paths do not retry an
+inspect failure. Local Bash process adapters cover these observations and errors in
+`scripts/production-worker-health.test.mjs`; actual CI smoke still proves the Docker boundary.
+
+SQL setup prints captured stderr for a nonzero Docker exit before the exception traceback.
+If cleanup also fails, setup prints that failure and preserves the original exception.
+The historical SQL setup exit 125 in
+[run 37990329163](https://github.com/sachkov-inside/platform/actions/runs/37990329163/job/114022533381)
+ran zero SQL tests and omitted captured stderr. Its precise cause cannot be recovered from that log.
+Read the setup stderr on a new failure; another job's pull failure does not establish the SQL cause.
+
 ## Merge queue
+
+### Observe one exact CI run
+
+Use the read-only `pnpm ci:wait` command after obtaining an actual run ID:
+
+```bash
+pnpm ci:wait --repo sachkov-inside/platform --run-id <run-id> --sha <full-source-sha> --event pull_request --attempt 1 --timeout-seconds 1200
+```
+
+For the queue, select its combined SHA and `--event merge_group`. The command reads only the
+selected attempt, verifies workflow path, event and SHA, and requires completed jobs plus a real
+successful `CI Gate`. It never reruns a workflow. Each API read uses at most 15 seconds of the
+single overall budget. Temporary network errors can recover within that budget.
+Its JSON outcome distinguishes `success`, `failure`, `missing-run`, `identity-mismatch`,
+`incomplete-jobs`, `network-error` and `timeout`; only success returns exit 0. A missing run ends
+immediately. A completed run with missing or unfinished jobs also ends immediately. Waiting for
+a running run stops at the explicit deadline, retaining a final unresolved network failure when
+one prevented observation. Run it through the package command so the repository process owner
+closes its own CLI descendants on interruption.
+
+### Enqueue a checked pull request
 
 `main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a
 successful `CI Gate` on its own head; the ruleset no longer requires the branch to be up to date
@@ -154,6 +279,14 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The pinned Testcontainers 12.2.0 patch (#1315) rejects Docker pull-stream `error`/`errorDetail`
+messages and transport errors, closes a failed pull stream, and inspects the requested image before
+acquisition returns. A completed stream alone does not prove local image availability. The contract
+`apps/backend/test/contracts/postgres-acquisition.test.ts` exercises the real PostgreSQL global setup
+against an owned loopback Docker API, including cached-image disappearance and failed-stream cleanup.
+This preserves primary pull diagnostics; it does not identify or repair the registry/provider cause
+of the historical PostgreSQL failure in #1315. Version and digest remain pinned.
+
 PostgreSQL global setup starts its container only for the root project; child projects inherit
 the setup but receive the root's provided database context without starting another container.
 The full command and either `--project` selection

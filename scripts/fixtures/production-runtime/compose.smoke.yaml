@@ -27,7 +27,7 @@ services:
     image: ${PRODUCTION_SMOKE_WEB_IMAGE:?candidate web image ID is required}
 
   caddy-smoke:
-    image: caddy:2.11.4-alpine
+    image: public.ecr.aws/docker/library/caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     depends_on:
       api:
         condition: service_healthy

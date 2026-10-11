@@ -743,8 +743,21 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
 
   test("submissions append history, keep their version, cover exactly the criteria and replay one key", async () => {
     const tasks = learning();
-    const task = await imported();
+    const task = await imported({ access: "closed" });
     const subject = await learner();
+    const neighbour = await learner();
+    for (const holder of [subject, neighbour])
+      await grant(holder, [`product:${productId}`]);
+    const rights = assembleAccountRights({ prisma: db.prisma });
+    const rightsBefore = await Promise.all(
+      [subject, neighbour].map((holder) =>
+        rights.resolveForAccess(holder.accountId, [productId]),
+      ),
+    );
+    expect(rightsBefore).toEqual([
+      { kind: "active", validUntil: null },
+      { kind: "active", validUntil: null },
+    ]);
     const submit = (submission: Record<string, unknown>) =>
       tasks.submit({ subject, source: "mcp", submission });
     const base = {
@@ -836,6 +849,49 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         ],
       },
     });
+    const apply = assembleApplySourceTask(importDependencies());
+    const withdrawn = await apply(
+      {
+        ...task.body,
+        definition: changed,
+        publicationState: "unpublished",
+        expectedRevision: 2,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(withdrawn).toMatchObject({
+      ok: true,
+      value: { taskId: task.taskId },
+    });
+    if (!withdrawn.ok) throw new Error(withdrawn.error.code);
+    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
+      {
+        ok: false,
+        error: { code: "task_not_available" },
+      },
+    );
+    const republished = await apply(
+      {
+        ...task.body,
+        definition: changed,
+        expectedRevision: withdrawn.value.revision,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(republished).toMatchObject({
+      ok: true,
+      value: { taskId: task.taskId },
+    });
+    expect(await tasks.submissions({ subject, code: task.code })).toEqual(
+      history,
+    );
+    expect(
+      await Promise.all(
+        [subject, neighbour].map((holder) =>
+          rights.resolveForAccess(holder.accountId, [productId]),
+        ),
+      ),
+    ).toEqual(rightsBefore);
     await expect(
       db.prisma.$executeRaw`update product_tasks.submissions set note = ''`,
     ).rejects.toThrow();

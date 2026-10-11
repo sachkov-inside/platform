@@ -1,3 +1,4 @@
+import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
 import type { PlatformConfig } from "../../config/platform-config.js";
@@ -21,6 +22,7 @@ export class BillingWorkerModule {
         RuntimeIdentityModule,
         PrismaModule,
         BillingModule,
+        WebTelemetryModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
         RecipientLinksModule,

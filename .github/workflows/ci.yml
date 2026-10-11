@@ -112,7 +112,7 @@ jobs:
   integration:
     name: Integration
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,12 +125,28 @@ jobs:
           browsers: chromium
       - name: Verify production SQL contracts on an isolated PostgreSQL
         run: pnpm production:verify:sql-test
+      - name: Verify restore cleanup with synthetic Docker data
+        run: |
+          restore_test_image=public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          docker pull "$restore_test_image"
+          export RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          pnpm release:restore:test
       - name: Run isolated integration tests
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
         run: pnpm smoke:enrollments
       - name: Run buyer journey from product page to access
         run: pnpm smoke:buyer-journey
+      - name: Measure the canonical telemetry resource budget
+        run: bash scripts/measure-telemetry-ci.sh ci-artifacts/telemetry-resource
+      - name: Upload telemetry resource evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: telemetry-resource-${{ github.run_attempt }}
+          path: ci-artifacts/telemetry-resource
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -157,6 +173,8 @@ jobs:
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
       - name: Run broker, crash and process integration tests one file at a time
+        env:
+          DEBUG: testcontainers:pull
         run: pnpm test:integration:serial
 
   compose-development:
@@ -178,6 +196,8 @@ jobs:
           docker compose --profile storybook build
       - name: Run clean stack smoke and write persistence probes
         run: |
+          docker compose config --images postgres object-storage mailpit
+          docker compose --parallel 1 pull postgres object-storage mailpit
           docker compose up --detach --wait
           bash scripts/compose-stack-smoke.sh
           docker compose exec -T postgres psql \
@@ -246,12 +266,18 @@ jobs:
       - name: Build and inspect release images
         if: ${{ github.event_name == 'pull_request' }}
         run: pnpm release:images:smoke
+      - name: Prove exact-source production runtime from admitted cache
+        env:
+          PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production-cache
+        run: bash scripts/heavy-check.sh bash scripts/production-cache-smoke-ci.sh
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compose-production-diagnostics-${{ github.run_attempt }}
-          path: ci-artifacts/compose-production
+          path: |
+            ci-artifacts/compose-production
+            ci-artifacts/compose-production-cache
           if-no-files-found: ignore
           retention-days: 7
 
@@ -261,7 +287,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18.4-alpine
+        image: public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
         env:
           POSTGRES_DB: inside_telegram
           POSTGRES_USER: inside
@@ -272,7 +298,7 @@ jobs:
           --health-cmd "pg_isready -U inside -d inside_telegram"
           --health-interval 2s --health-timeout 3s --health-retries 30
       rabbitmq:
-        image: rabbitmq:4.3-management-alpine
+        image: ghcr.io/sachkov-inside/rabbitmq:4.3-management-alpine@sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95
         env:
           RABBITMQ_DEFAULT_USER: telegram_checks
           RABBITMQ_DEFAULT_PASS: telegram_checks
