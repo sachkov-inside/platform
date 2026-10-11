@@ -6,6 +6,15 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
+test("production cache-only selects pinned broker and edge images without dependency images (process adapter)", async () => {
+  const result = await runAcquisition("cache-ready");
+  assert.equal(result.status, 42, result.output + result.trace);
+  assert.match(result.trace, /generated-env-files\n/u);
+  assert.match(result.trace, /foundation-startup\n/u);
+  assert.match(result.trace, /application-startup\n/u);
+  assert.doesNotMatch(result.trace, /build|pull|image-remove/u);
+});
+
 test("production cache-only rejects a missing pinned input before build, pull or startup (process adapter)", async () => {
   const result = await runAcquisition("cache-missing-pinned");
   assert.equal(result.status, 32, result.output + result.trace);
@@ -171,6 +180,19 @@ async function runAcquisition(scenario) {
     "caddy",
   );
   writeFileSync(
+    join(fixture, "compose.json"),
+    JSON.stringify({
+      services: {
+        api: { image: backend },
+        mcp: { image: backend },
+        migrations: { image: backend },
+        "caddy-smoke": { image: caddy },
+        web: { image: web },
+        rabbitmq: { image: rabbitmq },
+      },
+    }),
+  );
+  writeFileSync(
     join(fixture, "docker"),
     `#!/bin/bash
 set -eu
@@ -230,7 +252,21 @@ acquire() {
   printf '%s complete %s\\n' "$now" "$service" >>"$ACQUISITION_FIXTURE/trace"
 }
 case "$*" in
-  *" config --images rabbitmq caddy-smoke") printf '%s\\n' "$RABBITMQ_IMAGE" "$CADDY_IMAGE" ;;
+  *" config --format json"|*" config --images rabbitmq caddy-smoke")
+    # Compose resolves the Source-generated synthetic env files before returning its model.
+    for name in runtime migrations api mcp material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker web; do
+      test -s "$PLATFORM_CONFIG_DIR/$name.env"
+    done
+    echo generated-env-files >>"$ACQUISITION_FIXTURE/trace"
+    if [[ "$*" == *" config --format json" ]]; then
+      cat "$ACQUISITION_FIXTURE/compose.json"
+    elif [[ "$ACQUISITION_SCENARIO" == cache-* ]]; then
+      # Saved Compose 2.40.3 output includes dependencies before the selected pinned inputs.
+      printf '%s\\n' "$PRODUCTION_SMOKE_BACKEND_IMAGE" "$PRODUCTION_SMOKE_BACKEND_IMAGE" "$PRODUCTION_SMOKE_BACKEND_IMAGE" "$CADDY_IMAGE" "$PRODUCTION_SMOKE_WEB_IMAGE" "$RABBITMQ_IMAGE"
+    else
+      printf '%s\\n' "$RABBITMQ_IMAGE" "$CADDY_IMAGE"
+    fi
+    ;;
   *" config --images") printf '%s\\n' "$RABBITMQ_IMAGE" "$CADDY_IMAGE" ;;
   *" pull rabbitmq caddy-smoke")
     # Compose owns graph ordering; CI38000920757 on 2026-10-09 acquired Caddy first (#1316).
