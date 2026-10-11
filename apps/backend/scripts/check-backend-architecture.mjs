@@ -85,20 +85,79 @@ const sqlCteDeclaration = new RegExp(
 
 /** @param {string} identifier */
 function normalizeSqlIdentifier(identifier) {
-  return identifier.replaceAll('"', "").replaceAll(/\s/gu, "");
+  return identifier
+    .split(/\s*\.\s*/gu)
+    .map((part) => {
+      const name = part.trim();
+      return name.startsWith('"') ? name.slice(1, -1) : name.toLowerCase();
+    })
+    .join(".");
+}
+
+/** @param {string} sqlText */
+function topLevelSqlCtes(sqlText) {
+  // Escapes and multiple/nested block comments are ambiguous for this lexical scan.
+  // Keep their references checked rather than granting any CTE exemptions.
+  if (sqlText.includes("\\") || /\/\*[\s\S]*\/\*/u.test(sqlText)) return [];
+  // Keep character offsets while ignoring parentheses/declarations in comments and literals.
+  const structuralSql = sqlText.replaceAll(
+    /--[^\n]*|\/\*[\s\S]*?\*\/|"(?:""|[^"])*"|'(?:''|[^'])*'|\$(?<tag>[a-z_][a-z0-9_]*|)\$[\s\S]*?\$\k<tag>\$/giu,
+    (literal) =>
+      literal.startsWith('"')
+        ? literal.replaceAll(/[();]/gu, " ")
+        : " ".repeat(literal.length),
+  );
+  if (!/^\s*with\s/iu.test(structuralSql)) return [];
+  const recursive = /^\s*with\s+recursive\s/iu.test(structuralSql);
+  /** @type {number[]} */
+  const depths = [];
+  /** @type {number[]} */
+  const openParentheses = [];
+  /** @type {Map<number, number>} */
+  const closingParentheses = new Map();
+  let statementEnd = structuralSql.length;
+  for (let index = 0; index < structuralSql.length; index++) {
+    depths.push(openParentheses.length);
+    if (structuralSql[index] === "(") openParentheses.push(index);
+    if (structuralSql[index] === ")") {
+      const opening = openParentheses.pop();
+      if (opening !== undefined) closingParentheses.set(opening, index);
+    }
+    if (structuralSql[index] === ";" && openParentheses.length === 0) {
+      statementEnd = index;
+      break;
+    }
+  }
+  // Nested WITH scopes stay conservative. Nonrecursive CTEs become visible only
+  // after their body, so own-body and forward table references are still checked.
+  return [...structuralSql.matchAll(sqlCteDeclaration)].flatMap((match) => {
+    if (match[1] === undefined || depths[match.index] !== 0) return [];
+    const opening = match.index + match[0].length - 1;
+    const closing = closingParentheses.get(opening);
+    if (closing === undefined) return [];
+    return [
+      {
+        name: normalizeSqlIdentifier(match[1]),
+        visibleFrom: recursive ? opening + 1 : closing + 1,
+        visibleUntil: statementEnd,
+      },
+    ];
+  });
 }
 
 /** @param {string} sqlText */
 function referencesFromSql(sqlText) {
-  const ctes = new Set(
-    [...sqlText.matchAll(sqlCteDeclaration)].flatMap((match) =>
-      match[1] === undefined ? [] : [normalizeSqlIdentifier(match[1])],
-    ),
-  );
+  const ctes = topLevelSqlCtes(sqlText);
   return [...sqlText.matchAll(sqlTableReference)].flatMap((match) => {
     if (match[1] === undefined) return [];
     const reference = normalizeSqlIdentifier(match[1]);
-    return ctes.has(reference) ? [] : [reference];
+    const visibleCte = ctes.some(
+      (cte) =>
+        cte.name === reference &&
+        match.index >= cte.visibleFrom &&
+        match.index < cte.visibleUntil,
+    );
+    return visibleCte ? [] : [reference];
   });
 }
 
