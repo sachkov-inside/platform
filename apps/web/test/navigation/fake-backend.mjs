@@ -533,6 +533,31 @@ function route(method, url, entitled) {
     });
   }
   const material = /^\/materials\/([^/]+)$/u.exec(path);
+  if (material?.[1] === "navigation-video-fragment") {
+    const template = lessons[0];
+    if (template === undefined) throw new Error("Missing Reader template");
+    const videoId = "44444444-4444-4444-8444-444444444444";
+    return json({
+      kind: "available",
+      cacheScope: "public",
+      videoChapters: [
+        { start: 0, title: "Start" },
+        { start: 3, title: "Early chapter" },
+        { start: 261, title: "Later chapter" },
+      ],
+      primaryVideo: {
+        videoId,
+        title: "Fragment video",
+        state: "ready",
+        durationSeconds: 600,
+      },
+      projection: {
+        ...readerProjection({ ...template, slug: material[1] }),
+        primaryVideoId: videoId,
+      },
+      body: body(template, false),
+    });
+  }
   if (
     material !== null &&
     (material[1] === "navigation-anchor-source" ||
