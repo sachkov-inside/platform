@@ -185,6 +185,10 @@ the same ownership and non-destructive restart rules as PostgreSQL. The stand's 
 `object-storage-data` is no longer mounted; [Former MinIO objects](#former-minio-objects) copies its
 objects into RustFS.
 
+RabbitMQ's official base and Testcontainers image use the public organization GHCR mirror;
+the versions, index digests and platforms follow the
+[RabbitMQ mirror contract](continuous-integration.md#rabbitmq-mirror).
+
 The local stand and its object-storage integration test acquire RustFS from the publisher's GHCR
 repository (#1310). `compose.yaml` pins the same OCI index digest as the former Docker Hub input;
 the source change preserves the image bytes and version. The [publisher workflow](https://github.com/rustfs/rustfs/blob/main/.github/workflows/docker.yml)

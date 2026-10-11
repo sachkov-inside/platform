@@ -125,7 +125,7 @@ test("production cache-only preserves primary failure when owned cleanup fails (
   );
 });
 
-test("production acquisition admits fast ECR pulls at the anonymous provider rate (process adapter)", async (t) => {
+test("production acquisition keeps broker and edge admission serial (process adapter)", async (t) => {
   const result = await runAcquisition("quota");
   t.diagnostic(result.trace);
   assert.equal(result.status, 42, result.output + result.trace);
@@ -146,7 +146,7 @@ test("production acquisition retains an image-input error and stops before anoth
   assert.equal(result.status, 31, result.output);
   assert.match(
     result.output,
-    /manifest unknown: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.2\.4-alpine@sha256:/u,
+    /manifest unknown: ghcr\.io\/sachkov-inside\/rabbitmq:4\.2\.4-alpine@sha256:/u,
   );
   assert.doesNotMatch(result.output, /toomanyrequests/u);
   assert.equal((result.trace.match(/ start /gu) ?? []).length, 1);
@@ -431,8 +431,9 @@ printf '%s\\n' "$((now + 1000))" >"$ACQUISITION_FIXTURE/clock"
 function imageFrom(path, image) {
   const reference = readFileSync(path, "utf8")
     .split("\n")
-    .find((line) =>
-      line.includes(`image: public.ecr.aws/docker/library/${image}:`),
+    .find(
+      (line) =>
+        line.includes(`/${image}:`) && line.trim().startsWith("image: "),
     )
     ?.trim()
     .slice("image: ".length);

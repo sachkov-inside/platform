@@ -4,6 +4,14 @@
 Он проверяет получение одного выбранного pinned RabbitMQ image через нормальный SDK image client, без integration cases.
 Один successful retry не устанавливает provider cause и не закрывает #1324.
 
+Текущий Source после #1337 выбирает публичный `ghcr.io/sachkov-inside/rabbitmq` с теми же
+официальными versions/index/platform digests; публикация владельцем разрешена для трёх inputs.
+Контракт публикации и anonymous verification описан в
+[RabbitMQ mirror](continuous-integration.md#rabbitmq-mirror). Normal-SDK fixture получает provider
+из текущего `NOTIFICATION_BROKER_IMAGE`. Диагностическая allowlist сохраняет исторический ECR pin
+для чтения прежних событий, но runtime fixture использует текущий GHCR input без fallback.
+Ниже сохранены исторические ECR experiments и их ограничения; они не являются проверкой GHCR.
+
 Baseline: `546518b02e48158f213524b19adc46aae7fd8e49`.
 SDK patch и dependency inputs сверяются с reviewed Source и actual failure Source #855.
 Перед новым grant Root повторяет сверку inputs на reviewed Source.

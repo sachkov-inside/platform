@@ -80,16 +80,45 @@ Other synchronous contract commands have explicit termination budgets; asynchron
 ## Official image inputs
 
 CI service containers, application Dockerfile bases, Compose dependencies and explicit
-Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`.
+Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`,
+except RabbitMQ, which uses the public `ghcr.io/sachkov-inside/rabbitmq` mirror.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
-This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
+Consumers do not need registry credentials for these inputs.
+
+### RabbitMQ mirror
+
+The owner authorized mirroring exactly `4.2.4-management-alpine`, `4.2.4-alpine` and
+`4.3-management-alpine` in #1337. Their original index digests remain unchanged. The
+[`rabbitmq-mirror.yml`](../../.github/workflows/rabbitmq-mirror.yml) trusted publisher copies the
+complete official Docker Hub index with `skopeo copy --all --preserve-digests`, without rebuilding,
+adding labels or converting manifest formats. It then requires anonymous GHCR reading, identical
+index bytes and identical child manifests, including `linux/amd64` and `linux/arm64`. Its artifacts
+retain those manifests. A copy or verification failure fails the publisher; there is no pull retry
+or fallback to another registry.
+
+Publishing uses only the job's `GITHUB_TOKEN` with `packages: write`, never a PAT or AWS account.
+The publisher checks out no candidate code and accepts no image inputs. It runs on a change to its
+workflow on `main`, or on demand on `main`. The owner-authorized bootstrap from
+`fix/1337-release-infrastructure` completed in
+[run 38125155437](https://github.com/sachkov-inside/platform/actions/runs/38125155437), Source
+`bac727908ab087a89e8dbf421830b6b88e19b64a`; its temporary branch trigger has been removed.
+Ordinary pull requests and merge groups retain read-only permissions
+and do not trigger the publisher. A future new version needs a reviewed publisher/input change.
+
+If the organization creates a package privately, change that package's visibility to public in
+GitHub Packages before expecting the anonymous verification or consumers to pass. A successful
+authenticated push alone does not satisfy this contract.
+
+### Remaining ECR inputs
+
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
 The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
 separate Compose command before application startup. It waits one second after RabbitMQ finishes
 before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
 concurrency but leaves admission timing and graph order to Compose. The interval bounds this
-pair's own admission; it cannot reserve a quota shared with other clients or prove the historical
+pair's own admission; RabbitMQ now comes from GHCR and only Caddy uses ECR in this pair. The
+interval cannot reserve a quota shared with other clients or prove the historical
 origin of throttling. A Compose call start does not timestamp its individual registry requests.
 Pull completion bounds the end of that opaque request window; the next admission follows that
 completion plus the provider interval. This conservatively separates the two request windows.

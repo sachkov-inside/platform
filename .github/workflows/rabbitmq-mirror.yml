@@ -1,10 +1,10 @@
 name: Publish official RabbitMQ mirror
 
-# The owner authorized these three inputs in #1337. The existing task branch is
-# the one-time bootstrap publisher; ordinary PRs never run this workflow.
+# The owner authorized these three inputs in #1337. Bootstrap publication is
+# complete; subsequent publishing runs only from trusted main, never a PR.
 on:
   push:
-    branches: [main, fix/1337-release-infrastructure]
+    branches: [main]
     paths: [.github/workflows/rabbitmq-mirror.yml]
   workflow_dispatch:
 
@@ -18,9 +18,8 @@ jobs:
   publish:
     if: >-
       github.repository == 'sachkov-inside/platform' &&
-      ((github.event_name == 'push' &&
-        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/1337-release-infrastructure')) ||
-       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

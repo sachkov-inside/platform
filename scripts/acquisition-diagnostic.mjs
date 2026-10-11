@@ -172,7 +172,7 @@ export function observeRequest(transport, emit, now = () => performance.now()) {
   };
 }
 
-/** Select the historical #855 image once at the normal GenericContainer acquisition boundary.
+/** Select pinned RabbitMQ once at the normal GenericContainer acquisition boundary.
  * @template {{string: string}} Image
  * @template Result
  * @param {{pull(image: Image, options: {force: boolean, platform: undefined}): Promise<Result>}} client
@@ -184,7 +184,10 @@ export function acquireSelectedImage(client, image, selection, emit) {
   if (
     selection !== "rabbitmq" ||
     safeImage(image.string) === "omitted" ||
-    !image.string.startsWith("public.ecr.aws/docker/library/rabbitmq:")
+    !(
+      image.string.startsWith("public.ecr.aws/docker/library/rabbitmq:") ||
+      image.string.startsWith("ghcr.io/sachkov-inside/rabbitmq:")
+    )
   ) {
     throw new Error("Explicit pinned RabbitMQ selection required");
   }
@@ -199,7 +202,7 @@ export function acquireSelectedImage(client, image, selection, emit) {
 
 /** @param {string} value */
 export function safeImage(value) {
-  return /^(public\.ecr\.aws\/docker\/library\/(postgres|rabbitmq)|ghcr\.io\/testcontainers\/ryuk):[a-z0-9.-]+@sha256:[a-f0-9]{64}$/.test(
+  return /^(public\.ecr\.aws\/docker\/library\/(postgres|rabbitmq)|ghcr\.io\/sachkov-inside\/rabbitmq|ghcr\.io\/testcontainers\/ryuk):[a-z0-9.-]+@sha256:[a-f0-9]{64}$/.test(
     value,
   )
     ? value

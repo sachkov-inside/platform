@@ -77,7 +77,7 @@ async function main() {
     dockerHostPresent: dockerHost !== undefined,
     dockerConfigOverridePresent: dockerConfig !== undefined,
     dockerAuthConfigPresent: dockerAuthConfig !== undefined,
-    provider: "public.ecr.aws",
+    provider: NOTIFICATION_BROKER_IMAGE.split("/")[0],
     processPid: process.pid,
   });
   const restorePull = observePull(runtime.image, emit);
