@@ -30,6 +30,14 @@ Communications меняется в общем JSON; backend генерирует
 Cohorts и sales funnel задаются runtime codecs backend. Обновляй их общие проекции после
 `pnpm api:generate`; `pnpm guardrails` сверяет эти проекции с текущими операциями OpenAPI.
 Notifications используют общий JSON напрямую в обоих приложениях.
+Mini App sign-in задаёт `apps/telegram/src/modules/bot-sign-in/mini-app-sign-in.contract.ts`.
+Команда `pnpm --filter @inside/telegram contracts:mini-app:generate` обновляет переносимую JSON-схему;
+Telegram guardrails проверяет её актуальность. Контракт сохраняет прежний bot consume/account-link.
+Первая login email использует draft envelope contract
+[`login-email-identity-v1`](login-email-identity-v1/protocol.md) из owning Accounts codecs.
+Команда `pnpm --filter @inside/backend contracts:login-email:generate` обновляет его JSON-схему;
+Backend guardrails проверяет drift. Этот corpus пока доказывает только wire shape; native attachment,
+reservation/finalization и reconciliation остаются runtime требованиями #461.
 
 ## Самостоятельная поставка
 

@@ -40,6 +40,11 @@ export class SignInAccountLink {
           .executeTakeFirst();
         if (request?.state !== "consumed" || !hasText(request.telegram_user_id))
           return false;
+        if (
+          request.source === "mini-app" &&
+          this.config.miniAppEnabled !== true
+        )
+          return false;
         const subject = await transaction
           .selectFrom("sign_in_subjects")
           .select("subject_ref")

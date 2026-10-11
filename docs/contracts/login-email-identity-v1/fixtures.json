@@ -1,0 +1,49 @@
+{
+  "begin": {
+    "commandRef": "46100000-0000-4000-8000-000000000101"
+  },
+  "candidate": {
+    "contractVersion": "inside.login-email-identity.v1",
+    "intentRef": "46100000-0000-4000-8000-000000000101",
+    "ownerIdentity": {
+      "issuer": "https://identity.test/oidc",
+      "subject": "synthetic-telegram-only-user"
+    },
+    "email": "synthetic-first-email@example.test",
+    "verificationRef": "synthetic-logto-record"
+  },
+  "reservation": {
+    "contractVersion": "inside.login-email-identity.v1",
+    "intentRef": "46100000-0000-4000-8000-000000000101",
+    "ownerIdentity": {
+      "issuer": "https://identity.test/oidc",
+      "subject": "synthetic-telegram-only-user"
+    },
+    "email": "synthetic-first-email@example.test",
+    "verificationRef": "synthetic-logto-record",
+    "telegramProof": {
+      "subjectRef": "46100000-0000-4000-8000-000000000102",
+      "requestRef": "46100000-0000-4000-8000-000000000103",
+      "approvedAt": "2026-10-10T10:00:00Z"
+    }
+  },
+  "finalization": {
+    "contractVersion": "inside.login-email-identity.v1",
+    "intentRef": "46100000-0000-4000-8000-000000000101",
+    "ownerIdentity": {
+      "issuer": "https://identity.test/oidc",
+      "subject": "synthetic-telegram-only-user"
+    },
+    "receipt": {
+      "intentRef": "46100000-0000-4000-8000-000000000101",
+      "state": "attached",
+      "email": "synthetic-first-email@example.test"
+    }
+  },
+  "result": {
+    "contractVersion": "inside.login-email-identity.v1",
+    "intentRef": "46100000-0000-4000-8000-000000000101",
+    "status": "reconciliation_required",
+    "expiresAt": "2026-10-10T10:10:00Z"
+  }
+}

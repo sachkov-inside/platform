@@ -25,8 +25,33 @@ import {
   readIdentityProofEndpoints,
   readIdentityProofPort,
 } from "./identity-proof-environment.mjs";
+import {
+  readMiniAppIdentityProofContext,
+  miniAppIdentityProofComposeArguments,
+} from "./mini-app-identity-proof.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const isolatedContextPath = process.env["IDENTITY_PROOF_ISOLATED_CONTEXT"];
+const isolatedContext =
+  isolatedContextPath === undefined
+    ? undefined
+    : readMiniAppIdentityProofContext(isolatedContextPath, root);
+if (isolatedContext !== undefined && process.env["LOGTO_ON_STAND"] === "true")
+  throw new Error(
+    "An isolated identity proof cannot configure the shared stand",
+  );
+const proofEnvironment =
+  isolatedContext === undefined
+    ? process.env
+    : {
+        ...process.env,
+        IDENTITY_PROOF_LOGTO_PORT: String(isolatedContext.ports.logto),
+        IDENTITY_PROOF_LOGTO_ADMIN_PORT: String(isolatedContext.ports.admin),
+        IDENTITY_PROOF_POSTGRES_PORT: String(isolatedContext.ports.postgres),
+        IDENTITY_PROOF_MAILPIT_PORT: String(isolatedContext.ports.mailpit),
+        IDENTITY_PROOF_API_PORT: String(isolatedContext.ports.api),
+        IDENTITY_PROOF_WEB_PORT: String(isolatedContext.ports.web),
+      };
 const composeFile = resolve(root, "infra/identity/logto/compose.yaml");
 const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
 /**
@@ -35,13 +60,16 @@ const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
  * появился второй экземпляр ради второго стенда.
  */
 const onStand = process.env["LOGTO_ON_STAND"] === "true";
-const logtoComposeArguments = onStand
-  ? ["-f", resolve(root, "compose.yaml"), "--profile", "identity"]
-  : ["--env-file", composeEnvironment, "-f", composeFile];
+const logtoComposeArguments =
+  isolatedContext !== undefined
+    ? miniAppIdentityProofComposeArguments(isolatedContext).slice(1)
+    : onStand
+      ? ["-f", resolve(root, "compose.yaml"), "--profile", "identity"]
+      : ["--env-file", composeEnvironment, "-f", composeFile];
 const { backendBaseUrl: platformResource, webBaseUrl } =
-  readIdentityProofEndpoints(process.env);
-const endpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
-const adminEndpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
+  readIdentityProofEndpoints(proofEnvironment);
+const endpoint = `https://identity.inside.localhost:${readIdentityProofPort(proofEnvironment, "IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
+const adminEndpoint = `https://identity.inside.localhost:${readIdentityProofPort(proofEnvironment, "IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
 const managementResource = "https://default.logto.app/api";
 const applicationName = "Inside Web";
 // Stand-only client for the loopback authoring gateway; production and proof tenants never get it.
@@ -51,12 +79,12 @@ export const standLearnerMcpUrl = "http://127.0.0.1:3002/mcp/learning";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
 const mailpitPort = readIdentityProofPort(
-  process.env,
+  proofEnvironment,
   "IDENTITY_PROOF_MAILPIT_PORT",
   8026,
 );
 const platformPostgresPort = readIdentityProofPort(
-  process.env,
+  proofEnvironment,
   "IDENTITY_PROOF_POSTGRES_PORT",
   5432,
 );
@@ -562,7 +590,10 @@ async function writeRuntimeEnvironment(
   applicationSecret,
   learnerClientId,
 ) {
-  const envPath = resolve(root, ".identity-proof/platform.env");
+  const envPath =
+    isolatedContext === undefined
+      ? resolve(root, ".identity-proof/platform.env")
+      : resolve(isolatedContext.directory, "platform.env");
   const current = await readFile(envPath, "utf8").catch(() => "");
   const existing = parseEnv(current);
   const updates = {
@@ -570,7 +601,9 @@ async function writeRuntimeEnvironment(
     TELEGRAM_SIGN_IN_ENABLED:
       process.env["TELEGRAM_SIGN_IN_ENABLED"] ?? "false",
     // Identity proof host processes migrate their own database, never the stand's.
-    DATABASE_URL: checkDatabaseUrl(platformPostgresPort),
+    DATABASE_URL:
+      isolatedContext?.platformDatabaseUrl ??
+      checkDatabaseUrl(platformPostgresPort),
     BACKEND_BASE_URL: platformResource,
     LOGTO_ENDPOINT: endpoint,
     LOGTO_ISSUER: `${endpoint}/oidc`,

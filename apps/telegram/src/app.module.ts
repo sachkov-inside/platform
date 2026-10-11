@@ -85,6 +85,7 @@ import { BotContacts } from "./modules/bot-contacts/bot-contacts.js";
 import { SignInAccountLink } from "./modules/bot-sign-in/sign-in-account-link.js";
 import { BotSignIn } from "./modules/bot-sign-in/bot-sign-in.js";
 import { BotSignInController } from "./modules/bot-sign-in/bot-sign-in.controller.js";
+import { MiniAppSignInController } from "./modules/bot-sign-in/mini-app-sign-in.controller.js";
 import { CLOCK, systemClock, type Clock } from "./shared/clock.js";
 import { IdentityLinking } from "./modules/identity-linking/identity-linking.js";
 import { IdentityLinkRecovery } from "./modules/identity-linking/identity-link-recovery.js";
@@ -129,6 +130,7 @@ export class AppModule {
       module: AppModule,
       controllers: [
         BotSignInController,
+        MiniAppSignInController,
         CommunityController,
         CommunicationsController,
         IdentityLinkingController,

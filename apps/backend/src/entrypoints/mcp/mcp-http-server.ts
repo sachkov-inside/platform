@@ -45,7 +45,7 @@ export interface McpHttpServer {
 }
 
 export function createMcpHttpServer(dependencies: {
-  readonly accounts: Accounts;
+  readonly accounts: Pick<Accounts, "resolveAccount">;
   readonly learning: LearnerMcpDependencies;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;

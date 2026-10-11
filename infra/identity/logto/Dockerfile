@@ -1,7 +1,7 @@
 FROM ghcr.io/logto-io/logto:1.44.0@sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.44.0-inside.7"
+LABEL org.opencontainers.image.version="1.44.0-inside.8"
 LABEL inside.logto.upstream-revision="79e9e3b0d9f505260d09c80d8a015e56fbc0ec01"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
@@ -39,9 +39,12 @@ COPY connector-inside-telegram /tmp/inside-telegram-connector
 COPY fork/packages/core/src/routes/inside-telegram-theme.ts packages/core/src/routes/inside-telegram-theme.ts
 COPY fork/packages/core/src/routes/inside-telegram-view.ts packages/core/src/routes/inside-telegram-view.ts
 COPY fork/packages/core/src/routes/inside-telegram.ts packages/core/src/routes/inside-telegram.ts
+COPY fork/packages/core/src/libraries/inside-mini-app-binding.ts packages/core/src/libraries/inside-mini-app-binding.ts
 COPY patches/issue-299-telegram-sign-in.patch /tmp/issue-299-telegram-sign-in.patch
+COPY patches/issue-461-mini-app-binding.patch /tmp/issue-461-mini-app-binding.patch
 RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && patch --fuzz=0 -p1 < /tmp/issue-299-telegram-sign-in.patch \
+  && patch --fuzz=0 -p1 < /tmp/issue-461-mini-app-binding.patch \
   && apk del .inside-patch-tools \
   && mkdir -p packages/connectors/connector-inside-telegram/src \
   && cp /tmp/inside-telegram-connector/index.ts packages/connectors/connector-inside-telegram/src/index.ts \

@@ -308,21 +308,14 @@ describe("MCP Streamable HTTP adapter", () => {
   }
 });
 
-function fakeAccounts(): Accounts {
+function fakeAccounts(): Pick<Accounts, "resolveAccount"> {
   return {
-    readIdentityForLink: () => Promise.resolve(undefined),
-    establishAccount: () =>
-      Promise.resolve({
-        ok: false,
-        error: { code: "invalid_input" },
-      }),
     resolveAccount: ({ identity }) =>
       Promise.resolve(
         identity.subject === "owner-001"
           ? { ok: true, account: { accountId } }
           : { ok: false, error: { code: "account_not_found" } },
       ),
-    checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
   };
 }
 

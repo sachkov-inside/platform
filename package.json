@@ -38,7 +38,7 @@
     "build:packages": "pnpm --filter @inside/contracts build && pnpm --filter @inside/material-blocks build && pnpm --filter @inside/access-capabilities build && pnpm --filter @inside/legal build",
     "build:generated": "pnpm build:packages && pnpm --filter @inside/backend prisma:generate",
     "test": "bash scripts/heavy-check.sh bash -c 'pnpm check:unit && pnpm --filter @inside/web test:browser-engines && pnpm test:storybook \"$@\"' --",
-    "test:tooling": "bash scripts/heavy-check.sh node --test --test-concurrency=2 scripts/*.test.mjs",
+    "test:tooling": "bash scripts/heavy-check.sh node --experimental-vm-modules --test --test-concurrency=2 scripts/*.test.mjs",
     "test:integration": "bash scripts/heavy-check.sh pnpm --filter @inside/backend test:integration",
     "test:integration:parallel": "bash scripts/heavy-check.sh pnpm --filter @inside/backend test:integration:parallel",
     "test:integration:serial": "bash scripts/heavy-check.sh pnpm --filter @inside/backend test:integration:serial",

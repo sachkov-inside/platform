@@ -13,12 +13,6 @@ export async function startLocalStand(learning: LearnerMcpDependencies) {
     ...refusingMcpToolDependencies(),
     learning,
     accounts: {
-      readIdentityForLink: () => Promise.resolve(undefined),
-      establishAccount: () =>
-        Promise.resolve({
-          ok: false,
-          error: { code: "invalid_input" },
-        }),
       resolveAccount: ({ identity }) =>
         Promise.resolve(
           identity.subject === "synthetic-participant"
@@ -28,7 +22,6 @@ export async function startLocalStand(learning: LearnerMcpDependencies) {
               }
             : { ok: false, error: { code: "account_not_found" } },
         ),
-      checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
     },
     config: { host: "127.0.0.1", port: 0, serverUrl: `${auth.issuer}/mcp` },
     identityIssuer: auth.issuer,

@@ -23,6 +23,10 @@ import { CommunityRestrictions } from "../../src/modules/community/community-res
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { digest } from "../../src/security/payload-digest.js";
 import {
+  currentMigrationNames,
+  legacyMigrationNames,
+} from "../support/migration-history-ledgers.js";
+import {
   canonicalJoinRequestUpdate,
   canonicalMembershipUpdate,
   canonicalProviderMembershipUpdate,
@@ -72,6 +76,34 @@ async function applyHistorical(
       transaction,
     );
   });
+}
+
+async function migrationLedger() {
+  const result = await sql<{ name: string; timestamp: string }>`
+    select name, timestamp from kysely_migration order by name
+  `.execute(database);
+  return result.rows;
+}
+
+async function assertMiniAppColumns(present: boolean) {
+  const columns = await sql<{ column_name: string }>`
+    select column_name from information_schema.columns
+    where table_schema = 'public' and table_name = 'sign_in_requests'
+      and column_name in ('source', 'mini_app_proof_digest', 'mini_app_oidc_context_digest',
+        'mini_app_launch_browser_digest', 'mini_app_bound_at')
+    order by column_name
+  `.execute(database);
+  expect(columns.rows.map(({ column_name }) => column_name)).toEqual(
+    present
+      ? [
+          "mini_app_bound_at",
+          "mini_app_launch_browser_digest",
+          "mini_app_oidc_context_digest",
+          "mini_app_proof_digest",
+          "source",
+        ]
+      : [],
+  );
 }
 
 it.each(["communications-first", "sign-in-first"] as const)(
@@ -137,17 +169,97 @@ it.each(["communications-first", "sign-in-first"] as const)(
             .executeTakeFirst(),
         ).toEqual({ reserved_for_sign_in: true });
       }
+      expect(
+        await database
+          .selectFrom("sign_in_requests")
+          .select([
+            "request_ref",
+            "bot_identity",
+            "start_token_digest",
+            "browser_secret_digest",
+            "state",
+            "confirmation_code",
+          ])
+          .where("request_ref", "=", identity)
+          .executeTakeFirst(),
+      ).toEqual({
+        request_ref: identity,
+        bot_identity: "synthetic-history",
+        start_token_digest: "a".repeat(43),
+        browser_secret_digest: "b".repeat(43),
+        state: "pending",
+        confirmation_code: "123456",
+      });
     };
+    // Complete the exact retained ledger first;031 is a separate forward step.
+    await migrateTo(database, "030-invitation-redemptions");
+    await database
+      .insertInto("sign_in_requests")
+      .values({
+        request_ref: identity,
+        bot_identity: "synthetic-history",
+        start_token_digest: "a".repeat(43),
+        browser_secret_digest: "b".repeat(43),
+        confirmation_code: "123456",
+        state: "pending",
+        created_at: new Date(fixedTestInstant()),
+        expires_at: new Date(fixedTestInstant() + 60_000),
+      })
+      .execute();
+    const retained = await migrationLedger();
+    expect(retained.map(({ name }) => name)).toEqual(legacyMigrationNames);
+    expect(retained).toHaveLength(31);
+    await assertMiniAppColumns(false);
+    await assertPreserved();
     await migrateToLatest(database);
+    const upgraded = await migrationLedger();
+    expect(upgraded.map(({ name }) => name)).toEqual(currentMigrationNames);
+    expect(
+      upgraded.filter(({ name }) => name !== "031-mini-app-sign-in"),
+    ).toEqual(retained);
+    await assertMiniAppColumns(true);
+    expect(
+      await database
+        .selectFrom("sign_in_requests")
+        .select([
+          "source",
+          "mini_app_proof_digest",
+          "mini_app_oidc_context_digest",
+          "mini_app_launch_browser_digest",
+          "mini_app_bound_at",
+        ])
+        .where("request_ref", "=", identity)
+        .executeTakeFirst(),
+    ).toEqual({
+      source: "bot",
+      mini_app_proof_digest: null,
+      mini_app_oidc_context_digest: null,
+      mini_app_launch_browser_digest: null,
+      mini_app_bound_at: null,
+    });
     await assertPreserved();
     await migrateDown(database);
-    await migrateToLatest(database);
+    expect(await migrationLedger()).toEqual(retained);
+    await assertMiniAppColumns(false);
     await assertPreserved();
     await migrateToLatest(database);
+    const reapplied = await migrationLedger();
+    expect(reapplied.map(({ name }) => name)).toEqual(currentMigrationNames);
+    expect(
+      reapplied.filter(({ name }) => name !== "031-mini-app-sign-in"),
+    ).toEqual(retained);
+    await assertMiniAppColumns(true);
+    await assertPreserved();
+    await migrateToLatest(database);
+    await assertPreserved();
+    await assertMiniAppColumns(true);
+    expect(await migrationLedger()).toEqual(reapplied);
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("31");
+    expect(ledger.rows[0]?.count).toBe("32");
+    const applied = (await migrationLedger()).map(({ name }) => name);
+    expect(applied).toEqual(currentMigrationNames);
   },
 );
 

@@ -10,12 +10,10 @@ const getCustomJwtClaims = async ({ token, context }) => {
       record.socialUserInfo?.id === context.user?.identities?.['inside-telegram']?.userId &&
       typeof record.socialUserInfo?.rawData?.requestRef === 'string'
   );
-  if (telegramVerification) {
-    return { inside_telegram_sign_in: {
+  const telegramClaims = telegramVerification ? { inside_telegram_sign_in: {
       subjectRef: telegramVerification.socialUserInfo.id,
       requestRef: telegramVerification.socialUserInfo.rawData.requestRef,
-    } };
-  }
+    } } : {};
 
   const emailVerification = context.interaction?.verificationRecords?.find(
     (record) =>
@@ -32,10 +30,11 @@ const getCustomJwtClaims = async ({ token, context }) => {
     verifiedEmail.trim().toLocaleLowerCase('en-US') !==
       primaryEmail.trim().toLocaleLowerCase('en-US')
   ) {
-    return {};
+    return telegramClaims;
   }
 
   return {
+    ...telegramClaims,
     inside_verified_email: verifiedEmail,
   };
 };

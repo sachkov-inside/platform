@@ -233,14 +233,20 @@ sign-in the provider supplies its confirmed link, and the trusted Logto connecto
 opaque principal through Platform before attaching the social identity to that exact Logto user.
 Client-selected subjects, usernames and email coincidence are never ownership evidence.
 
+The #461 draft extends this same connector/provider subject with Mini App launch approval and
+normal OIDC/browser binding. The owning [wire protocol](../contracts/mini-app-sign-in-v1/protocol.md)
+defines its original state/PKCE digest and one-time transfer. Normal BFF cookie/session ownership
+does not change. Source and synthetic adapter checks are available; the native Logto proof is
+PENDING. The first-email intent/reservation/reconciliation and application journey are not complete.
+
 The Account and stable linking principal are persisted before provider account-link finalization.
 A lost response is repaired by retrying with the same principal, even when the old attempt expired.
 Provider consume reserves an unlinked Telegram subject under a shared identity lock; ordinary
 email linking cannot take it between proof consumption and finalization. The reservation survives
 a lost response and a fresh bot proof repairs it. If email linking wins first, consume returns
 that confirmed link instead. Linking does not issue Membership
-or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
-are excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
+or permissions. First email attachment was excluded from #299; its #461 implementation is still
+pending. Merging, replacement and recovery remain excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
 a short waiting status, and explicit “Подтвердить вход” / “Отменить” bot buttons. Approval automatically
 returns the original browser to Platform. The screen omits account/recovery explanations and
 number matching; this changes presentation, not browser binding or one-time proof checks.

@@ -17,12 +17,15 @@ import type { VerifiedPrivateStart } from "../../shared/telegram-contact.js";
 import { CLOCK, type Clock } from "../../shared/clock.js";
 
 import { queueSignInResult } from "./queue-sign-in-result.js";
+import { verifyMiniAppLaunch } from "./mini-app-launch.js";
 
 export interface RegisterSignIn {
   readonly requestRef: string;
   readonly startTokenDigest: string;
   readonly browserSecretDigest: string;
   readonly expiresAt: Date;
+  readonly source?: "bot" | "mini-app";
+  readonly oidcContextDigest?: string;
 }
 
 export interface VerifiedSignInDecision {
@@ -51,6 +54,10 @@ export type SignInResult =
       readonly expiresAt: string;
     }
   | {
+      readonly status: "bound";
+      readonly expiresAt: string;
+    }
+  | {
       readonly status: "verified";
       readonly subjectRef: string;
       readonly approvedAt: string;
@@ -73,12 +80,17 @@ export class BotSignIn {
 
   async register(request: RegisterSignIn): Promise<SignInResult> {
     if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
+    const source = request.source ?? "bot";
+    if (source === "mini-app" && this.config.miniAppEnabled !== true)
+      return { status: "disabled" };
     const now = this.clock.now();
     if (
       !isRequestRef(request.requestRef) ||
       !isDigest(request.startTokenDigest) ||
       !isDigest(request.browserSecretDigest) ||
       request.startTokenDigest === request.browserSecretDigest ||
+      (source === "mini-app" && !isDigest(request.oidcContextDigest ?? "")) ||
+      (source === "bot" && request.oidcContextDigest !== undefined) ||
       !Number.isFinite(request.expiresAt.getTime()) ||
       request.expiresAt <= now ||
       request.expiresAt.getTime() - now.getTime() > 300_000
@@ -100,6 +112,10 @@ export class BotSignIn {
         expires_at: request.expiresAt,
         approved_at: null,
         consumed_at: null,
+        source,
+        mini_app_oidc_context_digest: request.oidcContextDigest ?? null,
+        mini_app_launch_browser_digest:
+          source === "mini-app" ? request.browserSecretDigest : null,
       })
       .onConflict((conflict) => conflict.doNothing())
       .execute();
@@ -111,8 +127,11 @@ export class BotSignIn {
     if (
       !saved ||
       saved.bot_identity !== this.config.botIdentity ||
+      saved.source !== source ||
       saved.start_token_digest !== request.startTokenDigest ||
       saved.browser_secret_digest !== request.browserSecretDigest ||
+      saved.mini_app_oidc_context_digest !==
+        (request.oidcContextDigest ?? null) ||
       saved.expires_at.getTime() !== request.expiresAt.getTime()
     ) {
       return { status: "unavailable" };
@@ -143,7 +162,12 @@ export class BotSignIn {
         .forUpdate()
         .executeTakeFirst();
       const now = this.clock.now();
-      if (request?.state !== "pending" || request.expires_at <= now) return;
+      if (
+        request?.state !== "pending" ||
+        request.source !== "bot" ||
+        request.expires_at <= now
+      )
+        return;
       await transaction
         .updateTable("sign_in_requests")
         .set({
@@ -186,6 +210,7 @@ export class BotSignIn {
       if (
         !request ||
         request.bot_identity !== decision.botIdentity ||
+        request.source !== "bot" ||
         request.telegram_user_id !== decision.telegramUserId ||
         request.private_chat_id !== decision.privateChatId ||
         request.state !== "awaiting_approval" ||
@@ -212,10 +237,182 @@ export class BotSignIn {
     });
   }
 
+  /** Binds signed launch identity to the existing Logto browser attempt, without bot delivery. */
+  async approveMiniApp(
+    requestRef: string,
+    browserSecret: string,
+    initData: string,
+  ): Promise<SignInResult> {
+    if (
+      this.config.signInEnabled !== true ||
+      this.config.miniAppEnabled !== true ||
+      !hasText(this.config.botToken)
+    )
+      return { status: "disabled" };
+    if (
+      !isRequestRef(requestRef) ||
+      !isDigest(browserSecret) ||
+      initData.length > 16_384
+    )
+      return { status: "unavailable" };
+    const now = this.clock.now();
+    const launch = verifyMiniAppLaunch({
+      initData,
+      botToken: this.config.botToken,
+      now,
+    });
+    if (launch === undefined) return { status: "unavailable" };
+    const proofDigest = digestSignInSecret(
+      `${this.config.botIdentity}:${launch.proofDigest}`,
+    );
+    return this.database
+      .transaction()
+      .execute(async (transaction): Promise<SignInResult> => {
+        const request = await transaction
+          .selectFrom("sign_in_requests")
+          .selectAll()
+          .where("request_ref", "=", requestRef)
+          .forUpdate()
+          .executeTakeFirst();
+        if (
+          request === undefined ||
+          request.bot_identity !== this.config.botIdentity ||
+          request.source !== "mini-app" ||
+          !credentialsMatch(
+            digestSignInSecret(browserSecret),
+            request.browser_secret_digest,
+          )
+        )
+          return { status: "unavailable" };
+        if (request.expires_at <= now) return { status: "expired" };
+        if (request.state !== "pending") {
+          return request.mini_app_proof_digest === proofDigest &&
+            request.telegram_user_id === launch.telegramUserId
+            ? { status: request.state === "consumed" ? "consumed" : "approved" }
+            : { status: "unavailable" };
+        }
+        // The same signed proof has the same user ID. This existing identity lock also serializes
+        // bot consume and ordinary linking; a different request cannot claim the replay key.
+        await lockTelegramIdentity(
+          transaction,
+          this.config.botIdentity,
+          launch.telegramUserId,
+        );
+        const replay = await transaction
+          .selectFrom("sign_in_requests")
+          .select("request_ref")
+          .where("mini_app_proof_digest", "=", proofDigest)
+          .executeTakeFirst();
+        if (replay !== undefined) return { status: "unavailable" };
+        await transaction
+          .updateTable("sign_in_requests")
+          .set({
+            state: "approved",
+            telegram_user_id: launch.telegramUserId,
+            approved_at: now,
+            mini_app_proof_digest: proofDigest,
+          })
+          .where("request_ref", "=", requestRef)
+          .execute();
+        return { status: "approved" };
+      });
+  }
+
   async inspect(
     requestRef: string,
     browserSecret: string,
     consume = false,
+  ): Promise<SignInResult> {
+    return this.readAttempt(
+      requestRef,
+      browserSecret,
+      consume ? "consume" : "status",
+    );
+  }
+
+  /** Transfers an approved launch to exactly one normal Logto interaction. */
+  async bindMiniApp(
+    requestRef: string,
+    oidcContextDigest: string,
+    browserSecretDigest: string,
+    launchBrowserSecret: string,
+  ): Promise<SignInResult> {
+    if (
+      this.config.signInEnabled !== true ||
+      this.config.miniAppEnabled !== true
+    )
+      return { status: "disabled" };
+    if (
+      !isRequestRef(requestRef) ||
+      !isDigest(oidcContextDigest) ||
+      !isDigest(browserSecretDigest) ||
+      !isDigest(launchBrowserSecret)
+    )
+      return { status: "unavailable" };
+    return this.database
+      .transaction()
+      .execute(async (transaction): Promise<SignInResult> => {
+        const request = await transaction
+          .selectFrom("sign_in_requests")
+          .selectAll()
+          .where("request_ref", "=", requestRef)
+          .forUpdate()
+          .executeTakeFirst();
+        const now = this.clock.now();
+        if (
+          request === undefined ||
+          request.bot_identity !== this.config.botIdentity ||
+          request.source !== "mini-app" ||
+          request.mini_app_launch_browser_digest === null ||
+          !credentialsMatch(
+            digestSignInSecret(launchBrowserSecret),
+            request.mini_app_launch_browser_digest,
+          ) ||
+          request.mini_app_oidc_context_digest === null ||
+          !credentialsMatch(
+            oidcContextDigest,
+            request.mini_app_oidc_context_digest,
+          )
+        )
+          return { status: "unavailable" };
+        if (request.expires_at <= now) return { status: "expired" };
+        if (request.mini_app_bound_at !== null) {
+          return credentialsMatch(
+            browserSecretDigest,
+            request.browser_secret_digest,
+          )
+            ? { status: "bound", expiresAt: request.expires_at.toISOString() }
+            : { status: "unavailable" };
+        }
+        if (
+          request.state !== "approved" ||
+          request.mini_app_proof_digest === null
+        )
+          return { status: "unavailable" };
+        await transaction
+          .updateTable("sign_in_requests")
+          .set({
+            browser_secret_digest: browserSecretDigest,
+            mini_app_bound_at: now,
+          })
+          .where("request_ref", "=", requestRef)
+          .execute();
+        return { status: "bound", expiresAt: request.expires_at.toISOString() };
+      });
+  }
+
+  /** Recovers a committed result under its original browser binding; never consumes a proof. */
+  async receipt(
+    requestRef: string,
+    browserSecret: string,
+  ): Promise<SignInResult> {
+    return this.readAttempt(requestRef, browserSecret, "receipt");
+  }
+
+  private async readAttempt(
+    requestRef: string,
+    browserSecret: string,
+    mode: "status" | "consume" | "receipt",
   ): Promise<SignInResult> {
     if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
     if (!isRequestRef(requestRef) || !isDigest(browserSecret))
@@ -239,14 +436,24 @@ export class BotSignIn {
           )
         )
           return { status: "unavailable" };
+        if (
+          request.source === "mini-app" &&
+          this.config.miniAppEnabled !== true
+        )
+          return { status: "disabled" };
         if (request.expires_at <= now) return { status: "expired" };
+        if (mode === "receipt" && request.state !== "consumed")
+          return { status: "unavailable" };
         if (
           request.state === "pending" ||
           request.state === "awaiting_approval"
         )
           return { status: "pending" };
-        if (request.state !== "approved") return { status: request.state };
-        if (!consume) return { status: "approved" };
+        if (request.state !== "approved" && mode !== "receipt")
+          return { status: request.state };
+        if (mode === "status") return { status: "approved" };
+        if (request.source === "mini-app" && request.mini_app_bound_at === null)
+          return { status: "unavailable" };
         if (!hasText(request.telegram_user_id) || !request.approved_at)
           return { status: "unavailable" };
         await lockTelegramIdentity(
@@ -254,15 +461,16 @@ export class BotSignIn {
           request.bot_identity,
           request.telegram_user_id,
         );
-        await transaction
-          .insertInto("sign_in_subjects")
-          .values({
-            subject_ref: randomUUID(),
-            bot_identity: request.bot_identity,
-            telegram_user_id: request.telegram_user_id,
-          })
-          .onConflict((conflict) => conflict.doNothing())
-          .execute();
+        if (mode === "consume")
+          await transaction
+            .insertInto("sign_in_subjects")
+            .values({
+              subject_ref: randomUUID(),
+              bot_identity: request.bot_identity,
+              telegram_user_id: request.telegram_user_id,
+            })
+            .onConflict((conflict) => conflict.doNothing())
+            .execute();
         const subject = await transaction
           .selectFrom("sign_in_subjects")
           .select("subject_ref")
@@ -273,7 +481,7 @@ export class BotSignIn {
           botIdentity: request.bot_identity,
           telegramUserId: request.telegram_user_id,
         });
-        if (!link) {
+        if (!link && mode === "consume") {
           // Approval of independent registration reserves this subject even if the browser loses
           // the consume response. A fresh bot sign-in can repair it; email linking cannot take it.
           await transaction
@@ -282,11 +490,12 @@ export class BotSignIn {
             .where("subject_ref", "=", subject.subject_ref)
             .execute();
         }
-        await transaction
-          .updateTable("sign_in_requests")
-          .set({ state: "consumed", consumed_at: now })
-          .where("request_ref", "=", requestRef)
-          .execute();
+        if (mode === "consume")
+          await transaction
+            .updateTable("sign_in_requests")
+            .set({ state: "consumed", consumed_at: now })
+            .where("request_ref", "=", requestRef)
+            .execute();
         return {
           status: "verified",
           subjectRef: subject.subject_ref,

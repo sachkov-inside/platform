@@ -1,0 +1,6 @@
+{
+  "schemaId": "urn:inside:mini-app-sign-in:v1",
+  "source": "apps/telegram/src/modules/bot-sign-in/mini-app-sign-in.contract.ts",
+  "issue": "https://github.com/sachkov-inside/platform/issues/461",
+  "fixtures": "synthetic-only"
+}

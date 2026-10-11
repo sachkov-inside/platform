@@ -1,3 +1,4 @@
+import type { LoginEmailIdentity } from "../login-email-identity/login-email-identity.js";
 import type { AccountsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type {
   VerifiedAccountIdentity,
@@ -42,6 +43,7 @@ export type PermissionDecision =
   | { readonly ok: false; readonly error: PermissionError };
 
 export interface Accounts {
+  readonly loginEmailIdentity: LoginEmailIdentity;
   /** A caller with an open transaction passes it to keep this read on the same connection. */
   readIdentityForLink(
     accountId: string,

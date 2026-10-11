@@ -10,7 +10,7 @@ import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.a
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { Communications } from "../../src/modules/communications/communications.js";
 import { lockTelegramIdentity } from "../../src/modules/identity-linking/identity-link-account-lock.js";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 
 import { NestFactory } from "@nestjs/core";
 import {
@@ -118,6 +118,191 @@ afterAll(async () => {
 });
 
 describe("bot sign-in provider", () => {
+  it("Mini App approval binds one browser and retains the subject of later bot sign-in", async () => {
+    const mini = miniAppProvider(database);
+    let challenge = await registerMiniApp(mini);
+    const proof = miniAppProof(challenge.requestRef);
+    await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      mini.approveMiniApp(challenge.requestRef, challenge.browserSecret, proof),
+    ).resolves.toEqual({ status: "approved" });
+    await expect(
+      mini.inspect(challenge.requestRef, challenge.browserSecret, true),
+    ).resolves.toEqual({ status: "unavailable" });
+    challenge = await bindMiniApp(mini, challenge);
+    await expect(
+      mini.approveMiniApp(challenge.requestRef, challenge.browserSecret, proof),
+    ).resolves.toEqual({ status: "approved" });
+    const consumed = await mini.inspect(
+      challenge.requestRef,
+      challenge.browserSecret,
+      true,
+    );
+    expect(consumed.status).toBe("verified");
+    if (consumed.status !== "verified")
+      throw new Error("Mini App proof was not consumed");
+    await expect(
+      mini.receipt(challenge.requestRef, randomBytes(32).toString("base64url")),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual(consumed);
+    await expect(
+      mini.inspect(challenge.requestRef, challenge.browserSecret, true),
+    ).resolves.toEqual({ status: "consumed" });
+    await expect(
+      mini.receipt(challenge.requestRef, challenge.browserSecret),
+    ).resolves.toEqual(consumed);
+    const bot = await register();
+    await start(bot, 42);
+    await callback(bot, 42);
+    await expect(
+      signIn.inspect(bot.requestRef, bot.browserSecret, true),
+    ).resolves.toMatchObject({
+      status: "verified",
+      subjectRef: consumed.subjectRef,
+    });
+  });
+
+  it("Mini App transfer rejects another OIDC context and binds only one Logto browser on independent DB connections", async () => {
+    const first = miniAppProvider(database);
+    const second = miniAppProvider(secondDatabase);
+    const challenge = await registerMiniApp(first);
+    const oidcContextDigest = digestSignInSecret(
+      `oidc-context:${challenge.requestRef}`,
+    );
+    const left = randomBytes(32).toString("base64url");
+    const right = randomBytes(32).toString("base64url");
+    await first.approveMiniApp(
+      challenge.requestRef,
+      challenge.browserSecret,
+      miniAppProof(challenge.requestRef),
+    );
+    await expect(
+      first.bindMiniApp(
+        challenge.requestRef,
+        digestSignInSecret("another-context"),
+        digestSignInSecret(left),
+        challenge.browserSecret,
+      ),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      first.bindMiniApp(
+        challenge.requestRef,
+        oidcContextDigest,
+        digestSignInSecret(left),
+        randomBytes(32).toString("base64url"),
+      ),
+    ).resolves.toEqual({ status: "unavailable" });
+    const bindings = await Promise.all([
+      first.bindMiniApp(
+        challenge.requestRef,
+        oidcContextDigest,
+        digestSignInSecret(left),
+        challenge.browserSecret,
+      ),
+      second.bindMiniApp(
+        challenge.requestRef,
+        oidcContextDigest,
+        digestSignInSecret(right),
+        challenge.browserSecret,
+      ),
+    ]);
+    expect(bindings.map((result) => result.status).sort()).toEqual([
+      "bound",
+      "unavailable",
+    ]);
+    await expect(
+      first.inspect(challenge.requestRef, challenge.browserSecret, true),
+    ).resolves.toEqual({ status: "unavailable" });
+    const winner = bindings[0].status === "bound" ? left : right;
+    await expect(
+      first.bindMiniApp(
+        challenge.requestRef,
+        oidcContextDigest,
+        digestSignInSecret(winner),
+        challenge.browserSecret,
+      ),
+    ).resolves.toMatchObject({ status: "bound" });
+    await expect(
+      first.inspect(challenge.requestRef, winner, true),
+    ).resolves.toMatchObject({ status: "verified" });
+  });
+
+  it("Mini App replay cannot approve concurrent requests on independent DB connections", async () => {
+    const first = miniAppProvider(database);
+    const second = miniAppProvider(secondDatabase);
+    const left = await registerMiniApp(first);
+    const right = await registerMiniApp(second);
+    const proof = miniAppProof(left.requestRef);
+    const results = await Promise.all([
+      first.approveMiniApp(left.requestRef, left.browserSecret, proof),
+      second.approveMiniApp(right.requestRef, right.browserSecret, proof),
+    ]);
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "approved",
+      "unavailable",
+    ]);
+  });
+
+  it("Mini App proof cannot switch its candidate, browser or a bot attempt", async () => {
+    const mini = miniAppProvider(database);
+    const challenge = await registerMiniApp(mini);
+    const proof = miniAppProof(challenge.requestRef);
+    await expect(
+      mini.approveMiniApp(
+        challenge.requestRef,
+        randomBytes(32).toString("base64url"),
+        proof,
+      ),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      mini.approveMiniApp(challenge.requestRef, challenge.browserSecret, proof),
+    ).resolves.toEqual({ status: "approved" });
+    await expect(
+      mini.approveMiniApp(
+        challenge.requestRef,
+        challenge.browserSecret,
+        miniAppProof(challenge.requestRef, 43),
+      ),
+    ).resolves.toEqual({ status: "unavailable" });
+    const bot = await register();
+    await expect(
+      mini.approveMiniApp(bot.requestRef, bot.browserSecret, proof),
+    ).resolves.toEqual({ status: "unavailable" });
+    await expect(
+      signIn.inspect(bot.requestRef, bot.browserSecret),
+    ).resolves.toEqual({ status: "pending" });
+  });
+
+  it("disabling Mini App blocks its approved proof while normal bot sign-in remains available", async () => {
+    const mini = miniAppProvider(database);
+    const challenge = await registerMiniApp(mini);
+    await mini.approveMiniApp(
+      challenge.requestRef,
+      challenge.browserSecret,
+      miniAppProof(challenge.requestRef),
+    );
+    const disabled = new BotSignIn(
+      database,
+      { ...config, miniAppEnabled: false },
+      {
+        now: () => new Date(fixedTestInstant()),
+      },
+    );
+    await expect(
+      disabled.inspect(challenge.requestRef, challenge.browserSecret, true),
+    ).resolves.toEqual({ status: "disabled" });
+    const bot = await register();
+    await start(bot, 42);
+    await callback(bot, 42);
+    await expect(
+      disabled.inspect(bot.requestRef, bot.browserSecret, true),
+    ).resolves.toMatchObject({ status: "verified" });
+  });
+
   it("does not enter marketing when a sign-in start arrives while marketing is enabled", async () => {
     const marketing = application.get(MarketingEntry);
     const enabled = vi.spyOn(marketing, "enabled").mockReturnValue(true);
@@ -1165,6 +1350,67 @@ describe("bot sign-in provider", () => {
     ).toMatchObject({ status: "unavailable" });
   });
 });
+
+function miniAppProvider(connection: Database) {
+  return new BotSignIn(
+    connection,
+    {
+      ...config,
+      miniAppEnabled: true,
+      botToken: "461:synthetic-bot-token-not-a-credential",
+    },
+    { now: () => new Date(fixedTestInstant()) },
+  );
+}
+
+async function registerMiniApp(provider: BotSignIn) {
+  const challenge = newChallenge();
+  await expect(
+    provider.register({
+      requestRef: challenge.requestRef,
+      startTokenDigest: challenge.envelope.startTokenDigest,
+      browserSecretDigest: challenge.envelope.browserSecretDigest,
+      expiresAt: new Date(challenge.envelope.expiresAt),
+      source: "mini-app",
+      oidcContextDigest: digestSignInSecret(
+        `oidc-context:${challenge.requestRef}`,
+      ),
+    }),
+  ).resolves.toMatchObject({ status: "registered" });
+  return challenge;
+}
+
+function miniAppProof(queryId: string, userId = 42): string {
+  const fields = [
+    ["auth_date", String(Math.floor(fixedTestInstant() / 1000))],
+    ["query_id", queryId],
+    ["user", JSON.stringify({ id: userId, first_name: "Synthetic" })],
+  ];
+  const data = fields.map(([key, value]) => `${key}=${value}`).join("\n");
+  const key = createHmac("sha256", "WebAppData")
+    .update("461:synthetic-bot-token-not-a-credential")
+    .digest();
+  return new URLSearchParams([
+    ...fields,
+    ["hash", createHmac("sha256", key).update(data).digest("hex")],
+  ]).toString();
+}
+
+async function bindMiniApp(
+  provider: BotSignIn,
+  challenge: ReturnType<typeof newChallenge>,
+) {
+  const browserSecret = randomBytes(32).toString("base64url");
+  await expect(
+    provider.bindMiniApp(
+      challenge.requestRef,
+      digestSignInSecret(`oidc-context:${challenge.requestRef}`),
+      digestSignInSecret(browserSecret),
+      challenge.browserSecret,
+    ),
+  ).resolves.toMatchObject({ status: "bound" });
+  return { ...challenge, browserSecret };
+}
 
 function newChallenge() {
   const startToken = randomBytes(26).toString("base64url");

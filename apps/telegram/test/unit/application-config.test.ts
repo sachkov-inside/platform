@@ -16,6 +16,33 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("keeps Mini App proof disabled independently from bot sign-in and external delivery", () => {
+    expect(loadApplicationConfig(validEnvironment).miniAppEnabled).toBe(false);
+    const signIn = {
+      ...validEnvironment,
+      TELEGRAM_SIGN_IN_ENABLED: "true",
+      TELEGRAM_SIGN_IN_INTEGRATION_SECRET:
+        "synthetic_sign_in_secret_for_tests_only",
+    };
+    expect(loadApplicationConfig(signIn).miniAppEnabled).toBe(false);
+    expect(() =>
+      loadApplicationConfig({ ...signIn, TELEGRAM_MINI_APP_ENABLED: "true" }),
+    ).toThrow("TELEGRAM_BOT_TOKEN");
+    expect(() =>
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_MINI_APP_ENABLED: "true",
+      }),
+    ).toThrow("TELEGRAM_SIGN_IN_ENABLED");
+    const enabled = loadApplicationConfig({
+      ...signIn,
+      TELEGRAM_MINI_APP_ENABLED: "true",
+      TELEGRAM_BOT_TOKEN: "461:synthetic-bot-token-not-a-credential",
+    });
+    expect(enabled.miniAppEnabled).toBe(true);
+    expect(enabled.deliveryMode).toBe("disabled");
+  });
+
   it("keeps content validation disabled until a secure authenticated endpoint is configured", () => {
     expect(
       loadApplicationConfig(validEnvironment)

@@ -5,6 +5,7 @@ import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   verifiedAccountIdentity,
   verifiedAccountSignIn,
+  verifiedTelegramAccountSignIn,
 } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { bootstrapOwnerAccount } from "../../src/modules/accounts/features/bootstrap-owner-account/bootstrap-owner-account.js";
 import {
@@ -28,6 +29,55 @@ describe("Accounts", () => {
   });
 
   afterAll(async () => database.dispose());
+
+  test("first verified email on a Telegram Account reserves that email without changing subject or granting rights", async () => {
+    const telegram = {
+      subjectRef: "46100000-0000-4000-8000-000000000021",
+      requestRef: "46100000-0000-4000-8000-000000000022",
+    };
+    const original = verifiedTelegramAccountSignIn({
+      issuer,
+      subject: "461-first-email",
+      telegram,
+    });
+    const first = await accounts.establishAccount({
+      identity: original.identity,
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error("Telegram Account was not established");
+    const attached = verifiedTelegramAccountSignIn({
+      issuer,
+      subject: "461-first-email",
+      telegram,
+      verifiedEmail: "461-first-email@example.test",
+    });
+    await expect(
+      accounts.establishAccount({ identity: attached.identity }),
+    ).resolves.toEqual(first);
+    const contender = verifiedAccountSignIn({
+      issuer,
+      subject: "461-other-owner",
+      verifiedEmail: "461-first-email@example.test",
+    });
+    await expect(
+      accounts.establishAccount({ identity: contender.identity }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { code: "identity_conflict" },
+    });
+    await expect(
+      accounts.resolveAccount({ identity: contender.accountIdentity }),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      accounts.establishAccount({ identity: original.identity }),
+    ).resolves.toEqual(first);
+    await expect(
+      accounts.checkPermission({
+        accountId: first.account.accountId,
+        permission: "materials:manage",
+      }),
+    ).resolves.toEqual({ ok: true, allowed: false });
+  });
 
   test("trusted administrator covers all known operations; authors stay scoped and revocation is immediate", async () => {
     const admin = await bootstrapOwnerAccount(

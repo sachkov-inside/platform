@@ -13,6 +13,7 @@ export const repository = "sachkov-inside/platform";
 export const legacyRepository = "sachkov-inside/inside-telegram";
 // Frozen source history verified at the #960 transition; newer legacy ordinals are refused.
 export const legacyLastOrdinal = 5;
+export const legacyLatestMigration = "030-invitation-redemptions.ts";
 export const imageName = "ghcr.io/sachkov-inside/inside-telegram";
 export const manifestSchemaVersion = "inside.telegram.release-manifest.v1";
 export const releaseAssets = [
@@ -127,11 +128,9 @@ function retainedOrdinals(existingTags, existingReleases, pattern, prefix) {
   return versions.map((version) => parseOrdinal(version.slice(prefix.length)));
 }
 
-/**
- * Identity of the ordered migration set: names and contents of every file.
- * Equal identities mean that two releases expect the same database schema.
- */
-export async function migrationsIdentity(directory = migrationsDirectory) {
+/** @param {string} directory
+ * @param {string | undefined} through */
+async function migrationFiles(directory, through = undefined) {
   const names = (await readdir(directory, { withFileTypes: true }))
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
@@ -139,6 +138,25 @@ export async function migrationsIdentity(directory = migrationsDirectory) {
   if (names.length === 0) {
     throw new Error(`no migrations in ${directory}`);
   }
+  if (through !== undefined && !names.includes(through)) {
+    throw new Error(`missing migration ${through}`);
+  }
+  return through === undefined
+    ? names
+    : names.filter((name) => name <= through);
+}
+
+/**
+ * Identity of the ordered migration set: names and contents of every file.
+ * Equal identities mean that two releases expect the same database schema.
+ * @param {string} directory
+ * @param {string | undefined} through
+ */
+export async function migrationsIdentity(
+  directory = migrationsDirectory,
+  through = undefined,
+) {
+  const names = await migrationFiles(directory, through);
   const lines = [];
   for (const name of names) {
     const content = await readFile(path.join(directory, name));
@@ -236,6 +254,14 @@ async function main(arguments_) {
   if (command === "migrations-identity") {
     return migrationsIdentity(rest[0]);
   }
+  if (command === "legacy-migrations-identity") {
+    return migrationsIdentity(rest[0], legacyLatestMigration);
+  }
+  if (command === "migration-names") {
+    return (await migrationFiles(rest[0] ?? migrationsDirectory)).map((name) =>
+      name.replace(/\.ts$/u, ""),
+    );
+  }
   if (command === "manifest") {
     return createManifest({
       version: option(rest, "version"),
@@ -248,7 +274,7 @@ async function main(arguments_) {
     });
   }
   throw new Error(
-    "usage: release-contract.mjs plan | migrations-identity [dir] | manifest --version vN --source-sha <sha> --image-digest <digest> --compose <file> --caddy <file> --run-id <id> --server-url <url>",
+    "usage: release-contract.mjs plan | migrations-identity [dir] | legacy-migrations-identity [dir] | migration-names [dir] | manifest --version vN --source-sha <sha> --image-digest <digest> --compose <file> --caddy <file> --run-id <id> --server-url <url>",
   );
 }
 

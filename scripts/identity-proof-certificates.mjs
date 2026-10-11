@@ -11,7 +11,7 @@ import {
 import { resolve } from "node:path";
 import process from "node:process";
 
-const outputDirectory = resolve(".identity-proof/tls");
+const outputDirectory = resolve(process.argv[2] ?? ".identity-proof/tls");
 const certificate = resolve(outputDirectory, "certificate.pem");
 const privateKey = resolve(outputDirectory, "private-key.pem");
 const ca = resolve(outputDirectory, "ca.pem");

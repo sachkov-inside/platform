@@ -86,6 +86,22 @@ export class BotSignInController {
     return this.inspect(authorization, requestRef, body, true);
   }
 
+  @Post(":requestRef/receipt")
+  @Header("Cache-Control", "no-store")
+  @HttpCode(200)
+  async receipt(
+    @Headers("authorization") authorization: string | undefined,
+    @Param("requestRef") requestRef: string,
+    @Body() body: unknown,
+  ) {
+    this.authenticate(authorization);
+    const envelope = readEnvelope(body, ["browserSecret"]);
+    return {
+      contractVersion: CONTRACT_VERSION,
+      ...(await this.signIn.receipt(requestRef, envelope("browserSecret"))),
+    };
+  }
+
   @Post(":requestRef/account-link")
   @Header("Cache-Control", "no-store")
   @HttpCode(200)

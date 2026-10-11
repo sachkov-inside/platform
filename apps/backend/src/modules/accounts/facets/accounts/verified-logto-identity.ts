@@ -48,7 +48,7 @@ export function verifiedAccountIdentity(value: {
 
 export interface VerifiedTelegramAccountSignIn extends LogtoIdentityKey {
   readonly type: "account_sign_in";
-  readonly verifiedEmail?: never;
+  readonly verifiedEmail?: string;
   readonly telegram: {
     readonly subjectRef: string;
     readonly requestRef: string;
@@ -60,6 +60,7 @@ export type VerifiedAccountSignIn =
 export function verifiedTelegramAccountSignIn(value: {
   readonly issuer: string;
   readonly subject: string;
+  readonly verifiedEmail?: string;
   readonly telegram: {
     readonly subjectRef: string;
     readonly requestRef: string;

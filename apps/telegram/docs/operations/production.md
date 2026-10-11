@@ -273,6 +273,12 @@ SHA `10dfbee3c9dd39d2dacdc39f8c7926ecd4498820`, digest
 31 файл, последний `030-invitation-redemptions.ts`. `v4` имеет другую идентичность и не служит
 откатом для `v5`. Перед следующей выкладкой координатор проверяет идентичность выбранных версий.
 
+Новые миграции продолжают этот неизменный prefix. Команда
+`node apps/telegram/scripts/release-contract.mjs legacy-migrations-identity` считает только файлы
+до `030-invitation-redemptions.ts` включительно. Legacy contract сохраняет исходные digest, count и
+последний файл. Отдельный current manifest contract включает `031-mini-app-sign-in.ts`; manifest
+продолжает считать весь registry через `migrations-identity`.
+
 Ожидаемый простой первой выкладки — 1–2 минуты: graceful stop имеет предел 60 секунд,
 затем идут migration command и readiness нового процесса. Pull и проверка GitHub идут до stop.
 Изолированный smoke измеряет restart без нагрузки; это не обещание production-времени.
@@ -318,12 +324,16 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 
 Из корня platform выполните `bash apps/telegram/scripts/production-smoke.sh`.
 Команда строит production image из root context, читает сохранённый legacy `v5` manifest и
-проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
-Проверяются 31 миграция, неизменный ledger, сохранённая synthetic строка, readiness,
-неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
+проверяет реальный переход на candidate в отдельной базе и Compose project.
+Сначала smoke сверяет точные 31 legacy migrations и их digest. Затем он сверяет candidate ledger
+со всем текущим registry, включая новые миграции. Он проверяет сохранённую synthetic строку,
+readiness, неавторизованный POST и фактические image IDs. Повтор не выполняет migration command.
+Если schema identities равны, smoke проверяет возврат на digest `v5` без миграций.
+Если identities различаются, smoke явно пропускает legacy rollback; новые миграции остаются применёнными.
 Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
 Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
 реальный Docker proof отдельно проверяет переход на production images.
+Process contract проверяет actual launch error, exit и stderr до чтения Docker observations.
 Команда печатает длительность restart/readiness и убирает только свои контейнеры, network, volume и image tag.
 Workers и все provider modes выключены; real messages, webhook registration и role writes не выполняются.
 

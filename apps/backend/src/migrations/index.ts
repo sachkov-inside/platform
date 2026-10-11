@@ -1,4 +1,8 @@
 import {
+  name as loginEmailIntentsName,
+  statement as loginEmailIntentsStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0088-login-email-intents.js";
+import {
   name as productCohortPriceAfterStartName,
   statement as productCohortPriceAfterStartStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
@@ -569,6 +573,7 @@ export const platformMigrations = [
     name: productCohortPriceAfterStartName,
     statement: productCohortPriceAfterStartStatement,
   },
+  { name: loginEmailIntentsName, statement: loginEmailIntentsStatement },
 ] as const;
 
 export function migrateToLatest(
