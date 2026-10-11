@@ -221,6 +221,234 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     return result.value.submissionId;
   }
 
+  test("saved agent summary survives reads and exact retry but cannot change under the same key", async () => {
+    const isolatedProduct = randomUUID();
+    const isolatedChapter = randomUUID();
+    await db.prisma.product.create({
+      data: {
+        id: isolatedProduct,
+        slug: `summary-${isolatedProduct}`,
+        name: "Summary",
+      },
+    });
+    await db.prisma.productChapter.create({
+      data: {
+        id: isolatedChapter,
+        productId: isolatedProduct,
+        name: "Summary",
+        ordinal: 1,
+      },
+    });
+    const task = await imported({
+      productId: isolatedProduct,
+      chapterId: isolatedChapter,
+      title: "Короткий итог",
+    });
+    const subject = await learner();
+    const submission = {
+      code: task.code,
+      taskVersion: 1,
+      submissionKey: randomUUID(),
+      note: "",
+      reviewReport: {
+        summary: "Заявка создаётся. Повтор ещё не проверен.",
+        criteria: [
+          {
+            criterionId: "request",
+            status: "confirmed",
+            evidence: "Проверен сценарий создания.",
+            gap: "",
+            obtainedByRun: true,
+          },
+          {
+            criterionId: "deduplication",
+            status: "not_verified",
+            evidence: "",
+            gap: "Повтор не проверен.",
+            obtainedByRun: false,
+          },
+        ],
+      },
+    };
+    const first = await tasks.submit({ subject, source: "mcp", submission });
+    expect(first.ok).toBe(true);
+    expect(await tasks.submit({ subject, source: "mcp", submission })).toEqual(
+      first,
+    );
+    const listed = await review().list(owner, { taskCode: task.code });
+    expect(
+      listed.ok && listed.value.submissions.map((row) => row.reviewReport),
+    ).toEqual([submission.reviewReport]);
+    expect(
+      await tasks.submit({
+        subject,
+        source: "mcp",
+        submission: {
+          ...submission,
+          reviewReport: { ...submission.reviewReport, summary: "Другой итог." },
+        },
+      }),
+    ).toEqual({ ok: false, error: { code: "idempotency_conflict" } });
+  });
+
+  test("author sees all saved checks across list pages, versions and exact retries; form is not a check", async () => {
+    const isolatedProduct = randomUUID();
+    const isolatedChapter = randomUUID();
+    await db.prisma.product.create({
+      data: {
+        id: isolatedProduct,
+        slug: `checks-${isolatedProduct}`,
+        name: "Checks",
+      },
+    });
+    await db.prisma.productChapter.create({
+      data: {
+        id: isolatedChapter,
+        productId: isolatedProduct,
+        name: "Checks",
+        ordinal: 1,
+      },
+    });
+    const task = await imported({
+      productId: isolatedProduct,
+      chapterId: isolatedChapter,
+      title: "История проверок",
+    });
+    const subject = await learner();
+    const save = async (
+      status: "confirmed" | "violation" | "not_verified",
+      taskVersion: number,
+      summary: string,
+    ) => {
+      const submission = {
+        code: task.code,
+        taskVersion,
+        submissionKey: randomUUID(),
+        note: "",
+        reviewReport: {
+          summary,
+          criteria: [
+            {
+              criterionId: "request",
+              status,
+              evidence: status === "confirmed" ? "Проверен сценарий." : "",
+              gap: status === "confirmed" ? "" : "Нужна проверка.",
+              obtainedByRun: false,
+            },
+            {
+              criterionId: "deduplication",
+              status: "violation" as const,
+              evidence: "Дополнительный сценарий не готов.",
+              gap: "Повтор создаёт дубль.",
+              obtainedByRun: false,
+            },
+          ],
+        },
+      };
+      const receipt = await tasks.submit({
+        subject,
+        source: "mcp",
+        submission,
+      });
+      if (!receipt.ok) throw new Error(receipt.error.code);
+      expect(
+        await tasks.submit({ subject, source: "mcp", submission }),
+      ).toEqual(receipt);
+      return receipt.value.submissionId;
+    };
+    const failed = await save("violation", 1, "Нужны правки.");
+    const missing = await save("not_verified", 1, "Не хватает проверки.");
+    expect(
+      (
+        await tasks.submit({
+          subject,
+          source: "form",
+          submission: {
+            code: task.code,
+            taskVersion: 1,
+            submissionKey: randomUUID(),
+            note: "Отправлено вручную.",
+          },
+        })
+      ).ok,
+    ).toBe(true);
+    const changed = await assembleApplySourceTask({
+      prisma: db.prisma,
+      directory,
+      authorPolicy,
+    })(
+      {
+        ...task.body,
+        definition: definition("Участник создаёт заявку с темой."),
+        expectedRevision: task.revision,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(changed.ok).toBe(true);
+    const passed = await save("confirmed", 2, "Самопроверка пройдена.");
+    const newest = await review().list(owner, {
+      taskCode: task.code,
+      limit: 1,
+    });
+    expect(
+      newest.ok &&
+        newest.value.submissions.map((row) => ({
+          id: row.submissionId,
+          check: row.selfCheck,
+        })),
+    ).toEqual([
+      {
+        id: passed,
+        check: { outcome: "passed", attempt: 3, firstPassedAttempt: 3 },
+      },
+    ]);
+    const detail = await review().list(owner, { submissionId: failed });
+    expect(
+      detail.ok &&
+        detail.value.submissions.map((row) => ({
+          id: row.submissionId,
+          check: row.selfCheck,
+        })),
+    ).toEqual([
+      {
+        id: failed,
+        check: { outcome: "changes", attempt: 1, firstPassedAttempt: 3 },
+      },
+    ]);
+    expect(
+      detail.ok &&
+        detail.value.history.map((row) => ({
+          id: row.submissionId,
+          outcome: row.selfCheck.outcome,
+          attempt: row.selfCheck.attempt,
+          version: row.taskVersion,
+          summary: row.summary,
+        })),
+    ).toEqual([
+      {
+        id: passed,
+        outcome: "passed",
+        attempt: 3,
+        version: 2,
+        summary: "Самопроверка пройдена.",
+      },
+      {
+        id: missing,
+        outcome: "missing",
+        attempt: 2,
+        version: 1,
+        summary: "Не хватает проверки.",
+      },
+      {
+        id: failed,
+        outcome: "changes",
+        attempt: 1,
+        version: 1,
+        summary: "Нужны правки.",
+      },
+    ]);
+  });
+
   test("only materials:manage reads submissions and writes feedback", async () => {
     expect(await review().list(outsider, {})).toEqual({
       ok: false,
@@ -336,6 +564,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         currentVersion: 2,
       },
       taskVersion: 1,
+      selfCheck: { outcome: "passed", attempt: 1, firstPassedAttempt: 1 },
       person: {
         accountId: anna.accountId,
         telegramIdentityRef: "telegram:review-anna",

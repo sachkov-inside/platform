@@ -1,3 +1,9 @@
+import {
+  checksKey,
+  submissionSelfChecks,
+  type SavedCheck,
+  type SubmissionSelfCheck,
+} from "./submission-self-checks.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -34,6 +40,7 @@ export const submissionsLimitSchema = z.number().int().min(1).max(100);
 
 export const authorSubmissionsQuerySchema = z
   .object({
+    submissionId: z.uuid().optional(),
     productId: z.uuid().optional(),
     chapterId: z.uuid().optional(),
     taskCode: taskCodeSchema.optional(),
@@ -61,6 +68,7 @@ export interface AuthorSubmission {
     readonly currentVersion: number;
   };
   readonly taskVersion: number;
+  readonly selfCheck: SubmissionSelfCheck | null;
   readonly person: {
     readonly accountId: string;
     readonly telegramIdentityRef: string | null;
@@ -109,6 +117,7 @@ export type AuthorSubmissionsResult = Result<
       readonly criteria: TaskDefinition["criteria"];
     }[];
     readonly nextCursor: string | null;
+    readonly history: readonly SavedCheck[];
   },
   ListAuthorSubmissionsError
 >;
@@ -187,7 +196,10 @@ export async function listAuthorSubmissions(
         : await dependencies.prisma.productTaskSubmission.findMany({
             where: {
               taskId: { in: selected.map((task) => task.id) },
-              ...(cursor === undefined
+              ...(query.submissionId === undefined
+                ? {}
+                : { id: query.submissionId }),
+              ...(cursor === undefined || query.submissionId !== undefined
                 ? {}
                 : {
                     OR: [
@@ -205,6 +217,7 @@ export async function listAuthorSubmissions(
           });
     const page = rows.slice(0, limit);
     const last = page.at(-1);
+    const checks = await submissionSelfChecks(dependencies.prisma, page);
     const accounts = [...new Set(page.map((row) => row.accountId))];
     const bindings = await Promise.all(
       accounts.map((accountId) =>
@@ -259,6 +272,7 @@ export async function listAuthorSubmissions(
               currentVersion: task.currentVersion,
             },
             taskVersion: row.taskVersion,
+            selfCheck: checks.bySubmission.get(row.id) ?? null,
             person: {
               accountId: row.accountId,
               telegramIdentityRef: telegramOf.get(row.accountId) ?? null,
@@ -284,8 +298,14 @@ export async function listAuthorSubmissions(
           version: version.version,
           criteria: taskDefinitionSchema.parse(version.definition).criteria,
         })),
+        history:
+          query.submissionId === undefined || page[0] === undefined
+            ? []
+            : (checks.history.get(checksKey(page[0])) ?? []),
         nextCursor:
-          rows.length > limit && last !== undefined
+          query.submissionId === undefined &&
+          rows.length > limit &&
+          last !== undefined
             ? encodeCursor(last.submittedAt, last.id)
             : null,
       },

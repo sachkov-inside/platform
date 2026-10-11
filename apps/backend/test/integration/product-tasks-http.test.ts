@@ -244,7 +244,7 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     expect(open.json()).toMatchObject({
       access: "open",
       task: { code: freeCode, version: 1, definition: { criteria: [{}, {}] } },
-      reviewProtocol: { version: "3" },
+      reviewProtocol: { version: "4" },
       relatedMaterials: [{ title: "Что строим", availability: "available" }],
       submission: { accepting: true },
     });

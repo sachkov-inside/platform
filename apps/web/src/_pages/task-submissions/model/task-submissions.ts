@@ -33,6 +33,14 @@ export const authorFeedbackSchema = z
 export type AuthorFeedback = z.infer<typeof authorFeedbackSchema>;
 
 /** `GET /authoring/product-tasks/submissions` as this page reads it (#948). */
+const selfCheckSchema = z
+  .object({
+    outcome: z.enum(["passed", "changes", "missing"]),
+    attempt: z.number().int().positive(),
+    firstPassedAttempt: z.number().int().positive().nullable(),
+  })
+  .strict();
+
 export const taskSubmissionsSchema = z
   .object({
     products: z.array(
@@ -72,6 +80,7 @@ export const taskSubmissionsSchema = z
             })
             .strict(),
           taskVersion: z.number().int().positive(),
+          selfCheck: selfCheckSchema.nullable(),
           person: z
             .object({
               accountId: z.string(),
@@ -81,6 +90,7 @@ export const taskSubmissionsSchema = z
           note: z.string(),
           reviewReport: z
             .object({
+              summary: z.string().optional(),
               criteria: z.array(
                 z
                   .object({
@@ -114,6 +124,17 @@ export const taskSubmissionsSchema = z
           code: z.string(),
           version: z.number().int().positive(),
           criteria: z.array(criterionSchema),
+        })
+        .strict(),
+    ),
+    history: z.array(
+      z
+        .object({
+          submissionId: z.string(),
+          submittedAt: z.iso.datetime(),
+          taskVersion: z.number().int().positive(),
+          summary: z.string().nullable(),
+          selfCheck: selfCheckSchema,
         })
         .strict(),
     ),

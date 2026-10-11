@@ -79,7 +79,12 @@
         "commit": "4f2a9c1",
         "uncommittedChanges": true
       },
-      "authorFeedback": null
+      "authorFeedback": null,
+      "selfCheck": {
+        "outcome": "changes",
+        "attempt": 1,
+        "firstPassedAttempt": null
+      }
     },
     {
       "submissionId": "30000000-0000-4000-8000-000000000002",
@@ -112,7 +117,8 @@
         "comment": "Хорошо: повтор проверен. Добавь владельца заявки.",
         "reviewedAt": "2026-10-04T12:00:00.000Z",
         "updatedAt": "2026-10-04T12:05:00.000Z"
-      }
+      },
+      "selfCheck": null
     },
     {
       "submissionId": "30000000-0000-4000-8000-000000000001",
@@ -158,7 +164,12 @@
         "commit": null,
         "uncommittedChanges": null
       },
-      "authorFeedback": null
+      "authorFeedback": null,
+      "selfCheck": {
+        "outcome": "missing",
+        "attempt": 1,
+        "firstPassedAttempt": null
+      }
     }
   ],
   "versions": [
@@ -217,5 +228,6 @@
       ]
     }
   ],
-  "nextCursor": null
+  "nextCursor": null,
+  "history": []
 }

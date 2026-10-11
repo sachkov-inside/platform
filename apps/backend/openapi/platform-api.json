@@ -65786,6 +65786,16 @@
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "submissionId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -65795,6 +65805,74 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "history": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "selfCheck": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "attempt": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "firstPassedAttempt": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "nullable": true,
+                                "type": "integer"
+                              },
+                              "outcome": {
+                                "enum": [
+                                  "passed",
+                                  "changes",
+                                  "missing"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "outcome",
+                              "attempt",
+                              "firstPassedAttempt"
+                            ],
+                            "type": "object"
+                          },
+                          "submissionId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "submittedAt": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "summary": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "taskVersion": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "submissionId",
+                          "submittedAt",
+                          "taskVersion",
+                          "summary",
+                          "selfCheck"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "nextCursor": {
                       "nullable": true,
                       "type": "string"
@@ -65958,10 +66036,46 @@
                                   "type": "object"
                                 },
                                 "type": "array"
+                              },
+                              "summary": {
+                                "type": "string"
                               }
                             },
                             "required": [
                               "criteria"
+                            ],
+                            "type": "object"
+                          },
+                          "selfCheck": {
+                            "additionalProperties": false,
+                            "nullable": true,
+                            "properties": {
+                              "attempt": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "firstPassedAttempt": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "nullable": true,
+                                "type": "integer"
+                              },
+                              "outcome": {
+                                "enum": [
+                                  "passed",
+                                  "changes",
+                                  "missing"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "outcome",
+                              "attempt",
+                              "firstPassedAttempt"
                             ],
                             "type": "object"
                           },
@@ -66068,6 +66182,7 @@
                           "source",
                           "task",
                           "taskVersion",
+                          "selfCheck",
                           "person",
                           "note",
                           "reviewReport",
@@ -66176,6 +66291,7 @@
                     "products",
                     "submissions",
                     "versions",
+                    "history",
                     "nextCursor"
                   ],
                   "type": "object"

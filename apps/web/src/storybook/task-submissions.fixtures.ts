@@ -27,6 +27,7 @@ const criteria = [
 
 /** Two submissions of chapter 1 and one of chapter 2: an agent's report, a form, feedback. */
 export const reviewedSubmissions: TaskSubmissions = {
+  history: [],
   products: [
     {
       id: productId,
@@ -60,6 +61,7 @@ export const reviewedSubmissions: TaskSubmissions = {
         currentVersion: 2,
       },
       taskVersion: 2,
+      selfCheck: { outcome: "changes", attempt: 2, firstPassedAttempt: null },
       person: {
         accountId: "10000000-0000-4000-8000-000000000001",
         telegramIdentityRef: "telegram:synthetic-01",
@@ -115,6 +117,7 @@ export const reviewedSubmissions: TaskSubmissions = {
         currentVersion: 1,
       },
       taskVersion: 1,
+      selfCheck: null,
       person: {
         accountId: "10000000-0000-4000-8000-000000000002",
         telegramIdentityRef: null,
@@ -148,6 +151,7 @@ export const reviewedSubmissions: TaskSubmissions = {
         currentVersion: 2,
       },
       taskVersion: 1,
+      selfCheck: { outcome: "missing", attempt: 1, firstPassedAttempt: null },
       person: {
         accountId: "10000000-0000-4000-8000-000000000001",
         telegramIdentityRef: "telegram:synthetic-01",

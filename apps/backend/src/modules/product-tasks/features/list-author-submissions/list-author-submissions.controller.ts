@@ -62,6 +62,14 @@ const reportCriterionHttpSchema = z
   })
   .strict();
 
+const selfCheckHttpSchema = z
+  .object({
+    outcome: z.enum(["passed", "changes", "missing"]),
+    attempt: z.number().int().positive(),
+    firstPassedAttempt: z.number().int().positive().nullable(),
+  })
+  .strict();
+
 export const authorSubmissionsHttpSchema = z
   .object({
     products: z.array(
@@ -101,6 +109,7 @@ export const authorSubmissionsHttpSchema = z
             })
             .strict(),
           taskVersion: z.number().int().positive(),
+          selfCheck: selfCheckHttpSchema.nullable(),
           person: z
             .object({
               accountId: z.uuid(),
@@ -109,7 +118,10 @@ export const authorSubmissionsHttpSchema = z
             .strict(),
           note: z.string(),
           reviewReport: z
-            .object({ criteria: z.array(reportCriterionHttpSchema) })
+            .object({
+              summary: z.string().optional(),
+              criteria: z.array(reportCriterionHttpSchema),
+            })
             .strict()
             .nullable(),
           reportText: z.string().nullable(),
@@ -131,6 +143,17 @@ export const authorSubmissionsHttpSchema = z
           code: z.string(),
           version: z.number().int().positive(),
           criteria: z.array(criterionHttpSchema),
+        })
+        .strict(),
+    ),
+    history: z.array(
+      z
+        .object({
+          submissionId: z.uuid(),
+          submittedAt: z.iso.datetime(),
+          taskVersion: z.number().int().positive(),
+          summary: z.string().nullable(),
+          selfCheck: selfCheckHttpSchema,
         })
         .strict(),
     ),
@@ -157,6 +180,11 @@ export class ListAuthorSubmissionsController {
     operationId: "listAuthorTaskSubmissions",
     summary:
       "List Product Task submissions for the author, newest first, by Product, chapter and task, with the person, report, service mark, criteria of their versions and Author Feedback",
+  })
+  @ApiQuery({
+    name: "submissionId",
+    required: false,
+    schema: toOpenApiSchema(query.submissionId),
   })
   @ApiQuery({
     name: "productId",
@@ -265,6 +293,14 @@ export class ListAuthorSubmissionsController {
           currentVersion: submission.task.currentVersion,
         },
         taskVersion: submission.taskVersion,
+        selfCheck:
+          submission.selfCheck === null
+            ? null
+            : {
+                outcome: submission.selfCheck.outcome,
+                attempt: submission.selfCheck.attempt,
+                firstPassedAttempt: submission.selfCheck.firstPassedAttempt,
+              },
         person: {
           accountId: submission.person.accountId,
           telegramIdentityRef: submission.person.telegramIdentityRef,
@@ -274,6 +310,7 @@ export class ListAuthorSubmissionsController {
           submission.reviewReport === null
             ? null
             : {
+                summary: submission.reviewReport.summary,
                 criteria: submission.reviewReport.criteria.map((criterion) => ({
                   criterionId: criterion.criterionId,
                   status: criterion.status,
@@ -298,6 +335,17 @@ export class ListAuthorSubmissionsController {
         code: version.code,
         version: version.version,
         criteria: version.criteria.map(criterionHttp),
+      })),
+      history: value.history.map((check) => ({
+        submissionId: check.submissionId,
+        submittedAt: check.submittedAt,
+        taskVersion: check.taskVersion,
+        summary: check.summary,
+        selfCheck: {
+          outcome: check.selfCheck.outcome,
+          attempt: check.selfCheck.attempt,
+          firstPassedAttempt: check.selfCheck.firstPassedAttempt,
+        },
       })),
       nextCursor: value.nextCursor,
     };
