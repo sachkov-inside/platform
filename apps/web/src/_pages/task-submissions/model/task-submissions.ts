@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { telegramContactSchema } from "@inside/contracts/telegram-contact";
 
 const criterionV1Schema = z
   .object({
@@ -86,7 +87,7 @@ export const taskSubmissionsSchema = z
               accountId: z.string(),
               telegramIdentityRef: z.string().nullable(),
               displayName: z.string().nullable(),
-              telegramUsername: z.string().nullable(),
+              telegramUsername: telegramContactSchema.shape.username,
               telegramUrl: z.string().nullable(),
               telegramContactState: z.enum([
                 "available",

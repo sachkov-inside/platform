@@ -210,10 +210,20 @@ export function TaskSubmissionsView({
             role="status"
           >
             <Inbox aria-hidden="true" className="size-5" />
-            <h2>{rows.length === 0 ? "Сдач пока нет" : "Сдачи не найдены"}</h2>
+            <h2>
+              {rows.length === 0
+                ? selection.productId !== undefined ||
+                  selection.taskCode !== undefined
+                  ? "По этому фильтру сдач нет."
+                  : "Сдач пока нет"
+                : "Сдачи не найдены"}
+            </h2>
             <p>
               {rows.length === 0
-                ? "Сдачи появятся после отправки задания учеником."
+                ? selection.productId !== undefined ||
+                  selection.taskCode !== undefined
+                  ? "Выберите другой продукт, главу или задание."
+                  : "Сдачи появятся после отправки задания учеником."
                 : "Попробуйте другое имя или результат проверки."}
             </p>
             {rows.length === 0 ? null : (
@@ -297,16 +307,9 @@ function SubmissionDetail({
   readonly presentation: TaskSubmissionsPresentation;
   readonly expanded: boolean;
 }) {
-  const { submission, criteria } = row;
+  const { submission, criteria, telegramHref } = row;
   const check = submission.selfCheck;
   const username = submission.person.telegramUsername;
-  // Contact link has one supported destination, independently of an upstream display URL.
-  const telegramHref =
-    username !== null &&
-    /^[A-Za-z0-9_]{1,64}$/u.test(username) &&
-    submission.person.telegramUrl === `https://t.me/${username}`
-      ? submission.person.telegramUrl
-      : null;
   return (
     <TaskSubmissionsFrame
       title={submission.task.title}

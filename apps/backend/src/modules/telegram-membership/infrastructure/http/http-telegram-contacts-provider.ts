@@ -13,12 +13,13 @@ export class HttpTelegramContactsProvider implements TelegramContactsProvider {
   constructor(
     private readonly linkingEndpoint: string,
     private readonly secret: string | undefined,
+    private readonly fetcher: typeof fetch = fetch,
   ) {}
 
   async read(contacts: readonly TelegramContactQuery[]) {
     if (!hasText(this.secret)) return { ok: false } as const;
     try {
-      const response = await fetch(
+      const response = await this.fetcher(
         new URL("telegram-contacts", this.linkingEndpoint),
         {
           method: "POST",
@@ -34,12 +35,27 @@ export class HttpTelegramContactsProvider implements TelegramContactsProvider {
           }),
         },
       );
-      if (!response.ok) return { ok: false } as const;
+      if (response.status === 404) return { ok: false } as const;
+      if (!response.ok)
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "readTelegramContacts" },
+          new Error(
+            `Telegram contact provider returned HTTP ${String(response.status)}`,
+          ),
+          { ok: false } as const,
+        );
       const body: unknown = await response.json();
       const parsed = telegramContactsResponseSchema.safeParse(body);
       return parsed.success
         ? ({ ok: true, contacts: parsed.data.contacts } as const)
-        : ({ ok: false } as const);
+        : dependencyFailure(
+            {
+              module: "telegram-membership",
+              operation: "readTelegramContacts",
+            },
+            parsed.error,
+            { ok: false } as const,
+          );
     } catch (error) {
       return dependencyFailure(
         { module: "telegram-membership", operation: "readTelegramContacts" },

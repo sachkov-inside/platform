@@ -35,6 +35,7 @@ export async function TaskSubmissionsPage({
     <TaskSubmissionsState
       kind={outcome.kind}
       returnTo={selectionHref(selection, cursor, submissionId)}
+      listHref={selectionHref(selection, cursor)}
     />
   );
 }

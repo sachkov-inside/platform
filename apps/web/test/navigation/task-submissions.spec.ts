@@ -225,12 +225,16 @@ test("missing and malformed submission addresses never silently open another rep
 }, info) => {
   if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL)]);
+  const returnHref = `/authoring/submissions?productId=${productId}&cursor=page-2`;
   for (const id of ["missing", "30000000-0000-4000-8000-000000000999"]) {
-    await page.goto(`/authoring/submissions?submission=${id}`);
+    await page.goto(`${returnHref}&submission=${id}`);
     await expect(
       page.getByText("Сдача не найдена", { exact: true }),
     ).toBeVisible();
     await expect(page.locator("[data-submission]")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Все сдачи", exact: true }),
+    ).toHaveAttribute("href", returnHref);
   }
   await evidence(page, info, "not-found");
 });

@@ -21,6 +21,7 @@ export interface TaskSubmissionsPresentation {
     readonly submission: AuthorSubmission;
     readonly href: string;
     readonly criteria: readonly TaskCriterion[];
+    readonly telegramHref: string | null;
   }[];
   readonly newestHref: string | null;
   readonly nextHref: string | null;
@@ -52,6 +53,13 @@ export function presentTaskSubmissions({
       submission,
       href: selectionHref(selection, cursor, submission.submissionId),
       criteria: criteriaOf(submissions, submission),
+      // Only the supported Telegram destination enters the presentation interface.
+      telegramHref:
+        submission.person.telegramUsername !== null &&
+        submission.person.telegramUrl ===
+          `https://t.me/${submission.person.telegramUsername}`
+          ? submission.person.telegramUrl
+          : null,
     })),
     newestHref: continued ? selectionHref(selection) : null,
     nextHref:

@@ -13,16 +13,18 @@ import {
 export function TaskSubmissionsState({
   kind,
   returnTo = submissionsHref,
+  listHref = submissionsHref,
 }: {
   readonly kind: "unauthorized" | "forbidden" | "unavailable" | "not_found";
   /** The filtered address to come back to after sign-in. */
   readonly returnTo?: string;
+  readonly listHref?: string;
 }) {
   return (
     <TaskSubmissionsFrame>
       {kind === "not_found" ? (
         <StatusPanel
-          action={<a href={submissionsHref}>Все сдачи</a>}
+          action={<a href={listHref}>Все сдачи</a>}
           icon={<CircleAlert aria-hidden="true" />}
           message="Сдача отсутствует или больше недоступна."
           state={{ "data-task-submissions-state": "not_found" }}
