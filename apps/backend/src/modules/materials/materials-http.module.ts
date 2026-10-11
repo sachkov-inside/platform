@@ -45,6 +45,9 @@ import { MaterialsModule } from "./materials.module.js";
 @Module({
   imports: [AccountsModule, MaterialsModule],
   controllers: [
+    ImportSourceTermController,
+    ReadPublishedTermController,
+    ReadAuthoringTermsController,
     ImportSourcePracticeController,
     ReadPublishedMaterialController,
     CreateDraftController,
@@ -79,3 +82,6 @@ import { MaterialsModule } from "./materials.module.js";
   ],
 })
 export class MaterialsHttpModule {}
+import { ImportSourceTermController } from "./features/import-source-term/import-source-term.controller.js";
+import { ReadPublishedTermController } from "./features/read-published-term/read-published-term.controller.js";
+import { ReadAuthoringTermsController } from "./features/read-authoring-terms/read-authoring-terms.controller.js";

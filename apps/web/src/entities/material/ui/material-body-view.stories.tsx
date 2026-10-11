@@ -40,6 +40,34 @@ export const Document: Story = {
   },
 };
 
+/** Contract proof only: current DOM preserves UUID/phrase; interactive card integration awaits #443 Storybook rendering. */
+export const TermReferenceContract: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "развёртывание",
+            marks: [
+              { kind: "bold" },
+              { kind: "term", termId: "44300000-0000-4000-8000-000000000001" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const phrase = within(canvasElement).getByText("развёртывание");
+    await expect(phrase.closest("[data-term-id]")).toHaveAttribute(
+      "data-term-id",
+      "44300000-0000-4000-8000-000000000001",
+    );
+  },
+};
+
 export const CollapsibleCallouts: Story = {
   args: {
     blocks: [

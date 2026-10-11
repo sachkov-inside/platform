@@ -1,5 +1,6 @@
 import Code from "@tiptap/extension-code";
-import { Node, getSchema } from "@tiptap/core";
+import { Mark, Node, getSchema } from "@tiptap/core";
+import { z } from "zod";
 import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { TableKit } from "@tiptap/extension-table";
 import UniqueID from "@tiptap/extension-unique-id";
@@ -17,6 +18,35 @@ export interface MaterialDocumentExtensionOptions {
   /** Editor-side appearance for a declared block, keyed by its node type. */
   readonly nodeViews?: Readonly<Record<string, () => NodeViewRenderer>>;
 }
+
+/** The phrase belongs to the text node; only the stable definition ID belongs to the mark. */
+const Term = Mark.create({
+  name: "term",
+  inclusive: false,
+  excludes: "link term",
+  addAttributes() {
+    return {
+      termId: {
+        default: null,
+        validate: (value: unknown) => {
+          z.uuid().parse(value);
+        },
+        parseHTML: (element: {
+          getAttribute: (name: string) => string | null;
+        }) => element.getAttribute("data-term-id"),
+        renderHTML: (attributes: Record<string, unknown>) => ({
+          "data-term-id": attributes["termId"],
+        }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "span[data-term-id]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", HTMLAttributes, 0];
+  },
+});
 
 /**
  * A field travels through the DOM as text. Anything that is not a string is JSON, so a row list
@@ -120,6 +150,7 @@ export function materialDocumentExtensions(
     }),
     // Markdown permits emphasis around inline code; preserve both marks in authoring imports.
     Code.extend({ excludes: "" }),
+    Term,
     TableKit,
     UniqueID.configure({
       attributeName: "nodeId",

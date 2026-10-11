@@ -9,6 +9,11 @@ export function stubMaterialAuthoring(
   overrides: Partial<MaterialAuthoring> = {},
 ): MaterialAuthoring {
   return {
+    applySourceTerm: () => Promise.resolve(forbiddenAuthoringResult),
+    validateSourceTerm: () => Promise.resolve(forbiddenAuthoringResult),
+    saveTerm: () => Promise.resolve(forbiddenAuthoringResult),
+    listTerms: () => Promise.resolve(forbiddenAuthoringResult),
+    loadTerm: () => Promise.resolve(forbiddenAuthoringResult),
     applySourcePractice: () => Promise.resolve(forbiddenAuthoringResult),
     validateSourcePractice: () => Promise.resolve(forbiddenAuthoringResult),
     reserveSourceProduct: () => Promise.resolve(forbiddenAuthoringResult),

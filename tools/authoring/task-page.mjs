@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
+import { prepareTermReferences } from "./term-references.mjs";
 import { imageUpload } from "./image-upload.mjs";
 import { applyJournaled } from "./journal.mjs";
 import {
@@ -33,13 +34,15 @@ export function taskLinks(manifest) {
 }
 
 /** @param {Task} task @param {Map<string,string>} links @param {Map<string,string>} images
- * @param {(href: string, sourceId: string) => void} [onResolvedLink] */
-export function taskPageBody(task, links, images, onResolvedLink) {
+ * @param {(href: string, sourceId: string) => void} [onResolvedLink]
+ * @param {(target: string) => import('./term-references.mjs').TermReference} [term] */
+export function taskPageBody(task, links, images, onResolvedLink, term) {
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
   return convertMarkdown(page.markdown, {
     readerBlocks: page.readerBlocks,
+    term,
     sourceId: task.sourceId,
     sourcePath: page.sourcePath,
     link: (href) => {
@@ -72,6 +75,14 @@ export function taskPageBody(task, links, images, onResolvedLink) {
 /** Convert before any writes with placeholder IDs; backend owns rendered-body validation.
  * @param {import('./package.mjs').AuthoringPackage} pkg */
 export function preflightTaskPages(pkg) {
+  const term = prepareTermReferences(
+    (pkg.manifest.terms ?? []).map((row) => ({
+      definition: row.definition,
+      publicationState: row.publicationState,
+      available: true,
+    })),
+    { allowUnpublished: true },
+  );
   /** @type {Map<string,string>} */
   const links = new Map(
     pkg.manifest.materials.map((row) => [
@@ -87,7 +98,8 @@ export function preflightTaskPages(pkg) {
     ]),
   );
   for (const task of pkg.manifest.tasks ?? [])
-    if (task.page !== undefined) taskPageBody(task, links, images);
+    if (task.page !== undefined)
+      taskPageBody(task, links, images, undefined, term);
 }
 
 /** Upload a closed, private backing Material whose body retains every Task page asset.
@@ -98,6 +110,14 @@ export function preflightTaskPages(pkg) {
  * @param {Map<string,string>} links
  * @returns {Promise<PageImport>} */
 export async function importTaskPage(pkg, task, context, request, links) {
+  const term = prepareTermReferences(
+    (pkg.manifest.terms ?? []).map((row) => ({
+      definition: row.definition,
+      publicationState: row.publicationState,
+      available: true,
+    })),
+    { allowUnpublished: true },
+  );
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
@@ -117,7 +137,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
     page.artifacts.length === 0
   )
     return {
-      pageBody: taskPageBody(task, links, new Map(), registerLink),
+      pageBody: taskPageBody(task, links, new Map(), registerLink, term),
       resolvedLinks,
       resolvedImages: {},
     };
@@ -210,7 +230,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
       materialId: reserved.materialId,
     };
   }
-  const pageBody = taskPageBody(task, links, images, registerLink);
+  const pageBody = taskPageBody(task, links, images, registerLink, term);
   const backingBody = {
     schemaVersion: 1,
     doc: {

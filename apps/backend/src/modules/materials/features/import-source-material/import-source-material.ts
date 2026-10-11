@@ -157,6 +157,29 @@ export function assembleValidateSourceContent(
       assignMissingNodeIds: true,
     });
     if (!body.ok) return body;
+    const rendered = dependencies.materialBodyOperations.render(body.value);
+    if (!rendered.ok) return rendered;
+    try {
+      const termIssues = await inspectTermReferences(
+        dependencies.prisma,
+        rendered.value.blocks,
+        command.publicationState === "published",
+      );
+      if (termIssues.length > 0)
+        return {
+          ok: false,
+          error: { code: "invalid_reference", issues: termIssues },
+        };
+    } catch (error) {
+      return {
+        ok: false,
+        error: dependencyFailure(
+          { module: "materials", operation: "validateSourceTerms" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      };
+    }
     if (command.publicationState === "published") {
       const metadata = selection.value.materialize(
         command.metadata.seriesIds.map((seriesId, index) => ({
@@ -171,3 +194,4 @@ export function assembleValidateSourceContent(
     return { ok: true, value: { valid: true } };
   };
 }
+import { inspectTermReferences } from "../../shared/term-reference-integrity.js";

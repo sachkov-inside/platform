@@ -254,6 +254,12 @@ function applyMarks(
         return <em key={markKey}>{child}</em>;
       case "strike":
         return <s key={markKey}>{child}</s>;
+      case "term":
+        return (
+          <span data-term-id={mark.termId} key={markKey}>
+            {child}
+          </span>
+        );
       case "link":
         return (
           <a

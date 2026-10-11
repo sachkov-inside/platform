@@ -4,7 +4,11 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
-import { readerBlocksSchema } from "@inside/material-blocks";
+import {
+  readerBlocksSchema,
+  termDefinitionSchema,
+} from "@inside/material-blocks";
+import { prepareTermReferences } from "./term-references.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { decodePackageV1, fingerprintAccess } from "./compatibility.mjs";
 
@@ -24,6 +28,15 @@ const relativePath = z
       !Array.from(value).some((character) => character.charCodeAt(0) < 32),
     "Expected portable relative path",
   );
+
+export const manifestTermSchema = z
+  .object({
+    sourceId: identifier,
+    sourcePath: relativePath,
+    publicationState: z.enum(["draft", "published", "unpublished"]),
+    definition: termDefinitionSchema,
+  })
+  .strict();
 const chapters = z
   .array(
     z
@@ -194,6 +207,7 @@ export const manifestSchema = z
       })
       .strict(),
     materials: z.array(materialSchema),
+    terms: z.array(manifestTermSchema).max(10000).optional(),
     // slug, presentation and page arrived with #671; packages exported before it describe no product page.
     products: z.array(
       z
@@ -355,6 +369,7 @@ function checkSelectionScope(manifest) {
     manifest.materials.length ||
     manifest.assets.length ||
     (manifest.practiceDefinitions ?? []).length ||
+    (manifest.terms ?? []).length ||
     (manifest.tasks ?? []).length
   )
     throw new Error(
@@ -469,6 +484,7 @@ export function checkCapabilities(value) {
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
+        "terms-v1",
       ].includes(feature)
     )
       throw new Error(`Unsupported requiredFeature: ${feature}`);
@@ -507,6 +523,24 @@ export async function loadPackage(path) {
     manifest.assets.map((item) => item.sourceId),
     "asset identity",
   );
+  if (
+    manifest.terms !== undefined &&
+    (manifest.schemaVersion !== 2 ||
+      !manifest.requiredFeatures?.includes("terms-v1"))
+  )
+    throw new Error("Term definitions require package v2 and terms-v1");
+  unique(
+    (manifest.terms ?? []).map((item) => item.sourceId),
+    "term source identity",
+  );
+  const resolveTerm = prepareTermReferences(
+    (manifest.terms ?? []).map((item) => ({
+      definition: item.definition,
+      publicationState: item.publicationState,
+      available: true,
+    })),
+    { allowUnpublished: true },
+  );
   checkSelectionScope(manifest);
   unique(manifest.selection.materialIds, "selection identity");
   const ids = new Set(manifest.materials.map((item) => item.sourceId));
@@ -529,6 +563,16 @@ export async function loadPackage(path) {
       task.page === undefined ? [] : [task.page],
     ),
   ]) {
+    convertMarkdown(material.markdown, {
+      readerBlocks: material.readerBlocks,
+      sourceId: material.sourceId,
+      sourcePath: material.sourcePath,
+      link: (href) => href,
+      image: (src) => sourceUuid(src),
+      term: manifest.requiredFeatures?.includes("terms-v1")
+        ? resolveTerm
+        : undefined,
+    });
     if (material.readerBlocks !== undefined) {
       if (
         manifest.schemaVersion !== 2 ||
@@ -538,13 +582,6 @@ export async function loadPackage(path) {
         throw new Error(
           "readerBlocks require package v2, quiz-v1 and github-anchors-v1",
         );
-      convertMarkdown(material.markdown, {
-        readerBlocks: material.readerBlocks,
-        sourceId: material.sourceId,
-        sourcePath: material.sourcePath,
-        link: (href) => href,
-        image: (src) => sourceUuid(src),
-      });
     }
     if (material.imageVariants !== undefined) {
       if (

@@ -306,6 +306,20 @@ export function assembleSaveMaterial(
               materializedMetadata,
               rollback,
             );
+            const rendered = dependencies.materialBodyOperations.render(
+              body.value,
+            );
+            if (!rendered.ok) return rollback(rendered.error);
+            const termIssues = await inspectTermReferences(
+              transaction,
+              rendered.value.blocks,
+              command.publicationState === "published",
+            );
+            if (termIssues.length > 0)
+              return rollback({
+                code: "invalid_reference",
+                issues: termIssues,
+              });
             if (dependencies.materialAssets !== undefined) {
               const assetIssues =
                 await dependencies.materialAssets.inspectReferences(
@@ -645,3 +659,4 @@ function requireDate(value: Date | null, field: string): Date {
   }
   return value;
 }
+import { inspectTermReferences } from "../../shared/term-reference-integrity.js";

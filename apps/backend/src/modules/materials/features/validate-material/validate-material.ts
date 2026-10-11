@@ -87,6 +87,17 @@ export function assembleValidateMaterial(
         if (!extraction.ok) {
           return rollback(extraction.error);
         }
+        const rendered = dependencies.materialBodyOperations.render(
+          current.value.body,
+        );
+        if (!rendered.ok) return rollback(rendered.error);
+        const termIssues = await inspectTermReferences(
+          transaction,
+          rendered.value.blocks,
+          current.value.lifecycle.publicationState === "published",
+        );
+        if (termIssues.length > 0)
+          return rollback({ code: "invalid_reference", issues: termIssues });
         if (dependencies.materialAssets !== undefined) {
           const assetIssues =
             await dependencies.materialAssets.inspectReferences(
@@ -123,3 +134,4 @@ export function assembleValidateMaterial(
     );
   };
 }
+import { inspectTermReferences } from "../../shared/term-reference-integrity.js";

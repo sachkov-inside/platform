@@ -338,6 +338,12 @@ function applyMarks(
         return <em key={markKey}>{node}</em>;
       case "strike":
         return <s key={markKey}>{node}</s>;
+      case "term":
+        return (
+          <span data-term-id={mark.termId} key={markKey}>
+            {node}
+          </span>
+        );
       case "link":
         return (
           <a

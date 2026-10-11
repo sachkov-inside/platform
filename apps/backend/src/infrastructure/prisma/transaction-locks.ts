@@ -57,6 +57,22 @@ export async function lockPracticeImport(
   await lockTransactionKey(transaction, `practice-import:${practiceId}`);
 }
 
+/** Serializes imports and editor saves of the same reusable term identity. */
+export async function lockTermDefinition(
+  transaction: AdvisoryLockTransaction,
+  termId: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, `term-definition:${termId}`);
+}
+
+/** A source can bind only one UUID, including concurrent first imports of different IDs. */
+export async function lockTermSource(
+  transaction: AdvisoryLockTransaction,
+  sourceId: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, `term-source:${sourceId}`);
+}
+
 /** Serializes creation and every import of one Product Task code. */
 export async function lockProductTaskImport(
   transaction: AdvisoryLockTransaction,

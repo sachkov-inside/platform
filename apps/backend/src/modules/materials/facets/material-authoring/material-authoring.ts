@@ -32,6 +32,11 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly applySourceTerm: ApplySourceTermOperation;
+  readonly validateSourceTerm: ValidateSourceTermOperation;
+  readonly saveTerm: SaveTermOperation;
+  readonly listTerms: ListAuthoringTermsOperation;
+  readonly loadTerm: LoadAuthoringTermOperation;
   readonly applySourcePractice: ApplySourcePracticeOperation;
   readonly validateSourcePractice: ValidateSourcePracticeOperation;
   readonly reserveSourceProduct: ReserveSourceProductOperation;
@@ -59,3 +64,12 @@ export interface MaterialAuthoring {
   readonly validateMaterial: ValidateMaterialOperation;
   readonly updateContentCollection: UpdateContentCollectionOperation;
 }
+import type {
+  ApplySourceTermOperation,
+  SaveTermOperation,
+  ValidateSourceTermOperation,
+} from "../../features/import-source-term/import-source-term.contract.js";
+import type {
+  ListAuthoringTermsOperation,
+  LoadAuthoringTermOperation,
+} from "../../features/read-authoring-terms/read-authoring-terms.contract.js";

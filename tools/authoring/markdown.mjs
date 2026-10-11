@@ -10,11 +10,12 @@ import {
 import MarkdownIt from "markdown-it";
 import { z } from "zod";
 import { createHash } from "node:crypto";
+import { parseTermWikiReference } from "./term-references.mjs";
 
 /**
  * @typedef {import("@inside/material-blocks").CalloutTone} CalloutTone
  * @typedef {ReturnType<typeof parser.parse>[number]} Token
- * @typedef {{ type: string; attrs?: { href: string } }} DocMark
+ * @typedef {{ type: string; attrs?: { href: string } | { termId: string } }} DocMark
  * @typedef {object} DocNode
  * @property {string} type
  * @property {string} [text]
@@ -28,6 +29,17 @@ const parser = new MarkdownIt({
   html: true,
   linkify: false,
   typographer: false,
+});
+parser.inline.ruler.before("link", "inside_term", (state, silent) => {
+  // Link-label lookahead must count the brackets itself; this mark is not a nested link.
+  if (silent) return false;
+  const reference = parseTermWikiReference(state.src, state.pos);
+  if (reference === undefined || reference.end > state.posMax) return false;
+  const token = state.push("inside_term", "", 0);
+  token.content = reference.text;
+  token.meta = { target: reference.target };
+  state.pos = reference.end;
+  return true;
 });
 const calloutHeader = /^>\s*\[!([a-z-]+)\]([+-])?(?:\s+(.*))?$/u;
 parser.block.ruler.before(
@@ -185,12 +197,13 @@ export function sourceUuid(value) {
  *   readerBlocks?: readonly import("@inside/material-blocks").ContentReaderBlock[] | undefined;
  *   link: (href: string) => string;
  *   image: (src: string) => string;
+ *   term?: ((target: string) => import("./term-references.mjs").TermReference) | undefined;
  *   imageVariants?: (src: string) => { sourceSrc: string; imageVariants: import("@inside/material-blocks").ImageVariants<string> } | undefined;
  * }} source
  */
 export function convertMarkdown(
   markdown,
-  { sourcePath, sourceId, link, image, imageVariants, readerBlocks },
+  { sourcePath, sourceId, link, image, imageVariants, readerBlocks, term },
 ) {
   /**
    * @param {Token} token
@@ -234,6 +247,23 @@ export function convertMarkdown(
                 }
               : {}),
           });
+      } else if (token.type === "inside_term") {
+        if (term === undefined)
+          fail(parent, "term reference requires authored term definitions");
+        if (marks.some((mark) => mark.type === "link"))
+          fail(parent, "term reference cannot be nested in a link");
+        const target = token.meta?.["target"];
+        if (typeof target !== "string")
+          fail(parent, "term reference lost its target");
+        const reference = term(target);
+        nodes.push({
+          type: "text",
+          text: token.content,
+          marks: [
+            ...marks,
+            { type: "term", attrs: { termId: reference.termId } },
+          ],
+        });
       } else if (token.type === "softbreak") {
         nodes.push({
           type: "text",

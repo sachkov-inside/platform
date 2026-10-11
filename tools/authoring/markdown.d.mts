@@ -6,7 +6,7 @@ interface ImageVariantResolution {
 interface DocNode {
   type: string;
   text?: string;
-  marks?: { type: string; attrs?: { href: string } }[];
+  marks?: { type: string; attrs?: { href: string } | { termId: string } }[];
   attrs?: Record<string, unknown>;
   content?: DocNode[];
 }
@@ -22,6 +22,9 @@ export function convertMarkdown(
       | undefined;
     link: (href: string) => string;
     image: (src: string) => string;
+    term?:
+      | ((target: string) => import("./term-references.mjs").TermReference)
+      | undefined;
     imageVariants?: (src: string) => ImageVariantResolution | undefined;
   },
 ): { schemaVersion: 1; doc: DocNode & { content: DocNode[] } };

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { z } from "zod";
 import { canonical } from "./package.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { syncLocal } from "./local-sync.mjs";
@@ -32,6 +33,84 @@ import {
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const sourceId = "inside-content:one";
+
+test("real syncLocal plans term writes before Material bodies; a definition update leaves body versions unchanged", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const termId = "44300000-0000-4000-8000-000000000001";
+  setup.manifest.schemaVersion = 2;
+  setup.manifest.requiredFeatures = ["terms-v1"];
+  setup.manifest.selection.taskIds = [];
+  setup.manifest.terms = [
+    {
+      sourceId: "deploy",
+      sourcePath: "terms/deploy.md",
+      publicationState: "published",
+      definition: {
+        id: termId,
+        title: "Деплой",
+        aliases: [],
+        definition: "Авторское определение для synthetic fixture",
+      },
+    },
+  ];
+  itemAt(setup.manifest.materials, 0).markdown = "[[Деплой|выкатить версию]]";
+  await setup.write();
+  /** @type {z.infer<typeof import("./local-boundaries.mjs").termReceiptSchema> | null} */
+  let term = null;
+  /** @type {string[]} */
+  const paths = [];
+  let termWrites = 0;
+  const commandSchema = z
+    .object({
+      source: z.object({ id: z.string(), revision: z.string() }),
+      expectedTermVersion: z.number().nullable(),
+      publicationState: z.enum(["draft", "published", "unpublished"]),
+    })
+    .passthrough();
+  /** @type {LocalTransport} */
+  const request = async (path, body, key) => {
+    paths.push(path);
+    if (path === "/authoring/import/terms/validate")
+      return { valid: true, current: term };
+    if (path === "/authoring/import/terms/apply") {
+      const command = commandSchema.parse(body);
+      assert.equal(command.expectedTermVersion, term?.termVersion ?? null);
+      assert.ok(key);
+      term = {
+        termId,
+        termVersion: (term?.termVersion ?? 0) + 1,
+        definitionDigest: "a".repeat(64),
+        publicationState: command.publicationState,
+        sourceId: command.source.id,
+        sourceRevision: command.source.revision,
+      };
+      termWrites += 1;
+      return term;
+    }
+    return api.request(path, body, key);
+  };
+  const first = await setup.sync({ request });
+  assert.equal(first.terms?.[0]?.status, "applied");
+  assert.ok(
+    paths.indexOf("/authoring/import/terms/apply") <
+      paths.indexOf("/authoring/import/materials/apply"),
+  );
+  const saved = valueAt(api.materials, sourceId);
+  assert.match(JSON.stringify(saved.body), new RegExp(termId, "u"));
+  assert.doesNotMatch(JSON.stringify(saved.body), /Авторское определение/u);
+  const version = saved.contentVersion;
+  const repeat = await setup.sync({ request });
+  assert.equal(repeat.terms?.[0]?.status, "unchanged");
+  const authored = itemAt(setup.manifest.terms, 0);
+  authored.definition.definition =
+    "Обновлённое авторское определение для synthetic fixture";
+  await setup.write();
+  const updated = await setup.sync({ request });
+  assert.equal(updated.terms?.[0]?.termVersion, 2);
+  assert.equal(valueAt(api.materials, sourceId).contentVersion, version);
+  assert.equal(termWrites, 2);
+});
 
 /** @param {import("node:test").TestContext} t */
 async function fixture(t) {
