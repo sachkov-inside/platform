@@ -213,6 +213,9 @@ export function MaterialPrimaryVideo({
         const seekToFragment = () => {
           const seconds = readVideoTimeFragment(window.location.hash, duration);
           if (!isActive() || seconds === null) return;
+          // Native hash navigation leaves Next's canonical URL behind. Its next refresh
+          // must retain this moment, including a chapter selected while the SDK is seeking.
+          window.history.replaceState(null, "", window.location.href);
           void seekToMoment(seconds).catch(() => {
             if (isActive()) setPhase("error");
           });
