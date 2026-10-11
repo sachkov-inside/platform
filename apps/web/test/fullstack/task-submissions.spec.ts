@@ -176,7 +176,9 @@ test("the author marks an agent's submission and comments it; the learner reads 
   );
   await expect(card.getByText(note)).toBeVisible();
   await expect(card.getByText("Через агента")).toBeVisible();
-  await card.getByText("Отчёт агента ученика", { exact: true }).click();
+  await expect(
+    card.getByRole("heading", { name: "Отчёт агента ученика" }),
+  ).toBeVisible();
   await expect(
     card.getByText("<b>README.md</b> описывает создание заявки.", {
       exact: false,
