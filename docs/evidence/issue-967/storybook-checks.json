@@ -1,0 +1,137 @@
+{
+  "sourceSha": "c5b6d1d1a0a81483c9e7bc8937138ac19da9b1c9",
+  "results": [
+    {
+      "story": "report-is-text",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "submissions",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-saves",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-save-fails",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expired-session",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty-filter",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "loading",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "forbidden",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unauthorized",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unavailable",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "report-is-text",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "submissions",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-saves",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-save-fails",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expired-session",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty-filter",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "loading",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "forbidden",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unauthorized",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unavailable",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    }
+  ]
+}
