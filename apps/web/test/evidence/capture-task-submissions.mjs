@@ -96,7 +96,8 @@ try {
         if (story === undefined || text === undefined)
           throw new Error("Missing story expectation");
         await page.goto(
-          `http://127.0.0.1:${String(address.port)}/iframe.html?id=pages-authoring-task-submissions--${story}&viewMode=story`,
+          // This script owns the awaited Axe scan; avoid racing the addon's automatic scan.
+          `http://127.0.0.1:${String(address.port)}/iframe.html?id=pages-authoring-task-submissions--${story}&viewMode=story&globals=a11y.manual:!true`,
         );
         await expect(page.getByText(text, { exact: true })).toBeVisible({
           timeout: 30_000,
