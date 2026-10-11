@@ -235,8 +235,16 @@ test("missing and malformed submission addresses never silently open another rep
     await expect(
       page.getByRole("link", { name: "Все сдачи", exact: true }),
     ).toHaveAttribute("href", returnHref);
+    if (id !== "missing") await evidence(page, info, "not-found");
+    await page.evaluate(() => {
+      document.body.dataset["submissionDocument"] = "retained";
+    });
+    await page.getByRole("link", { name: "Все сдачи", exact: true }).click();
+    await expect(page).toHaveURL(`${baseURL}${returnHref}`);
+    expect(
+      await page.locator("body").getAttribute("data-submission-document"),
+    ).toBe("retained");
   }
-  await evidence(page, info, "not-found");
 });
 
 for (const [state, token, text] of [

@@ -21,14 +21,12 @@ describe("Telegram contact HTTP contract", () => {
       displayName: "Synthetic learner",
       username: null,
     }));
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        Response.json({
-          contractVersion: "inside.telegram-contact.v1",
-          contacts: answer,
-        }),
-      );
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        contractVersion: "inside.telegram-contact.v1",
+        contacts: answer,
+      }),
+    );
     const provider = new HttpTelegramContactsProvider(
       endpoint,
       "synthetic-secret",
@@ -39,7 +37,10 @@ describe("Telegram contact HTTP contract", () => {
       contacts: answer,
     });
     const request = fetcher.mock.calls[0];
-    expect(String(request?.[0])).toBe(
+    const url = request?.[0];
+    expect(
+      url instanceof URL ? url.href : url instanceof Request ? url.url : url,
+    ).toBe(
       "https://telegram.example.test/integrations/platform/v1/telegram-contacts",
     );
     expect(request?.[1]).toMatchObject({
@@ -51,7 +52,10 @@ describe("Telegram contact HTTP contract", () => {
       },
     });
     expect(request?.[1]?.signal).toBeInstanceOf(AbortSignal);
-    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
+    const body = request?.[1]?.body;
+    if (typeof body !== "string")
+      throw new TypeError("Expected a JSON request body");
+    expect(JSON.parse(body)).toEqual({
       contractVersion: "inside.telegram-contact.v1",
       contacts,
     });
@@ -60,7 +64,9 @@ describe("Telegram contact HTTP contract", () => {
   test.each([401, 503, 404])(
     "HTTP %i keeps submissions available and records unexpected failures",
     async (status) => {
-      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      const log = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
       const fetcher = vi
         .fn<typeof fetch>()
         .mockResolvedValue(new Response(null, { status }));
@@ -88,15 +94,13 @@ describe("Telegram contact HTTP contract", () => {
   );
 
   test("rejects a malformed answer without logging its personal data", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const fetcher = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(
-        Response.json({
-          contractVersion: "inside.telegram-contact.v1",
-          contacts: [{ privateData: "synthetic-private-data" }],
-        }),
-      );
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        contractVersion: "inside.telegram-contact.v1",
+        contacts: [{ privateData: "synthetic-private-data" }],
+      }),
+    );
     await expect(
       new HttpTelegramContactsProvider(
         endpoint,

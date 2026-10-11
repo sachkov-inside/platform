@@ -1,8 +1,10 @@
 import { CircleAlert, LockKeyhole, LogIn } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
+import { internalRoute } from "@/shared/routing/internal-route";
 
 import { submissionsHref } from "../model/task-submissions";
 import {
@@ -24,7 +26,7 @@ export function TaskSubmissionsState({
     <TaskSubmissionsFrame>
       {kind === "not_found" ? (
         <StatusPanel
-          action={<a href={listHref}>Все сдачи</a>}
+          action={<Link href={internalRoute(listHref)}>Все сдачи</Link>}
           icon={<CircleAlert aria-hidden="true" />}
           message="Сдача отсутствует или больше недоступна."
           state={{ "data-task-submissions-state": "not_found" }}
