@@ -160,13 +160,17 @@ AMQPS на `5671`. Топологию он читает из определен�
 | `recurringCardConfirmed`, `cardOnlyHostedConfirmed` | `false` | на форме все способы: карта, T-Pay, Mir Pay, SberPay, Долями (решение 15.09.2026) |
 | `minimumKopecks` | `100` | нижняя граница приложения, у банка её нет |
 | `maximumKopecks` | `30000000` | разовая операция 300 000 ₽; Долями банк сам показывает только в пределах 4–200 000 ₽ |
-| `returnUrl` | `https://inside.sachkov.dev/subscription/return` | страница спрашивает состояние у сервера |
+| `returnUrl` | `https://sachkov.dev/payment/return` | текущая страница Web; старый hostname перенаправляет браузер |
 | `notificationUrl` | `https://inside.sachkov.dev/billing/tbank/notification` | маршрут ниже |
 | `receipt` | `{"taxation":"usn_income","tax":"none"}` | УСН «Доходы», без НДС |
 
 Приложение передаёт `NotificationURL`, `SuccessURL` и `FailURL` в каждом `Init`, поэтому страницы
 банка по умолчанию не мешают. HTTP-уведомления в кабинете рабочего терминала включает владелец;
 запасной адрес — тот же `notificationUrl`.
+
+Для запуска курса заполняйте [техническую форму и preflight](course-release-preflight.md):
+URLs и принятые суммы вычисляются из текущего кода и решений, а receipt, limits и capabilities
+подтверждаются актуальными фактами рабочего терминала. Значения в примерах не заменяют это evidence.
 
 Правила продажи:
 

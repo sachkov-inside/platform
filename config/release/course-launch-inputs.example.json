@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "inside.course-launch-inputs.v1",
+  "technical": {
+    "environment": "production",
+    "webOrigin": "https://sachkov.dev",
+    "returnUrl": "https://sachkov.dev/payment/return",
+    "notificationUrl": "https://inside.sachkov.dev/billing/tbank/notification",
+    "terminalConfigTargets": ["api.env", "mcp.env", "billing-worker.env"],
+    "amountsKopecks": {
+      "main": 2990000,
+      "alternative": 3990000,
+      "survey": 2691000
+    },
+    "surveyDiscountPercent": 10,
+    "acceptancePayments": [2990000, 2691000],
+    "acceptanceTotalKopecks": 5681000,
+    "fullRefundCount": 2,
+    "refundDeadlineDays": 7,
+    "subscriptionForSale": false,
+    "marketingEnabled": false
+  },
+  "protectedReferences": {
+    "terminalKey": "credentials://production/tbank/terminal-key",
+    "password": "credentials://production/tbank/password",
+    "bindingEncryptionKey": "credentials://production/tbank/binding-encryption-key",
+    "watchdogBotToken": "credentials://production/watchdog/bot-token",
+    "watchdogRecipient": "credentials://production/watchdog/chat-id",
+    "smtpUser": "credentials://production/watchdog/smtp-user",
+    "smtpPassword": "credentials://production/watchdog/smtp-password",
+    "emailFrom": "credentials://production/watchdog/email-from",
+    "emailTo": "credentials://production/watchdog/email-to"
+  },
+  "ownerEvidence": {
+    "terminalCapabilityEvidenceRef": null,
+    "minimumKopecks": null,
+    "maximumKopecks": null,
+    "receiptTaxation": null,
+    "receiptTax": null,
+    "recurringCardConfirmed": null,
+    "cardOnlyHostedConfirmed": null,
+    "bankHttpNotificationsEnabled": null,
+    "smtpUrl": null,
+    "telegramRecipientApprovalRef": null,
+    "emailRecipientApprovalRef": null,
+    "exactTestMessageApprovalRef": null,
+    "paymentAndRefundApprovalRef": null,
+    "productionUiAcceptanceRef": null,
+    "publicSaleApprovalRef": null
+  }
+}
