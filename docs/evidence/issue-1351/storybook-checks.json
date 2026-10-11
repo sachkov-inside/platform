@@ -1,0 +1,173 @@
+{
+  "sourceSha": "6ba65ff273e7081aa500e493cfbbde9dfa22ca63",
+  "results": [
+    {
+      "story": "submissions",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "submission",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expanded-submission",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "passed",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-saves",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-save-fails",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expired-session",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "not-found",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty-filter",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "loading",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "forbidden",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unauthorized",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unavailable",
+      "width": 390,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "submissions",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "submission",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expanded-submission",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "passed",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-saves",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "feedback-save-fails",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "expired-session",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "not-found",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "empty-filter",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "loading",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "forbidden",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unauthorized",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "story": "unavailable",
+      "width": 1440,
+      "overflow": false,
+      "violations": []
+    }
+  ]
+}
