@@ -20,6 +20,9 @@
 
 ## 1. Что выпускаем
 
+Для выпуска курса #854 используйте также [course release preflight](course-release-preflight.md):
+exact-SHA checks, image digests, свежий backup, isolated restore и формы настройки провайдеров.
+
 ```bash
 git fetch origin
 current=$(gh release view --json tagName -q .tagName)            # последняя опубликованная, например v8

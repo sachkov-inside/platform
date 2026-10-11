@@ -1,0 +1,1156 @@
+{
+  "environment": {
+    "date": "2026-10-11",
+    "os": "Debian 13 Codex Cloud",
+    "hostCpuQuota": 4,
+    "dockerStorageDriver": "vfs",
+    "postgresContainerCpuQuota": 2,
+    "postgresContainerMemoryBytes": 1073741824
+  },
+  "limits": {
+    "schemaBytes": 600000000,
+    "p75QueryMs": 200,
+    "cleanupMs": 5000
+  },
+  "runs": [
+    {
+      "completedAt": "2026-10-11T09:01:17.551851+00:00",
+      "sourceSha": "1b23ee9751455cc3c593240e2941c64abe50bb5e",
+      "method": "original; pnpm check also running",
+      "exitCode": 1,
+      "rawLog": "854-telemetry-measure-final.log",
+      "result": {
+        "postgres": "18.4",
+        "cpuLimit": 2,
+        "budgetBytes": 600000000,
+        "initialBytes": 528596992,
+        "relations": [
+          {
+            "relname": "route_templates",
+            "bytes": 49152
+          },
+          {
+            "relname": "vital_samples",
+            "bytes": 64225280
+          },
+          {
+            "relname": "errors",
+            "bytes": 464183296
+          },
+          {
+            "relname": "daily_quota",
+            "bytes": 32768
+          },
+          {
+            "relname": "coverage",
+            "bytes": 98304
+          }
+        ],
+        "maxBytes": 579600384,
+        "p75TimesMs": [
+          437.6422089999978, 126.95981700000266, 136.66450199999963,
+          131.6970399999991, 134.07296399999905, 128.88360999999713,
+          181.15538100000413, 185.58441799999855, 171.69962400000077,
+          142.43601599999965, 414.6383919999935, 238.31505499999912,
+          181.89286900000297, 150.4776809999894, 185.79833700000017,
+          339.5127139999968, 271.9686769999971, 154.42219199999818,
+          196.53233000001637, 192.13099899998633, 195.80464099999517,
+          200.77779100000043, 344.28128200001083, 143.68877900001826,
+          194.15496300000814, 248.80206799998996, 149.82566100003896,
+          178.82738199998857, 227.3463960000081, 206.92515700001968,
+          378.83014599996386, 166.24394600000232, 162.35588799999095,
+          220.4471140000387, 197.25711400003638, 155.9527540000272,
+          159.2361829999718, 152.58201200002804, 195.64214599999832,
+          151.80145700002322
+        ],
+        "fullSummaryTimesMs": [
+          583.6555339999977, 262.4458620000005, 270.03594099999464,
+          269.822361999999, 266.17230800000107, 276.5359679999965,
+          404.2996029999995, 402.21510000000126
+        ],
+        "growth": [
+          {
+            "cycle": 1,
+            "beforeCleanupBytes": 550141952,
+            "afterCleanupBytes": 550141952,
+            "afterVacuumBytes": 550182912,
+            "cleanupMs": 336.80086499999743,
+            "p75Ms": 171.69962400000077
+          },
+          {
+            "cycle": 2,
+            "beforeCleanupBytes": 552542208,
+            "afterCleanupBytes": 552542208,
+            "afterVacuumBytes": 552615936,
+            "cleanupMs": 336.4775059999956,
+            "p75Ms": 142.43601599999965
+          },
+          {
+            "cycle": 3,
+            "beforeCleanupBytes": 553623552,
+            "afterCleanupBytes": 553623552,
+            "afterVacuumBytes": 553623552,
+            "cleanupMs": 278.5568540000095,
+            "p75Ms": 414.6383919999935
+          },
+          {
+            "cycle": 4,
+            "beforeCleanupBytes": 554606592,
+            "afterCleanupBytes": 554606592,
+            "afterVacuumBytes": 554606592,
+            "cleanupMs": 345.2161630000046,
+            "p75Ms": 238.31505499999912
+          },
+          {
+            "cycle": 5,
+            "beforeCleanupBytes": 555663360,
+            "afterCleanupBytes": 555663360,
+            "afterVacuumBytes": 555663360,
+            "cleanupMs": 272.4641980000015,
+            "p75Ms": 181.89286900000297
+          },
+          {
+            "cycle": 6,
+            "beforeCleanupBytes": 556670976,
+            "afterCleanupBytes": 556670976,
+            "afterVacuumBytes": 556670976,
+            "cleanupMs": 279.35970200000156,
+            "p75Ms": 150.4776809999894
+          },
+          {
+            "cycle": 7,
+            "beforeCleanupBytes": 557547520,
+            "afterCleanupBytes": 557547520,
+            "afterVacuumBytes": 557547520,
+            "cleanupMs": 248.69463699999324,
+            "p75Ms": 185.79833700000017
+          },
+          {
+            "cycle": 8,
+            "beforeCleanupBytes": 558497792,
+            "afterCleanupBytes": 558497792,
+            "afterVacuumBytes": 558497792,
+            "cleanupMs": 1285.895788000009,
+            "p75Ms": 339.5127139999968
+          },
+          {
+            "cycle": 9,
+            "beforeCleanupBytes": 559480832,
+            "afterCleanupBytes": 559480832,
+            "afterVacuumBytes": 559480832,
+            "cleanupMs": 374.30545400001574,
+            "p75Ms": 271.9686769999971
+          },
+          {
+            "cycle": 10,
+            "beforeCleanupBytes": 560431104,
+            "afterCleanupBytes": 560431104,
+            "afterVacuumBytes": 560431104,
+            "cleanupMs": 482.9100439999893,
+            "p75Ms": 154.42219199999818
+          },
+          {
+            "cycle": 11,
+            "beforeCleanupBytes": 561381376,
+            "afterCleanupBytes": 561381376,
+            "afterVacuumBytes": 561381376,
+            "cleanupMs": 264.14296500000637,
+            "p75Ms": 196.53233000001637
+          },
+          {
+            "cycle": 12,
+            "beforeCleanupBytes": 562339840,
+            "afterCleanupBytes": 562339840,
+            "afterVacuumBytes": 562339840,
+            "cleanupMs": 532.1888850000105,
+            "p75Ms": 192.13099899998633
+          },
+          {
+            "cycle": 13,
+            "beforeCleanupBytes": 563200000,
+            "afterCleanupBytes": 563200000,
+            "afterVacuumBytes": 563208192,
+            "cleanupMs": 238.85637700001826,
+            "p75Ms": 195.80464099999517
+          },
+          {
+            "cycle": 14,
+            "beforeCleanupBytes": 564174848,
+            "afterCleanupBytes": 564174848,
+            "afterVacuumBytes": 564174848,
+            "cleanupMs": 459.6587489999947,
+            "p75Ms": 200.77779100000043
+          },
+          {
+            "cycle": 15,
+            "beforeCleanupBytes": 565116928,
+            "afterCleanupBytes": 565116928,
+            "afterVacuumBytes": 565116928,
+            "cleanupMs": 313.1926660000172,
+            "p75Ms": 344.28128200001083
+          },
+          {
+            "cycle": 16,
+            "beforeCleanupBytes": 566042624,
+            "afterCleanupBytes": 566042624,
+            "afterVacuumBytes": 566067200,
+            "cleanupMs": 341.5980649999983,
+            "p75Ms": 143.68877900001826
+          },
+          {
+            "cycle": 17,
+            "beforeCleanupBytes": 566951936,
+            "afterCleanupBytes": 566951936,
+            "afterVacuumBytes": 566951936,
+            "cleanupMs": 253.53895599997486,
+            "p75Ms": 194.15496300000814
+          },
+          {
+            "cycle": 18,
+            "beforeCleanupBytes": 567894016,
+            "afterCleanupBytes": 567894016,
+            "afterVacuumBytes": 567894016,
+            "cleanupMs": 351.2444710000127,
+            "p75Ms": 248.80206799998996
+          },
+          {
+            "cycle": 19,
+            "beforeCleanupBytes": 568696832,
+            "afterCleanupBytes": 568696832,
+            "afterVacuumBytes": 568696832,
+            "cleanupMs": 225.36022299999604,
+            "p75Ms": 149.82566100003896
+          },
+          {
+            "cycle": 20,
+            "beforeCleanupBytes": 569638912,
+            "afterCleanupBytes": 569638912,
+            "afterVacuumBytes": 569638912,
+            "cleanupMs": 354.35006800002884,
+            "p75Ms": 178.82738199998857
+          },
+          {
+            "cycle": 21,
+            "beforeCleanupBytes": 570572800,
+            "afterCleanupBytes": 570572800,
+            "afterVacuumBytes": 570572800,
+            "cleanupMs": 806.520503000007,
+            "p75Ms": 227.3463960000081
+          },
+          {
+            "cycle": 22,
+            "beforeCleanupBytes": 571473920,
+            "afterCleanupBytes": 571473920,
+            "afterVacuumBytes": 571473920,
+            "cleanupMs": 332.9857619999675,
+            "p75Ms": 206.92515700001968
+          },
+          {
+            "cycle": 23,
+            "beforeCleanupBytes": 572358656,
+            "afterCleanupBytes": 572358656,
+            "afterVacuumBytes": 572358656,
+            "cleanupMs": 524.7853800000157,
+            "p75Ms": 378.83014599996386
+          },
+          {
+            "cycle": 24,
+            "beforeCleanupBytes": 573317120,
+            "afterCleanupBytes": 573317120,
+            "afterVacuumBytes": 573317120,
+            "cleanupMs": 351.4653640000033,
+            "p75Ms": 166.24394600000232
+          },
+          {
+            "cycle": 25,
+            "beforeCleanupBytes": 574136320,
+            "afterCleanupBytes": 574136320,
+            "afterVacuumBytes": 574136320,
+            "cleanupMs": 541.041406000033,
+            "p75Ms": 162.35588799999095
+          },
+          {
+            "cycle": 26,
+            "beforeCleanupBytes": 575045632,
+            "afterCleanupBytes": 575045632,
+            "afterVacuumBytes": 575045632,
+            "cleanupMs": 329.8956519999774,
+            "p75Ms": 220.4471140000387
+          },
+          {
+            "cycle": 27,
+            "beforeCleanupBytes": 575946752,
+            "afterCleanupBytes": 575946752,
+            "afterVacuumBytes": 575946752,
+            "cleanupMs": 561.6706260000356,
+            "p75Ms": 197.25711400003638
+          },
+          {
+            "cycle": 28,
+            "beforeCleanupBytes": 576880640,
+            "afterCleanupBytes": 576880640,
+            "afterVacuumBytes": 576880640,
+            "cleanupMs": 453.2322989999666,
+            "p75Ms": 155.9527540000272
+          },
+          {
+            "cycle": 29,
+            "beforeCleanupBytes": 577732608,
+            "afterCleanupBytes": 577732608,
+            "afterVacuumBytes": 577732608,
+            "cleanupMs": 287.2507320000441,
+            "p75Ms": 159.2361829999718
+          },
+          {
+            "cycle": 30,
+            "beforeCleanupBytes": 578674688,
+            "afterCleanupBytes": 578674688,
+            "afterVacuumBytes": 578674688,
+            "cleanupMs": 446.7318329999689,
+            "p75Ms": 152.58201200002804
+          },
+          {
+            "cycle": 31,
+            "beforeCleanupBytes": 579510272,
+            "afterCleanupBytes": 579510272,
+            "afterVacuumBytes": 565854208,
+            "cleanupMs": 1172.0336750000133,
+            "p75Ms": 195.64214599999832
+          },
+          {
+            "cycle": 32,
+            "beforeCleanupBytes": 579600384,
+            "afterCleanupBytes": 579600384,
+            "afterVacuumBytes": 579600384,
+            "cleanupMs": 397.7788869999931,
+            "p75Ms": 151.80145700002322
+          }
+        ]
+      }
+    },
+    {
+      "completedAt": "2026-10-11T09:13:45.548555+00:00",
+      "sourceSha": "1b23ee9751455cc3c593240e2941c64abe50bb5e",
+      "method": "original; no parallel repository heavy check",
+      "exitCode": 1,
+      "rawLog": "854-telemetry-measure-isolated.log",
+      "result": {
+        "postgres": "18.4",
+        "cpuLimit": 2,
+        "budgetBytes": 600000000,
+        "initialBytes": 528596992,
+        "relations": [
+          {
+            "relname": "route_templates",
+            "bytes": 49152
+          },
+          {
+            "relname": "vital_samples",
+            "bytes": 64225280
+          },
+          {
+            "relname": "errors",
+            "bytes": 464183296
+          },
+          {
+            "relname": "daily_quota",
+            "bytes": 32768
+          },
+          {
+            "relname": "coverage",
+            "bytes": 98304
+          }
+        ],
+        "maxBytes": 579600384,
+        "p75TimesMs": [
+          449.92190899999696, 139.18482799999765, 123.4732709999953,
+          131.35306899999705, 136.0134029999972, 131.40913400000136,
+          123.45051200000307, 126.15620099999796, 133.05641699999978,
+          133.81193100000382, 137.361035000009, 144.14785599999595,
+          143.93061999999918, 174.23748599999817, 157.3083820000029,
+          140.06332099999418, 1085.5592520000064, 144.57048100000247,
+          137.94574399999692, 145.39739500000724, 148.551026000001,
+          144.42141100001754, 196.94479599999613, 335.39937599998666,
+          525.5034739999974, 152.57303599998704, 162.57307800004492,
+          174.66222100000596, 194.01984699995955, 188.77592699998058,
+          291.4163919999846, 169.05352700001094, 168.44955600000685,
+          249.79290500003844, 162.08983800001442, 374.0388319999911,
+          280.3879350000061, 363.6868260000483, 247.81436499999836,
+          237.22672900004545
+        ],
+        "fullSummaryTimesMs": [
+          600.4958509999997, 276.52635100000043, 250.7987490000014,
+          250.04844100000628, 255.65398599999753, 262.1571699999986,
+          261.53023199999734, 260.7965420000037
+        ],
+        "growth": [
+          {
+            "cycle": 1,
+            "beforeCleanupBytes": 550141952,
+            "afterCleanupBytes": 550141952,
+            "afterVacuumBytes": 550182912,
+            "cleanupMs": 278.2282449999984,
+            "p75Ms": 133.05641699999978
+          },
+          {
+            "cycle": 2,
+            "beforeCleanupBytes": 552542208,
+            "afterCleanupBytes": 552542208,
+            "afterVacuumBytes": 552615936,
+            "cleanupMs": 250.03105900000082,
+            "p75Ms": 133.81193100000382
+          },
+          {
+            "cycle": 3,
+            "beforeCleanupBytes": 553623552,
+            "afterCleanupBytes": 553623552,
+            "afterVacuumBytes": 553623552,
+            "cleanupMs": 231.7683970000071,
+            "p75Ms": 137.361035000009
+          },
+          {
+            "cycle": 4,
+            "beforeCleanupBytes": 554606592,
+            "afterCleanupBytes": 554606592,
+            "afterVacuumBytes": 554606592,
+            "cleanupMs": 201.30015199999616,
+            "p75Ms": 144.14785599999595
+          },
+          {
+            "cycle": 5,
+            "beforeCleanupBytes": 555663360,
+            "afterCleanupBytes": 555663360,
+            "afterVacuumBytes": 555663360,
+            "cleanupMs": 244.13705700001447,
+            "p75Ms": 143.93061999999918
+          },
+          {
+            "cycle": 6,
+            "beforeCleanupBytes": 556670976,
+            "afterCleanupBytes": 556670976,
+            "afterVacuumBytes": 556670976,
+            "cleanupMs": 180.92724699999962,
+            "p75Ms": 174.23748599999817
+          },
+          {
+            "cycle": 7,
+            "beforeCleanupBytes": 557547520,
+            "afterCleanupBytes": 557547520,
+            "afterVacuumBytes": 557547520,
+            "cleanupMs": 213.51170800000546,
+            "p75Ms": 157.3083820000029
+          },
+          {
+            "cycle": 8,
+            "beforeCleanupBytes": 558497792,
+            "afterCleanupBytes": 558497792,
+            "afterVacuumBytes": 558497792,
+            "cleanupMs": 380.93875000000116,
+            "p75Ms": 140.06332099999418
+          },
+          {
+            "cycle": 9,
+            "beforeCleanupBytes": 559480832,
+            "afterCleanupBytes": 559480832,
+            "afterVacuumBytes": 559480832,
+            "cleanupMs": 264.24791099999857,
+            "p75Ms": 1085.5592520000064
+          },
+          {
+            "cycle": 10,
+            "beforeCleanupBytes": 560431104,
+            "afterCleanupBytes": 560431104,
+            "afterVacuumBytes": 560431104,
+            "cleanupMs": 217.7573010000051,
+            "p75Ms": 144.57048100000247
+          },
+          {
+            "cycle": 11,
+            "beforeCleanupBytes": 561381376,
+            "afterCleanupBytes": 561381376,
+            "afterVacuumBytes": 561381376,
+            "cleanupMs": 271.21810800000094,
+            "p75Ms": 137.94574399999692
+          },
+          {
+            "cycle": 12,
+            "beforeCleanupBytes": 562339840,
+            "afterCleanupBytes": 562339840,
+            "afterVacuumBytes": 562339840,
+            "cleanupMs": 439.5613139999914,
+            "p75Ms": 145.39739500000724
+          },
+          {
+            "cycle": 13,
+            "beforeCleanupBytes": 563200000,
+            "afterCleanupBytes": 563200000,
+            "afterVacuumBytes": 563208192,
+            "cleanupMs": 317.4069460000028,
+            "p75Ms": 148.551026000001
+          },
+          {
+            "cycle": 14,
+            "beforeCleanupBytes": 564183040,
+            "afterCleanupBytes": 564183040,
+            "afterVacuumBytes": 564183040,
+            "cleanupMs": 336.22381700002006,
+            "p75Ms": 144.42141100001754
+          },
+          {
+            "cycle": 15,
+            "beforeCleanupBytes": 565125120,
+            "afterCleanupBytes": 565125120,
+            "afterVacuumBytes": 565125120,
+            "cleanupMs": 279.66234700000496,
+            "p75Ms": 196.94479599999613
+          },
+          {
+            "cycle": 16,
+            "beforeCleanupBytes": 566042624,
+            "afterCleanupBytes": 566042624,
+            "afterVacuumBytes": 566067200,
+            "cleanupMs": 282.4588710000098,
+            "p75Ms": 335.39937599998666
+          },
+          {
+            "cycle": 17,
+            "beforeCleanupBytes": 566951936,
+            "afterCleanupBytes": 566951936,
+            "afterVacuumBytes": 566951936,
+            "cleanupMs": 428.57462400000077,
+            "p75Ms": 525.5034739999974
+          },
+          {
+            "cycle": 18,
+            "beforeCleanupBytes": 567894016,
+            "afterCleanupBytes": 567894016,
+            "afterVacuumBytes": 567894016,
+            "cleanupMs": 751.0483440000098,
+            "p75Ms": 152.57303599998704
+          },
+          {
+            "cycle": 19,
+            "beforeCleanupBytes": 568696832,
+            "afterCleanupBytes": 568696832,
+            "afterVacuumBytes": 568696832,
+            "cleanupMs": 331.11674500000663,
+            "p75Ms": 162.57307800004492
+          },
+          {
+            "cycle": 20,
+            "beforeCleanupBytes": 569638912,
+            "afterCleanupBytes": 569638912,
+            "afterVacuumBytes": 569638912,
+            "cleanupMs": 291.2752609999734,
+            "p75Ms": 174.66222100000596
+          },
+          {
+            "cycle": 21,
+            "beforeCleanupBytes": 570572800,
+            "afterCleanupBytes": 570572800,
+            "afterVacuumBytes": 570572800,
+            "cleanupMs": 339.70634600002086,
+            "p75Ms": 194.01984699995955
+          },
+          {
+            "cycle": 22,
+            "beforeCleanupBytes": 571473920,
+            "afterCleanupBytes": 571473920,
+            "afterVacuumBytes": 571473920,
+            "cleanupMs": 833.0490730000311,
+            "p75Ms": 188.77592699998058
+          },
+          {
+            "cycle": 23,
+            "beforeCleanupBytes": 572358656,
+            "afterCleanupBytes": 572358656,
+            "afterVacuumBytes": 572358656,
+            "cleanupMs": 482.7717309999862,
+            "p75Ms": 291.4163919999846
+          },
+          {
+            "cycle": 24,
+            "beforeCleanupBytes": 573317120,
+            "afterCleanupBytes": 573317120,
+            "afterVacuumBytes": 573317120,
+            "cleanupMs": 340.46284600003855,
+            "p75Ms": 169.05352700001094
+          },
+          {
+            "cycle": 25,
+            "beforeCleanupBytes": 574136320,
+            "afterCleanupBytes": 574136320,
+            "afterVacuumBytes": 574136320,
+            "cleanupMs": 340.1206060000113,
+            "p75Ms": 168.44955600000685
+          },
+          {
+            "cycle": 26,
+            "beforeCleanupBytes": 575045632,
+            "afterCleanupBytes": 575045632,
+            "afterVacuumBytes": 575045632,
+            "cleanupMs": 257.00861000001896,
+            "p75Ms": 249.79290500003844
+          },
+          {
+            "cycle": 27,
+            "beforeCleanupBytes": 575954944,
+            "afterCleanupBytes": 575954944,
+            "afterVacuumBytes": 575954944,
+            "cleanupMs": 401.7225689999759,
+            "p75Ms": 162.08983800001442
+          },
+          {
+            "cycle": 28,
+            "beforeCleanupBytes": 576880640,
+            "afterCleanupBytes": 576880640,
+            "afterVacuumBytes": 576880640,
+            "cleanupMs": 459.45734699995955,
+            "p75Ms": 374.0388319999911
+          },
+          {
+            "cycle": 29,
+            "beforeCleanupBytes": 577732608,
+            "afterCleanupBytes": 577732608,
+            "afterVacuumBytes": 577732608,
+            "cleanupMs": 555.7479560000356,
+            "p75Ms": 280.3879350000061
+          },
+          {
+            "cycle": 30,
+            "beforeCleanupBytes": 578674688,
+            "afterCleanupBytes": 578674688,
+            "afterVacuumBytes": 578674688,
+            "cleanupMs": 586.7779590000282,
+            "p75Ms": 363.6868260000483
+          },
+          {
+            "cycle": 31,
+            "beforeCleanupBytes": 579510272,
+            "afterCleanupBytes": 579510272,
+            "afterVacuumBytes": 565854208,
+            "cleanupMs": 395.34374799998477,
+            "p75Ms": 247.81436499999836
+          },
+          {
+            "cycle": 32,
+            "beforeCleanupBytes": 579600384,
+            "afterCleanupBytes": 579600384,
+            "afterVacuumBytes": 579600384,
+            "cleanupMs": 394.20307699998375,
+            "p75Ms": 237.22672900004545
+          }
+        ]
+      }
+    },
+    {
+      "completedAt": "2026-10-11T09:24:39.422290+00:00",
+      "sourceSha": "1b23ee9751455cc3c593240e2941c64abe50bb5e",
+      "method": "initial and daily CHECKPOINT before timed summary; no parallel repository heavy check",
+      "exitCode": 1,
+      "rawLog": "854-telemetry-measure-prepared.log",
+      "result": {
+        "postgres": "18.4",
+        "cpuLimit": 2,
+        "budgetBytes": 600000000,
+        "initialBytes": 528596992,
+        "relations": [
+          {
+            "relname": "route_templates",
+            "bytes": 49152
+          },
+          {
+            "relname": "vital_samples",
+            "bytes": 64225280
+          },
+          {
+            "relname": "errors",
+            "bytes": 464183296
+          },
+          {
+            "relname": "daily_quota",
+            "bytes": 32768
+          },
+          {
+            "relname": "coverage",
+            "bytes": 98304
+          }
+        ],
+        "maxBytes": 579584000,
+        "p75TimesMs": [
+          710.9612140000027, 227.7298840000003, 246.72907699999632,
+          319.8560470000011, 310.018802999999, 242.11848299999838,
+          343.5833300000013, 129.5494269999981, 136.1211059999987,
+          128.87627999999677, 138.18800300000294, 230.8727030000009,
+          140.9421890000085, 132.17031699999643, 286.2859529999987,
+          242.4945000000007, 207.22008299999288, 133.20693000001484,
+          186.8747989999829, 215.93687400000636, 155.08533200001693,
+          163.79867999997805, 205.1415139999881, 162.80962799998815,
+          271.1656629999925, 307.0658870000043, 313.13172000000486,
+          174.24186000000918, 395.4647419999819, 342.88312899996527,
+          154.97817500005476, 273.64463799999794, 234.7223089999752,
+          169.5934899999993, 259.8843900000211, 165.02592499996535,
+          154.58408699999563, 145.3913820000016, 149.39562999998452,
+          166.97982700000284
+        ],
+        "fullSummaryTimesMs": [
+          890.0381769999949, 367.7914359999995, 384.4599109999981,
+          520.6370099999986, 502.7796459999954, 379.46362500000396,
+          513.8958869999988, 376.07722300000023
+        ],
+        "growth": [
+          {
+            "cycle": 1,
+            "beforeCleanupBytes": 550141952,
+            "afterCleanupBytes": 550141952,
+            "afterVacuumBytes": 550182912,
+            "cleanupMs": 437.5472640000007,
+            "p75Ms": 136.1211059999987
+          },
+          {
+            "cycle": 2,
+            "beforeCleanupBytes": 552542208,
+            "afterCleanupBytes": 552542208,
+            "afterVacuumBytes": 552615936,
+            "cleanupMs": 163.70149399999355,
+            "p75Ms": 128.87627999999677
+          },
+          {
+            "cycle": 3,
+            "beforeCleanupBytes": 553623552,
+            "afterCleanupBytes": 553623552,
+            "afterVacuumBytes": 553623552,
+            "cleanupMs": 238.13461700000335,
+            "p75Ms": 138.18800300000294
+          },
+          {
+            "cycle": 4,
+            "beforeCleanupBytes": 554606592,
+            "afterCleanupBytes": 554606592,
+            "afterVacuumBytes": 554606592,
+            "cleanupMs": 167.8726549999992,
+            "p75Ms": 230.8727030000009
+          },
+          {
+            "cycle": 5,
+            "beforeCleanupBytes": 555663360,
+            "afterCleanupBytes": 555663360,
+            "afterVacuumBytes": 555663360,
+            "cleanupMs": 157.94517300000007,
+            "p75Ms": 140.9421890000085
+          },
+          {
+            "cycle": 6,
+            "beforeCleanupBytes": 556670976,
+            "afterCleanupBytes": 556670976,
+            "afterVacuumBytes": 556670976,
+            "cleanupMs": 343.68186600001354,
+            "p75Ms": 132.17031699999643
+          },
+          {
+            "cycle": 7,
+            "beforeCleanupBytes": 557547520,
+            "afterCleanupBytes": 557547520,
+            "afterVacuumBytes": 557547520,
+            "cleanupMs": 273.75340900001174,
+            "p75Ms": 286.2859529999987
+          },
+          {
+            "cycle": 8,
+            "beforeCleanupBytes": 558497792,
+            "afterCleanupBytes": 558497792,
+            "afterVacuumBytes": 558497792,
+            "cleanupMs": 349.9447150000051,
+            "p75Ms": 242.4945000000007
+          },
+          {
+            "cycle": 9,
+            "beforeCleanupBytes": 559480832,
+            "afterCleanupBytes": 559480832,
+            "afterVacuumBytes": 559480832,
+            "cleanupMs": 403.501562999998,
+            "p75Ms": 207.22008299999288
+          },
+          {
+            "cycle": 10,
+            "beforeCleanupBytes": 560431104,
+            "afterCleanupBytes": 560431104,
+            "afterVacuumBytes": 560431104,
+            "cleanupMs": 182.35171600000467,
+            "p75Ms": 133.20693000001484
+          },
+          {
+            "cycle": 11,
+            "beforeCleanupBytes": 561381376,
+            "afterCleanupBytes": 561381376,
+            "afterVacuumBytes": 561381376,
+            "cleanupMs": 341.6225749999867,
+            "p75Ms": 186.8747989999829
+          },
+          {
+            "cycle": 12,
+            "beforeCleanupBytes": 562339840,
+            "afterCleanupBytes": 562339840,
+            "afterVacuumBytes": 562339840,
+            "cleanupMs": 212.65071300001,
+            "p75Ms": 215.93687400000636
+          },
+          {
+            "cycle": 13,
+            "beforeCleanupBytes": 563200000,
+            "afterCleanupBytes": 563200000,
+            "afterVacuumBytes": 563208192,
+            "cleanupMs": 217.89849500000128,
+            "p75Ms": 155.08533200001693
+          },
+          {
+            "cycle": 14,
+            "beforeCleanupBytes": 564174848,
+            "afterCleanupBytes": 564174848,
+            "afterVacuumBytes": 564174848,
+            "cleanupMs": 272.8400130000082,
+            "p75Ms": 163.79867999997805
+          },
+          {
+            "cycle": 15,
+            "beforeCleanupBytes": 565116928,
+            "afterCleanupBytes": 565116928,
+            "afterVacuumBytes": 565116928,
+            "cleanupMs": 297.7136590000009,
+            "p75Ms": 205.1415139999881
+          },
+          {
+            "cycle": 16,
+            "beforeCleanupBytes": 566042624,
+            "afterCleanupBytes": 566042624,
+            "afterVacuumBytes": 566067200,
+            "cleanupMs": 293.1430860000255,
+            "p75Ms": 162.80962799998815
+          },
+          {
+            "cycle": 17,
+            "beforeCleanupBytes": 566951936,
+            "afterCleanupBytes": 566951936,
+            "afterVacuumBytes": 566951936,
+            "cleanupMs": 270.9351270000043,
+            "p75Ms": 271.1656629999925
+          },
+          {
+            "cycle": 18,
+            "beforeCleanupBytes": 567894016,
+            "afterCleanupBytes": 567894016,
+            "afterVacuumBytes": 567894016,
+            "cleanupMs": 572.1144799999893,
+            "p75Ms": 307.0658870000043
+          },
+          {
+            "cycle": 19,
+            "beforeCleanupBytes": 568696832,
+            "afterCleanupBytes": 568696832,
+            "afterVacuumBytes": 568696832,
+            "cleanupMs": 598.9888510000019,
+            "p75Ms": 313.13172000000486
+          },
+          {
+            "cycle": 20,
+            "beforeCleanupBytes": 569638912,
+            "afterCleanupBytes": 569638912,
+            "afterVacuumBytes": 569638912,
+            "cleanupMs": 671.8821960000205,
+            "p75Ms": 174.24186000000918
+          },
+          {
+            "cycle": 21,
+            "beforeCleanupBytes": 570572800,
+            "afterCleanupBytes": 570572800,
+            "afterVacuumBytes": 570572800,
+            "cleanupMs": 542.7761179999798,
+            "p75Ms": 395.4647419999819
+          },
+          {
+            "cycle": 22,
+            "beforeCleanupBytes": 571473920,
+            "afterCleanupBytes": 571473920,
+            "afterVacuumBytes": 571473920,
+            "cleanupMs": 874.062414999993,
+            "p75Ms": 342.88312899996527
+          },
+          {
+            "cycle": 23,
+            "beforeCleanupBytes": 572358656,
+            "afterCleanupBytes": 572358656,
+            "afterVacuumBytes": 572358656,
+            "cleanupMs": 349.57150099996943,
+            "p75Ms": 154.97817500005476
+          },
+          {
+            "cycle": 24,
+            "beforeCleanupBytes": 573317120,
+            "afterCleanupBytes": 573317120,
+            "afterVacuumBytes": 573317120,
+            "cleanupMs": 410.7441240000189,
+            "p75Ms": 273.64463799999794
+          },
+          {
+            "cycle": 25,
+            "beforeCleanupBytes": 574136320,
+            "afterCleanupBytes": 574136320,
+            "afterVacuumBytes": 574136320,
+            "cleanupMs": 728.2683470000047,
+            "p75Ms": 234.7223089999752
+          },
+          {
+            "cycle": 26,
+            "beforeCleanupBytes": 575045632,
+            "afterCleanupBytes": 575045632,
+            "afterVacuumBytes": 575045632,
+            "cleanupMs": 363.2448270000168,
+            "p75Ms": 169.5934899999993
+          },
+          {
+            "cycle": 27,
+            "beforeCleanupBytes": 575946752,
+            "afterCleanupBytes": 575946752,
+            "afterVacuumBytes": 575946752,
+            "cleanupMs": 327.71295100002317,
+            "p75Ms": 259.8843900000211
+          },
+          {
+            "cycle": 28,
+            "beforeCleanupBytes": 576880640,
+            "afterCleanupBytes": 576880640,
+            "afterVacuumBytes": 576880640,
+            "cleanupMs": 347.07071699999506,
+            "p75Ms": 165.02592499996535
+          },
+          {
+            "cycle": 29,
+            "beforeCleanupBytes": 577732608,
+            "afterCleanupBytes": 577732608,
+            "afterVacuumBytes": 577732608,
+            "cleanupMs": 423.70823400001973,
+            "p75Ms": 154.58408699999563
+          },
+          {
+            "cycle": 30,
+            "beforeCleanupBytes": 578674688,
+            "afterCleanupBytes": 578674688,
+            "afterVacuumBytes": 578674688,
+            "cleanupMs": 311.734684999974,
+            "p75Ms": 145.3913820000016
+          },
+          {
+            "cycle": 31,
+            "beforeCleanupBytes": 579502080,
+            "afterCleanupBytes": 579502080,
+            "afterVacuumBytes": 565846016,
+            "cleanupMs": 321.98445299995365,
+            "p75Ms": 149.39562999998452
+          },
+          {
+            "cycle": 32,
+            "beforeCleanupBytes": 579584000,
+            "afterCleanupBytes": 579584000,
+            "afterVacuumBytes": 579584000,
+            "cleanupMs": 343.26679800002603,
+            "p75Ms": 166.97982700000284
+          }
+        ]
+      }
+    }
+  ],
+  "diagnostics": [
+    {
+      "sourceSha": "1b23ee9751455cc3c593240e2941c64abe50bb5e",
+      "method": "before checkpoint preparation",
+      "cycles": 0,
+      "extraQueryBeforeSummary": true,
+      "exitCode": 0,
+      "rawLog": "854-measure-plan.log",
+      "plan": [
+        {
+          "QUERY PLAN": [
+            {
+              "Plan": {
+                "Node Type": "Aggregate",
+                "Strategy": "Sorted",
+                "Partial Mode": "Simple",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.42,
+                "Total Cost": 28626.48,
+                "Plan Rows": 6,
+                "Plan Width": 23,
+                "Actual Startup Time": 179.916,
+                "Actual Total Time": 629.766,
+                "Actual Rows": 6,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Group Key": ["route_id", "device_class", "metric"],
+                "Shared Hit Blocks": 6,
+                "Shared Read Blocks": 3392,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 2936,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Index Only Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "vital_samples_summary",
+                    "Relation Name": "vital_samples",
+                    "Alias": "vital_samples",
+                    "Startup Cost": 0.42,
+                    "Total Cost": 22627.6,
+                    "Plan Rows": 599880,
+                    "Plan Width": 23,
+                    "Actual Startup Time": 0.436,
+                    "Actual Total Time": 506.864,
+                    "Actual Rows": 600000,
+                    "Actual Loops": 1,
+                    "Disabled": false,
+                    "Index Cond": "(metric = ANY ('{LCP,INP,CLS}'::text[]))",
+                    "Rows Removed by Index Recheck": 0,
+                    "Filter": "((occurred_at >= '2026-09-10 00:00:00+00'::timestamp with time zone) AND (occurred_at <= '2026-10-09 23:59:59+00'::timestamp with time zone))",
+                    "Rows Removed by Filter": 0,
+                    "Heap Fetches": 0,
+                    "Index Searches": 1,
+                    "Shared Hit Blocks": 6,
+                    "Shared Read Blocks": 3392,
+                    "Shared Dirtied Blocks": 0,
+                    "Shared Written Blocks": 2936,
+                    "Local Hit Blocks": 0,
+                    "Local Read Blocks": 0,
+                    "Local Dirtied Blocks": 0,
+                    "Local Written Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              },
+              "Settings": {},
+              "Planning": {
+                "Shared Hit Blocks": 28,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              "Planning Time": 2.972,
+              "Triggers": [],
+              "Execution Time": 629.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceSha": "1b23ee9751455cc3c593240e2941c64abe50bb5e",
+      "method": "after checkpoint preparation",
+      "cycles": 0,
+      "extraQueryBeforeSummary": true,
+      "exitCode": 1,
+      "rawLog": "854-measure-plan-prepared.log",
+      "plan": [
+        {
+          "QUERY PLAN": [
+            {
+              "Plan": {
+                "Node Type": "Aggregate",
+                "Strategy": "Sorted",
+                "Partial Mode": "Simple",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Startup Cost": 0.42,
+                "Total Cost": 20861.15,
+                "Plan Rows": 6,
+                "Plan Width": 23,
+                "Actual Startup Time": 185.648,
+                "Actual Total Time": 657.37,
+                "Actual Rows": 6,
+                "Actual Loops": 1,
+                "Disabled": false,
+                "Group Key": ["route_id", "device_class", "metric"],
+                "Shared Hit Blocks": 6,
+                "Shared Read Blocks": 3392,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0,
+                "Plans": [
+                  {
+                    "Node Type": "Index Only Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Scan Direction": "Forward",
+                    "Index Name": "vital_samples_summary",
+                    "Relation Name": "vital_samples",
+                    "Alias": "vital_samples",
+                    "Startup Cost": 0.42,
+                    "Total Cost": 16639.69,
+                    "Plan Rows": 422138,
+                    "Plan Width": 23,
+                    "Actual Startup Time": 0.31,
+                    "Actual Total Time": 510.261,
+                    "Actual Rows": 600000,
+                    "Actual Loops": 1,
+                    "Disabled": false,
+                    "Index Cond": "(metric = ANY ('{LCP,INP,CLS}'::text[]))",
+                    "Rows Removed by Index Recheck": 0,
+                    "Filter": "((occurred_at >= '2026-09-10 00:00:00+00'::timestamp with time zone) AND (occurred_at <= '2026-10-09 23:59:59+00'::timestamp with time zone))",
+                    "Rows Removed by Filter": 0,
+                    "Heap Fetches": 0,
+                    "Index Searches": 1,
+                    "Shared Hit Blocks": 6,
+                    "Shared Read Blocks": 3392,
+                    "Shared Dirtied Blocks": 0,
+                    "Shared Written Blocks": 0,
+                    "Local Hit Blocks": 0,
+                    "Local Read Blocks": 0,
+                    "Local Dirtied Blocks": 0,
+                    "Local Written Blocks": 0,
+                    "Temp Read Blocks": 0,
+                    "Temp Written Blocks": 0
+                  }
+                ]
+              },
+              "Settings": {},
+              "Planning": {
+                "Shared Hit Blocks": 30,
+                "Shared Read Blocks": 0,
+                "Shared Dirtied Blocks": 3,
+                "Shared Written Blocks": 0,
+                "Local Hit Blocks": 0,
+                "Local Read Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              "Planning Time": 0.222,
+              "Triggers": [],
+              "Execution Time": 657.462
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
