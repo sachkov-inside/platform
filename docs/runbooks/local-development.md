@@ -134,6 +134,10 @@ command that detaches a child and exits before observation must manage that chil
 also tracks detached orphans adopted by the supervisor. Use foreground commands for
 heavy checks.
 
+Backend and Telegram unit suites set `maxWorkers: 1`, so the recursive unit stage leaves CPU
+headroom for a second admitted check instead of giving each application a machine-sized worker pool.
+`scripts/heavy-runner-limits.test.mjs` checks their configured limits together with the Web and local
+integration limits.
 Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
 project. Playwright's default suite sets two workers; the other suites inherit or set one.
 Local backend integration retains its resource budget with a cap of two workers; its serial project
@@ -180,6 +184,18 @@ immutable keys and are never written over. The persistent `object-storage-rustfs
 the same ownership and non-destructive restart rules as PostgreSQL. The stand's former MinIO volume
 `object-storage-data` is no longer mounted; [Former MinIO objects](#former-minio-objects) copies its
 objects into RustFS.
+
+RabbitMQ's official base and Testcontainers image use the public organization GHCR mirror;
+the versions, index digests and platforms follow the
+[RabbitMQ mirror contract](continuous-integration.md#rabbitmq-mirror).
+
+The local stand and its object-storage integration test acquire RustFS from the publisher's GHCR
+repository (#1310). `compose.yaml` pins the same OCI index digest as the former Docker Hub input;
+the source change preserves the image bytes and version. The [publisher workflow](https://github.com/rustfs/rustfs/blob/main/.github/workflows/docker.yml)
+publishes one build to both registries. The offline toolchain contract checks the exact source and
+digest; acquisition and runtime checks require Docker execution separately.
+The integration test also uses the [shared Testcontainers acquisition contract](continuous-integration.md#integration-suites)
+from #1315.
 
 Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
 upload-init, attach, processing reconciliation and playback without a real credential or outbound
@@ -338,6 +354,72 @@ dependency COPY paths without running pnpm. `--network=none` isolates RUN; `--pu
 universal registry ban. Any required base acquisition is a separate, explicitly bounded prerequisite
 using the same pinned Node digest, never a fixture fallback. It checks a cold backend marker, duplicate pre-fix Web execution and fixed Web cache
 reuse. This isolates the environment/cache seam; it does not measure a whole application build.
+
+### Disposable production smoke from owned cache
+
+The optional `PRODUCTION_SMOKE_CACHE_ONLY=1` mode of
+`scripts/production-compose-smoke.sh` reuses supplied production images. The default CI mode
+still builds images and performs its existing pinned broker/edge acquisition. Cache-only mode
+does not build or pull, and it retains every migration, worker, TLS, negative and readiness
+assertion. It is a runtime proof of the supplied images, not a cold-acquisition fix or a full
+application-build/cache proof.
+
+Before using this mode, obtain the shared heavy slot and freeze a clean, reviewed Source.
+Build the real backend v1/v2 and Web v1 with that exact Source SHA in their release identities.
+Use `v1` and `v2`: the smoke verifies both releases. Build a separate foundation image from
+`infra/production/database/Dockerfile`. Record native platform, image IDs, build inputs, actual
+BuildKit completion and storage/cleanup receipts. A marker fixture or an old image tag is not
+that evidence. This mode grants no build, daemon startup, provider access or credential change.
+
+Choose a unique `PRODUCTION_SMOKE_CACHE_OWNER` beginning with
+`inside-platform-production-smoke-cache-`. The four existing owned tags must resolve to four
+distinct full `sha256:<64 lowercase hex digits>` image IDs:
+
+| Supplied environment variable | Required owned tag |
+| --- | --- |
+| `PRODUCTION_SMOKE_BACKEND_IMAGE` | `<owner>-backend:v1` |
+| `PRODUCTION_SMOKE_NEXT_BACKEND_IMAGE` | `<owner>-backend:v2` |
+| `PRODUCTION_SMOKE_WEB_IMAGE` | `<owner>-web:v1` |
+| `PRODUCTION_SMOKE_FOUNDATION_IMAGE` | `<owner>-foundation:local` |
+
+Set `PRODUCTION_SMOKE_SOURCE_SHA` to the exact 40-character lowercase Source SHA.
+Set `PRODUCTION_SMOKE_FOUNDATION_OVERRIDE` to a file containing exactly these entries, with
+each `<foundation-ID>` replaced by the supplied immutable foundation image ID:
+
+```yaml
+services:
+  postgres:
+    image: <foundation-ID>
+    pull_policy: never
+  pgbackrest:
+    image: <foundation-ID>
+    pull_policy: never
+  restore:
+    image: <foundation-ID>
+    pull_policy: never
+```
+
+The smoke copies and validates the override before using it. Extra volume, network,
+environment or build authority is rejected. It also checks that both pinned broker/edge
+references from the current Compose graph exist locally before any container starts.
+Missing or mismatched inputs fail without build, pull, startup or anonymous fallback.
+
+After admission, run the script under the checked-in shared heavy and owned-process wrappers,
+with an enclosing deadline and filesystem monitor. Supply free
+`PRODUCTION_SMOKE_API_PORT`, `PRODUCTION_SMOKE_MCP_PORT`, `PRODUCTION_SMOKE_WEB_PORT`,
+`PRODUCTION_SMOKE_HTTP_PORT` and `PRODUCTION_SMOKE_HTTPS_PORT`; defaults may already belong
+to another stand. `PRODUCTION_SMOKE_ARTIFACT_DIR` holds failure diagnostics.
+The script creates separate application/foundation projects and temporary synthetic configuration.
+It starts Compose with `--no-build --pull never` and direct image probes with `--pull=never`.
+It never writes or removes the shared `inside/postgres-pgbackrest:18.4-2.57.0` image tag in this mode.
+The singleton `local:stand`, owner pages, identities and volumes are not used.
+
+Shutdown removes only the smoke's containers, networks, volumes and temporary configuration.
+Supplied images remain owned by the caller, who checks consumers before removing its own tags.
+Record primary exit and cleanup exit separately, plus actual owned PID/kernel absence and Docker
+resource inventory. A successful CLI exit or an EXIT trap alone does not prove complete closure.
+If admission, deadline, storage or cleanup fails, retain the failure and request a new scope;
+do not retry, enlarge budgets or prune shared cache to obtain green.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it

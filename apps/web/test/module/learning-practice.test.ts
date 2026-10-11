@@ -43,6 +43,22 @@ describe("learner review request", () => {
 describe("learner MCP setup", () => {
   const url = "https://inside.example.test/mcp/learning";
 
+  it("explains the complete pinned task context and explicit confirmation before submission (#967)", () => {
+    const setup = practiceReviewSetupText({
+      url,
+      publicClientId: "learner-client",
+    });
+    expect(setup).toContain("learning_tasks_list");
+    expect(setup).toContain("endOfContext");
+    expect(setup).toContain("contextVersion");
+    expect(setup).toContain("contentSha256");
+    expect(setup).toContain("taskVersion");
+    expect(setup).toContain("submissionKey");
+    expect(setup).toContain("learning_task_submissions");
+    expect(setup).toContain("подтверждения этого текста");
+    expect(setup).not.toContain("- Только чтение:");
+  });
+
   it("gives each agent a ready command with the configured address and client", () => {
     const clientId = "o92nmcpzb2te8z4loi82d";
     const setup = practiceReviewSetupText({ url, publicClientId: clientId });

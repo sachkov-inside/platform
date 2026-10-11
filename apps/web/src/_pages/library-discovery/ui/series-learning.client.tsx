@@ -179,9 +179,9 @@ export function ProgrammeProgress() {
   const learning = useSeriesLearning();
   if (learning.kind === "guest") return null;
   return (
-    <div className="mt-4 min-h-12 border-t border-border pt-3">
+    <div className="mt-4 grid min-h-12 border-t border-border pt-3">
       {learning.kind === "ready" && learning.total > 0 ? (
-        <>
+        <div className="col-start-1 row-start-1">
           <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground">
             <span>
               Изучено {learning.read} из {learning.total}
@@ -194,16 +194,22 @@ export function ProgrammeProgress() {
             max={learning.total}
             value={learning.read}
           />
-        </>
+        </div>
       ) : learning.kind === "loading" ? (
-        <p className="text-xs text-muted-foreground" role="status">
+        <p
+          className="col-start-1 row-start-1 text-xs text-muted-foreground"
+          role="status"
+        >
           Загружаем прогресс…
         </p>
-      ) : learning.kind === "unavailable" ? (
-        <p className="text-xs text-muted-foreground">
-          Прогресс сейчас не загрузился. Материалы можно читать.
-        </p>
       ) : null}
+      {/* Сообщение определяет запас места и при увеличенном тексте, без фиксированной высоты. */}
+      <p
+        aria-hidden={learning.kind !== "unavailable"}
+        className={`col-start-1 row-start-1 text-xs text-muted-foreground ${learning.kind === "unavailable" ? "" : "invisible"}`}
+      >
+        Прогресс сейчас не загрузился. Материалы можно читать.
+      </p>
     </div>
   );
 }

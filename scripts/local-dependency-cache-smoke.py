@@ -40,7 +40,7 @@ def dependency_fixture(dockerfile):
 
 
 def marker_cached(log):
-    header = re.search(r'^(#\d+) .*RUN test "\$COREPACK_HOME" = /corepack.*$', log, re.M)
+    header = re.search(r'^(#\d+) .*RUN test "(?:\$COREPACK_HOME|/corepack)" = /corepack && printf dependency-executed > /workspace/dependency-marker$', log, re.M)
     assert header, 'Missing dependency marker RUN'
     return re.search(r'^' + re.escape(header[1]) + r' CACHED$', log, re.M) is not None
 

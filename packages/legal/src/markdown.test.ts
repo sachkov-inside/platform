@@ -100,14 +100,21 @@ describe("published editions", () => {
     ).toEqual([1]);
   });
 
-  it("puts privacy v3 and cookies v2 in force together with the accepted consent path", () => {
-    expect(currentLegalEdition("privacy").version).toBe(3);
-    expect(currentLegalEdition("privacy").text).toContain(
-      "профиль виден только ему самому",
-    );
+  it("puts privacy v4 in force with guide task submissions and keeps v3 at its address", () => {
+    const privacy = currentLegalEdition("privacy");
+    expect(privacy.version).toBe(4);
+    expect(privacy.text).toContain("профиль виден только ему самому");
+    expect(privacy.text).toContain("Сдача учебного задания и отзыв автора");
+    expect(privacy.text).toContain("не обращается по адресу репозитория");
     expect(
       supersededLegalEditions("privacy").map((edition) => edition.version),
-    ).toEqual([2]);
+    ).toEqual([3, 2]);
+    expect(findLegalEdition("privacy", 3)?.text).toContain(
+      "Версия 3. Действует с 24 сентября 2026 года.",
+    );
+  });
+
+  it("keeps cookies v2 in force together with the accepted consent path", () => {
     expect(currentLegalEdition("cookies").version).toBe(2);
     expect(currentLegalEdition("cookies").text).toContain(
       "localStorage `inside.storage-notice.v1`",

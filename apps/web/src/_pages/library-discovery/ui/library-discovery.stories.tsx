@@ -242,7 +242,7 @@ async function heroOpensAtTheSamePlace({
   await expect(
     Math.round(breadcrumbBox.top - frame.getBoundingClientRect().top),
   ).toBe(28);
-  await expect(Math.round(breadcrumbBox.height)).toBe(40);
+  await expect(Math.round(breadcrumbBox.height)).toBe(44);
   await expect(
     Math.round(hero.getBoundingClientRect().top - breadcrumbBox.bottom),
   ).toBe(20);

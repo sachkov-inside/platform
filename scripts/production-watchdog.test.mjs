@@ -94,6 +94,52 @@ describe("production watchdog", () => {
     }
   });
 
+  it("signals telemetry SQL conditions and reports their recovery", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql +
+          "\nweb_telemetry_growth|1\nweb_telemetry_digest|2\nweb_telemetry_size|1\nweb_telemetry_dropped|15\n",
+      );
+      const failure = assertRun(fixture);
+      assert.match(failure, /Рост ошибок web за 10 минут/u);
+      assert.match(failure, /Новых digest web за 10 минут: 2/u);
+      assert.match(failure, /Телеметрия web достигла 480 MB/u);
+      assert.match(failure, /Отброшено метрик и ошибок web за сутки: 15/u);
+      fixture.fake("sql", healthySql);
+      assert.match(
+        assertRun(fixture, now + 60),
+        /Восстановлено: Рост ошибок web за 10 минут/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals lost telemetry and overdue retention, then clears both after recovery", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|1\n");
+      fixture.fake(
+        "logs-inside-platform-production-web-1",
+        '{"event":"web-telemetry-unavailable","kind":"vitals"}\n' +
+          '{"event":"client-report-limit-reached","report":"render-errors"}\n',
+      );
+      const failure = assertRun(fixture);
+      assert.match(failure, /Очистка telemetry не завершалась за 26 часов/u);
+      assert.match(failure, /Потери telemetry web: 2 за 5 минут/u);
+      assert.equal(assertRun(fixture, now + 60), "");
+      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|0\n");
+      fixture.fake("logs-inside-platform-production-web-1", "");
+      const recovery = assertRun(fixture, now + 120);
+      assert.match(recovery, /Восстановлено: Очистка telemetry/u);
+      assert.match(recovery, /Восстановлено: Потери telemetry web/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("confirms a flapping check only after two failed runs in a row", () => {
     const fixture = createFixture();
     try {

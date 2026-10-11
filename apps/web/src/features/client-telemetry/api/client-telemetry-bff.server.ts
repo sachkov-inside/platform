@@ -1,4 +1,6 @@
 import "server-only";
+import { after } from "next/server";
+import { persistTelemetry, telemetryMobile } from "./persist-telemetry.server";
 import type { z } from "zod";
 
 import {
@@ -36,6 +38,17 @@ export async function handleWebVitalsReport(
       ...metric,
     });
   }
+  const mobile = telemetryMobile(request.headers);
+  const payload = {
+    kind: "vitals",
+    route: report.value.route,
+    mobile,
+    metrics: report.value.metrics.map((metric) => ({
+      name: metric.name,
+      value: metric.value,
+    })),
+  };
+  after(() => persistTelemetry(payload));
   return telemetryResponse(204);
 }
 
@@ -48,6 +61,16 @@ export async function handleRenderErrorReport(
   const refusal = refuseOverCeiling("render-errors", 1);
   if (refusal !== undefined) return refusal;
   writeStructuredLog("error", "client-render-error", report.value);
+  const payload = {
+    kind: "error",
+    source: "client",
+    route: report.value.route,
+    mobile: telemetryMobile(request.headers),
+    digest: report.value.digest,
+    name: report.value.name,
+    message: report.value.message,
+  };
+  after(() => persistTelemetry(payload));
   return telemetryResponse(204);
 }
 

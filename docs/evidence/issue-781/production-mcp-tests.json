@@ -1,0 +1,12 @@
+{
+  "sourceSha": "245dad3b5d6b563c046b1312be55cfa05fb8c851",
+  "exitCode": 0,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "## Passing Stories\n\n- features-billing-subscription-sale-confirmation--desktop\n- features-billing-subscription-sale-confirmation--mobile\n- features-billing-subscription-sale-confirmation--narrow-mobile\n- features-billing-subscription-sale-confirmation--cancel\n- features-billing-subscription-sale-confirmation--confirm-once\n- features-billing-subscription-sale-confirmation--busy\n- features-billing-tariffs--confirmation-open\n- pages-authoring-access--tariffs\n- features-billing-tariffs--unsaved-invitation-still-warns\n- pages-authoring-access--sale-refused\n- features-billing-tariffs--unsaved-everyone-keeps-saved-invitation\n- features-billing-tariffs--one-time\n- features-billing-tariffs--unpublish\n- pages-authoring-access--save-invitation-then-publish\n- pages-authoring-access--save-everyone-then-confirm"
+      }
+    ]
+  }
+}

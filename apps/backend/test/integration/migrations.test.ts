@@ -249,6 +249,8 @@ describe("Platform migrations", () => {
         "0084_owner_command_keys",
         "0085_community_projection_retries",
         "0086_product_cohort_price_after_start",
+        "0087_web_telemetry",
+        "0088_web_telemetry_percentile_index",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -926,6 +928,8 @@ describe("Platform migrations", () => {
           "0084_owner_command_keys",
           "0085_community_projection_retries",
           "0086_product_cohort_price_after_start",
+          "0087_web_telemetry",
+          "0088_web_telemetry_percentile_index",
         ],
       });
 

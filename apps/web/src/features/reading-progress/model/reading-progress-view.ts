@@ -1,6 +1,7 @@
 export type ReadingActionView =
   | { readonly kind: "anonymous"; readonly loginHref: string }
   | { readonly kind: "loading" }
+  | { readonly kind: "load-error" }
   | {
       readonly kind: "ready" | "conflict";
       readonly isRead: boolean;
@@ -14,6 +15,7 @@ export type ReadingActionView =
     };
 
 export interface ReadingActionProps {
+  readonly compact?: boolean;
   readonly format: string;
   readonly view: ReadingActionView;
   readonly onSetReadingState: (isRead: boolean) => void;
