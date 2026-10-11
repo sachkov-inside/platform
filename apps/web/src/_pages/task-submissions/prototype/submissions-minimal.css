@@ -364,9 +364,6 @@
 .submission-report-content dd {
   overflow-wrap: anywhere;
 }
-.feedback-disclosure {
-  margin-top: 2.5rem;
-}
 .feedback-disclosure form {
   display: grid;
   justify-items: start;

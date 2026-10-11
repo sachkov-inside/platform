@@ -514,6 +514,60 @@ export function SubmissionsMinimalPrototype({
               </span>
             )}
           </section>
+          <details
+            className="submission-disclosure feedback-disclosure"
+            key={`feedback-${active.id}`}
+            open={comments[active.id] !== undefined}
+          >
+            <summary>
+              {comments[active.id] === undefined
+                ? "Оставить комментарий ученику"
+                : "Ваш комментарий"}
+            </summary>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const comment = (
+                  drafts[active.id] ??
+                  comments[active.id] ??
+                  ""
+                ).trim();
+                if (comment !== "") {
+                  setComments((previous) => ({
+                    ...previous,
+                    [active.id]: comment,
+                  }));
+                  setNotice(
+                    "Комментарий сохранён только в этом макете. Ученик его не получит.",
+                  );
+                }
+              }}
+            >
+              <label htmlFor="author-comment">
+                Комментарий — необязательно
+              </label>
+              <textarea
+                id="author-comment"
+                value={drafts[active.id] ?? comments[active.id] ?? ""}
+                onChange={(event) => {
+                  setDrafts((previous) => ({
+                    ...previous,
+                    [active.id]: event.target.value,
+                  }));
+                }}
+                rows={3}
+                placeholder="Напишите, если хотите помочь ученику"
+              />
+              <Button
+                type="submit"
+                disabled={
+                  (drafts[active.id] ?? comments[active.id] ?? "").trim() === ""
+                }
+              >
+                Сохранить комментарий
+              </Button>
+            </form>
+          </details>
           {variant === "C" ? historySection : null}
           <details
             className="submission-disclosure"
@@ -599,60 +653,6 @@ export function SubmissionsMinimalPrototype({
             </div>
           </details>
           {variant !== "C" ? historySection : null}
-          <details
-            className="submission-disclosure feedback-disclosure"
-            key={`feedback-${active.id}`}
-            open={comments[active.id] !== undefined}
-          >
-            <summary>
-              {comments[active.id] === undefined
-                ? "Оставить комментарий ученику"
-                : "Ваш комментарий"}
-            </summary>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const comment = (
-                  drafts[active.id] ??
-                  comments[active.id] ??
-                  ""
-                ).trim();
-                if (comment !== "") {
-                  setComments((previous) => ({
-                    ...previous,
-                    [active.id]: comment,
-                  }));
-                  setNotice(
-                    "Комментарий сохранён только в этом макете. Ученик его не получит.",
-                  );
-                }
-              }}
-            >
-              <label htmlFor="author-comment">
-                Комментарий — необязательно
-              </label>
-              <textarea
-                id="author-comment"
-                value={drafts[active.id] ?? comments[active.id] ?? ""}
-                onChange={(event) => {
-                  setDrafts((previous) => ({
-                    ...previous,
-                    [active.id]: event.target.value,
-                  }));
-                }}
-                rows={3}
-                placeholder="Напишите, если хотите помочь ученику"
-              />
-              <Button
-                type="submit"
-                disabled={
-                  (drafts[active.id] ?? comments[active.id] ?? "").trim() === ""
-                }
-              >
-                Сохранить комментарий
-              </Button>
-            </form>
-          </details>
         </>
       )}
       <p className="prototype-notice" role="status">
