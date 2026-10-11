@@ -24,6 +24,7 @@ const call = (
     offer: PriceSnapshot | null;
     productAccess: ProductAccess;
     signedIn: boolean;
+    continuationMaterialSlug: string | null;
   }> = {},
 ) =>
   cohortCall({
@@ -36,6 +37,31 @@ const call = (
   });
 
 describe("first screen call of a product cohort", () => {
+  it("opens the programme for a participant even during preorder or without a cohort", () => {
+    for (const current of [cohort, null])
+      expect(call({ cohort: current, productAccess: "open" })).toEqual({
+        banner: null,
+        action: {
+          kind: "programme",
+          href: "/products/ai-engineering/programme",
+          label: "Открыть программу",
+        },
+      });
+  });
+
+  it("resumes a participant's lesson and returns to the programme", () => {
+    expect(
+      call({ productAccess: "open", continuationMaterialSlug: "course-intro" }),
+    ).toEqual({
+      banner: null,
+      action: {
+        kind: "programme",
+        href: "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+        label: "Продолжить обучение",
+      },
+    });
+  });
+
   it("does not lead away to the programme when the product has no cohort", () => {
     expect(call({ cohort: null })).toEqual({ banner: null, action: null });
   });

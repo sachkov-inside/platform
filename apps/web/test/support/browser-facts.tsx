@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MaterialReadingScope } from "@/entities/material";
 import { SavedBookmarkAction } from "@/features/bookmarks";
+import {
+  ReadingProgressProvider,
+  SavedReadingAction,
+} from "@/features/reading-progress";
 import { BookmarksPageQuery } from "@/_pages/bookmarks";
 import { PeoplePanel } from "@/features/billing-admin/ui/people-panel.client";
 import { InvitationsPanel } from "@/features/billing-admin/ui/invitations-panel.client";
@@ -75,6 +79,39 @@ function BrowserFacts() {
     </QueryClientProvider>
   );
 }
+
+/** Uses the real account-scoped read owner; only HTTP responses are supplied by the test. */
+function ReadingFacts() {
+  const action = (name: string, queryClient: QueryClient) => (
+    <QueryClientProvider client={queryClient}>
+      <ReadingProgressProvider
+        accountId="00000000-0000-4000-8000-000000000001"
+        resolved
+      >
+        <section aria-label={name}>
+          <SavedReadingAction
+            format="guide"
+            materialId="10000000-0000-4000-8000-000000000001"
+          />
+        </section>
+      </ReadingProgressProvider>
+    </QueryClientProvider>
+  );
+  return (
+    <>
+      {action("Reading action", client)}
+      {new URLSearchParams(window.location.search).has("secondary")
+        ? action("Secondary reading action", secondaryClient)
+        : null}
+    </>
+  );
+}
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing browser facts root");
-createRoot(root).render(<BrowserFacts />);
+createRoot(root).render(
+  new URLSearchParams(window.location.search).has("reading") ? (
+    <ReadingFacts />
+  ) : (
+    <BrowserFacts />
+  ),
+);

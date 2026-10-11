@@ -8,6 +8,7 @@ export type {
 export { ReadingProgressProvider } from "./ui/reading-provider.client";
 export { SavedReadingAction } from "./ui/saved-reading-action.client";
 export { VisibleMaterialOpen } from "./ui/visible-material-open.client";
+export { readingProgressChanges } from "./model/reading-progress-events";
 
 export {
   seriesContinuationQueryKey,

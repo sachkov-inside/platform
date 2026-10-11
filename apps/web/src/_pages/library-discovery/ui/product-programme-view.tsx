@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import Link from "next/link";
 
 import {
@@ -100,13 +100,7 @@ export function ProductProgrammeView({
         className="-mt-3 flex flex-wrap items-center justify-between gap-x-3 sm:mt-0 sm:pt-4"
         data-programme-part="back"
       >
-        <IntentPrefetchLink
-          className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
-          href="/"
-        >
-          <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-          <span>Главная</span>
-        </IntentPrefetchLink>
+        <CatalogBackLink href="/" label="Главная" />
         <IntentPrefetchLink
           className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-border underline-offset-4"
           href={productHref}

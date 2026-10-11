@@ -36,6 +36,102 @@ const material = {
 };
 const ok = (result: unknown) => ({ ok: true, value: { operationRef, result } });
 
+function readingFixture() {
+  const state = { isRead: false, version: 0 };
+  const attach = async (page: Page, secondary = false) => {
+    await page.route("**/api/reading-progress/*", async (route) => {
+      const write =
+        new URL(route.request().url()).pathname ===
+        "/api/reading-progress/state";
+      if (write) {
+        state.isRead =
+          route.request().postData()?.includes('name="isRead"\r\n\r\ntrue') ===
+          true;
+        state.version += 1;
+      }
+      const snapshot = {
+        materialId,
+        ...state,
+        readAt: state.isRead ? "2030-01-01T00:00:00.000Z" : null,
+        updatedAt: state.version === 0 ? null : "2030-01-01T00:00:00.000Z",
+      };
+      await route.fulfill({
+        json: write
+          ? { kind: "saved", state: snapshot, replayed: false }
+          : { kind: "ready", states: [snapshot] },
+      });
+    });
+    await page.goto(`${baseURL}?reading=1${secondary ? "&secondary=1" : ""}`);
+    const read = page
+      .getByRole("region", { name: "Reading action", exact: true })
+      .getByRole("button", { name: "Изучено", exact: true });
+    await browserExpect(read).toHaveAttribute("aria-disabled", "false");
+    await browserExpect(read).toHaveAttribute("aria-pressed", "false");
+    return read;
+  };
+  return { attach };
+}
+
+test("mark and unmark update reading state in a second open document without reload or focus", async () => {
+  const context = await runningBrowser().newContext();
+  try {
+    const { attach } = readingFixture();
+    const writer = await context.newPage();
+    const reader = await context.newPage();
+    const write = await attach(writer);
+    const read = await attach(reader);
+    for (const desired of [true, false]) {
+      await write.click();
+      await browserExpect(write).toHaveAttribute(
+        "aria-pressed",
+        String(desired),
+      );
+      await browserExpect(read).toHaveAttribute(
+        "aria-pressed",
+        String(desired),
+      );
+    }
+  } finally {
+    await context.close();
+  }
+}, 30_000);
+
+test("without BroadcastChannel reading writes update independent caches in the same document", async () => {
+  const context = await runningBrowser().newContext();
+  try {
+    await context.addInitScript(() => {
+      Reflect.deleteProperty(globalThis, "BroadcastChannel");
+    });
+    const { attach } = readingFixture();
+    const writer = await context.newPage();
+    const reader = await context.newPage();
+    const write = await attach(writer, true);
+    const otherDocument = await attach(reader);
+    const localReader = writer
+      .getByRole("region", { name: "Secondary reading action", exact: true })
+      .getByRole("button", { name: "Изучено", exact: true });
+    await browserExpect(localReader).toHaveAttribute("aria-pressed", "false");
+    for (const desired of [true, false]) {
+      await write.click();
+      await browserExpect(write).toHaveAttribute(
+        "aria-pressed",
+        String(desired),
+      );
+      await browserExpect(localReader).toHaveAttribute(
+        "aria-pressed",
+        String(desired),
+      );
+      // No cross-document transport is available; the fresh recipient cache is unchanged.
+      await browserExpect(otherDocument).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    }
+  } finally {
+    await context.close();
+  }
+}, 30_000);
+
 beforeAll(async () => {
   server = await createServer({
     configFile: false,

@@ -274,6 +274,66 @@ export const CohortPreorderMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+export const CourseParticipant: Story = {
+  parameters: { account: "authenticated" },
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: preorderCohort,
+          offer: preorderOffer,
+          productAccess: "open",
+          signedIn: true,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", { name: "Открыть программу" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      within(hero).queryByText("Идёт набор на первый поток"),
+    ).toBeNull();
+  },
+};
+export const CourseParticipantContinuing: Story = {
+  ...CourseParticipant,
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: preorderCohort,
+          offer: preorderOffer,
+          productAccess: "open",
+          signedIn: true,
+          slug: "ai-engineering",
+          continuationMaterialSlug: "course-intro",
+        })}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", { name: "Продолжить обучение" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+    );
+  },
+};
+export const CourseParticipantContinuingMobile: Story = {
+  ...CourseParticipantContinuing,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 /** Анонс: денег не принимают, гость входит через Telegram и читает главу 1. */
 export const CohortAnnouncement: Story = {
   args: {
