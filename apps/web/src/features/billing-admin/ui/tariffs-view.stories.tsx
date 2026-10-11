@@ -25,6 +25,25 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+export const ConfirmationOpen: Story = {
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await userEvent.selectOptions(
+      canvas.getByLabelText("Кому продаётся"),
+      "invitation_only",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^Включить продажу$/u }),
+    );
+    await expect(
+      within(canvas.getByRole("dialog")).getByRole("button", {
+        name: "Отмена",
+      }),
+    ).toHaveFocus();
+    await expect(args.onToggleSale).not.toHaveBeenCalled();
+  },
+};
+
 export const UnsavedInvitationStillWarns: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);

@@ -116,7 +116,7 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
   browser,
   context,
   page,
-}) => {
+}, testInfo) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/access");
   const commands = await interceptSale(page);
@@ -133,34 +133,67 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
   await select.selectOption("invitation_only");
   await enable.click();
   await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(
-    dialog.getByRole("button", { name: "Включить продажу всем" }),
-  ).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
-  await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-  const accessibility = await new AxeBuilder({ page })
-    .include("dialog")
-    .analyze();
-  expect(accessibility.violations).toEqual([]);
-  const geometry = await dialog.evaluate((element) => {
-    const rect = element.getBoundingClientRect();
-    return {
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      bottom: rect.bottom,
-      width: window.innerWidth,
-      height: window.innerHeight,
-      clientWidth: element.clientWidth,
-      scrollWidth: element.scrollWidth,
-    };
-  });
-  expect(geometry.left).toBeGreaterThanOrEqual(0);
-  expect(geometry.right).toBeLessThanOrEqual(geometry.width);
-  expect(geometry.top).toBeGreaterThanOrEqual(0);
-  expect(geometry.bottom).toBeLessThanOrEqual(geometry.height);
-  expect(geometry.scrollWidth).toBe(geometry.clientWidth);
+  const initialViewport = page.viewportSize();
+  expect(initialViewport).not.toBeNull();
+  const viewports =
+    initialViewport?.width === 390
+      ? [initialViewport, { width: 320, height: 568 }]
+      : [initialViewport];
+  for (const viewport of viewports) {
+    if (viewport === null) throw new Error("Expected a configured viewport");
+    await page.setViewportSize(viewport);
+    await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(
+      dialog.getByRole("button", { name: "Включить продажу всем" }),
+    ).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
+    await page.evaluate(() => document.fonts.ready);
+    const accessibility = await new AxeBuilder({ page })
+      .include("dialog")
+      .analyze();
+    expect(accessibility.violations).toEqual([]);
+    const geometry = await dialog.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      };
+    });
+    expect(geometry.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.right).toBeLessThanOrEqual(geometry.width);
+    expect(geometry.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.bottom).toBeLessThanOrEqual(geometry.height);
+    expect(geometry.scrollWidth).toBe(geometry.clientWidth);
+    await testInfo.attach(
+      `subscription-sale-confirmation-${String(viewport.width)}`,
+      {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      },
+    );
+    await testInfo.attach(
+      `subscription-sale-confirmation-facts-${String(viewport.width)}`,
+      {
+        body: Buffer.from(
+          JSON.stringify({
+            geometry,
+            axeViolations: accessibility.violations.length,
+            keyboard: "initial Cancel; Tab Confirm; Shift+Tab Cancel",
+          }),
+        ),
+        contentType: "application/json",
+      },
+    );
+  }
+  if (initialViewport !== null) await page.setViewportSize(initialViewport);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(enable).toBeFocused();
