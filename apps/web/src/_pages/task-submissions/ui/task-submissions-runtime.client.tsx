@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 import {
   reconcileFeedbackDraft,
@@ -31,6 +38,18 @@ export function TaskSubmissionsRuntime({
 }) {
   const [drafts, setDrafts] = useState<Runtime["drafts"]>({});
   const [selected, setSelected] = useState<Runtime["selected"]>({});
+  const updateDraft = useCallback<Runtime["updateDraft"]>(
+    (submissionId, feedback, update) => {
+      setDrafts((current) => {
+        const previous = current[submissionId];
+        const next = update(reconcileFeedbackDraft(previous, feedback));
+        return next === previous
+          ? current
+          : { ...current, [submissionId]: next };
+      });
+    },
+    [],
+  );
   return (
     <Context.Provider
       value={{
@@ -39,14 +58,7 @@ export function TaskSubmissionsRuntime({
         choose: (pageHref, submissionId) => {
           setSelected((current) => ({ ...current, [pageHref]: submissionId }));
         },
-        updateDraft: (submissionId, feedback, update) => {
-          setDrafts((current) => ({
-            ...current,
-            [submissionId]: update(
-              reconcileFeedbackDraft(current[submissionId], feedback),
-            ),
-          }));
-        },
+        updateDraft,
       }}
     >
       {children}
@@ -65,6 +77,12 @@ export function useFeedbackDraft(
   feedback: AuthorFeedback | null,
 ) {
   const runtime = useTaskSubmissionsRuntime();
+  const { updateDraft } = runtime;
+  // Retain accepted server reads as well as local writes, so navigating back cannot lower the
+  // revision. The setter is stable and skips unchanged state for the queue and detail consumers.
+  useEffect(() => {
+    updateDraft(submissionId, feedback, (current) => current);
+  }, [updateDraft, submissionId, feedback]);
   return {
     draft: reconcileFeedbackDraft(runtime.drafts[submissionId], feedback),
     update: (change: (current: FeedbackDraft) => FeedbackDraft) => {

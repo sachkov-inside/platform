@@ -101,6 +101,10 @@ try {
         await expect(page.getByText(text, { exact: true })).toBeVisible({
           timeout: 30_000,
         });
+        if (story === "report-is-text" || story === "submissions") {
+          await expect(page.locator("details[open]")).toHaveCount(1);
+        }
+        await page.getByRole("heading", { level: 1, name: "Сдачи" }).click();
         await page.evaluate(() => document.fonts.ready);
         const overflow = await page.evaluate(
           () =>

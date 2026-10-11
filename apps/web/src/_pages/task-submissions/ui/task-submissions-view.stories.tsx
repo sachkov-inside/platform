@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Suspense, use } from "react";
+import { Suspense, use, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/_pages/task-submissions";
 import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import { withMutationFetch } from "@/storybook/mutation-mock";
+import { Button } from "@/shared/ui/button";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -360,3 +361,49 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 }
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+/** RSC reads can arrive out of order after navigating between filtered pages. */
+function FeedbackSnapshots() {
+  const [snapshot, setSnapshot] = useState(1);
+  const incoming = presentTaskSubmissions({
+    continued: false,
+    selection: {},
+    submissions: {
+      ...reviewedSubmissions,
+      submissions: reviewedSubmissions.submissions.slice(0, 1).map((row) => ({
+        ...row,
+        authorFeedback: {
+          comment: `Серверный отзыв ${String(snapshot)}`,
+          reviewedAt: null,
+          updatedAt: `2026-10-11T09:0${String(snapshot)}:00.000Z`,
+        },
+      })),
+    },
+  });
+  return (
+    <div className="h-full min-h-0">
+      <Button onClick={() => setSnapshot(3)}>Свежий серверный ответ</Button>
+      <Button onClick={() => setSnapshot(2)}>Запоздалый серверный ответ</Button>
+      <TaskSubmissionsView presentation={incoming} />
+    </div>
+  );
+}
+export const FreshFeedbackSurvivesStaleRead: Story = {
+  render: () => <FeedbackSnapshots />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const comment = canvas.getByRole("textbox", {
+      name: /Комментарий для ученика/u,
+    });
+    await userEvent.clear(comment);
+    await userEvent.type(comment, "Серверный отзыв 1");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Свежий серверный ответ" }),
+    );
+    await expect(comment).toHaveValue("Серверный отзыв 3");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Запоздалый серверный ответ" }),
+    );
+    await expect(comment).toHaveValue("Серверный отзыв 3");
+  },
+};

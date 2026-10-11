@@ -21,21 +21,19 @@ export async function TaskSubmissionsPage({
   const productId = single(params["productId"]);
   const chapterId = single(params["chapterId"]);
   const taskCode = single(params["task"]);
+  const cursor = single(params["cursor"]);
   const selection = {
     ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
     ...(taskCode === undefined ? {} : { taskCode }),
   };
-  const outcome = await loadTaskSubmissions(
-    selection,
-    single(params["cursor"]),
-  );
+  const outcome = await loadTaskSubmissions(selection, cursor);
   return outcome.kind === "ready" ? (
     <TaskSubmissionsView presentation={presentTaskSubmissions(outcome)} />
   ) : (
     <TaskSubmissionsState
       kind={outcome.kind}
-      returnTo={selectionHref(selection)}
+      returnTo={selectionHref(selection, cursor)}
     />
   );
 }
