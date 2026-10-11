@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIResponse,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 import {
   fullStackBaseUrl,
@@ -555,21 +561,56 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     await page.evaluate(() => {
       sessionStorage.setItem("test-player-defer-seek", "1");
     });
-    // The reader's real open write can finish after the player starts its asynchronous seek.
-    // Delay the real request, so its saved response refreshes the account after the newer hash.
-    const openRequested = Promise.withResolvers<void>();
+    // Save the real open at the viewed content version, then delay its browser response.
+    // Its account refresh must apply after the newer hash, while the SDK seek is still pending.
+    const opened = Promise.withResolvers<APIResponse>();
     const openGate = Promise.withResolvers<void>();
     releaseOpen = () => openGate.resolve();
     await page.route("**/api/reading-progress/open", async (route) => {
-      openRequested.resolve();
-      await openGate.promise;
-      await route.continue();
+      try {
+        const response = await route.fetch();
+        opened.resolve(response);
+        await openGate.promise;
+        await route.fulfill({ response });
+      } catch (error) {
+        opened.reject(error);
+        await route.abort();
+      }
     });
     await page.goto("/");
     await page.goto(`/materials/${slug}#t=3`);
     const playerFrame = page.locator("[data-video-player-mount] iframe");
     await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
-    await openRequested.promise;
+    const openResponse = await opened.promise;
+    expect(openResponse.status()).toBe(200);
+    await expect(openResponse.json()).resolves.toMatchObject({ kind: "saved" });
+    // A changed public heading proves the refresh was applied, not merely received.
+    const refreshedTitle = `${title} · refreshed`;
+    const editor = await context.newPage();
+    try {
+      await editor.goto(editorUrl);
+      await expect(editor.getByLabel("Название")).toHaveValue(title);
+      const saved = editor.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/authoring/materials" &&
+          response.request().method() === "PUT" &&
+          response.request().postData()?.includes(refreshedTitle) === true,
+      );
+      await editor.getByLabel("Название").fill(refreshedTitle);
+      const saveResponse = await saved;
+      expect(saveResponse.status()).toBe(200);
+      await expect(saveResponse.json()).resolves.toMatchObject({
+        kind: "saved",
+        contentVersion: expect.any(Number),
+        publicationState: "published",
+      });
+      await waitMaterialSaved(editor);
+    } finally {
+      await editor.close();
+    }
+    await expect(
+      page.getByRole("heading", { level: 1, name: title, exact: true }),
+    ).toBeVisible();
     await changeVideoTimeFragment(page, 261);
     const refreshed = page.waitForResponse((response) => {
       const headers = response.request().headers();
@@ -581,6 +622,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     });
     releaseOpen();
     await refreshed;
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: refreshedTitle,
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
     await expect(page).toHaveURL(/#t=261$/u);
     await page.evaluate(() => {
       window.dispatchEvent(new Event("test-player-finish-seek"));
