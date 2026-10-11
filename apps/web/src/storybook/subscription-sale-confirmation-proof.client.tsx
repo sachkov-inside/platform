@@ -35,23 +35,32 @@ export function SubscriptionSaleConfirmationProof({
           label: "Тарифы",
           panel: (
             <>
-              <TariffsView
-                busy={false}
-                failure={null}
-                message={message}
-                onSaveEligibility={() => {
-                  setMessage(
-                    "Прототип не сохраняет допуск и не включает продажу.",
-                  );
+              <div
+                className="contents"
+                onClickCapture={(event) => {
+                  // Native pointer clicks need not focus buttons in every browser.
+                  if (event.target instanceof Element) {
+                    const button =
+                      event.target.closest<HTMLButtonElement>("button");
+                    if (button !== null) trigger.current = button;
+                  }
                 }}
-                onToggleSale={(row) => {
-                  const active = document.activeElement;
-                  trigger.current =
-                    active instanceof HTMLElement ? active : null;
-                  setPending(row);
-                }}
-                tariffs={[tariff]}
-              />
+              >
+                <TariffsView
+                  busy={false}
+                  failure={null}
+                  message={message}
+                  onSaveEligibility={() => {
+                    setMessage(
+                      "Прототип не сохраняет допуск и не включает продажу.",
+                    );
+                  }}
+                  onToggleSale={(row) => {
+                    setPending(row);
+                  }}
+                  tariffs={[tariff]}
+                />
+              </div>
               {pending === null ? null : (
                 <SubscriptionSaleConfirmationDialog
                   offerName={pending.offer.name}

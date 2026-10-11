@@ -75,7 +75,19 @@ export const NarrowMobile: Story = {
 export const Interaction: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement, args }) => {
-    const { canvas, dialog, trigger } = await openConfirmation(canvasElement);
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "Включить продажу" });
+    const eligibility = canvas.getByLabelText("Кому продаётся");
+    eligibility.focus();
+    await expect(eligibility).toHaveFocus();
+    // Native click activates the button without userEvent's automatic focus step.
+    trigger.click();
+    const dialog = await canvas.findByRole("dialog", {
+      name: "Включить продажу подписки всем?",
+    });
+    await expect(
+      within(dialog).getByRole("button", { name: "Отмена" }),
+    ).toHaveFocus();
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Отмена" }),
     );
