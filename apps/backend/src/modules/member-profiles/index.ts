@@ -1,3 +1,4 @@
+export { MemberNames } from "./facets/member-names/member-names.js";
 export { MemberProfilesModule } from "./member-profiles.module.js";
 export { ProfileAvatarMaintenanceModule } from "./profile-avatar-maintenance.module.js";
 export {

@@ -9,7 +9,6 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 const productId = "00000000-0000-4000-8000-000000000948";
 const chapterId = "00000000-0000-4000-8000-000000000950";
 const firstId = "30000000-0000-4000-8000-000000000003";
-const secondId = "30000000-0000-4000-8000-000000000002";
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
 const backend = `http://127.0.0.1:${backendPort}`;
@@ -42,7 +41,10 @@ async function authorCookie(baseURL: string, token = "submissions-author") {
 
 async function evidence(page: Page, info: TestInfo, state: string) {
   await page
-    .getByRole("heading", { level: 1, name: "Сдачи", exact: true })
+    .getByRole("heading", {
+      level: 1,
+      name: /^(Сдачи|Онбординг команды|Заявки клиентов)$/u,
+    })
     .click();
   expect(
     await page.evaluate(
@@ -54,7 +56,7 @@ async function evidence(page: Page, info: TestInfo, state: string) {
   const a11y = await new AxeBuilder({ page }).include("main").analyze();
   expect(a11y.violations).toEqual([]);
   if (process.env["CAPTURE_SUBMISSIONS_EVIDENCE"] !== "1") return;
-  const directory = await prepareEvidenceDirectory("issue-967");
+  const directory = await prepareEvidenceDirectory("issue-1351");
   const path = resolve(directory, `live-${state}-${info.project.name}.png`);
   await screenshotWholePage(page, { path });
   await info.attach(`submissions-${state}`, { path, contentType: "image/png" });
@@ -73,21 +75,15 @@ test.beforeEach(async ({ request }) => {
   );
 });
 
-test("the live production route streams the loading state before the submissions arrive (#967)", async ({
+test("production streams the loading state before the list arrives (#1351)", async ({
   context,
   page,
   request,
   baseURL,
 }, info) => {
-  if (baseURL === undefined) throw new Error("baseURL is required");
+  if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL)]);
-  expect(
-    (
-      await request.post(`${backend}/__submissions/hold`, {
-        data: { hold: true },
-      })
-    ).ok(),
-  ).toBe(true);
+  await request.post(`${backend}/__submissions/hold`, { data: { hold: true } });
   try {
     await page.goto("/authoring/submissions", { waitUntil: "commit" });
     await expect(
@@ -95,139 +91,148 @@ test("the live production route streams the loading state before the submissions
     ).toBeVisible();
     await evidence(page, info, "loading");
   } finally {
-    expect(
-      (
-        await request.post(`${backend}/__submissions/hold`, {
-          data: { hold: false },
-        })
-      ).ok(),
-    ).toBe(true);
+    await request.post(`${backend}/__submissions/hold`, {
+      data: { hold: false },
+    });
   }
-  await expect(
-    page.getByRole("region", { name: "Очередь сдач" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Список сдач" })).toBeVisible();
 });
 
-test("author selection, filters and pagination preserve each draft on the live production route (#967)", async ({
+test("list, separate addresses, saved history and filter/page return preserve drafts (#1351)", async ({
   context,
   page,
   baseURL,
 }, info) => {
-  if (baseURL === undefined) throw new Error("baseURL is required");
+  if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL)]);
-  await page.goto("/authoring/submissions");
-  const queue = page.getByRole("region", { name: "Очередь сдач" });
+  await page.goto(`/authoring/submissions?productId=${productId}`);
+  const list = page.getByRole("list", { name: "Сдачи, новые сверху" });
+  await expect(list.getByRole("link")).toHaveCount(2);
+  await expect(page.locator("[data-submission]")).toHaveCount(0);
+  await evidence(page, info, "list");
+  await list.getByRole("link").first().press("Enter");
+  await expect(page).toHaveURL(new RegExp(`submission=${firstId}`));
   const first = page.locator(`[data-submission="${firstId}"]`);
-  await expect(first.getByText(/<img src=x onerror="alert/u)).toBeVisible();
-  await expect(page.locator('img[src="x"]')).toHaveCount(0);
-  await expect(page.locator("[data-submission]")).toHaveCount(1);
-  const q = await queue.boundingBox();
-  const d = await first.boundingBox();
-  expect(q).not.toBeNull();
-  expect(d).not.toBeNull();
-  if (info.project.name === "desktop-chromium")
-    expect(d?.x ?? 0).toBeGreaterThan((q?.x ?? 0) + (q?.width ?? 0));
-  else expect(d?.y ?? 0).toBeGreaterThan((q?.y ?? 0) + (q?.height ?? 0));
-  await evidence(page, info, "ready");
+  await page.getByText("Оставить комментарий ученику", { exact: true }).click();
   await first.getByRole("textbox").fill("Черновик первой сдачи");
-  await queue.getByRole("button", { name: /Заявки клиентов/u }).press("Enter");
-  const second = page.locator(`[data-submission="${secondId}"]`);
+  await page.getByText("Подробный отчёт по критериям", { exact: true }).click();
+  await expect(first.getByText(/<img src=x onerror/u)).toBeVisible();
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  await page.getByText("Проект и заметка ученика", { exact: true }).click();
+  await evidence(page, info, "expanded");
+  const history = page.getByRole("region", { name: "История самопроверок" });
+  await expect(history.getByRole("link")).toHaveCount(2);
+  await history.getByRole("link").last().click();
   await expect(
-    second.getByText(
-      "Проверил сам: заявка создаётся, повтор не создаёт вторую.",
-    ),
+    page.getByText("Версия требований 1 (сейчас 2)", { exact: false }),
   ).toBeVisible();
-  await second.getByRole("textbox").fill("Черновик второй сдачи");
-  await page.getByRole("combobox", { name: "Продукт" }).selectOption(productId);
-  await page.getByRole("combobox", { name: "Глава" }).selectOption(chapterId);
-  await page.getByRole("button", { name: "Показать", exact: true }).click();
-  await expect(queue.getByRole("button")).toHaveCount(1);
-  await expect(second.getByRole("textbox")).toHaveValue(
-    "Черновик второй сдачи",
+  await expect(page.getByRole("link", { name: "Все сдачи" })).toHaveAttribute(
+    "href",
+    `/authoring/submissions?productId=${productId}`,
   );
-  await page.getByRole("combobox", { name: "Продукт" }).selectOption("");
-  await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue("");
-  await page.getByRole("button", { name: "Показать", exact: true }).click();
-  await expect(queue.getByRole("button")).toHaveCount(2);
-  await queue.getByRole("button", { name: /Онбординг команды/u }).click();
+  await page.getByRole("link", { name: "Все сдачи" }).click();
+  await list.getByRole("link").first().click();
+  await page.getByText("Оставить комментарий ученику", { exact: true }).click();
   await expect(first.getByRole("textbox")).toHaveValue("Черновик первой сдачи");
+  await page.getByRole("link", { name: "Все сдачи" }).click();
   await page.getByRole("link", { name: "Более ранние сдачи" }).click();
-  await expect(page.getByText("Версия требований 1 (сейчас 2)")).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Продукт" })).toHaveValue("");
-  await page.getByText("Критерии версии 1").click();
-  await expect(page.getByText("Второй агент проверяет выдачу.")).toHaveCount(0);
-  await evidence(page, info, "historical-version");
-  await page.getByRole("link", { name: "К новым сдачам" }).click();
-  await expect(first.getByRole("textbox")).toHaveValue("Черновик первой сдачи");
-  await queue.getByRole("button", { name: /Заявки клиентов/u }).click();
-  await expect(second.getByRole("textbox")).toHaveValue(
-    "Черновик второй сдачи",
+  const older = page.getByRole("list", { name: "Сдачи, новые сверху" });
+  await older.getByRole("link").first().click();
+  await expect(page.getByRole("link", { name: "Все сдачи" })).toHaveAttribute(
+    "href",
+    `/authoring/submissions?productId=${productId}&cursor=page-2`,
   );
+  await page.getByRole("link", { name: "Все сдачи" }).click();
+  await page.getByRole("link", { name: "К новым сдачам" }).click();
+  await expect(page).toHaveURL(new RegExp(`productId=${productId}$`));
+  await expect(list.getByRole("link")).toHaveCount(2);
+  await page
+    .getByRole("combobox", { name: "Глава", exact: true })
+    .selectOption(chapterId);
+  await page.getByRole("button", { name: "Показать", exact: true }).click();
+  await expect(list.getByRole("link")).toHaveCount(1);
+  await list.getByRole("link").first().click();
+  await expect(
+    page.getByText("Telegram не привязан", { exact: true }),
+  ).toBeVisible();
+  await page.getByText("Подробный отчёт ученика", { exact: true }).click();
+  await expect(
+    page.getByText("Проверил сам: заявка создаётся, повтор не создаёт вторую."),
+  ).toBeVisible();
 });
 
-test("a pending save belongs to its submission; a failed save retains drafts and repeated editing saves the latest feedback (#967)", async ({
+test("comment save and failure retain the right draft across route navigation (#1351)", async ({
   context,
   page,
   baseURL,
-}, info) => {
-  if (baseURL === undefined) throw new Error("baseURL is required");
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
   await context.addCookies([await authorCookie(baseURL)]);
-  await page.goto("/authoring/submissions");
-  const first = page.locator(`[data-submission="${firstId}"]`);
-  const queue = page.getByRole("region", { name: "Очередь сдач" });
-  await first.getByRole("textbox").fill("Первый сохранённый отзыв");
-  await first.getByRole("checkbox").check();
+  await page.goto(`/authoring/submissions?submission=${firstId}`);
+  await page.getByText("Оставить комментарий ученику", { exact: true }).click();
+  const text = page.getByRole("textbox");
+  await text.fill("Первый комментарий");
   let release: (() => void) | undefined;
-  const gate = new Promise<void>((resolveGate) => {
-    release = resolveGate;
+  let handled: (() => void) | undefined;
+  const completed = new Promise<void>((resolve) => {
+    handled = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
   });
   await page.route("**/api/authoring/product-tasks/feedback", async (route) => {
     await gate;
     await route.continue();
+    handled?.();
   });
-  try {
-    await first.getByRole("button", { name: "Сохранить отзыв" }).click();
-    await expect(
-      first.getByRole("button", { name: "Сохраняем…" }),
-    ).toBeDisabled();
-    await queue.getByRole("button", { name: /Заявки клиентов/u }).click();
-    const second = page.locator(`[data-submission="${secondId}"]`);
-    await second.getByRole("textbox").fill("Другой несохранённый отзыв");
-    release?.();
-    await expect(
-      queue.getByRole("button", { name: /Онбординг команды/u }),
-    ).toContainText("Посмотрел автор");
-    await expect(second.getByRole("textbox")).toHaveValue(
-      "Другой несохранённый отзыв",
-    );
-  } finally {
-    release?.();
-    await page.unroute("**/api/authoring/product-tasks/feedback");
-  }
-  await queue.getByRole("button", { name: /Онбординг команды/u }).click();
-  await expect(first.getByRole("textbox")).toHaveValue(
-    "Первый сохранённый отзыв",
-  );
-  await first.getByRole("textbox").fill("Исправленный отзыв");
-  await page.route("**/api/authoring/product-tasks/feedback", (route) =>
-    route.fulfill({ status: 503, body: "unavailable" }),
-  );
-  await first.getByRole("button", { name: "Сохранить отзыв" }).click();
-  await expect(first.getByRole("alert")).toContainText("Не удалось сохранить");
-  await expect(first.getByRole("textbox")).toHaveValue("Исправленный отзыв");
-  await evidence(page, info, "save-error");
+  await page.getByRole("button", { name: "Сохранить комментарий" }).click();
+  await expect(page.getByRole("button", { name: "Сохраняем…" })).toBeDisabled();
+  await page.getByRole("link", { name: "Все сдачи" }).click();
+  release?.();
+  await completed;
   await page.unroute("**/api/authoring/product-tasks/feedback");
-  await first.getByRole("button", { name: "Сохранить отзыв" }).click();
+  await page
+    .getByRole("list", { name: "Сдачи, новые сверху" })
+    .getByRole("link")
+    .first()
+    .click();
+  const disclosure = page.locator(".feedback-disclosure");
+  await expect(disclosure).toBeVisible();
+  if (!(await text.isVisible())) await disclosure.locator("summary").click();
+  await expect(text).toHaveValue("Первый комментарий");
+  await page.route("**/api/authoring/product-tasks/feedback", (route) =>
+    route.fulfill({ status: 503, json: { kind: "unavailable" } }),
+  );
+  await text.fill("Новый черновик");
+  await page.getByRole("button", { name: "Сохранить комментарий" }).click();
   await expect(
-    first.getByText("Сохранено. Ученик увидит отзыв на странице задания."),
+    page.getByRole("form", { name: "Комментарий автора" }).getByRole("alert"),
+  ).toHaveText(/Не удалось сохранить/u);
+  await expect(text).toHaveValue("Новый черновик");
+  await page.unroute("**/api/authoring/product-tasks/feedback");
+  await page.getByRole("button", { name: "Сохранить комментарий" }).click();
+  await expect(
+    page.getByText("Сохранено. Ученик увидит комментарий на странице задания."),
   ).toBeVisible();
-  await expect(
-    first.getByRole("button", { name: "Сохранить отзыв" }),
-  ).toBeDisabled();
-  await evidence(page, info, "saved-feedback");
   await page.reload();
-  await expect(first.getByRole("textbox")).toHaveValue("Исправленный отзыв");
-  await expect(first.getByRole("checkbox")).toBeChecked();
+  await expect(text).toHaveValue("Новый черновик");
+});
+
+test("missing and malformed submission addresses never silently open another report (#1351)", async ({
+  context,
+  page,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  for (const id of ["missing", "30000000-0000-4000-8000-000000000999"]) {
+    await page.goto(`/authoring/submissions?submission=${id}`);
+    await expect(
+      page.getByText("Сдача не найдена", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator("[data-submission]")).toHaveCount(0);
+  }
+  await evidence(page, info, "not-found");
 });
 
 for (const [state, token, text] of [

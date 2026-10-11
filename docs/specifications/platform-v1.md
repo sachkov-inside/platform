@@ -1484,30 +1484,48 @@ in author order (variant 2).
 
 #### Author submissions section (#948)
 
-Source: [Platform #948](https://github.com/sachkov-inside/platform/issues/948). The section has no
-accepted look yet: it is temporary semantic UI until
-[#967](https://github.com/sachkov-inside/platform/issues/967).
+Source: [Platform #948](https://github.com/sachkov-inside/platform/issues/948),
+[accepted proof and production integration #1351](https://github.com/sachkov-inside/platform/issues/1351).
+The accepted proof establishes composition A: a list followed by a separate submission page.
+Production visual acceptance is recorded separately on #1351.
 
-- `/authoring/submissions` («Сдачи», next to «Доступ» in the authoring navigation) reads the
-  session before rendering. It lists submissions newest first, filtered by Product, chapter and task
-  through `productId`, `chapterId` and `task` in the address; a filter the Products on offer cannot show
-  is dropped. Each submission shows the person as «Люди и доступ» does (Account ID and the current
-  Telegram identity), the note, the service mark, the source, the Task Version with the current one,
-  the criteria of that version and the report. The report is plain text labelled «отчёт агента
-  ученика»: no markup it carries runs in the browser, and a repository becomes a link only for an
-  `http(s)` address. Published and unpublished tasks alike keep their submissions here, and so
-  does a task whose chapter the author later removed: it is shown with «глава удалена».
-- `GET /authoring/product-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) takes
-  optional `productId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, 25 by default). It
-  answers the Products with chapters and tasks for the filter, the submissions, the criteria of every
-  Task Version they refer to and `nextCursor`; without the permission it answers 403 `forbidden`.
+- `/authoring/submissions` reads the author session before rendering. It lists submissions newest
+  first. Product, chapter and task filters use `productId`, `chapterId` and `task`; `cursor` selects
+  a list page. `submission` opens a single submission, including one outside the current list page.
+  Returning to the list retains its filters and cursor. Search and outcome filter the current page.
+  Missing or malformed submission addresses show a not-found state. Published and unpublished tasks
+  retain their submissions, including tasks whose chapter was removed.
+- A submission shows a current active profile name, falling back to the current Telegram name or
+  username. This author-only name projection exposes no profile biography, avatar or public profile
+  address. Contact lookup uses the exact current confirmed binding through Telegram's authenticated
+  interface. Both applications recheck that binding after lookup. Missing, unavailable and username-
+  free contacts have explicit labels; no contact is taken from learner notes or reports.
+- The short summary is optional for backward compatibility. The result is derived from the saved
+  report and its immutable Task Version: a required violation means changes; every required
+  criterion confirmed means passed; otherwise evidence is missing. Additional criteria do not block
+  success. Every saved MCP report is counted in the learner/task history across requirement versions,
+  with the first passed attempt number. A form without a report and an exact idempotent retry add no
+  attempt. Unsaved checks, agent dialogue and work between checks are not recorded.
+- Criteria, full report, project and note are collapsed by default. Reports render as plain text;
+  repository links require HTTP(S). The author can leave an optional comment immediately below the
+  result. Existing feedback marks remain readable and are preserved when editing a comment; the new
+  form offers no author grade or acceptance control.
+- `GET /authoring/product-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) accepts
+  optional `submissionId`, `productId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, default 25).
+  It returns filter Products, submissions with current contact and self-check metadata, immutable
+  criteria, `history` for a selected submission and `nextCursor`. The selected read ignores the cursor
+  but retains the Product/task scope. Without the permission it returns 403 `forbidden`.
 - `PUT /authoring/product-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
-  `materials:manage`) takes `comment` (up to 4000 characters or `null`) and `reviewed`. It keeps one
-  Author Feedback per submission: the «посмотрел автор» time is set once and kept while the mark
-  stays; removing the mark clears it. An empty comment without the mark removes the feedback, so
-  the learner reads «Автор ещё не смотрел». The learner reads the feedback on the task page and
-  through `learning_task_submissions`. The browser reaches it through
-  `PUT /api/authoring/product-tasks/feedback`.
+  `materials:manage`) accepts `comment` (up to 4000 characters or `null`) and `reviewed`. The existing
+  mark semantics remain: its first time persists until removed; an empty comment without a mark
+  removes feedback. The browser uses `PUT /api/authoring/product-tasks/feedback`; layout-owned drafts
+  survive client navigation, loading, filters, failures and pagination, ending on document reload.
+  The learner reads feedback on the task page and through `learning_task_submissions`.
+- Review Protocol v4 recommends a fresh agent session, read-only checking and fixing in a later step.
+  MCP provides the task context and criteria; Platform does not inspect the repository or guarantee
+  agent independence. Before saving either a failed or successful completed report, the agent shows
+  the exact summary, criteria, note and service mark and waits for learner confirmation. The existing
+  Task Version and exact-content idempotency checks still apply.
 
 
 #### Static course image variants (#1195)

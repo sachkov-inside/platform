@@ -1,3 +1,4 @@
+import { MemberNames, MemberProfilesModule } from "../member-profiles/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -71,6 +72,7 @@ import {
     MaterialContentModule,
     MaterialsModule,
     TelegramAccountLinksModule,
+    MemberProfilesModule,
   ],
   providers: [
     {
@@ -166,12 +168,14 @@ import {
         ProductDirectory,
         ACCOUNTS,
         TelegramAccountLinks,
+        MemberNames,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: ProductDirectory,
         accounts: Accounts,
         identities: TelegramAccountLinks,
+        names: MemberNames,
       ): SubmissionReview => {
         const permissions = assembleCurrentAccountPermissions(accounts);
         return assembleSubmissionReview({
@@ -182,6 +186,7 @@ import {
               permissions.hasMaterialsManage(checkedAccountId(accountId)),
           },
           identities,
+          names,
         });
       },
     },

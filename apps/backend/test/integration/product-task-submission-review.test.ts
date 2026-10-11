@@ -1,3 +1,4 @@
+import { MemberNames } from "../../src/modules/member-profiles/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -73,6 +74,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       directory,
       authorPolicy,
       identities: new TelegramAccountLinks(db.prisma),
+      names: new MemberNames(db.prisma),
       clock,
     });
 
@@ -449,6 +451,152 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     ]);
   });
 
+  test("author contact comes from the exact current binding and disappears after unlink during lookup", async () => {
+    const isolatedProduct = randomUUID();
+    const isolatedChapter = randomUUID();
+    await db.prisma.product.create({
+      data: {
+        id: isolatedProduct,
+        slug: `contact-${isolatedProduct}`,
+        name: "Contact",
+      },
+    });
+    await db.prisma.productChapter.create({
+      data: {
+        id: isolatedChapter,
+        productId: isolatedProduct,
+        name: "Contact",
+        ordinal: 1,
+      },
+    });
+    const task = await imported({
+      productId: isolatedProduct,
+      chapterId: isolatedChapter,
+      title: "Контакт ученика",
+    });
+    const subject = await learner();
+    const principalRef = randomUUID();
+    const identityRef = randomUUID();
+    await db.prisma.telegramAccountLinkState.create({
+      data: {
+        accountId: subject.accountId,
+        principalRef,
+        identityRef,
+        linkRef: randomUUID(),
+        revision: 1,
+        updatedAt: new Date("2030-01-01T00:00:00.000Z"),
+      },
+    });
+    await submitted(
+      subject,
+      task.code,
+      "username из заметки не является контактом.",
+    );
+    let unlink = false;
+    const identities = new TelegramAccountLinks(db.prisma, {
+      read: async (queries) => {
+        expect(queries).toEqual([
+          { accountRef: principalRef, telegramIdentityRef: identityRef },
+        ]);
+        if (unlink)
+          await db.prisma.telegramAccountLinkState.update({
+            where: { accountId: subject.accountId },
+            data: { identityRef: null, principalRef: null, revision: 2 },
+          });
+        return {
+          ok: true as const,
+          contacts: [
+            {
+              accountRef: principalRef,
+              telegramIdentityRef: identityRef,
+              status: "available" as const,
+              displayName: "Анна Иванова",
+              username: "anna_course",
+            },
+          ],
+        };
+      },
+    });
+    const author = assembleSubmissionReview({
+      prisma: db.prisma,
+      directory,
+      authorPolicy,
+      identities,
+      names: new MemberNames(db.prisma),
+      clock,
+    });
+    const current = await author.list(owner, { taskCode: task.code });
+    expect(current.ok && current.value.submissions[0]?.person).toEqual({
+      accountId: subject.accountId,
+      telegramIdentityRef: identityRef,
+      displayName: "Анна Иванова",
+      telegramUsername: "anna_course",
+      telegramUrl: "https://t.me/anna_course",
+      telegramContactState: "available",
+    });
+    unlink = true;
+    const unlinked = await author.list(owner, { taskCode: task.code });
+    expect(unlinked.ok && unlinked.value.submissions[0]?.person).toEqual({
+      accountId: subject.accountId,
+      telegramIdentityRef: null,
+      displayName: null,
+      telegramUsername: null,
+      telegramUrl: null,
+      telegramContactState: "not_linked",
+    });
+  });
+
+  test("author sees the learner's current profile name without exposing profile details", async () => {
+    const isolatedProduct = randomUUID();
+    const isolatedChapter = randomUUID();
+    await db.prisma.product.create({
+      data: {
+        id: isolatedProduct,
+        slug: `name-${isolatedProduct}`,
+        name: "Имя ученика",
+      },
+    });
+    await db.prisma.productChapter.create({
+      data: {
+        id: isolatedChapter,
+        productId: isolatedProduct,
+        name: "Старт",
+        ordinal: 1,
+      },
+    });
+    const task = await imported({
+      productId: isolatedProduct,
+      chapterId: isolatedChapter,
+      title: "Имя",
+    });
+    const subject = await learner();
+    await db.prisma.memberProfile.create({
+      data: {
+        accountId: subject.accountId,
+        publicProfileId: randomUUID(),
+        displayName: "Борис Петров",
+        bio: "Частная информация",
+        status: "active",
+      },
+    });
+    await submitted(subject, task.code, "Заметка ученика");
+    const listed = await review().list(owner, { taskCode: task.code });
+    expect(listed.ok && listed.value.submissions[0]?.person.displayName).toBe(
+      "Борис Петров",
+    );
+    expect(listed.ok && listed.value.submissions[0]?.person).not.toHaveProperty(
+      "bio",
+    );
+    await db.prisma.memberProfile.update({
+      where: { accountId: subject.accountId },
+      data: { displayName: "Борис" },
+    });
+    const updated = await review().list(owner, { taskCode: task.code });
+    expect(updated.ok && updated.value.submissions[0]?.person.displayName).toBe(
+      "Борис",
+    );
+  });
+
   test("only materials:manage reads submissions and writes feedback", async () => {
     expect(await review().list(outsider, {})).toEqual({
       ok: false,
@@ -568,6 +716,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       person: {
         accountId: anna.accountId,
         telegramIdentityRef: "telegram:review-anna",
+        displayName: null,
+        telegramUsername: null,
+        telegramUrl: null,
+        telegramContactState: "unavailable",
       },
       note: "Первая сдача.",
       reportText: null,
@@ -600,6 +752,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     expect(all.value.submissions[1]?.person).toEqual({
       accountId: boris.accountId,
       telegramIdentityRef: null,
+      displayName: null,
+      telegramUsername: null,
+      telegramUrl: null,
+      telegramContactState: "not_linked",
     });
     const criteriaOf = (code: string, version: number) =>
       all.value.versions

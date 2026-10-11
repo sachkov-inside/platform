@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-
 import {
   TaskSubmissionsLoading,
   TaskSubmissionsRuntime,
@@ -9,6 +8,7 @@ import {
   TaskSubmissionsView,
 } from "@/_pages/task-submissions";
 import { presentTaskSubmissions } from "../model/task-submissions-presentation";
+import type { TaskSubmissions } from "../model/task-submissions";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import { Button } from "@/shared/ui/button";
 import {
@@ -38,6 +38,46 @@ const presentation = presentTaskSubmissions({
   selection: {},
   continued: false,
 });
+const firstId = "30000000-0000-4000-8000-000000000003";
+function detail(
+  submissionId = firstId,
+  source: TaskSubmissions = reviewedSubmissions,
+) {
+  const selected = source.submissions.find(
+    (row) => row.submissionId === submissionId,
+  );
+  return presentTaskSubmissions({
+    submissions: {
+      ...source,
+      submissions: source.submissions.filter(
+        (row) => row.submissionId === submissionId,
+      ),
+      history: source.submissions
+        .filter(
+          (row) =>
+            row.task.code === selected?.task.code &&
+            row.person.accountId === selected.person.accountId &&
+            row.selfCheck !== null,
+        )
+        .flatMap((row) =>
+          row.selfCheck === null
+            ? []
+            : [
+                {
+                  submissionId: row.submissionId,
+                  submittedAt: row.submittedAt,
+                  taskVersion: row.taskVersion,
+                  summary: row.reviewReport?.summary ?? null,
+                  selfCheck: row.selfCheck,
+                },
+              ],
+        ),
+    },
+    selection: {},
+    continued: false,
+    submissionId,
+  });
+}
 const meta = {
   ...environment,
   title: "Pages/Authoring/Task submissions",
@@ -56,94 +96,133 @@ const meta = {
     docs: {
       description: {
         component:
-          "Окончательный раздел «Сдачи» (#967), принятый вариант A: очередь слева и один полный отчёт справа; на телефоне последовательно. Общий production-модуль, штатная mutation отзыва и синтетические fixture-данные.",
+          "Принятая композиция A для #1351: список и отдельная страница сдачи. Production и Storybook используют один модуль. Контакты и отчёты в Storybook вымышлены.",
       },
     },
   },
 } satisfies Meta<typeof TaskSubmissionsView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-
 export const Submissions: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
       page.getByRole("heading", { level: 1, name: "Сдачи" }),
     ).toBeVisible();
-    const queue = within(page.getByRole("region", { name: "Очередь сдач" }));
-    await expect(queue.getAllByRole("button")).toHaveLength(3);
-    await expect(page.getAllByRole("article")).toHaveLength(1);
-    await expect(page.getByText("telegram:synthetic-01")).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "https://github.com/learner/devportal" }),
-    ).toHaveAttribute("rel", "noopener noreferrer nofollow");
+      within(
+        page.getByRole("list", { name: "Сдачи, новые сверху" }),
+      ).getAllByRole("link"),
+    ).toHaveLength(3);
+    await expect(page.queryByRole("article")).not.toBeInTheDocument();
+    await expect(page.getAllByText("Анна Смирнова")).toHaveLength(2);
+    await userEvent.type(page.getByRole("searchbox"), "Марк");
     await expect(
-      page.getByText(/commit 4f2a9c1, есть незакоммиченные изменения/u),
-    ).toBeVisible();
-    await userEvent.click(queue.getAllByRole("button")[2] ?? canvasElement);
-    await expect(
-      page.getByText("Версия требований 1 (сейчас 2)"),
-    ).toBeVisible();
-    await expect(page.getByText("Без заметки")).toBeVisible();
-    await userEvent.click(page.getByText("Критерии версии 1"));
-    await expect(
-      page.queryByText("Второй агент проверяет выдачу."),
-    ).not.toBeInTheDocument();
-  },
-};
-
-export const SelectionKeepsDrafts: Story = {
-  play: async ({ canvasElement }) => {
-    const page = routeContent(canvasElement);
-    const queue = within(page.getByRole("region", { name: "Очередь сдач" }));
-    const choices = queue.getAllByRole("button");
-    await userEvent.type(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-      "Черновик для онбординга",
+      within(
+        page.getByRole("list", { name: "Сдачи, новые сверху" }),
+      ).getAllByRole("link"),
+    ).toHaveLength(1);
+    await userEvent.clear(page.getByRole("searchbox"));
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: /Результат проверки/u }),
+      "changes",
     );
-    await userEvent.click(choices[1] ?? canvasElement);
     await expect(
-      page.getByText(
-        "Проверил сам: заявка создаётся, повтор не создаёт вторую.",
-      ),
-    ).toBeVisible();
-    const second = page.getByRole("textbox", {
-      name: /Комментарий для ученика/u,
-    });
-    await userEvent.clear(second);
-    await userEvent.type(second, "Черновик для заявок");
-    await userEvent.click(choices[0] ?? canvasElement);
-    await expect(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-    ).toHaveValue("Черновик для онбординга");
-    await userEvent.click(choices[1] ?? canvasElement);
-    await expect(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-    ).toHaveValue("Черновик для заявок");
+      within(
+        page.getByRole("list", { name: "Сдачи, новые сверху" }),
+      ).getAllByRole("link"),
+    ).toHaveLength(1);
   },
 };
-
-export const ReportIsText: Story = {
+export const Submission: Story = {
+  args: { presentation: detail() },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.getByText(/<img src=x onerror="alert\(1\)"> Роль читается/u),
+      page.getByRole("heading", { level: 1, name: "Онбординг команды" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "@anna_example" }),
+    ).toHaveAttribute("href", "https://t.me/anna_example");
+    await expect(page.getByRole("link", { name: "Все сдачи" })).toHaveAttribute(
+      "href",
+      "/authoring/submissions",
+    );
+    await expect(page.getByText(/Роль приходит от клиента/u)).not.toBeVisible();
+  },
+};
+export const ExpandedSubmission: Story = {
+  args: { presentation: detail(), expanded: true },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByText(/<img src=x onerror/u)).toBeVisible();
     await expect(canvasElement.querySelector("img[src='x']")).toBeNull();
     await expect(page.getByText("Нарушение")).toBeVisible();
-    await expect(
-      page.getByText("Обязательно · получено запуском"),
-    ).toBeVisible();
-    await userEvent.click(page.getByText("Критерии версии 2"));
-    await expect(
-      page.getAllByText("Второй агент проверяет выдачу."),
-    ).toHaveLength(2);
   },
 };
-
+const passedSource: TaskSubmissions = {
+  ...reviewedSubmissions,
+  submissions: reviewedSubmissions.submissions.map((row) =>
+    row.submissionId !== firstId
+      ? row
+      : {
+          ...row,
+          selfCheck: { outcome: "passed", attempt: 2, firstPassedAttempt: 2 },
+          reviewReport:
+            row.reviewReport === null
+              ? null
+              : {
+                  ...row.reviewReport,
+                  summary:
+                    "Доступ выдаёт только руководитель команды. Все обязательные критерии подтверждены.",
+                  criteria: row.reviewReport.criteria.map((item) => ({
+                    ...item,
+                    status: "confirmed",
+                    gap: "",
+                  })),
+                },
+        },
+  ),
+};
+export const Passed: Story = {
+  args: { presentation: detail(firstId, passedSource) },
+  play: async ({ canvasElement }) => {
+    await expect(
+      routeContent(canvasElement).getByText(
+        "Первая успешная самопроверка — попытка 2.",
+      ),
+    ).toBeVisible();
+  },
+};
+export const MissingCheck: Story = {
+  args: { presentation: detail("30000000-0000-4000-8000-000000000001") },
+};
+export const FormSubmission: Story = {
+  args: {
+    presentation: detail("30000000-0000-4000-8000-000000000002"),
+    expanded: true,
+  },
+};
+export const ContactUnavailable: Story = {
+  args: {
+    presentation: detail(firstId, {
+      ...reviewedSubmissions,
+      submissions: reviewedSubmissions.submissions.map((row) => ({
+        ...row,
+        person: {
+          ...row.person,
+          displayName: null,
+          telegramUsername: null,
+          telegramUrl: null,
+          telegramContactState: "unavailable",
+        },
+      })),
+    }),
+  },
+};
 const savedFeedback = {
   comment: "Проверку роли перенеси на сервер.",
-  reviewedAt: "2026-10-05T17:00:00.000Z",
+  reviewedAt: null,
   updatedAt: "2026-10-05T17:00:00.000Z",
 };
 const saveSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
@@ -151,47 +230,35 @@ const saveSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
     Response.json({ kind: "saved", authorFeedback: savedFeedback }),
   ),
 );
-
 export const FeedbackSaves: Story = {
+  args: { presentation: detail(), expanded: true },
   decorators: [withMutationFetch(saveSpy)],
   play: async ({ canvasElement }) => {
     saveSpy.mockClear();
     const page = routeContent(canvasElement);
-    const save = page.getByRole("button", { name: "Сохранить отзыв" });
+    const save = page.getByRole("button", { name: "Сохранить комментарий" });
     await expect(save).toBeDisabled();
-    await userEvent.click(
-      page.getByRole("checkbox", { name: "Посмотрел автор" }),
-    );
-    await userEvent.type(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-      "Проверку роли перенеси на сервер.",
-    );
+    await userEvent.type(page.getByRole("textbox"), savedFeedback.comment);
     await userEvent.click(save);
     await waitFor(() => expect(saveSpy).toHaveBeenCalledTimes(1));
-    const init = saveSpy.mock.calls[0]?.[1];
-    await expect(init?.method).toBe("PUT");
-    const body = init?.body;
-    if (!(body instanceof FormData)) throw new Error("Отзыв не отправлен");
+    const body = saveSpy.mock.calls[0]?.[1]?.body;
+    if (!(body instanceof FormData))
+      throw new Error("Комментарий не отправлен");
     await expect(Object.fromEntries(body)).toEqual({
-      submissionId: "30000000-0000-4000-8000-000000000003",
-      comment: "Проверку роли перенеси на сервер.",
-      reviewed: "true",
+      submissionId: firstId,
+      comment: savedFeedback.comment,
+      reviewed: "false",
     });
     await expect(
       await page.findByText(
-        "Сохранено. Ученик увидит отзыв на странице задания.",
+        "Сохранено. Ученик увидит комментарий на странице задания.",
       ),
     ).toBeVisible();
     await expect(save).toBeDisabled();
-    await expect(
-      within(page.getByRole("region", { name: "Очередь сдач" })).getAllByRole(
-        "button",
-      )[0],
-    ).toHaveTextContent("Посмотрел автор");
   },
 };
-
 export const FeedbackSaveFails: Story = {
+  args: { presentation: detail(), expanded: true },
   decorators: [
     withMutationFetch(() =>
       Promise.resolve(Response.json({ kind: "unavailable" })),
@@ -200,25 +267,22 @@ export const FeedbackSaveFails: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await userEvent.type(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-      "Не потеряй этот отзыв",
+      page.getByRole("textbox"),
+      "Не потеряй этот комментарий",
     );
     await userEvent.click(
-      page.getByRole("button", { name: "Сохранить отзыв" }),
+      page.getByRole("button", { name: "Сохранить комментарий" }),
     );
     await expect(await page.findByRole("alert")).toHaveTextContent(
       "Не удалось сохранить",
     );
-    await expect(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-    ).toHaveValue("Не потеряй этот отзыв");
-    await expect(
-      page.getByRole("button", { name: "Сохранить отзыв" }),
-    ).toBeEnabled();
+    await expect(page.getByRole("textbox")).toHaveValue(
+      "Не потеряй этот комментарий",
+    );
   },
 };
-
 export const ExpiredSession: Story = {
+  args: { presentation: detail(), expanded: true },
   decorators: [
     withMutationFetch(() =>
       Promise.resolve(new Response(null, { status: 401 })),
@@ -227,19 +291,22 @@ export const ExpiredSession: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await userEvent.type(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
+      page.getByRole("textbox"),
       "Черновик при истёкшей сессии",
     );
     await userEvent.click(
-      page.getByRole("button", { name: "Сохранить отзыв" }),
+      page.getByRole("button", { name: "Сохранить комментарий" }),
     );
     await expect(await page.findByRole("alert")).toHaveTextContent(
       "Сессия закончилась",
     );
-    await expect(
-      page.getByRole("textbox", { name: /Комментарий для ученика/u }),
-    ).toHaveValue("Черновик при истёкшей сессии");
+    await expect(page.getByRole("textbox")).toHaveValue(
+      "Черновик при истёкшей сессии",
+    );
   },
+};
+export const NotFound: Story = {
+  render: () => <TaskSubmissionsState kind="not_found" />,
 };
 
 export const FilteredByChapter: Story = {
@@ -347,13 +414,13 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
         page.getByRole("status", { name: "Загружаем сдачи" }),
       ).toBeVisible();
       const anchors = () =>
-        ["title", "filter", "workspace"].map((part) =>
+        ["title", "workspace"].map((part) =>
           originOf(boxOf(canvasElement, `[data-submissions-part='${part}']`)),
         );
       const loading = anchors();
       stagedLoadingOf(loaded).deliverSharedPart();
       await within(canvasElement).findByRole("region", {
-        name: "Очередь сдач",
+        name: "Список сдач",
       });
       await expect(anchors()).toEqual(loading);
     },
@@ -368,6 +435,7 @@ function FeedbackSnapshots() {
   const incoming = presentTaskSubmissions({
     continued: false,
     selection: {},
+    submissionId: "30000000-0000-4000-8000-000000000003",
     submissions: {
       ...reviewedSubmissions,
       submissions: reviewedSubmissions.submissions.slice(0, 1).map((row) => ({

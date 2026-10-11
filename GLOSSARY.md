@@ -168,9 +168,17 @@ _Avoid_: Attempt, grade, acceptance, solution upload
 **Review Report**:
 The learner's own agent's report inside a Task Submission: exactly one status per criterion of its
 Task Version — confirmed, violation or not verified — with the evidence, the remaining gap and
-whether the evidence came from running a command. It is the agent's statement, untrusted text for
+whether the evidence came from running a command, with an optional short summary. It is the agent's statement, untrusted text for
 the author, never a Platform verdict. In Russian product language: «Отчёт проверки».
 _Avoid_: Grade, verdict, test result, Platform check
+
+**Self-check Attempt**:
+A saved Review Report of one learner on one Product Task. A new saved report adds the next attempt,
+including an unsuccessful report. The first successful attempt confirms every required criterion of
+its Task Version. A submission without a Review Report and a repeat of the same saved submission
+add no attempt. The result describes the learner agent's self-check, never acceptance by the author.
+In Russian product language: «Попытка самопроверки».
+_Avoid_: Agent session, grade, author acceptance
 
 **Author Feedback**:
 The author's optional comment and «посмотрел автор» mark on one Task Submission, kept apart from

@@ -221,7 +221,11 @@ export class ProductTaskAuthoringService {
       note: string;
       person: {
         accountId: string;
+        displayName: string | null;
+        telegramContactState: 'available' | 'not_linked' | 'unavailable';
         telegramIdentityRef: string | null;
+        telegramUrl: string | null;
+        telegramUsername: string | null;
       };
       reportText: string | null;
       reviewReport: {

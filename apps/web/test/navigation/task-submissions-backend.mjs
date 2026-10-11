@@ -6,6 +6,7 @@ const schema = z
   .object({
     products: z.array(z.unknown()),
     versions: z.array(z.unknown()),
+    history: z.array(z.unknown()),
     nextCursor: z.string().nullable(),
     submissions: z.array(
       z
@@ -120,18 +121,46 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     ),
   );
   if (token === "Bearer submissions-empty") rows = [];
-  const page = cursor === null ? rows.slice(0, 2) : rows.slice(2);
+  const chosen = url.searchParams.get("submissionId");
+  const selected = rows.find((row) => row.submissionId === chosen);
+  const history =
+    selected === undefined
+      ? []
+      : rows
+          .filter(
+            (row) =>
+              row.task.code === selected.task.code &&
+              row["person"] !== undefined &&
+              JSON.stringify(row["person"]) ===
+                JSON.stringify(selected["person"]) &&
+              row["selfCheck"] != null,
+          )
+          .map((row) => ({
+            submissionId: row.submissionId,
+            submittedAt: row["submittedAt"],
+            taskVersion: row["taskVersion"],
+            summary: null,
+            selfCheck: row["selfCheck"],
+          }));
+  const page =
+    chosen !== null
+      ? rows.filter((row) => row.submissionId === chosen)
+      : cursor === null
+        ? rows.slice(0, 2)
+        : rows.slice(2);
   return {
     status: 200,
     value: {
       ...fixture,
+      history,
       submissions: page.map((row) => ({
         ...row,
         authorFeedback: feedbacks.has(row.submissionId)
           ? feedbacks.get(row.submissionId)
           : row["authorFeedback"],
       })),
-      nextCursor: cursor === null && rows.length > 2 ? "page-2" : null,
+      nextCursor:
+        chosen === null && cursor === null && rows.length > 2 ? "page-2" : null,
     },
   };
 }

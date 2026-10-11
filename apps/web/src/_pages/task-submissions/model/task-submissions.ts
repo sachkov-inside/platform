@@ -85,6 +85,14 @@ export const taskSubmissionsSchema = z
             .object({
               accountId: z.string(),
               telegramIdentityRef: z.string().nullable(),
+              displayName: z.string().nullable(),
+              telegramUsername: z.string().nullable(),
+              telegramUrl: z.string().nullable(),
+              telegramContactState: z.enum([
+                "available",
+                "not_linked",
+                "unavailable",
+              ]),
             })
             .strict(),
           note: z.string(),
@@ -200,6 +208,7 @@ export function sameSelection(
 export function selectionHref(
   selection: SubmissionSelection,
   cursor?: string,
+  submissionId?: string,
 ): string {
   const query = new URLSearchParams();
   if (selection.productId !== undefined)
@@ -208,6 +217,7 @@ export function selectionHref(
     query.set("chapterId", selection.chapterId);
   if (selection.taskCode !== undefined) query.set("task", selection.taskCode);
   if (cursor !== undefined) query.set("cursor", cursor);
+  if (submissionId !== undefined) query.set("submission", submissionId);
   const text = query.toString();
   return text === "" ? submissionsHref : `${submissionsHref}?${text}`;
 }

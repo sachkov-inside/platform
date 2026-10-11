@@ -114,6 +114,14 @@ export const authorSubmissionsHttpSchema = z
             .object({
               accountId: z.uuid(),
               telegramIdentityRef: z.string().nullable(),
+              displayName: z.string().nullable(),
+              telegramUsername: z.string().nullable(),
+              telegramUrl: z.string().nullable(),
+              telegramContactState: z.enum([
+                "available",
+                "not_linked",
+                "unavailable",
+              ]),
             })
             .strict(),
           note: z.string(),
@@ -304,6 +312,10 @@ export class ListAuthorSubmissionsController {
         person: {
           accountId: submission.person.accountId,
           telegramIdentityRef: submission.person.telegramIdentityRef,
+          displayName: submission.person.displayName,
+          telegramUsername: submission.person.telegramUsername,
+          telegramUrl: submission.person.telegramUrl,
+          telegramContactState: submission.person.telegramContactState,
         },
         note: submission.note,
         reviewReport:

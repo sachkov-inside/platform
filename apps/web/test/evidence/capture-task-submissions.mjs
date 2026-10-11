@@ -1,6 +1,6 @@
 // @ts-check
 /// <reference lib="dom" />
-/** Production-owned Storybook evidence for #967. Run after pnpm build:storybook. */
+/** Production-owned Storybook evidence for #1351. Run after pnpm build:storybook. */
 import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { stat, writeFile } from "node:fs/promises";
@@ -50,7 +50,7 @@ const server = createServer(async (request, response) => {
   });
   createReadStream(path).pipe(response);
 });
-const directory = await prepareEvidenceDirectory("issue-967");
+const directory = await prepareEvidenceDirectory("issue-1351");
 const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
@@ -75,17 +75,23 @@ try {
     try {
       const page = await context.newPage();
       for (const [story, text] of [
-        ["report-is-text", "Отчёт агента ученика"],
-        ["submissions", "Версия требований 1 (сейчас 2)"],
+        [
+          "submissions",
+          "Сдачи учеников и результаты самопроверки, новые сверху.",
+        ],
+        ["submission", "Нужны исправления"],
+        ["expanded-submission", "Подробный отчёт по критериям"],
+        ["passed", "Первая успешная самопроверка — попытка 2."],
         [
           "feedback-saves",
-          "Сохранено. Ученик увидит отзыв на странице задания.",
+          "Сохранено. Ученик увидит комментарий на странице задания.",
         ],
         ["feedback-save-fails", "Не удалось сохранить. Попробуй ещё раз."],
         [
           "expired-session",
           "Сессия закончилась. Войди на сайт в другой вкладке и повтори сохранение. Черновик здесь сохранён.",
         ],
+        ["not-found", "Сдача не найдена"],
         ["empty", "Сдач пока нет"],
         ["empty-filter", "По этому фильтру сдач нет."],
         ["loading", "Загружаем сдачи…"],
@@ -99,15 +105,12 @@ try {
           // This script owns the awaited Axe scan; avoid racing the addon's automatic scan.
           `http://127.0.0.1:${String(address.port)}/iframe.html?id=pages-authoring-task-submissions--${story}&viewMode=story&globals=a11y.manual:!true`,
         );
-        await expect(page.getByText(text, { exact: true })).toBeVisible({
-          timeout: 30_000,
-        });
-        if (story === "report-is-text" || story === "submissions") {
-          await expect(page.locator("details[open]")).toHaveCount(1);
-        }
-        await page
-          .getByRole("heading", { level: 1, name: "Сдачи", exact: true })
-          .click();
+        await expect(page.getByText(text, { exact: true }).first()).toBeVisible(
+          {
+            timeout: 30_000,
+          },
+        );
+        await page.getByRole("heading", { level: 1 }).first().click();
         await page.evaluate(() => document.fonts.ready);
         const overflow = await page.evaluate(
           () =>

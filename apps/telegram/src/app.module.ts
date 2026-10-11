@@ -1,3 +1,10 @@
+import { TelegramContacts } from "./modules/identity-linking/telegram-contacts.js";
+import { TelegramContactsController } from "./modules/identity-linking/telegram-contacts.controller.js";
+import {
+  TELEGRAM_CONTACT_PROFILE,
+  DisabledTelegramContactProfile,
+} from "./modules/identity-linking/telegram-contact-profile.js";
+import { GrammyContactProfileAdapter } from "./adapters/telegram/grammy-contact-profile.adapter.js";
 import { signInReplyEligibility } from "./modules/bot-sign-in/reply-eligibility.js";
 import { SIGN_IN_REPLY_ELIGIBILITY } from "./modules/outbound/sign-in-reply-eligibility.js";
 import { linkEffects } from "./application/link-effects.js";
@@ -128,6 +135,7 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        TelegramContactsController,
         BotSignInController,
         CommunityController,
         CommunicationsController,
@@ -136,6 +144,14 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        TelegramContacts,
+        {
+          provide: TELEGRAM_CONTACT_PROFILE,
+          useFactory: () =>
+            hasText(config.botToken)
+              ? new GrammyContactProfileAdapter(config.botToken)
+              : new DisabledTelegramContactProfile(),
+        },
         {
           provide: SIGN_IN_REPLY_ELIGIBILITY,
           useValue: signInReplyEligibility,

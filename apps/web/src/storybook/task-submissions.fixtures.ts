@@ -65,6 +65,10 @@ export const reviewedSubmissions: TaskSubmissions = {
       person: {
         accountId: "10000000-0000-4000-8000-000000000001",
         telegramIdentityRef: "telegram:synthetic-01",
+        displayName: "Анна Смирнова",
+        telegramUsername: "anna_example",
+        telegramUrl: "https://t.me/anna_example",
+        telegramContactState: "available",
       },
       note: "Сделал выдачу доступа через бота.\nРоль проверяю до вызова GitHub.\nНе уверен, что второй агент нужен на каждой выдаче.",
       reviewReport: {
@@ -121,6 +125,10 @@ export const reviewedSubmissions: TaskSubmissions = {
       person: {
         accountId: "10000000-0000-4000-8000-000000000002",
         telegramIdentityRef: null,
+        displayName: "Марк Белов",
+        telegramUsername: null,
+        telegramUrl: null,
+        telegramContactState: "not_linked",
       },
       note: "Агента с MCP нет, сдаю через форму.",
       reviewReport: null,
@@ -155,6 +163,10 @@ export const reviewedSubmissions: TaskSubmissions = {
       person: {
         accountId: "10000000-0000-4000-8000-000000000001",
         telegramIdentityRef: "telegram:synthetic-01",
+        displayName: "Анна Смирнова",
+        telegramUsername: "anna_example",
+        telegramUrl: "https://t.me/anna_example",
+        telegramContactState: "available",
       },
       note: "",
       reviewReport: {

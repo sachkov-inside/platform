@@ -72,6 +72,10 @@ export interface AuthorSubmission {
   readonly person: {
     readonly accountId: string;
     readonly telegramIdentityRef: string | null;
+    readonly displayName: string | null;
+    readonly telegramUsername: string | null;
+    readonly telegramUrl: string | null;
+    readonly telegramContactState: "available" | "not_linked" | "unavailable";
   };
   readonly note: string;
   /** The learner agent's report: untrusted text, never a Platform verdict. */
@@ -219,21 +223,15 @@ export async function listAuthorSubmissions(
     const last = page.at(-1);
     const checks = await submissionSelfChecks(dependencies.prisma, page);
     const accounts = [...new Set(page.map((row) => row.accountId))];
-    const bindings = await Promise.all(
-      accounts.map((accountId) =>
-        dependencies.identities.readBinding({ accountId }),
-      ),
-    );
-    const telegramOf = new Map<string, string | null>();
-    for (const [index, accountId] of accounts.entries()) {
-      const binding = bindings[index];
-      if (binding === undefined || !binding.ok)
-        return {
-          ok: false,
-          error: { code: "dependency_unavailable", retryable: true },
-        };
-      telegramOf.set(accountId, binding.binding?.telegramIdentityRef ?? null);
-    }
+    const [contacts, names] = await Promise.all([
+      dependencies.identities.readContacts(accounts),
+      dependencies.names.read(accounts),
+    ]);
+    if (!contacts.ok || !names.ok)
+      return {
+        ok: false,
+        error: { code: "dependency_unavailable", retryable: true },
+      };
     const versionKeys = [
       ...new Map(
         page.map((row) => [
@@ -275,7 +273,20 @@ export async function listAuthorSubmissions(
             selfCheck: checks.bySubmission.get(row.id) ?? null,
             person: {
               accountId: row.accountId,
-              telegramIdentityRef: telegramOf.get(row.accountId) ?? null,
+              telegramIdentityRef:
+                contacts.contacts.get(row.accountId)?.telegramIdentityRef ??
+                null,
+              displayName:
+                names.names.get(row.accountId) ??
+                contacts.contacts.get(row.accountId)?.displayName ??
+                null,
+              telegramUsername:
+                contacts.contacts.get(row.accountId)?.telegramUsername ?? null,
+              telegramUrl:
+                contacts.contacts.get(row.accountId)?.telegramUrl ?? null,
+              telegramContactState:
+                contacts.contacts.get(row.accountId)?.telegramContactState ??
+                "unavailable",
             },
             note: row.note,
             reviewReport:
