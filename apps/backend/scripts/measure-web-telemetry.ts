@@ -1,4 +1,5 @@
 import { performance } from "node:perf_hooks";
+import { execFileSync } from "node:child_process";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { z } from "zod";
 import {
@@ -14,15 +15,36 @@ const corpusSize = 1_024;
 const metricsPerDay = 20_000;
 const errorsPerDay = 5_000;
 const millisecondsPerDay = 86_400_000;
+const postgresImage =
+  "public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15";
 
 async function measure() {
-  const container = await new PostgreSqlContainer("postgres:18.4-alpine")
+  const container = await new PostgreSqlContainer(postgresImage)
     .withResourcesQuota({ cpu: 2, memory: 1 })
     .start();
   const cleanup: (() => Promise<unknown>)[] = [() => container.stop()];
   let failed = false;
   let failure: unknown;
   try {
+    const resourceLimits = z
+      .object({
+        NanoCpus: z.literal(2_000_000_000),
+        Memory: z.literal(1_073_741_824),
+      })
+      .parse(
+        JSON.parse(
+          execFileSync(
+            "docker",
+            ["inspect", "--format", "{{json .HostConfig}}", container.getId()],
+            { encoding: "utf8" },
+          ),
+        ),
+      );
+    const imageId = execFileSync(
+      "docker",
+      ["inspect", "--format", "{{.Image}}", container.getId()],
+      { encoding: "utf8" },
+    ).trim();
     const prisma = createPrismaClient(container.getConnectionUri());
     cleanup.unshift(() => prisma.$disconnect());
     await migrateToLatest(container.getConnectionUri());
@@ -205,8 +227,18 @@ async function measure() {
       ]),
     );
     const result = {
+      sourceSha: execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+      }).trim(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      architecture: process.arch,
       postgres: "18.4",
+      postgresImage,
+      imageId,
       cpuLimit: 2,
+      nanoCpuLimit: resourceLimits.NanoCpus,
+      memoryLimitBytes: resourceLimits.Memory,
       budgetBytes,
       initialBytes,
       relations,

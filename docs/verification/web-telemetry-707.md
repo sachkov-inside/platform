@@ -98,7 +98,22 @@ they are not resource-budget acceptance runs.
 
 The preparation now finishes CHECKPOINT before timed reads, without an added corpus-warming query
 or a reset of retained bloat. That measures reads after maintenance, not a production latency
-guarantee under concurrent writes. The current Cloud result blocks resource acceptance: repeat the
-canonical command successfully on the release SHA and intended server conditions before publishing
-or deploying. The release preflight requires its successful receipt. API RSS and handler overhead
-above were not remeasured in Cloud and remain historical evidence.
+guarantee under concurrent writes. These Cloud runs did not pass the synthetic resource criterion.
+Acceptance requires a successful canonical run with the agreed resources and unchanged thresholds;
+production memory remains a separate gate. API RSS and handler overhead above were not remeasured
+in Cloud and remain historical evidence.
+
+## Repeatable CI resource evidence
+
+Integration CI runs the same `pnpm telemetry:measure` command over a fresh PostgreSQL pinned to
+the canonical immutable image. The harness verifies effective two-CPU/1-GiB limits and reports
+the actual checkout SHA, image ID and Node version alongside all 40 timings and 32 cycles.
+The wrapper preserves a failed measurement's exit code through `tee`; artifacts are retained on
+both success and failure as `telemetry-resource-*`, including raw output and Docker storage driver.
+No corpus warming, bloat reset or threshold change is added by CI.
+
+The agreed synthetic benchmark does not require the production VPS. A successful canonical CI
+run can satisfy that criterion; it does not prove production latency or available memory.
+For pull requests the checkout can be a synthetic merge commit: use `source-sha.txt`, not a claimed
+PR-head SHA. Release preflight requires a successful receipt matching the actual release SHA;
+run CI with `workflow_call.source_sha` or repeat the canonical command on that checkout.

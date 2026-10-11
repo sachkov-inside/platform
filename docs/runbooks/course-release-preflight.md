@@ -26,6 +26,9 @@
    Его успешный exit code на release SHA — обязательный receipt `telemetry-resource-budget`.
    [Cloud-проверка 11 октября](../verification/web-telemetry-707.md#cloud-verification--11-october-2026)
    не прошла лимит p75; до успешного повторного замера выпуск остаётся blocked.
+   Integration CI сохраняет `telemetry-resource-*` с raw JSON/log, effective CPU/memory, image ID,
+   Docker driver и фактическим checkout SHA. PR artifact может относиться к synthetic merge SHA;
+   для release receipt нужен успешный замер именно release SHA, без переименования старого proof.
 
 ## Backup и изолированная проверка восстановления
 

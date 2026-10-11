@@ -77,6 +77,11 @@ the migration that creates its view.
 ## Verification and delivery
 
 `pnpm telemetry:measure` owns an isolated PostgreSQL 18.4 container limited to two CPUs and 1 GiB.
+The image uses the canonical immutable ECR digest. The command verifies the effective Docker CPU
+and memory limits and includes the actual checkout SHA, image ID and Node version in its raw JSON.
+Integration CI runs it without changing the corpus or thresholds, and retains both successful and
+failed raw logs in `telemetry-resource-*`. `source-sha.txt` records the actual checkout: on a PR it
+can be a synthetic merge SHA. Only evidence matching the release SHA can satisfy release preflight.
 It fills 600,000 vital samples and 150,000 errors using diverse 500-code-point, four-byte messages,
 then runs 32 daily insertion/30-day-cleanup cycles through the actual quota/coverage routines.
 Initial bulk preparation uses ordinary vacuum for sample visibility. Query adapters initialize
