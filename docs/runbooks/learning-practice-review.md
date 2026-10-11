@@ -78,6 +78,24 @@ current Task Version, protocol v3 and related Materials in canonical JSON parts 
 idempotent by `submissionKey`. `learning_task_submissions` returns only the learner's own submissions
 of one task with their version and Author Feedback.
 
+**Agent connection for tasks (#967).** The same configured
+`/practice-review-setup.txt` is the repo-owned connection and task-review guide. Codex is the
+accepted primary client; the existing Claude Code and OpenCode instructions remain available.
+It covers complete pinned context, protocol v3, confirmation of the exact report/note/service
+mark, same-key retries and a fresh review when the Task Version changes. The guide is not an
+alternative protocol: the task response owns the complete review procedure. Synthetic client
+success does not prove production OAuth; production sign-in and remaining native-client trials
+are a separate acceptance step.
+
+**Author workspace (#967).** `/authoring/submissions` uses the server-validated product/chapter/task
+filters and cursor. On desktop a queue sits to the left of one complete report; on mobile the
+blocks follow each other. Criteria come from the submitted version, not today's task. Selection
+is remembered per filtered page; unsaved feedback is held in memory per submission across
+selection, loading, filters and pagination. It is not written to browser storage and a full
+document reload ends the editing session. Saving through the existing authenticated BFF updates
+only that submission; an interrupted session or failed save retains its draft for retry. The
+learner's existing task page and MCP show only their own submissions and the saved author feedback.
+
 **Submissions.** Platform stores the submission and never fetches the repository URL. It refuses a
 report that misses a criterion of the version or names another one (`report_coverage_mismatch`), a
 version that is no longer current (`task_version_changed`), a report above 64 KiB, a note above 1000
@@ -125,6 +143,13 @@ in production, where `learning_task_submit` and the page
 form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
 publishes data policy v4 and Root verifies that release. Enabling submissions is a separate later
 Root step. The policy covers submissions, review reports, notes and repository links:
+
+The approved source package from PR #995 (`b32115fd727027dd5b1ed3dcf501938cb2b58544`)
+is included with #967. Inclusion in Git is preparation, not confirmation of publication. Before
+enabling the flag, record the released policy version, public URL and deployed source SHA,
+verify `/legal/privacy/v4` and the current `/legal/privacy` content against the approved package,
+and obtain the owner's publication confirmation. Keep the production flag off until that evidence
+exists. Content population, chapter count and a calendar date are not technical launch conditions.
 
 1. Set `PRODUCT_TASK_SUBMISSIONS_ENABLED=true` in the production MCP and API environments
    (`config/compose/production/mcp.env.example` and `api.env.example` name it after #1065).

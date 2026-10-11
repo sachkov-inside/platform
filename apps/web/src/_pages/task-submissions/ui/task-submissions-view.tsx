@@ -1,27 +1,32 @@
-import { Bot, Eye, FileText, GitBranch, Inbox } from "lucide-react";
+"use client";
+
+import { Bot, FileText, GitBranch, Inbox } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { formatSubmissionMoment } from "@/entities/product-task";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { Button } from "@/shared/ui/button";
 
 import {
-  criteriaOf,
   repositoryLink,
   selectionHref,
   submissionsHref,
   type AuthorSubmission,
   type SubmissionSelection,
   type TaskCriterion,
-  type TaskSubmissions,
+  type FilterProduct,
 } from "../model/task-submissions";
+import type { TaskSubmissionsPresentation } from "../model/task-submissions-presentation";
+import {
+  useFeedbackDraft,
+  useTaskSubmissionsRuntime,
+} from "./task-submissions-runtime.client";
 import { AuthorFeedbackForm } from "./author-feedback-form.client";
 
 const fieldClass =
   "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
-const cardClass =
-  "min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6";
 
 const statusLabels = {
   confirmed: "Подтверждено",
@@ -43,7 +48,7 @@ export function TaskSubmissionsFrame({
       id="authoring-content"
       tabIndex={-1}
     >
-      <div className="mx-auto grid w-full max-w-4xl content-start gap-6 px-4 py-7 pb-16 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
+      <div className="mx-auto grid w-full max-w-7xl content-start gap-7 px-4 py-7 pb-16 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
         <header className="grid gap-2">
           <h1
             className="text-balance text-3xl font-bold tracking-[-0.04em]"
@@ -62,108 +67,186 @@ export function TaskSubmissionsFrame({
   );
 }
 
-/**
- * Temporary semantic UI for #948.
- * Replace through #967 after Storybook acceptance.
- */
+/** Accepted #967 composition: a queue and one complete report; stacked on phones. */
 export function TaskSubmissionsView({
-  continued,
-  selection,
-  submissions,
+  presentation,
 }: {
-  /** The list continues an earlier page: it offers a way back to the newest submissions. */
-  readonly continued: boolean;
-  readonly selection: SubmissionSelection;
-  readonly submissions: TaskSubmissions;
+  readonly presentation: TaskSubmissionsPresentation;
 }) {
+  const { rows, selection, products, pageHref, nextHref, newestHref } =
+    presentation;
+  const runtime = useTaskSubmissionsRuntime();
+  const selected =
+    rows.find(
+      (row) => row.submission.submissionId === runtime.selected[pageHref],
+    ) ?? rows[0];
   const filtered =
     selection.productId !== undefined || selection.taskCode !== undefined;
   return (
     <TaskSubmissionsFrame>
-      <SubmissionFilter selection={selection} submissions={submissions} />
-      {submissions.submissions.length === 0 ? (
-        <p
-          className="flex items-start gap-3 rounded-xl border border-dashed border-border px-4 py-5 text-sm leading-6 text-muted-foreground"
+      <SubmissionFilter
+        key={pageHref}
+        products={products}
+        selection={selection}
+      />
+      {selected === undefined ? (
+        <div
+          className="flex items-start gap-3 py-10"
           data-submissions-empty
+          role="status"
         >
-          <Inbox aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
-          {filtered
-            ? "По этому фильтру сдач нет."
-            : "Сдач пока нет. Они появятся, когда ученики сдадут задания через учебный MCP или форму на странице задания."}
-        </p>
+          <Inbox aria-hidden="true" className="size-5 shrink-0" />
+          <div className="grid gap-2">
+            <h2 className="text-lg font-semibold">
+              {filtered ? "По этому фильтру сдач нет." : "Сдач пока нет"}
+            </h2>
+            <p className="max-w-[65ch] text-sm leading-6 text-muted-foreground">
+              Сдачи появятся, когда ученики отправят задания через своего агента
+              или форму на странице задания.
+            </p>
+          </div>
+        </div>
       ) : (
-        <ol aria-label="Сдачи, новые сверху" className="grid gap-4">
-          {submissions.submissions.map((submission) => (
-            <SubmissionCard
-              criteria={criteriaOf(submissions, submission)}
-              key={submission.submissionId}
-              submission={submission}
-            />
-          ))}
-        </ol>
-      )}
-      {submissions.nextCursor === null && !continued ? null : (
-        <nav
-          aria-label="Страницы сдач"
-          className="flex flex-wrap items-center gap-3"
-        >
-          {continued ? (
-            <Button asChild variant="outline">
-              <Link href={internalRoute(selectionHref(selection))}>
-                К новым сдачам
-              </Link>
-            </Button>
-          ) : null}
-          {submissions.nextCursor === null ? null : (
-            <Button asChild variant="outline">
-              <Link
-                href={internalRoute(
-                  selectionHref(selection, submissions.nextCursor),
-                )}
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+          <section aria-label="Очередь сдач" className="min-w-0">
+            <h2 className="mb-3 text-sm font-semibold">
+              Сдачи на странице: {rows.length}
+            </h2>
+            <ol aria-label="Сдачи, новые сверху" className="grid gap-2">
+              {rows.map(({ submission }) => (
+                <SubmissionQueueItem
+                  key={submission.submissionId}
+                  selected={
+                    selected.submission.submissionId === submission.submissionId
+                  }
+                  submission={submission}
+                  onSelect={() => {
+                    runtime.choose(pageHref, submission.submissionId);
+                  }}
+                />
+              ))}
+            </ol>
+            {nextHref === null && newestHref === null ? null : (
+              <nav
+                aria-label="Страницы сдач"
+                className="mt-4 flex flex-wrap items-center gap-3"
               >
-                Более ранние сдачи
-              </Link>
-            </Button>
-          )}
-        </nav>
+                {newestHref === null ? null : (
+                  <Button asChild variant="outline">
+                    <Link href={internalRoute(newestHref)}>К новым сдачам</Link>
+                  </Button>
+                )}
+                {nextHref === null ? null : (
+                  <Button asChild variant="outline">
+                    <Link href={internalRoute(nextHref)}>
+                      Более ранние сдачи
+                    </Link>
+                  </Button>
+                )}
+              </nav>
+            )}
+          </section>
+          <SubmissionDetail
+            key={selected.submission.submissionId}
+            criteria={selected.criteria}
+            submission={selected.submission}
+          />
+        </div>
+      )}
+      {selected !== undefined || newestHref === null ? null : (
+        <Link
+          className="text-action underline"
+          href={internalRoute(newestHref)}
+        >
+          К новым сдачам
+        </Link>
       )}
     </TaskSubmissionsFrame>
   );
 }
 
+function SubmissionQueueItem({
+  submission,
+  selected,
+  onSelect,
+}: {
+  readonly submission: AuthorSubmission;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+}) {
+  const { draft } = useFeedbackDraft(
+    submission.submissionId,
+    submission.authorFeedback,
+  );
+  const reviewed = draft.saved !== null && draft.saved.reviewedAt !== null;
+  return (
+    <li>
+      <button
+        aria-controls="selected-submission"
+        aria-pressed={selected}
+        className={`grid w-full min-w-0 gap-2 rounded-xl border p-4 text-left outline-none hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/30 [overflow-wrap:anywhere] ${selected ? "border-transparent bg-secondary" : "border-border"}`}
+        onClick={onSelect}
+        type="button"
+      >
+        <span className="text-sm font-semibold">{submission.task.title}</span>
+        <span className="text-xs text-muted-foreground">
+          {formatSubmissionMoment(submission.submittedAt)} · Ученик{" "}
+          {submission.person.accountId.slice(-6)}
+        </span>
+        <span className="text-xs">
+          {reviewed ? "Посмотрел автор" : "Автор ещё не отметил"}
+        </span>
+      </button>
+    </li>
+  );
+}
+
 function SubmissionFilter({
   selection,
-  submissions,
+  products,
 }: {
   readonly selection: SubmissionSelection;
-  readonly submissions: TaskSubmissions;
+  readonly products: readonly FilterProduct[];
 }) {
-  const product = submissions.products.find(
-    (item) => item.id === selection.productId,
-  );
+  const [filter, setFilter] = useState(selection);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const product = products.find((item) => item.id === filter.productId);
   const chapter = product?.chapters.find(
-    (item) => item.id === selection.chapterId,
+    (item) => item.id === filter.chapterId,
   );
   const taskGroups =
     chapter !== undefined
       ? [chapter]
-      : (product?.chapters ??
-        submissions.products.flatMap((item) => item.chapters));
+      : (product?.chapters ?? products.flatMap((item) => item.chapters));
   return (
     <form
       action={submissionsHref}
       aria-label="Фильтр сдач"
-      className={`${cardClass} grid gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] lg:items-end`}
+      className="grid gap-3 border-b border-border pb-6 sm:grid-cols-3"
       method="get"
+      onSubmit={(event) => {
+        event.preventDefault();
+        startTransition(() => {
+          router.push(internalRoute(selectionHref(filter)));
+        });
+      }}
     >
       <Field label="Продукт">
         <select
           className={fieldClass}
-          defaultValue={selection.productId ?? ""}
+          value={filter.productId ?? ""}
+          onChange={(event) => {
+            setFilter(
+              event.target.value === ""
+                ? {}
+                : { productId: event.target.value },
+            );
+          }}
           name="productId"
         >
           <option value="">Все продукты</option>
-          {submissions.products.map((item) => (
+          {products.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
@@ -173,7 +256,16 @@ function SubmissionFilter({
       <Field label="Глава">
         <select
           className={fieldClass}
-          defaultValue={selection.chapterId ?? ""}
+          value={filter.chapterId ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            setFilter({
+              ...(filter.productId === undefined
+                ? {}
+                : { productId: filter.productId }),
+              ...(value === "" ? {} : { chapterId: value }),
+            });
+          }}
           disabled={product === undefined}
           name="chapterId"
         >
@@ -190,7 +282,19 @@ function SubmissionFilter({
       <Field label="Задание">
         <select
           className={fieldClass}
-          defaultValue={selection.taskCode ?? ""}
+          value={filter.taskCode ?? ""}
+          onChange={(event) => {
+            const value = event.target.value;
+            setFilter({
+              ...(filter.productId === undefined
+                ? {}
+                : { productId: filter.productId }),
+              ...(filter.chapterId === undefined
+                ? {}
+                : { chapterId: filter.chapterId }),
+              ...(value === "" ? {} : { taskCode: value }),
+            });
+          }}
           name="task"
         >
           <option value="">Все задания</option>
@@ -204,10 +308,11 @@ function SubmissionFilter({
         </select>
       </Field>
       <Button
-        className="min-h-11 px-5 sm:col-span-2 lg:col-span-1"
+        className="min-h-11 justify-self-start px-5"
+        disabled={pending}
         type="submit"
       >
-        Показать
+        {pending ? "Загружаем…" : "Показать"}
       </Button>
     </form>
   );
@@ -228,7 +333,7 @@ function Field({
   );
 }
 
-function SubmissionCard({
+function SubmissionDetail({
   criteria,
   submission,
 }: {
@@ -236,12 +341,12 @@ function SubmissionCard({
   readonly submission: AuthorSubmission;
 }) {
   const feedback = submission.authorFeedback;
-  const reviewed = feedback !== null && feedback.reviewedAt !== null;
   const titleId = `submission-${submission.submissionId}`;
   return (
-    <li
+    <article
       aria-labelledby={titleId}
-      className={`${cardClass} grid gap-4`}
+      id="selected-submission"
+      className="grid min-w-0 content-start gap-6 [overflow-wrap:anywhere]"
       data-submission={submission.submissionId}
     >
       <header className="grid gap-1.5">
@@ -250,7 +355,7 @@ function SubmissionCard({
           {submission.task.chapterName ?? "глава удалена"}
         </p>
         <h2
-          className="text-lg font-semibold tracking-[-0.01em] [overflow-wrap:anywhere]"
+          className="text-2xl font-semibold tracking-[-0.025em] [overflow-wrap:anywhere]"
           id={titleId}
         >
           {submission.task.title}
@@ -276,16 +381,10 @@ function SubmissionCard({
               ? ""
               : ` (сейчас ${String(submission.task.currentVersion)})`}
           </span>
-          {reviewed ? (
-            <span className="inline-flex items-center gap-1 font-medium text-[color:var(--callout-good)]">
-              <Eye aria-hidden="true" className="size-3.5" />
-              Посмотрел автор
-            </span>
-          ) : null}
         </p>
       </header>
 
-      <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
+      <dl className="grid gap-3 rounded-xl bg-secondary/60 p-4 text-sm sm:grid-cols-[8rem_minmax(0,1fr)]">
         <dt className="text-muted-foreground">Ученик</dt>
         <dd className="grid min-w-0 gap-0.5">
           <span className="break-all font-mono text-xs">
@@ -330,7 +429,7 @@ function SubmissionCard({
           submissionId={submission.submissionId}
         />
       </div>
-    </li>
+    </article>
   );
 }
 
@@ -390,12 +489,16 @@ function Report({
     criteria.map((criterion) => [criterion.id, criterion]),
   );
   return (
-    <details className="group" data-submission-report>
-      <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+    <section
+      aria-label="Полный отчёт"
+      className="grid gap-4"
+      data-submission-report
+    >
+      <h3 className="text-lg font-semibold">
         {submission.reviewReport === null
           ? "Отчёт ученика из формы"
           : "Отчёт агента ученика"}
-      </summary>
+      </h3>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
         {submission.reviewReport === null
           ? "Текст ученика, не проверка Platform."
@@ -406,12 +509,12 @@ function Report({
           {submission.reportText}
         </p>
       ) : (
-        <ol className="mt-3 grid gap-3 text-sm leading-6">
+        <ol className="grid gap-5 text-sm leading-7">
           {submission.reviewReport.criteria.map((item) => {
             const criterion = requirementOf.get(item.criterionId);
             return (
               <li
-                className="grid gap-1 rounded-xl border border-border p-3"
+                className="grid gap-2 border-t border-border pt-4"
                 key={item.criterionId}
               >
                 <p className="flex flex-wrap items-baseline justify-between gap-2">
@@ -453,7 +556,7 @@ function Report({
           })}
         </ol>
       )}
-    </details>
+    </section>
   );
 }
 

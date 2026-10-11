@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
+import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -800,6 +801,11 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const submissions = await taskSubmissionsRoute(request, url, readBody);
+  if (submissions !== null) {
+    send(submissions.status, submissions.value);
+    return;
+  }
   if (url.pathname === "/__requests") {
     if (request.method === "DELETE") state.requests = [];
     send(200, { requests: state.requests });

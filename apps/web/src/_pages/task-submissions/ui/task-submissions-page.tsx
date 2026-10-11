@@ -1,5 +1,6 @@
 import { loadTaskSubmissions } from "../api/load-task-submissions.server";
 import { selectionHref } from "../model/task-submissions";
+import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import { TaskSubmissionsState } from "./task-submissions-states";
 import { TaskSubmissionsView } from "./task-submissions-view";
 
@@ -30,11 +31,7 @@ export async function TaskSubmissionsPage({
     single(params["cursor"]),
   );
   return outcome.kind === "ready" ? (
-    <TaskSubmissionsView
-      continued={outcome.continued}
-      selection={outcome.selection}
-      submissions={outcome.submissions}
-    />
+    <TaskSubmissionsView presentation={presentTaskSubmissions(outcome)} />
   ) : (
     <TaskSubmissionsState
       kind={outcome.kind}

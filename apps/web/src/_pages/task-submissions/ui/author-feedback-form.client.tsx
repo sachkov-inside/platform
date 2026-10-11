@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { CircleCheck, Save } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 
 import { formatSubmissionMoment } from "@/entities/product-task";
 import { Button } from "@/shared/ui/button";
@@ -11,8 +11,13 @@ import { saveAuthorFeedback } from "../api/save-author-feedback.browser";
 import {
   AUTHOR_COMMENT_MAX_CHARACTERS,
   type SaveAuthorFeedbackResult,
+  type SaveAuthorFeedbackInput,
 } from "../model/author-feedback";
 import type { AuthorFeedback } from "../model/task-submissions";
+import {
+  feedbackChanged,
+  useFeedbackDraft,
+} from "./task-submissions-runtime.client";
 
 const failures: Record<
   Exclude<SaveAuthorFeedbackResult["kind"], "saved">,
@@ -21,7 +26,8 @@ const failures: Record<
   invalid_input: `Отзыв не принят. Комментарий — до ${String(AUTHOR_COMMENT_MAX_CHARACTERS)} символов; если он короче, обнови страницу.`,
   forbidden: "Отзыв оставляет автор с правом materials:manage.",
   submission_not_found: "Сдача не найдена. Обнови страницу.",
-  unauthorized: "Сессия закончилась. Войди снова, текст останется в форме.",
+  unauthorized:
+    "Сессия закончилась. Войди на сайт в другой вкладке и повтори сохранение. Черновик здесь сохранён.",
   unavailable: "Не удалось сохранить. Попробуй ещё раз.",
 };
 
@@ -38,34 +44,45 @@ export function AuthorFeedbackForm({
   readonly submissionId: string;
 }) {
   const id = useId();
-  const [saved, setSaved] = useState(feedback);
-  const [comment, setComment] = useState(feedback?.comment ?? "");
-  const [reviewed, setReviewed] = useState(
-    feedback !== null && feedback.reviewedAt !== null,
-  );
+  const { draft, update } = useFeedbackDraft(submissionId, feedback);
+  const { saved, comment, reviewed, result } = draft;
   const mutation = useMutation({
-    mutationFn: () => saveAuthorFeedback({ submissionId, comment, reviewed }),
-    onSuccess: (result) => {
-      if (result.kind !== "saved") return;
-      setSaved(result.authorFeedback);
-      setComment(result.authorFeedback?.comment ?? "");
-      setReviewed(
-        result.authorFeedback !== null &&
-          result.authorFeedback.reviewedAt !== null,
+    mutationFn: (input: SaveAuthorFeedbackInput) => saveAuthorFeedback(input),
+    onSuccess: (outcome) => {
+      update((current) =>
+        outcome.kind === "saved"
+          ? {
+              ...current,
+              saved: outcome.authorFeedback,
+              comment: outcome.authorFeedback?.comment ?? "",
+              reviewed:
+                outcome.authorFeedback !== null &&
+                outcome.authorFeedback.reviewedAt !== null,
+              pending: false,
+              result: outcome,
+            }
+          : { ...current, pending: false, result: outcome },
       );
     },
+    onError: () => {
+      update((current) => ({
+        ...current,
+        pending: false,
+        result: { kind: "unavailable" },
+      }));
+    },
   });
-  const result = mutation.data;
-  const changed =
-    comment.trim() !== (saved?.comment ?? "") ||
-    reviewed !== (saved !== null && saved.reviewedAt !== null);
+  const changed = feedbackChanged(draft);
   return (
     <form
-      className="grid gap-3"
+      aria-label="Отзыв автора"
+      className="grid gap-4"
       data-author-feedback-form
       onSubmit={(event) => {
         event.preventDefault();
-        mutation.mutate();
+        if (!changed || draft.pending) return;
+        update((current) => ({ ...current, pending: true, result: null }));
+        mutation.mutate({ submissionId, comment, reviewed });
       }}
     >
       <label
@@ -73,12 +90,18 @@ export function AuthorFeedbackForm({
         htmlFor={`${id}-reviewed`}
       >
         <input
+          disabled={draft.pending}
           checked={reviewed}
           className="size-5 accent-[var(--accent)]"
           id={`${id}-reviewed`}
           name="reviewed"
           onChange={(event) => {
-            setReviewed(event.target.checked);
+            const value = event.target.checked;
+            update((current) => ({
+              ...current,
+              reviewed: value,
+              result: null,
+            }));
           }}
           type="checkbox"
         />
@@ -97,10 +120,12 @@ export function AuthorFeedbackForm({
         <textarea
           className="min-h-24 rounded-lg border border-input bg-card px-3 py-2 font-normal leading-6"
           id={`${id}-comment`}
+          disabled={draft.pending}
           maxLength={AUTHOR_COMMENT_MAX_CHARACTERS}
           name="comment"
           onChange={(event) => {
-            setComment(event.target.value);
+            const value = event.target.value;
+            update((current) => ({ ...current, comment: value, result: null }));
           }}
           value={comment}
         />
@@ -108,12 +133,12 @@ export function AuthorFeedbackForm({
       <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2">
         <Button
           className="min-h-11"
-          disabled={!changed || mutation.isPending}
+          disabled={!changed || draft.pending}
           type="submit"
           variant="outline"
         >
           <Save aria-hidden="true" />
-          {mutation.isPending ? "Сохраняем…" : "Сохранить отзыв"}
+          {draft.pending ? "Сохраняем…" : "Сохранить отзыв"}
         </Button>
         <p className="min-w-0 text-sm leading-6" role="status">
           {result?.kind === "saved" && !changed ? (
@@ -131,7 +156,7 @@ export function AuthorFeedbackForm({
           )}
         </p>
       </div>
-      {result === undefined || result.kind === "saved" ? null : (
+      {result === null || result.kind === "saved" ? null : (
         <p className="text-sm leading-6 text-destructive" role="alert">
           {failures[result.kind]}
         </p>
