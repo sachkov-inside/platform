@@ -18,11 +18,7 @@
       },
       "axeViolations": 0,
       "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
-      "nativeEscapeCancels": true,
-      "cancelRestoresTrigger": true,
-      "confirmedOnce": true,
-      "returnedSavedRevisionVerified": true,
-      "reloadAndNewContextReadSavedEligibility": true
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
     },
     {
       "project": "mobile-chromium",
@@ -39,11 +35,7 @@
       },
       "axeViolations": 0,
       "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
-      "nativeEscapeCancels": true,
-      "cancelRestoresTrigger": true,
-      "confirmedOnce": true,
-      "returnedSavedRevisionVerified": true,
-      "reloadAndNewContextReadSavedEligibility": true
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
     },
     {
       "project": "mobile-chromium",
@@ -60,6 +52,30 @@
       },
       "axeViolations": 0,
       "keyboard": "initial Cancel; Tab Confirm; Shift+Tab Cancel",
+      "scope": "Per-capture geometry, axe and trusted keyboard measurements only."
+    }
+  ],
+  "scenarios": [
+    {
+      "project": "desktop-chromium",
+      "executionViewport": {
+        "width": 1440,
+        "height": 1024
+      },
+      "scope": "Scenario operations execute after restoring the original project viewport; the 320 screenshot proves capture-only facts.",
+      "nativeEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmedOnce": true,
+      "returnedSavedRevisionVerified": true,
+      "reloadAndNewContextReadSavedEligibility": true
+    },
+    {
+      "project": "mobile-chromium",
+      "executionViewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scope": "Scenario operations execute after restoring the original project viewport; the 320 screenshot proves capture-only facts.",
       "nativeEscapeCancels": true,
       "cancelRestoresTrigger": true,
       "confirmedOnce": true,
