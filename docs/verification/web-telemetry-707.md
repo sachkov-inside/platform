@@ -105,6 +105,32 @@ in Cloud and remain historical evidence.
 
 ## Repeatable CI resource evidence
 
+The first canonical CI resource run on 11 October also failed with exit 1: the first cold p75
+query took 550.389 ms; the other 39 took 127.671–161.827 ms. Schema maximum was 579,600,384 bytes
+and cleanup maximum 1,865.439 ms. All 32 cycles completed. The [complete result](web-telemetry-854-ci.json)
+binds the actual synthetic merge checkout SHA and [raw artifact](https://github.com/sachkov-inside/platform/actions/runs/38132644848/artifacts/11700286107).
+The first call remains part of the criterion. A warm result does not override this failure.
+
+The exact query now selects percentile rank neighbours using the compact value/day index added by
+`0088`, with completed-day coverage counts and a same-snapshot current-day count. The stored UTC day
+is derived from the original timestamp; the current-day branch preserves the exact upper bound.
+The index uses ordered network bytes of nonnegative finite floats (with signed zero canonicalized)
+to permit B-tree deduplication; interpolation still uses original floats, without rounding. Regression
+cases include subnormal, adjacent and very large finite values, and compare all output groups against the full
+`percentile_cont(0.75)` query, including lower/upper time boundaries and future current-day records.
+Both UNION inputs explicitly order their keys so the planner can merge the index tail with today's
+small sample instead of sorting all retained samples. The resource harness, corpus, 40 timings,
+32 cycles and limits remain unchanged. A successful canonical result is required; this
+implementation change alone is not successful resource evidence.
+
+Local diagnostics of the uncommitted `0088`/query changes from base `e5b071ce` confirmed the plan
+uses `Merge Append` and a backward index-only scan (zero heap fetches), reading 355 index blocks
+instead of sorting the full corpus. The extra EXPLAIN measured 106.282 ms. A separate fresh-corpus
+diagnostic measured eight p75 calls: first 89.612 ms, maximum 147.944 ms; initial schema size was
+521,977,856 bytes and all sample indexes occupied 11,616,256 bytes. Both diagnostics used the exact
+cached PostgreSQL digest and effective two-CPU/1-GiB limits, but **zero maintenance cycles**. They
+explain the query change; they do not replace the unchanged canonical 40-call/32-cycle acceptance.
+
 Integration CI runs the same `pnpm telemetry:measure` command over a fresh PostgreSQL pinned to
 the canonical immutable image. The harness verifies effective two-CPU/1-GiB limits and reports
 the actual checkout SHA, image ID and Node version alongside all 40 timings and 32 cycles.

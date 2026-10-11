@@ -1,4 +1,7 @@
-import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
+import {
+  createPrismaClient,
+  Prisma,
+} from "../../src/infrastructure/prisma/index.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import {
@@ -11,7 +14,13 @@ import { registerWebTelemetryTool } from "../../src/modules/web-telemetry/index.
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import {
+  migrateToLatest,
+  platformMigrations,
+} from "../../src/migrations/index.js";
+import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import {
   createMigratedTestDatabase,
+  createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
 
@@ -37,6 +46,38 @@ const vital = (value: number) => ({
   mobile: true,
   metrics: [{ name: "LCP", value }],
 });
+it("preserves telemetry and exact p75 when upgrading the 0087 index", async () => {
+  const previous = await createTestDatabase();
+  try {
+    await runMigrationsToLatest(previous.url, platformMigrations.slice(0, -1));
+    const existing = new WebTelemetry({
+      prisma: previous.prisma,
+      clock: () => new Date("2026-10-08T12:00:00Z"),
+      accounts: {
+        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+      },
+    });
+    for (const value of [100, 200, 300, 400])
+      expect(await existing.record(vital(value))).toEqual({ ok: true });
+    const before: unknown = await previous.prisma.$queryRaw`
+      SELECT percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75,
+       count(*)::float8 AS saved FROM web_telemetry.vital_samples
+    `;
+    expect(before).toEqual([{ p75: 325, saved: 4 }]);
+    expect(await migrateToLatest(previous.url)).toEqual({
+      appliedMigrations: ["0088_web_telemetry_percentile_index"],
+    });
+    expect(await existing.summary("owner", 30)).toMatchObject({
+      ok: true,
+      value: { vitals: [{ p75: 325, saved: 4 }] },
+    });
+    expect(await migrateToLatest(previous.url)).toEqual({
+      appliedMigrations: [],
+    });
+  } finally {
+    await previous.dispose();
+  }
+});
 it("reports deterministic p75 without storing a raw path or visitor identity", async () => {
   for (const value of [100, 200, 300, 400])
     await telemetry.record(vital(value));
@@ -58,6 +99,117 @@ it("reports deterministic p75 without storing a raw path or visitor identity", a
     },
   });
 });
+
+it.each([
+  [[7], 7],
+  [[0, 4], 3],
+  [[1, 2, 3], 2.5],
+  [[2, 8, 13, 19], 14.5],
+  [[0, 1, 2, 3, 4], 3],
+  [[0, 1, 2, 3, 4, 5, 6], 4.5],
+  [[7, 7, 7, 8], 7.25],
+  [[0, 0, 0, 1], 0.25],
+  [[1e-200, 1e-100, 1e100], 5e99],
+  [[0, 1e-200, 1e-100, 1e100], 2.5e99],
+] as const)("keeps exact continuous p75 for %j", async (values, expected) => {
+  for (const value of values) await telemetry.record(vital(value));
+  expect(await telemetry.summary("owner", 30)).toMatchObject({
+    ok: true,
+    value: { vitals: [{ p75: expected, saved: values.length }] },
+  });
+});
+
+it.each([
+  [-0, 0, Number.MIN_VALUE, Number.MIN_VALUE * 2],
+  [Number.MIN_VALUE, Number.MIN_VALUE * 2, Number.MIN_VALUE * 3],
+  [1, 1 + Number.EPSILON, 1 + Number.EPSILON * 2, 1 + Number.EPSILON * 3],
+  [1e300, 2e300, Number.MAX_VALUE],
+  [0, Number.MAX_VALUE],
+])(
+  "matches PostgreSQL interpolation for finite edge values %j",
+  async (...values) => {
+    for (const value of values) {
+      if (Object.is(value, -0)) {
+        await database.prisma.$executeRaw`
+        SELECT web_telemetry.record_vital(${instant},'/products/[slug]','mobile','LCP','-0'::float8)
+      `;
+      } else expect(await telemetry.record(vital(value))).toEqual({ ok: true });
+    }
+    const expected: unknown = await database.prisma.$queryRaw`
+    SELECT percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75
+    FROM web_telemetry.vital_samples
+  `;
+    const actual = await telemetry.summary("owner", 30);
+    expect(actual.ok).toBe(true);
+    if (!actual.ok) throw new Error(actual.error.code);
+    expect(actual.value.vitals.map(({ p75 }) => ({ p75 }))).toEqual(expected);
+  },
+);
+
+it.each([1, 7, 30])(
+  "matches the full percentile query across groups, completed days and partial today (%i days)",
+  async (days) => {
+    const midnight = new Date(instant);
+    midnight.setUTCHours(0, 0, 0, 0);
+    const from = new Date(midnight);
+    from.setUTCDate(from.getUTCDate() - days + 1);
+    const times = [
+      new Date(from.getTime() - 1),
+      from,
+      new Date(midnight.getTime() - 1),
+      midnight,
+      new Date(instant.getTime() - 1),
+      instant,
+      new Date(instant.getTime() + 1),
+    ];
+    for (const [index, at] of times.entries()) {
+      const atTime = new WebTelemetry({
+        prisma: database.prisma,
+        clock: () => at,
+        accounts: {
+          checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+        },
+      });
+      for (const mobile of [true, false]) {
+        for (const route of ["/products/private", "/learn/private"]) {
+          expect(
+            await atTime.record({
+              kind: "vitals",
+              route,
+              mobile,
+              metrics: [
+                { name: "LCP", value: index * 19 + 0.25 },
+                { name: "INP", value: index * 7 + 0.5 },
+                { name: "CLS", value: index / 10 },
+              ],
+            }),
+          ).toEqual({ ok: true });
+        }
+      }
+    }
+    const expected: unknown = await database.prisma.$queryRaw(Prisma.sql`
+      SELECT r.route_template,s.device_class,s.metric,
+       percentile_cont(0.75) WITHIN GROUP (ORDER BY s.value) AS p75
+      FROM web_telemetry.vital_samples s JOIN web_telemetry.route_templates r ON r.id=s.route_id
+      WHERE s.occurred_at>=${from} AND s.occurred_at<=${instant}
+      GROUP BY r.route_template,s.device_class,s.metric
+      ORDER BY r.route_template,s.device_class,s.metric
+    `);
+    const actual = await telemetry.summary("owner", days);
+    expect(actual.ok).toBe(true);
+    if (!actual.ok) throw new Error(actual.error.code);
+    expect(
+      actual.value.vitals.map(
+        ({ route_template, device_class, metric, p75 }) => ({
+          route_template,
+          device_class,
+          metric,
+          p75,
+        }),
+      ),
+    ).toEqual(expected);
+  },
+);
 
 it("requires the real platform admin permission and respects its revocation", async () => {
   const accounts = assembleAccounts({

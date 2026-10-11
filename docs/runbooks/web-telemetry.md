@@ -40,6 +40,15 @@ include client/server counts; the list returns the 100 largest groups with stabl
 Coverage includes all admitted metric kinds and errors. It counts individual metrics, not HTTP
 requests or visits. There is no visitor counter or account page in this scope.
 
+The p75 query uses exact order statistics, not a sampled/approximate percentile. Atomic coverage
+counts completed UTC days; the current partial day is counted from samples in the same SQL snapshot.
+The value/day index stores the network bytes of each nonnegative finite float, canonicalizing signed
+zero; this preserves numeric order and permits B-tree deduplication of equal keys. It selects the two
+neighbouring ranks from the descending upper quarter. Its UTC day is generated from the retained
+timestamp; the current-day branch still checks that exact timestamp. PostgreSQL `percentile_cont`
+interpolates the original floats. Singleton, integral rank, ties, subnormal/large finite values,
+dropped-only groups, date boundaries and future records retain the full-query result.
+
 The completeness flag describes the storage quota. Existing minute ceilings and transport/database
 failures remain visible in structured logs; their losses cannot be reconstructed from database
 counters alone. The stored sample is therefore operational telemetry, not a visitor census.
@@ -98,9 +107,14 @@ budget, and removes its database in `finally`. The final Issue/PR records measur
 machine conditions. The [resource proof](../verification/web-telemetry-707.md) records the accepted
 corpus, all 32 cycles, timings and API memory method.
 
-Migration `0087_web_telemetry` only adds its own schema. Existing application tables and query
-contracts stay unchanged. The release contract nevertheless compares exact schema identities;
-this migration changes that identity. Rollback to the previous application release is therefore
+Migration `0087_web_telemetry` adds its own schema; `0088_web_telemetry_percentile_index` derives
+the stored UTC day and binary value key, then replaces its summary index with the compact value/day
+index. It backfills both derived fields in one table rewrite; allow for that rewrite and index build
+in maintenance.
+Apply both through the ordered
+migration entrypoint. Existing application tables and query contracts stay unchanged.
+The release contract nevertheless compares exact schema identities; both migrations change that
+identity. Rollback to the previous application release is therefore
 not allowed by the current release contract, even with compatible old queries. Failure after
 migration requires repair forward. The production Compose smoke owns fresh, prefix-upgrade and
 frozen N-1 query proofs.

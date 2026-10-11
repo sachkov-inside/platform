@@ -93,7 +93,11 @@ Docker CLI. Каждый случай
    → drain старых workers → migrations → новые процессы → readiness/schema/version → read-only smoke
    → public routes → journal. Все Platform migrations идут в порядке `platformMigrations`, затем
    converges pg-boss. Не выполнять отдельную `0087` через psql и не править checksums старых миграций.
-5. `0087_web_telemetry` создаёт schema, quota/coverage routines и `web_telemetry.health`. Billing-worker
+5. `0087_web_telemetry` создаёт schema, quota/coverage routines и `web_telemetry.health`;
+   следующая `0088_web_telemetry_percentile_index` вычисляет stored UTC day из `occurred_at` и
+   бинарный ключ исходного float, затем заменяет summary index для точного p75. Оба поля заполняются
+   одним table rewrite; учесть rewrite/index build в maintenance.
+   Не менять checksum `0087` и не выполнять эти миграции вручную. Billing-worker
    запускает retention при старте и ежедневно в 03:00 UTC (06:00 по Москве). Только после миграций
    deploy устанавливает watchdog из exact backend image. Проверить установку: её warning не отменяет
    deploy автоматически и не считается готовым мониторингом.
@@ -169,7 +173,7 @@ Binding key сохраняется между выпусками, иначе р�
 
 - До миграций: read-only preflight отказывает без изменений. При отказе после maintenance сохранить
   operation/journal; повторять exact version штатным deploy, не повторять неизвестный SSH write.
-- После `0087`: schema identity изменилась. **Application rollback на предыдущую schema запрещён**
+- После `0087`/`0088`: schema identity изменилась. **Application rollback на предыдущую schema запрещён**
   текущим release contract; сохранить данные и выпустить repair forward следующим ordinal.
   Не выполнять down migration, restore поверх live или редактирование state/journal вручную.
 - При одинаковой schema identity manifest может разрешать rollback только на recorded previous
