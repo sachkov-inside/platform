@@ -73,8 +73,13 @@ function moduleSpecifiers(program) {
   return specifiers;
 }
 
+const sqlIdentifier = String.raw`(?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*)`;
 const sqlTableReference = new RegExp(
-  String.raw`(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+((?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*)(?:\s*\.\s*(?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*))?)`,
+  String.raw`(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+(?:lateral\s+)?((?!lateral\b)${sqlIdentifier}(?:\s*\.\s*${sqlIdentifier})?)`,
+  "giu",
+);
+const sqlCteDeclaration = new RegExp(
+  String.raw`(?:\bwith(?:\s+recursive)?|,)\s*(${sqlIdentifier})(?:\s*\([^)]*\))?\s+as\s+(?:(?:not\s+)?materialized\s+)?\(`,
   "giu",
 );
 
@@ -85,9 +90,16 @@ function normalizeSqlIdentifier(identifier) {
 
 /** @param {string} sqlText */
 function referencesFromSql(sqlText) {
-  return [...sqlText.matchAll(sqlTableReference)].flatMap((match) =>
-    match[1] === undefined ? [] : [normalizeSqlIdentifier(match[1])],
+  const ctes = new Set(
+    [...sqlText.matchAll(sqlCteDeclaration)].flatMap((match) =>
+      match[1] === undefined ? [] : [normalizeSqlIdentifier(match[1])],
+    ),
   );
+  return [...sqlText.matchAll(sqlTableReference)].flatMap((match) => {
+    if (match[1] === undefined) return [];
+    const reference = normalizeSqlIdentifier(match[1]);
+    return ctes.has(reference) ? [] : [reference];
+  });
 }
 
 /** @param {Program} program */
@@ -113,7 +125,9 @@ function databaseTableReferences(program) {
           .join("${}");
         references.push(...referencesFromSql(sqlText));
         if (
-          /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+\$\{/iu.test(sqlText)
+          /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+(?:lateral\s+)?\$\{/iu.test(
+            sqlText,
+          )
         ) {
           unresolved.push("sql template table identifier");
         }

@@ -78,6 +78,7 @@ beforeAll(async () => {
       "0085_community_projection_retries",
       "0086_product_cohort_price_after_start",
       "0087_web_telemetry",
+      "0088_web_telemetry_percentile_index",
     ],
   });
   await database.prisma.topic.create({
