@@ -53,9 +53,16 @@ Raw preparation receipts сохранены в игнорируемом
 `ci-artifacts/evidence/issue-781/preparation/` собственного worktree.
 
 Desktop/mobile captures, overflow на 320/390/1440, доверенные keyboard checks,
-axe, Storybook MCP test-run, final pnpm check и независимое ревью пока **не выполнены**.
+axe, Storybook MCP test-run и final pnpm check пока **не выполнены**.
 Общий runtime-слот принадлежит release blockers; факт выполнения будет записан
 после выделенного запуска. Визуального принятия владельцем ещё нет.
+
+Независимое source review исходного `95b95072` нашло один Spec P2: в некоторых
+браузерах click не фокусирует кнопку, поэтому сохранение `activeElement` не
+гарантировало возврат на кнопку продажи. В `55b68b533b9649fe10863ddf08e986fbcda53f48`
+proof-local capture сохраняет саму активированную кнопку. История проверяет native
+click, пока фокус остаётся на select. Повторные Standards и Spec review этого
+committed head: по 0 оставшихся или новых замечаний. Это source review, не runtime GO.
 
 ## Следующий шаг
 
