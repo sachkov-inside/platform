@@ -5,14 +5,17 @@ import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
 import { loadProductCohort } from "@/entities/subscription.catalog.server";
 import {
   readGuestProductSale,
+  readProductAccess,
   readViewerProductSale,
 } from "@/entities/subscription.sale.server";
 import {
   CohortCallView,
+  courseLearningAction,
   CohortStatusView,
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
+import { getSeriesContinuation } from "@/features/reading-progress.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 import { cohortCall } from "../model/cohort-call";
@@ -42,6 +45,25 @@ export async function PersonalCohortCall({
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return <PendingCohortCall slug={slug} />;
   const accessToken = await getOptionalPlatformAccessToken();
+  if (
+    accessToken !== undefined &&
+    (await readProductAccess(productId, accessToken)) === "open"
+  ) {
+    const progress = await getSeriesContinuation(slug, accessToken);
+    return (
+      <CohortCallView
+        call={{
+          banner: null,
+          action: courseLearningAction(
+            slug,
+            progress.kind === "ready"
+              ? (progress.continuation?.materialSlug ?? null)
+              : null,
+          ),
+        }}
+      />
+    );
+  }
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));

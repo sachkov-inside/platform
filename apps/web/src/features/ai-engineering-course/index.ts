@@ -1,4 +1,5 @@
 export { CourseFilm } from "./ui/course-film.client";
+export { courseLearningAction } from "./model/course-learning-action";
 export {
   CohortCallView,
   type CohortAction,

@@ -18,7 +18,7 @@ export function ProductLandingSkeleton() {
       <HideMobileNavigation />
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
         <div className="pt-4" data-product-part="back">
-          <div className={`h-10 w-44 rounded-full bg-secondary ${pulse}`} />
+          <div className={`h-11 w-44 rounded-lg bg-secondary ${pulse}`} />
         </div>
         <div
           className="mt-3 rounded-[1.75rem] bg-muted p-4"

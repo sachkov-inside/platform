@@ -316,6 +316,19 @@ async function ResolvedMaterialReader({
     >
       <ProductModeProvider initialMode={productMode}>
         <MaterialReaderView
+          topReadingAction={
+            <SavedReadingAction
+              compact
+              materialId={result.material.materialId}
+              format={result.material.format.slug}
+            />
+          }
+          topBookmarkAction={
+            <SavedBookmarkAction
+              compact
+              materialId={result.material.materialId}
+            />
+          }
           readingAction={
             <SavedReadingAction
               key={result.material.materialId}

@@ -8,7 +8,10 @@ import {
   oneTimeOfferTerms,
   oneTimeTermLabels,
 } from "@/features/billing-checkout.terms";
-import type { CohortCall } from "@/features/ai-engineering-course";
+import {
+  courseLearningAction,
+  type CohortCall,
+} from "@/features/ai-engineering-course";
 import type { ProductAccess } from "@/features/library-discovery";
 import {
   productProgrammeHref,
@@ -32,6 +35,7 @@ export function cohortCall({
   productAccess,
   signedIn,
   slug,
+  continuationMaterialSlug = null,
 }: {
   readonly cohort: ProductCohort | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
@@ -40,6 +44,7 @@ export function cohortCall({
   readonly productAccess: ProductAccess;
   readonly signedIn: boolean;
   readonly slug: string;
+  readonly continuationMaterialSlug?: string | null;
 }): CohortCall {
   const programme = productProgrammeHref(slug);
   const openProgramme = {
@@ -47,11 +52,16 @@ export function cohortCall({
     href: programme,
     label: "Открыть программу",
   } as const;
+  if (productAccess === "open")
+    return {
+      banner: null,
+      action: courseLearningAction(slug, continuationMaterialSlug),
+    };
   if (cohort === null) return { banner: null, action: null };
 
   const date =
     cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
-  const payable = offer !== null && productAccess !== "open";
+  const payable = offer !== null;
   const pay = (label: string) =>
     payable
       ? ({ kind: "purchase", href: productPurchaseHref(slug), label } as const)

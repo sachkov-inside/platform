@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
 import {
@@ -23,6 +24,7 @@ import {
 } from "./material-reader-view";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+import { ReaderTopActions } from "./reader-top-actions.client";
 
 /**
  * Скелет маршрута: об уроке ещё ничего не известно. Он собран из рамки самого ридера — кнопка
@@ -34,12 +36,18 @@ export function MaterialReaderLoading() {
     <div
       aria-busy="true"
       aria-label="Материал загружается"
+      role="region"
       className="@container/material-reader min-h-svh"
       data-material-reader-state="loading"
       data-route-skeleton="material-reader"
     >
-      <div className="mx-auto mb-6 max-w-[43rem]" data-reader-return="top">
-        <div className="h-11 w-44 max-w-full rounded-full bg-muted" />
+      <div className="mx-auto mb-6 max-w-[43rem]" data-reader-top-frame>
+        <div aria-hidden="true">
+          <ReaderTopActions
+            context={null}
+            returnAction={<span className="h-5 w-36 rounded-md bg-muted" />}
+          />
+        </div>
       </div>
       <div className="mx-auto min-w-0 max-w-[43rem]">
         <div
@@ -77,12 +85,29 @@ export function MaterialReaderPending({
       data-material-id={material.materialId}
       data-material-reader-state="pending"
     >
-      <ReaderReturnNavigation repeatAtBottom={false} target={returnTarget}>
+      <ReaderReturnNavigation
+        repeatAtBottom={false}
+        hideReturn={seriesContext !== null}
+        target={returnTarget}
+        topNavigation={
+          <ReaderTopActions
+            context={seriesContext}
+            format={material.format.slug}
+            returnAction={
+              <CatalogBackLink
+                href={returnTarget.href}
+                label={returnTarget.label}
+              />
+            }
+          />
+        }
+      >
         <div className="mx-auto min-w-0 max-w-[43rem]">
           <MaterialReaderHeader material={material} />
           <div
             aria-busy="true"
             aria-label="Текст материала загружается"
+            role="region"
             data-route-skeleton="material-reader"
           >
             <ReaderBodySkeleton />
@@ -195,7 +220,20 @@ export function MaterialReaderAccess({
       <div data-material-reader-state="access-required">
         <ReaderReturnNavigation
           repeatAtBottom={seriesContext === null}
+          hideReturn={seriesContext !== null}
           target={returnTarget}
+          topNavigation={
+            <ReaderTopActions
+              context={seriesContext}
+              format={material.format.slug}
+              returnAction={
+                <CatalogBackLink
+                  href={returnTarget.href}
+                  label={returnTarget.label}
+                />
+              }
+            />
+          }
         >
           <div className="mx-auto max-w-[43rem]">
             <MaterialReaderHeader material={material} />
