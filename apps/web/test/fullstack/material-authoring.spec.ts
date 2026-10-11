@@ -432,7 +432,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       .filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
-  let primaryFailed = false;
+  let failure: { readonly error: unknown } | undefined;
   try {
     await installPlaybackProviderDouble(page);
     const { promise: playbackGate, resolve: releasePlayback } =
@@ -664,8 +664,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       videoId: replacementVideoId,
     });
   } catch (error) {
-    primaryFailed = true;
-    throw error;
+    failure = { error };
   } finally {
     // A failed seek must not leave a published Video in the next test's feed.
     try {
@@ -679,13 +678,17 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
         row.getByText("Снят с публикации", { exact: true }),
       ).toBeVisible({ timeout: 15_000 });
     } catch (error) {
-      if (!primaryFailed) throw error;
-      await testInfo.attach("published-video-cleanup-failure", {
-        body: String(error),
-        contentType: "text/plain",
-      });
+      if (failure === undefined) {
+        failure = { error };
+      } else {
+        await testInfo.attach("published-video-cleanup-failure", {
+          body: String(error),
+          contentType: "text/plain",
+        });
+      }
     }
   }
+  if (failure !== undefined) throw failure.error;
 });
 
 test("explicitly requests deletion of a Platform-uploaded Video through autosave", async ({

@@ -67,6 +67,14 @@ at trace time 51825.7 contains the actual loading region, without a hidden ances
 a measurement of an invisible retained page. Backend delay was 700 ms, but this transition took
 about 25 ms; blaming backend timeout or runner load is unsupported.
 
+Exact case in `apps/web/test/navigation/instant-navigation.spec.ts`:
+`намерение предзагружает общую часть урока: переход без скелета даже при медленном backend`.
+The failed destination was
+`/materials/navigation-lesson-2?from=%2Fproducts%2Fnavigation-proof%2Fprogramme%3Fpage%3D1%26at%3Dnavigation-lesson-2`.
+On a prepared production build, run
+`PRODUCTION_WEB_SKIP_BUILD=1 pnpm --filter @inside/web test:navigation --project=mobile-chromium --grep='намерение предзагружает общую часть урока' --repeat-each=5 --retries=0`
+through the normal heavy guard; each sample gets an independent browser context.
+
 Five fresh independent mobile samples on `37eb1f7c6fd2d4519d12850eada5f1d6a75945bd` used the
 existing production build, `--repeat-each=5 --retries=0`, and passed 5/5. Browser execution took
 9.1 seconds; the Docker/CA/server wrapper took 23.941 seconds. No navigation implementation was
