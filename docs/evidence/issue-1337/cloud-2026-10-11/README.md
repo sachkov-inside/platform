@@ -54,6 +54,25 @@ took 55 seconds, the clean stack smoke 71 and restart/persistence proof 66; both
 The cache-only CI proof now splits exact-source image preparation and admitted runtime into
 separate Actions log groups, retaining all runtime assertions and forbidding runtime builds/pulls.
 
+## Runtime proof after review corrections
+
+[Run 38127140383](https://github.com/sachkov-inside/platform/actions/runs/38127140383), attempt 1,
+tested `44ba65fb138ad92f7928c2ec4d14694610d49634`: all nine jobs and CI Gate passed.
+[Its timestamps](runtime-ci-timings.json) show two-second runner queue per job. Unit setup took
+35 seconds and execution 618; UI 56/161 and Web E2E 48/284. Within the cache proof, image
+preparation took 69.746 seconds and the admitted runtime reached its full success marker in
+143.633 seconds. Both normal and cache-only production smoke retained every runtime assertion.
+This is a pass for that Source, not the later nightly test changes or the final PR HEAD.
+
+## Nightly diagnosis and explicit remaining boundaries
+
+[The nightly handoff](nightly-handoff.md) records the failing main commits, native reproductions,
+verified selector/isolation corrections and two remaining navigation failures. The focused native
+check on `37eb1f7c6fd2d4519d12850eada5f1d6a75945bd` had 13 passes and one Video URL failure;
+it is RED. Five independent navigation samples passed but do not diagnose or close #1338.
+The final PR check links identify the final HEAD; merge queue and fresh main nightly confirmation
+belong to the orchestrator. Production acceptance remains in #854.
+
 ## Local check recommendations
 
 Use pinned Node 26.10.0 and pnpm 11.27.1, the frozen lockfile and `scripts/heavy-check.sh`.
@@ -64,3 +83,9 @@ dev/prod smoke for runtime, image or Compose changes. A UI-only edit does not ju
 all runtime images before each iteration. Preserve the final whole check and relevant real-boundary
 proofs. Record dependency/browser preparation separately from command execution and runner queue.
 Do not infer local savings by summing parallel CI job times or by treating a warm pull as no network.
+
+The measured Unit job's longest individual process contracts were production deployment state
+machine (178.96 seconds), owned-command supervision (63.57), missing identity settings (51.06),
+and heavy-slot/parent-kill behavior (45.16). These real process/failure boundaries are meaningful
+coverage: select their owners during iteration, then keep the complete final check. No observed
+sample establishes P50/P95, a ten-run stability series, or a guaranteed local speedup.
