@@ -210,12 +210,15 @@ export function MaterialPrimaryVideo({
             seeking = false;
           }
         };
-        const seekToFragment = () => {
-          const seconds = readVideoTimeFragment(window.location.hash, duration);
+        const seekToFragment = (event: HashChangeEvent) => {
+          // A pending router commit can rewrite location before this event is delivered.
+          // Native events retain the requested URL; same-chapter clicks use a synthetic event.
+          const href = event.newURL === "" ? window.location.href : event.newURL;
+          const seconds = readVideoTimeFragment(new URL(href).hash, duration);
           if (!isActive() || seconds === null) return;
           // Native hash navigation leaves Next's canonical URL behind. Its next refresh
           // must retain this moment, including a chapter selected while the SDK is seeking.
-          window.history.replaceState(null, "", window.location.href);
+          window.history.replaceState(null, "", href);
           void seekToMoment(seconds).catch(() => {
             if (isActive()) setPhase("error");
           });
