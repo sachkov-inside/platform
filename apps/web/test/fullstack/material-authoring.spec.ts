@@ -432,262 +432,263 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       .filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
-  await installPlaybackProviderDouble(page);
-  const { promise: playbackGate, resolve: releasePlayback } =
-    Promise.withResolvers<undefined>();
-  const { promise: playbackRequested, resolve: requestedPlayback } =
-    Promise.withResolvers<undefined>();
-  await page.route("**/api/material-video-playback-sessions", async (route) => {
-    requestedPlayback(undefined);
-    await playbackGate;
-    await route.continue();
-  });
-  const readerResponse = await page.goto(`/materials/${slug}`);
-  expect(readerResponse?.headers()["content-security-policy"]).toContain(
-    "frame-src https://kinescope.io",
-  );
-  expect(readerResponse?.headers()["content-security-policy"]).toContain(
-    "script-src 'self' 'unsafe-inline' https://player.kinescope.io",
-  );
-  await expect(page.getByRole("region", { name: "Видео" })).toBeVisible();
-  await playbackRequested;
-  await expect(
-    page.getByRole("button", { name: "Загрузить видео" }),
-  ).toHaveCount(0);
-  await expect(page.locator("iframe")).toHaveCount(0);
-  expect(providerRequests).toEqual([]);
-  releasePlayback(undefined);
-  const player = page.locator("[data-video-player-mount] iframe");
-  await expect(player).toBeVisible();
-  await expect(player).toHaveAttribute("data-autoplay", "false");
-  await expect(player).toHaveAttribute("data-preload", "metadata");
-  const materialId = await page
-    .getByRole("main")
-    .locator("[data-material-id]")
-    .getAttribute("data-material-id");
-  const videoId = await page
-    .getByRole("main")
-    .locator("[data-video-id]")
-    .getAttribute("data-video-id");
-  if (typeof materialId !== "string" || typeof videoId !== "string") {
-    throw new Error("Video identity evidence is missing");
-  }
-  const session = await (
-    await fullStackPageRequest(page)
-  ).post("/api/material-video-playback-sessions", {
-    headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId },
-  });
-  expect(session.status()).toBe(200);
-  await expect(session.json()).resolves.toMatchObject({
-    drmAuthToken: null,
-    progressScope: "account",
-    videoId,
-  });
-  const anonymousSession = await request.post(
-    "/api/material-video-playback-sessions",
-    {
+  let failure: { readonly error: unknown } | undefined;
+  try {
+    await installPlaybackProviderDouble(page);
+    const { promise: playbackGate, resolve: releasePlayback } =
+      Promise.withResolvers<undefined>();
+    const { promise: playbackRequested, resolve: requestedPlayback } =
+      Promise.withResolvers<undefined>();
+    await page.route(
+      "**/api/material-video-playback-sessions",
+      async (route) => {
+        requestedPlayback(undefined);
+        await playbackGate;
+        await route.continue();
+      },
+    );
+    const readerResponse = await page.goto(`/materials/${slug}`);
+    expect(readerResponse?.headers()["content-security-policy"]).toContain(
+      "frame-src https://kinescope.io",
+    );
+    expect(readerResponse?.headers()["content-security-policy"]).toContain(
+      "script-src 'self' 'unsafe-inline' https://player.kinescope.io",
+    );
+    await expect(page.getByRole("region", { name: "Видео" })).toBeVisible();
+    await playbackRequested;
+    await expect(
+      page.getByRole("button", { name: "Загрузить видео" }),
+    ).toHaveCount(0);
+    await expect(page.locator("iframe")).toHaveCount(0);
+    expect(providerRequests).toEqual([]);
+    releasePlayback(undefined);
+    const player = page.locator("[data-video-player-mount] iframe");
+    await expect(player).toBeVisible();
+    await expect(player).toHaveAttribute("data-autoplay", "false");
+    await expect(player).toHaveAttribute("data-preload", "metadata");
+    const materialId = await page
+      .getByRole("main")
+      .locator("[data-material-id]")
+      .getAttribute("data-material-id");
+    const videoId = await page
+      .getByRole("main")
+      .locator("[data-video-id]")
+      .getAttribute("data-video-id");
+    if (typeof materialId !== "string" || typeof videoId !== "string") {
+      throw new Error("Video identity evidence is missing");
+    }
+    const session = await (
+      await fullStackPageRequest(page)
+    ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
       multipart: { materialId, videoId },
-    },
-  );
-  expect(anonymousSession.status()).toBe(200);
-  await expect(anonymousSession.json()).resolves.toMatchObject({
-    drmAuthToken: null,
-    progressScope: "anonymous",
-    resumeSeconds: null,
-    videoId,
-  });
-
-  const progress = await (
-    await fullStackPageRequest(page)
-  ).put("/api/material-video-progress", {
-    headers: { origin: new URL(page.url()).origin },
-    multipart: {
-      durationSeconds: "120",
-      materialId,
-      positionSeconds: "37",
+    });
+    expect(session.status()).toBe(200);
+    await expect(session.json()).resolves.toMatchObject({
+      drmAuthToken: null,
+      progressScope: "account",
       videoId,
-    },
-  });
-  expect(progress.status()).toBe(200);
-  await expect(progress.json()).resolves.toEqual({ kind: "saved" });
-  const resumedSession = await (
-    await fullStackPageRequest(page)
-  ).post("/api/material-video-playback-sessions", {
-    headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId },
-  });
-  expect(resumedSession.status()).toBe(200);
-  await expect(resumedSession.json()).resolves.toMatchObject({
-    progressScope: "account",
-    resumeSeconds: 37,
-    videoId,
-  });
-  await page.reload();
-  await expect(
-    page.locator("[data-video-player-mount] iframe"),
-  ).toHaveAttribute("data-seek-seconds", "37");
-  // Explicit chapter links win over saved resume, including zero and same-page hash changes.
-  await page.goto(`/materials/${slug}#t=3`);
-  await expect(
-    page.locator("[data-video-player-mount] iframe"),
-  ).toHaveAttribute("data-seek-seconds", "3");
-  await page.evaluate(() => {
-    window.location.hash = "t=0";
-  });
-  await expect(
-    page.locator("[data-video-player-mount] iframe"),
-  ).toHaveAttribute("data-seek-seconds", "0");
-  await page.evaluate(() => {
-    window.location.hash = "t=261";
-  });
-  await expect(
-    page.locator("[data-video-player-mount] iframe"),
-  ).toHaveAttribute("data-seek-seconds", "261");
-  await page.evaluate(() => {
-    window.location.hash = "t=600";
-  });
-  await expect(
-    page.locator("[data-video-player-mount] iframe"),
-  ).toHaveAttribute("data-seek-seconds", "261");
-  // A newer hash during the initial asynchronous seek must win when the SDK completes.
-  await page.evaluate(() => {
-    sessionStorage.setItem("test-player-defer-seek", "1");
-  });
-  await page.goto("/");
-  await page.goto(`/materials/${slug}#t=3`);
-  const playerFrame = page.locator("[data-video-player-mount] iframe");
-  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        window.addEventListener(
-          "hashchange",
-          () => {
-            resolve();
-          },
-          { once: true },
-        );
-        window.location.hash = "t=261";
-      }),
-  );
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("test-player-finish-seek"));
-  });
-  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
-  // Serialize later clicks too, so a slow older seek cannot overwrite the newest moment.
-  await page.evaluate(() => {
-    sessionStorage.setItem("test-player-defer-seek", "1");
-    window.location.hash = "t=0";
-  });
-  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "0");
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        window.addEventListener(
-          "hashchange",
-          () => {
-            resolve();
-          },
-          { once: true },
-        );
-        window.location.hash = "t=3";
-      }),
-  );
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("test-player-finish-seek"));
-  });
-  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "3");
-  await captureVideoEvidence(page, testInfo, "reader-automatic-player");
-  // This fixture is a Product containing Video: the saved completion belongs to the Material.
-  await expect(
-    page.locator("[data-reading-action-state]:visible"),
-  ).toHaveAttribute("data-reading-action-state", "ready");
-  await page
-    .locator("[data-reading-action-state]:visible")
-    .getByRole("button", { name: "Изучено", exact: true })
-    .click();
-  await expect(
-    page
-      .locator("[data-reading-action-state]:visible")
-      .getByRole("button", { name: "Изучено", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.evaluate(() => {
-    sessionStorage.setItem("test-player-unavailable", "1");
-  });
-  await page.reload();
-  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
-  await expect(
-    page
-      .locator("[data-reading-action-state]:visible")
-      .getByRole("button", { name: "Изучено", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.evaluate(() => {
-    sessionStorage.removeItem("test-player-unavailable");
-  });
+    });
+    const anonymousSession = await request.post(
+      "/api/material-video-playback-sessions",
+      {
+        headers: { origin: new URL(page.url()).origin },
+        multipart: { materialId, videoId },
+      },
+    );
+    expect(anonymousSession.status()).toBe(200);
+    await expect(anonymousSession.json()).resolves.toMatchObject({
+      drmAuthToken: null,
+      progressScope: "anonymous",
+      resumeSeconds: null,
+      videoId,
+    });
 
-  await page.unroute("**/api/material-video-playback-sessions");
-  await page.route("**/api/material-video-playback-sessions", (route) =>
-    route.fulfill({ status: 403, json: { code: "playback_unavailable" } }),
-  );
-  providerRequests.length = 0;
-  await page.reload();
-  await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
-  await expect(page.locator("iframe")).toHaveCount(0);
-  expect(providerRequests).toEqual([]);
-  await page.unroute("**/api/material-video-playback-sessions");
-  await page.getByRole("button", { name: "Повторить", exact: true }).click();
-  await expect(page.locator("[data-video-player-mount] iframe")).toBeVisible();
+    const progress = await (
+      await fullStackPageRequest(page)
+    ).put("/api/material-video-progress", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: {
+        durationSeconds: "120",
+        materialId,
+        positionSeconds: "37",
+        videoId,
+      },
+    });
+    expect(progress.status()).toBe(200);
+    await expect(progress.json()).resolves.toEqual({ kind: "saved" });
+    const resumedSession = await (
+      await fullStackPageRequest(page)
+    ).post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: { materialId, videoId },
+    });
+    expect(resumedSession.status()).toBe(200);
+    await expect(resumedSession.json()).resolves.toMatchObject({
+      progressScope: "account",
+      resumeSeconds: 37,
+      videoId,
+    });
+    await page.reload();
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toHaveAttribute("data-seek-seconds", "37");
+    // Explicit chapter links win over saved resume, including zero and same-page hash changes.
+    await page.goto(`/materials/${slug}#t=3`);
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toHaveAttribute("data-seek-seconds", "3");
+    await changeVideoTimeFragment(page, 0);
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toHaveAttribute("data-seek-seconds", "0");
+    await changeVideoTimeFragment(page, 261);
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toHaveAttribute("data-seek-seconds", "261");
+    await changeVideoTimeFragment(page, 600);
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toHaveAttribute("data-seek-seconds", "261");
+    // A newer hash during the initial asynchronous seek must win when the SDK completes.
+    await page.evaluate(() => {
+      sessionStorage.setItem("test-player-defer-seek", "1");
+    });
+    await page.goto("/");
+    await page.goto(`/materials/${slug}#t=3`);
+    const playerFrame = page.locator("[data-video-player-mount] iframe");
+    await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
+    await changeVideoTimeFragment(page, 261);
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("test-player-finish-seek"));
+    });
+    await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
+    // Serialize later clicks too, so a slow older seek cannot overwrite the newest moment.
+    await page.evaluate(() => {
+      sessionStorage.setItem("test-player-defer-seek", "1");
+    });
+    await changeVideoTimeFragment(page, 0);
+    await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "0");
+    await changeVideoTimeFragment(page, 3);
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("test-player-finish-seek"));
+    });
+    await expect(playerFrame).toHaveAttribute("data-seek-seconds", "3");
+    await captureVideoEvidence(page, testInfo, "reader-automatic-player");
+    // This fixture is a Product containing Video: the saved completion belongs to the Material.
+    await expect(
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible"),
+    ).toHaveAttribute("data-reading-action-state", "ready");
+    await page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible")
+      .getByRole("button", { name: "Изучено", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible")
+        .getByRole("button", { name: "Изучено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.evaluate(() => {
+      sessionStorage.setItem("test-player-unavailable", "1");
+    });
+    await page.reload();
+    await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible")
+        .getByRole("button", { name: "Изучено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await page.evaluate(() => {
+      sessionStorage.removeItem("test-player-unavailable");
+    });
 
-  await page.goto(editorUrl);
-  await page
-    .getByText("Выбрать существующее видео Kinescope", { exact: true })
-    .click();
-  await page.getByLabel(/ID видео/u).fill(`test-outage-once-${suffix}`);
-  await page.getByRole("button", { name: "Привязать" }).click();
-  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
-  await page.getByRole("button", { name: "Привязать" }).click();
-  await expect(page.getByText("Видео готово")).toBeVisible();
-  await waitMaterialSaved(page);
-  await expect(
-    page
-      .locator("header [role=status]:visible")
-      .filter({ hasText: "Сохранено" }),
-  ).toBeVisible({ timeout: 15_000 });
-  await page.goto(`/materials/${slug}`);
-  const replacementVideoId = await page
-    .getByRole("main")
-    .locator("[data-video-id]")
-    .getAttribute("data-video-id");
-  if (typeof replacementVideoId !== "string") {
-    throw new Error("Replacement Video identity is missing");
+    await page.unroute("**/api/material-video-playback-sessions");
+    await page.route("**/api/material-video-playback-sessions", (route) =>
+      route.fulfill({ status: 403, json: { code: "playback_unavailable" } }),
+    );
+    providerRequests.length = 0;
+    await page.reload();
+    await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
+    await expect(page.locator("iframe")).toHaveCount(0);
+    expect(providerRequests).toEqual([]);
+    await page.unroute("**/api/material-video-playback-sessions");
+    await page.getByRole("button", { name: "Повторить", exact: true }).click();
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toBeVisible();
+
+    await page.goto(editorUrl);
+    await page
+      .getByText("Выбрать существующее видео Kinescope", { exact: true })
+      .click();
+    await page.getByLabel(/ID видео/u).fill(`test-outage-once-${suffix}`);
+    await page.getByRole("button", { name: "Привязать" }).click();
+    await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+    await page.getByRole("button", { name: "Привязать" }).click();
+    await expect(page.getByText("Видео готово")).toBeVisible();
+    await waitMaterialSaved(page);
+    await expect(
+      page
+        .locator("header [role=status]:visible")
+        .filter({ hasText: "Сохранено" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.goto(`/materials/${slug}`);
+    const replacementVideoId = await page
+      .getByRole("main")
+      .locator("[data-video-id]")
+      .getAttribute("data-video-id");
+    if (typeof replacementVideoId !== "string") {
+      throw new Error("Replacement Video identity is missing");
+    }
+    expect(replacementVideoId).not.toBe(videoId);
+    const staleSession = await (
+      await fullStackPageRequest(page)
+    ).post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: { materialId, videoId },
+    });
+    expect(staleSession.status()).toBe(403);
+    const replacementSession = await (
+      await fullStackPageRequest(page)
+    ).post("/api/material-video-playback-sessions", {
+      headers: { origin: new URL(page.url()).origin },
+      multipart: { materialId, videoId: replacementVideoId },
+    });
+    expect(replacementSession.status()).toBe(200);
+    await expect(replacementSession.json()).resolves.toMatchObject({
+      videoId: replacementVideoId,
+    });
+  } catch (error) {
+    failure = { error };
+  } finally {
+    // A failed seek must not leave a published Video in the next test's feed.
+    try {
+      await page.unrouteAll({ behavior: "ignoreErrors" });
+      await page.goto(
+        `/authoring/materials?search=${encodeURIComponent(title)}`,
+      );
+      const row = page.getByRole("listitem").filter({ hasText: title });
+      await row.getByRole("button", { name: "Снять с публикации" }).click();
+      await expect(
+        row.getByText("Снят с публикации", { exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+    } catch (error) {
+      if (failure === undefined) {
+        failure = { error };
+      } else {
+        await testInfo.attach("published-video-cleanup-failure", {
+          body: String(error),
+          contentType: "text/plain",
+        });
+      }
+    }
   }
-  expect(replacementVideoId).not.toBe(videoId);
-  const staleSession = await (
-    await fullStackPageRequest(page)
-  ).post("/api/material-video-playback-sessions", {
-    headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId },
-  });
-  expect(staleSession.status()).toBe(403);
-  const replacementSession = await (
-    await fullStackPageRequest(page)
-  ).post("/api/material-video-playback-sessions", {
-    headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId: replacementVideoId },
-  });
-  expect(replacementSession.status()).toBe(200);
-  await expect(replacementSession.json()).resolves.toMatchObject({
-    videoId: replacementVideoId,
-  });
-
-  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  const row = page.getByRole("listitem").filter({ hasText: title });
-  await row.getByRole("button", { name: "Снять с публикации" }).click();
-  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible(
-    { timeout: 15_000 },
-  );
+  if (failure !== undefined) throw failure.error;
 });
 
 test("explicitly requests deletion of a Platform-uploaded Video through autosave", async ({
@@ -1538,8 +1539,36 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
 
   const response = await page.goto("/authoring/products");
   expect(response?.status()).toBe(200);
-  await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
+  // This case owns the Product order; the canonical seeded Reader order remains independent.
+  await page.getByRole("button", { name: "Создать продукт" }).click();
+  await page
+    .getByRole("textbox", { name: "Название", exact: true })
+    .fill(`Keyboard order ${randomUUID()}`);
+  await page
+    .getByRole("textbox", { name: "Адрес", exact: false })
+    .fill(`keyboard-order-${randomUUID()}`);
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+
+  for (const title of [
+    "Как устроен Inside Platform",
+    "Demo #295 · Общий гайд",
+  ]) {
+    await page.getByRole("button", { name: "Добавить материал" }).click();
+    const picker = page.getByRole("dialog", { name: "Добавить материал" });
+    await picker
+      .getByRole("searchbox", { name: "Поиск материала для добавления" })
+      .fill(title);
+    await picker
+      .getByRole("button", { name: `Добавить «${title}»`, exact: true })
+      .click();
+    await picker
+      .getByRole("button", { name: "Закрыть выбор материала" })
+      .click();
+    await expect(
+      page.getByText("Порядок сохранён.", { exact: true }),
+    ).toBeVisible();
+  }
 
   await page.getByRole("button", { name: "Добавить материал" }).click();
   const picker = page.getByRole("dialog", { name: "Добавить материал" });
@@ -1607,7 +1636,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     })
     .click();
   await expect(items).toHaveCount(countAfterAdd - 1);
-  // The seeded product has buyers, so removing a published lesson asks for confirmation (#648).
+  // The same editor may ask for confirmation when the Product has buyers (#648).
   const removal = page.getByRole("dialog", {
     name: "Снять материал из купленного продукта?",
   });
@@ -1633,6 +1662,10 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     page.getByText("Порядок сохранён.", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
+  await page.getByRole("button", { name: "В архив", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Вернуть из архива" }),
+  ).toBeVisible();
 });
 
 test("trusted author walks a product chapter through Previews that stay closed to a guest", async ({
@@ -1975,6 +2008,25 @@ async function captureVideoDeletionEvidence(
     animations: "disabled",
     path: resolve(snapshots, `${name}-${viewport}.png`),
   });
+}
+
+/** Observe this hash change, rather than a queued event from the previous fragment. */
+async function changeVideoTimeFragment(page: Page, seconds: number) {
+  await page.evaluate(
+    (seconds) =>
+      new Promise<void>((resolve) => {
+        const fragment = `#t=${String(seconds)}`;
+        const changed = (event: HashChangeEvent) => {
+          if (new URL(event.newURL).hash !== fragment) return;
+          window.removeEventListener("hashchange", changed);
+          resolve();
+        };
+        window.addEventListener("hashchange", changed);
+        window.location.hash = fragment;
+      }),
+    seconds,
+  );
+  await expect(page).toHaveURL(new RegExp(`#t=${String(seconds)}$`, "u"));
 }
 
 /** Replace only the external player SDK; access/session/progress still use the real BFF and backend. */

@@ -15,8 +15,8 @@ const scriptSources = isDevelopment
   : "script-src 'self' 'unsafe-inline' https://player.kinescope.io";
 /**
  * Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS.
- * Full-stack smoke собирает production и ходит в локальное хранилище: адрес ему передаётся явно и
- * только loopback, поэтому сборка образа без переменной получает ту же политику, что production.
+ * Full-stack smoke и production-web локального стенда передают адрес явно и только loopback.
+ * Сборка выпуска без переменной получает production-политику без локального адреса.
  */
 function localImageSources(): string {
   if (isDevelopment) return " http://127.0.0.1:* http://localhost:9000";

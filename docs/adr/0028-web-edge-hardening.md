@@ -51,12 +51,21 @@ Next.js передаёт браузеру данные React (RSC payload) вс�
 `connect-src` только на свой origin и Kinescope; сервер замечаний Agentation из разработки снят
 вместе с панелью (решение владельца 09.10.2026). `'unsafe-eval'` разрешён только в разработке.
 Локальные адреса хранилища (`http://127.0.0.1:*`, `http://localhost:9000`) входят в `img-src`
-только в разработке. Единственное исключение — production-сборка `pnpm smoke:fullstack`: она ходит
-в локальное хранилище и получает его адрес явно через `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`; сборка
-принимает там только loopback-адрес по HTTP, а образ production эту переменную не получает
+только в разработке, если production-сборке не передан явный локальный адрес. Production-сборка
+`pnpm smoke:fullstack` ходит в локальное хранилище и получает его адрес через
+`CSP_LOCAL_OBJECT_STORAGE_ORIGIN`; сборка принимает там только точный loopback-origin по HTTP.
+Выпуск без локального адреса сохраняет прежнюю production-политику
 ([Platform #742](https://github.com/sachkov-inside/platform/issues/742)). Тест
 `apps/web/test/module/security-headers.test.ts` держит эту разницу, а production smoke проверяет
 заголовок, который отдаёт настоящий Caddy.
+
+Дополнение 10.10.2026 — [#1318](https://github.com/sachkov-inside/platform/issues/1318): обычный
+`pnpm local:stand --production-web` передаёт тот же проверяемый input в Docker build. Его точный
+origin следует `OBJECT_STORAGE_HOST_PORT`; local learner overlay задаёт такой же адрес API/MCP
+для подписанных image URLs. `ARG` объявлен только в production-build, перед `next build`; общий
+dependency stage и production release без local build input не получают локальный origin.
+`test/contracts/local-stand-csp.test.ts` проверяет Compose config / Next headers и source ARG scope;
+actual image/header/render proof требует отдельного runtime прохода. Решение о скриптах и #713 не меняется.
 
 Пересмотреть решение, когда выполнится одно из условий: Next.js научится ставить nonce или hash во
 встроенные скрипты предсобранной оболочки, или появится фрагмент, который сознательно рендерится
