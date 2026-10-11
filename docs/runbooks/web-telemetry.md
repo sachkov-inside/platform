@@ -59,9 +59,11 @@ The existing `billing-worker` registers `web-telemetry.retention`, schedules it 
 and requests cleanup at worker startup. Cleanup deletes samples older than 30 days in batches of
 5,000 through time indexes. Daily counters expire when their entire UTC day is older than the
 cutoff. Ordinary autovacuum uses table-local scale factors 0.01 (vacuum) and 0.02 (analyze) for sample
-and error tables; global PostgreSQL settings stay unchanged. Vital samples reference a shared route-template dictionary. A covering group index includes time
-and value, so summary reads can avoid fetching heap rows after ordinary vacuum. A BRIN time index
-serves retention without one index entry per sample.
+and error tables; global PostgreSQL settings stay unchanged. Vital samples reference a shared
+route-template dictionary. After ordinary vacuum the value/day index supports an index-only scan
+for the rank neighbours. The bounded current-day sample is materialized once; separate lookups read
+the one or two original floats per group and check their exact timestamp before interpolation.
+A BRIN time index serves retention without one index entry per sample.
 
 The read-only SQL view `web_telemetry.health` feeds the existing watchdog:
 
