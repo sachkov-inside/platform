@@ -551,11 +551,10 @@ function route(method, url, entitled) {
         state: "ready",
         durationSeconds: 600,
       },
-      projection: readerProjection({
-        ...template,
-        slug: material[1],
+      projection: {
+        ...readerProjection({ ...template, slug: material[1] }),
         primaryVideoId: videoId,
-      }),
+      },
       body: body(template, false),
     });
   }
