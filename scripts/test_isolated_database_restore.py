@@ -76,6 +76,16 @@ class RestoreSafety(unittest.TestCase):
         self.assertEqual(self.calls[-2][0], ("rm", "--force", name))
         self.assertEqual(self.calls[-1][0][:2], ("volume", "rm"))
 
+    def test_volume_creation_timeout_attempts_cleanup_before_confirmation(self):
+        def timeout(*args, input_text=None):
+            self.docker(*args, input_text=input_text)
+            if args[:2] == ("volume", "create"):
+                raise subprocess.TimeoutExpired("docker", 900)
+            return ""
+        with self.assertRaises(subprocess.TimeoutExpired):
+            restore.restore("sha256:" + "a" * 64, self.repo, self.cipher, "20261011-100000F", timeout)
+        self.assertEqual(self.calls[-1][0], ("volume", "rm", self.calls[0][0][-1]))
+
 
 if __name__ == "__main__":
     unittest.main()

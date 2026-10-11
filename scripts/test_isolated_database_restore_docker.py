@@ -19,6 +19,12 @@ def synthetic_restore(image, repository, cipher, outcome, connection):
     def execute(*args, input_text=None):
         if args[:2] == ("volume", "create"):
             connection.send(("volume", args[-1]))
+            result = restore.run(*args, input_text=input_text)
+            if outcome == "volume-sigterm":
+                # The daemon has created the volume, but the caller has not received confirmation.
+                connection.send(("volume-created", args[-1]))
+                signal.pause()
+            return result
         if args[0] == "run":
             name = args[args.index("--name") + 1]
             connection.send(("container", name))
@@ -65,6 +71,7 @@ class RestoreDockerProcessContract(unittest.TestCase):
         owned = []
         result = None
         signalled = False
+        volume_created = False
         # Register cleanup before starting the child, including forced process termination.
         try:
             process.start()
@@ -78,8 +85,13 @@ class RestoreDockerProcessContract(unittest.TestCase):
                         break
                     if kind == "result":
                         result = value
+                    elif kind == "volume-created":
+                        volume_created = True
                     else:
                         owned.append((kind, value))
+                if outcome == "volume-sigterm" and volume_created and not signalled:
+                    os.kill(process.pid, signal.SIGTERM)
+                    signalled = True
                 if outcome == "sigterm" and not signalled:
                     containers = [name for kind, name in owned if kind == "container"]
                     if containers:
@@ -96,10 +108,11 @@ class RestoreDockerProcessContract(unittest.TestCase):
             self.assertFalse(process.is_alive(), "restore process exceeded its 15-second budget")
             self.assertEqual(process.exitcode, 0)
             self.assertEqual(result, "passed" if outcome == "success" else "failed")
-            if outcome == "sigterm":
-                self.assertTrue(signalled, "SIGTERM must arrive after synthetic data is written")
+            if outcome in ("sigterm", "volume-sigterm"):
+                self.assertTrue(signalled, "SIGTERM must arrive after the owned resource is ready")
             self.assertTrue(any(kind == "volume" for kind, _ in owned))
-            self.assertTrue(any(kind == "container" for kind, _ in owned))
+            if outcome != "volume-sigterm":
+                self.assertTrue(any(kind == "container" for kind, _ in owned))
             for kind, name in owned:
                 inspected = subprocess.run(["docker", kind, "inspect", name],
                                            capture_output=True, timeout=3)
@@ -129,6 +142,9 @@ class RestoreDockerProcessContract(unittest.TestCase):
 
     def test_real_process_sigterm_removes_every_owned_resource(self):
         self.contract("sigterm")
+
+    def test_sigterm_between_volume_creation_and_confirmation_removes_volume(self):
+        self.contract("volume-sigterm")
 
 
 if __name__ == "__main__":

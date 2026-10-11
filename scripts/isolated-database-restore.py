@@ -45,8 +45,9 @@ def restore(image, repository, cipher_env, label, execute=run):
     containers = []
     try:
         # A unique new volume, never the foundation's configured live volume.
-        execute("volume", "create", "--label", "inside.restore-check=true", volume)
+        # The daemon can create it before a timeout or signal prevents confirmation.
         created = True
+        execute("volume", "create", "--label", "inside.restore-check=true", volume)
         common = ("--network", "none", "--pull", "never",
                   "--mount", f"type=volume,src={volume},dst=/var/lib/postgresql",
                   "--env-file", str(cipher_env),
