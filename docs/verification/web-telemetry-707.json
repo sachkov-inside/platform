@@ -1,0 +1,362 @@
+{
+  "postgres": "18.4",
+  "cpuLimit": 2,
+  "budgetBytes": 600000000,
+  "initialBytes": 528596992,
+  "relations": [
+    {
+      "relname": "route_templates",
+      "bytes": 49152
+    },
+    {
+      "relname": "vital_samples",
+      "bytes": 64225280
+    },
+    {
+      "relname": "errors",
+      "bytes": 464183296
+    },
+    {
+      "relname": "daily_quota",
+      "bytes": 32768
+    },
+    {
+      "relname": "coverage",
+      "bytes": 98304
+    }
+  ],
+  "maxBytes": 579600384,
+  "p75TimesMs": [
+    143.1297089999989, 72.86108400000012, 68.22412500000064, 82.15166700000009,
+    67.8725830000003, 69.31891700000051, 68.77120800000012, 70.12304199999926,
+    74.70587499999965, 71.26979100000244, 72.88762499999939, 85.13337499999761,
+    81.46537499999977, 72.40545799999381, 83.8983339999977, 73.81045799999993,
+    79.19362499999988, 74.67812499999854, 74.4416659999988, 75.03129199999967,
+    77.40104099999007, 76.60620799999742, 116.29245800001081, 95.03941699999268,
+    80.15395799999533, 82.15170800000487, 86.35241700000188, 101.3032499999972,
+    127.31983300000138, 98.9719999999943, 83.94429200000013, 83.80908399997861,
+    131.87933299998986, 102.50562499999069, 90.39891599997645, 86.4161670000176,
+    94.8312080000178, 86.33195799999521, 83.06424999999581, 94.12920799999847
+  ],
+  "fullSummaryTimesMs": [
+    253.43312499999956, 170.08899999999994, 174.05191700000069,
+    182.2817920000016, 170.36658399999942, 169.5025829999995,
+    167.61095900000146, 160.43737500000134
+  ],
+  "growth": [
+    {
+      "cycle": 1,
+      "beforeCleanupBytes": 550141952,
+      "afterCleanupBytes": 550141952,
+      "afterVacuumBytes": 550182912,
+      "cleanupMs": 127.47054199999911,
+      "p75Ms": 74.70587499999965
+    },
+    {
+      "cycle": 2,
+      "beforeCleanupBytes": 552542208,
+      "afterCleanupBytes": 552542208,
+      "afterVacuumBytes": 552615936,
+      "cleanupMs": 86.73666700000103,
+      "p75Ms": 71.26979100000244
+    },
+    {
+      "cycle": 3,
+      "beforeCleanupBytes": 553623552,
+      "afterCleanupBytes": 553623552,
+      "afterVacuumBytes": 553623552,
+      "cleanupMs": 95.95437500000116,
+      "p75Ms": 72.88762499999939
+    },
+    {
+      "cycle": 4,
+      "beforeCleanupBytes": 554606592,
+      "afterCleanupBytes": 554606592,
+      "afterVacuumBytes": 554606592,
+      "cleanupMs": 171.8837910000002,
+      "p75Ms": 85.13337499999761
+    },
+    {
+      "cycle": 5,
+      "beforeCleanupBytes": 555663360,
+      "afterCleanupBytes": 555663360,
+      "afterVacuumBytes": 555663360,
+      "cleanupMs": 125.75108300000284,
+      "p75Ms": 81.46537499999977
+    },
+    {
+      "cycle": 6,
+      "beforeCleanupBytes": 556670976,
+      "afterCleanupBytes": 556670976,
+      "afterVacuumBytes": 556670976,
+      "cleanupMs": 158.9282499999972,
+      "p75Ms": 72.40545799999381
+    },
+    {
+      "cycle": 7,
+      "beforeCleanupBytes": 557547520,
+      "afterCleanupBytes": 557547520,
+      "afterVacuumBytes": 557547520,
+      "cleanupMs": 124.10866700000042,
+      "p75Ms": 83.8983339999977
+    },
+    {
+      "cycle": 8,
+      "beforeCleanupBytes": 558497792,
+      "afterCleanupBytes": 558497792,
+      "afterVacuumBytes": 558497792,
+      "cleanupMs": 198.34874999999738,
+      "p75Ms": 73.81045799999993
+    },
+    {
+      "cycle": 9,
+      "beforeCleanupBytes": 559480832,
+      "afterCleanupBytes": 559480832,
+      "afterVacuumBytes": 559480832,
+      "cleanupMs": 158.4241669999974,
+      "p75Ms": 79.19362499999988
+    },
+    {
+      "cycle": 10,
+      "beforeCleanupBytes": 560431104,
+      "afterCleanupBytes": 560431104,
+      "afterVacuumBytes": 560431104,
+      "cleanupMs": 126.81029199999466,
+      "p75Ms": 74.67812499999854
+    },
+    {
+      "cycle": 11,
+      "beforeCleanupBytes": 561070080,
+      "afterCleanupBytes": 561070080,
+      "afterVacuumBytes": 561070080,
+      "cleanupMs": 161.15491699999257,
+      "p75Ms": 74.4416659999988
+    },
+    {
+      "cycle": 12,
+      "beforeCleanupBytes": 562339840,
+      "afterCleanupBytes": 562339840,
+      "afterVacuumBytes": 562339840,
+      "cleanupMs": 180.2596249999915,
+      "p75Ms": 75.03129199999967
+    },
+    {
+      "cycle": 13,
+      "beforeCleanupBytes": 563200000,
+      "afterCleanupBytes": 563200000,
+      "afterVacuumBytes": 563208192,
+      "cleanupMs": 168.13058300000557,
+      "p75Ms": 77.40104099999007
+    },
+    {
+      "cycle": 14,
+      "beforeCleanupBytes": 564174848,
+      "afterCleanupBytes": 564174848,
+      "afterVacuumBytes": 564174848,
+      "cleanupMs": 156.48183300001256,
+      "p75Ms": 76.60620799999742
+    },
+    {
+      "cycle": 15,
+      "beforeCleanupBytes": 565125120,
+      "afterCleanupBytes": 565125120,
+      "afterVacuumBytes": 565125120,
+      "cleanupMs": 331.5247079999972,
+      "p75Ms": 116.29245800001081
+    },
+    {
+      "cycle": 16,
+      "beforeCleanupBytes": 566042624,
+      "afterCleanupBytes": 566042624,
+      "afterVacuumBytes": 566067200,
+      "cleanupMs": 169.6785830000008,
+      "p75Ms": 95.03941699999268
+    },
+    {
+      "cycle": 17,
+      "beforeCleanupBytes": 566951936,
+      "afterCleanupBytes": 566951936,
+      "afterVacuumBytes": 566951936,
+      "cleanupMs": 154.2878330000094,
+      "p75Ms": 80.15395799999533
+    },
+    {
+      "cycle": 18,
+      "beforeCleanupBytes": 567894016,
+      "afterCleanupBytes": 567894016,
+      "afterVacuumBytes": 567894016,
+      "cleanupMs": 198.36804200000188,
+      "p75Ms": 82.15170800000487
+    },
+    {
+      "cycle": 19,
+      "beforeCleanupBytes": 568696832,
+      "afterCleanupBytes": 568696832,
+      "afterVacuumBytes": 568696832,
+      "cleanupMs": 161.739459000004,
+      "p75Ms": 86.35241700000188
+    },
+    {
+      "cycle": 20,
+      "beforeCleanupBytes": 569638912,
+      "afterCleanupBytes": 569638912,
+      "afterVacuumBytes": 569638912,
+      "cleanupMs": 244.18370799999684,
+      "p75Ms": 101.3032499999972
+    },
+    {
+      "cycle": 21,
+      "beforeCleanupBytes": 570572800,
+      "afterCleanupBytes": 570572800,
+      "afterVacuumBytes": 570572800,
+      "cleanupMs": 397.87987500001327,
+      "p75Ms": 127.31983300000138
+    },
+    {
+      "cycle": 22,
+      "beforeCleanupBytes": 571473920,
+      "afterCleanupBytes": 571473920,
+      "afterVacuumBytes": 571473920,
+      "cleanupMs": 215.2103749999951,
+      "p75Ms": 98.9719999999943
+    },
+    {
+      "cycle": 23,
+      "beforeCleanupBytes": 572358656,
+      "afterCleanupBytes": 572358656,
+      "afterVacuumBytes": 572358656,
+      "cleanupMs": 200.59649999999965,
+      "p75Ms": 83.94429200000013
+    },
+    {
+      "cycle": 24,
+      "beforeCleanupBytes": 573317120,
+      "afterCleanupBytes": 573317120,
+      "afterVacuumBytes": 573317120,
+      "cleanupMs": 206.9541249999893,
+      "p75Ms": 83.80908399997861
+    },
+    {
+      "cycle": 25,
+      "beforeCleanupBytes": 574136320,
+      "afterCleanupBytes": 574136320,
+      "afterVacuumBytes": 574136320,
+      "cleanupMs": 203.2546250000014,
+      "p75Ms": 131.87933299998986
+    },
+    {
+      "cycle": 26,
+      "beforeCleanupBytes": 575045632,
+      "afterCleanupBytes": 575045632,
+      "afterVacuumBytes": 575045632,
+      "cleanupMs": 155.53699999998207,
+      "p75Ms": 102.50562499999069
+    },
+    {
+      "cycle": 27,
+      "beforeCleanupBytes": 575954944,
+      "afterCleanupBytes": 575954944,
+      "afterVacuumBytes": 575954944,
+      "cleanupMs": 188.29591700001038,
+      "p75Ms": 90.39891599997645
+    },
+    {
+      "cycle": 28,
+      "beforeCleanupBytes": 576880640,
+      "afterCleanupBytes": 576880640,
+      "afterVacuumBytes": 576880640,
+      "cleanupMs": 168.07066699999268,
+      "p75Ms": 86.4161670000176
+    },
+    {
+      "cycle": 29,
+      "beforeCleanupBytes": 577732608,
+      "afterCleanupBytes": 577732608,
+      "afterVacuumBytes": 577732608,
+      "cleanupMs": 209.27700000000186,
+      "p75Ms": 94.8312080000178
+    },
+    {
+      "cycle": 30,
+      "beforeCleanupBytes": 578674688,
+      "afterCleanupBytes": 578674688,
+      "afterVacuumBytes": 578674688,
+      "cleanupMs": 224.3507090000203,
+      "p75Ms": 86.33195799999521
+    },
+    {
+      "cycle": 31,
+      "beforeCleanupBytes": 579510272,
+      "afterCleanupBytes": 579510272,
+      "afterVacuumBytes": 565854208,
+      "cleanupMs": 203.50299999999697,
+      "p75Ms": 83.06424999999581
+    },
+    {
+      "cycle": 32,
+      "beforeCleanupBytes": 579600384,
+      "afterCleanupBytes": 579600384,
+      "afterVacuumBytes": 579600384,
+      "cleanupMs": 254.95858400000725,
+      "p75Ms": 94.12920799999847
+    }
+  ],
+  "apiRss": {
+    "baselineSource": "bc94bf2063efb8061e6f3f792e982bf33f27857b",
+    "candidateSource": "e96cc8edd975c4b454f39af555e1eff336584fcf",
+    "warmup": "100 GET /library/materials, followed by 1000 alternating vital/error POSTs; baseline returns 404, candidate stores reports; GC before sampling",
+    "pairs": [
+      {
+        "run": 0,
+        "version": 0,
+        "rss": 397213696
+      },
+      {
+        "run": 0,
+        "version": 1,
+        "rss": 399392768
+      },
+      {
+        "run": 1,
+        "version": 0,
+        "rss": 388169728
+      },
+      {
+        "run": 1,
+        "version": 1,
+        "rss": 396361728
+      },
+      {
+        "run": 2,
+        "version": 0,
+        "rss": 387203072
+      },
+      {
+        "run": 2,
+        "version": 1,
+        "rss": 396394496
+      }
+    ],
+    "baseline": 388169728,
+    "candidate": 396394496,
+    "delta": 8224768,
+    "limit": 31457280
+  },
+  "collectionHandlerP95Ms": {
+    "baselineSource": "059590557aa49e638e9863c1f1825c2f0b9cbc62",
+    "candidateSource": "691d3926669d5aaf2616ce46ed7fee0d600d6f35",
+    "warmupRuns": 100,
+    "measuredRuns": 500,
+    "transport": "after callback captured; fetch excluded from response latency",
+    "webVitals": {
+      "baseline": 0.019375,
+      "candidate": 0.018541,
+      "added": -0.000834
+    },
+    "renderErrors": {
+      "baseline": 0.008375,
+      "candidate": 0.008792,
+      "added": 0.000417
+    }
+  }
+}

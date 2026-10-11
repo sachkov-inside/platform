@@ -58,6 +58,9 @@
 | Webhook банка | ответ 4xx или 5xx на `/billing/tbank/notification` в журнале `api` за 5 минут, кроме ожидаемой 400-пробы verify | 1 |
 | Фоновая работа | `"status":"operator_attention"` в журнале процесса Platform за 5 минут | 1 |
 | Вход | 5 и больше событий `authentication_failed` в журнале `web` за 10 минут | 1 |
+| Web telemetry | рост ошибок, новый digest/route, ≥480 MB schema или dropped quota; [пороги](web-telemetry.md) | 1 |
+| Web telemetry | `web-telemetry.retention` не завершалась за 26 часов | 1 |
+| Web telemetry | `web-telemetry-unavailable` или `client-report-limit-reached` в журнале web за 5 минут | 1 |
 
 Отрицательная проба `production:verify` получает в журнале API `probe: "production_verify"`.
 API ставит признак только пустому POST на `/billing/tbank/notification` с точным служебным маркером и ответом 400.
@@ -176,7 +179,8 @@ GitHub Actions → `Production monitor` → `Run workflow`.
 
 ## Ограничения
 
-- Графиков и истории нет; сводные метрики посетителей — #707.
+- Графиков нет; сводные p75 и группы ошибок доступны через admin read-only MCP
+  [Web telemetry](web-telemetry.md). Это не счётчик посетителей.
 - `docker logs --since` читает файлы журнала контейнера каждый запуск; при журнале около 100 MiB это
   заметный CPU. Замерить расход после первого выпуска: `systemctl show inside-watchdog.service
   --property=CPUUsageNSec`.

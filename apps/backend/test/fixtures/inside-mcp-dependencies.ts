@@ -16,6 +16,7 @@ export function refusingMcpToolDependencies(): Omit<
   "accountId"
 > {
   return {
+    telemetry: { summary: refuse },
     authoring: stubMaterialAuthoring(),
     billing: { execute: refuse },
     communications: { execute: refuse },
