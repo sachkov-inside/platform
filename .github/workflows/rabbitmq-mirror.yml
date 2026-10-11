@@ -1,0 +1,92 @@
+name: Publish official RabbitMQ mirror
+
+# The owner authorized these three inputs in #1337. The existing task branch is
+# the one-time bootstrap publisher; ordinary PRs never run this workflow.
+on:
+  push:
+    branches: [main, fix/1337-release-infrastructure]
+    paths: [.github/workflows/rabbitmq-mirror.yml]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: official-rabbitmq-mirror
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.repository == 'sachkov-inside/platform' &&
+      ((github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/1337-release-infrastructure')) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        include:
+          - tag: 4.2.4-management-alpine
+            digest: sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef
+          - tag: 4.2.4-alpine
+            digest: sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47
+          - tag: 4.3-management-alpine
+            digest: sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95
+    steps:
+      # No candidate checkout, artifact, repository secret or arbitrary image input.
+      - name: Install registry copier
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends skopeo
+      - name: Copy the complete official index without changing digests
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE_TAG: ${{ matrix.tag }}
+          IMAGE_DIGEST: ${{ matrix.digest }}
+        run: |
+          set -euo pipefail
+          auth_file="$RUNNER_TEMP/rabbitmq-auth.json"
+          trap 'rm -f "$auth_file"' EXIT
+          printf '%s' "$GHCR_TOKEN" | skopeo login --authfile "$auth_file" \
+            --username "$GHCR_USER" --password-stdin ghcr.io
+          unset GHCR_TOKEN
+          skopeo copy --all --preserve-digests --retry-times 0 --authfile "$auth_file" \
+            "docker://docker.io/library/rabbitmq:$IMAGE_TAG@$IMAGE_DIGEST" \
+            "docker://ghcr.io/sachkov-inside/rabbitmq:$IMAGE_TAG"
+      - name: Require public reading and identical index and platform manifests
+        env:
+          IMAGE_TAG: ${{ matrix.tag }}
+          IMAGE_DIGEST: ${{ matrix.digest }}
+        run: |
+          set -euo pipefail
+          proof="$RUNNER_TEMP/rabbitmq-proof-$IMAGE_TAG"
+          mkdir -p "$proof"
+          printf '{"auths":{}}\n' >"$proof/anonymous.json"
+          skopeo inspect --raw --authfile "$proof/anonymous.json" \
+            "docker://docker.io/library/rabbitmq:$IMAGE_TAG@$IMAGE_DIGEST" >"$proof/upstream-index.json"
+          skopeo inspect --raw --authfile "$proof/anonymous.json" \
+            "docker://ghcr.io/sachkov-inside/rabbitmq:$IMAGE_TAG" >"$proof/ghcr-index.json"
+          printf '%s  %s\n' "${IMAGE_DIGEST#sha256:}" "$proof/ghcr-index.json" | sha256sum --check
+          cmp "$proof/upstream-index.json" "$proof/ghcr-index.json"
+          jq --exit-status 'any(.manifests[]; .platform.os == "linux" and .platform.architecture == "amd64") and any(.manifests[]; .platform.os == "linux" and .platform.architecture == "arm64")' "$proof/ghcr-index.json"
+          jq --raw-output '.manifests[].digest' "$proof/upstream-index.json" >"$proof/platform-digests.txt"
+          while IFS= read -r digest; do
+            skopeo inspect --raw --authfile "$proof/anonymous.json" \
+              "docker://docker.io/library/rabbitmq@$digest" >"$proof/upstream-${digest#sha256:}.json"
+            skopeo inspect --raw --authfile "$proof/anonymous.json" \
+              "docker://ghcr.io/sachkov-inside/rabbitmq@$digest" >"$proof/ghcr-${digest#sha256:}.json"
+            cmp "$proof/upstream-${digest#sha256:}.json" "$proof/ghcr-${digest#sha256:}.json"
+          done <"$proof/platform-digests.txt"
+      - name: Keep mirror identity evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rabbitmq-mirror-${{ matrix.tag }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rabbitmq-proof-${{ matrix.tag }}
+          if-no-files-found: warn
+          retention-days: 7

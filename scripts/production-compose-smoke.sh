@@ -184,7 +184,20 @@ admit_cached_images() {
   foundation_compose+=(--file "$foundation_config_dir/cache-image.compose.yaml")
   printf 'services:\n  rabbitmq:\n    pull_policy: never\n  caddy-smoke:\n    pull_policy: never\n' >"$runtime_config_dir/cache-pull.compose.yaml"
   application_compose+=(--file "$runtime_config_dir/cache-pull.compose.yaml")
-  pins="$("${application_compose[@]}" config --images rabbitmq caddy-smoke)" || return "$?"
+  pins="$("${application_compose[@]}" config --format json | python3 -c '
+import json
+import sys
+
+model = json.load(sys.stdin)
+services = model.get("services", {}) if isinstance(model, dict) else {}
+for name in ("rabbitmq", "caddy-smoke"):
+    service = services.get(name, {}) if isinstance(services, dict) else {}
+    image = service.get("image") if isinstance(service, dict) else None
+    if not isinstance(image, str) or not image or "\n" in image:
+        print("Cache-only smoke requires both pinned broker/edge inputs", file=sys.stderr)
+        sys.exit(65)
+    print(image)
+')" || return "$?"
   while IFS= read -r image; do
     if [[ ! "$image" =~ @sha256:[0-9a-f]{64}$ ]]; then
       echo "Cache-only smoke requires both pinned broker/edge inputs" >&2

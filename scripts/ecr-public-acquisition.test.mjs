@@ -38,6 +38,23 @@ test("production cache-only rejects the missing pinned edge input before startup
   );
 });
 
+test("production cache-only rejects missing or unpinned broker/edge model entries before startup (process adapter)", async () => {
+  for (const scenario of [
+    "cache-missing-broker-entry",
+    "cache-missing-edge-entry",
+    "cache-unpinned-broker-entry",
+    "cache-unpinned-edge-entry",
+  ]) {
+    const result = await runAcquisition(scenario);
+    assert.equal(result.status, 65, scenario + result.output + result.trace);
+    assert.match(result.output, /requires both pinned broker\/edge inputs/u);
+    assert.doesNotMatch(
+      result.trace,
+      /build|pull|startup|cleanup|image-remove/u,
+    );
+  }
+});
+
 test("production cache-only rejects missing, malformed and foreign image identities (process adapter)", async () => {
   for (const scenario of [
     "cache-missing-id",
@@ -186,9 +203,25 @@ async function runAcquisition(scenario) {
         api: { image: backend },
         mcp: { image: backend },
         migrations: { image: backend },
-        "caddy-smoke": { image: caddy },
+        "caddy-smoke":
+          scenario === "cache-missing-edge-entry"
+            ? {}
+            : {
+                image:
+                  scenario === "cache-unpinned-edge-entry"
+                    ? caddy.split("@")[0]
+                    : caddy,
+              },
         web: { image: web },
-        rabbitmq: { image: rabbitmq },
+        rabbitmq:
+          scenario === "cache-missing-broker-entry"
+            ? {}
+            : {
+                image:
+                  scenario === "cache-unpinned-broker-entry"
+                    ? rabbitmq.split("@")[0]
+                    : rabbitmq,
+              },
       },
     }),
   );
