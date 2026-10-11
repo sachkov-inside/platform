@@ -17,7 +17,7 @@
 | Состояние | Storybook 390 | Storybook 1440 | Live route 390 | Live route 1440 |
 | --- | --- | --- | --- | --- |
 | Очередь и полный отчёт | [PNG](storybook-report-is-text-390.png) | [PNG](storybook-report-is-text-1440.png) | [PNG](live-ready-mobile-chromium.png) | [PNG](live-ready-desktop-chromium.png) |
-| Историческая версия / reportText | [PNG](storybook-submissions-390.png) | [PNG](storybook-submissions-1440.png) | [PNG](live-historical-version-mobile-chromium.png) | [PNG](live-historical-version-desktop-chromium.png) |
+| Историческая версия | [PNG](storybook-submissions-390.png) | [PNG](storybook-submissions-1440.png) | [PNG](live-historical-version-mobile-chromium.png) | [PNG](live-historical-version-desktop-chromium.png) |
 | Сохранённый отзыв | [PNG](storybook-feedback-saves-390.png) | [PNG](storybook-feedback-saves-1440.png) | [PNG](live-saved-feedback-mobile-chromium.png) | [PNG](live-saved-feedback-desktop-chromium.png) |
 | Ошибка сохранения и черновик | [PNG](storybook-feedback-save-fails-390.png) | [PNG](storybook-feedback-save-fails-1440.png) | [PNG](live-save-error-mobile-chromium.png) | [PNG](live-save-error-desktop-chromium.png) |
 | Loading | [PNG](storybook-loading-390.png) | [PNG](storybook-loading-1440.png) | [PNG](live-loading-mobile-chromium.png) | [PNG](live-loading-desktop-chromium.png) |

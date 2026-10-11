@@ -382,8 +382,20 @@ function FeedbackSnapshots() {
   });
   return (
     <div className="h-full min-h-0">
-      <Button onClick={() => setSnapshot(3)}>Свежий серверный ответ</Button>
-      <Button onClick={() => setSnapshot(2)}>Запоздалый серверный ответ</Button>
+      <Button
+        onClick={() => {
+          setSnapshot(3);
+        }}
+      >
+        Свежий серверный ответ
+      </Button>
+      <Button
+        onClick={() => {
+          setSnapshot(2);
+        }}
+      >
+        Запоздалый серверный ответ
+      </Button>
       <TaskSubmissionsView presentation={incoming} />
     </div>
   );
