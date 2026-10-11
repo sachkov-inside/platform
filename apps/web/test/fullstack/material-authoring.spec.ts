@@ -433,6 +433,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   ).toBeVisible({ timeout: 15_000 });
 
   let failure: { readonly error: unknown } | undefined;
+  let releaseOpen: (() => void) | undefined;
   try {
     await installPlaybackProviderDouble(page);
     const { promise: playbackGate, resolve: releasePlayback } =
@@ -554,11 +555,33 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     await page.evaluate(() => {
       sessionStorage.setItem("test-player-defer-seek", "1");
     });
+    // The reader's real open write can finish after the player starts its asynchronous seek.
+    // Delay the real request, so its saved response refreshes the account after the newer hash.
+    const openRequested = Promise.withResolvers<void>();
+    const openGate = Promise.withResolvers<void>();
+    releaseOpen = () => openGate.resolve();
+    await page.route("**/api/reading-progress/open", async (route) => {
+      openRequested.resolve();
+      await openGate.promise;
+      await route.continue();
+    });
     await page.goto("/");
     await page.goto(`/materials/${slug}#t=3`);
     const playerFrame = page.locator("[data-video-player-mount] iframe");
     await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
+    await openRequested.promise;
     await changeVideoTimeFragment(page, 261);
+    const refreshed = page.waitForResponse((response) => {
+      const headers = response.request().headers();
+      return (
+        new URL(response.url()).pathname === `/materials/${slug}` &&
+        headers["rsc"] === "1" &&
+        headers["next-router-prefetch"] === undefined
+      );
+    });
+    releaseOpen();
+    await refreshed;
+    await expect(page).toHaveURL(/#t=261$/u);
     await page.evaluate(() => {
       window.dispatchEvent(new Event("test-player-finish-seek"));
     });
@@ -666,6 +689,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   } catch (error) {
     failure = { error };
   } finally {
+    releaseOpen?.();
     // A failed seek must not leave a published Video in the next test's feed.
     try {
       await page.unrouteAll({ behavior: "ignoreErrors" });
