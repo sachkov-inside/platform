@@ -31,6 +31,7 @@ async function openReader(
   page: Page,
   slug = "kak-ustroen-inside-platform",
   label = "Изучено",
+  readerState: "available" | "access-required" = "available",
 ) {
   await page.goto(`/materials/${slug}`);
   const dismiss = page.getByRole("button", {
@@ -39,9 +40,17 @@ async function openReader(
   await page.addLocatorHandler(dismiss, async () => {
     await dismiss.click();
   });
-  const action = page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
-    .locator("[data-reading-action-state]:visible");
+  const reader = page.locator(
+    `[data-material-reader-state='${readerState}']:visible`,
+  );
+  const actionScope =
+    readerState === "available"
+      ? reader.getByRole("navigation", {
+          name: "Действия материала",
+          exact: true,
+        })
+      : reader;
+  const action = actionScope.locator("[data-reading-action-state]:visible");
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   return action.getByRole("button", { name: label, exact: true });
 }
@@ -162,7 +171,10 @@ test("reading progress reconciles stale windows and account changes without relo
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "conflict");
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "Обновить статус" }).click();
+    await page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("button", { name: "Обновить статус", exact: true })
+      .click();
     await expect(
       page
         .getByRole("navigation", { name: "Действия материала", exact: true })
@@ -393,6 +405,8 @@ test("reading progress supports Note and lets an expired member remove a protect
   const protectedAction = await openReader(
     page,
     "developer-pipeline-bez-poteri-konteksta",
+    "Изучено",
+    "access-required",
   );
   await expect(page.locator("[data-reader-body]")).toHaveCount(0);
   // The development fixture marked this material while Membership was active, then expired it.
