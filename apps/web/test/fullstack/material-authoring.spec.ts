@@ -21,6 +21,18 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
 import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
+declare global {
+  interface Window {
+    __videoReaderRefresh?: {
+      waitForExternal(): Promise<void>;
+      arm(): void;
+      waitForRefresh(): Promise<void>;
+      snapshot(): unknown;
+      restore(): void;
+    };
+  }
+}
+
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
@@ -564,8 +576,10 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     // Save the real open at the viewed content version, then delay its browser response.
     // Its account refresh must apply after the newer hash, while the SDK seek is still pending.
     const opened = Promise.withResolvers<APIResponse>();
-    const openGate = Promise.withResolvers<void>();
-    releaseOpen = () => openGate.resolve();
+    const openGate = Promise.withResolvers<undefined>();
+    releaseOpen = () => {
+      openGate.resolve(undefined);
+    };
     await page.route("**/api/reading-progress/open", async (route) => {
       try {
         const response = await route.fetch();
@@ -584,57 +598,194 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     const openResponse = await opened.promise;
     expect(openResponse.status()).toBe(200);
     await expect(openResponse.json()).resolves.toMatchObject({ kind: "saved" });
-    // A changed public heading proves the refresh was applied, not merely received.
-    const refreshedTitle = `${title} · refreshed`;
-    const editor = await context.newPage();
-    try {
-      await editor.goto(editorUrl);
-      await expect(editor.getByLabel("Название")).toHaveValue(title);
-      const saved = editor.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === "/api/authoring/materials" &&
-          response.request().method() === "PUT" &&
-          response.request().postData()?.includes(refreshedTitle) === true,
-      );
-      await editor.getByLabel("Название").fill(refreshedTitle);
-      const saveResponse = await saved;
-      expect(saveResponse.status()).toBe(200);
-      await expect(saveResponse.json()).resolves.toMatchObject({
-        kind: "saved",
-        contentVersion: expect.any(Number),
-        publicationState: "published",
+    // A null-state external History call queues its own URL acknowledgement. Wait for
+    // that same-href non-null write before releasing open, so it cannot satisfy refresh.
+    await page.evaluate((pathname) => {
+      const applied = Promise.withResolvers<undefined>();
+      const body = Promise.withResolvers<undefined>();
+      let external:
+        ReturnType<typeof Promise.withResolvers<undefined>> | undefined;
+      let pendingExternalHref: string | undefined;
+      let refreshReleased = false;
+      let bodyFailure: unknown;
+      const requestStarts: number[] = [];
+      const earlyRequests: string[] = [];
+      const writes: {
+        readonly href: string;
+        readonly target: string;
+        readonly nullState: boolean;
+        readonly phase: "hash" | "refresh";
+        readonly at: number;
+        readonly sinceRequestMilliseconds: number | null;
+      }[] = [];
+      const nativeFetch = window.fetch;
+      window.fetch = function (...args) {
+        const [input, init] = args;
+        const url = new URL(
+          input instanceof Request ? input.url : String(input),
+          window.location.href,
+        );
+        const headers = new Headers(
+          init?.headers ??
+            (input instanceof Request ? input.headers : undefined),
+        );
+        const matching =
+          url.pathname === pathname &&
+          headers.get("rsc") === "1" &&
+          !headers.has("next-router-prefetch");
+        if (matching) {
+          if (refreshReleased) requestStarts.push(performance.now());
+          else earlyRequests.push(url.href);
+        }
+        const response = Reflect.apply(nativeFetch, this, args);
+        if (matching && refreshReleased) {
+          response
+            .then((result) => result.clone().arrayBuffer())
+            .then(
+              () => {
+                body.resolve(undefined);
+              },
+              (error: unknown) => {
+                bodyFailure = error;
+                body.resolve(undefined);
+              },
+            );
+        }
+        return response;
+      };
+      const replaceState: unknown = Reflect.get(window.history, "replaceState");
+      if (typeof replaceState !== "function")
+        throw new Error("History replaceState is missing");
+      window.history.replaceState = function (...args) {
+        const state: unknown = args[0];
+        const url = args[2];
+        const target = new URL(
+          url ?? window.location.href,
+          window.location.href,
+        );
+        if (
+          !refreshReleased &&
+          state === null &&
+          target.pathname === pathname
+        ) {
+          // Register before forwarding: a synchronous acknowledgement must be observed.
+          external = Promise.withResolvers<undefined>();
+          pendingExternalHref = target.href;
+        }
+        Reflect.apply(replaceState, this, args);
+        if (window.location.pathname === pathname) {
+          const at = performance.now();
+          const started = requestStarts[0];
+          writes.push({
+            href: window.location.href,
+            target: target.href,
+            nullState: state === null,
+            phase: refreshReleased ? "refresh" : "hash",
+            at,
+            sinceRequestMilliseconds:
+              started === undefined ? null : at - started,
+          });
+          if (
+            !refreshReleased &&
+            state !== null &&
+            pendingExternalHref === window.location.href
+          ) {
+            pendingExternalHref = undefined;
+            external?.resolve(undefined);
+          }
+          if (refreshReleased && state !== null && started !== undefined)
+            applied.resolve(undefined);
+        }
+      };
+      Object.assign(window, {
+        __videoReaderRefresh: {
+          async waitForExternal() {
+            if (external !== undefined) await external.promise;
+          },
+          arm() {
+            if (pendingExternalHref !== undefined)
+              throw new Error("The newer hash has not been acknowledged");
+            if (earlyRequests.length !== 0)
+              throw new Error(
+                "Reader RSC started before controlled open release",
+              );
+            refreshReleased = true;
+          },
+          async waitForRefresh() {
+            await applied.promise;
+            await body.promise;
+            if (bodyFailure !== undefined)
+              throw bodyFailure instanceof Error
+                ? bodyFailure
+                : new Error("Reader refresh body failed", {
+                    cause: bodyFailure,
+                  });
+          },
+          snapshot() {
+            return { requestStarts, earlyRequests, writes };
+          },
+          restore() {
+            window.fetch = nativeFetch;
+            Reflect.set(window.history, "replaceState", replaceState);
+          },
+        },
       });
-      await waitMaterialSaved(editor);
-    } finally {
-      await editor.close();
-    }
-    await expect(
-      page.getByRole("heading", { level: 1, name: title, exact: true }),
-    ).toBeVisible();
-    await changeVideoTimeFragment(page, 261);
-    const refreshed = page.waitForResponse((response) => {
-      const headers = response.request().headers();
-      return (
-        new URL(response.url()).pathname === `/materials/${slug}` &&
-        headers["rsc"] === "1" &&
-        headers["next-router-prefetch"] === undefined
+    }, `/materials/${slug}`);
+    try {
+      await changeVideoTimeFragment(page, 261);
+      await page.evaluate(async () => {
+        const observer = window.__videoReaderRefresh;
+        if (observer === undefined)
+          throw new Error("Reader observer is missing");
+        await observer.waitForExternal();
+        observer.arm();
+      });
+      const refreshed = page.waitForResponse((response) => {
+        const headers = response.request().headers();
+        return (
+          new URL(response.url()).pathname === `/materials/${slug}` &&
+          headers["rsc"] === "1" &&
+          headers["next-router-prefetch"] === undefined
+        );
+      });
+      releaseOpen();
+      const response = await refreshed;
+      expect(await response.finished()).toBeNull();
+      await page.evaluate(async () => {
+        const observer = window.__videoReaderRefresh;
+        if (observer === undefined)
+          throw new Error("Reader observer is missing");
+        await observer.waitForRefresh();
+      });
+      await expect(playerFrame).toHaveAttribute(
+        "data-pending-seek-seconds",
+        "3",
       );
-    });
-    releaseOpen();
-    await refreshed;
-    await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: refreshedTitle,
-        exact: true,
-      }),
-    ).toBeVisible();
-    await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
-    await expect(page).toHaveURL(/#t=261$/u);
-    await page.evaluate(() => {
-      window.dispatchEvent(new Event("test-player-finish-seek"));
-    });
-    await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
+      await expect(page).toHaveURL(/#t=261$/u);
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event("test-player-finish-seek"));
+      });
+      await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
+      await expect(page).toHaveURL(/#t=261$/u);
+    } finally {
+      await testInfo.attach("video-reader-refresh-history", {
+        body: JSON.stringify(
+          await page.evaluate((): unknown => {
+            const observer = window.__videoReaderRefresh;
+            if (observer === undefined)
+              throw new Error("Reader observer is missing");
+            try {
+              return observer.snapshot();
+            } finally {
+              observer.restore();
+            }
+          }),
+          null,
+          2,
+        ),
+        contentType: "application/json",
+      });
+    }
     // Serialize later clicks too, so a slow older seek cannot overwrite the newest moment.
     await page.evaluate(() => {
       sessionStorage.setItem("test-player-defer-seek", "1");
