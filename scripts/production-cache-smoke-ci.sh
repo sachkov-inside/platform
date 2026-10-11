@@ -21,6 +21,9 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 echo '::group::Prepare exact-source cached production images'
 for release in v1 v2; do
