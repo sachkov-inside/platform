@@ -36,6 +36,8 @@ import {
 } from "./billing-worker/jobs.js";
 
 const telemetryCleanupQueue = "web-telemetry.retention";
+// The watchdog reads completion over 26 hours; keep receipts across two daily runs.
+const telemetryReceiptRetentionSeconds = 172_800;
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const noticeQueue = "billing.subscription-notices";
@@ -86,7 +88,7 @@ async function bootstrap(): Promise<void> {
     readiness: application.get(OperationalReadiness),
     async registerJobs() {
       await jobs.createQueue(telemetryCleanupQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
+        deleteAfterSeconds: telemetryReceiptRetentionSeconds,
         expireInSeconds: jobTimeoutSeconds,
         retryLimit: 0,
       });

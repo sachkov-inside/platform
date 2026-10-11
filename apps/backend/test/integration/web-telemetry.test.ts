@@ -1,6 +1,13 @@
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
+import {
+  assembleAccounts,
+  bootstrapOwnerAccount,
+} from "../../src/modules/accounts/index.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
+import { McpServer } from "@modelcontextprotocol/server";
+import { registerWebTelemetryTool } from "../../src/modules/web-telemetry/index.js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import {
@@ -51,6 +58,86 @@ it("reports deterministic p75 without storing a raw path or visitor identity", a
     },
   });
 });
+
+it("requires the real platform admin permission and respects its revocation", async () => {
+  const accounts = assembleAccounts({
+    prisma: database.prisma,
+    emailFingerprintKey: "telemetry-test-fingerprint-key-854",
+  });
+  const identity = { issuer: "https://telemetry.test/oidc", subject: "owner" };
+  const { accountId } = await bootstrapOwnerAccount(
+    database.prisma,
+    identity,
+    "materials:manage",
+  );
+  const actual = new WebTelemetry({
+    prisma: database.prisma,
+    accounts,
+    clock: () => instant,
+  });
+  expect(await actual.summary(accountId, 7)).toEqual({
+    ok: false,
+    error: { code: "forbidden" },
+  });
+  await bootstrapOwnerAccount(database.prisma, identity, "platform:admin");
+  expect(await actual.summary(accountId, 7)).toMatchObject({
+    ok: true,
+    value: { vitals: [], errors: [] },
+  });
+  await database.prisma.accountPermission.delete({
+    where: {
+      accountId_permission: { accountId, permission: "platform:admin" },
+    },
+  });
+  expect(await actual.summary(accountId, 7)).toEqual({
+    ok: false,
+    error: { code: "forbidden" },
+  });
+
+  const server = new McpServer({ name: "telemetry-test", version: "1" });
+  registerWebTelemetryTool(server, { accountId, telemetry: actual });
+  const client = new Client({ name: "telemetry-test-client", version: "1" });
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    const tool = (await client.listTools()).tools.find(
+      ({ name }) => name === "web_telemetry_summary",
+    );
+    expect(tool?.annotations).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+    });
+    expect(
+      await client.callTool({
+        name: "web_telemetry_summary",
+        arguments: { days: 7 },
+      }),
+    ).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, error: { code: "forbidden" } },
+    });
+    await bootstrapOwnerAccount(database.prisma, identity, "platform:admin");
+    expect(
+      await client.callTool({
+        name: "web_telemetry_summary",
+        arguments: { days: 7 },
+      }),
+    ).toMatchObject({
+      structuredContent: { ok: true, value: { vitals: [], errors: [] } },
+    });
+    expect(
+      await client.callTool({
+        name: "web_telemetry_summary",
+        arguments: { days: 31 },
+      }),
+    ).toMatchObject({ isError: true });
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
 it("enforces the daily quota atomically and labels the late-day incomplete sample", async () => {
   await database.prisma
     .$executeRaw`INSERT INTO web_telemetry.daily_quota(day,kind,saved,dropped) VALUES ('2026-10-09','vitals',19995,0)`;
@@ -97,6 +184,22 @@ it("cleans data older than 30 days in bounded batches", async () => {
     ok: true,
     value: { vitals: [], errors: [] },
   });
+});
+
+it("retention drains more than one batch and keeps samples exactly at the cutoff", async () => {
+  await database.prisma
+    .$executeRaw`SELECT web_telemetry.record_vital('2026-10-08T12:00:00Z', '/', 'desktop', 'LCP', 10) FROM generate_series(1,5001)`;
+  await telemetry.record(vital(100));
+  expect(await telemetry.clean(new Date("2026-11-08T12:00:00Z"))).toMatchObject(
+    { ok: true, removed: 5003 },
+  );
+  expect(await telemetry.summary("owner", 1)).toMatchObject({
+    ok: true,
+    value: { vitals: [{ p75: 100, saved: 1, dropped: 0 }] },
+  });
+  expect(await telemetry.clean(new Date("2026-11-08T12:00:00Z"))).toMatchObject(
+    { ok: true, removed: 0 },
+  );
 });
 
 it("accepts the private API report and rejects visitor fields at the HTTP boundary", async () => {

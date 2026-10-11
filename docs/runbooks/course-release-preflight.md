@@ -1,0 +1,168 @@
+# Подготовка выпуска курса (#854)
+
+Этот runbook связывает [выпуск](release.md), [production delivery](production-delivery.md),
+[telemetry](web-telemetry.md) и [foundation/backup](production-foundation.md). Он готовит технический
+выпуск; production-приёмка интерфейса, контент, сообщения, реальные деньги и открытие продаж имеют
+свои подтверждения. Количество материалов и календарь не являются условиями технического выпуска.
+Полный monitoring #1289, marketing и Tribute migration остаются после запуска.
+
+## До публикации
+
+1. Получить свежий `origin/main` и включить его через merge. Записать итоговый SHA, список отличий
+   от production и точные версии Platform/Telegram. #855 и #806 уже в main; это не подтверждение
+   production-приёмки «Сдач». Принятый Reader `501dc62e` и вариант A прототипа не заменяют её.
+2. На итоговом commit выполнить `pnpm check:full`, независимые Standards/Spec review и guarded
+   [Compose smoke с shutdown](local-development.md#start-from-a-fresh-clone).
+   Сохранить реальные exit codes и логи вне Git. Отдельно сохранить exit code shutdown; успешный
+   smoke с неуспешным shutdown не проходит preflight. Проверить current-head CI и fullstack именно
+   на release SHA, как требует [release](release.md#1-что-выпускаем).
+3. Заполнить [техническую форму](../../config/release/course-launch-inputs.example.json) по разделу
+   ниже. Секреты и реальные identities остаются в защищённом хранилище. `credentials://` — условные
+   ссылки на записи владельца, не встроенный resolver и не свидетельство существования credential.
+   Заменить их на фактические защищённые ссылки. Наличие ссылки не подтверждает настройку процесса.
+4. Проверить доступную память (после выкладки не меньше 1 GiB), свободный диск с запасом для WAL,
+   telemetry до 600 MB и четырёх full backup. Предыдущие ресурсные числа #707 — история измерения,
+   а не proof нового production. `pnpm telemetry:measure` повторяет ограниченный ресурсный прогон.
+
+## Backup и изолированная проверка восстановления
+
+Foundation — единственный владелец PostgreSQL и pgBackRest. Перед изменениями выполнить
+`sudo systemctl start inside-pgbackrest-backup@incr.service`, проверить `Result=success` и выполнить
+`pgbackrest --stanza=production check` через существующий operations service. Получить
+`pgbackrest --stanza=production --output=json info` и сохранить label и время завершения выбранной
+копии. Перед выкладкой backup должен быть моложе восьми часов; повторить его, если окно истекло.
+Логи и metadata хранить в защищённом каталоге оператора, не коммитить.
+
+Для проверки нужны полный локальный snapshot **того же** pgBackRest repository (backup chain и WAL),
+права чтения, выбранный label и уже имеющийся образ foundation с pgBackRest 2.57.0/PostgreSQL 18.4.
+Подготовить этот snapshot штатным защищённым способом; не менять live repository. Скопировать только
+`PGBACKREST_REPO1_CIPHER_PASS` в временный env-file с mode `0600`. Не копировать S3/production database
+credentials. Источник plaintext и временный repository содержат production-данные: хранить их вне Git
+и отчётов в защищённом каталоге; после проверки удалить по политике владельца.
+
+```bash
+pnpm release:restore:check \
+  --image sha256:<local-foundation-image-id> \
+  --repository /secure/backup-snapshot/inside-platform \
+  --cipher-env /secure/restore-cipher.env \
+  --backup-label <exact-pgbackrest-label> > /secure/restore-receipt.json
+```
+
+`--image` принимает immutable image digest или точный local image ID, не tag. Сначала проверить его
+соответствие установленному foundation image и версию PostgreSQL/pgBackRest. Команда никогда не
+pull-ит образ. Она создаёт только уникальный `inside-production-postgres-data-recovery-check-*`,
+монтирует repository read-only, запускает restore и PostgreSQL с `--network none`, без портов,
+отключает archive-push и не запускает API, Logto, бот или workers. Она ждёт окончания WAL recovery,
+выполняет read-only SQL для `inside`, `logto`, `inside_telegram` и удаляет свои container/volume при
+успехе и отказе. Если cleanup не завершился, green receipt не выдаётся.
+
+Receipt доказывает возможность открыть базы и прочитать ключевые таблицы. Для приёмки сохранности
+сверить инвентарь курса, IDs аккаунтов, права, прогресс, платежи и последние подтверждённые операции
+с защищённым инвентарём на выбранной точке backup. Сравнение должно учитывать время копии; записи
+после этой точки в ней не ожидаются. Один `pgbackrest info/check` без реального restore недостаточен.
+Live volume и `/etc/inside/foundation/compose.env` этой процедурой не переключаются.
+
+## Миграции и порядок применения
+
+1. Опубликовать очередной immutable `vN` через `release.yml`. Скачать exact `release-manifest.json`
+   и `production-runtime.tar.gz` по [release](release.md). Публикация ещё не выкладка.
+2. Проверить source SHA, publication run, bundle digest и оба GHCR image digests. Скачать образы
+   по **полному reference из manifest**, затем запустить preflight ниже. Не выбирать `latest` или
+   tag. Host повторно проверит immutable Release и bundle/manifest перед исполнением.
+3. Проверить server-owned конфигурацию и доступность текущей schema identity. Перед deploy назвать
+   ожидаемую длительность maintenance по прежним drain/migration/start/readiness/reload измерениям.
+4. Выполнить штатный `deploy.yml`: preflight → image pre-pull → maintenance → candidate compatibility
+   → drain старых workers → migrations → новые процессы → readiness/schema/version → read-only smoke
+   → public routes → journal. Все Platform migrations идут в порядке `platformMigrations`, затем
+   converges pg-boss. Не выполнять отдельную `0087` через psql и не править checksums старых миграций.
+5. `0087_web_telemetry` создаёт schema, quota/coverage routines и `web_telemetry.health`. Billing-worker
+   запускает retention при старте и ежедневно в 03:00 UTC (06:00 по Москве). Только после миграций
+   deploy устанавливает watchdog из exact backend image. Проверить установку: её warning не отменяет
+   deploy автоматически и не считается готовым мониторингом.
+6. После выкладки выполнить [production verify](production-release.md), сверить state/journal,
+   versions/digests, все readiness и доступ. Проверить private telemetry ingress, summary с
+   `platform:admin`, отказ обычному Account и learner MCP, завершение retention, memory/disk и
+   watchdog timer. Private `/internal/web-telemetry` снаружи должен давать 404. Не инъецировать
+   неисправность в production для теста: failure/recovery проверены на изолированном контуре.
+
+## Проверяемый preflight
+
+`pnpm release:course:preflight <evidence.json> <manifest.json> <runtime.tar.gz> [previous-manifest.json]`
+проверяет текущий локальный `origin/main`, ровно одну успешную квитанцию каждого check на том же SHA,
+publication run, immutable status, bundle hash, `RepoDigests` скачанных образов и binding предыдущего
+manifest. Перед командой выполнить `git fetch origin main:refs/remotes/origin/main`.
+Она ничего не выкладывает и не заменяет host preflight. Evidence — аттестация оператора с raw logs
+по `evidenceRef`; script не может подтвердить содержимое произвольно заполненного receipt.
+
+Формат evidence (`checks` содержит все семь имён):
+
+```json
+{
+  "schemaVersion": "inside.course-release-preflight.v1",
+  "checks": [
+    {"name":"check","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>"},
+    {"name":"check:full","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>"},
+    {"name":"compose-smoke-shutdown","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log-and-shutdown>"},
+    {"name":"standards","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
+    {"name":"spec","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
+    {"name":"ci","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"},
+    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"}
+  ],
+  "publication": {"sourceSha":"<40-hex>","workflowRunId":1,"immutable":true,"succeeded":true},
+  "backup": {"label":"<label>","finishedAt":"<UTC-ISO>","checkExitCode":0},
+  "restore": {"backupLabel":"<same-label>","finishedAt":"<UTC-ISO>","exitCode":0,
+    "volume":"inside-production-postgres-data-recovery-check-<id>","networkMode":"none",
+    "publishedPorts":0,"databasesPassed":["inside","logto","inside_telegram"]}
+}
+```
+
+Подставлять только фактические результаты. Незапущенная, failed или stale проверка остаётся pending;
+не переписывать её как `exitCode:0`. Restore receipt берётся из предыдущего шага.
+
+## Формы T-Bank, callback и двух каналов
+
+В JSON-форме `technical` содержит вычисляемые поля: текущие URLs, целевые env-files и принятые суммы.
+В `ownerEvidence` остаются подтверждённые факты терминала и получателей. `null` означает missing input.
+Основная цена 29 900 RUB, альтернативная 39 900 RUB; скидка опроса 10% даёт 26 910 RUB. После отдельного
+разрешения сценарий предусматривает **ровно две оплаты** 29 900 и 26 910 RUB, всего 56 810 RUB, затем
+два полных возврата в течение семи дней. Альтернативная цена не добавляет третью контрольную оплату.
+
+| Настройка | Вычисляемое техническое поле | Защищённый input / evidence владельца |
+|---|---|---|
+| T-Bank | `environment=production`; `/payment/return`; POST callback `/billing/tbank/notification`; одинаковый `TBANK_CONFIG_JSON` в API/MCP/billing-worker | terminal key/password; сохранённый 32-byte base64 binding key; факты terminal capabilities, limits, taxation/tax и включённые HTTP notifications |
+| Callback | Caddy пропускает только POST; приложение проверяет подпись и terminal binding | включение в кабинете банка; evidence callback без token/полного payload |
+| Основной канал | `/etc/inside/watchdog/watchdog.env`, `WATCHDOG_TELEGRAM_BOT_TOKEN`, `WATCHDOG_TELEGRAM_CHAT_ID`; relay из production-monitoring | отдельный бот сигналов и одобренный recipient; разрешение exact test message |
+| Запасной канал | тот же env-file, `WATCHDOG_SMTP_URL`, `WATCHDOG_SMTP_USER`, `WATCHDOG_SMTP_PASSWORD`, `WATCHDOG_EMAIL_FROM`, `WATCHDOG_EMAIL_TO` | действующий SMTP TLS endpoint, login, sender и одобренный recipient; разрешение exact test message |
+| Внешняя проверка | GitHub repository secrets `MONITOR_TELEGRAM_BOT_TOKEN`, `MONITOR_TELEGRAM_CHAT_ID` | ссылки на те же защищённые записи; actual delivery proof отдельно |
+
+`receipt` и limits берутся из актуального evidence рабочего терминала, а не из example defaults.
+Схема `apps/backend/src/config/tbank-config.ts` — authority допустимых полей. Recurring confirmations
+относится к подписке: она остаётся выключенной; не придумывать подтверждение ради запуска курса.
+Binding key сохраняется между выпусками, иначе ранее зашифрованные привязки перестанут читаться.
+В env-files записываются настоящие значения по защищённому каналу, не сами `credentials://` ссылки.
+
+Проверка маршрута/token через `getMe` ничего не отправляет. Для испытания доставки подготовить текст
+с synthetic failure/recovery и точный recipient каждого канала; разрешение и фактическое получение
+зафиксировать отдельно. Telegram-поломка не должна лишать SMTP-сигнала; проверить запасной канал
+отдельно. Наличие credentials, успешный curl или outbox запись не заменяют получение владельцем.
+
+## Отказ, восстановление и rollback
+
+- До миграций: read-only preflight отказывает без изменений. При отказе после maintenance сохранить
+  operation/journal; повторять exact version штатным deploy, не повторять неизвестный SSH write.
+- После `0087`: schema identity изменилась. **Application rollback на предыдущую schema запрещён**
+  текущим release contract; сохранить данные и выпустить repair forward следующим ordinal.
+  Не выполнять down migration, restore поверх live или редактирование state/journal вручную.
+- При одинаковой schema identity manifest может разрешать rollback только на recorded previous
+  успешный выпуск в 24-часовом окне; окончательное решение принимает host preflight. В preflight
+  `eligible-after-host-preflight` не означает автоматически разрешённый rollback.
+- Потери forwarding/minute ceiling видны в журналах и сигнале watchdog; восстановление значит
+  отсутствие новых событий за окно. Квота отдельно даёт dropped coverage и `incomplete` p75.
+  Просроченная retention вызывает сигнал, successful cleanup снимает его. При недоступной базе
+  прежние SQL-сигналы сохраняются, не объявляются восстановленными.
+- Аварийное восстановление live cluster — отдельная процедура
+  [foundation](production-foundation.md#восстановление-базы), с сохранением старого volume и explicit
+  recovery replacement. Preflight restore не является её разрешением.
+
+RKN #856 и оферта #780 закрыты; повторного согласования цены/юридических решений здесь нет.
+Отчёт отличает подготовленный код, merge, actual deploy, публикацию content и public-sale GO.

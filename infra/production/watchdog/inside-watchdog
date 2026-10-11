@@ -256,7 +256,12 @@ select 'billing_queue_idle', case when exists (
      and completed_on > now() - interval '5 minutes'
 ) then 0 else 1 end
 union all
-select name, value from web_telemetry.health;
+select name, value from web_telemetry.health
+union all
+select 'web_telemetry_retention', case when exists (
+ select 1 from pgboss.job where name = 'web-telemetry.retention' and state = 'completed'
+  and completed_on > now() - interval '26 hours'
+) then 0 else 1 end;
 SQL
 
 # Вступление в группу в базе Telegram: операция сообщества завершилась failed или unknown за 10 минут.
@@ -297,6 +302,7 @@ check_database() {
       web_telemetry_digest) observe db.web_telemetry_digest 1 "Новых digest web за 10 минут: $value" "$value" ;;
       web_telemetry_size) observe db.web_telemetry_size 1 "Телеметрия web достигла 480 MB из бюджета 600 MB" ;;
       web_telemetry_dropped) observe db.web_telemetry_dropped 1 "Отброшено метрик и ошибок web за сутки: $value" "$value" ;;
+      web_telemetry_retention) observe db.web_telemetry_retention 1 "Очистка telemetry не завершалась за 26 часов" ;;
       billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
     esac
   done <<<"$rows"
@@ -396,6 +402,8 @@ check_logs() {
     if ! logs="$(docker logs --since 5m "$name" 2>&1)"; then
       hold "log.attention.$service"
       [[ "$service" == api ]] && hold log.bank_webhook
+      [[ "$service" == web ]] && hold log.web_telemetry
+      [[ "$service" == web ]] && hold log.authentication
       continue
     fi
     count="$(grep -c '"status":"operator_attention"' <<<"$logs" || true)"
@@ -417,6 +425,13 @@ check_logs() {
         fi
         ;;
       web)
+        count="$(jq --raw-input --slurp '[split("\n")[] | fromjson? |
+          select(type == "object") |
+          select(.event == "web-telemetry-unavailable" or .event == "client-report-limit-reached")
+          ] | length' <<<"$logs")"
+        if (( count > 0 )); then
+          observe log.web_telemetry 1 "Потери telemetry web: $count за 5 минут" "$count"
+        fi
         if ! logs="$(docker logs --since 10m "$name" 2>&1)"; then
           hold log.authentication
           continue

@@ -63,6 +63,13 @@ The read-only SQL view `web_telemetry.health` feeds the existing watchdog:
 - Schema size: at least 480,000,000 bytes, 80% of the 600,000,000-byte budget.
 - Quota loss: dropped samples/errors in the current UTC day.
 
+Watchdog also checks successful `web-telemetry.retention` completion within 26 hours in pg-boss.
+The queue retains completed receipts for two days, across daily runs. Missing completion signals
+an overdue cleanup; a later successful run clears it. Forwarding failures and minute report ceilings
+raise a separate signal from the Web log's five-minute window. Its recovery means no new losses
+in that window; it does not reconstruct dropped reports. If reading the log or database fails,
+watchdog holds existing signals rather than announcing recovery.
+
 These checks read only, use the watchdog's existing statement timeout, and clear through its
 existing recovery path. Quota loss clears after the UTC day ends. Watchdog installation must follow
 the migration that creates its view.

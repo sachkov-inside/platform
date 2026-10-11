@@ -117,6 +117,29 @@ describe("production watchdog", () => {
     }
   });
 
+  it("signals lost telemetry and overdue retention, then clears both after recovery", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|1\n");
+      fixture.fake(
+        "logs-inside-platform-production-web-1",
+        '{"event":"web-telemetry-unavailable","kind":"vitals"}\n' +
+          '{"event":"client-report-limit-reached","report":"render-errors"}\n',
+      );
+      const failure = assertRun(fixture);
+      assert.match(failure, /Очистка telemetry не завершалась за 26 часов/u);
+      assert.match(failure, /Потери telemetry web: 2 за 5 минут/u);
+      assert.equal(assertRun(fixture, now + 60), "");
+      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|0\n");
+      fixture.fake("logs-inside-platform-production-web-1", "");
+      const recovery = assertRun(fixture, now + 120);
+      assert.match(recovery, /Восстановлено: Очистка telemetry/u);
+      assert.match(recovery, /Восстановлено: Потери telemetry web/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("confirms a flapping check only after two failed runs in a row", () => {
     const fixture = createFixture();
     try {
