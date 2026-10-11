@@ -67,7 +67,12 @@
       "cancelRestoresTrigger": true,
       "confirmedOnce": true,
       "returnedSavedRevisionVerified": true,
-      "reloadAndNewContextReadSavedEligibility": true
+      "reloadReadSavedEligibility": true,
+      "auxiliaryContextRead": {
+        "viewport": "not captured",
+        "savedEligibilityVerified": true,
+        "cleanup": "closed in finally"
+      }
     },
     {
       "project": "mobile-chromium",
@@ -80,7 +85,12 @@
       "cancelRestoresTrigger": true,
       "confirmedOnce": true,
       "returnedSavedRevisionVerified": true,
-      "reloadAndNewContextReadSavedEligibility": true
+      "reloadReadSavedEligibility": true,
+      "auxiliaryContextRead": {
+        "viewport": "not captured",
+        "savedEligibilityVerified": true,
+        "cleanup": "closed in finally"
+      }
     }
   ]
 }

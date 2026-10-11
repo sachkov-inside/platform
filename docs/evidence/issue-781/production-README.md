@@ -38,10 +38,12 @@ viewport captures с длинным синтетическим название�
   Actual TariffsView stories проверяют native Escape, Cancel, Confirm и возврат к фактической
   кнопке. Live route проверяет начальный Cancel focus, trusted Tab/Shift+Tab на всех трёх размерах,
   native Escape и Cancel с возвратом к trigger, а также однократный confirm. Операции Escape,
-  Cancel, confirm, revision и reload/new context выполняются **после восстановления исходного
+  Cancel, confirm, revision и reload выполняются **после восстановления исходного
   project viewport**: 1440×1024 для desktop и 390×844 для mobile. На 320 px проверены только
   capture geometry/axe и trusted Tab/Shift+Tab. В live JSON `facts` описывает каждый capture,
-  а `scenarios` отдельно описывает операции на исходном project viewport.
+  а `scenarios` отдельно описывает операции на исходном project viewport. Чтение допуска в
+  дополнительном `browser.newContext` отражено отдельно в `auxiliaryContextRead`: его viewport
+  не захватывался, контекст закрыт в `finally`.
 
 [Storybook факты](production-storybook-facts.json) и [live факты](production-live-facts.json)
 содержат реальные geometry/axe measurements и границы проверенного поведения. Raw logs,
