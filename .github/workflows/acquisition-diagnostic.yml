@@ -1,0 +1,60 @@
+name: Acquisition diagnostic 1324
+
+# Root adds this exact-head label once, only after a separate hosted grant.
+on:
+  pull_request:
+    types: [labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  acquisition:
+    if: |
+      ${{ github.event_name == 'pull_request' &&
+          github.event.action == 'labeled' &&
+          github.event.number == 1333 &&
+          github.event.pull_request.base.ref == 'main' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.label.name == format('1324-acq-{0}', github.event.pull_request.head.sha) &&
+          github.run_attempt == 1 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Record hosted identity
+        run: python3 scripts/acquisition-diagnostic-hosted.py identity --output "$RUNNER_TEMP/1324-hosted"
+      - name: Set up frozen Platform dependencies
+        timeout-minutes: 10
+        uses: ./.github/actions/setup-platform
+      - name: Run one acquisition guardian
+        id: diagnostic
+        timeout-minutes: 4
+        env:
+          ACQUISITION_DIAGNOSTIC_EPHEMERAL: "1"
+        run: |
+          node scripts/owned-node.mjs --command python3 scripts/acquisition-diagnostic-guard.py \
+            --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/1324-acquisition"
+      - name: Qualify Linux native closure
+        if: ${{ always() && steps.diagnostic.outcome != 'skipped' }}
+        timeout-minutes: 1
+        run: |
+          sudo -n python3 scripts/acquisition-diagnostic-hosted.py close \
+            --output "$RUNNER_TEMP/1324-hosted" --receipt "$RUNNER_TEMP/1324-acquisition/receipt.json"
+      - name: Preserve exits and receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: acquisition-1324-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/1324-hosted
+            ${{ runner.temp }}/1324-acquisition
+          if-no-files-found: error
+          retention-days: 7
