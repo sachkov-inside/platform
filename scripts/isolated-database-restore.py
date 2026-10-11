@@ -13,12 +13,13 @@ import uuid
 
 DATABASES = ("inside", "logto", "inside_telegram")
 PREFIX = "inside-production-postgres-data-recovery-check-"
+DOCKER_TIMEOUT_SECONDS = 900
 
 
 def run(*args, input_text=None):
     return subprocess.run(
         ["docker", *args], input=input_text, text=True,
-        capture_output=True, check=True, timeout=900,
+        capture_output=True, check=True, timeout=DOCKER_TIMEOUT_SECONDS,
     ).stdout.strip()
 
 

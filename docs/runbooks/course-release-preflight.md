@@ -67,6 +67,11 @@ Receipt доказывает возможность открыть базы и �
 после этой точки в ней не ожидаются. Один `pgbackrest info/check` без реального restore недостаточен.
 Live volume и `/etc/inside/foundation/compose.env` этой процедурой не переключаются.
 
+`RESTORE_TEST_IMAGE=sha256:<local-postgres-image-id> pnpm release:restore:test` отдельно проверяет
+реальную очистку Docker/process при успехе, отказе, subprocess timeout и SIGTERM. Каждый случай
+имеет бюджет 15 секунд, собственные container/volume и только синтетический файл. Этот contract
+включён в CI; он проверяет lifecycle, а восстановление выбранного backup остаётся отдельным gate.
+
 ## Миграции и порядок применения
 
 1. Опубликовать очередной immutable `vN` через `release.yml`. Скачать exact `release-manifest.json`

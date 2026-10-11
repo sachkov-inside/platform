@@ -125,6 +125,12 @@ jobs:
           browsers: chromium
       - name: Verify production SQL contracts on an isolated PostgreSQL
         run: pnpm production:verify:sql-test
+      - name: Verify restore cleanup with synthetic Docker data
+        run: |
+          restore_test_image=public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+          docker pull "$restore_test_image"
+          export RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          pnpm release:restore:test
       - name: Run isolated integration tests
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
