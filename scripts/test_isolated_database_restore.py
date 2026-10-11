@@ -1,5 +1,6 @@
 import importlib.util
 import pathlib
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -47,6 +48,32 @@ class RestoreSafety(unittest.TestCase):
             return ""
         with self.assertRaises(subprocess.CalledProcessError):
             restore.restore("sha256:" + "a" * 64, self.repo, self.cipher, "20261011-100000F", fail)
+        self.assertEqual(self.calls[-1][0][:2], ("volume", "rm"))
+
+    def test_sigterm_cleans_owned_restore_and_volume(self):
+        previous = signal.signal(signal.SIGTERM, restore.terminate)
+        self.addCleanup(signal.signal, signal.SIGTERM, previous)
+        def interrupted(*args, input_text=None):
+            self.docker(*args, input_text=input_text)
+            if args[0] == "run":
+                signal.raise_signal(signal.SIGTERM)
+            return ""
+        with self.assertRaises(KeyboardInterrupt):
+            restore.restore("sha256:" + "a" * 64, self.repo, self.cipher, "20261011-100000F", interrupted)
+        self.assertEqual(self.calls[-2][0][:2], ("rm", "--force"))
+        self.assertEqual(self.calls[-1][0][:2], ("volume", "rm"))
+
+    def test_timeout_removes_running_restore_before_its_plaintext_volume(self):
+        def timeout(*args, input_text=None):
+            self.docker(*args, input_text=input_text)
+            if args[0] == "run":
+                raise subprocess.TimeoutExpired("docker", 900)
+            return ""
+        with self.assertRaises(subprocess.TimeoutExpired):
+            restore.restore("sha256:" + "a" * 64, self.repo, self.cipher, "20261011-100000F", timeout)
+        started = next(args for args, _ in self.calls if args[0] == "run")
+        name = started[started.index("--name") + 1]
+        self.assertEqual(self.calls[-2][0], ("rm", "--force", name))
         self.assertEqual(self.calls[-1][0][:2], ("volume", "rm"))
 
 
