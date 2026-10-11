@@ -22,7 +22,7 @@ export function SubscriptionSaleConfirmationProof({
   readonly onConfirm: (tariff: Tariff) => void;
 }) {
   const [pending, setPending] = useState<Tariff | null>(null);
-  const trigger = useRef<HTMLElement | null>(null);
+  const [trigger, setTrigger] = useState<HTMLElement | null>(null);
 
   return (
     <AccessSection
@@ -39,7 +39,7 @@ export function SubscriptionSaleConfirmationProof({
                   if (event.target instanceof Element) {
                     const button =
                       event.target.closest<HTMLButtonElement>("button");
-                    if (button !== null) trigger.current = button;
+                    if (button !== null) setTrigger(button);
                   }
                 }}
               >
@@ -47,7 +47,7 @@ export function SubscriptionSaleConfirmationProof({
                   busy={false}
                   failure={null}
                   message=""
-                  onSaveEligibility={() => {}}
+                  onSaveEligibility={() => undefined}
                   onToggleSale={(row) => {
                     setPending(row);
                   }}
@@ -65,7 +65,7 @@ export function SubscriptionSaleConfirmationProof({
                     setPending(null);
                     onConfirm(pending);
                   }}
-                  trigger={trigger.current}
+                  trigger={trigger}
                 />
               )}
             </>

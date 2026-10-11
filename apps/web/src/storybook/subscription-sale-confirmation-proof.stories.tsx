@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import { paymentMode } from "@/entities/subscription";
 import { materialsOffer } from "@/storybook/billing.fixtures";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
@@ -18,7 +19,12 @@ const meta = {
         eligibility: "everyone",
         published: false,
       },
-      options: [materialsOffer.paymentOption],
+      options: [
+        {
+          ...materialsOffer.paymentOption,
+          mode: paymentMode(materialsOffer),
+        },
+      ],
     },
     onCancel: fn(),
     onConfirm: fn(),
@@ -91,9 +97,9 @@ export const Interaction: Story = {
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Отмена" }),
     );
-    await waitFor(() => {
-      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(trigger).toHaveFocus();
+    await waitFor(async () => {
+      await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+      await expect(trigger).toHaveFocus();
     });
     await expect(args.onCancel).toHaveBeenCalledTimes(1);
     await expect(args.onConfirm).not.toHaveBeenCalled();
@@ -101,9 +107,9 @@ export const Interaction: Story = {
     const reopened = await openConfirmation(canvasElement);
     // Публичное событие native dialog; это не доказательство доверенного нажатия Escape.
     reopened.dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
-    await waitFor(() => {
-      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(trigger).toHaveFocus();
+    await waitFor(async () => {
+      await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+      await expect(trigger).toHaveFocus();
     });
     await expect(args.onCancel).toHaveBeenCalledTimes(2);
     await expect(args.onConfirm).not.toHaveBeenCalled();
@@ -114,11 +120,12 @@ export const Interaction: Story = {
         name: "Включить продажу всем",
       }),
     );
-    await waitFor(() => {
-      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(trigger).toHaveFocus();
+    await waitFor(async () => {
+      await expect(canvas.queryByRole("dialog")).not.toBeInTheDocument();
+      await expect(trigger).toHaveFocus();
     });
-    await expect(args.onConfirm).toHaveBeenCalledExactlyOnceWith(args.tariff);
+    await expect(args.onConfirm).toHaveBeenCalledTimes(1);
+    await expect(args.onConfirm).toHaveBeenCalledWith(args.tariff);
     await expect(canvas.getByRole("status")).toBeEmptyDOMElement();
     await expect(
       canvas.getByText("Не продаётся", { exact: true }),

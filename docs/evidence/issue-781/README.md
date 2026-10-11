@@ -105,7 +105,7 @@ Owned container/browser/Storybook обоих успешных прогонов �
 порт 6006 свободен. Worktree и ветка сохранены для открытого draft PR.
 
 `pnpm docs:check` и `git diff --check` завершились exit 0.
-Final `pnpm check` пока **не выполнен**. Визуального принятия владельцем ещё нет.
+Final `pnpm check` пока **не выполнен**. Макет и текст exact proof `93cd8521` приняты владельцем; это не подтверждает полный check или production visual GO.
 
 Независимое source review исходного `95b95072` нашло один Spec P2: в некоторых
 браузерах click не фокусирует кнопку, поэтому сохранение `activeElement` не
@@ -116,9 +116,34 @@ committed head: по 0 оставшихся или новых замечаний
 для разработчика из фона повторные независимые review UI head `45d0505b` также
 дали по 0 замечаний. Это source review, не решение владельца.
 
+## Принятие и исправление CI
+
+Владелец принял макет и текст exact proof
+`93cd8521c76cf976a3548e4569d3aca871256851`: «Принять макет и текст (рекомендуется)».
+[Решение в #781](https://github.com/sachkov-inside/platform/issues/781#issuecomment-6109488351)
+и [receipt PR](https://github.com/sachkov-inside/platform/pull/1348#issuecomment-6109488506)
+разрешают отдельный перенос показанного UI. Production visual GO остаётся отдельным решением.
+
+CI [38142512095](https://github.com/sachkov-inside/platform/actions/runs/38142512095)
+на этом proof завершился отказом в четырёх jobs. Все первичные причины — ошибки
+двух собственных файлов proof: Static и Telegram остановились на lint, Web E2E
+и Production Compose — на TypeScript Next build. Provider/чужой неизменённый тест
+не признан причиной; повторный CI не запрашивался.
+
+Исправлены чтение ref во время render (кнопка теперь хранится в React state), пустой
+демонстрационный callback, нормализация optional payment mode и ожидание assertions
+в Storybook. Single-confirm проверяется парой «один вызов» + «нужный аргумент» вместо
+неподдерживаемого typed matcher. Принятые текст, CSS-классы и композиция сохранены.
+
+Raw логи всех четырёх jobs и классификация находятся в игнорируемом
+`ci-artifacts/evidence/issue-781/ci-38142512095/`; прежние capture failures сохранены.
+Снимки и runtime PASS выше относятся к прежнему UI head `45d0505b` и evidence
+`93cd8521`. Они не объявляются проверкой исправленного source head: новые
+Storybook/browser проверки и полный `pnpm check` ожидают отдельного runtime-слота.
+
 ## Следующий шаг
 
-После просмотра снимков координатор предъявляет этот единственный
-диалог владельцу для решения о proof. Production-warning по сохранённым eligibility/revision и
+Принятый диалог переносит отдельный production-исполнитель после собственного
+Storybook MCP preflight и выделенного runtime-слота. Production-warning по сохранённым eligibility/revision и
 обновление `production-release.md` выполняются отдельно после принятия proof.
 Этот прототип не завершает #781 и не даёт разрешения на реальные продажи.
