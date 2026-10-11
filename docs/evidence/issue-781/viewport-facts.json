@@ -1,0 +1,49 @@
+{
+  "sourceSha": "45d0505b6788c4a330d768a33652bb4ea4d57542",
+  "facts": [
+    {
+      "width": 320,
+      "height": 568,
+      "story": "narrow-mobile",
+      "geometry": {
+        "innerWidth": 320,
+        "innerHeight": 568,
+        "scrollY": 318,
+        "rootWidth": 320,
+        "rootScrollWidth": 320,
+        "documentHeight": 888,
+        "dialogWidth": 280,
+        "dialogScrollWidth": 280,
+        "left": 19,
+        "right": 301,
+        "top": 73,
+        "bottom": 495,
+        "height": 422
+      },
+      "initialCancelFocus": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "story": "mobile",
+      "geometry": {
+        "innerWidth": 390,
+        "innerHeight": 844,
+        "scrollY": 0,
+        "rootWidth": 390,
+        "rootScrollWidth": 390,
+        "documentHeight": 904,
+        "dialogWidth": 350,
+        "dialogScrollWidth": 350,
+        "left": 19,
+        "right": 371,
+        "top": 223,
+        "bottom": 621,
+        "height": 398
+      },
+      "initialCancelFocus": true,
+      "pageErrors": []
+    }
+  ]
+}

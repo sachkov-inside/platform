@@ -33,6 +33,13 @@
 - `proofs-authoring-subscription-sale-confirmation--interaction` — отмена кнопкой,
   публичное native-событие cancel и однократное подтверждение.
 
+Preview URLs из Storybook MCP (сервер после проверки остановлен):
+
+- http://localhost:6006/?path=/story/proofs-authoring-subscription-sale-confirmation--desktop
+- http://localhost:6006/?path=/story/proofs-authoring-subscription-sale-confirmation--mobile
+- http://localhost:6006/?path=/story/proofs-authoring-subscription-sale-confirmation--narrow-mobile
+- http://localhost:6006/?path=/story/proofs-authoring-subscription-sale-confirmation--interaction
+
 Storybook interaction проверяет демонстрационные callback и видимый результат.
 Синтетическое событие cancel не доказывает обработку доверенной клавиши Escape;
 настоящие Escape/Tab и возврат фокуса требуют отдельной browser-проверки.
@@ -52,21 +59,66 @@ Frozen install завершился exit 0 с закреплёнными Node 26
 Raw preparation receipts сохранены в игнорируемом
 `ci-artifacts/evidence/issue-781/preparation/` собственного worktree.
 
-Desktop/mobile captures, overflow на 320/390/1440, доверенные keyboard checks,
-axe, Storybook MCP test-run и final pnpm check пока **не выполнены**.
-Общий runtime-слот принадлежит release blockers; факт выполнения будет записан
-после выделенного запуска. Визуального принятия владельцем ещё нет.
+Проверка браузером на UI head
+`45d0505b6788c4a330d768a33652bb4ea4d57542` завершилась **exit 0**.
+Локальный Storybook MCP `test-run` с `a11y: true` подтвердил все четыре истории.
+Снимки получены через `screenshotWholePage` и лично просмотрены:
+
+| Окно | Снимок | Горизонтальная прокрутка | axe |
+| --- | --- | --- | --- |
+| 1440 × 1024 | [Desktop](confirmation-1440.png) | нет у страницы и диалога | 0 нарушений |
+| 390 × 844 | [Mobile](confirmation-390.png) | нет у страницы и диалога | 0 нарушений |
+| 320 × 568 | [Narrow mobile, вся страница](confirmation-320.png) | нет у страницы и диалога | 0 нарушений |
+
+Дополнительный bounded capture на том же UI head завершился **exit 0**.
+Для решения о самом диалоге получены и лично просмотрены снимки исходного окна:
+[390 × 844](confirmation-390-viewport.png) и
+[320 × 568](confirmation-320-viewport.png).
+Ledger [viewport-facts.json](viewport-facts.json) подтверждает, что диалог полностью
+помещается в окне: на 320 px top 73 / bottom 495, на 390 px top 223 / bottom 621.
+Горизонтальной прокрутки и ошибок страницы нет, начальный фокус — «Отмена».
+
+Снимок всей страницы на 320 px имеет высоту 888 px и включает фон вне исходного
+окна 568 px. Supplementary ledger фиксирует scrollY 318; native backdrop покрывает
+видимое окно. Поэтому offscreen фон в full-page снимке не заменяет снимок самого
+окна для визуального решения. Исходный full-page снимок сохранён без изменений.
+Это граница метода capture, а не доказательство ошибки native dialog.
+
+Доверенные клавиши браузера подтвердили начальный фокус на «Отмена», Tab к
+подтверждению и Shift+Tab обратно. Escape и кнопка отмены закрывают диалог и
+возвращают фокус на включение продажи; явное подтверждение тоже возвращает фокус.
+Storybook interaction подтверждает однократный демонстрационный callback.
+После действий предложение остаётся «Не продаётся», ошибок страницы нет.
+Подробные факты с точным UI head: [browser-facts.json](browser-facts.json).
+
+Первый browser-прогон на `107ed755` завершился **exit 1**: проверка ошибочно
+требовала, чтобы второй прямой Tab из native dialog возвращался к «Отмена».
+Сохранённый ledger показывает `document.hasFocus() === false`, `activeElement`
+равен BODY: фокус покинул документ, а не перешёл на фоновый элемент управления.
+Исправлена только граница harness: в фокусе должен оставаться элемент диалога
+либо документ должен потерять фокус. Перед доверенным Escape отмена фокусируется
+явно; круговой Tab этим не объявлен проверенным. Собственный focus trap не добавлен.
+Оба actual exit и raw MCP/axe/focus receipts сохранены в игнорируемом
+`ci-artifacts/evidence/issue-781/`: `capture-run-1.*`, `validation-run-1/`,
+`capture-run-2.*`, `validation/`, `viewport-capture-run-1.*`, `viewport-validation/`.
+Owned container/browser/Storybook обоих успешных прогонов полностью удалены,
+порт 6006 свободен. Worktree и ветка сохранены для открытого draft PR.
+
+`pnpm docs:check` и `git diff --check` завершились exit 0.
+Final `pnpm check` пока **не выполнен**. Визуального принятия владельцем ещё нет.
 
 Независимое source review исходного `95b95072` нашло один Spec P2: в некоторых
 браузерах click не фокусирует кнопку, поэтому сохранение `activeElement` не
 гарантировало возврат на кнопку продажи. В `55b68b533b9649fe10863ddf08e986fbcda53f48`
 proof-local capture сохраняет саму активированную кнопку. История проверяет native
 click, пока фокус остаётся на select. Повторные Standards и Spec review этого
-committed head: по 0 оставшихся или новых замечаний. Это source review, не runtime GO.
+committed head: по 0 оставшихся или новых замечаний. После удаления пояснений
+для разработчика из фона повторные независимые review UI head `45d0505b` также
+дали по 0 замечаний. Это source review, не решение владельца.
 
 ## Следующий шаг
 
-После проверок и просмотра снимков координатор предъявляет этот единственный
-диалог владельцу. Production-warning по сохранённым eligibility/revision и
+После просмотра снимков координатор предъявляет этот единственный
+диалог владельцу для решения о proof. Production-warning по сохранённым eligibility/revision и
 обновление `production-release.md` выполняются отдельно после принятия proof.
 Этот прототип не завершает #781 и не даёт разрешения на реальные продажи.

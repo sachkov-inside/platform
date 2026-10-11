@@ -1,0 +1,95 @@
+{
+  "sourceSha": "45d0505b6788c4a330d768a33652bb4ea4d57542",
+  "facts": [
+    {
+      "width": 1440,
+      "height": 1024,
+      "story": "desktop",
+      "geometry": {
+        "rootWidth": 1440,
+        "rootScrollWidth": 1440,
+        "dialogWidth": 542,
+        "dialogScrollWidth": 542,
+        "left": 448,
+        "right": 992,
+        "height": 278
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "saleStillDisabled": true,
+      "pageErrors": []
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "story": "mobile",
+      "geometry": {
+        "rootWidth": 390,
+        "rootScrollWidth": 390,
+        "dialogWidth": 350,
+        "dialogScrollWidth": 350,
+        "left": 19,
+        "right": 371,
+        "height": 398
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "saleStillDisabled": true,
+      "pageErrors": []
+    },
+    {
+      "width": 320,
+      "height": 568,
+      "story": "narrow-mobile",
+      "geometry": {
+        "rootWidth": 320,
+        "rootScrollWidth": 320,
+        "dialogWidth": 280,
+        "dialogScrollWidth": 280,
+        "left": 19,
+        "right": 301,
+        "height": 422
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "saleStillDisabled": true,
+      "pageErrors": []
+    }
+  ]
+}
