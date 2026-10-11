@@ -30,9 +30,9 @@ const failures: Record<
 };
 
 /**
- * The author's answer to one submission (#948): an optional comment and the «посмотрел автор» mark.
- * The learner sees both on the task page and through `learning_task_submissions`. The saved answer
- * replaces the form state, so the time of the mark is the one the server stored.
+ * The author's optional comment on one submission (#1351).
+ * The learner reads it on the task page and through `learning_task_submissions`.
+ * Previously stored «посмотрел автор» marks survive edits; this form cannot add a mark.
  */
 export function AuthorFeedbackForm({
   feedback,

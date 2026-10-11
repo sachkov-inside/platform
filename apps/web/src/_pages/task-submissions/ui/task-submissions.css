@@ -334,6 +334,7 @@
   padding: 0.5rem 0 1.75rem 1.5rem;
 }
 .feedback-disclosure label {
+  width: 100%;
   font-size: 0.8125rem;
 }
 .feedback-disclosure textarea {
@@ -348,6 +349,9 @@
 @media (max-width: 1150px) {
   .task-submissions {
     padding: 2.5rem 2rem 4rem;
+  }
+  .submission-row {
+    grid-template-columns: 1.05fr 1.15fr 1.2fr 1rem;
   }
   .row-date {
     grid-column: 2 / 4;
@@ -378,6 +382,10 @@
   }
   .course-filter-label {
     font-size: 0.75rem;
+  }
+  .submission-row {
+    grid-template-columns: minmax(0, 1fr) 1rem;
+    gap: 0.6rem 0.75rem;
   }
   .row-person {
     grid-column: 1;
