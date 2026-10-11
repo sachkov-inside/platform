@@ -1,0 +1,164 @@
+{
+  "sourceSha": "245dad3b5d6b563c046b1312be55cfa05fb8c851",
+  "results": [
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--desktop"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--mobile"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--narrow-mobile"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--cancel"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--confirm-once"
+        }
+      ],
+      "structuredContent": {
+        "stories": [
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Desktop",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--desktop"
+          },
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Mobile",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--mobile"
+          },
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Narrow Mobile",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--narrow-mobile"
+          },
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Cancel",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--cancel"
+          },
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Confirm Once",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--confirm-once"
+          }
+        ]
+      }
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-tariffs--unpublish"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/pages-authoring-access--tariffs"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/pages-authoring-access--sale-refused"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/pages-authoring-access--save-invitation-then-publish"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/pages-authoring-access--save-everyone-then-confirm"
+        }
+      ],
+      "structuredContent": {
+        "stories": [
+          {
+            "title": "Features/Billing/Tariffs",
+            "name": "Unpublish",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-tariffs--unpublish"
+          },
+          {
+            "title": "Pages/Authoring/Access",
+            "name": "Tariffs",
+            "previewUrl": "http://localhost:6006/?path=/story/pages-authoring-access--tariffs"
+          },
+          {
+            "title": "Pages/Authoring/Access",
+            "name": "Sale Refused",
+            "previewUrl": "http://localhost:6006/?path=/story/pages-authoring-access--sale-refused"
+          },
+          {
+            "title": "Pages/Authoring/Access",
+            "name": "Save Invitation Then Publish",
+            "previewUrl": "http://localhost:6006/?path=/story/pages-authoring-access--save-invitation-then-publish"
+          },
+          {
+            "title": "Pages/Authoring/Access",
+            "name": "Save Everyone Then Confirm",
+            "previewUrl": "http://localhost:6006/?path=/story/pages-authoring-access--save-everyone-then-confirm"
+          }
+        ]
+      }
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--busy"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-tariffs--confirmation-open"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-tariffs--unsaved-invitation-still-warns"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-tariffs--unsaved-everyone-keeps-saved-invitation"
+        },
+        {
+          "type": "text",
+          "text": "http://localhost:6006/?path=/story/features-billing-tariffs--one-time"
+        }
+      ],
+      "structuredContent": {
+        "stories": [
+          {
+            "title": "Features/Billing/Subscription sale confirmation",
+            "name": "Busy",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-subscription-sale-confirmation--busy"
+          },
+          {
+            "title": "Features/Billing/Tariffs",
+            "name": "Confirmation Open",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-tariffs--confirmation-open"
+          },
+          {
+            "title": "Features/Billing/Tariffs",
+            "name": "Unsaved Invitation Still Warns",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-tariffs--unsaved-invitation-still-warns"
+          },
+          {
+            "title": "Features/Billing/Tariffs",
+            "name": "Unsaved Everyone Keeps Saved Invitation",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-tariffs--unsaved-everyone-keeps-saved-invitation"
+          },
+          {
+            "title": "Features/Billing/Tariffs",
+            "name": "One Time",
+            "previewUrl": "http://localhost:6006/?path=/story/features-billing-tariffs--one-time"
+          }
+        ]
+      }
+    }
+  ]
+}

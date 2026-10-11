@@ -1,0 +1,14 @@
+{
+  "sourceSha": "245dad3b5d6b563c046b1312be55cfa05fb8c851",
+  "sha256": {
+    "production-live-1440.png": "91d8c5be03952cc2cc0cc9b16f7d5714aadd4ba8223b26337570777e98676c4f",
+    "production-live-320.png": "7b60134b90aea787b7fa1a779644bd9bbc0b2b8ca0cfb184b3b438a289eff6c4",
+    "production-live-390.png": "15e56f157fda2f0077fba1b794f8024d1467a8ee1671ddbecb50ff845b14da78",
+    "production-storybook-dialog-1440.png": "47594b4b8477b3676eac179120ac9425afab2520555e6ec0468d94c8cb47fe9c",
+    "production-storybook-dialog-320.png": "cc37425ce70276d317f02a8110eba93ddd5cd9bfb8fbb1c4886bdc0572fd32e2",
+    "production-storybook-dialog-390.png": "66efc15b3a851b4a527f8c08e0d53057316ad81c083321c6199c6e0408b531a2",
+    "production-storybook-tariffs-1440.png": "b11661838bbd696379d80a2b686231e92802327a27b88958dcb570aa56b0b21c",
+    "production-storybook-tariffs-320.png": "09a88fcbcc70aef4213608910fc95f8f3509a1126a5201bdd706e6d66a1099de",
+    "production-storybook-tariffs-390.png": "3566b1dae0ba66354cb51bdcd41d0832787cfd07a139a8d400b5f2072fd110b9"
+  }
+}

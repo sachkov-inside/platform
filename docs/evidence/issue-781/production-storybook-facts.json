@@ -1,0 +1,209 @@
+{
+  "sourceSha": "245dad3b5d6b563c046b1312be55cfa05fb8c851",
+  "facts": [
+    {
+      "composition": "dialog",
+      "width": 1440,
+      "height": 1024,
+      "story": "features-billing-subscription-sale-confirmation--desktop",
+      "geometry": {
+        "rootWidth": 1440,
+        "rootScrollWidth": 1440,
+        "dialogWidth": 542,
+        "dialogScrollWidth": 542,
+        "left": 448,
+        "right": 992,
+        "top": 373,
+        "bottom": 651,
+        "viewportHeight": 1024,
+        "height": 278
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": false,
+      "confirmRestoresTrigger": false,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    },
+    {
+      "composition": "dialog",
+      "width": 390,
+      "height": 844,
+      "story": "features-billing-subscription-sale-confirmation--mobile",
+      "geometry": {
+        "rootWidth": 390,
+        "rootScrollWidth": 390,
+        "dialogWidth": 350,
+        "dialogScrollWidth": 350,
+        "left": 19,
+        "right": 371,
+        "top": 223,
+        "bottom": 621,
+        "viewportHeight": 844,
+        "height": 398
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": false,
+      "confirmRestoresTrigger": false,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    },
+    {
+      "composition": "dialog",
+      "width": 320,
+      "height": 568,
+      "story": "features-billing-subscription-sale-confirmation--narrow-mobile",
+      "geometry": {
+        "rootWidth": 320,
+        "rootScrollWidth": 320,
+        "dialogWidth": 280,
+        "dialogScrollWidth": 280,
+        "left": 19,
+        "right": 301,
+        "top": 73,
+        "bottom": 495,
+        "viewportHeight": 568,
+        "height": 422
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": false,
+      "confirmRestoresTrigger": false,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    },
+    {
+      "composition": "tariffs",
+      "width": 1440,
+      "height": 1024,
+      "story": "features-billing-tariffs--confirmation-open",
+      "geometry": {
+        "rootWidth": 1440,
+        "rootScrollWidth": 1440,
+        "dialogWidth": 542,
+        "dialogScrollWidth": 542,
+        "left": 448,
+        "right": 992,
+        "top": 373,
+        "bottom": 651,
+        "viewportHeight": 1024,
+        "height": 278
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    },
+    {
+      "composition": "tariffs",
+      "width": 390,
+      "height": 844,
+      "story": "features-billing-tariffs--confirmation-open",
+      "geometry": {
+        "rootWidth": 390,
+        "rootScrollWidth": 390,
+        "dialogWidth": 354,
+        "dialogScrollWidth": 354,
+        "left": 17,
+        "right": 373,
+        "top": 235,
+        "bottom": 609,
+        "viewportHeight": 844,
+        "height": 374
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    },
+    {
+      "composition": "tariffs",
+      "width": 320,
+      "height": 568,
+      "story": "features-billing-tariffs--confirmation-open",
+      "geometry": {
+        "rootWidth": 320,
+        "rootScrollWidth": 320,
+        "dialogWidth": 284,
+        "dialogScrollWidth": 284,
+        "left": 17,
+        "right": 303,
+        "top": 73,
+        "bottom": 495,
+        "viewportHeight": 568,
+        "height": 422
+      },
+      "axeViolations": 0,
+      "initialCancelFocus": true,
+      "trustedTabCancelToConfirm": true,
+      "trustedShiftTabConfirmToCancel": true,
+      "forwardTabBoundary": {
+        "phase": "after-second-tab",
+        "hasFocus": false,
+        "activeTag": "BODY",
+        "activeText": "Name\n        Description\n        Default\n        Control \n      \n    \n    \n      \n        propertyName*\n        \n       ",
+        "activeInsideDialog": false
+      },
+      "trustedEscapeCancels": true,
+      "cancelRestoresTrigger": true,
+      "confirmRestoresTrigger": true,
+      "publicationBoundary": "Storybook fixture callbacks only",
+      "pageErrors": []
+    }
+  ]
+}
