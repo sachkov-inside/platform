@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -32,7 +33,7 @@ for (const exitCode of [0, 7]) {
     );
     const result = spawnSync("bash", [script, output], {
       cwd: root,
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` },
+      env: { ...process.env, PATH: `${bin}:${process.env["PATH"] ?? ""}` },
       encoding: "utf8",
       timeout: 5_000,
     });
