@@ -83,7 +83,12 @@ Initial bulk preparation uses ordinary vacuum for sample visibility. Query adapt
 against an empty date window before timed queries; that preparation does not read the corpus. It measures before cleanup, after cleanup
 and after ordinary vacuum. No VACUUM FULL, REINDEX or global setting change resets the measurement.
 Ordinary vacuum and checkpoints model maintenance during a real day; it retains file high-water
-marks and reusable pages. The command checks the 600 MB budget, p75 query time and daily cleanup
+marks and reusable pages. A checkpoint completes initial bulk preparation and each day's maintenance
+before timing the p75 query. It adds no query that warms the sample corpus; existing cache misses
+remain part of the measurement. Deferred writes from fixture preparation finish outside that read
+measurement. This measures reads after maintenance, not a production latency guarantee under
+concurrent writes.
+The command checks the 600 MB budget, p75 query time and daily cleanup
 budget, and removes its database in `finally`. The final Issue/PR records measured values and
 machine conditions. The [resource proof](../verification/web-telemetry-707.md) records the accepted
 corpus, all 32 cycles, timings and API memory method.

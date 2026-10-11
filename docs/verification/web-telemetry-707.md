@@ -68,3 +68,37 @@ smoke verifies fresh/prefix upgrades, frozen N-1 queries and runtime readiness.
 The orchestrator owns merge and release. After deployment, production acceptance still checks
 available server memory of at least 1 GiB, ingestion, retention completion and the read-only MCP
 summary. The full monitoring stack remains #1289.
+
+## Cloud verification — 11 October 2026
+
+The retained Mac result above is historical evidence. Three new Codex Cloud runs completed all
+32 cycles with real exit code 1 because the maximum p75 query exceeded 200 ms. Their complete numeric
+output and machine conditions are in [web-telemetry-854-cloud.json](web-telemetry-854-cloud.json).
+They used source `1b23ee9751455cc3c593240e2941c64abe50bb5e`; the third also used the checkpoint
+preparation change now in `measure-web-telemetry.ts`. PostgreSQL still had two CPUs and 1 GiB;
+the Cloud host had a four-CPU quota and Docker's `vfs` storage driver.
+
+| Run | Maximum schema bytes | Maximum p75 query ms | Maximum cleanup ms |
+|---|---:|---:|---:|
+| Original harness, `pnpm check` also running | 579,600,384 | 437.642 | 1,285.896 |
+| Original harness, no parallel repository heavy check | 579,600,384 | 1,085.559 | 833.049 |
+| Checkpoint before timed reads, no parallel repository heavy check | 579,584,000 | 710.961 | 874.062 |
+
+The small physical-size difference remains subject to ordinary vacuum and page allocation;
+the harness never resets retained bloat. The corpus, quota, 32 cycles and acceptance limits were
+unchanged. Both storage and cleanup passed; query latency did not. A concurrent heavy check alone
+does not explain the failure.
+
+Separate EXPLAIN diagnostics measured the percentile subquery over the same initial corpus,
+before any summary query: 629.900 ms before the preparation change and 657.462 ms after it.
+Both used an index-only scan with zero heap fetches, 3,392 shared blocks read and no temporary writes.
+Shared blocks written fell from 2,936 to zero: CHECKPOINT separated deferred fixture writes, but did
+not resolve the slow read. These diagnostic runs execute an extra query and zero maintenance cycles;
+they are not resource-budget acceptance runs.
+
+The preparation now finishes CHECKPOINT before timed reads, without an added corpus-warming query
+or a reset of retained bloat. That measures reads after maintenance, not a production latency
+guarantee under concurrent writes. The current Cloud result blocks resource acceptance: repeat the
+canonical command successfully on the release SHA and intended server conditions before publishing
+or deploying. The release preflight requires its successful receipt. API RSS and handler overhead
+above were not remeasured in Cloud and remain historical evidence.

@@ -40,6 +40,7 @@ function fixture() {
         "spec",
         "ci",
         "fullstack",
+        "telemetry-resource-budget",
       ].map((name) => ({
         name,
         sourceSha: sha,
@@ -93,6 +94,24 @@ test("preflight refuses checks from another SHA and a failed Compose shutdown", 
   check.sourceSha = sha;
   compose.exitCode = 1;
   assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+});
+
+test("preflight requires the telemetry resource budget before a release", () => {
+  const missing = fixture();
+  missing.evidence.checks = missing.evidence.checks.filter(
+    (receipt) => receipt.name !== "telemetry-resource-budget",
+  );
+  assert.throws(() => assessCourseRelease(missing, now), /check evidence/u);
+  const failed = fixture();
+  const budget = failed.evidence.checks.find(
+    (receipt) => receipt.name === "telemetry-resource-budget",
+  );
+  assert.ok(budget);
+  budget.exitCode = 1;
+  assert.throws(() => assessCourseRelease(failed, now), /check evidence/u);
+  budget.exitCode = 0;
+  budget.sourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(failed, now), /check evidence/u);
 });
 
 test("preflight rejects stale backup, a different backup restore and production network access", () => {

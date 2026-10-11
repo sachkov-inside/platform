@@ -18,6 +18,7 @@ const checkNames = [
   "spec",
   "ci",
   "fullstack",
+  "telemetry-resource-budget",
 ];
 const evidenceSchema = z.strictObject({
   schemaVersion: z.literal("inside.course-release-preflight.v1"),

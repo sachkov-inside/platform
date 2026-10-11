@@ -122,6 +122,10 @@ async function measure() {
     await seed(from, 30);
     await prisma.$executeRaw`ANALYZE web_telemetry.vital_samples`;
     await prisma.$executeRaw`ANALYZE web_telemetry.errors`;
+    // Finish bulk preparation before timing reads. Otherwise the first index scan evicts
+    // dirty error pages and measures the fixture's deferred writes as well as the p75 query.
+    // This does not read/warm the sample corpus or change its physical high-water marks.
+    await prisma.$executeRaw`CHECKPOINT`;
     const initialBytes = await size();
     const signal: unknown =
       await prisma.$queryRaw`SELECT value::float8 AS value FROM web_telemetry.health WHERE name='web_telemetry_size'`;
@@ -174,14 +178,15 @@ async function measure() {
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.errors`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.coverage`;
       await prisma.$executeRaw`VACUUM (ANALYZE) web_telemetry.daily_quota`;
+      // A simulated day includes ordinary checkpoints; complete maintenance before
+      // timing the summary, without a warm-up query or resetting retained bloat.
+      await prisma.$executeRaw`CHECKPOINT`;
       queryTimes.length = 0;
       const summary = await telemetry.summary("benchmark-owner", 30);
       if (!summary.ok) throw new Error(summary.error.code);
       const p75Ms = queryTimes[0];
       if (p75Ms === undefined) throw new Error("Missing p75 query timing");
       p75Times.push(p75Ms);
-      // A simulated day also includes the ordinary checkpoints that would happen during 24 hours.
-      await prisma.$executeRaw`CHECKPOINT`;
       growth.push({
         cycle,
         beforeCleanupBytes,

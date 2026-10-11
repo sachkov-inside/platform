@@ -23,6 +23,9 @@
 4. Проверить доступную память (после выкладки не меньше 1 GiB), свободный диск с запасом для WAL,
    telemetry до 600 MB и четырёх full backup. Предыдущие ресурсные числа #707 — история измерения,
    а не proof нового production. `pnpm telemetry:measure` повторяет ограниченный ресурсный прогон.
+   Его успешный exit code на release SHA — обязательный receipt `telemetry-resource-budget`.
+   [Cloud-проверка 11 октября](../verification/web-telemetry-707.md#cloud-verification--11-october-2026)
+   не прошла лимит p75; до успешного повторного замера выпуск остаётся blocked.
 
 ## Backup и изолированная проверка восстановления
 
@@ -104,7 +107,7 @@ manifest. Перед командой выполнить `git fetch origin main:
 Она ничего не выкладывает и не заменяет host preflight. Evidence — аттестация оператора с raw logs
 по `evidenceRef`; script не может подтвердить содержимое произвольно заполненного receipt.
 
-Формат evidence (`checks` содержит все семь имён):
+Формат evidence (`checks` содержит все восемь имён):
 
 ```json
 {
@@ -116,7 +119,8 @@ manifest. Перед командой выполнить `git fetch origin main:
     {"name":"standards","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
     {"name":"spec","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
     {"name":"ci","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"},
-    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"}
+    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"},
+    {"name":"telemetry-resource-budget","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<telemetry-measure-log>"}
   ],
   "publication": {"sourceSha":"<40-hex>","workflowRunId":1,"immutable":true,"succeeded":true},
   "backup": {"label":"<label>","finishedAt":"<UTC-ISO>","checkExitCode":0},
