@@ -1,0 +1,529 @@
+{
+  "runId": 38125556986,
+  "head": "8bba5e2b99e5a10cc6c552c041bcd62eafb73b7a",
+  "attempt": 1,
+  "createdAt": "2026-10-11T08:39:10Z",
+  "runStartedAt": "2026-10-11T08:39:10Z",
+  "jobs": [
+    {
+      "id": 114429139148,
+      "name": "Production Compose",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:44:29Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Install Node.js",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Install pnpm",
+          "seconds": 2,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run isolated production smoke",
+          "seconds": 280,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and inspect release images",
+          "seconds": 2,
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload failure diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Install pnpm",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Install Node.js",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139238,
+      "name": "Unit tests",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:50:10Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 32,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run unit tests",
+          "seconds": 597,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139282,
+      "name": "Integration serial",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:43:51Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 30,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run broker, crash and process integration tests one file at a time",
+          "seconds": 219,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 1,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139294,
+      "name": "Integration",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:46:47Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 46,
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify production SQL contracts on an isolated PostgreSQL",
+          "seconds": 10,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run isolated integration tests",
+          "seconds": 247,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run enrollment browser and real API smoke",
+          "seconds": 67,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run buyer journey from product page to access",
+          "seconds": 57,
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Playwright diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139333,
+      "name": "Development Compose",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:42:52Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 4,
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate and build profile topology",
+          "seconds": 55,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run clean stack smoke and write persistence probes",
+          "seconds": 71,
+          "conclusion": "success"
+        },
+        {
+          "name": "Prove restart persistence and clean shutdown",
+          "seconds": 66,
+          "conclusion": "success"
+        },
+        {
+          "name": "Capture failure diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload failure diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Remove development stack",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139387,
+      "name": "Web E2E",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:45:26Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 52,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build once and run browser checks on it",
+          "seconds": 291,
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload Playwright diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139406,
+      "name": "Telegram full checks",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:44:10Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "seconds": 24,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 4,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 26,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check Telegram with isolated data services",
+          "seconds": 185,
+          "conclusion": "success"
+        },
+        {
+          "name": "Build and inspect Telegram production image",
+          "seconds": 35,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139411,
+      "name": "Static checks (isolated reruns)",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:41:48Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 5,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 37,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run static checks",
+          "seconds": 90,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114429139581,
+      "name": "UI components",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:39:30Z",
+      "startedAt": "2026-10-11T08:39:32Z",
+      "completedAt": "2026-10-11T08:43:58Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Check out source",
+          "seconds": 6,
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Platform",
+          "seconds": 74,
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Storybook and browser-engine checks",
+          "seconds": 180,
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload browser-engine diagnostics",
+          "seconds": 0,
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Set up Platform",
+          "seconds": 1,
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Check out source",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 114430995834,
+      "name": "CI Gate",
+      "conclusion": "success",
+      "createdAt": "2026-10-11T08:50:10Z",
+      "startedAt": "2026-10-11T08:50:12Z",
+      "completedAt": "2026-10-11T08:50:15Z",
+      "queueSeconds": 2,
+      "steps": [
+        {
+          "name": "Set up job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Require every CI job",
+          "seconds": 0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "seconds": 0,
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
