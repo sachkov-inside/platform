@@ -24,6 +24,7 @@ import {
   groundActions,
   lastMoscowDay,
   peopleOutcomeSchema,
+  requiresSubscriptionSaleConfirmation,
   tariffRows,
   type PersonGround,
 } from "@/features/billing-admin/model/access-operations";
@@ -126,6 +127,103 @@ describe("действия карточки человека", () => {
 });
 
 describe("тарифы", () => {
+  it("перед включением продажи подписки всем требует подтверждение", () => {
+    const [row] = tariffRows([
+      {
+        ...materialsOffer,
+        offer: { ...materialsOffer.offer, eligibility: "everyone" },
+      },
+    ]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(true);
+  });
+
+  it("не требует подтверждения для разовой продажи всем", () => {
+    const [row] = tariffRows([productOnlyOffer]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(false);
+  });
+
+  it("считает старый снимок без допуска и режима оплаты подпиской для всех", () => {
+    const [row] = tariffRows([
+      {
+        ...materialsOffer,
+        paymentOption: {
+          id: materialsOffer.paymentOption.id,
+          revision: 2,
+          offerId: materialsOffer.offer.id,
+          months: 1,
+          priceKopecks: 100_000,
+          archived: false,
+        },
+      },
+    ]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(true);
+  });
+
+  it.each(["invitation_only", "former_tribute_subscribers"] as const)(
+    "не требует подтверждения продажи подписки с сохранённым допуском %s",
+    (eligibility) => {
+      const [row] = tariffRows([
+        {
+          ...materialsOffer,
+          offer: { ...materialsOffer.offer, eligibility },
+        },
+      ]);
+      if (row === undefined) throw new Error("Тариф отсутствует");
+      expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(false);
+    },
+  );
+
+  it("требует подтверждения, если у тарифа есть разовая оплата и действующая подписка", () => {
+    const [row] = tariffRows([
+      productOnlyOffer,
+      {
+        ...productOnlyOffer,
+        paymentOption: {
+          ...materialsOffer.paymentOption,
+          offerId: productOnlyOffer.offer.id,
+        },
+      },
+    ]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(true);
+  });
+
+  it("не требует подтверждения, если подписка в архиве и осталась только разовая оплата", () => {
+    const [row] = tariffRows([
+      productOnlyOffer,
+      {
+        ...productOnlyOffer,
+        paymentOption: {
+          ...materialsOffer.paymentOption,
+          offerId: productOnlyOffer.offer.id,
+          archived: true,
+        },
+      },
+    ]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(false);
+  });
+
+  it("не требует подтверждения, если нет действующих вариантов оплаты", () => {
+    const [row] = tariffRows([
+      {
+        ...materialsOffer,
+        paymentOption: { ...materialsOffer.paymentOption, archived: true },
+      },
+    ]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, true)).toBe(false);
+  });
+
+  it("снятие подписки с продажи не требует подтверждения продажи всем", () => {
+    const [row] = tariffRows([materialsOffer]);
+    if (row === undefined) throw new Error("Тариф отсутствует");
+    expect(requiresSubscriptionSaleConfirmation(row, false)).toBe(false);
+  });
+
   it("показывают действующий Offer один раз со всеми действующими ценами", () => {
     const yearly = {
       ...materialsOffer,
