@@ -10,10 +10,12 @@ import {
   eligibilityChoices,
   eligibilityLabel,
   parseEligibility,
+  requiresSubscriptionSaleConfirmation,
   tariffOptionLabel,
   type TariffRow,
 } from "../model/access-operations";
 import { AdminSection } from "./admin-form.client";
+import { SubscriptionSaleConfirmationDialog } from "./subscription-sale-confirmation-dialog.client";
 
 export interface TariffsViewProps {
   readonly tariffs: readonly TariffRow[];
@@ -86,6 +88,8 @@ function TariffItem({
 }) {
   const current = row.offer.eligibility ?? "everyone";
   const [eligibility, setEligibility] = useState<OfferEligibility>(current);
+  const [confirmationTrigger, setConfirmationTrigger] =
+    useState<HTMLButtonElement | null>(null);
   const selectId = useId();
   const published = row.offer.published === true;
   return (
@@ -155,8 +159,13 @@ function TariffItem({
         </Button>
         <Button
           disabled={busy}
-          onClick={() => {
-            onToggleSale(row, !published);
+          onClick={(event) => {
+            const nextPublished = !published;
+            if (requiresSubscriptionSaleConfirmation(row, nextPublished)) {
+              setConfirmationTrigger(event.currentTarget);
+            } else {
+              onToggleSale(row, nextPublished);
+            }
           }}
           type="button"
           variant={published ? "destructive" : "default"}
@@ -164,6 +173,21 @@ function TariffItem({
           {published ? "Снять с продажи" : "Включить продажу"}
         </Button>
       </div>
+      {confirmationTrigger === null ? null : (
+        <SubscriptionSaleConfirmationDialog
+          busy={busy}
+          offerName={row.offer.name}
+          onCancel={() => {
+            setConfirmationTrigger(null);
+          }}
+          onConfirm={() => {
+            setConfirmationTrigger(null);
+            // A confirmation keeps its publish intent and uses the latest saved row/revision.
+            if (!busy && row.offer.published !== true) onToggleSale(row, true);
+          }}
+          trigger={confirmationTrigger}
+        />
+      )}
     </li>
   );
 }

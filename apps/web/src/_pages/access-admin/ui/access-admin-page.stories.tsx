@@ -170,6 +170,120 @@ export const SaleRefused: Story = {
   },
 };
 
+const unpublishedSubscription = {
+  ...materialsOffer,
+  offer: { ...materialsOffer.offer, published: false },
+};
+const savedRevision = 8;
+const savedEligibilityReply = billingOk({
+  outcome: "catalog",
+  value: {
+    id: materialsOffer.offer.id,
+    revision: savedRevision,
+    archived: false,
+  },
+});
+const publishedReply = billingOk({
+  outcome: "catalog",
+  value: {
+    id: materialsOffer.offer.id,
+    revision: 9,
+    archived: false,
+    published: true,
+  },
+});
+
+/** Несохранённое приглашение не скрывает предупреждение; сохранённое определяет команду. */
+export const SaveInvitationThenPublish: Story = {
+  args: { offers: [unpublishedSubscription] },
+  beforeEach: withReplies({
+    "offers/save": savedEligibilityReply,
+    "offers/publish": publishedReply,
+  }),
+  play: async ({ canvasElement }) => {
+    const panel = currentPanel(canvasElement);
+    const select = panel.getByLabelText("Кому продаётся");
+    const sale = panel.getByRole("button", {
+      name: /^Включить продажу$/u,
+    });
+    await userEvent.selectOptions(select, "invitation_only");
+    await userEvent.click(sale);
+    const dialog = panel.getByRole("dialog");
+    await expect(lastRequest("offers/publish")).toBeUndefined();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Отмена" }),
+    );
+    await expect(sale).toHaveFocus();
+    await expect(lastRequest("offers/publish")).toBeUndefined();
+    await userEvent.click(
+      panel.getByRole("button", { name: "Сохранить допуск" }),
+    );
+    await expect(
+      await panel.findByText(/продаётся только по приглашению/u),
+    ).toBeVisible();
+    await expect(lastRequest("offers/save")).toMatchObject({
+      expectedRevision: materialsOffer.offer.revision,
+      value: { eligibility: "invitation_only" },
+    });
+    await userEvent.selectOptions(select, "everyone");
+    await userEvent.click(sale);
+    await expect(await panel.findByText(/включён в продажу/u)).toBeVisible();
+    await expect(panel.queryByRole("dialog")).toBeNull();
+    await expect(lastRequest("offers/publish")).toMatchObject({
+      id: materialsOffer.offer.id,
+      expectedRevision: savedRevision,
+    });
+  },
+};
+
+/** После сохранения «Всем» предупреждение и publish используют новую редакцию. */
+export const SaveEveryoneThenConfirm: Story = {
+  args: {
+    offers: [
+      {
+        ...unpublishedSubscription,
+        offer: {
+          ...unpublishedSubscription.offer,
+          eligibility: "invitation_only",
+        },
+      },
+    ],
+  },
+  beforeEach: withReplies({
+    "offers/save": savedEligibilityReply,
+    "offers/publish": publishedReply,
+  }),
+  play: async ({ canvasElement }) => {
+    const panel = currentPanel(canvasElement);
+    await userEvent.selectOptions(
+      panel.getByLabelText("Кому продаётся"),
+      "everyone",
+    );
+    await userEvent.click(
+      panel.getByRole("button", { name: "Сохранить допуск" }),
+    );
+    await expect(await panel.findByText(/допуск сохранён/u)).toBeVisible();
+    await userEvent.click(
+      panel.getByRole("button", { name: /^Включить продажу$/u }),
+    );
+    const dialog = panel.getByRole("dialog");
+    await expect(lastRequest("offers/publish")).toBeUndefined();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Включить продажу всем" }),
+    );
+    await expect(await panel.findByText(/включён в продажу/u)).toBeVisible();
+    await expect(lastRequest("offers/publish")).toMatchObject({
+      id: materialsOffer.offer.id,
+      expectedRevision: savedRevision,
+    });
+    await expect(
+      billingRequests.mock.calls.filter(
+        ([route]) => route === "offers/publish",
+      ),
+    ).toHaveLength(1);
+  },
+};
+
 export const TariffsEmpty: Story = { args: { offers: [] } };
 
 /** Пустой список зовёт выдать первое приглашение; выданная ссылка видна сразу. */
