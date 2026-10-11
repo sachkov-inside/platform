@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { telegramContactSchema } from "@inside/contracts/telegram-contact";
 
 const criterionV1Schema = z
   .object({
@@ -33,6 +34,14 @@ export const authorFeedbackSchema = z
 export type AuthorFeedback = z.infer<typeof authorFeedbackSchema>;
 
 /** `GET /authoring/product-tasks/submissions` as this page reads it (#948). */
+const selfCheckSchema = z
+  .object({
+    outcome: z.enum(["passed", "changes", "missing"]),
+    attempt: z.number().int().positive(),
+    firstPassedAttempt: z.number().int().positive().nullable(),
+  })
+  .strict();
+
 export const taskSubmissionsSchema = z
   .object({
     products: z.array(
@@ -72,15 +81,25 @@ export const taskSubmissionsSchema = z
             })
             .strict(),
           taskVersion: z.number().int().positive(),
+          selfCheck: selfCheckSchema.nullable(),
           person: z
             .object({
               accountId: z.string(),
               telegramIdentityRef: z.string().nullable(),
+              displayName: z.string().nullable(),
+              telegramUsername: telegramContactSchema.shape.username,
+              telegramUrl: z.string().nullable(),
+              telegramContactState: z.enum([
+                "available",
+                "not_linked",
+                "unavailable",
+              ]),
             })
             .strict(),
           note: z.string(),
           reviewReport: z
             .object({
+              summary: z.string().optional(),
               criteria: z.array(
                 z
                   .object({
@@ -114,6 +133,17 @@ export const taskSubmissionsSchema = z
           code: z.string(),
           version: z.number().int().positive(),
           criteria: z.array(criterionSchema),
+        })
+        .strict(),
+    ),
+    history: z.array(
+      z
+        .object({
+          submissionId: z.string(),
+          submittedAt: z.iso.datetime(),
+          taskVersion: z.number().int().positive(),
+          summary: z.string().nullable(),
+          selfCheck: selfCheckSchema,
         })
         .strict(),
     ),
@@ -179,6 +209,7 @@ export function sameSelection(
 export function selectionHref(
   selection: SubmissionSelection,
   cursor?: string,
+  submissionId?: string,
 ): string {
   const query = new URLSearchParams();
   if (selection.productId !== undefined)
@@ -187,6 +218,7 @@ export function selectionHref(
     query.set("chapterId", selection.chapterId);
   if (selection.taskCode !== undefined) query.set("task", selection.taskCode);
   if (cursor !== undefined) query.set("cursor", cursor);
+  if (submissionId !== undefined) query.set("submission", submissionId);
   const text = query.toString();
   return text === "" ? submissionsHref : `${submissionsHref}?${text}`;
 }

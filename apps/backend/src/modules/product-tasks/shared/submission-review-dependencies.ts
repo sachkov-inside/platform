@@ -1,3 +1,4 @@
+import type { MemberNames } from "../../member-profiles/index.js";
 import type { ProductTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
 import type { ProductDirectory } from "../../materials/index.js";
 import type { TelegramAccountLinks } from "../../telegram-membership/index.js";
@@ -9,6 +10,10 @@ export interface SubmissionReviewDependencies {
   readonly directory: Pick<ProductDirectory, "products">;
   readonly authorPolicy: AuthorPolicy;
   /** The person behind a submission, as «Люди и доступ» shows them: Account and Telegram. */
-  readonly identities: Pick<TelegramAccountLinks, "readBinding">;
+  readonly identities: Pick<
+    TelegramAccountLinks,
+    "readBinding" | "readContacts"
+  >;
+  readonly names: Pick<MemberNames, "read">;
   readonly clock?: () => Date;
 }

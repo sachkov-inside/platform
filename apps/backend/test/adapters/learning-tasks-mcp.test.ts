@@ -102,7 +102,7 @@ describe("Product Task tools on the learner MCP", () => {
       for (const instruction of taskReviewProtocol.instructions)
         expect(text).toContain(instruction);
       // Lesson practice keeps procedure v2; v3 is a different text, not its edit.
-      expect(taskReviewProtocol.version).toBe("3");
+      expect(taskReviewProtocol.version).toBe("4");
       expect(practiceReviewProtocol.version).toBe("2");
     } finally {
       await client.close();

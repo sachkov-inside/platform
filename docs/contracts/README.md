@@ -13,6 +13,14 @@ codec сохраняют прежние правила `ajv-formats`, включ
 `@inside/contracts/community-members-without-right`. Platform и команда отчёта Telegram
 используют одну схему; перенос схемы не меняет HTTP-ответ.
 
+Runtime codec `@inside/contracts/telegram-contact` задаёт read-only
+`POST /integrations/platform/v1/telegram-contacts`: общий секрет identity linking, версия
+`inside.telegram-contact.v1`, до 100 точных пар `accountRef` и `telegramIdentityRef`.
+Ответ содержит текущее имя, необязательный username и состояние `available`, `not_found`
+или `unavailable`. Это проекция для авторской поддержки, а не получатель сообщений.
+Старый Telegram отвечает 404; Platform сохраняет список сдач и обозначает недоступный контакт.
+Обе стороны повторно читают текущую связь после внешнего запроса, чтобы исключить прежний контакт.
+
 ## Изменение контракта
 
 Изменяй исходную схему, fixtures и protocol в одном PR. Manifest, snapshot и provenance

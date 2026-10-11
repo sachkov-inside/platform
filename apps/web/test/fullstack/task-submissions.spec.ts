@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { signInFullStack } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -118,7 +119,7 @@ async function dismissNotices(page: Page) {
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
-test("the author marks an agent's submission and comments it; the learner reads both through the learner MCP (#948)", async ({
+test("the author comments an agent's submission; the learner reads the comment through the learner MCP (#948)", async ({
   context,
   page,
   request,
@@ -139,6 +140,7 @@ test("the author marks an agent's submission and comments it; the learner reads 
         taskVersion: 1,
         submissionKey: randomUUID(),
         reviewReport: {
+          summary: "Создание заявки подтверждено. Повтор требует проверки.",
           criteria: [
             {
               criterionId: "request",
@@ -167,30 +169,33 @@ test("the author marks an agent's submission and comments it; the learner reads 
 
   // Exactly `materials:manage`: the section needs no other permission.
   await signInFullStack(context, "MATERIALS_ONLY");
-  await page.goto(`/authoring/submissions?task=${code}`);
+  await page.goto(
+    `/authoring/submissions?task=${code}&submission=${submitted.value.submissionId}`,
+  );
   await expect(
-    page.getByRole("heading", { level: 1, name: "Сдачи" }),
+    page.getByRole("heading", { level: 1, name: "Синтетическое задание" }),
   ).toBeVisible();
   const card = page.locator(
     `[data-submission="${submitted.value.submissionId}"]`,
   );
+  await page.getByText("Проект и заметка ученика", { exact: true }).click();
   await expect(card.getByText(note)).toBeVisible();
-  await expect(card.getByText("Через агента")).toBeVisible();
+  await page.getByText("Подробный отчёт по критериям", { exact: true }).click();
   await expect(
     card.getByRole("heading", { name: "Отчёт агента ученика" }),
-  ).toBeVisible();
+  ).toBeAttached();
   await expect(
     card.getByText("<b>README.md</b> описывает создание заявки.", {
       exact: false,
     }),
   ).toBeVisible();
-  await card.getByRole("checkbox", { name: "Посмотрел автор" }).check();
+  await page.getByText("Оставить комментарий ученику", { exact: true }).click();
   await card
     .getByRole("textbox", { name: /Комментарий для ученика/u })
     .fill(comment);
-  await card.getByRole("button", { name: "Сохранить отзыв" }).click();
+  await card.getByRole("button", { name: "Сохранить комментарий" }).click();
   await expect(
-    card.getByText("Сохранено. Ученик увидит отзыв на странице задания."),
+    card.getByText("Сохранено. Ученик увидит комментарий на странице задания."),
   ).toBeVisible();
 
   await page.reload();
@@ -200,9 +205,6 @@ test("the author marks an agent's submission and comments it; the learner reads 
   await expect(
     reloaded.getByRole("textbox", { name: /Комментарий для ученика/u }),
   ).toHaveValue(comment);
-  await expect(
-    reloaded.getByRole("checkbox", { name: "Посмотрел автор" }),
-  ).toBeChecked();
   const violations = (
     await new AxeBuilder({ page }).include("main").analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
@@ -214,12 +216,13 @@ test("the author marks an agent's submission and comments it; the learner reads 
         document.documentElement.clientWidth + 1,
     ),
   ).toBe(true);
-  const evidence = await prepareEvidenceDirectory("issue-948");
-  await reloaded.scrollIntoViewIfNeeded();
-  await page.screenshot({
+  const evidence = await prepareEvidenceDirectory("issue-1351");
+  await page
+    .getByRole("heading", { name: "Синтетическое задание", exact: true })
+    .click();
+  await screenshotWholePage(page, {
     path: resolve(evidence, `submissions-${testInfo.project.name}.png`),
     animations: "disabled",
-    fullPage: false,
   });
 
   const own = z
@@ -252,7 +255,7 @@ test("the author marks an agent's submission and comments it; the learner reads 
     (item) => item.submissionId === submitted.value.submissionId,
   );
   expect(mine?.authorFeedback?.comment).toBe(comment);
-  expect(typeof mine?.authorFeedback?.reviewedAt).toBe("string");
+  expect(mine?.authorFeedback?.reviewedAt).toBeNull();
 
   await signInFullStack(context, "NON_MEMBER");
   await page.goto(
@@ -263,7 +266,7 @@ test("the author marks an agent's submission and comments it; the learner reads 
     `[data-submission="${submitted.value.submissionId}"]`,
   );
   await expect(learnerView.getByText(comment)).toBeVisible();
-  await expect(learnerView.getByText(/Посмотрел автор/u)).toBeVisible();
+  await expect(learnerView.getByText(/Посмотрел автор/u)).toHaveCount(0);
 });
 
 test("an Account without materials:manage sees no submissions (#948)", async ({

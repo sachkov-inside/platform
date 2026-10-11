@@ -17,8 +17,6 @@ import type { AuthorFeedback } from "../model/task-submissions";
 
 interface Runtime {
   readonly drafts: Readonly<Record<string, FeedbackDraft>>;
-  readonly selected: Readonly<Record<string, string>>;
-  readonly choose: (pageHref: string, submissionId: string) => void;
   readonly updateDraft: (
     submissionId: string,
     feedback: AuthorFeedback | null,
@@ -37,7 +35,6 @@ export function TaskSubmissionsRuntime({
   readonly children: ReactNode;
 }) {
   const [drafts, setDrafts] = useState<Runtime["drafts"]>({});
-  const [selected, setSelected] = useState<Runtime["selected"]>({});
   const updateDraft = useCallback<Runtime["updateDraft"]>(
     (submissionId, feedback, update) => {
       setDrafts((current) => {
@@ -54,10 +51,6 @@ export function TaskSubmissionsRuntime({
     <Context.Provider
       value={{
         drafts,
-        selected,
-        choose: (pageHref, submissionId) => {
-          setSelected((current) => ({ ...current, [pageHref]: submissionId }));
-        },
         updateDraft,
       }}
     >

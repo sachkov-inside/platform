@@ -1,3 +1,4 @@
+import { MemberNames } from "./facets/member-names/member-names.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -28,6 +29,11 @@ import { MEMBER_PROFILES } from "./member-profiles.token.js";
   ],
   providers: [
     {
+      provide: MemberNames,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) => new MemberNames(prisma),
+    },
+    {
       provide: MEMBER_PROFILES,
       inject: [PrismaClientProvider, OBJECT_STORAGE, PLATFORM_CONFIG],
       useFactory: (
@@ -42,6 +48,6 @@ import { MEMBER_PROFILES } from "./member-profiles.token.js";
         }),
     },
   ],
-  exports: [MEMBER_PROFILES],
+  exports: [MEMBER_PROFILES, MemberNames],
 })
 export class MemberProfilesModule {}

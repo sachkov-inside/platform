@@ -22,3 +22,29 @@ it("shows the complete submitted report against its historical requirements, not
     "/authoring/submissions?task=aie-ch1-onboarding",
   );
 });
+
+it("passes only the supported Telegram contact destination to the UI (#1351)", () => {
+  const present = (telegramUrl: string | null) =>
+    presentTaskSubmissions({
+      submissions: {
+        ...reviewedSubmissions,
+        submissions: reviewedSubmissions.submissions.map((submission) => ({
+          ...submission,
+          person: { ...submission.person, telegramUrl },
+        })),
+      },
+      selection: {},
+      continued: false,
+    });
+  expect(present("https://t.me/anna_example").rows[0]?.telegramHref).toBe(
+    "https://t.me/anna_example",
+  );
+  for (const url of [
+    null,
+    "javascript:alert(1)",
+    "https://example.test/anna_example",
+    "https://t.me/someone_else",
+  ]) {
+    expect(present(url).rows[0]?.telegramHref).toBeNull();
+  }
+});

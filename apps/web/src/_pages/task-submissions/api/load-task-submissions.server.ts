@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 
 import {
   BackendConnectionError,
@@ -22,10 +23,12 @@ export type TaskSubmissionsOutcome =
       /** Whether this page continues an earlier one: the list then offers a way back to the start. */
       readonly continued: boolean;
       readonly cursor: string | undefined;
+      readonly submissionId: string | undefined;
     }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "forbidden" }
-  | { readonly kind: "unavailable" };
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "not_found" };
 
 type Attempt =
   | { readonly ok: true; readonly submissions: TaskSubmissions }
@@ -39,6 +42,7 @@ type Attempt =
 export async function loadTaskSubmissions(
   selection: SubmissionSelection,
   cursor: string | undefined,
+  submissionId?: string,
 ): Promise<TaskSubmissionsOutcome> {
   const session = await readAuthenticatedSession("rsc");
   if (session.kind !== "ready") {
@@ -46,6 +50,8 @@ export async function loadTaskSubmissions(
       return { kind: "unauthorized" };
     return { kind: "unavailable" };
   }
+  if (submissionId !== undefined && !z.uuid().safeParse(submissionId).success)
+    return { kind: "not_found" };
   const accessToken = session.value;
   const read = async (
     query: SubmissionSelection,
@@ -54,7 +60,11 @@ export async function loadTaskSubmissions(
     let result;
     try {
       result = await requestAuthorTaskSubmissions(
-        { ...query, ...(page === undefined ? {} : { cursor: page }) },
+        {
+          ...query,
+          ...(page === undefined ? {} : { cursor: page }),
+          ...(submissionId === undefined ? {} : { submissionId }),
+        },
         accessToken,
       );
     } catch (error) {
@@ -94,11 +104,17 @@ export async function loadTaskSubmissions(
     if (attempt.status === 403) return { kind: "forbidden" };
     return { kind: "unavailable" };
   }
+  if (
+    submissionId !== undefined &&
+    attempt.submissions.submissions.length === 0
+  )
+    return { kind: "not_found" };
   return {
     kind: "ready",
     submissions: attempt.submissions,
     selection: shown,
     continued: page !== undefined,
     cursor: page,
+    submissionId,
   };
 }

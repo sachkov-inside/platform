@@ -30,9 +30,9 @@ const failures: Record<
 };
 
 /**
- * The author's answer to one submission (#948): an optional comment and the «посмотрел автор» mark.
- * The learner sees both on the task page and through `learning_task_submissions`. The saved answer
- * replaces the form state, so the time of the mark is the one the server stored.
+ * The author's optional comment on one submission (#1351).
+ * The learner reads it on the task page and through `learning_task_submissions`.
+ * Previously stored «посмотрел автор» marks survive edits; this form cannot add a mark.
  */
 export function AuthorFeedbackForm({
   feedback,
@@ -74,8 +74,8 @@ export function AuthorFeedbackForm({
   const changed = feedbackChanged(draft);
   return (
     <form
-      aria-label="Отзыв автора"
-      className="grid gap-4"
+      aria-label="Комментарий автора"
+      className="grid w-full gap-4"
       data-author-feedback-form
       onSubmit={(event) => {
         event.preventDefault();
@@ -84,28 +84,6 @@ export function AuthorFeedbackForm({
         mutation.mutate({ submissionId, comment, reviewed });
       }}
     >
-      <label
-        className="flex min-h-11 items-center gap-3 text-sm font-medium"
-        htmlFor={`${id}-reviewed`}
-      >
-        <input
-          disabled={draft.pending}
-          checked={reviewed}
-          className="size-5 accent-[var(--accent)]"
-          id={`${id}-reviewed`}
-          name="reviewed"
-          onChange={(event) => {
-            const value = event.target.checked;
-            update((current) => ({
-              ...current,
-              reviewed: value,
-              result: null,
-            }));
-          }}
-          type="checkbox"
-        />
-        Посмотрел автор
-      </label>
       <label
         className="grid gap-1.5 text-sm font-medium"
         htmlFor={`${id}-comment`}
@@ -122,6 +100,8 @@ export function AuthorFeedbackForm({
           disabled={draft.pending}
           maxLength={AUTHOR_COMMENT_MAX_CHARACTERS}
           name="comment"
+          rows={3}
+          placeholder="Напишите, если хотите помочь ученику"
           onChange={(event) => {
             const value = event.target.value;
             update((current) => ({ ...current, comment: value, result: null }));
@@ -134,16 +114,16 @@ export function AuthorFeedbackForm({
           className="min-h-11"
           disabled={!changed || draft.pending}
           type="submit"
-          variant="outline"
+          variant="default"
         >
           <Save aria-hidden="true" />
-          {draft.pending ? "Сохраняем…" : "Сохранить отзыв"}
+          {draft.pending ? "Сохраняем…" : "Сохранить комментарий"}
         </Button>
         <p className="min-w-0 text-sm leading-6" role="status">
           {result?.kind === "saved" && !changed ? (
             <span className="inline-flex items-center gap-1.5 text-[color:var(--callout-good)]">
               <CircleCheck aria-hidden="true" className="size-4" />
-              Сохранено. Ученик увидит отзыв на странице задания.
+              Сохранено. Ученик увидит комментарий на странице задания.
             </span>
           ) : saved?.reviewedAt === null || saved === null ? null : (
             <span className="text-muted-foreground">

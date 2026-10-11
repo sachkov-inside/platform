@@ -5,13 +5,17 @@
   "type": "module",
   "exports": {
     "./community-members-without-right": {
-      "types": "./dist/members-without-right.d.ts",
-      "default": "./dist/members-without-right.js"
+      "types": "./dist/community-result/members-without-right.d.ts",
+      "default": "./dist/community-result/members-without-right.js"
     },
     "./*": "./*",
     "./community-result": {
-      "types": "./dist/codec.d.ts",
-      "default": "./dist/codec.js"
+      "types": "./dist/community-result/codec.d.ts",
+      "default": "./dist/community-result/codec.js"
+    },
+    "./telegram-contact": {
+      "types": "./dist/runtime/telegram-contact.d.ts",
+      "default": "./dist/runtime/telegram-contact.js"
     }
   },
   "files": [

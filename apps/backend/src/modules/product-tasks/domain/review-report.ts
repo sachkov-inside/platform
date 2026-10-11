@@ -15,6 +15,8 @@ const reportText = z.string().trim().max(4_000);
  */
 export const reviewReportSchema = z
   .object({
+    /** Optional short explanation shown before the full criteria report. */
+    summary: z.string().trim().min(1).max(1_000).optional(),
     criteria: z
       .array(
         z

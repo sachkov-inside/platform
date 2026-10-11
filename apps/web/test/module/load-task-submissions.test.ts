@@ -102,3 +102,45 @@ it("recovers a malformed cursor at the newest page and rejects malformed respons
     kind: "unavailable",
   });
 });
+
+it("reads a selected submission outside the cursor page and preserves the return cursor (#1351)", async () => {
+  const id = "30000000-0000-4000-8000-000000000001";
+  const fetch = vi.fn((_input: RequestInfo | URL) =>
+    Promise.resolve(
+      Response.json({
+        ...reviewedSubmissions,
+        submissions: reviewedSubmissions.submissions.filter(
+          (row) => row.submissionId === id,
+        ),
+      }),
+    ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  expect(await loadTaskSubmissions({}, "page-2", id)).toMatchObject({
+    kind: "ready",
+    cursor: "page-2",
+    submissionId: id,
+  });
+  const input: unknown = fetch.mock.calls[0]?.[0];
+  expect(input instanceof Request ? input.url : String(input)).toContain(
+    `submissionId=${id}`,
+  );
+});
+it("a malformed or missing selected submission does not fall back to an unrelated list (#1351)", async () => {
+  const fetch = vi.fn(() =>
+    Promise.resolve(Response.json({ ...reviewedSubmissions, submissions: [] })),
+  );
+  vi.stubGlobal("fetch", fetch);
+  expect(await loadTaskSubmissions({}, undefined, "broken")).toEqual({
+    kind: "not_found",
+  });
+  expect(fetch).not.toHaveBeenCalled();
+  expect(
+    await loadTaskSubmissions(
+      {},
+      undefined,
+      "30000000-0000-4000-8000-000000000999",
+    ),
+  ).toEqual({ kind: "not_found" });
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

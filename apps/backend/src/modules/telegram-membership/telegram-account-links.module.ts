@@ -1,3 +1,8 @@
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../../config/platform-config.js";
+import { HttpTelegramContactsProvider } from "./infrastructure/http/http-telegram-contacts-provider.js";
 import { Module } from "@nestjs/common";
 import {
   PrismaClientProvider,
@@ -10,9 +15,15 @@ import { TelegramAccountLinks } from "./facets/telegram-account-links/telegram-a
   providers: [
     {
       provide: TelegramAccountLinks,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new TelegramAccountLinks(prisma),
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+        new TelegramAccountLinks(
+          prisma,
+          new HttpTelegramContactsProvider(
+            config.telegramMembership.linkingEndpoint,
+            config.telegramMembership.linkingSecret,
+          ),
+        ),
     },
   ],
   exports: [TelegramAccountLinks],

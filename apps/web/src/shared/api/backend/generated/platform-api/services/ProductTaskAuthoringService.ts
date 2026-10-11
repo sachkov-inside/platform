@@ -179,13 +179,26 @@ export class ProductTaskAuthoringService {
     taskCode,
     chapterId,
     productId,
+    submissionId,
   }: {
     limit?: number,
     cursor?: string,
     taskCode?: string,
     chapterId?: string,
     productId?: string,
+    submissionId?: string,
   }): CancelablePromise<{
+    history: Array<{
+      selfCheck: {
+        attempt: number;
+        firstPassedAttempt: number | null;
+        outcome: 'passed' | 'changes' | 'missing';
+      };
+      submissionId: string;
+      submittedAt: string;
+      summary: string | null;
+      taskVersion: number;
+    }>;
     nextCursor: string | null;
     products: Array<{
       chapters: Array<{
@@ -208,7 +221,11 @@ export class ProductTaskAuthoringService {
       note: string;
       person: {
         accountId: string;
+        displayName: string | null;
+        telegramContactState: 'available' | 'not_linked' | 'unavailable';
         telegramIdentityRef: string | null;
+        telegramUrl: string | null;
+        telegramUsername: string | null;
       };
       reportText: string | null;
       reviewReport: {
@@ -219,6 +236,12 @@ export class ProductTaskAuthoringService {
           obtainedByRun: boolean;
           status: 'confirmed' | 'violation' | 'not_verified';
         }>;
+        summary?: string;
+      } | null;
+      selfCheck: {
+        attempt: number;
+        firstPassedAttempt: number | null;
+        outcome: 'passed' | 'changes' | 'missing';
       } | null;
       serviceMark: {
         branch: string | null;
@@ -266,6 +289,7 @@ export class ProductTaskAuthoringService {
         'taskCode': taskCode,
         'chapterId': chapterId,
         'productId': productId,
+        'submissionId': submissionId,
       },
     });
   }

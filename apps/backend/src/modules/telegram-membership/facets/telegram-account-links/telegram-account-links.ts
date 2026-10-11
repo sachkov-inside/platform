@@ -1,3 +1,5 @@
+import { telegramContactsResponseSchema } from "@inside/contracts/telegram-contact";
+import type { TelegramContactsProvider } from "../../ports/telegram-contacts-provider.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   TelegramMembershipPrisma,
@@ -28,7 +30,93 @@ export type TelegramAccountLinkResult =
 // The linking protocol's accountRef is an opaque principalRef, not Account.id.
 // Read only confirmed associations from the capability that owns their lifecycle.
 export class TelegramAccountLinks {
-  constructor(private readonly prisma: TelegramMembershipPrismaClient) {}
+  constructor(
+    private readonly prisma: TelegramMembershipPrismaClient,
+    private readonly contactsProvider?: TelegramContactsProvider,
+  ) {}
+
+  /** Current contact for author support; no previous binding or name from an agent report is used. */
+  async readContacts(accountIds: readonly string[]) {
+    const contacts = new Map<
+      string,
+      {
+        telegramIdentityRef: string | null;
+        displayName: string | null;
+        telegramUsername: string | null;
+        telegramUrl: string | null;
+        telegramContactState: "available" | "not_linked" | "unavailable";
+      }
+    >();
+    if (!z.array(z.uuid()).max(100).safeParse(accountIds).success)
+      return { ok: false } as const;
+    const accounts = [...new Set(accountIds)];
+    const bindings = await Promise.all(
+      accounts.map((accountId) => this.readBinding({ accountId })),
+    );
+    if (bindings.some((binding) => !binding.ok)) return { ok: false } as const;
+    const queries = bindings.flatMap((binding) =>
+      binding.ok &&
+      binding.binding?.accountRef != null &&
+      binding.binding.telegramIdentityRef !== null
+        ? [
+            {
+              accountRef: binding.binding.accountRef,
+              telegramIdentityRef: binding.binding.telegramIdentityRef,
+            },
+          ]
+        : [],
+    );
+    const response =
+      queries.length === 0 || this.contactsProvider === undefined
+        ? ({ ok: false } as const)
+        : await this.contactsProvider.read(queries);
+    const parsed = response.ok
+      ? telegramContactsResponseSchema.safeParse({
+          contractVersion: "inside.telegram-contact.v1",
+          contacts: response.contacts,
+        })
+      : null;
+    const current = await Promise.all(
+      accounts.map((accountId) => this.readBinding({ accountId })),
+    );
+    for (const [index, accountId] of accounts.entries()) {
+      const binding = current[index];
+      const previous = bindings[index];
+      if (binding === undefined || !binding.ok) return { ok: false } as const;
+      const identityRef = binding.binding?.telegramIdentityRef ?? null;
+      const stable =
+        previous?.ok === true &&
+        previous.binding?.linkRevision === binding.binding?.linkRevision &&
+        previous.binding?.accountRef === binding.binding?.accountRef &&
+        previous.binding?.telegramIdentityRef === identityRef;
+      const matching =
+        stable && parsed?.success === true
+          ? parsed.data.contacts.filter(
+              (contact) =>
+                contact.telegramIdentityRef === identityRef &&
+                contact.accountRef === binding.binding?.accountRef,
+            )
+          : [];
+      const contact =
+        matching.length === 1 && matching[0]?.status === "available"
+          ? matching[0]
+          : undefined;
+      contacts.set(accountId, {
+        telegramIdentityRef: identityRef,
+        displayName: contact?.displayName ?? null,
+        telegramUsername: contact?.username ?? null,
+        telegramUrl:
+          contact?.username == null ? null : `https://t.me/${contact.username}`,
+        telegramContactState:
+          identityRef === null
+            ? "not_linked"
+            : contact === undefined
+              ? "unavailable"
+              : "available",
+      });
+    }
+    return { ok: true, contacts } as const;
+  }
 
   /** Exact current verified identity only; historical links and usernames are never recipients. */
   async findCurrentByIdentity(

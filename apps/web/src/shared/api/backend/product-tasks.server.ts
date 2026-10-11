@@ -76,6 +76,7 @@ export function requestSubmitProductTaskForm(
 /** The author's «Сдачи» section: submissions by Product, chapter and task, newest first (#948). */
 export function requestAuthorTaskSubmissions(
   query: {
+    readonly submissionId?: string;
     readonly productId?: string;
     readonly chapterId?: string;
     readonly taskCode?: string;
@@ -86,6 +87,9 @@ export function requestAuthorTaskSubmissions(
   return executeGeneratedRequest(
     (request) =>
       new ProductTaskAuthoringService(request).listAuthorTaskSubmissions({
+        ...(query.submissionId === undefined
+          ? {}
+          : { submissionId: query.submissionId }),
         ...(query.productId === undefined
           ? {}
           : { productId: query.productId }),
