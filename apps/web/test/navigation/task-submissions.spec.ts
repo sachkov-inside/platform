@@ -41,6 +41,9 @@ async function authorCookie(baseURL: string, token = "submissions-author") {
 }
 
 async function evidence(page: Page, info: TestInfo, state: string) {
+  await page
+    .getByRole("heading", { level: 1, name: "Сдачи", exact: true })
+    .click();
   expect(
     await page.evaluate(
       () =>
@@ -127,7 +130,7 @@ test("author selection, filters and pagination preserve each draft on the live p
   else expect(d?.y ?? 0).toBeGreaterThan((q?.y ?? 0) + (q?.height ?? 0));
   await evidence(page, info, "ready");
   await first.getByRole("textbox").fill("Черновик первой сдачи");
-  await queue.getByRole("button", { name: /Заявки клиентов/u }).click();
+  await queue.getByRole("button", { name: /Заявки клиентов/u }).press("Enter");
   const second = page.locator(`[data-submission="${secondId}"]`);
   await expect(
     second.getByText(
