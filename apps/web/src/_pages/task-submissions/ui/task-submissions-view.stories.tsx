@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Suspense, use } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import {
@@ -18,6 +19,17 @@ import {
   submissionsProductId,
   submissionsSecondChapter,
 } from "@/storybook/task-submissions.fixtures";
+import {
+  boxOf,
+  desktop,
+  mobile,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  type StagedLoading,
+  type StoryViewport,
+} from "@/storybook/loads-in-place";
 
 const environment = authoringPageEnvironment("/authoring/submissions");
 const presentation = presentTaskSubmissions({
@@ -308,3 +320,43 @@ export const Unauthorized: Story = {
 export const Unavailable: Story = {
   render: () => <TaskSubmissionsState kind="unavailable" />,
 };
+
+function ArrivedSubmissions({
+  sequence,
+}: {
+  readonly sequence: StagedLoading;
+}) {
+  use(sequence.sharedPart);
+  return <TaskSubmissionsView presentation={presentation} />;
+}
+
+function loadsInPlace({ globals, width }: StoryViewport): Story {
+  return {
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<TaskSubmissionsLoading />}>
+        <ArrivedSubmissions sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const page = routeContent(canvasElement);
+      await expect(
+        page.getByRole("status", { name: "Загружаем сдачи" }),
+      ).toBeVisible();
+      const anchors = () =>
+        ["title", "filter", "workspace"].map((part) =>
+          originOf(boxOf(canvasElement, `[data-submissions-part='${part}']`)),
+        );
+      const loading = anchors();
+      stagedLoadingOf(loaded).deliverSharedPart();
+      await within(canvasElement).findByRole("region", {
+        name: "Очередь сдач",
+      });
+      await expect(anchors()).toEqual(loading);
+    },
+  };
+}
+export const LoadsInPlace: Story = loadsInPlace(desktop);
+export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);

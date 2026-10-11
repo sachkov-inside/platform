@@ -2,7 +2,7 @@ import { loadTaskSubmissions } from "../api/load-task-submissions.server";
 import { selectionHref } from "../model/task-submissions";
 import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import { TaskSubmissionsState } from "./task-submissions-states";
-import { TaskSubmissionsView } from "./task-submissions-view";
+import { TaskSubmissionsView } from "./task-submissions-view.client";
 
 type SearchValue = string | string[] | undefined;
 

@@ -53,6 +53,7 @@ export function TaskSubmissionsFrame({
           <h1
             className="text-balance text-3xl font-bold tracking-[-0.04em]"
             id="task-submissions-title"
+            data-submissions-part="title"
           >
             Сдачи
           </h1>
@@ -107,7 +108,10 @@ export function TaskSubmissionsView({
           </div>
         </div>
       ) : (
-        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+        <div
+          data-submissions-part="workspace"
+          className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]"
+        >
           <section aria-label="Очередь сдач" className="min-w-0">
             <h2 className="mb-3 text-sm font-semibold">
               Сдачи на странице: {rows.length}
@@ -201,12 +205,14 @@ function SubmissionQueueItem({
   );
 }
 
-function SubmissionFilter({
+export function SubmissionFilter({
   selection,
   products,
+  disabled = false,
 }: {
   readonly selection: SubmissionSelection;
   readonly products: readonly FilterProduct[];
+  readonly disabled?: boolean;
 }) {
   const [filter, setFilter] = useState(selection);
   const [pending, startTransition] = useTransition();
@@ -225,6 +231,7 @@ function SubmissionFilter({
       aria-label="Фильтр сдач"
       className="grid gap-3 border-b border-border pb-6 sm:grid-cols-3"
       method="get"
+      data-submissions-part="filter"
       onSubmit={(event) => {
         event.preventDefault();
         startTransition(() => {
@@ -235,6 +242,7 @@ function SubmissionFilter({
       <Field label="Продукт">
         <select
           className={fieldClass}
+          disabled={disabled}
           value={filter.productId ?? ""}
           onChange={(event) => {
             setFilter(
@@ -266,7 +274,7 @@ function SubmissionFilter({
               ...(value === "" ? {} : { chapterId: value }),
             });
           }}
-          disabled={product === undefined}
+          disabled={disabled || product === undefined}
           name="chapterId"
         >
           <option value="">
@@ -281,6 +289,7 @@ function SubmissionFilter({
       </Field>
       <Field label="Задание">
         <select
+          disabled={disabled}
           className={fieldClass}
           value={filter.taskCode ?? ""}
           onChange={(event) => {
@@ -309,7 +318,7 @@ function SubmissionFilter({
       </Field>
       <Button
         className="min-h-11 justify-self-start px-5"
-        disabled={pending}
+        disabled={disabled || pending}
         type="submit"
       >
         {pending ? "Загружаем…" : "Показать"}

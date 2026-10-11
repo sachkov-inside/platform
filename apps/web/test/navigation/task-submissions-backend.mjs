@@ -34,8 +34,9 @@ const fixture = schema.parse(
 const feedbackSchema = z
   .object({ comment: z.string(), reviewed: z.boolean() })
   .strict();
-/** @type {Map<string, {comment: string | null, reviewedAt: string | null, updatedAt: string}>} */
+/** @type {Map<string, {comment: string | null, reviewedAt: string | null, updatedAt: string} | null>} */
 const feedbacks = new Map();
+let writes = 0;
 /** @type {Promise<void> | undefined} */
 let gate;
 /** @type {(() => void) | undefined} */
@@ -53,6 +54,7 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     release?.();
     gate = undefined;
     feedbacks.clear();
+    writes = 0;
     return { status: 200, value: { reset: true } };
   }
   if (url.pathname === "/__submissions/hold") {
@@ -88,11 +90,18 @@ export async function taskSubmissionsRoute(request, url, readBody) {
     )
       return { status: 404, value: { code: "submission_not_found" } };
     const input = feedbackSchema.parse(JSON.parse(await readBody(request)));
-    const authorFeedback = {
-      comment: input.comment.trim() === "" ? null : input.comment.trim(),
-      reviewedAt: input.reviewed ? "2026-10-11T09:00:00.000Z" : null,
-      updatedAt: "2026-10-11T09:00:00.000Z",
-    };
+    writes += 1;
+    const now = new Date(
+      Date.parse("2026-10-11T09:00:00.000Z") + writes * 60_000,
+    ).toISOString();
+    const authorFeedback =
+      input.comment.trim() === "" && !input.reviewed
+        ? null
+        : {
+            comment: input.comment.trim() === "" ? null : input.comment.trim(),
+            reviewedAt: input.reviewed ? now : null,
+            updatedAt: now,
+          };
     feedbacks.set(id, authorFeedback);
     return { status: 200, value: { authorFeedback } };
   }

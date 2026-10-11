@@ -14,10 +14,8 @@ import {
   type SaveAuthorFeedbackInput,
 } from "../model/author-feedback";
 import type { AuthorFeedback } from "../model/task-submissions";
-import {
-  feedbackChanged,
-  useFeedbackDraft,
-} from "./task-submissions-runtime.client";
+import { feedbackChanged } from "../model/feedback-draft";
+import { useFeedbackDraft } from "./task-submissions-runtime.client";
 
 const failures: Record<
   Exclude<SaveAuthorFeedbackResult["kind"], "saved">,
@@ -54,6 +52,7 @@ export function AuthorFeedbackForm({
           ? {
               ...current,
               saved: outcome.authorFeedback,
+              clearedLocally: outcome.authorFeedback === null,
               comment: outcome.authorFeedback?.comment ?? "",
               reviewed:
                 outcome.authorFeedback !== null &&

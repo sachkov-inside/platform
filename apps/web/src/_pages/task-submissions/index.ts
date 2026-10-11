@@ -1,7 +1,7 @@
 export {
   TaskSubmissionsView,
   TaskSubmissionsFrame,
-} from "./ui/task-submissions-view";
+} from "./ui/task-submissions-view.client";
 export {
   TaskSubmissionsState,
   TaskSubmissionsLoading,

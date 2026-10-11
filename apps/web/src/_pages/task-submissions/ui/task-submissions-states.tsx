@@ -5,7 +5,10 @@ import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
 import { submissionsHref } from "../model/task-submissions";
-import { TaskSubmissionsFrame } from "./task-submissions-view";
+import {
+  SubmissionFilter,
+  TaskSubmissionsFrame,
+} from "./task-submissions-view.client";
 
 export function TaskSubmissionsState({
   kind,
@@ -57,11 +60,13 @@ export function TaskSubmissionsState({
 export function TaskSubmissionsLoading() {
   return (
     <TaskSubmissionsFrame>
+      <SubmissionFilter disabled products={[]} selection={{}} />
       <div
         aria-busy="true"
         aria-label="Загружаем сдачи"
         className="grid gap-8 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]"
         role="status"
+        data-submissions-part="workspace"
       >
         <div className="grid content-start gap-3">
           <p className="text-sm text-muted-foreground">Загружаем сдачи…</p>

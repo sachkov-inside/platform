@@ -2,55 +2,11 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-import type { SaveAuthorFeedbackResult } from "../model/author-feedback";
+import {
+  reconcileFeedbackDraft,
+  type FeedbackDraft,
+} from "../model/feedback-draft";
 import type { AuthorFeedback } from "../model/task-submissions";
-
-export interface FeedbackDraft {
-  readonly comment: string;
-  readonly reviewed: boolean;
-  readonly saved: AuthorFeedback | null;
-  readonly sourceRevision: string | null;
-  readonly pending: boolean;
-  readonly result: SaveAuthorFeedbackResult | null;
-}
-
-function initialDraft(feedback: AuthorFeedback | null): FeedbackDraft {
-  return {
-    comment: feedback?.comment ?? "",
-    reviewed: feedback !== null && feedback.reviewedAt !== null,
-    saved: feedback,
-    sourceRevision: feedback?.updatedAt ?? null,
-    pending: false,
-    result: null,
-  };
-}
-
-export function feedbackChanged(draft: FeedbackDraft): boolean {
-  return (
-    draft.comment.trim() !== (draft.saved?.comment ?? "") ||
-    draft.reviewed !== (draft.saved !== null && draft.saved.reviewedAt !== null)
-  );
-}
-
-function reconcileDraft(
-  stored: FeedbackDraft | undefined,
-  feedback: AuthorFeedback | null,
-): FeedbackDraft {
-  if (stored === undefined) return initialDraft(feedback);
-  const revision = feedback?.updatedAt ?? null;
-  // An RSC result can still contain the pre-save answer. A newer server read updates the baseline
-  // while an unsaved edit remains the author's own draft.
-  if (
-    stored.pending ||
-    revision === stored.sourceRevision ||
-    revision === (stored.saved?.updatedAt ?? null)
-  )
-    return stored;
-  const fresh = initialDraft(feedback);
-  return feedbackChanged(stored)
-    ? { ...fresh, comment: stored.comment, reviewed: stored.reviewed }
-    : fresh;
-}
 
 interface Runtime {
   readonly drafts: Readonly<Record<string, FeedbackDraft>>;
@@ -87,7 +43,7 @@ export function TaskSubmissionsRuntime({
           setDrafts((current) => ({
             ...current,
             [submissionId]: update(
-              reconcileDraft(current[submissionId], feedback),
+              reconcileFeedbackDraft(current[submissionId], feedback),
             ),
           }));
         },
@@ -110,7 +66,7 @@ export function useFeedbackDraft(
 ) {
   const runtime = useTaskSubmissionsRuntime();
   return {
-    draft: reconcileDraft(runtime.drafts[submissionId], feedback),
+    draft: reconcileFeedbackDraft(runtime.drafts[submissionId], feedback),
     update: (change: (current: FeedbackDraft) => FeedbackDraft) => {
       runtime.updateDraft(submissionId, feedback, change);
     },
