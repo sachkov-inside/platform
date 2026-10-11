@@ -1,11 +1,14 @@
-import { CircleAlert, LockKeyhole, LogIn, RotateCcw } from "lucide-react";
-import Link from "next/link";
+import { CircleAlert, LockKeyhole, LogIn } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
+import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
 
 import { submissionsHref } from "../model/task-submissions";
-import { TaskSubmissionsFrame } from "./task-submissions-view";
+import {
+  SubmissionFilter,
+  TaskSubmissionsFrame,
+} from "./task-submissions-view.client";
 
 export function TaskSubmissionsState({
   kind,
@@ -43,20 +46,43 @@ export function TaskSubmissionsState({
         />
       ) : (
         <StatusPanel
-          action={
-            <Button asChild variant="outline">
-              <Link href={submissionsHref}>
-                <RotateCcw aria-hidden="true" data-icon="inline-start" />
-                Обновить
-              </Link>
-            </Button>
-          }
+          action={<RetryPageButton />}
           icon={<CircleAlert aria-hidden="true" />}
           message="Сдачи сейчас не загрузились. Попробуйте обновить страницу чуть позже."
           state={{ "data-task-submissions-state": "unavailable" }}
           title="Сдачи не загрузились"
         />
       )}
+    </TaskSubmissionsFrame>
+  );
+}
+
+export function TaskSubmissionsLoading() {
+  return (
+    <TaskSubmissionsFrame>
+      <SubmissionFilter disabled products={[]} selection={{}} />
+      <div
+        aria-busy="true"
+        aria-label="Загружаем сдачи"
+        className="grid gap-8 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]"
+        role="status"
+        data-submissions-part="workspace"
+      >
+        <div className="grid content-start gap-3">
+          <p className="text-sm text-muted-foreground">Загружаем сдачи…</p>
+          {["first", "second", "third"].map((key) => (
+            <div
+              aria-hidden="true"
+              className="h-24 rounded-xl bg-muted"
+              key={key}
+            />
+          ))}
+        </div>
+        <div aria-hidden="true" className="grid content-start gap-6">
+          <div className="h-32 rounded-xl bg-muted" />
+          <div className="h-64 rounded-xl bg-muted" />
+        </div>
+      </div>
     </TaskSubmissionsFrame>
   );
 }

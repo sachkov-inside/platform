@@ -1,0 +1,36 @@
+{
+  "runId": 38125155437,
+  "sourceSha": "bac727908ab087a89e8dbf421830b6b88e19b64a",
+  "images": [
+    {
+      "artifactId": 11696911608,
+      "indexDigest": "sha256:3ef7f7e89fed709a78f79b8b5f4e30e1312a1d4089da752e23595566d9d61a95",
+      "allChildManifests": 16,
+      "platforms": {
+        "amd64": "sha256:ad995f859fce23a0ccd91c24cfac89d8f8cc57de4d708b58dcecea2697ad0d8c",
+        "arm64": "sha256:58dce3b05806022e53e6632018d9bc76305a3f1e6f7f5498703a947004e4b983"
+      },
+      "result": "identical"
+    },
+    {
+      "artifactId": 11696746848,
+      "indexDigest": "sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47",
+      "allChildManifests": 16,
+      "platforms": {
+        "amd64": "sha256:d1b24a78c1ace826771eb8585d8f30315a64f1aad4d1fe6fcd9b4435cccc16f4",
+        "arm64": "sha256:99ddb237c9865b939efb22c6e30708998881b945801b62fa0d70787bf7413f56"
+      },
+      "result": "identical"
+    },
+    {
+      "artifactId": 11696881357,
+      "indexDigest": "sha256:adac51a4a14a200b8eb928a12787564ed56e93fc55e789a73ec13e1e2eac7aef",
+      "allChildManifests": 16,
+      "platforms": {
+        "amd64": "sha256:a28daaa3fd82a27a843a323615a6bb86cc31e36e59e0b77f5b2edf6a72fce75b",
+        "arm64": "sha256:dfca4df78e96242c71ca889d8307cafbe25693611b5e566df46c97932e3237b9"
+      },
+      "result": "identical"
+    }
+  ]
+}

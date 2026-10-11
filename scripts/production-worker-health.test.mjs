@@ -159,6 +159,8 @@ async function runHealth(scenario, configuration = effectiveHealthcheck) {
       join(fixture, "entrypoint"),
       `#!/bin/bash
 set -euo pipefail
+cache_only=0
+cache_admitted=0
 application_compose=(docker compose --project-name inside-worker-health-owned)
 foundation_compose=(docker compose --project-name inside-worker-health-foundation-owned)
 application_workers=(assets avatars videos billing notifications)

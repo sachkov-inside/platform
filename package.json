@@ -30,6 +30,7 @@
     "mcp:generate": "pnpm --filter @inside/backend mcp:generate",
     "mcp:check": "pnpm --filter @inside/backend mcp:check",
     "docs:check": "node scripts/check-agent-documentation.mjs",
+    "ci:wait": "node scripts/owned-node.mjs --command python3 -B scripts/ci-wait.py",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",

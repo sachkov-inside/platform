@@ -151,7 +151,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       telegram,
-      /image: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+      /image: ghcr\.io\/sachkov-inside\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
     );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(

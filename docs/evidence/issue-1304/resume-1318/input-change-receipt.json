@@ -1,0 +1,81 @@
+{
+  "kind": "source hashes and preserved acquisition refs; no actual cache-hit or build-growth claim",
+  "dependencyMain": "3917205c7d792f79d7f0a5bd6a319999221ce346",
+  "unchangedDependencyInputs": [
+    {
+      "path": "package.json",
+      "sha256": "b77731dd3e360f60533ff6629a9484bb620dfed89280cd1cc4327e18e9eb774a",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "60da3fd09cfac2beaff6e4011f0c7538fbb7e2f3d5ca63bee887deac16555951",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "54392eddbe7e1d03f00e8b805cf6a6ec47c22fc22e25549b64a0f50281617c31",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "apps/backend/package.json",
+      "sha256": "80daefd0ee9773c1484c7cb585ef4fc1bf235a589492ede1bff32cf868620e4d",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "c0492d1498fdcb8eceefb34ee0a1d4fddeaf7eba3565404cbfb7c8c8e5a9f2a6",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "apps/telegram/package.json",
+      "sha256": "e9397909063cf73f1ed37333f349422bc8f54e26730fbf04769647ecc9b9a773",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "cc40b8b71b923cb4e98ac947df9cd2aef68cf8cf88a26f966e0390b8f464c55b",
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "tsconfig.node-lib.json",
+      "sha256": "4082474428ba56e312b1eb80d8226e083cdbab79b741f5a8acff90656b61241f",
+      "matchesDependencyMain": true
+    }
+  ],
+  "unchangedDependencyDirectories": [
+    "packages",
+    "patches",
+    "apps/backend/prisma",
+    "docs/contracts"
+  ],
+  "preservedAcquisitionInputs": [
+    {
+      "path": "apps/backend/Dockerfile",
+      "pinnedImageLines": [
+        "FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain",
+        "FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS backend-production"
+      ],
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "apps/web/Dockerfile",
+      "pinnedImageLines": [
+        "FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain",
+        "FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production"
+      ],
+      "matchesDependencyMain": true
+    },
+    {
+      "path": "compose.yaml",
+      "pinnedImageLines": [
+        "image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+        "image: public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+        "image: public.ecr.aws/docker/library/postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94",
+        "image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d"
+      ],
+      "matchesDependencyMain": true
+    }
+  ],
+  "changedBuildInput": "CSP_LOCAL_OBJECT_STORAGE_ORIGIN ARG only in web production-build; source COPY changes are within165MB envelope"
+}

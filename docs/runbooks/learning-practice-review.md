@@ -78,6 +78,24 @@ current Task Version, protocol v3 and related Materials in canonical JSON parts 
 idempotent by `submissionKey`. `learning_task_submissions` returns only the learner's own submissions
 of one task with their version and Author Feedback.
 
+**Agent connection for tasks (#967).** The same configured
+`/practice-review-setup.txt` is the repo-owned connection and task-review guide. Codex is the
+accepted primary client; the existing Claude Code and OpenCode instructions remain available.
+It covers complete pinned context, protocol v3, confirmation of the exact report/note/service
+mark, same-key retries and a fresh review when the Task Version changes. The guide is not an
+alternative protocol: the task response owns the complete review procedure. Synthetic client
+success does not prove production OAuth; production sign-in and remaining native-client trials
+are a separate acceptance step.
+
+**Author workspace (#967).** `/authoring/submissions` uses the server-validated product/chapter/task
+filters and cursor. On desktop a queue sits to the left of one complete report; on mobile the
+blocks follow each other. Criteria come from the submitted version, not today's task. Selection
+is remembered per filtered page; unsaved feedback is held in memory per submission across
+selection, loading, filters and pagination. It is not written to browser storage and a full
+document reload ends the editing session. Saving through the existing authenticated BFF updates
+only that submission; an interrupted session or failed save retains its draft for retry. The
+learner's existing task page and MCP show only their own submissions and the saved author feedback.
+
 **Submissions.** Platform stores the submission and never fetches the repository URL. It refuses a
 report that misses a criterion of the version or names another one (`report_coverage_mismatch`), a
 version that is no longer current (`task_version_changed`), a report above 64 KiB, a note above 1000
@@ -86,17 +104,55 @@ Access is checked at every read and every submission; submissions stay when acce
 return with it. The database refuses any change to a written version or submission; deleting one
 is left to an explicit data-policy procedure.
 
+### Deleting submissions on a data request
+
+Data policy v4 (§5–6) lets a learner ask the operator
+to delete one submission or all of them; the Author Feedback goes with it. The operator checks the
+requester as the policy says and finds the Account id. This production procedure requires migration
+`0082` from [#1065](https://github.com/sachkov-inside/platform/issues/1065), which renames `guide_tasks`
+to `product_tasks`. Root verifies that the migration has run before this procedure is used. Before #1065,
+the schema was named `guide_tasks`; that historical name is not the production target.
+Then, in `psql` on the Platform database after the migration, delete the feedback first, because its
+foreign key has no cascade:
+
+```sql
+\set ON_ERROR_STOP on
+\set account '<account uuid>'
+BEGIN;
+DELETE FROM product_tasks.author_feedback
+  WHERE submission_id IN (SELECT id FROM product_tasks.submissions WHERE account_id = :'account');
+DELETE FROM product_tasks.submissions WHERE account_id = :'account';
+COMMIT;
+```
+
+For one submission, also `\set submission '<submission uuid>'` and add
+`AND id = :'submission'` to the inner `SELECT` and to the last `DELETE`: the Account filter stays,
+so a wrong id deletes nothing. The triggers block only `UPDATE`. Record the date and the request in
+the reply to the learner, not the deleted content.
+
 The task page (#947) offers the same submission without an agent: a form with the learner's note,
 an optional repository and an optional report as plain text. It creates a `form` submission through
 the API, which obeys the same setting and the same hourly bound.
 
-**Enabling submissions in production.** `PRODUCT_TASK_SUBMISSIONS_ENABLED` turns submission on; it
-defaults to `true` locally and to `false` in production, where `learning_task_submit` and the page
+### Enabling submissions in production
+
+`PRODUCT_TASK_SUBMISSIONS_ENABLED` turns submission on after
+[#1065](https://github.com/sachkov-inside/platform/issues/1065). Root verifies the runtime version
+and migration `0082` before this procedure. The setting defaults to `true` locally and to `false`
+in production, where `learning_task_submit` and the page
 form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
-publishes data policy v4, which covers submissions, review reports, notes and repository links:
+publishes data policy v4 and Root verifies that release. Enabling submissions is a separate later
+Root step. The policy covers submissions, review reports, notes and repository links:
+
+The approved source package from PR #995 (`b32115fd727027dd5b1ed3dcf501938cb2b58544`)
+is included with #967. Inclusion in Git is preparation, not confirmation of publication. Before
+enabling the flag, record the released policy version, public URL and deployed source SHA,
+verify `/legal/privacy/v4` and the current `/legal/privacy` content against the approved package,
+and obtain the owner's publication confirmation. Keep the production flag off until that evidence
+exists. Content population, chapter count and a calendar date are not technical launch conditions.
 
 1. Set `PRODUCT_TASK_SUBMISSIONS_ENABLED=true` in the production MCP and API environments
-   (`config/compose/production/mcp.env.example` and `api.env.example` name it).
+   (`config/compose/production/mcp.env.example` and `api.env.example` name it after #1065).
 2. Release the MCP and API processes by the [release runbook](production-release.md).
 3. Check that a test learner submits a free task once through MCP and once through the page form
    and sees both in «Мои сдачи»; record no token or learner data.

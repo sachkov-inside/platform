@@ -20,14 +20,18 @@ test("practice Reader preserves the ready public body and closed practice geomet
   await signInFullStack(context, "MEMBER");
   await page.goto(`/materials/${slug}`, { waitUntil: "commit" });
   await expect(page.locator("[data-reader-body]")).toBeVisible();
-  const slot = page.locator("[data-practice-slot]");
   const actions = page.locator("[data-material-actions]");
+  const slot = actions.locator(
+    "[data-practice-loading], [data-practice-summary]",
+  );
+  const openPractice = actions.getByRole("button", {
+    name: "Открыть проверку практики",
+    exact: true,
+  });
   if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
     await expect(slot.getByRole("status")).toBeVisible();
     const before = await actions.boundingBox();
-    await expect(
-      slot.getByText("Открыть проверку практики", { exact: true }),
-    ).toBeVisible();
+    await expect(openPractice).toBeVisible();
     const after = await actions.boundingBox();
     expect(before).not.toBeNull();
     expect(after?.y).toBe(before?.y);
@@ -40,11 +44,15 @@ test("practice Reader preserves the ready public body and closed practice geomet
   await expect(
     page.getByRole("region", { name: "Проверка практики" }),
   ).not.toBeVisible();
-  await slot.getByText("Открыть проверку практики", { exact: true }).click();
+  await openPractice.click();
   await expect(
     page.getByRole("region", { name: "Проверка практики" }),
   ).toBeVisible();
-  await expect(slot.getByRole("button", { name: "Копировать" })).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("region", { name: "Проверка практики" })
+      .getByRole("button", { name: "Копировать" }),
+  ).toHaveCount(1);
 });
 
 test("practice Reader offers pinned requests only to an authorized participant", async ({
