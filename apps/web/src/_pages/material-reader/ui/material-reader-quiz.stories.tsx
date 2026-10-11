@@ -108,17 +108,47 @@ export const DontKnow: Story = {
     ).toHaveAttribute("href", "#проверяемый-результат");
   },
 };
-export const AllExplanations: Story = {
+export const SwitchAnswers: Story = {
   play: async ({ canvasElement }) => {
-    const quiz = within(
-      canvasElement.querySelector("[data-material-quiz]") ?? canvasElement,
+    const root = canvasElement.querySelector<HTMLElement>(
+      "[data-material-quiz]",
     );
-    await userEvent.click(quiz.getByRole("button", { name: "Не знаю" }));
-    await userEvent.click(quiz.getByRole("button", { name: "Все объяснения" }));
+    if (root === null) throw new Error("Quiz is missing");
+    const quiz = within(root);
+    const wrong = quiz.getByRole("button", { name: /1\. Форма написана/u });
+    const correct = quiz.getByRole("button", { name: /2\. После отправки/u });
+    await userEvent.click(wrong);
+    await expect(wrong.closest("[data-quiz-option]")).toHaveAttribute(
+      "data-result",
+      "incorrect",
+    );
+    const wrongOption = wrong.closest("[data-quiz-option]");
+    if (wrongOption === null) throw new Error("Wrong option is missing");
+    const wrongColor = getComputedStyle(wrongOption).backgroundColor;
+    await userEvent.click(correct);
+    await expect(correct.closest("[data-quiz-option]")).toHaveAttribute(
+      "data-result",
+      "correct",
+    );
+    await expect(wrong).toHaveAttribute("aria-pressed", "false");
+    await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
+    const correctOption = correct.closest("[data-quiz-option]");
+    if (correctOption === null) throw new Error("Correct option is missing");
+    await expect(getComputedStyle(correctOption).backgroundColor).not.toBe(
+      wrongColor,
+    );
     await expect(
-      quiz.getByRole("heading", { name: "Разбор всех вариантов" }),
-    ).toBeVisible();
+      quiz.queryByRole("button", { name: "Ответить ещё раз" }),
+    ).toBeNull();
+    await expect(
+      quiz.queryByRole("button", { name: "Все объяснения" }),
+    ).toBeNull();
+    await expect(quiz.queryByText("Ваш ответ:")).toBeNull();
   },
+};
+export const SwitchAnswersMobile: Story = {
+  ...SwitchAnswers,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 export const RichOptionContent: Story = {
@@ -190,7 +220,7 @@ export const RichOptionContent: Story = {
         name: "Открыть изображение крупно: Схема проверки",
       }),
     ).toBeVisible();
-    await expect(canvas.getByText("Состояние: Без ответа")).toBeVisible();
+    await expect(canvas.queryByText("Состояние: Без ответа")).toBeNull();
     await userEvent.click(
       canvas.getByRole("button", { name: /1\. Форма написана/u }),
     );

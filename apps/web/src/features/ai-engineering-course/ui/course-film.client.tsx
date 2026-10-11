@@ -4,20 +4,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
   DEFAULT_PALETTE,
-  drawFilm,
-  FILM_DESCRIPTION,
-  FILM_DURATION,
-  FILM_POSTER_TIME,
   FILM_WIDTH,
   type FilmFonts,
   type FilmPalette,
-} from "../model/course-film";
-import {
-  drawFilmV2,
-  FILM_V2_DESCRIPTION,
-  FILM_V2_DURATION,
-  FILM_V2_POSTER_TIME,
-} from "../model/course-film-v2";
+} from "../model/film-kit";
 import {
   drawFilmV3,
   FILM_V3_DESCRIPTION,
@@ -47,32 +37,37 @@ const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
  * плашек — по адресу с `?film=v1`, вторая — путь фичи от задачи до релиза — с `?film=v2`.
  */
 interface Film {
-  readonly draw: typeof drawFilm;
+  readonly draw: typeof drawFilmV3;
   readonly description: string;
   readonly duration: number;
   readonly poster: number;
 }
-const FILMS: Readonly<Record<"v1" | "v2" | "v3", Film>> = {
-  v1: {
-    draw: drawFilm,
-    description: FILM_DESCRIPTION,
-    duration: FILM_DURATION,
-    poster: FILM_POSTER_TIME,
-  },
-  v2: {
-    draw: drawFilmV2,
-    description: FILM_V2_DESCRIPTION,
-    duration: FILM_V2_DURATION,
-    poster: FILM_V2_POSTER_TIME,
-  },
-  v3: {
-    draw: drawFilmV3,
-    description: FILM_V3_DESCRIPTION,
-    duration: FILM_V3_DURATION,
-    poster: FILM_V3_POSTER_TIME,
-  },
+const DEFAULT_FILM: Film = {
+  draw: drawFilmV3,
+  description: FILM_V3_DESCRIPTION,
+  duration: FILM_V3_DURATION,
+  poster: FILM_V3_POSTER_TIME,
 };
-type FilmVersion = keyof typeof FILMS;
+type FilmVersion = "v1" | "v2" | "v3";
+
+async function loadAlternative(version: "v1" | "v2"): Promise<Film> {
+  if (version === "v1") {
+    const film = await import("../model/course-film");
+    return {
+      draw: film.drawFilm,
+      description: film.FILM_DESCRIPTION,
+      duration: film.FILM_DURATION,
+      poster: film.FILM_POSTER_TIME,
+    };
+  }
+  const film = await import("../model/course-film-v2");
+  return {
+    draw: film.drawFilmV2,
+    description: film.FILM_V2_DESCRIPTION,
+    duration: film.FILM_V2_DURATION,
+    poster: film.FILM_V2_POSTER_TIME,
+  };
+}
 const subscribeNothing = () => () => undefined;
 const readFilmVersion = (): FilmVersion => {
   const asked = new URLSearchParams(window.location.search).get("film");
@@ -112,19 +107,43 @@ export function CourseFilm({
     readFilmVersion,
     readServerFilmVersion,
   );
-  const film = FILMS[version];
+  const [loaded, setLoaded] = useState<{ version: FilmVersion; film: Film }>({
+    version: "v3",
+    film: DEFAULT_FILM,
+  });
+  const film = loaded.version === version ? loaded.film : DEFAULT_FILM;
+  const selectedReady = version === "v3" || loaded.version === version;
+  useEffect(() => {
+    if (version === "v3") return undefined;
+    let cancelled = false;
+    void loadAlternative(version).then(
+      (alternative) => {
+        if (!cancelled) setLoaded({ version, film: alternative });
+      },
+      () => {
+        // При отказе загрузки остаётся неподвижный кадр default v3.
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [version]);
   const filmRef = useRef<Film>(film);
   const time = useRef<number>(film.poster);
+  const started = useRef(false);
+  const paintRef = useRef<(() => void) | undefined>(undefined);
   useEffect(() => {
     filmRef.current = film;
+    time.current = film.poster;
+    started.current = false;
+    paintRef.current?.();
   }, [film]);
-  const paintRef = useRef<(() => void) | undefined>(undefined);
   const reduced = useSyncExternalStore(
     subscribeReducedMotion,
     readReducedMotion,
     readServerReducedMotion,
   );
-  const playing = autoplay && !reduced;
+  const playing = autoplay && !reduced && selectedReady;
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -132,6 +151,7 @@ export function CourseFilm({
   useEffect(() => {
     const element = canvas.current;
     if (!element) return undefined;
+    let cancelled = false;
     let fonts: FilmFonts = { sans: "sans-serif", mono: MONO };
     let palette = readPalette(element);
     const paint = () => {
@@ -154,6 +174,7 @@ export function CourseFilm({
     const resize = new ResizeObserver(paint);
     resize.observe(element);
     void document.fonts.ready.then(() => {
+      if (cancelled) return;
       const style = getComputedStyle(element);
       const utility = style.getPropertyValue("--font-utility").trim();
       fonts = { sans: style.fontFamily, mono: utility === "" ? MONO : utility };
@@ -163,6 +184,7 @@ export function CourseFilm({
     });
     paintRef.current = paint;
     return () => {
+      cancelled = true;
       resize.disconnect();
       paintRef.current = undefined;
     };
@@ -189,7 +211,6 @@ export function CourseFilm({
   }, []);
 
   // Первый показ с движением начинается с начала фильма, а не с итогового кадра.
-  const started = useRef(false);
   useEffect(() => {
     if (!playing || !visible || !ready) return undefined;
     if (!started.current) {
@@ -209,7 +230,7 @@ export function CourseFilm({
     return () => {
       cancelAnimationFrame(raf);
     };
-  }, [playing, visible, ready]);
+  }, [film, playing, visible, ready]);
 
   // Без движения — всегда итоговый кадр, даже если reduced motion включили посреди проигрывания.
   // Если движение вернут, фильм начнётся заново.
@@ -218,7 +239,7 @@ export function CourseFilm({
     time.current = filmRef.current.poster;
     started.current = false;
     paintRef.current?.();
-  }, [playing, ready]);
+  }, [film, playing, ready]);
 
   return (
     <div className="aie-film">

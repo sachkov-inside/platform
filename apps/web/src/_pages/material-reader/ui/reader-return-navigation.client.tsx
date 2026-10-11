@@ -1,20 +1,22 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { Button } from "@/shared/ui/button";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 
 /** Repeat the return action after scrolling past its ordinary, non-sticky top position. */
 export function ReaderReturnNavigation({
   children,
   repeatAtBottom,
+  hideReturn = false,
+  topNavigation,
   target,
 }: {
   readonly children: ReactNode;
   readonly repeatAtBottom: boolean;
+  readonly hideReturn?: boolean;
+  readonly topNavigation?: ReactNode;
   readonly target: MaterialReaderReturnTarget;
 }) {
   const topRef = useRef<HTMLDivElement>(null);
@@ -34,27 +36,19 @@ export function ReaderReturnNavigation({
     };
   }, [repeatAtBottom]);
 
-  const action = (
-    <Button
-      asChild
-      className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-4 text-xs font-semibold shadow-none"
-      variant="outline"
-    >
-      <IntentPrefetchLink href={target.href}>
-        <ArrowLeft aria-hidden="true" />
-        {target.label}
-      </IntentPrefetchLink>
-    </Button>
-  );
+  if (hideReturn && topNavigation === undefined) return children;
+
+  const action = <CatalogBackLink href={target.href} label={target.label} />;
 
   return (
     <>
       <div
         className="mx-auto mb-6 max-w-[43rem]"
-        data-reader-return="top"
+        data-reader-return={hideReturn ? undefined : "top"}
+        data-reader-top-frame
         ref={topRef}
       >
-        {action}
+        {topNavigation ?? action}
       </div>
       {children}
       {repeatAtBottom && topOutsideViewport ? (

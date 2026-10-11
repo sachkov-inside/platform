@@ -26,7 +26,10 @@ import { hasText } from "@/shared/lib/text";
 /** Реестр оформлений карточки Главной (ADR 0026): оформление продукта выбирает её вид. */
 const featuredCards: Record<
   ProductPresentation,
-  (props: { readonly series: HomePinnedCollection }) => ReactNode
+  (props: {
+    readonly series: HomePinnedCollection;
+    readonly courseCall?: ReactNode;
+  }) => ReactNode
 > = {
   default: DefaultFeaturedProduct,
   "ai-first-process": AiFirstFeaturedProduct,
@@ -35,11 +38,13 @@ const featuredCards: Record<
 
 export function FeaturedProduct({
   series,
+  courseCall,
 }: {
   readonly series: HomePinnedCollection;
+  readonly courseCall?: ReactNode;
 }) {
   const Card = featuredCards[series.presentation];
-  return <Card series={series} />;
+  return <Card series={series} courseCall={courseCall} />;
 }
 
 /**
@@ -48,8 +53,10 @@ export function FeaturedProduct({
  */
 function AiEngineeringFeaturedProduct({
   series,
+  courseCall,
 }: {
   readonly series: HomePinnedCollection;
+  readonly courseCall?: ReactNode;
 }) {
   if (series.hero === null) return <DefaultFeaturedProduct series={series} />;
   // Сроки предложения в текстах уже подставлены сервером Главной.
@@ -65,6 +72,7 @@ function AiEngineeringFeaturedProduct({
       data-product-presentation="ai-engineering-course"
     >
       <CourseHero
+        call={courseCall}
         action={{
           href: collectionDiscoveryHref("series", series.slug, "/"),
           label: open,

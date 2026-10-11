@@ -1,5 +1,6 @@
 import type { CalloutTone } from "@inside/material-blocks";
 import type { ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 
 import { calloutTonePresentation } from "./callout-tone";
 
@@ -26,20 +27,24 @@ export function MaterialCallout({
   if (collapse !== undefined) {
     return (
       <details
-        className="mt-8 rounded-xl border px-5 py-4 text-[0.9375rem] leading-7 sm:px-6"
+        className="group mt-6 rounded-xl border text-[0.9375rem] leading-7"
         data-callout={tone}
         data-material-block="callout"
         open={collapse === "expanded"}
       >
-        <summary className="min-h-11 cursor-pointer rounded-sm font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-4 py-2 font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden="true"
+            className="size-4 shrink-0 group-open:rotate-90"
+          />
           <presentation.icon
             aria-hidden="true"
-            className="mx-2 inline size-4"
+            className="size-4 shrink-0"
             style={{ color: "var(--callout-ink)" }}
           />
           {title ?? label}
         </summary>
-        {children}
+        <div className="px-4 pb-3 [&>:first-child]:mt-0">{children}</div>
       </details>
     );
   }
