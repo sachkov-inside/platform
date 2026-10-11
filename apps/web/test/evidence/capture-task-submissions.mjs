@@ -104,7 +104,9 @@ try {
         if (story === "report-is-text" || story === "submissions") {
           await expect(page.locator("details[open]")).toHaveCount(1);
         }
-        await page.getByRole("heading", { level: 1, name: "Сдачи" }).click();
+        await page
+          .getByRole("heading", { level: 1, name: "Сдачи", exact: true })
+          .click();
         await page.evaluate(() => document.fonts.ready);
         const overflow = await page.evaluate(
           () =>
