@@ -56,7 +56,7 @@ jobs:
             --username "$GHCR_USER" --password-stdin ghcr.io
           unset GHCR_TOKEN
           skopeo copy --all --preserve-digests --retry-times 0 --authfile "$auth_file" \
-            "docker://docker.io/library/rabbitmq:$IMAGE_TAG@$IMAGE_DIGEST" \
+            "docker://docker.io/library/rabbitmq@$IMAGE_DIGEST" \
             "docker://ghcr.io/sachkov-inside/rabbitmq:$IMAGE_TAG"
       - name: Require public reading and identical index and platform manifests
         env:
@@ -68,7 +68,7 @@ jobs:
           mkdir -p "$proof"
           printf '{"auths":{}}\n' >"$proof/anonymous.json"
           skopeo inspect --raw --authfile "$proof/anonymous.json" \
-            "docker://docker.io/library/rabbitmq:$IMAGE_TAG@$IMAGE_DIGEST" >"$proof/upstream-index.json"
+            "docker://docker.io/library/rabbitmq@$IMAGE_DIGEST" >"$proof/upstream-index.json"
           skopeo inspect --raw --authfile "$proof/anonymous.json" \
             "docker://ghcr.io/sachkov-inside/rabbitmq:$IMAGE_TAG" >"$proof/ghcr-index.json"
           printf '%s  %s\n' "${IMAGE_DIGEST#sha256:}" "$proof/ghcr-index.json" | sha256sum --check
