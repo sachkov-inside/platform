@@ -213,7 +213,8 @@ export function MaterialPrimaryVideo({
         const seekToFragment = (event: HashChangeEvent) => {
           // A pending router commit can rewrite location before this event is delivered.
           // Native events retain the requested URL; same-chapter clicks use a synthetic event.
-          const href = event.newURL === "" ? window.location.href : event.newURL;
+          const href =
+            event.newURL === "" ? window.location.href : event.newURL;
           const seconds = readVideoTimeFragment(new URL(href).hash, duration);
           if (!isActive() || seconds === null) return;
           // Native hash navigation leaves Next's canonical URL behind. Its next refresh
