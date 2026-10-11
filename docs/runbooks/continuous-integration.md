@@ -28,7 +28,7 @@ names its seam and the stages run in parallel:
 | `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey`; a failed job uploads the Playwright results and the `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; exact-source cache-only proof; pull requests also run clean `pnpm release:images:smoke` |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
@@ -55,6 +55,13 @@ smoke; production deployment commands and access-pass requests keep their existi
 ruleset requires this exact check name; individual job names may evolve without changing the
 branch-protection interface.
 
+The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
+runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
+checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_SMOKE_CACHE_ONLY=1`.
+The already-acquired pinned broker and edge must be present. Separate Actions log groups measure
+preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
+removes its own tags and override and preserves the primary failure if cleanup also fails.
+
 ### Local contract tests
 
 `pnpm check:contracts` owns local process and adapter contracts, separately from unit/module
@@ -80,16 +87,45 @@ Other synchronous contract commands have explicit termination budgets; asynchron
 ## Official image inputs
 
 CI service containers, application Dockerfile bases, Compose dependencies and explicit
-Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`.
+Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`,
+except RabbitMQ, which uses the public `ghcr.io/sachkov-inside/rabbitmq` mirror.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
-This avoids the Docker Hub anonymous pull quota for those inputs without registry credentials.
+Consumers do not need registry credentials for these inputs.
+
+### RabbitMQ mirror
+
+The owner authorized mirroring exactly `4.2.4-management-alpine`, `4.2.4-alpine` and
+`4.3-management-alpine` in #1337. Their original index digests remain unchanged. The
+[`rabbitmq-mirror.yml`](../../.github/workflows/rabbitmq-mirror.yml) trusted publisher copies the
+complete official Docker Hub index with `skopeo copy --all --preserve-digests`, without rebuilding,
+adding labels or converting manifest formats. It then requires anonymous GHCR reading, identical
+index bytes and identical child manifests, including `linux/amd64` and `linux/arm64`. Its artifacts
+retain those manifests. A copy or verification failure fails the publisher; there is no pull retry
+or fallback to another registry.
+
+Publishing uses only the job's `GITHUB_TOKEN` with `packages: write`, never a PAT or AWS account.
+The publisher checks out no candidate code and accepts no image inputs. It runs on a change to its
+workflow on `main`, or on demand on `main`. The owner-authorized bootstrap from
+`fix/1337-release-infrastructure` completed in
+[run 38125155437](https://github.com/sachkov-inside/platform/actions/runs/38125155437), Source
+`bac727908ab087a89e8dbf421830b6b88e19b64a`; its temporary branch trigger has been removed.
+Ordinary pull requests and merge groups retain read-only permissions
+and do not trigger the publisher. A future new version needs a reviewed publisher/input change.
+
+If the organization creates a package privately, change that package's visibility to public in
+GitHub Packages before expecting the anonymous verification or consumers to pass. A successful
+authenticated push alone does not satisfy this contract.
+
+### Remaining ECR inputs
+
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
 The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
 separate Compose command before application startup. It waits one second after RabbitMQ finishes
 before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
 concurrency but leaves admission timing and graph order to Compose. The interval bounds this
-pair's own admission; it cannot reserve a quota shared with other clients or prove the historical
+pair's own admission; RabbitMQ now comes from GHCR and only Caddy uses ECR in this pair. The
+interval cannot reserve a quota shared with other clients or prove the historical
 origin of throttling. A Compose call start does not timestamp its individual registry requests.
 Pull completion bounds the end of that opaque request window; the next admission follows that
 completion plus the provider interval. This conservatively separates the two request windows.
@@ -146,6 +182,27 @@ ran zero SQL tests and omitted captured stderr. Its precise cause cannot be reco
 Read the setup stderr on a new failure; another job's pull failure does not establish the SQL cause.
 
 ## Merge queue
+
+### Observe one exact CI run
+
+Use the read-only `pnpm ci:wait` command after obtaining an actual run ID:
+
+```bash
+pnpm ci:wait --repo sachkov-inside/platform --run-id <run-id> --sha <full-source-sha> --event pull_request --attempt 1 --timeout-seconds 1200
+```
+
+For the queue, select its combined SHA and `--event merge_group`. The command reads only the
+selected attempt, verifies workflow path, event and SHA, and requires completed jobs plus a real
+successful `CI Gate`. It never reruns a workflow. Each API read uses at most 15 seconds of the
+single overall budget. Temporary network errors can recover within that budget.
+Its JSON outcome distinguishes `success`, `failure`, `missing-run`, `identity-mismatch`,
+`incomplete-jobs`, `network-error` and `timeout`; only success returns exit 0. A missing run ends
+immediately. A completed run with missing or unfinished jobs also ends immediately. Waiting for
+a running run stops at the explicit deadline, retaining a final unresolved network failure when
+one prevented observation. Run it through the package command so the repository process owner
+closes its own CLI descendants on interruption.
+
+### Enqueue a checked pull request
 
 `main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a
 successful `CI Gate` on its own head; the ruleset no longer requires the branch to be up to date

@@ -1,0 +1,24 @@
+{
+  "sourceHead": "d6311d2d2507215871bb1ed7f5836a504bb10cd8",
+  "webImageId": "sha256:52b6204f8dbf91f950e01cd50a6ec0754c746212a398a7347ff42f4f7e4a7b40",
+  "apiImageId": "sha256:c7f24714eec65e79a2ad77a8cd2a108a5d8b5fe7bf3fd7c9870099a31c73032f",
+  "webRelease": {
+    "release": "v1",
+    "sourceSha": "d6311d2d2507215871bb1ed7f5836a504bb10cd8"
+  },
+  "apiRelease": {
+    "release": "development",
+    "sourceSha": "0000000000000000000000000000000000000000"
+  },
+  "webReadinessStatus": 503,
+  "webReadinessBody": {
+    "code": "dependency_unavailable",
+    "status": 503
+  },
+  "apiReadinessStatus": 200,
+  "uiRootStatus": 200,
+  "bakedCspEqualsHeader": true,
+  "localStorageOrigin": "http://127.0.0.1:9000",
+  "observationAtUtc": "2026-10-10T01:30:57.696576+00:00",
+  "cause": "development-mode API identity is deterministic; production-mode web requires matching immutable image identity"
+}

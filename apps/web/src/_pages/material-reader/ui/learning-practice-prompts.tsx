@@ -1,3 +1,7 @@
+"use client";
+
+import { ClipboardCheck, LoaderCircle } from "lucide-react";
+import { useId, useState } from "react";
 import { MaterialAgentPrompt } from "@/entities/material";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import {
@@ -10,8 +14,8 @@ import {
 } from "../model/practice-review-setup";
 
 /**
- * Public lessons retain their prefetched body; only an explicit disclosure expands this row. The
- * prefetched fallback has no result and no connection: configuration is read per request.
+ * Public lessons retain their prefetched body. The practice control shares the existing action
+ * row; only opening its disclosure adds height. The fallback contains no private result.
  */
 export function LearningPracticeDisclosure(
   props:
@@ -21,28 +25,58 @@ export function LearningPracticeDisclosure(
         readonly result: LearningPracticesView;
       },
 ) {
-  return (
-    <div className="mt-8 min-h-11" data-practice-slot>
-      {props.result === null ? (
-        <p
-          className="flex h-11 items-center text-sm text-muted-foreground"
-          role="status"
-        >
+  const [expanded, setExpanded] = useState(false);
+  const contentId = useId();
+  if (props.result?.kind === "available" && props.result.practices.length === 0)
+    return (
+      <span
+        aria-hidden="true"
+        className="size-11 shrink-0"
+        data-practice-empty
+      />
+    );
+  if (props.result === null)
+    return (
+      <span
+        className="grid size-11 shrink-0 place-items-center"
+        data-practice-loading
+      >
+        <LoaderCircle
+          aria-hidden="true"
+          className="size-4 text-muted-foreground"
+        />
+        <span role="status" className="sr-only">
           Проверяем доступность заданий…
-        </p>
-      ) : props.result.kind === "available" &&
-        props.result.practices.length === 0 ? null : (
-        <details>
-          <summary className="flex h-11 cursor-pointer items-center font-semibold underline underline-offset-4">
-            Открыть проверку практики
-          </summary>
-          <LearningPracticePrompts
-            connection={props.connection}
-            result={props.result}
-          />
-        </details>
-      )}
-    </div>
+        </span>
+      </span>
+    );
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Открыть проверку практики"
+        aria-expanded={expanded}
+        aria-controls={contentId}
+        title="Открыть проверку практики"
+        className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-ring"
+        data-practice-summary
+        onClick={() => {
+          setExpanded((value) => !value);
+        }}
+      >
+        <ClipboardCheck aria-hidden="true" className="size-5" />
+      </button>
+      <div
+        id={contentId}
+        hidden={!expanded}
+        className="order-last w-full min-w-0 basis-full"
+      >
+        <LearningPracticePrompts
+          connection={props.connection}
+          result={props.result}
+        />
+      </div>
+    </>
   );
 }
 

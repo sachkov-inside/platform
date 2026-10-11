@@ -1,4 +1,12 @@
 import {
+  name as webTelemetryPercentileIndexName,
+  statement as webTelemetryPercentileIndexStatement,
+} from "../modules/web-telemetry/infrastructure/postgres/migrations/0088-web-telemetry-percentile-index.js";
+import {
+  name as webTelemetryName,
+  statement as webTelemetryStatement,
+} from "../modules/web-telemetry/infrastructure/postgres/migrations/0087-web-telemetry.js";
+import {
   name as productCohortPriceAfterStartName,
   statement as productCohortPriceAfterStartStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0086-product-cohort-price-after-start.js";
@@ -568,6 +576,11 @@ export const platformMigrations = [
   {
     name: productCohortPriceAfterStartName,
     statement: productCohortPriceAfterStartStatement,
+  },
+  { name: webTelemetryName, statement: webTelemetryStatement },
+  {
+    name: webTelemetryPercentileIndexName,
+    statement: webTelemetryPercentileIndexStatement,
   },
 ] as const;
 

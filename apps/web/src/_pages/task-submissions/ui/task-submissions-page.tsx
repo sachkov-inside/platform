@@ -1,7 +1,8 @@
 import { loadTaskSubmissions } from "../api/load-task-submissions.server";
 import { selectionHref } from "../model/task-submissions";
+import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import { TaskSubmissionsState } from "./task-submissions-states";
-import { TaskSubmissionsView } from "./task-submissions-view";
+import { TaskSubmissionsView } from "./task-submissions-view.client";
 
 type SearchValue = string | string[] | undefined;
 
@@ -20,25 +21,19 @@ export async function TaskSubmissionsPage({
   const productId = single(params["productId"]);
   const chapterId = single(params["chapterId"]);
   const taskCode = single(params["task"]);
+  const cursor = single(params["cursor"]);
   const selection = {
     ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
     ...(taskCode === undefined ? {} : { taskCode }),
   };
-  const outcome = await loadTaskSubmissions(
-    selection,
-    single(params["cursor"]),
-  );
+  const outcome = await loadTaskSubmissions(selection, cursor);
   return outcome.kind === "ready" ? (
-    <TaskSubmissionsView
-      continued={outcome.continued}
-      selection={outcome.selection}
-      submissions={outcome.submissions}
-    />
+    <TaskSubmissionsView presentation={presentTaskSubmissions(outcome)} />
   ) : (
     <TaskSubmissionsState
       kind={outcome.kind}
-      returnTo={selectionHref(selection)}
+      returnTo={selectionHref(selection, cursor)}
     />
   );
 }

@@ -21,6 +21,7 @@ export type TaskSubmissionsOutcome =
       readonly selection: SubmissionSelection;
       /** Whether this page continues an earlier one: the list then offers a way back to the start. */
       readonly continued: boolean;
+      readonly cursor: string | undefined;
     }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "forbidden" }
@@ -43,7 +44,7 @@ export async function loadTaskSubmissions(
   if (session.kind !== "ready") {
     if (session.kind === "authentication_required")
       return { kind: "unauthorized" };
-    throw new Error("Identity session is unavailable");
+    return { kind: "unavailable" };
   }
   const accessToken = session.value;
   const read = async (
@@ -98,5 +99,6 @@ export async function loadTaskSubmissions(
     submissions: attempt.submissions,
     selection: shown,
     continued: page !== undefined,
+    cursor: page,
   };
 }

@@ -31,6 +31,7 @@ async function openReader(
   page: Page,
   slug = "kak-ustroen-inside-platform",
   label = "Изучено",
+  readerState: "available" | "access-required" = "available",
 ) {
   await page.goto(`/materials/${slug}`);
   const dismiss = page.getByRole("button", {
@@ -39,7 +40,17 @@ async function openReader(
   await page.addLocatorHandler(dismiss, async () => {
     await dismiss.click();
   });
-  const action = page.locator("[data-reading-action-state]:visible");
+  const reader = page.locator(
+    `[data-material-reader-state='${readerState}']:visible`,
+  );
+  const actionScope =
+    readerState === "available"
+      ? reader.getByRole("navigation", {
+          name: "Действия материала",
+          exact: true,
+        })
+      : reader;
+  const action = actionScope.locator("[data-reading-action-state]:visible");
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   return action.getByRole("button", { name: label, exact: true });
 }
@@ -67,7 +78,10 @@ test("reading progress persists for a free non-member, reconciles lost responses
   });
   await button.click();
   await expect(
-    page.locator("[data-reading-action-state]:visible").getByRole("alert"),
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible")
+      .getByRole("alert"),
   ).toContainText("Не сохранено");
   await expect(button).toHaveAttribute("aria-pressed", "false");
   await button.click();
@@ -80,7 +94,9 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await expect(button).toHaveAttribute("aria-pressed", "true");
   const directory = await prepareEvidenceDirectory("issue-329");
   await expect(
-    page.locator("[data-reading-action-state]:visible"),
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "ready");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await button.scrollIntoViewIfNeeded();
@@ -117,7 +133,9 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await other.clearCookies();
     await second.reload();
     await expect(
-      second.locator("[data-reading-action-state]:visible"),
+      second
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "anonymous");
     expect(await second.locator("[data-material-reading-status]").count()).toBe(
       0,
@@ -148,19 +166,28 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect(otherButton).toHaveAttribute("aria-pressed", "true");
     await button.click();
     await expect(
-      page.locator("[data-reading-action-state]:visible"),
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "conflict");
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "Обновить статус" }).click();
+    await page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("button", { name: "Обновить статус", exact: true })
+      .click();
     await expect(
-      page.locator("[data-reading-action-state]:visible"),
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
     // Another authenticated identity, in the SAME page and QueryClient.
     await signInAndRecheckOnFocus(page, () =>
       signInFullStack(context, "EXPIRED_MEMBER"),
     );
     await expect(
-      page.locator("[data-reading-action-state]:visible"),
+      page
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
     if ((await button.getAttribute("aria-pressed")) === "true") {
       await button.click();
@@ -197,7 +224,9 @@ test("reading progress reconciles stale windows and account changes without relo
     // Focus, присоединённый к задержанной проверке, второго запроса не отправил бы.
     await expect.poll(() => statusChecks).toBeGreaterThanOrEqual(2);
     await recheckAnswered;
-    const readingState = page.locator("[data-reading-action-state]:visible");
+    const readingState = page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible");
     await expect(readingState).toHaveAttribute(
       "data-reading-action-state",
       "anonymous",
@@ -376,6 +405,8 @@ test("reading progress supports Note and lets an expired member remove a protect
   const protectedAction = await openReader(
     page,
     "developer-pipeline-bez-poteri-konteksta",
+    "Изучено",
+    "access-required",
   );
   await expect(page.locator("[data-reader-body]")).toHaveCount(0);
   // The development fixture marked this material while Membership was active, then expired it.
@@ -407,6 +438,8 @@ test("reading progress supports Note and lets an expired member remove a protect
   );
   await page.goto("/materials/tekst-dlya-proverki-progressa");
   await expect(
-    page.locator("[data-reading-action-state]:visible"),
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "anonymous");
 });

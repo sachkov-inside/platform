@@ -151,7 +151,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       telegram,
-      /image: public\.ecr\.aws\/docker\/library\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
+      /image: ghcr\.io\/sachkov-inside\/rabbitmq:4\.3-management-alpine@sha256:[a-f0-9]{64}$/mu,
     );
     assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
     assert.match(
@@ -421,12 +421,12 @@ describe("application CI workflow contract", () => {
     );
   });
 
-  it("uploads only bounded failure diagnostics for seven days", () => {
+  it("retains bounded failure diagnostics and resource evidence for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      5,
+      6,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 5);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 6);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
       6,
@@ -450,6 +450,33 @@ describe("application CI workflow contract", () => {
         productionSmoke.indexOf("down --rmi local --volumes --remove-orphans"),
       "production diagnostics must be captured before cleanup",
     );
+  });
+
+  it("requires canonical resource measurement and retains evidence after success or failure", () => {
+    const integration = jobBlock("integration");
+    const measurement = integration.indexOf(
+      "run: bash scripts/measure-telemetry-ci.sh ci-artifacts/telemetry-resource",
+    );
+    const uploadIndex = integration.indexOf(
+      "      - name: Upload telemetry resource evidence\n",
+    );
+    assert.ok(
+      measurement > integration.indexOf("run: pnpm smoke:buyer-journey"),
+    );
+    assert.ok(uploadIndex > measurement);
+    assert.doesNotMatch(integration, /continue-on-error:/u);
+    const upload = integration.slice(
+      uploadIndex,
+      integration.indexOf("      - name: Upload Playwright diagnostics\n"),
+    );
+    assert.match(upload, /if: \$\{\{ always\(\) \}\}/u);
+    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assert.match(
+      upload,
+      /name: telemetry-resource-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.match(upload, /path: ci-artifacts\/telemetry-resource/u);
+    assert.match(upload, /retention-days: 7/u);
   });
 
   it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {

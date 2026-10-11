@@ -432,7 +432,8 @@ const taskedChapters = chapters.map((chapter, index) =>
         tasks: [
           {
             code: "platform-spec",
-            title: "Спецификация первой версии",
+            title:
+              "Спецификация первой версии: сценарии пользователя, границы продукта и проверка результата до начала разработки",
             access: "free" as const,
             afterMaterialId: null,
             availability: "available" as const,
@@ -452,6 +453,14 @@ const taskedChapters = chapters.map((chapter, index) =>
       ? {
           ...chapter,
           tasks: [
+            {
+              code: "access-unavailable",
+              title: "Проверка доступа к данным",
+              access: "closed" as const,
+              afterMaterialId: chapter.materialIds[1] ?? null,
+              availability: "unavailable" as const,
+              lastSubmittedAt: null,
+            },
             {
               code: "access-model",
               title: "Модель доступа",
@@ -486,13 +495,67 @@ export const ChapterTasks: Story = {
     await expect(
       canvasElement.querySelector('[data-programme-task="access-model"]'),
     ).toHaveAttribute("data-task-availability", "locked");
-    await expect(canvas.getByText("6 материалов · 2 задания")).toBeVisible();
+    const chapterHeader = canvas
+      .getByRole("heading", { level: 3, name: "Основа продукта" })
+      .closest("header");
+    if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
+    await expect(
+      within(chapterHeader).getByText("6 материалов · 2 задания"),
+    ).toBeVisible();
+    const unavailable = canvasElement.querySelector(
+      '[data-programme-task="access-unavailable"]',
+    );
+    await expect(unavailable).toHaveAttribute(
+      "data-task-availability",
+      "unavailable",
+    );
+    await expect(unavailable).toHaveTextContent("Доступ временно не определён");
+    await expectTaskRowsFit(canvasElement);
   },
 };
 export const ChapterTasksMobile: Story = {
   args: { result: { ...result, chapters: taskedChapters } },
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+    ).toHaveTextContent("Сдано 3 октября");
+    await expectTaskRowsFit(canvasElement);
+  },
 };
+export const ChapterTasksPending: Story = {
+  args: { result: { ...result, chapters: taskedChapters }, pending: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+    ).toHaveAttribute("data-task-availability", "available");
+    await expect(
+      canvasElement.querySelector('[data-programme-task="access-model"]'),
+    ).toHaveAttribute("data-task-availability", "pending");
+    await expect(
+      within(canvasElement).queryByText("Нужен доступ"),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** Длинное название остаётся внутри строки на широком экране и на телефоне. */
+async function expectTaskRowsFit(canvasElement: HTMLElement): Promise<void> {
+  const document = canvasElement.ownerDocument;
+  await document.fonts.ready;
+  await expect(document.documentElement.scrollWidth).toBe(
+    document.documentElement.clientWidth,
+  );
+  for (const row of canvasElement.querySelectorAll("[data-programme-task]")) {
+    await expect(row.querySelector("[data-series-ordinal]")).toBeNull();
+    const title = row.querySelector("a");
+    await expect(title).not.toBeNull();
+    if (title === null) continue;
+    const bounds = row.getBoundingClientRect();
+    const titleBounds = title.getBoundingClientRect();
+    await expect(titleBounds.right).toBeLessThanOrEqual(bounds.right);
+    await expect(titleBounds.left).toBeGreaterThanOrEqual(bounds.left);
+  }
+}
 export const PartiallyGrouped: Story = {
   args: {
     learning: { kind: "guest" },
@@ -714,6 +777,141 @@ export const ShortSeries: Story = {
 };
 
 const progressResume = { ...resume, materialSlug: "series-material-2" };
+const confirmedLearning = {
+  kind: "ready",
+  read: 1,
+  total: 24,
+  continuation: progressResume,
+} satisfies SeriesLearningView;
+
+/** A failed recheck removes the personal action without moving the following lesson. */
+function ContinuationRecheckFailure() {
+  const [learning, setLearning] =
+    useState<SeriesLearningView>(confirmedLearning);
+  const controlClassName =
+    "h-auto min-h-11 max-w-full whitespace-normal transition-none";
+  return (
+    <>
+      <Button
+        className={controlClassName}
+        onClick={() => {
+          setLearning({ kind: "unavailable" });
+        }}
+      >
+        Сбой повторного чтения продолжения
+      </Button>
+      <Button
+        className={controlClassName}
+        onClick={() => {
+          setLearning(confirmedLearning);
+        }}
+      >
+        Прогресс снова доступен
+      </Button>
+      <Button
+        className={controlClassName}
+        onClick={() => {
+          setLearning({ kind: "guest" });
+        }}
+      >
+        Выйти из аккаунта
+      </Button>
+      <SeriesLearningProvider learning={learning}>
+        <ProductProgrammeView result={result} />
+      </SeriesLearningProvider>
+    </>
+  );
+}
+
+async function verifyContinuationRecheck(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  await expect(
+    canvas.getByRole("link", { name: /^Продолжить$/u }),
+  ).toBeVisible();
+  const following = canvasElement.querySelector<HTMLElement>(
+    '[data-route-material="series-material-3"]',
+  );
+  if (following === null) throw new Error("Missing following lesson");
+  await canvasElement.ownerDocument.fonts.ready;
+  const before = following.getBoundingClientRect();
+  await userEvent.click(
+    canvas.getByRole("button", {
+      name: "Сбой повторного чтения продолжения",
+    }),
+  );
+  await expect(
+    canvas.getByText("Прогресс сейчас не загрузился. Материалы можно читать."),
+  ).toBeVisible();
+  await expect(
+    canvas.queryByRole("link", { name: /^Продолжить$/u }),
+  ).not.toBeInTheDocument();
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toBeNull();
+  const space = canvasElement.querySelector<HTMLElement>(
+    "[data-series-continuation-space]",
+  );
+  if (space === null) throw new Error("Missing reserved continuation space");
+  await expect(space).not.toBeVisible();
+  await expect(space.querySelector("a, button, [tabindex]")).toBeNull();
+  await expect(following.getBoundingClientRect().toJSON()).toEqual(
+    before.toJSON(),
+  );
+  const recover = canvas.getByRole("button", {
+    name: "Прогресс снова доступен",
+  });
+  // При 200% тестовая кнопка может быть за краем экрана: её фокус не является сдвигом программы.
+  recover.focus({ preventScroll: true });
+  await userEvent.click(recover);
+  await expect(
+    canvas.getByRole("link", { name: /^Продолжить$/u }),
+  ).toBeVisible();
+  await expect(following.getBoundingClientRect().toJSON()).toEqual(
+    before.toJSON(),
+  );
+  await userEvent.click(
+    canvas.getByRole("button", { name: "Выйти из аккаунта" }),
+  );
+  await expect(
+    canvas.queryByRole("link", { name: /^Продолжить$/u }),
+  ).not.toBeInTheDocument();
+  await expect(
+    canvas.getByRole("link", { name: "Начать обучение" }),
+  ).toBeVisible();
+  await expect(
+    canvasElement.querySelector("[data-series-continuation-space]"),
+  ).toBeNull();
+  await expect(canvasElement.querySelector('[aria-current="step"]')).toBeNull();
+}
+
+export const UnavailablePreservesExpandedRow: Story = {
+  render: () => <ContinuationRecheckFailure />,
+  play: async ({ canvasElement }) => verifyContinuationRecheck(canvasElement),
+};
+
+export const UnavailablePreservesExpandedRowMobile: Story = {
+  ...UnavailablePreservesExpandedRow,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const UnavailablePreservesExpandedRowEnlarged: Story = {
+  ...UnavailablePreservesExpandedRowMobile,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => {
+          resolve();
+        }),
+      );
+      await verifyContinuationRecheck(canvasElement);
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+    } finally {
+      root.style.fontSize = fontSize;
+    }
+  },
+};
 
 /** Ответ прогресса ждёт, пока проверка не измерит программу без него. */
 let deliverProgress: () => void = () => undefined;
@@ -1229,6 +1427,29 @@ export const PartSwitchClearsContinuationPosition: Story = {
     await expect(
       canvasElement.querySelector('[data-series-ordinal="1"]'),
     ).toBeVisible();
+  },
+};
+
+export const PartSwitchResetsDesktopScroll: Story = {
+  ...PartSwitchClearsContinuationPosition,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const content = canvasElement.querySelector<HTMLElement>(
+      "[data-application-content]",
+    );
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-series-ordinal="24"]',
+    );
+    if (content === null || last === null)
+      throw new Error("Missing application scroll container or final lesson");
+    last.scrollIntoView({ block: "end" });
+    await waitFor(() => expect(content.scrollTop).toBeGreaterThan(0));
+    await openPart(canvasElement, /^Материалы/u);
+    await openPart(canvasElement, /Программа/u);
+    await waitFor(() => expect(content.scrollTop).toBe(0));
+    await expect(
+      canvasElement.querySelectorAll("[data-series-ordinal]"),
+    ).toHaveLength(12);
   },
 };
 

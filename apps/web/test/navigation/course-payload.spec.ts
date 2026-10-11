@@ -78,10 +78,14 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     .getByRole("link", { name: "Материал 1", exact: true })
     .click();
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-  await page
-    .getByRole("link", { name: "Назад к материалам", exact: true })
-    .first()
-    .click();
+  const returnLink = page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Открыть программу", exact: true });
+  await expect(returnLink).toHaveAttribute(
+    "href",
+    `${programme}?part=materials&at=performance-lesson-1`,
+  );
+  await returnLink.click();
   await expect(page).toHaveURL(/part=materials.*at=performance-lesson-1/u);
   await expect(
     page.locator('[data-route-material="performance-lesson-1"]:visible'),

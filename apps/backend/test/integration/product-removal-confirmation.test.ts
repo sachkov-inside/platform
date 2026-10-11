@@ -325,6 +325,7 @@ describe("снятие материала из купленного руково
   });
 
   test("source import controller keeps the held Product guard and forwards only explicit confirmation", async () => {
+    now = new Date("2030-01-01T00:00:00Z");
     const sourceId = `inside-content:confirmed-${randomUUID()}`;
     const reserved = await materials.authoring.reserveSourceProduct({
       actor: owner,

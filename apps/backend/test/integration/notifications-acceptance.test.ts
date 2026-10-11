@@ -126,6 +126,8 @@ describe("приёмка обоих источников Notifications (реал
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let stand: ProviderStand;
   let worker: ReturnType<typeof assembleNotificationPipeline>;
+  // deterministic-test-allow shared-mutation: beforeAll registers owned resources; afterAll drains cleanup once, including partial setup.
+  const cleanup: (() => Promise<void>)[] = [];
   let application: Notifications;
   let pendingRetryResult: Promise<void> | undefined;
   const sent: { subject: string; text: string; email: string }[] = [];
@@ -151,9 +153,13 @@ describe("приёмка обоих источников Notifications (реал
   beforeAll(async () => {
     const topology = localNotificationTopology("inside-test", 200);
     broker = await startNotificationBroker({ topology });
+    cleanup.unshift(() => broker.stop());
     platform = await createMigratedTestDatabase();
+    cleanup.unshift(() => platform.dispose());
     providerDatabase = await createTestDatabase();
+    cleanup.unshift(() => providerDatabase.dispose());
     providerPool = new Pool({ connectionString: providerDatabase.url, max: 4 });
+    cleanup.unshift(() => providerPool.end());
     await providerPool.query(`create table provider_effects (
       delivery_ref uuid not null, attempt_ref uuid not null, attempt int not null,
       command_revision int not null, category text not null, state text not null,
@@ -347,22 +353,32 @@ describe("приёмка обоих источников Notifications (реал
         }),
       report: () => undefined,
     });
+    cleanup.unshift(() => worker.stop());
     stand = await providerStand({
       url: broker.url("telegram"),
       pool: providerPool,
       authorize: (request) =>
         application.authorizeDispatch("telegram", request),
     });
+    // The provider uses the pool; both stop before their databases and the broker.
+    cleanup.splice(1, 0, () => stand.stop());
     await worker.start();
   }, 180_000);
 
   afterAll(async () => {
-    await worker.stop().catch(() => undefined);
-    await stand.stop().catch(() => undefined);
-    await providerPool.end().catch(() => undefined);
-    await providerDatabase.dispose().catch(() => undefined);
-    await platform.dispose().catch(() => undefined);
-    await broker.stop().catch(() => undefined);
+    const errors: unknown[] = [];
+    for (const close of cleanup.splice(0)) {
+      try {
+        await close();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length > 0)
+      throw new AggregateError(
+        errors,
+        "Notifications acceptance cleanup failed",
+      );
   }, 120_000);
 
   async function createAccount(): Promise<string> {

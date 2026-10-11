@@ -1,6 +1,5 @@
 import {
   ArrowRight,
-  ChevronLeft,
   Bot,
   Check,
   ChevronDown,
@@ -40,6 +39,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 
 import {
   ClaudeCodeLogo,
@@ -99,10 +99,7 @@ export function AiEngineeringCourseView({
       data-product-landing={reference.slug}
     >
       <HideMobileNavigation />
-      <IntentPrefetchLink className="aie-back" href={returnTarget.href}>
-        <ChevronLeft aria-hidden="true" />
-        Назад
-      </IntentPrefetchLink>
+      <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
 
       <header className="aie-course-hero">
         <CourseHero

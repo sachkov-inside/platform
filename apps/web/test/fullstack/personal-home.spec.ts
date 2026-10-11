@@ -18,14 +18,37 @@ async function dismissOnboarding(page: Page) {
   });
 }
 async function unmark(page: Page, label: string) {
-  const action = page.locator("[data-reading-action-state]:visible");
-  await expect(action).toHaveAttribute("data-reading-action-state", "ready");
-  const button = action.getByRole("button", { name: label, exact: true });
-  if ((await button.getAttribute("aria-pressed")) === "true") {
-    await button.click();
-    await expect(button).toHaveAttribute("aria-pressed", "false");
+  for (const name of ["Действия материала", "Действия в конце материала"]) {
+    const action = page
+      .getByRole("navigation", { name, exact: true })
+      .locator("[data-reading-action-state]");
+    await expect(action).toHaveCount(1);
+    await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   }
+  const button = page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("button", { name: label, exact: true });
+  if ((await button.getAttribute("aria-pressed")) === "true") {
+    await expectReadingMark(page, label, true);
+    await button.click();
+  }
+  await expectReadingMark(page, label, false);
   return button;
+}
+
+async function expectReadingMark(page: Page, label: string, pressed: boolean) {
+  for (const name of ["Действия материала", "Действия в конце материала"]) {
+    const action = page
+      .getByRole("navigation", { name, exact: true })
+      .locator("[data-reading-action-state]");
+    await expect(action).toHaveCount(1);
+    await expect(action).toHaveAttribute("data-reading-action-state", "ready");
+    const button = action.getByRole("button", { name: label, exact: true });
+    await expect(button).toHaveCount(1);
+    await expect(button).toBeVisible();
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveAttribute("aria-pressed", String(pressed));
+  }
 }
 
 const seriesSlug = "demo-progress-series";
@@ -85,6 +108,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const otherMark = await unmark(page, "Прочитано");
   await otherMark.click();
   await expect(otherMark).toHaveAttribute("aria-pressed", "true");
+  await expectReadingMark(page, "Прочитано", true);
   await signInFullStack(context);
   await resetSeries(page);
   // Dispose the previous Reader before intercepting the new visible open.
@@ -115,6 +139,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expectReadingMark(page, "Прочитано", true);
   await page.goto("/account");
   const resumeSeries = page.getByRole("link", {
     name: "Продолжить продукт Demo · Прогресс обучения",
@@ -133,11 +158,16 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await screenshot(page, testInfo.project.name, "home");
   await resumeSeries.click();
   await expect(page).toHaveURL(new RegExp(`/products/${seriesSlug}/programme`));
+  const programme = page.locator(
+    `[data-product-programme="${seriesSlug}"]:visible`,
+  );
+  await expect(programme).toHaveCount(1);
+  await expect(programme).toBeVisible();
+  const readMarkers = programme.locator('[data-series-marker-read="true"]');
   // Сводки прогресса над маршрутом нет: изученное видно галочкой на строке материала.
-  await expect(
-    page.getByRole("main").locator('[data-series-marker-read="true"]'),
-  ).toHaveCount(1);
-  const current = page.getByRole("main").locator('[aria-current="step"]');
+  await expect(readMarkers).toHaveCount(1);
+  const current = programme.locator('[aria-current="step"]');
+  await expect(current).toHaveCount(1);
   await expect(current.locator("[data-material-slug]")).toHaveAttribute(
     "data-material-slug",
     "video-pro-developer-pipeline",
@@ -146,8 +176,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
     (await new AxeBuilder({ page }).include("main").analyze()).violations,
   ).toEqual([]);
   await screenshot(page, testInfo.project.name, "series");
-  const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
+  const nextRow = programme.locator('[data-series-ordinal="3"]');
+  await expect(nextRow).toHaveCount(1);
   const rowBefore = await nextRow.boundingBox();
+  expect(rowBefore).not.toBeNull();
   await page.route(
     "**/api/reading-progress/product-continuation",
     async (route) => {
@@ -164,32 +196,72 @@ test("profile continuation opens the real series, persists marks and reconciles 
     "data-material-slug",
     "video-pro-developer-pipeline",
   );
-  await current
-    .locator('a[href^="/materials/video-pro-developer-pipeline"]')
-    .click();
-  await expect(
-    page.getByText("Материал 2 из 3", { exact: true }),
-  ).toBeVisible();
+  const videoTitle = current.getByRole("link", {
+    name: "Видео про Developer Pipeline",
+    exact: true,
+  });
+  await expect(videoTitle).toHaveCount(1);
+  await expect(videoTitle).toBeVisible();
+  const videoHref = await videoTitle.getAttribute("href");
+  const videoTarget = new URL(videoHref ?? "", page.url());
+  const programmeReturnHref = `/products/${seriesSlug}/programme?page=1&at=${materialSlugs[1]}`;
+  expect(videoTarget.pathname).toBe(`/materials/${materialSlugs[1]}`);
+  expect(videoTarget.searchParams.get("from")).toBe(programmeReturnHref);
+  await expect(videoTitle).toHaveAttribute(
+    "href",
+    `/materials/${materialSlugs[1]}?from=${encodeURIComponent(programmeReturnHref)}`,
+  );
+  await videoTitle.click();
+  if (testInfo.project.name === "mobile-chromium") {
+    const pager = page.getByRole("navigation", {
+      name: "Уроки продукта",
+      exact: true,
+    });
+    await expect(pager).toHaveCount(1);
+    await expect(pager).toBeVisible();
+    const position = pager.getByRole("link", {
+      name: "Программа, урок 2 из 3",
+      exact: true,
+    });
+    await expect(position).toHaveCount(1);
+    await expect(position).toBeVisible();
+    await expect(position).toHaveText("2 / 3");
+    await expect(position).toHaveAttribute("href", programmeReturnHref);
+    await expect(
+      page.getByText("Материал 2 из 3", { exact: true }),
+    ).not.toBeVisible();
+  } else {
+    const navigation = page.getByRole("navigation", {
+      name: "Навигация по продукту «Demo · Прогресс обучения»",
+      exact: true,
+    });
+    await expect(navigation).toHaveCount(1);
+    await expect(navigation).toBeVisible();
+    await expect(
+      navigation.getByText("Материал 2 из 3", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      navigation.getByRole("link", { name: "Открыть программу", exact: true }),
+    ).toHaveAttribute("href", programmeReturnHref);
+  }
   const videoMark = await unmark(page, "Просмотрено");
   await videoMark.click();
   await expect(videoMark).toHaveAttribute("aria-pressed", "true");
+  await expectReadingMark(page, "Просмотрено", true);
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toContainText("Гайд для проверки прогресса");
   await page.reload();
-  await expect(
-    page.getByRole("main").locator('[data-series-marker-read="true"]'),
-  ).toHaveCount(2);
+  await expect(readMarkers).toHaveCount(2);
   await current
     .getByRole("link", { name: "Гайд для проверки прогресса", exact: true })
     .click();
   const productMark = await unmark(page, "Изучено");
   await productMark.click();
   await expect(productMark).toHaveAttribute("aria-pressed", "true");
+  await expectReadingMark(page, "Изучено", true);
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toHaveCount(0);
-  await expect(
-    page.getByRole("main").locator('[data-series-marker-read="true"]'),
-  ).toHaveCount(3);
+  await expect(readMarkers).toHaveCount(3);
   await page.goto("/account");
   await expect(resumeSeries).toHaveCount(0);
   await page.goto(`/materials/${materialSlugs[0]}`);

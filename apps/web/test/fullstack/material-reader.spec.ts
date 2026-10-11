@@ -9,7 +9,6 @@ import {
 import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
-import { homeFeedCard } from "../support/home-feed";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
@@ -139,22 +138,71 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
 }) => {
   const initialHtml = await (await request.get("/")).text();
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
+  const firstPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/home/materials" && !url.searchParams.has("after")
+    );
+  });
   await page.goto("/");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   const articles = feed.getByRole("article");
   await expect(articles.first()).toBeVisible();
   const firstSlug = await articles.first().getAttribute("data-material-slug");
-  const firstCount = await articles.count();
-  await articles.last().scrollIntoViewIfNeeded();
-  await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
-  expect(await articles.first().getAttribute("data-material-slug")).toBe(
-    firstSlug,
-  );
-  const locked = await homeFeedCard(
-    page,
-    "Developer Pipeline без потери контекста",
-  );
-  await expect(locked.locator("[data-access-cover=locked]")).toBeVisible();
+  const pageSchema = z.object({
+    kind: z.literal("ready"),
+    items: z.array(
+      z.object({
+        slug: z.string(),
+        access: z.literal("free"),
+        availability: z.literal("available"),
+      }),
+    ),
+    nextCursor: z.string().nullable(),
+    totalCount: z.literal(30),
+  });
+  const slugs: string[] = [];
+  let response = await firstPageResponse;
+  for (const pageSize of [12, 12, 6]) {
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toBe(
+      "public, max-age=30, stale-while-revalidate=60",
+    );
+    const body = await response.text();
+    expect(body).not.toContain("Закрытое содержимое для участников");
+    const catalogPage = pageSchema.parse(JSON.parse(body));
+    expect(catalogPage.items).toHaveLength(pageSize);
+    slugs.push(...catalogPage.items.map((item) => item.slug));
+    await expect(articles).toHaveCount(slugs.length);
+    expect(
+      await articles.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("data-material-slug")),
+      ),
+    ).toEqual(slugs);
+    expect(await articles.first().getAttribute("data-material-slug")).toBe(
+      firstSlug,
+    );
+    if (slugs.length < 30) {
+      expect(catalogPage.nextCursor).not.toBeNull();
+      const nextPageResponse = page.waitForResponse((nextResponse) => {
+        const url = new URL(nextResponse.url());
+        return (
+          url.pathname === "/api/home/materials" &&
+          url.searchParams.get("after") === catalogPage.nextCursor
+        );
+      });
+      await articles.last().scrollIntoViewIfNeeded();
+      response = await nextPageResponse;
+    } else {
+      expect(catalogPage.nextCursor).toBeNull();
+    }
+  }
+  expect(new Set(slugs).size).toBe(30);
+  expect(slugs).not.toContain("developer-pipeline-bez-poteri-konteksta");
+  await expect(
+    feed.getByText("Все материалы загружены", { exact: true }),
+  ).toBeVisible();
+  await expect(feed.locator("[data-access-cover=locked]")).toHaveCount(0);
   await expect(feed).not.toContainText("Закрытое содержимое для участников");
   await expectNoSeriousAccessibilityFindings(page);
 });
@@ -360,10 +408,25 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
-  await expect(
-    page.getByRole("main").locator("[data-reading-action-state]"),
-    "действие чтения гидрировано и получило ответ /auth/status",
-  ).toHaveAttribute("data-reading-action-state", "anonymous");
+  for (const panelName of [
+    "Действия материала",
+    "Действия в конце материала",
+  ]) {
+    const action = page
+      .getByRole("navigation", { name: panelName, exact: true })
+      .locator("[data-reading-action-state]");
+    await expect(
+      action,
+      "действие чтения гидрировано и получило ответ /auth/status",
+    ).toHaveAttribute("data-reading-action-state", "anonymous");
+    const signIn = action.getByRole("link", { name: "Изучено", exact: true });
+    await expect(signIn).toBeVisible();
+    await expect(signIn).toBeEnabled();
+    await expect(signIn).toHaveAttribute("href", "/account");
+    await expect(
+      action.getByRole("button", { name: "Изучено", exact: true }),
+    ).toHaveCount(0);
+  }
 
   await page.keyboard.press("Tab");
   await expect(
@@ -440,16 +503,31 @@ test("requires sign-in to save a video reading mark and does not create anonymou
     }
   });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const action = page.getByRole("main").locator("[data-reading-action-state]");
-  await expect(action).toHaveAttribute(
-    "data-reading-action-state",
-    "anonymous",
-  );
-  const signIn = action.getByRole("link", { name: "Просмотрено", exact: true });
-  await expect(signIn).toHaveAttribute("href", "/account");
-  await expect(
-    action.getByRole("button", { name: "Просмотрено", exact: true }),
-  ).toHaveCount(0);
+  for (const panelName of [
+    "Действия материала",
+    "Действия в конце материала",
+  ]) {
+    const action = page
+      .getByRole("navigation", { name: panelName, exact: true })
+      .locator("[data-reading-action-state]");
+    await expect(action).toHaveAttribute(
+      "data-reading-action-state",
+      "anonymous",
+    );
+    const signIn = action.getByRole("link", {
+      name: "Просмотрено",
+      exact: true,
+    });
+    await expect(signIn).toBeVisible();
+    await expect(signIn).toBeEnabled();
+    await expect(signIn).toHaveAttribute("href", "/account");
+    await expect(
+      action.getByRole("button", { name: "Просмотрено", exact: true }),
+    ).toHaveCount(0);
+  }
+  const signIn = page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Просмотрено", exact: true });
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
   await expect(
@@ -534,26 +612,43 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   });
   await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
   await onboardingDismiss.click();
-  const markWatched = page.getByRole("button", {
-    name: "Просмотрено",
-    exact: true,
-  });
+  const markWatched = page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("button", { name: "Просмотрено", exact: true });
+  const watchedAtBottom = page
+    .getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    })
+    .getByRole("button", { name: "Просмотрено", exact: true });
+  await expect(markWatched).toBeVisible();
+  await expect(watchedAtBottom).toBeVisible();
   await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   if ((await markWatched.getAttribute("aria-pressed")) === "true") {
     await markWatched.click();
   }
   await expect(markWatched).toHaveAttribute("aria-pressed", "false");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   await markWatched.click();
-  await expect(
-    page.getByRole("button", { name: "Просмотрено" }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(markWatched).toHaveAttribute("aria-pressed", "true");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "true");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
   await page.reload();
-  const watched = page.getByRole("button", { name: "Просмотрено" });
-  await expect(watched).toBeEnabled();
-  await watched.click();
-  await expect(
-    page.getByRole("button", { name: "Просмотрено", exact: true }),
-  ).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeVisible();
+  await expect(watchedAtBottom).toBeVisible();
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
+  await expect(markWatched).toHaveAttribute("aria-pressed", "true");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "true");
+  await watchedAtBottom.click();
+  await expect(markWatched).toHaveAttribute("aria-pressed", "false");
+  await expect(watchedAtBottom).toHaveAttribute("aria-pressed", "false");
+  await expect(markWatched).toBeEnabled();
+  await expect(watchedAtBottom).toBeEnabled();
 
   const reader = await page.goto(
     "/materials/developer-pipeline-bez-poteri-konteksta",
@@ -572,11 +667,14 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     0,
   );
 
-  await page.goto("/");
-  const membershipCard = await homeFeedCard(
-    page,
-    "Developer Pipeline без потери контекста",
-  );
+  // Closed cards belong to Topic/Product discovery, including for an authenticated owner.
+  await page.goto("/topics/platform");
+  const membershipCard = page.getByRole("article").filter({
+    has: page.getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    }),
+  });
   await expect(membershipCard).toBeVisible();
   await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
@@ -724,72 +822,92 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page).toHaveTitle(
     "Создание Platform Inside — продукт · Sachkov Inside",
   );
-  await expectLibraryNavigationActive(page, testInfo);
+  await expectProductLandingNavigation(page, testInfo);
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
   await expect(page).toHaveURL(/\/products\/platform-inside\/programme/u);
-  await expect(page.locator("[data-product-programme]:visible")).toBeVisible();
+  const programme = page.locator(
+    '[data-product-programme="platform-inside"]:visible',
+  );
+  await expect(programme).toHaveCount(1);
+  await expect(programme).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
+  const programmeRows = programme.locator(
+    "[data-series-order] [data-series-ordinal]",
+  );
+  const secondRow = programme.locator('[data-series-ordinal="2"]');
+  await expect(secondRow).toHaveCount(1);
+  await expect(secondRow).toBeVisible();
   await expect(
-    page.locator("[data-series-order] [data-series-ordinal]").nth(1),
-  ).toBeVisible();
-  await expect(
-    page
-      .locator("[data-series-order] [data-series-ordinal]")
-      .evaluateAll((items) =>
-        items
-          .slice(0, 2)
-          .map((item) => item.getAttribute("data-series-ordinal")),
-      ),
+    programmeRows.evaluateAll((items) =>
+      items.slice(0, 2).map((item) => item.getAttribute("data-series-ordinal")),
+    ),
   ).resolves.toEqual(["1", "2"]);
   // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
   await expect(
-    page
+    programme
       .locator("[data-series-order]")
-      .getByText("Как устроен Inside Platform")
-      .first(),
+      .getByRole("link", { name: "Как устроен Inside Platform", exact: true }),
   ).toBeVisible();
   await expect(
     page
       .getByText("Developer Pipeline без потери контекста")
       .filter({ visible: true }),
   ).toBeVisible();
-  const representativeSeriesItem = page
-    .locator("[data-series-order] [data-series-ordinal]")
-    .filter({ hasText: "Как устроен Inside Platform" });
+  const representativeSeriesItem = programmeRows.filter({
+    hasText: "Как устроен Inside Platform",
+  });
+  await expect(representativeSeriesItem).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-route-material",
+    "kak-ustroen-inside-platform",
+  );
   const representativeOrdinal = await representativeSeriesItem.getAttribute(
     "data-series-ordinal",
   );
   expect(representativeOrdinal).not.toBeNull();
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-series-ordinal",
+    "1",
+  );
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "series");
   await captureIssue195Evidence(page, testInfo, "playlist");
   await captureIssue271Evidence(page, testInfo, "playlist");
 
-  await page
+  await representativeSeriesItem
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
   expect(new URL(page.url()).searchParams.get("from")).toBe(
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
-  const playlistBackLinks = page.getByRole("link", {
-    name: "Все материалы продукта",
-  });
-  await expect(playlistBackLinks).toHaveCount(1);
-  await expect(playlistBackLinks.first()).toHaveAttribute(
-    "href",
-    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
-  );
+  const programmeReturnHref =
+    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
+  const lowerProgrammePanel =
+    testInfo.project.name === "mobile-chromium"
+      ? "Действия в конце материала"
+      : "Навигация по продукту «Создание Platform Inside»";
+  for (const name of ["Действия материала", lowerProgrammePanel]) {
+    const programmeAction = page
+      .getByRole("navigation", { name, exact: true })
+      .getByRole("link", { name: "Открыть программу", exact: true });
+    await expect(programmeAction).toHaveCount(1);
+    await expect(programmeAction).toBeVisible();
+    await expect(programmeAction).toHaveAttribute("href", programmeReturnHref);
+  }
+  await expect(
+    page.getByRole("link", { name: "Все материалы продукта", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
   await expect(
     page.getByRole("link", { name: "Назад к программе" }),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
 
   await expect(page).toHaveTitle(
@@ -799,11 +917,23 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
+  await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Открыть программу", exact: true })
+    .click();
+  await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
+  await expect(programme).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveCount(1);
+  await expect(representativeSeriesItem).toHaveAttribute(
+    "data-series-ordinal",
+    representativeOrdinal ?? "",
+  );
+  await expect(representativeSeriesItem).toBeInViewport();
 });
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
   page,
-}) => {
+}, testInfo) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
   await page.goto("/products/demo-series-harness/programme");
   await page
@@ -812,7 +942,13 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(page.locator("[data-series-reader-navigation]")).toContainText(
     "1 из 2",
   );
-  const harnessNext = page.getByRole("link", { name: "Дальше" });
+  const harnessNext = readerNextLink(
+    page,
+    testInfo,
+    "Demo #295 · основная серия",
+  );
+  await expect(harnessNext).toHaveCount(1);
+  await expect(harnessNext).toBeVisible();
   expect(
     new URL(
       (await harnessNext.getAttribute("href")) ?? "",
@@ -824,7 +960,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page.goBack();
   await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
   await page.goForward();
-  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
+  await expect(harnessNext).toBeVisible();
 
   await page.goto("/products/demo-series-review/programme");
   await page
@@ -833,9 +969,13 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(page.locator("[data-series-reader-navigation]")).toContainText(
     "1 из 3",
   );
-  const mixedNext = page.getByRole("link", {
-    name: "Дальше",
-  });
+  const mixedNext = readerNextLink(
+    page,
+    testInfo,
+    "Demo #295 · смешанная серия",
+  );
+  await expect(mixedNext).toHaveCount(1);
+  await expect(mixedNext).toBeVisible();
   expect(
     new URL(
       (await mixedNext.getAttribute("href")) ?? "",
@@ -845,7 +985,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
     "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();
-  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
+  await expect(mixedNext).toBeVisible();
 
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
   await expect(
@@ -857,14 +997,83 @@ test("uses the selected Series order for a shared Material and leaves standalone
   ).toBeVisible();
 });
 
+function readerNextLink(page: Page, testInfo: TestInfo, productName: string) {
+  const mobile = testInfo.project.name === "mobile-chromium";
+  return page
+    .getByRole("navigation", {
+      name: mobile
+        ? "Уроки продукта"
+        : `Навигация по продукту «${productName}»`,
+      exact: true,
+    })
+    .getByRole("link", {
+      name: mobile ? "Следующий урок" : "Дальше",
+      exact: true,
+    });
+}
+
+async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
+  if (testInfo.project.name !== "mobile-chromium") return;
+  // Витрина продукта скрывает шапку телефона и оставляет собственный выход и вход в программу (#1296).
+  const header = page.locator("[data-mobile-header]");
+  await expect(header).toHaveCount(1);
+  await expect(header).toBeHidden();
+  const home = header.getByRole("link", {
+    name: "Главная",
+    exact: true,
+    includeHidden: true,
+  });
+  await expect(home).toHaveCount(1);
+  await expect(home).toBeHidden();
+  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("aria-current", "true");
+
+  const product = page.locator(
+    '[data-product-landing="platform-inside"]:visible',
+  );
+  await expect(product).toHaveCount(1);
+  await expect(product).toBeVisible();
+  const breadcrumb = product.getByRole("navigation", {
+    name: "Хлебные крошки",
+    exact: true,
+  });
+  await expect(breadcrumb).toHaveCount(1);
+  await expect(breadcrumb).toBeVisible();
+  const back = breadcrumb.getByRole("link", {
+    name: "Назад к теме",
+    exact: true,
+  });
+  await expect(back).toHaveCount(1);
+  await expect(back).toBeVisible();
+  await expect(back).toHaveAttribute("href", "/topics/platform?from=%2F");
+  const current = breadcrumb.getByText("Создание Platform Inside", {
+    exact: true,
+  });
+  await expect(current).toHaveCount(1);
+  await expect(current).toBeVisible();
+  await expect(current).toHaveAttribute("aria-current", "page");
+  const programme = product.getByRole("link", {
+    name: "Открыть программу",
+    exact: true,
+  });
+  await expect(programme).toHaveCount(1);
+  await expect(programme).toBeVisible();
+  await expect(programme).toHaveAttribute(
+    "href",
+    "/products/platform-inside/programme",
+  );
+}
+
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   if (testInfo.project.name !== "mobile-chromium") return;
-  // Логотип «Главная» стоит в шапке телефона вне списка разделов.
-  await expect(
-    page
-      .locator("[data-mobile-header]")
-      .getByRole("link", { name: "Главная", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  // Topic и Reader сохраняют видимую навигацию Главной; витрина продукта отдельно скрывает шапку.
+  const home = page
+    .locator("[data-mobile-header]")
+    .getByRole("link", { name: "Главная", exact: true });
+  await expect(home).toHaveCount(1);
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("aria-current", "true");
 }
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {

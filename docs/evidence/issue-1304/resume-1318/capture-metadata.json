@@ -1,0 +1,60 @@
+{
+  "kind": "read-only cached layers; not actual build growth",
+  "dependencyMain": "3917205c7d792f79d7f0a5bd6a319999221ce346",
+  "artifacts": [
+    {
+      "file": "cache-next-build.txt",
+      "capturedAtUtc": "2026-10-09T23:21:04.644099+00:00",
+      "command": [
+        "docker",
+        "buildx",
+        "du",
+        "--filter",
+        "description~=\"pnpm --filter @inside/web build\"",
+        "--format",
+        "{{.ID}} {{.Size}} {{.Shared}}"
+      ],
+      "sha256": "03805f64bf1f7b9788fedd4f8f458846af21111f3a28629169d0dc807b8943ed"
+    },
+    {
+      "file": "cache-workspace-install.txt",
+      "capturedAtUtc": "2026-10-09T23:21:04.793074+00:00",
+      "command": [
+        "docker",
+        "buildx",
+        "du",
+        "--filter",
+        "description~=\"pnpm install --frozen-lockfile\"",
+        "--format",
+        "{{.ID}} {{.Size}} {{.Shared}}"
+      ],
+      "sha256": "5f57a5a3d7f7c43b1c92d6e0aa2ad156855ba18079347ef0ddde1e28ee71b46b"
+    },
+    {
+      "file": "web-image-size.txt",
+      "capturedAtUtc": "2026-10-09T23:21:04.825028+00:00",
+      "command": [
+        "docker",
+        "image",
+        "ls",
+        "inside-platform-web:latest",
+        "--format",
+        "{{.ID}} {{.Size}}"
+      ],
+      "sha256": "70c1d2c0432513b0e29437fb6508e1e4bb17a499ab13f8d0282a4c4a366b8d1f"
+    },
+    {
+      "file": "context-input.json",
+      "capturedAtUtc": "2026-10-09T23:22:26.877214+00:00",
+      "command": [
+        "go",
+        "run",
+        "-mod=readonly",
+        ".",
+        "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget"
+      ],
+      "scope": "candidate working tree after main391 merge/CSP/margin fix; before writing resume model prose",
+      "sha256": "fe6f337b992f70091bc5d153f041c7a2cd7b563744a0afc9539c57b51c00c5f7"
+    }
+  ]
+}

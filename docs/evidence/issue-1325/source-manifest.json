@@ -1,0 +1,84 @@
+{
+  "capturedAtUtc": "2026-10-10T01:40:15.718756+00:00",
+  "actualHeadBeforeFix": "d6311d2d2507215871bb1ed7f5836a504bb10cd8",
+  "sourceReceipts": [
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-d631-runtime-delivery.stderr.log",
+      "bytes": 382,
+      "sha256": "432e75ecca74cd01215b3d6ecdfdf2384ab4b854043c819870d45f25d7c884a0"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-d631-runtime-delivery.credit-receipt.json",
+      "bytes": 1961,
+      "sha256": "9fe523e7c8d3fa7453557eaf3a93235d45c61af78c07573fbb331f2bcc701be3"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-runtime-health-primary.json",
+      "bytes": 874,
+      "sha256": "204aa0f0f0d6d55439d45147c3c56953a1bfa9aa553da56b241bf2c05ac9e39e"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-runtime-delivery-proof-qualified.json",
+      "bytes": 1978,
+      "sha256": "2c85221d040d7742902aeb5779404191c4c0dd232e5be66e84a590d9e3c586ea"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/readiness-1325-identity-red.log",
+      "bytes": 1415,
+      "sha256": "0ceac74051fa825d1cbaf9d2ce9c2cc86d881fb1c156ad6bac9f0d24a6309a7c"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/readiness-1325-identity-green.log",
+      "bytes": 499,
+      "sha256": "c31ece08d8dfb4dc8b8078b9fd2eb5edb5b661d402b79d07d64281be89d99f79"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/readiness-1325-light-tests.log",
+      "bytes": 2344,
+      "sha256": "b2db8a93223494dded3208d2bbe15c7d1a2a83fa1d85bb5318000b5c156213fc"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-focused-web.credit-receipt.json",
+      "bytes": 2170,
+      "sha256": "d527d41c2945b3ed60839642329e777fdbaf8028120d8b1b7186db8dea54e70a"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-focused-web.stderr.log",
+      "bytes": 1033,
+      "sha256": "f5de4bfc3a3a154b803f375a2b6518995c585cda0dce6773f93bbaa1ff91867f"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-focused-corrected.credit-receipt.json",
+      "bytes": 2267,
+      "sha256": "af5d94d47c86bbd790464fc7a269fe0558fbcd70eac30288b0ec140d3c36b634"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-focused-corrected.stdout.log",
+      "bytes": 554,
+      "sha256": "b6e6b094c613e1af8f9331d8f17f1168f53ed28a99f4bfac189d9beaf14c228d"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-static.credit-receipt.json",
+      "bytes": 2698,
+      "sha256": "db3a579f3eddb8378a52a41135899634c82a2f7c2ab6f293f6d9ccbc600b4eb8"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-1325-static.stdout.log",
+      "bytes": 1951,
+      "sha256": "b8c9d42a6db9caaf8cca8938ba9c0b4929fa5c9d6e212c5c3c0975c73b8ef026"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/readiness-1325-budget-tests.log",
+      "bytes": 645,
+      "sha256": "94dda71a42e9e09faf73f5fbafb0724345e0201242eda456e8722f1bb6eb6bf0"
+    },
+    {
+      "privateSourceReceipt": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/readiness-1325-context.stdout.json",
+      "bytes": 57,
+      "sha256": "5ae3bcc620ff7d03e72677d70625c7feb79f1067c2474def2e8ffa3ac72683c0"
+    }
+  ],
+  "futureActualCorrectedHeadRuntime": "pending, not replaced by light source tests",
+  "focusedPassedTests": 45,
+  "staticNodeScopeCorrection": "static invocation ignored absent local-build-budget filename; actual18 passed. Existing local-stand-budget exact6 passed separately; no false24 claim for that invocation."
+}

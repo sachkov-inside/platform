@@ -2,6 +2,7 @@
 
 export type BookmarkActionView =
   | { readonly kind: "loading" }
+  | { readonly kind: "load-error" }
   | { readonly kind: "anonymous"; readonly loginHref: string }
   | { readonly kind: "ready"; readonly bookmarked: boolean }
   | {
@@ -17,6 +18,7 @@ export type BookmarkActionView =
   | { readonly kind: "denied"; readonly bookmarked: boolean };
 
 export interface BookmarkActionProps {
+  readonly compact?: boolean;
   readonly view: BookmarkActionView;
   readonly onToggle: (desired: boolean) => void;
 }

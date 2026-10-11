@@ -451,7 +451,7 @@ describe("production runtime architecture contract", () => {
         assertRuntimeContract({
           ...runtime,
           compose: runtime.compose.replace(
-            /image: public\.ecr\.aws\/docker\/library\/rabbitmq:[^\n]+/u,
+            /image: ghcr\.io\/sachkov-inside\/rabbitmq:[^\n]+/u,
             "image: rabbitmq:4.2.4-alpine",
           ),
         }),
@@ -671,7 +671,7 @@ function assertRuntimeContract(files) {
   if (/^\s+ports:/mu.test(broker))
     throw new Error("production broker must not publish a port");
   if (
-    !/image: public\.ecr\.aws\/docker\/library\/rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(
+    !/image: ghcr\.io\/sachkov-inside\/rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(
       broker,
     )
   ) {

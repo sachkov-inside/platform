@@ -1,3 +1,7 @@
+import {
+  registerWebTelemetryTool,
+  type WebTelemetry,
+} from "../../modules/web-telemetry/index.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 
 import {
@@ -22,6 +26,7 @@ export interface InsideMcpToolDependencies {
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
+  readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
 }
 
@@ -43,5 +48,9 @@ export function assembleInsideMcpServer(
     communications: dependencies.communications,
   });
   registerBillingTools(server, { accountId, billing: dependencies.billing });
+  registerWebTelemetryTool(server, {
+    accountId,
+    telemetry: dependencies.telemetry,
+  });
   return server;
 }
