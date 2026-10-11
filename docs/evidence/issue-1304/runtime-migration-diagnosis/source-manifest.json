@@ -1,0 +1,426 @@
+{
+  "phaseStartedSource": "dc20d70e2dfd444ce9ce68fd2b309b86b124a9e4",
+  "commands": [
+    {
+      "label": "heavy-normal-development",
+      "command": "bash",
+      "args": [
+        "scripts/heavy-check.sh",
+        "pnpm",
+        "local:stand"
+      ],
+      "startedAtUtc": "2026-10-10T00:05:44.846Z",
+      "hostFreeBeforeBytes": 22135103488,
+      "cleanup": false,
+      "exit": 1,
+      "finishedAtUtc": "2026-10-10T00:07:07.669Z",
+      "hostFreeAfterBytes": 18690985984,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-cached-schema-compatible",
+      "command": "docker",
+      "args": [
+        "compose",
+        "--project-name",
+        "inside-platform",
+        "--file",
+        "compose.yaml",
+        "--file",
+        "config/compose/local/learner-setup.compose.yaml",
+        "--file",
+        "config/compose/local/production-web.compose.yaml",
+        "--file",
+        ".reports/1304/heavy-cached-runtime.compose.json",
+        "--profile",
+        "identity",
+        "run",
+        "--rm",
+        "--no-deps",
+        "--name",
+        "inside-platform-1304-cached-schema-check",
+        "-T",
+        "migrations",
+        "pnpm",
+        "--filter",
+        "@inside/backend",
+        "db:migrate",
+        "--verify-schema-compatible"
+      ],
+      "startedAtUtc": "2026-10-10T00:13:57.323Z",
+      "hostFreeBeforeBytes": 19943636992,
+      "cleanup": true,
+      "exit": 0,
+      "finishedAtUtc": "2026-10-10T00:13:58.846Z",
+      "hostFreeAfterBytes": 19942318080,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-migration-causal-readonly-red",
+      "command": "docker",
+      "args": [
+        "compose",
+        "--project-name",
+        "inside-platform",
+        "--file",
+        "compose.yaml",
+        "--file",
+        "config/compose/local/learner-setup.compose.yaml",
+        "--profile",
+        "identity",
+        "run",
+        "--rm",
+        "--no-deps",
+        "--name",
+        "inside-platform-1304-migration-causal",
+        "-T",
+        "migrations",
+        "pnpm",
+        "--filter",
+        "@inside/backend",
+        "db:migrate",
+        "--verify-schema-compatible"
+      ],
+      "startedAtUtc": "2026-10-10T00:14:39.107Z",
+      "hostFreeBeforeBytes": 19943694336,
+      "cleanup": false,
+      "exit": 1,
+      "finishedAtUtc": "2026-10-10T00:14:40.561Z",
+      "hostFreeAfterBytes": 19911593984,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-preservation-restored",
+      "command": "python3",
+      "args": [
+        ".reports/1304/heavy-preservation.py",
+        "restored"
+      ],
+      "startedAtUtc": "2026-10-10T00:14:49.997Z",
+      "hostFreeBeforeBytes": 19912552448,
+      "cleanup": true,
+      "exit": 0,
+      "finishedAtUtc": "2026-10-10T00:14:51.369Z",
+      "hostFreeAfterBytes": 19911254016,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-migration-minimal-red",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--name",
+        "inside-platform-1304-migration-minimal",
+        "--label",
+        "io.inside.owner=1304-dc20d70e",
+        "inside-platform-backend-development:local",
+        "pnpm",
+        "--filter",
+        "@inside/backend",
+        "db:migrate"
+      ],
+      "startedAtUtc": "2026-10-10T00:15:07.719Z",
+      "hostFreeBeforeBytes": 19908972544,
+      "cleanup": false,
+      "exit": 1,
+      "finishedAtUtc": "2026-10-10T00:15:08.792Z",
+      "hostFreeAfterBytes": 19907510272,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-migration-dependency-state-error",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--name",
+        "inside-platform-1304-pnpm-state",
+        "--label",
+        "io.inside.owner=1304-dc20d70e",
+        "inside-platform-backend-development:local",
+        "pnpm",
+        "--config.verify-deps-before-run=error",
+        "--filter",
+        "@inside/backend",
+        "db:migrate"
+      ],
+      "startedAtUtc": "2026-10-10T00:15:57.028Z",
+      "hostFreeBeforeBytes": 19903975424,
+      "cleanup": false,
+      "exit": 1,
+      "finishedAtUtc": "2026-10-10T00:15:57.715Z",
+      "hostFreeAfterBytes": 19903619072,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-pnpm-causal-source",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network=none",
+        "--read-only",
+        "--name",
+        "inside-platform-1304-pnpm-source",
+        "--label",
+        "io.inside.owner=1304-dc20d70e",
+        "--entrypoint",
+        "node",
+        "inside-platform-backend-development:local",
+        "-e",
+        "const fs=require('node:fs');const s=fs.readFileSync('/corepack/v1/pnpm/11.27.1/dist/pnpm.mjs','utf8');for(const key of ['Patches were modified','async function runDepsStatusCheck','patchesModified','modifiedTime']){const pos=s.indexOf(key);console.log(JSON.stringify({key,pos,source:pos<0?'':s.slice(Math.max(0,pos-1600),pos+2200)}))};for(const p of ['node_modules/.pnpm-workspace-state-v1.json','pnpm-lock.yaml',...fs.readdirSync('patches').map(n=>'patches/'+n)]){const t=fs.statSync(p);let data=p.endsWith('.json')?JSON.parse(fs.readFileSync(p,'utf8')):undefined;console.log(JSON.stringify({file:p,mtimeMs:t.mtimeMs,state:data}))}"
+      ],
+      "startedAtUtc": "2026-10-10T00:16:58.771Z",
+      "hostFreeBeforeBytes": 19879755776,
+      "cleanup": false,
+      "exit": 0,
+      "finishedAtUtc": "2026-10-10T00:16:59.106Z",
+      "hostFreeAfterBytes": 19878408192,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-migration-patch-timestamp-green",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "--pull=never",
+        "--network",
+        "inside-platform_default",
+        "--env-file",
+        "config/compose/local/migrations.env",
+        "--name",
+        "inside-platform-1304-migration-timestamp",
+        "--label",
+        "io.inside.owner=1304-dc20d70e",
+        "--entrypoint",
+        "node",
+        "--mount",
+        "type=bind,source=/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/migration-patch-timestamp-probe.mjs,target=/probe.mjs,readonly",
+        "inside-platform-backend-development:local",
+        "/probe.mjs"
+      ],
+      "startedAtUtc": "2026-10-10T00:18:30.182Z",
+      "hostFreeBeforeBytes": 19877400576,
+      "cleanup": false,
+      "exit": 0,
+      "finishedAtUtc": "2026-10-10T00:18:31.529Z",
+      "hostFreeAfterBytes": 19876421632,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-native-patch-regression-red",
+      "command": "bash",
+      "args": [
+        "scripts/heavy-check.sh",
+        "bash",
+        "scripts/local-build-context-smoke.sh"
+      ],
+      "startedAtUtc": "2026-10-10T00:20:09.942Z",
+      "hostFreeBeforeBytes": 19877797888,
+      "cleanup": false,
+      "exit": 1,
+      "finishedAtUtc": "2026-10-10T00:20:10.575Z",
+      "hostFreeAfterBytes": 19879313408,
+      "phaseFault": null
+    },
+    {
+      "label": "heavy-native-patch-regression-green",
+      "command": "bash",
+      "args": [
+        "scripts/heavy-check.sh",
+        "bash",
+        "scripts/local-build-context-smoke.sh"
+      ],
+      "startedAtUtc": "2026-10-10T00:20:36.687Z",
+      "hostFreeBeforeBytes": 19875827712,
+      "cleanup": false,
+      "exit": 0,
+      "finishedAtUtc": "2026-10-10T00:20:37.556Z",
+      "hostFreeAfterBytes": 19877068800,
+      "phaseFault": null
+    }
+  ],
+  "rawSources": [
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-normal-development.stdout.log",
+      "bytes": 15261,
+      "sha256": "3edeb2480a4fd1eb329a512852d49a8f2fc307030ebb45866e3dbacd48d69809"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-normal-development.stderr.log",
+      "bytes": 8087,
+      "sha256": "3a649918ac7cb41986ff474f96341e2043aba46e3c25a497224e4d06b4e59593"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-cached-schema-compatible.stdout.log",
+      "bytes": 2587,
+      "sha256": "a018d646552ff5330a5f2dda1b77b220ad17eaadf3b9c9a0c5a0c775ad6b17a8"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-cached-schema-compatible.stderr.log",
+      "bytes": 59,
+      "sha256": "0b2573080131fe6cfce07324228468d847972e609efe292ae49908f3a035d894"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-causal-readonly-red.stdout.log",
+      "bytes": 1251,
+      "sha256": "f2ea10e221bffeb44410a711cba0bc7a6fc4553cd51053773ad2cfe513f00a8e"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-causal-readonly-red.stderr.log",
+      "bytes": 1,
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-minimal-red.stdout.log",
+      "bytes": 1251,
+      "sha256": "f2ea10e221bffeb44410a711cba0bc7a6fc4553cd51053773ad2cfe513f00a8e"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-minimal-red.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-dependency-state-error.stdout.log",
+      "bytes": 76,
+      "sha256": "563865130d3c46d689d169ef7be59fc12ed7a36263752e37eb42df8064b6b29d"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-dependency-state-error.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-pnpm-causal-source.stdout.log",
+      "bytes": 10231,
+      "sha256": "fa5bfbe395d0349effd4b28578b7c7124a51a4fe8306d0d1b4d9456b0a988bc2"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-pnpm-causal-source.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-patch-timestamp-green.stdout.log",
+      "bytes": 2641,
+      "sha256": "d88b2db48a90018dbe6c8fdc0b8303c31b18a7b972e7b786f5395d942b30253b"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-migration-patch-timestamp-green.stderr.log",
+      "bytes": 59,
+      "sha256": "0b2573080131fe6cfce07324228468d847972e609efe292ae49908f3a035d894"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-patch-regression-red.stdout.log",
+      "bytes": 331,
+      "sha256": "b5b832eccd5e7d137f5bb6666315ca934aa31b4327f0a7763f104e2b55fcb31b"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-patch-regression-red.stderr.log",
+      "bytes": 1297,
+      "sha256": "d26baae5b3a75ce4dbd635be33809075c3d11b54e0775b6e132d8d95254f326c"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-patch-regression-green.stdout.log",
+      "bytes": 176,
+      "sha256": "28531c96e7f54f331f68487d8cf12d732849d8d2446f308eefe82877ad538604"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-patch-regression-green.stderr.log",
+      "bytes": 1997,
+      "sha256": "1872c8d14d5dcd718c97a3b551d988da8a37aa7be3a1217ad7cba21f221fe1c3"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-preservation-restored.stdout.log",
+      "bytes": 380,
+      "sha256": "7d5eab7a9939b253d3009f9bd80813670ff6b3efa769ef7411aaf41f2c41a547"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-preservation-restored.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-preservation-restored.json",
+      "bytes": 46567,
+      "sha256": "3d3a1f2cb3c13d80cfa2bd342b3475e624b3ec173378e54f523a1db6f234549a"
+    }
+  ],
+  "ciParserFailure": {
+    "sourceHead": "ae9d3c2142922fdfe4403ffd6e14d3862793dab4",
+    "run": 38009259715,
+    "primary": "dockerfile parse error: unknown flag: --exclude",
+    "jobs": [
+      {
+        "jobId": 114085295713,
+        "url": "https://github.com/sachkov-inside/platform/actions/runs/38009259715/job/114085295713",
+        "rawPath": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/ci-development-ae9d3c21.log",
+        "bytes": 22313,
+        "sha256": "74af9994aff50b33e1d27468fefced3e7db5b28ce73623adaa3c7233a6ce8bff",
+        "exit": 1
+      },
+      {
+        "jobId": 114085295845,
+        "url": "https://github.com/sachkov-inside/platform/actions/runs/38009259715/job/114085295845",
+        "rawPath": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/ci-production-ae9d3c21.log",
+        "bytes": 29613,
+        "sha256": "cfab1e15870c2e1e944b439d55de3c52b2a898bf076e448d1fb58d1040ce309f",
+        "exit": 1
+      }
+    ]
+  },
+  "nativeCachedTimestampDiagnosis": {
+    "sourceHead": "170307f73ab9e42a8247186fab5771bb6209f2d5",
+    "redLabel": "heavy-final-native-copy",
+    "redExit": 1,
+    "primary": "Installed patch timestamp changed; expected hostmtime despite cachehit",
+    "greenLabel": "heavy-native-cached-patch-causal",
+    "greenExit": 0,
+    "hostMtimeNs": 1300000000000000000,
+    "cachedDependencyMtimeNs": 1791591610284525095,
+    "finalMtimeNs": 1791591610284525095,
+    "bytesEqual": true,
+    "sharedStandStopped": false,
+    "rawSources": [
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.stdout.log",
+        "bytes": 86,
+        "sha256": "271b74299835f4ec5c410521230f641d7af238da717ab6851731cc0e01134fe8"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.stderr.log",
+        "bytes": 1562,
+        "sha256": "892445994846f619e6deec96fc1e219cbd69232f3520719d4018f0c85c201470"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-final-native-copy.credit-receipt.json",
+        "bytes": 1655,
+        "sha256": "97c8174064d0b347c52489b1e4440c7a0bb72a42dfece22019d586a2180b3a7c"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.stdout.log",
+        "bytes": 197,
+        "sha256": "740fef692ea0bcb6e265b9db0cf8fd5dfd3368c595ad7da2894582da8024cc95"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.stderr.log",
+        "bytes": 1009,
+        "sha256": "e9ba40f5a0fee13557414c1488e35882bea017587f347d0c8b39a6bb7e67aade"
+      },
+      {
+        "path": "/Users/dev/Work/Products/inside/platform.worktrees/1304-local-stand-build-budget/.reports/1304/heavy-native-cached-patch-causal.credit-receipt.json",
+        "bytes": 1669,
+        "sha256": "df3991dd48d5ae63b3b666445777699893926561bc8c695d7bf01a4412e89965"
+      }
+    ]
+  }
+}

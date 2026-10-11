@@ -87,11 +87,20 @@ non-secret artifact identity build arguments. Runtime must independently supply 
 `NEXT_PUBLIC_*` runtime configuration because those values would be frozen into browser assets
 during the image build. The web process reads server-only values when its container starts.
 
+The local production-web stand keeps API providers in `NODE_ENV=development`. Its API alone opts
+into `PLATFORM_LOCAL_RELEASE_IDENTITY=image`: runtime release/source must match the readonly
+identity baked into the shared backend development image. Both API and web receive the same
+identity build arguments from the launcher's clean Git HEAD. Ordinary development/test identities
+remain deterministic; production always retains immutable-image equality. The backend development
+build writes its optional identity only when identity arguments are supplied; incomplete arguments
+fail the build. This local input does not enable production providers or bypass their validation.
+
 ## Configuration ownership
 
 | Group | Examples | Owner |
 | --- | --- | --- |
 | Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | generated manifest environment and process startup validation |
+| Local production-web API identity | `PLATFORM_LOCAL_RELEASE_IDENTITY=image` | local Compose overlay and shared runtime identity validation |
 | API | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
 | Payment contour | `TBANK_PROVIDER_MODE`, `TBANK_CONFIG_JSON`, `TBANK_CA_FILE`, stand-only `TBANK_TEST_*` | `PlatformConfig.tbank` |
 | MCP | database, MCP endpoint, Logto verifier, content access, Object Storage, Kinescope, communications, payment terminal and billing contact values | `PlatformConfig` and `McpConfig` |
