@@ -25,6 +25,9 @@ type Story = StoryObj<typeof meta>;
 
 export const List: Story = {};
 export const Submission: Story = { args: { initialSubmission: "anna-3" } };
+export const ExpandedSubmission: Story = {
+  args: { initialSubmission: "anna-3", expanded: true },
+};
 export const NeedsChanges: Story = { args: { initialSubmission: "anna-1" } };
 export const MissingEvidence: Story = { args: { initialSubmission: "anna-2" } };
 export const WithoutTelegram: Story = { args: { initialSubmission: "mark-1" } };

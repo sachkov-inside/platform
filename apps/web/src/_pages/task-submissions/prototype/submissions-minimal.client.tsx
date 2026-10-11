@@ -145,10 +145,12 @@ export function SubmissionsMinimalPrototype({
   initialSubmission = null,
   initialVariant = "A",
   showVariants = false,
+  expanded = false,
 }: {
   initialSubmission?: string | null;
   initialVariant?: Variant;
   showVariants?: boolean;
+  expanded?: boolean;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const focusHeading = useRef(false);
@@ -517,7 +519,7 @@ export function SubmissionsMinimalPrototype({
           <details
             className="submission-disclosure feedback-disclosure"
             key={`feedback-${active.id}`}
-            open={comments[active.id] !== undefined}
+            open={expanded || comments[active.id] !== undefined}
           >
             <summary>
               {comments[active.id] === undefined
@@ -572,6 +574,7 @@ export function SubmissionsMinimalPrototype({
           <details
             className="submission-disclosure"
             key={`report-${active.id}`}
+            open={expanded}
           >
             <summary>
               Подробный отчёт
@@ -590,16 +593,18 @@ export function SubmissionsMinimalPrototype({
                   </p>
                   <ul>
                     <li>
-                      <strong>
-                        {active.task === "Заявки клиентов"
-                          ? "Повторная отправка не создаёт вторую заявку"
-                          : "Доступ выдаёт только руководитель команды"}
-                      </strong>
-                      <span>
-                        {active.outcome === "changes"
-                          ? "Нарушение"
-                          : "Подтверждено"}
-                      </span>
+                      <div className="criterion-heading">
+                        <strong>
+                          {active.task === "Заявки клиентов"
+                            ? "Повторная отправка не создаёт вторую заявку"
+                            : "Доступ выдаёт только руководитель команды"}
+                        </strong>
+                        <span className="criterion-result">
+                          {active.outcome === "changes"
+                            ? "Нарушение"
+                            : "Подтверждено"}
+                        </span>
+                      </div>
                       <p>
                         {active.task === "Заявки клиентов"
                           ? "Повторная отправка создаёт вторую заявку: обработчик не ищет сохранённый результат."
@@ -609,17 +614,19 @@ export function SubmissionsMinimalPrototype({
                       </p>
                     </li>
                     <li>
-                      <strong>
-                        {active.task === "Заявки клиентов"
-                          ? "Клиент может создать заявку"
-                          : "Обычный участник не может выдать доступ"}
-                      </strong>
-                      <span>
-                        {active.task !== "Заявки клиентов" &&
-                        active.outcome !== "passed"
-                          ? "Не проверено"
-                          : "Подтверждено"}
-                      </span>
+                      <div className="criterion-heading">
+                        <strong>
+                          {active.task === "Заявки клиентов"
+                            ? "Клиент может создать заявку"
+                            : "Обычный участник не может выдать доступ"}
+                        </strong>
+                        <span className="criterion-result">
+                          {active.task !== "Заявки клиентов" &&
+                          active.outcome !== "passed"
+                            ? "Не проверено"
+                            : "Подтверждено"}
+                        </span>
+                      </div>
                       <p>
                         {active.task === "Заявки клиентов"
                           ? "Создание заявки подтверждено результатом проверки."
@@ -636,10 +643,14 @@ export function SubmissionsMinimalPrototype({
           <details
             className="submission-disclosure"
             key={`project-${active.id}`}
+            open={expanded}
           >
             <summary>Проект и заметка ученика</summary>
             <div className="submission-report-content">
-              <p>{active.note}</p>
+              <div className="submission-student-note">
+                <strong>Заметка ученика</strong>
+                <p>{active.note}</p>
+              </div>
               <dl>
                 <dt>Репозиторий</dt>
                 <dd>Пример: github.com/learner/course-project</dd>

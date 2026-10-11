@@ -245,9 +245,7 @@
   flex-basis: 100%;
 }
 .submission-verdict {
-  padding: 1.5rem 0 1.75rem;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0 2rem;
 }
 .submission-verdict .submission-outcome {
   font-size: 1rem;
@@ -255,7 +253,7 @@
 }
 .submission-verdict p {
   margin: 0.8rem 0;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   line-height: 1.75;
   max-width: 68ch;
 }
@@ -320,37 +318,56 @@
   margin-top: 1rem;
 }
 .submission-disclosure {
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
 }
 .submission-disclosure summary {
-  padding: 1.1rem 0.1rem;
+  padding: 0.75rem 0.1rem;
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 550;
+  font-size: 1rem;
+  font-weight: 600;
 }
 .submission-disclosure summary::marker {
   color: var(--body-muted);
 }
 .submission-report-content {
-  padding: 0 0.15rem 1.25rem;
-  font-size: 0.875rem;
-  line-height: 1.75;
+  padding: 0.5rem 0.15rem 1.75rem 1.5rem;
+  font-size: 1rem;
+  line-height: 1.65;
+  max-width: 70ch;
 }
-.submission-report-content li {
-  padding: 1rem 0;
-  border-bottom: 1px solid var(--border);
+.submission-report-content ul {
+  display: grid;
+  gap: 1.75rem;
+  margin-top: 1.25rem;
 }
-.submission-report-content li:last-child {
-  border-bottom: 0;
+.criterion-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  margin-bottom: 0.5rem;
 }
-.submission-report-content li strong,
-.submission-report-content li span {
-  display: block;
+.criterion-heading strong {
+  flex: 1 1 15rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
-.submission-report-content li span {
+.criterion-result {
+  flex: 0 0 auto;
   color: var(--body-muted);
   font-size: 0.75rem;
-  margin: 0.5rem 0;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+}
+.submission-student-note {
+  margin-bottom: 1.5rem;
+}
+.submission-student-note strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
 .submission-report-content dl {
   display: grid;
@@ -360,6 +377,7 @@
 }
 .submission-report-content dt {
   color: var(--body-muted);
+  font-size: 0.8125rem;
 }
 .submission-report-content dd {
   overflow-wrap: anywhere;
@@ -368,7 +386,7 @@
   display: grid;
   justify-items: start;
   gap: 0.75rem;
-  padding-bottom: 1.5rem;
+  padding: 0.5rem 0 1.75rem 1.5rem;
 }
 .feedback-disclosure label {
   font-size: 0.8125rem;
@@ -379,7 +397,7 @@
   border-radius: var(--radius-lg);
   padding: 0.75rem;
   background: var(--background);
-  font-size: 0.875rem;
+  font-size: 1rem;
   resize: vertical;
 }
 .prototype-notice {
@@ -536,10 +554,10 @@
     margin: 1.2rem 0 1.5rem;
   }
   .submission-verdict {
-    padding: 1.25rem 0;
+    padding: 0.5rem 0 1.5rem;
   }
   .submission-verdict p {
-    font-size: 0.875rem;
+    font-size: 1rem;
   }
   .submission-back {
     margin-bottom: 1.5rem;
