@@ -602,14 +602,18 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
   // This fixture is a Product containing Video: the saved completion belongs to the Material.
   await expect(
-    page.locator("[data-reading-action-state]:visible"),
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "ready");
   await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
     .locator("[data-reading-action-state]:visible")
     .getByRole("button", { name: "Изучено", exact: true })
     .click();
   await expect(
     page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible")
       .getByRole("button", { name: "Изучено", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -620,6 +624,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
   await expect(
     page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible")
       .getByRole("button", { name: "Изучено", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -1538,8 +1543,36 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
 
   const response = await page.goto("/authoring/products");
   expect(response?.status()).toBe(200);
-  await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
+  // This case owns the Product order; the canonical seeded Reader order remains independent.
+  await page.getByRole("button", { name: "Создать продукт" }).click();
+  await page
+    .getByRole("textbox", { name: "Название", exact: true })
+    .fill(`Keyboard order ${randomUUID()}`);
+  await page
+    .getByRole("textbox", { name: "Адрес", exact: false })
+    .fill(`keyboard-order-${randomUUID()}`);
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+
+  for (const title of [
+    "Как устроен Inside Platform",
+    "Demo #295 · Общий гайд",
+  ]) {
+    await page.getByRole("button", { name: "Добавить материал" }).click();
+    const picker = page.getByRole("dialog", { name: "Добавить материал" });
+    await picker
+      .getByRole("searchbox", { name: "Поиск материала для добавления" })
+      .fill(title);
+    await picker
+      .getByRole("button", { name: `Добавить «${title}»`, exact: true })
+      .click();
+    await picker
+      .getByRole("button", { name: "Закрыть выбор материала" })
+      .click();
+    await expect(
+      page.getByText("Порядок сохранён.", { exact: true }),
+    ).toBeVisible();
+  }
 
   await page.getByRole("button", { name: "Добавить материал" }).click();
   const picker = page.getByRole("dialog", { name: "Добавить материал" });
@@ -1607,7 +1640,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     })
     .click();
   await expect(items).toHaveCount(countAfterAdd - 1);
-  // The seeded product has buyers, so removing a published lesson asks for confirmation (#648).
+  // The same editor may ask for confirmation when the Product has buyers (#648).
   const removal = page.getByRole("dialog", {
     name: "Снять материал из купленного продукта?",
   });
@@ -1633,6 +1666,10 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     page.getByText("Порядок сохранён.", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
+  await page.getByRole("button", { name: "В архив", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Вернуть из архива" }),
+  ).toBeVisible();
 });
 
 test("trusted author walks a product chapter through Previews that stay closed to a guest", async ({

@@ -250,12 +250,18 @@ jobs:
       - name: Build and inspect release images
         if: ${{ github.event_name == 'pull_request' }}
         run: pnpm release:images:smoke
+      - name: Prove exact-source production runtime from admitted cache
+        env:
+          PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production-cache
+        run: bash scripts/heavy-check.sh bash scripts/production-cache-smoke-ci.sh
       - name: Upload failure diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compose-production-diagnostics-${{ github.run_attempt }}
-          path: ci-artifacts/compose-production
+          path: |
+            ci-artifacts/compose-production
+            ci-artifacts/compose-production-cache
           if-no-files-found: ignore
           retention-days: 7
 

@@ -8,6 +8,7 @@ import subprocess
 import signal
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -135,6 +136,7 @@ class GuardContracts(unittest.TestCase):
             try:
                 with patch.object(sys, 'argv', ['guard', '--source-sha', 'a'*40, '--output', str(output)]), \
                      patch.object(guard, '__file__', str(Path(temporary)/'scripts/guard.py')), \
+                     patch.object(guard, 'CONTAINERD_ROOT', Path(temporary)/'containerd'), \
                      patch.object(guard.os, 'uname', return_value=type('Linux', (), {'sysname':'Linux'})()), \
                      patch.dict(os.environ, {'ACQUISITION_DIAGNOSTIC_EPHEMERAL':'1'}), \
                      patch.object(guard.os, 'statvfs', side_effect=filesystem), \
@@ -231,6 +233,29 @@ class GuardContracts(unittest.TestCase):
                     child.wait(timeout=PROCESS_ADAPTER_CLEANUP_SECONDS)
                 for pipe in (child.stdout, child.stderr):
                     pipe.close()
+
+    def test_exited_launcher_cannot_leave_a_pipe_holding_child(self):
+        command = [sys.executable, '-c',
+                   'import subprocess,sys; child=subprocess.Popen([sys.executable,"-c","import time; time.sleep(30)"]); print(child.pid,flush=True)']
+        child_pid = None
+        try:
+            with process_contract_deadline():
+                with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                    guard.bounded_command(command, ROOT, 1, 4096)
+                child_pid = int(raised.exception.output.strip())
+                state = Path(f'/proc/{child_pid}/stat')
+                # A reparented zombie is already stopped; its reaping belongs to PID 1.
+                stopped_deadline = time.monotonic() + 1
+                while state.exists() and state.read_text().split()[2] != 'Z':
+                    self.assertLess(time.monotonic(), stopped_deadline, 'pipe-holding child must stop')
+                    time.sleep(0.01)
+                self.assertTrue(not state.exists() or state.read_text().split()[2] == 'Z')
+        finally:
+            if child_pid is not None:
+                try:
+                    os.kill(child_pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
     def test_final_growth_cannot_report_success(self):
         status, receipt, _, _ = self.exercise(growth=True)

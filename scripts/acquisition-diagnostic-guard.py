@@ -18,6 +18,7 @@ DAEMON_SHUTDOWN_SECONDS_MAXIMUM = 30
 FORCED_PROCESS_STOP_SECONDS_MAXIMUM = 10
 RECEIPT_RESERVE_SECONDS = 2
 FINAL_SAMPLE_RESERVE_SECONDS = NATIVE_COMMAND_TIMEOUT_SECONDS + RECEIPT_RESERVE_SECONDS
+CONTAINERD_ROOT = Path('/var/lib/containerd')
 
 _meter_spec = importlib.util.spec_from_file_location('acquisition_meter', Path(__file__).with_name('acquisition-diagnostic-meter.py'))
 meter = importlib.util.module_from_spec(_meter_spec)
@@ -55,8 +56,11 @@ def bounded_command(command, cwd, timeout, capacity):
     finally:
         cleanup = None
         try:
-            if process.poll() is None:
+            # The launcher may have exited while descendants still hold its pipes.
+            try:
                 os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             process.wait(timeout=max(0.01, deadline-time.monotonic()))
         except BaseException as error:
             cleanup = error
@@ -227,7 +231,7 @@ def main():
         daemon_owned = True
         daemon = Path(native(['docker', 'info', '--format', '{{.DockerRootDir}}'], 'docker-info'))
         cache = root / 'apps/backend/node_modules/.cache'
-        containerd = Path('/var/lib/containerd')
+        containerd = CONTAINERD_ROOT
         baseline = filesystem_sample(work_deadline)
         initial = baseline['allocatedBytes']
         admission = baseline['freeBytes']
