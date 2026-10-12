@@ -6,6 +6,48 @@ const destinations = [
   { path: "/", label: "Главная", heading: "Главная" },
 ] as const;
 
+test("keeps a scrolled page visible when viewport changes the scroll owner", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/legal/terms");
+  const main = page.getByRole("main");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await page.evaluate(() => {
+    window.scrollTo({ top: 1_200, behavior: "instant" });
+  });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1_200);
+
+  for (const width of [820, 1_024, 1_440, 1_023, 390, 1_440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(() =>
+        main.evaluate((element) => {
+          const { top, bottom } = element.getBoundingClientRect();
+          return top < window.innerHeight && bottom > 0;
+        }),
+      )
+      .toBe(true);
+    if (width >= 1_024) {
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+      await expect
+        .poll(() => main.evaluate((element) => element.scrollTop))
+        .toBe(1_200);
+      await expect(
+        page.getByRole("navigation", { name: "Основная", exact: true }),
+      ).toBeVisible();
+    } else {
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1_200);
+      await expect(
+        page.getByRole("navigation", {
+          name: "Мобильная навигация",
+          exact: true,
+        }),
+      ).toBeVisible();
+    }
+  }
+});
+
 for (const destination of destinations) {
   test(`${destination.label} resolves with current navigation`, async ({
     page,
