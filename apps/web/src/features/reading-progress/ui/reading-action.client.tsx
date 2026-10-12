@@ -4,6 +4,7 @@ import { useId } from "react";
 import { CheckCircle2, Circle, CircleAlert } from "lucide-react";
 import { materialReadingLabels } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
 import type { ReadingActionProps } from "../model/reading-progress-view";
 import styles from "./reading-action.module.css";
 
@@ -17,11 +18,12 @@ export function ReadingAction({
 }: ReadingActionProps) {
   const descriptionId = useId();
   const label = materialReadingLabels(format).complete;
-  const buttonClassName = `${styles["button"]} ${
+  const buttonClassName = cn(
+    styles["button"],
     compact
       ? "h-11 shrink-0 rounded-lg px-3 aria-disabled:opacity-50"
-      : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50"
-  }`;
+      : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50",
+  );
   const isRead = "isRead" in view && view.isRead;
   const loading = view.kind === "loading";
   const pending = view.kind === "pending";
