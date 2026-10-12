@@ -1,7 +1,7 @@
 import type { INestApplicationContext } from "@nestjs/common";
 import { ModulesContainer, NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   PLATFORM_CONFIG,
@@ -75,23 +75,34 @@ function registeredControllers(
   );
 }
 
-const config = parsePlatformConfig({
+const environment = {
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://inside:inside@127.0.0.1:1/inside",
-});
+  API_PORT: "49123",
+  OBJECT_STORAGE_ENDPOINT: "http://127.0.0.1:49124",
+  OBJECT_STORAGE_SIGNED_GET_ENDPOINT: "http://127.0.0.1:49125",
+};
+const config = parsePlatformConfig(environment);
 
 describe("backend process composition", () => {
   let application: INestApplicationContext | undefined;
 
+  beforeEach(() => {
+    for (const [name, value] of Object.entries(environment)) {
+      vi.stubEnv(name, value);
+    }
+  });
+
   afterEach(async () => {
-    await application?.close();
-    vi.unstubAllEnvs();
+    try {
+      await application?.close();
+    } finally {
+      application = undefined;
+      vi.unstubAllEnvs();
+    }
   });
 
   it("loads and validates the process environment through Nest composition", async () => {
-    vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
-
     const api = await createApiApplication(undefined, { logger: false });
     application = api;
 
@@ -189,9 +200,6 @@ describe("backend process composition", () => {
   });
 
   it("binds the Notifications worker, which loads Membership Entitlements through its consumers", async () => {
-    vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
-
     application = await NestFactory.createApplicationContext(
       NotificationsWorkerModule,
       { abortOnError: false, logger: false },
@@ -204,9 +212,6 @@ describe("backend process composition", () => {
   });
 
   it("loads and validates worker config through Nest composition", async () => {
-    vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
-
     application = await NestFactory.createApplicationContext(
       MaterialAssetsWorkerModule.forRoot(),
       { logger: false },
