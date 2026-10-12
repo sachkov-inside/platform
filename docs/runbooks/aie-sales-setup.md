@@ -72,7 +72,8 @@ Apply the preorder cohort and publish this Offer through #854.
 If opening occurs on or after the start date, apply the post-start price first and open with stage `running`.
 The preorder commands and pre-start quotes then do not describe the actual sale.
 
-After opening, record fresh production quotes for 2 990 000 and 2 691 000 kopecks.
+Before-start opening requires fresh production quotes for 2 990 000 and 2 691 000 kopecks.
+On or after the start date, require 3 990 000 kopecks both without and with an expired questionnaire code.
 Check the public product page and signed-in checkout show the same Offer, price and access periods.
 Use the supported legal links below and verify their actual versions/digests before payment.
 The quote step stores a price snapshot; it does not initialize a bank payment.
@@ -93,7 +94,8 @@ The questionnaire expiry is automatic; the base-price and `running` stage change
 Re-read revisions, change the Option to 3 990 000 kopecks, then set the cohort to `running`.
 Keep the Option's identity and access periods. Verify a fresh quote returns 3 990 000 kopecks,
 including with a previously issued questionnaire code.
-A pre-transition quote must fail reservation with `quote_changed` after the price update.
+A still-valid, unreserved pre-transition quote must fail reservation with `quote_changed` after the price update.
+An expired quote returns `quote_expired` first; an existing reservation follows its stored receipt.
 Previously completed purchases retain their stored price and terms.
 If the timely price change cannot be ensured, keep the Offer unpublished at the boundary until the price is correct.
 An unexpected state during opening can be contained through `offers.unpublish` with its current revision.
