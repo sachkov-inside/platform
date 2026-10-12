@@ -172,4 +172,12 @@ describe("production monitor workflow", () => {
     ]);
     assert.doesNotMatch(workflow, /environment:/u);
   });
+
+  it("starts a new cache namespace so legacy unconfirmed alerts cannot suppress delivery", () => {
+    assert.match(workflow, /^ {10}restore-keys: production-monitor-v2-$/mu);
+    assert.equal(
+      [...workflow.matchAll(/^ {10}key: production-monitor-v2-/gmu)].length,
+      2,
+    );
+  });
 });

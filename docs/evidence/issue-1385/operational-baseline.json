@@ -58,7 +58,7 @@
     "mcpSubmissionsEnabled": "true"
   },
   "localSignalTests": {
-    "passed": 25,
+    "passed": 26,
     "failed": 0,
     "transport": "supplied network/process doubles; no live messages"
   },
