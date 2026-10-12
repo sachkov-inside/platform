@@ -26,5 +26,12 @@
 | 923 px | [route-923.png](route-923.png) | [storybook-923.png](storybook-923.png) |
 | 1440 px | [route-1440.png](route-1440.png) | [storybook-1440.png](storybook-1440.png) |
 
-Кирилл ещё не подтвердил визуальный результат. Эти снимки фиксируют локальную проверку.
+На момент этих снимков Кирилл ещё не подтвердил визуальный результат. Снимки фиксируют локальную проверку.
 Исходный commit: `a23bc5536d6efaba817a2cbdb5d68970c5e5d52f`.
+
+## Визуальная приёмка
+
+12.10.2026 Кирилл принял визуальный результат и поручил merge; решение записано в [#1374](https://github.com/sachkov-inside/platform/issues/1374).
+[PR #1375](https://github.com/sachkov-inside/platform/pull/1375) вошёл в `main` через merge queue как `989b9496c91cd2de4f0c2ef74852809b6886954d`.
+Все 10 проверок очереди прошли: [CI 38275315006](https://github.com/sachkov-inside/platform/actions/runs/38275315006).
+Эта запись подтверждает визуальную приёмку и merge. Выкладку в production фиксирует [#854](https://github.com/sachkov-inside/platform/issues/854).
