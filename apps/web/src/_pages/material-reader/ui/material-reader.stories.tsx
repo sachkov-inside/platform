@@ -381,7 +381,7 @@ const productModeBody = [
         content: [
           {
             kind: "heading",
-            level: 3,
+            level: 2,
             content: [{ kind: "text", marks: [], text: "Проверка на образце" }],
           },
           {
@@ -401,7 +401,7 @@ const productModeBody = [
         content: [
           {
             kind: "heading",
-            level: 3,
+            level: 2,
             content: [{ kind: "text", marks: [], text: "Проверка у себя" }],
           },
           {
