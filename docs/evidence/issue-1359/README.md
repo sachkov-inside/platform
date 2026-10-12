@@ -10,7 +10,7 @@ The application procedure is [the sales setup runbook](../../runbooks/aie-sales-
 | --- | --- | --- |
 | [prepare.json](prepare.json) | New unpublished AIE Offer, one-time Option, archived questionnaire template, announcement cohort | Reviewed preparation, coordinated with #854 |
 | [open-after-go.json](open-after-go.json) | Preorder cohort and publication of that Offer | #1358 acceptance, #854 technical readiness, concrete public-sale GO |
-| [start-date.json](start-date.json) | Same Option at the post-start price; running cohort | At the start boundary, through #854; timely execution still needs confirmation |
+| [start-date.json](start-date.json) | Same Option at the post-start price; running cohort | Manual action at the start boundary, through #854 |
 | [baseline.json](baseline.json) | Sanitized read-only production state and public observations | Evidence only |
 
 These are command arrays, not automatically executed migrations, seeds or a deployment hook.
@@ -40,4 +40,4 @@ The isolated PostgreSQL rehearsal applies the same command arrays through the bi
 Synthetic questionnaire identities and personal codes stay in its disposable database.
 Its quote and reservation checks contact no bank. Its local publication does not open production sales.
 Production quotes, real payment/refund acceptance, signed-in production checkout and actual opening remain pending.
-The current runtime requires a manual base-price transition; automatic execution is an unresolved owner decision.
+The owner confirmed a manual base-price transition on 12 October 2026; only promotion validity windows act automatically.

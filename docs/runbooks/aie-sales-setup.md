@@ -87,7 +87,9 @@ See [the cohort contract](../../apps/backend/src/modules/billing/domain/product-
 and [price selection](../../apps/backend/src/modules/billing/shared/select-price.ts).
 
 [start-date.json](../evidence/issue-1359/start-date.json) prepares a manual change for the #854 writer
-at `2026-11-09T00:00:00+03:00`. An owner decision about automatic execution is pending.
+at `2026-11-09T00:00:00+03:00`.
+The owner confirmed manual base-price changes in the Platform session on 12 October 2026.
+Only promotion validity windows take effect automatically.
 The transition is not accepted merely because the future display price is present.
 The questionnaire expiry is automatic; the base-price and `running` stage changes require these commands.
 
