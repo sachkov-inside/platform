@@ -27,6 +27,8 @@ import {
 } from "@/shared/routing/material-reader";
 import { topicPath } from "@/shared/routing/public-page-path";
 
+import { agentChoiceComparison } from "../model/agent-choice-comparison";
+
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
 import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
@@ -116,13 +118,14 @@ export function MaterialReaderView({
           )}
           <ReaderOutline items={outline} />
           <article
-            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3]:text-xl md:[&_h4]:text-lg"
+            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3:not([data-comparison-heading])]:text-xl md:[&_h4]:text-lg"
             data-reader-body
           >
             <ReaderBlocks
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
+              materialSlug={material.slug}
               path={[]}
               {...(modeHint === undefined
                 ? {}
@@ -344,6 +347,7 @@ function ReaderBlocks({
   hint,
   hintAt,
   materialId,
+  materialSlug,
   path,
 }: {
   readonly blocks: readonly ReaderBlock[];
@@ -351,11 +355,13 @@ function ReaderBlocks({
   readonly hint?: ReactNode;
   readonly hintAt?: number;
   readonly materialId: string;
+  readonly materialSlug: string;
   readonly path: readonly number[];
 }) {
   return (
     <MaterialBodyView
       blocks={blocks}
+      comparison={agentChoiceComparison(materialSlug, blocks)}
       hint={hint}
       hintAt={hintAt}
       path={path}

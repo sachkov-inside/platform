@@ -1,3 +1,4 @@
+import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
   expectVariantDiagram,
@@ -1763,5 +1764,27 @@ export const CollapsibleAdvice: Story = {
 };
 export const CollapsibleAdviceMobile: Story = {
   ...CollapsibleAdvice,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ModelComparison: Story = {
+  args: {
+    material: {
+      ...material,
+      materialId: "model-comparison-fixture",
+      slug: "inside-content-aie-ch1-agent-choice",
+    },
+    body: modelComparisonBlocks,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "GPT" }));
+    await expect(
+      canvas.getByRole("region", { name: "GPT-6.1 Sol / GPT-6 Luna" }),
+    ).toBeVisible();
+  },
+};
+export const ModelComparisonMobile: Story = {
+  ...ModelComparison,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
