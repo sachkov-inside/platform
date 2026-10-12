@@ -171,9 +171,54 @@ function lineCount(content) {
   return content.replace(/\n$/u, "").split("\n").length;
 }
 
+/** @param {string} repositoryRoot */
+export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
+  /** @type {string[]} */
+  const failures = [];
+  const companion = ".agents/skills/orchestrate/SKILL.md";
+  const entryPoint = ".agents/skills/implement-spec/SKILL.md";
+  if (
+    existsSync(resolve(repositoryRoot, entryPoint)) &&
+    !existsSync(resolve(repositoryRoot, companion))
+  ) {
+    failures.push(`${entryPoint}: portable orchestrate companion is missing`);
+  }
+  const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
+  for (const skill of ["orchestrate", "implement-spec", "ask-matt", "tdd"]) {
+    walk(resolve(repositoryRoot, ".agents/skills", skill), (path, name) => {
+      if (name.endsWith(".md")) files.push(relative(repositoryRoot, path));
+    });
+  }
+  for (const path of new Set(files)) {
+    if (!existsSync(resolve(repositoryRoot, path))) {
+      failures.push(`${path}: required routing document is missing`);
+      continue;
+    }
+    const content = read(repositoryRoot, path);
+    for (const target of extractLocalMarkdownTargets(content)) {
+      if (
+        !existsSync(resolve(dirname(resolve(repositoryRoot, path)), target))
+      ) {
+        failures.push(`${path}: local pointer does not resolve: ${target}`);
+      }
+    }
+    if (path === "AGENTS.md") {
+      requireText(
+        failures,
+        path,
+        content,
+        companion,
+        "route execution discovery to portable orchestrate",
+      );
+    }
+  }
+  return failures;
+}
+
 export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
+  failures.push(...checkHarnessRouting(repositoryRoot));
   const agentFiles = collectAgentDocumentation(repositoryRoot);
 
   for (const path of agentFiles) {

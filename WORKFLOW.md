@@ -27,8 +27,24 @@ CLI/IDE. When the skill is absent from the runtime catalog or the task arrives a
 pre-agreed seams for `tdd`: write those seams down, then write the failing test first, without
 asking. A criterion with no behaviour needs no test.
 
-## Blockers and acceptance
+## Coordinated execution
+The coordinator follows the portable [orchestrate](.agents/skills/orchestrate/SKILL.md) skill.
+Use native subagents for read-only review. Each writer owns a separate writing worktree; dispatch
+writing sessions through Herdr under the owner's worktree rules. Serialize shared runtime/Compose
+operations under the existing singleton ownership rule. Mandatory checks, frontend acceptance,
+merge queue and owner gates apply to coordinated work too.
 
+Issues and PRs keep the linked task map: dependencies, decisions, worker/session IDs, resource
+owners, accepted commits, checks and next actions. On resumption reconcile it with actual runtime
+state, preserve active workers and recovered results, and assign only remaining work. Owner-paused
+assignments resume only on the owner's request. Reuse evidence only while checked inputs remain
+valid; final checks still run on the integrated head.
+
+Every task receives independent review before integration. Its writer resolves findings.
+The final integrated result receives independent review and mandatory project checks before
+accepted delivery. An agent completion message or green CI alone does not establish acceptance.
+
+## Blockers and acceptance
 - A defect outside the task that blocks it is a blocker. Take its open issue labelled
   `needs-triage` or `ready-for-agent`, or open one; label it `ready-for-agent`, link it to the task
   and fix it first. When the task body gives the agent the right to merge, one revert undoes the
@@ -66,11 +82,14 @@ assignee instead (`docs/agents/issue-tracker.md`).
 - The primary checkout belongs to the owner: read it and leave its tracked files unchanged. Keep
   requested local artifacts outside tracked paths. Reach the checkout through `git -C` or absolute
   paths; only `session-cleanup` fast-forwards it after the merge.
-- One task has one branch, one writing worktree and one open pull request. Another session's
+- An independent task has one branch, one writing worktree and one open pull request. A coordinated
+  specification keeps worker branches/worktrees and one final integration PR; that PR closes the
+  specification and its delivered tickets. Another session's
   worktree, branch, containers, volumes and stash entries are live state: leave them alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its
   task. Another worktree needs a new session; a subagent started in its own worktree is one.
-- After the first commit, push and open a draft pull request with `Closes #<issue>`. When one task
+- After the first commit (first accepted integration for a specification), push and open a draft
+  pull request with `Closes #<issue>`. When one task
   needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge, without rebase or force-push.
 - The pull request body is a result card in the owner's language with the sections `Что сделано`,
@@ -113,7 +132,6 @@ requested architecture review or research document keeps its own structure and d
 project.
 
 ## Owner corrections
-
 The owner turns a correction into an automatic check or a `CODING_STANDARDS.md` rule with `retro`.
 
 ## Owner gates
