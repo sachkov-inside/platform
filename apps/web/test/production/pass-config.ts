@@ -20,14 +20,15 @@ export const productionTarget = {
 
 /**
  * Product A — единственный опубликованный Product production с закрытыми материалами. Тело проверяется
- * на `bodyMaterialSlug`; картинку и задание даёт закрытый урок практики `practiceMaterialSlug`.
+ * на `bodyMaterialSlug`; картинку даёт `assetMaterialSlug`, задание — Product Task `taskCode`.
  * Материалы production проход не меняет.
  */
 export const productA = {
   id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
   slug: "ai-engineering",
-  bodyMaterialSlug: "inside-content-aie-first-spec",
-  practiceMaterialSlug: "inside-content-aie-project-setup",
+  bodyMaterialSlug: "inside-content-aie-ch2-modules",
+  assetMaterialSlug: "inside-content-aie-ch2-modules",
+  taskCode: "aie-ch2-accounts-design",
 } as const;
 
 /** Бесплатная опубликованная практика: решение владельца 06.10.2026 в #938. */
@@ -48,6 +49,7 @@ export const videoDeferred = "отложено до первого видео Pr
 export const learnerMcpReadTools = [
   "learning_material_read",
   "learning_practice_read",
+  "learning_task_read",
 ] as const;
 /** Read-only tools владельческого MCP (`readOnlyHint: true`), которые проход вызывает. */
 export const ownerMcpReadTools = ["billing_tiers_list"] as const;

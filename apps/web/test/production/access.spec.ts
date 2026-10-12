@@ -15,12 +15,7 @@ import {
   readLogtoCredentials,
   type LogtoPassClient,
 } from "./logto";
-import {
-  callMcpTool,
-  distinctiveText,
-  jsonStringLiterals,
-  type McpToolCall,
-} from "./mcp-client";
+import { callMcpTool, distinctiveText, type McpToolCall } from "./mcp-client";
 import {
   passCellParts,
   type BlockedPassRequest,
@@ -51,7 +46,7 @@ import { observeBodyPage as observeMaterialBody } from "./pass-browser";
  * удаляется), сессии Logto и BFF тестовых identities.
  *
  * Отказ ищет закрытые bytes, а не только сообщение об отказе: разрешённые чтения ученика A дают
- * отличительный текст тела и задания, id задания и адрес закрытой картинки, и проход ищет их в
+ * отличительный текст тела и задания, адрес закрытой картинки, и проход ищет их в
  * ответах остальных identities.
  */
 type Cell = (typeof passCells)[number];
@@ -65,8 +60,8 @@ type Actor = PassIdentity | "anonymous";
 const learnerAFirst: readonly string[] = [
   "learner-product-a/read-product-a/body@learner-mcp",
   "learner-product-a/read-product-a/body@browser",
-  "learner-product-a/read-product-a/practice@browser",
   "learner-product-a/read-product-a/practice@learner-mcp",
+  "learner-product-a/read-product-a/practice@browser",
   "learner-product-a/read-product-a/assets@browser",
 ];
 const liveCells = passCells
@@ -102,8 +97,7 @@ test("production access observes every live cell in one isolated scenario", asyn
   /** Факты разрешённых чтений ученика A: по ним проход ищет закрытые bytes у остальных. */
   const learnerA: {
     bodySnippet?: string | undefined;
-    practiceId?: string | undefined;
-    practiceSnippet?: string | undefined;
+    taskSnippet?: string | undefined;
     assetPath?: string | undefined;
   } = {};
 
@@ -121,14 +115,11 @@ test("production access observes every live cell in one isolated scenario", asyn
       case "assets@browser":
         return observeAsset(browser, identity);
       case "practice@browser":
-        return observePracticePage(
-          await sessionOf(browser, identity),
-          identity,
-        );
+        return observeTaskPage(await sessionOf(browser, identity), identity);
       case "practice@learner-mcp":
         return action === "read-free-practice"
           ? observeFreePracticeThroughMcp(identity)
-          : observePracticeThroughMcp(identity);
+          : observeTaskThroughMcp(identity);
       case "materials-authoring@browser":
         return observeMaterialsAuthoring(
           await sessionOf(browser, identity),
@@ -372,61 +363,128 @@ test("production access observes every live cell in one isolated scenario", asyn
     return observation;
   }
 
-  /** Id задания в JSON подсказки «Копировать» (`practiceReviewPrompt`). */
-  const practiceIdPattern = /"practiceId": "([^"]+)"/u;
-
-  async function observePracticePage(
+  async function observeTaskPage(
     context: BrowserContext,
     actor: Actor,
   ): Promise<Observation> {
-    const { page } = await openMaterial(context, productA.practiceMaterialSlug);
+    const page = await context.newPage();
     try {
-      const region = page.getByRole("region", { name: "Проверка практики" });
+      await page.goto(`/products/${productA.slug}/tasks/${productA.taskCode}`);
+      const task = page.locator(`[data-product-task="${productA.taskCode}"]`);
+      const snippet = required(learnerA.taskSnippet, "Task snippet");
       if (actor === "learner-product-a") {
-        // Первым в блоке стоит запрос подключения агента; id задания есть только в запросе практики.
-        const prompt = region
-          .first()
-          .locator("pre code", { hasText: '"practiceId"' })
-          .first();
-        await expect(prompt).toBeVisible();
-        learnerA.practiceId = practiceIdPattern.exec(
-          await prompt.innerText(),
-        )?.[1];
-        required(learnerA.practiceId, "Practice id");
+        await expect(task).toHaveAttribute("data-product-task-state", "open");
+        expect(await page.content()).toContain(snippet);
         return { observed: "allowed" };
       }
-      const practiceId = required(learnerA.practiceId, "Practice id");
+      // Код и заголовок публичны. Закрытые bytes не должны попасть даже в HTML/RSC.
       if (
-        (await page.content()).includes(practiceId) ||
-        (await region.count()) > 0
+        (await page.content()).includes(snippet) ||
+        (await task.getAttribute("data-product-task-state")) === "open"
       )
         return { observed: "allowed" };
-      return await browserDenial(context, actor, "нет блока практики");
+      await expect(task).toHaveAttribute("data-product-task-state", "closed");
+      return await browserDenial(context, actor, "задание закрыто");
     } finally {
       await page.close();
     }
   }
 
-  async function observePracticeThroughMcp(actor: Actor): Promise<Observation> {
-    const practiceId = required(learnerA.practiceId, "Practice id");
+  async function observeTaskThroughMcp(actor: Actor): Promise<Observation> {
+    const token = await learnerTokenOf(actor);
+    const reference = { code: productA.taskCode };
     const call = await callMcpTool(
       productionTarget.learnerMcp,
-      await learnerTokenOf(actor),
-      "learning_practice_read",
-      { practiceId },
+      token,
+      "learning_task_read",
+      { ...reference, part: 0 },
     );
     if (actor === "learner-product-a" && call.payload?.ok === true) {
-      // Часть 0 — кусок canonical JSON строкой `data`: отличительный текст ищется среди её строк.
-      const { data } = z.object({ data: z.string() }).parse(call.payload.value);
-      learnerA.practiceSnippet = distinctiveText(jsonStringLiterals(data));
+      const context = await readContextParts(
+        token,
+        "learning_task_read",
+        reference,
+        call,
+      );
+      const { payload } = z
+        .object({
+          payload: z.object({
+            task: z.object({
+              code: z.literal(productA.taskCode),
+              page: z.object({ body: z.unknown() }),
+            }),
+          }),
+        })
+        .parse(context);
+      learnerA.taskSnippet = distinctiveText(payload.task.page.body, "text");
     }
     const observation = mcpObservation(
       call,
-      required(learnerA.practiceSnippet, "Practice snippet"),
+      required(learnerA.taskSnippet, "Task snippet"),
     );
     if (observation.observed === "denied")
-      expectDenial(actor, call, "practice_not_available");
+      expectDenial(actor, call, "task_not_available");
     return observation;
+  }
+
+  /** Все части одного snapshot: проверяются pins, bytes, SHA-256 и завершающий маркер. */
+  async function readContextParts(
+    token: string | null,
+    tool: "learning_task_read" | "learning_practice_read",
+    reference: { readonly code: string } | { readonly practiceId: string },
+    firstCall: McpToolCall,
+  ): Promise<unknown> {
+    const partSchema = z.object({
+      contextVersion: z.string().min(1),
+      contentSha256: z.hash("sha256"),
+      contentBytes: z.number().int().positive(),
+      part: z.number().int().nonnegative(),
+      partCount: z.number().int().positive(),
+      nextPart: z.number().int().nullable(),
+      data: z.string().min(1),
+    });
+    const parse = (call: McpToolCall) => {
+      expect(call.status).toBe(200);
+      expect(call.payload?.ok).toBe(true);
+      const value = call.payload?.ok === true ? call.payload.value : null;
+      expect(value).toMatchObject(reference);
+      return partSchema.parse(value);
+    };
+    const first = parse(firstCall);
+    let context = "";
+    for (let part = 0; part < first.partCount; part += 1) {
+      const current =
+        part === 0
+          ? first
+          : parse(
+              await callMcpTool(productionTarget.learnerMcp, token, tool, {
+                ...reference,
+                part,
+                expectedContextVersion: first.contextVersion,
+                expectedContentSha256: first.contentSha256,
+              }),
+            );
+      expect(current).toMatchObject({
+        part,
+        partCount: first.partCount,
+        contextVersion: first.contextVersion,
+        contentSha256: first.contentSha256,
+        contentBytes: first.contentBytes,
+        nextPart: part + 1 < first.partCount ? part + 1 : null,
+      });
+      context += current.data;
+    }
+    expect(Buffer.byteLength(context, "utf8")).toBe(first.contentBytes);
+    expect(createHash("sha256").update(context).digest("hex")).toBe(
+      first.contentSha256,
+    );
+    return z
+      .object({
+        contextVersion: z.literal(first.contextVersion),
+        terminalMarker: z.literal(`END_CONTEXT:${first.contextVersion}`),
+        payload: z.unknown(),
+      })
+      .parse(JSON.parse(context) as unknown);
   }
 
   /** Бесплатный Account читает все части одной версии, включая завершающий маркер. */
@@ -434,68 +492,27 @@ test("production access observes every live cell in one isolated scenario", asyn
     actor: Actor,
   ): Promise<Observation> {
     const token = await learnerTokenOf(actor);
-    const partSchema = z.object({
-      practiceId: z.literal(freePracticeId),
-      contextVersion: z.string().min(1),
-      contentSha256: z.hash("sha256"),
-      part: z.number().int().nonnegative(),
-      partCount: z.number().int().positive(),
-      nextPart: z.number().int().nullable(),
-      data: z.string().min(1),
-    });
-    const read = async (part: number, pin?: z.infer<typeof partSchema>) => {
-      const call = await callMcpTool(
-        productionTarget.learnerMcp,
-        token,
-        "learning_practice_read",
-        {
-          practiceId: freePracticeId,
-          part,
-          ...(pin === undefined
-            ? {}
-            : {
-                expectedContextVersion: pin.contextVersion,
-                expectedContentSha256: pin.contentSha256,
-              }),
-        },
-      );
-      expect(call.status).toBe(200);
-      expect(call.payload?.ok).toBe(true);
-      return partSchema.parse(
-        call.payload?.ok === true ? call.payload.value : null,
-      );
-    };
-    const first = await read(0);
-    let context = "";
-    for (let part = 0; part < first.partCount; part += 1) {
-      const current = part === 0 ? first : await read(part, first);
-      expect(current).toMatchObject({
-        part,
-        partCount: first.partCount,
-        contextVersion: first.contextVersion,
-        contentSha256: first.contentSha256,
-        nextPart: part + 1 < first.partCount ? part + 1 : null,
-      });
-      context += current.data;
-    }
-    expect(createHash("sha256").update(context).digest("hex")).toBe(
-      first.contentSha256,
+    const call = await callMcpTool(
+      productionTarget.learnerMcp,
+      token,
+      "learning_practice_read",
+      { practiceId: freePracticeId, part: 0 },
     );
-    expect(
-      z
-        .object({
-          contextVersion: z.literal(first.contextVersion),
-          terminalMarker: z.literal(`END_CONTEXT:${first.contextVersion}`),
-          payload: z.object({
-            practice: z.unknown(),
-            referenceLesson: z.unknown(),
-          }),
-        })
-        .safeParse(JSON.parse(context) as unknown).success,
-    ).toBe(true);
+    const context = await readContextParts(
+      token,
+      "learning_practice_read",
+      { practiceId: freePracticeId },
+      call,
+    );
+    z.object({
+      payload: z.object({
+        practice: z.unknown(),
+        referenceLesson: z.unknown(),
+      }),
+    }).parse(context);
     return {
       observed: "allowed",
-      note: `прочитаны все ${String(first.partCount)} частей; SHA-256 и END_CONTEXT совпали`,
+      note: "прочитаны все части; SHA-256, число bytes и END_CONTEXT совпали",
     };
   }
 
@@ -509,10 +526,7 @@ test("production access observes every live cell in one isolated scenario", asyn
   ): Promise<Observation> {
     const context = await sessionOf(browser, actor);
     if (actor === "learner-product-a") {
-      const { page } = await openMaterial(
-        context,
-        productA.practiceMaterialSlug,
-      );
+      const { page } = await openMaterial(context, productA.assetMaterialSlug);
       try {
         const image = page.locator("[data-reader-block='image'] img").first();
         await expect(image).toBeVisible();
