@@ -282,9 +282,19 @@ export const PendingVideo: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("button", { name: "Просмотрено" }),
-    ).toBeDisabled();
+    const marks = canvas.getAllByRole("button", { name: "Просмотрено" });
+    await expect(marks).toHaveLength(2);
+    for (const mark of marks) await expect(mark).toBeDisabled();
+    const top = canvas.getByRole("navigation", { name: "Действия материала" });
+    const bottom = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    await expect(top.getBoundingClientRect().height).toBe(
+      bottom.getBoundingClientRect().height,
+    );
+    await expect(getComputedStyle(top).backgroundColor).toBe(
+      getComputedStyle(bottom).backgroundColor,
+    );
     await expect(canvas.queryByRole("button", { name: "Изучено" })).toBeNull();
   },
 };
