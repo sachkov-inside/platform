@@ -8,8 +8,10 @@ this contract and `AGENTS.md` hold what they leave open and the owner's override
 
 - Work that fits one session: `issue → implement → review → pull request`. When the issue leaves an
   owner decision open, the owner grills it first (`grill-with-docs`).
-- Work for several sessions: `grilling → to-spec → to-tickets`, then per ticket its own `implement`
-  session and branch; `implement-spec` and its single integration branch are not part of this route.
+- Preparation for several sessions: `grilling → to-spec → to-tickets`.
+- Owner-requested execution: `orchestrate`, with `implement-spec` as a compatible entry point.
+  A specification uses one integration branch and final PR; independent tasks use separate PRs.
+  Preparation and status requests do not start execution.
 
 The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
 stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
@@ -26,6 +28,24 @@ CLI/IDE. When the skill is absent from the runtime catalog or the task arrives a
 `.agents/skills/implement/SKILL.md` and follow it. The acceptance criteria of the task name the
 pre-agreed seams for `tdd`: write those seams down, then write the failing test first, without
 asking. A criterion with no behaviour needs no test.
+
+## Coordinated execution
+
+The coordinator follows the portable [orchestrate](.agents/skills/orchestrate/SKILL.md) skill.
+Use native subagents for read-only review. Each writer owns a separate writing worktree; dispatch
+writing sessions through Herdr under the owner's worktree rules. Serialize shared runtime/Compose
+operations under the existing singleton ownership rule. Mandatory checks, frontend acceptance,
+merge queue and owner gates apply to coordinated work too.
+
+Issues and PRs keep the linked task map: dependencies, decisions, worker/session IDs, resource
+owners, accepted commits, checks and next actions. On resumption reconcile it with actual runtime
+state, preserve active workers and recovered results, and assign only remaining work. Owner-paused
+assignments resume only on the owner's request. Reuse evidence only while checked inputs remain
+valid; final checks still run on the integrated head.
+
+Every task receives independent review before integration. Its writer resolves findings.
+The final integrated result receives independent review and mandatory project checks before
+accepted delivery. An agent completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
 
@@ -66,12 +86,15 @@ assignee instead (`docs/agents/issue-tracker.md`).
 - The primary checkout belongs to the owner: read it and leave its tracked files unchanged. Keep
   requested local artifacts outside tracked paths. Reach the checkout through `git -C` or absolute
   paths; only `session-cleanup` fast-forwards it after the merge.
-- One task has one branch, one writing worktree and one open pull request. Another session's
-  worktree, branch, containers, volumes and stash entries are live state: leave them alone.
+- An independent task has one branch, one writing worktree and one open pull request. A coordinated
+  specification keeps worker branches/worktrees and one final integration PR; that PR closes the
+  specification and its delivered tickets. Leave other sessions' worktrees, branches, containers,
+  volumes and stash entries alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its
   task. Another worktree needs a new session; a subagent started in its own worktree is one.
-- After the first commit, push and open a draft pull request with `Closes #<issue>`. When one task
-  needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
+- After the first commit (first accepted integration for a specification), push and open a draft
+  pull request with `Closes #<issue>`. If one task needs several PRs, only the last closes it;
+  the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge, without rebase or force-push.
 - The pull request body is a result card in the owner's language with the sections `Что сделано`,
   `Что нужно от владельца`, `Проверка` (checked automatically, for the owner to check by hand, not
@@ -108,9 +131,7 @@ code. The agent then:
 Steps 4 and 5 apply to every handoff of a result to the owner, including a ready pull request, a
 stopped task or a result that waits for acceptance. The delivery format follows the owner's request
 and the invoked skill: a concise chat message is enough when neither calls for an artifact, and a
-requested architecture review or research document keeps its own structure and design. The shared
-`report` skill, its HTML template and `report.py finish` are not completion requirements in this
-project.
+requested architecture review or research document keeps its own structure and design. The shared `report` skill, its HTML template and `report.py finish` are not completion requirements here.
 
 ## Owner corrections
 

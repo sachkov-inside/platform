@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "exitCode": 0,
+  "backup": {
+    "label": "20261011-010316F_20261012-121835I",
+    "finishedAt": "2026-10-12T12:18:39Z",
+    "checkExitCode": 0
+  },
+  "restore": {
+    "backupLabel": "20261011-010316F_20261012-121835I",
+    "finishedAt": "2026-10-12T12:22:09Z",
+    "exitCode": 0,
+    "volume": "inside-production-postgres-data-recovery-check-bd856319d74341dd9a877789f4075642",
+    "networkMode": "none",
+    "publishedPorts": 0,
+    "databasesPassed": [
+      "inside",
+      "logto",
+      "inside_telegram"
+    ]
+  },
+  "preservation": {
+    "inside": {
+      "tablesCompared": 121,
+      "mismatched": [],
+      "liveChangesDuringBackup": []
+    },
+    "logto": {
+      "tablesCompared": 79,
+      "mismatched": [],
+      "liveChangesDuringBackup": []
+    },
+    "inside_telegram": {
+      "tablesCompared": 60,
+      "mismatched": [],
+      "liveChangesDuringBackup": []
+    }
+  },
+  "foundationImageId": "sha256:cbed51ba4834c4e216bb8dde12b217193783f4c0df8e430552f6c5c15af13794",
+  "sourceScriptSha256": "e3c2dfac0d75488a2d9425fbfa86ee47bd3809dc2fbb902021d24ccfb91bc0da",
+  "durationSeconds": 218.246,
+  "stagedRepositoryRemoved": true,
+  "cipherRemoved": true
+}
