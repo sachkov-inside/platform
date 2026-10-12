@@ -24,7 +24,13 @@ Telegram у тестовых Accounts не используется. Тесто�
 | `billing-only` | право `billing:manage` | trusted owner bootstrap |
 
 Product A — «AI Engineering» (`ai-engineering`). Его id и закрытые уроки прохода названы в
-`apps/web/test/production/pass-config.ts`: урок для тела и урок практики с картинкой и заданием.
+`apps/web/test/production/pass-config.ts`: закрытый урок `aie-ch2-modules` для тела и картинки,
+Product Task `aie-ch2-accounts-design` для задания. Эти fixtures принадлежат принятой программе
+#1356; её source Content — `2f04e11848b9cc281d67a7b34e51dd83b7370418`, production manifest —
+`4fe936c220af33ca7d818b9ce7db38944bf83228aab26437694eab15fb4b7ac1`.
+Клетки матрицы с названием `practice` проверяют закрытый Product Task через страницу задания и
+read-only `learning_task_read`. Код и заголовок задания публичны; отказ проверяет отсутствие
+закрытого текста. Разрешённое MCP-чтение проверяет все закреплённые части, SHA-256 и `END_CONTEXT`.
 Account `no-entitlement` также читает все закреплённые части бесплатной практики
 `inside-content:aie-github-app` через learner MCP (#938, решение владельца 06.10.2026).
 Проход сверяет версию, SHA-256 полного контекста и `END_CONTEXT`; закрытые уроки Product A

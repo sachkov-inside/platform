@@ -145,6 +145,23 @@ describe("production access pass request allowlist", () => {
     ).toMatchObject({ allowed: false });
   });
 
+  it("allows reading a Product Task while rejecting its submission", () => {
+    expect(
+      checkPassRequest({
+        method: "POST",
+        url: mcp,
+        body: toolCall("learning_task_read"),
+      }),
+    ).toMatchObject({ allowed: true, operation: "learner-mcp-read" });
+    expect(
+      checkPassRequest({
+        method: "POST",
+        url: mcp,
+        body: toolCall("learning_task_submit"),
+      }),
+    ).toMatchObject({ allowed: false });
+  });
+
   it("allows owner MCP POST only to its named read-only tools", () => {
     const ownerMcp = `${legacyWeb}/mcp`;
 

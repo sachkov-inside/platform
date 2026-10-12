@@ -1,27 +1,38 @@
-# Подготовка production-выпуска #1356
+# Production-выпуск #1356
 
-Срез подготовки 12 октября 2026 года. Задача: [#1356](https://github.com/sachkov-inside/platform/issues/1356),
-общий запуск: [#854](https://github.com/sachkov-inside/platform/issues/854).
-Этот пакет фиксирует проверку текущего production, восстановление и порядок следующего выпуска.
-Фактические release SHA, digests, финальные проверки и публикация записываются в #1356 после выполнения.
+Выпуск 12 октября 2026 года: [#1356](https://github.com/sachkov-inside/platform/issues/1356),
+часть запуска [#854](https://github.com/sachkov-inside/platform/issues/854).
+Приложения, публикация контента и включение сдач выполняются раздельно. Продажи AIE выключены.
 
-## Исходное состояние
+## Приложения
 
-| Приложение | Production | Source SHA |
-| --- | --- | --- |
-| Platform | `v33` | `bc94bf2063efb8061e6f3f792e982bf33f27857b` |
-| Telegram | `v15` | `02ea5bcba24ad1d8fde8f7acd797369236f008db` |
+| Приложение | Версия | Publication | Deploy |
+| --- | --- | --- | --- |
+| Platform | `v34` | [38270696337, attempt 2](https://github.com/sachkov-inside/platform/actions/runs/38270696337/attempts/2) | [38274209283](https://github.com/sachkov-inside/platform/actions/runs/38274209283) |
+| Telegram | `v16` | [38270703787](https://github.com/sachkov-inside/platform/actions/runs/38270703787) | [38274715173](https://github.com/sachkov-inside/platform/actions/runs/38274715173) |
 
-Read-only `production-verify` текущего Platform завершился exit 0: 60 проверок прошли,
-одна не выполнялась. Тестовое Logto application не выбрано; его credentials не проверялись.
-У Telegram прошли 34 из 35 проверок: история журналов содержит один `telegram.membership` error
-и один timeout `platform.evidence-delivery`. Readiness, образ и manifest совпали с `v15`.
-После следующей выкладки нужен свежий `production-verify`; старые журналы не заменяют её результат.
+Оба приложения используют source `bdae0c8284fe284569453183a40d567c2b099ec4`.
+До выпуска на этом SHA прошли `pnpm check:full` (включает `check`), guarded Compose smoke с shutdown,
+две оси независимого review без находок, обязательный
+[merge-group CI](https://github.com/sachkov-inside/platform/actions/runs/38263369294) и
+[nightly full-stack](https://github.com/sachkov-inside/platform/actions/runs/38266534513).
+Nightly завершился: 172 passed, 4 skipped. Исторические #1304 и проверки #1335/#1338
+не блокировали выпуск: обязательные пути на release SHA прошли. Проверки связаны с этим SHA;
+они не объявляются проверкой любого последующего `main`.
 
-На сайте действует политика v3; `/legal/privacy/v4` отвечает 404.
-Единственное предложение production — «Подписка Inside», `published=false`.
-Продажа AIE не настроена. У Telegram `TELEGRAM_MARKETING_ENABLED=false`.
-`PRODUCT_TASK_SUBMISSIONS_ENABLED` не задан; production-конфигурация `v33` выбирает `false` по умолчанию.
+Перед deploy названы оценки: 2–5 минут Platform и 1–2 минуты Telegram.
+Platform maintenance занял 55 секунд. Вся операция Telegram заняла 26 секунд;
+отдельный замер недоступности gateway не сохраняет.
+Read-only `production:verify` после deploy: Platform — 61 passed, 0 failed, 0 not checked;
+Telegram — 39 passed, 0 failed, 2 not checked. У Telegram optional cohort не настроен,
+отдельное Logto test application не выбрано. Bot identity и существующий webhook проверены.
+
+Точные image digests, schema identity, версии, время и результаты живых проверок записаны
+в [квитанции выпуска](production-release.json). Она различает source приложения и source проверяющего кода.
+Срез исходного production перед выпуском: Platform `v33`, Telegram `v15`.
+Первый publication attempt Platform остановился на ECR 429 до build; второй прошёл.
+Первый CI attempt тестовой правки также остановился на ECR до тестов; повтор failed jobs прошёл.
+Причина отслеживается в [#1324](https://github.com/sachkov-inside/platform/issues/1324#issuecomment-6127692847).
 
 ## Бэкап и восстановление
 
@@ -55,46 +66,88 @@ Restore-container, PostgreSQL-container и временный volume удале�
 Перед deploy backup должен быть моложе восьми часов. Если окно истекло, повторить backup и проверку восстановления.
 Эта квитанция не переносится на другой backup label.
 
-## Выпуск и восстановление после отказа
+## Политика v4
 
-1. Зафиксировать текущий `origin/main` и точный принятый Content SHA/manifest из [#1355](https://github.com/sachkov-inside/platform/issues/1355).
-2. На release SHA получить все квитанции [course preflight](../../runbooks/course-release-preflight.md), включая `check:full`, Compose shutdown и telemetry.
-3. Выпустить очередные ordinal Platform и Telegram штатными workflows. На исходном срезе ожидаются `v34` и `v16`; окончательные номера проверяет release plan.
-4. Скачать immutable manifests и runtime bundle. Подставить реальные image digests в preflight; до publication они не известны.
-5. Перед deploy назвать оценку maintenance. Предыдущий Platform deploy занял 43 секунды maintenance.
-   Следующий применяет `0086`, `0087`, `0088`: предварительная оценка 2–5 минут Platform и 1–2 минуты Telegram.
-   Это оценка; pull выполняется до maintenance. Порядок и измерение задаёт [release runbook](../../runbooks/release.md).
-6. Выложить Platform, затем Telegram. Проверить exact versions/digests/schema, readiness, доступ и опубликованные документы.
-7. Опубликовать только отдельно разрешённый Content SHA/manifest. Продажа AIE остаётся выключенной.
-8. После публикации v4 и проверки выпуска включить приём сдач отдельным шагом.
+Владелец одобрил вариант А в [#991](https://github.com/sachkov-inside/platform/issues/991#issuecomment-6093765700).
+Редакция опубликована в Platform `v34`: `effectiveFrom=2026-10-12`, digest
+`efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2`.
+Полный видимый текст `/legal/privacy` и `/legal/privacy/v4` совпал с принятым `@inside/legal`.
+Архив `/legal/privacy/v3` отвечает 200; полный текст и digest v3 сохранены.
+[Фактическая публикация записана в #991](https://github.com/sachkov-inside/platform/issues/991#issuecomment-6127961851).
+Статус редакций ведёт [legal README](../../legal/README.md); тексты опубликованных редакций не меняются.
 
-Platform меняет schema: 86 migrations текущего production становятся 89.
-Откат приложения на `v33` после этих миграций не предлагается.
+## Принятый контент
+
+Владелец [принял конкретный production-пакет](https://github.com/sachkov-inside/platform/issues/1356#issuecomment-6126965527)
+из Content `2f04e11848b9cc281d67a7b34e51dd83b7370418`, manifest SHA256
+`4fe936c220af33ca7d818b9ce7db38944bf83228aab26437694eab15fb4b7ac1`.
+[Приёмка связана с #1355](https://github.com/sachkov-inside/platform/issues/1355#issuecomment-6126915200).
+Пакет содержит 28 материалов, 133 исходных изображения и восемь заданий.
+Глава 1 и два задания бесплатны; остальные 18 материалов и шесть заданий закрыты.
+Все восемь заданий выбраны для публикации. Главы 3–5 остаются пустыми и показывают «Планируется».
+Принятое описание: старт 9 ноября 2026 года, Europe/Moscow; материалы и общий чат без срока,
+сопровождение шесть месяцев без SLA. Автор не проверяет код ученика.
+
+Публикация завершилась `2026-10-12T17:17:13Z` штатным `authoring:release apply`.
+После таймаутов результат проверялся на сервере; повтор использовал прежние ключи.
+Предпросмотр обновлялся только для того же принятого manifest после собственных завершённых записей.
+Все 144 записи изображений готовы: 136 загрузок материалов и восемь загрузок страниц заданий.
+133 — число уникальных исходных PNG; повторное использование изображения создаёт отдельную запись загрузки.
+
+Сверка подтвердила точные тексты, метаданные, порядок, доступность, provenance заданий и описание продукта.
+Тела материалов сравнивались после штатного codec: он снимает envelope и удаляет `null` из атрибутов.
+Все 22 прежних material IDs сохранены. 21 прежняя запись не изменилась;
+`inside-content:aie-product-brief` обновлён по принятому пакету, сохранив ID и остальные поля.
+Курс сохранил ID `625a0cca-c8ff-4a65-9125-17194dd3b769`.
+Два grant, одна запись прогресса, десять account IDs, покупки и оферты совпали с исходным снимком.
+Принятая замена старых привязок не удаляла старые материалы. Постоянный журнал публикации сохранён.
+
+## Сдачи, доступ и telemetry
+
+Политика v4 опубликована до включения `PRODUCT_TASK_SUBMISSIONS_ENABLED`.
+Сдачи включены отдельным шагом `2026-10-12T17:18:37Z`: флаг равен `true` в API и MCP.
+Перезапущены только эти два сервиса с прежними digest `v34`; операция заняла около 10 секунд.
+После этого `production:verify` подтвердил 61 passed, 0 failed, 0 not checked.
+Проход доступа в [PR #1377](https://github.com/sachkov-inside/platform/pull/1377) проверяет
+закрытый материал `inside-content-aie-ch2-modules` и Product Task `aie-ch2-accounts-design`.
+Он читает все части MCP-контекста с проверкой version/hash/bytes/end marker;
+записывающий `learning_task_submit` остаётся запрещённым в его allowlist.
+Для сдач используются отдельные явно синтетические проверки существующего тестового аккаунта.
+Живой проход с проверяющим кодом `62811a289e621c5b897fdc84ac927c26a45f0bcc` против deployed `bdae0c82`
+прошёл: 30 passed, 17 deferred. Отсрочки сохранены из матрицы, включая отсутствующее видео;
+восемь фоновых запросов записи заблокированы allowlist до отправки.
+
+Проверены четыре части контекста бесплатного задания, отправка через MCP и повтор того же ключа.
+Повтор вернул прежнюю квитанцию; в базе одна MCP-сдача. Форма создала вторую сдачу без отчёта агента.
+Ученик видит обе сдачи в «Моих сдачах»; автор видит обе карточки и подробный отчёт MCP.
+Все критерии синтетического отчёта помечены «Не проверено»; учебный проект не оценивался.
+Это проверка production-транспортов с тестовыми токенами, без нативного OAuth-входа Codex или Claude.
+
+Владелец отдельно разрешил `platform:admin` существующему аккаунту публикации.
+Штатная команда добавила право без создания аккаунта; тестовые identities не менялись.
+Живой telemetry summary доступен администратору, обычному аккаунту и учебному MCP отказано.
+Private `/internal/web-telemetry` снаружи отвечает 404. Retention завершился во время deploy;
+свежесть результата подтверждена после выпуска.
+watchdog timer активен, установленный скрипт содержит проверки telemetry.
+
+## Восстановление после отказа
+
+Platform применил миграции `0086`, `0087`, `0088`: 86 migrations стали 89.
+В state записан `v33` с `compatible=false`. Откат приложения на `v33` не разрешён,
+даже пока указанное в state время rollback ещё не истекло.
 До maintenance отказ preflight/pull сохраняет текущие маршруты.
-После maintenance сначала прочитать `operation.json`, затем повторить exact version или выпустить следующий ordinal
-с исправлением (`repair forward`), как требует [production delivery](../../runbooks/production-delivery.md#deployment-order-and-state).
-Миграции вниз не выполняются. Старое окно rollback `v33 → v32` истекло 10 октября.
+После maintenance сначала прочитать `operation.json`, затем повторить exact version или выпустить
+следующий ordinal с исправлением (`repair forward`) по [production delivery](../../runbooks/production-delivery.md#deployment-order-and-state).
+Down migrations не выполняются. Production-откат ради этой проверки не запускался.
 
 При аварии данных восстановить выбранную актуальную точку backup/WAL в новый recovery volume по
 [foundation runbook](../../runbooks/production-foundation.md#восстановление-базы).
-Сверить данные до переключения. Старый volume сохранить; изолированная проверка этого пакета не переключает production.
-У Telegram текущая и кандидатная миграционная идентичность совпадают:
+Сверить данные до переключения. Старый volume сохранить; выполненная изолированная проверка production не переключала.
+Telegram сохраняет migration identity
 `sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d`, 31 migration.
-Откат Telegram следует его [production runbook](../../../apps/telegram/docs/operations/production.md).
+Его gateway допускает только записанный предыдущий `v15` с тем же manifest и migration identity,
+по [Telegram runbook](../../../apps/telegram/docs/operations/production.md#4-откат).
 
-## Политика v4 и материалы
-
-Вариант А одобрен в [#991](https://github.com/sachkov-inside/platform/issues/991#issuecomment-6093765700).
-Содержание принятого текста сохраняется; дата кандидата — 12 октября 2026 года.
-`effectiveFrom=2026-10-12`, digest:
-`efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2`.
-До публикации сверить фактическую дату и при необходимости обновить текст, `effectiveFrom` и digest вместе.
-После publication проверить `/legal/privacy`, `/legal/privacy/v4`, прежний адрес v3 и записать результат также в #991.
-Политика ещё не опубликована; приём сдач не включён.
-
-Кандидат материалов в [#1355](https://github.com/sachkov-inside/platform/issues/1355#issuecomment-6123391813):
-Content SHA `b94c9f9afaf920b0b2d67b8fbc78eb68d55d2f0d`, manifest SHA256
-`d32b37c2ab8c972dab50bff78b0d779d06101271bc74863b6ae387a3e0e05131`.
-Он ожидает принятия уроков. Этот SHA обозначает кандидата и не разрешает его публикацию.
-Принятые описание и программа сохраняются; незавершённые главы 3–5 обозначаются «Планируется».
-Публикация материалов, merge кода, deploy приложений и открытие продажи учитываются раздельно.
+Закрытые raw logs, инвентари и журналы операций сохранены вне Git:
+`/Users/dev/Work/Artifacts/platform-1356-release-2026-10-12/release-bdae/`.
+Постоянный журнал публикации — `/Users/dev/.inside-authoring/production/`.

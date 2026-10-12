@@ -1,0 +1,260 @@
+{
+  "schemaVersion": "inside.platform.production-release-evidence.v1",
+  "issue": 1356,
+  "releaseDate": "2026-10-12",
+  "applicationSourceSha": "bdae0c8284fe284569453183a40d567c2b099ec4",
+  "applications": {
+    "platform": {
+      "version": "v34",
+      "publicationRunId": 38270696337,
+      "publicationAttempt": 2,
+      "deployRunId": 38274209283,
+      "deployedAt": "2026-10-12T16:02:30Z",
+      "backendImage": "ghcr.io/sachkov-inside/platform-backend@sha256:3d2541edfba00e96219d836e0933cc7232b2a7f76af852986b8ab618e1326d84",
+      "webImage": "ghcr.io/sachkov-inside/platform-web@sha256:3858ddd856b38f34c6c71eee3d2b70188a2c5a0855e05764ae7080c74ce01a8b",
+      "manifestSha256": "sha256:59e2f26512ae09a204fc39044e9e48078102405a6fac697f0e6435da2cd2ce59",
+      "runtimeBundleSha256": "sha256:774f753650814f0fd2ec28b0a3d5d42fe2477a8537ce9f750a213bcb4f954bf4",
+      "schemaIdentity": "sha256:fea4ddbf88782787d271a3339960b31468d5ec777b2fd1c2bd4cff4d82f8c49d",
+      "maintenanceSeconds": 55,
+      "verifyAfterSubmissionsEnabled": {
+        "checkedAt": "2026-10-12T17:24:03.976856+00:00",
+        "passed": 61,
+        "failed": 0,
+        "notChecked": 0
+      },
+      "previousVersion": "v33",
+      "previousCompatible": false,
+      "recoveryMode": "repair-forward"
+    },
+    "telegram": {
+      "version": "v16",
+      "publicationRunId": 38270703787,
+      "deployRunId": 38274715173,
+      "deployedAt": "2026-10-12T16:04:08Z",
+      "image": "ghcr.io/sachkov-inside/inside-telegram@sha256:82a47d044d098e8100348c342798a51f00f2ddbd12877de31c0df17941089158",
+      "manifestSha256": "sha256:90806d2ce8f31b8ccebe06d1dd3a30bd06c7c32216feb757873fe150c5b57407",
+      "migrationsIdentity": "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d",
+      "migrationsCount": 31,
+      "deploymentOperationSeconds": 26,
+      "downtimeSeparatelyMeasured": false,
+      "verify": {
+        "passed": 39,
+        "failed": 0,
+        "notChecked": 2,
+        "notCheckedReasons": [
+          "optional cohort is not configured",
+          "separate Logto test application was not selected"
+        ]
+      },
+      "previousVersion": "v15",
+      "previousMigrationIdentityMatches": true,
+      "rollbackTimeGate": false
+    }
+  },
+  "preDeploymentChecks": {
+    "sourceSha": "bdae0c8284fe284569453183a40d567c2b099ec4",
+    "checkFullExitCode": 0,
+    "composeSmokeExitCode": 0,
+    "composeShutdownExitCode": 0,
+    "standardsFindings": 0,
+    "specFindings": 0,
+    "mergeQueueCiRunId": 38263369294,
+    "nightlyRunId": 38266534513,
+    "nightlyPassed": 172,
+    "nightlySkipped": 4
+  },
+  "backupRestore": {
+    "receipt": "backup-restore.json",
+    "backupLabel": "20261011-010316F_20261012-121835I",
+    "backupFinishedAt": "2026-10-12T12:18:39Z",
+    "restoreFinishedAt": "2026-10-12T12:22:09Z",
+    "databases": [
+      "inside",
+      "logto",
+      "inside_telegram"
+    ],
+    "tablesCompared": 260,
+    "differences": 0,
+    "networkMode": "none",
+    "publishedPorts": 0,
+    "temporaryResourcesRemoved": true,
+    "objectStorageRestored": false
+  },
+  "content": {
+    "sourceCommit": "2f04e11848b9cc281d67a7b34e51dd83b7370418",
+    "packageManifestSha256": "4fe936c220af33ca7d818b9ce7db38944bf83228aab26437694eab15fb4b7ac1",
+    "completedAt": "2026-10-12T17:17:13.000645+00:00",
+    "publicationCommandExitCode": 0,
+    "materials": 28,
+    "freeMaterials": 10,
+    "closedMaterials": 18,
+    "tasks": 8,
+    "freeTasks": 2,
+    "closedTasks": 6,
+    "publishedTasks": 8,
+    "chapters": 5,
+    "plannedEmptyChapters": [
+      3,
+      4,
+      5
+    ],
+    "uniqueSourcePngAssets": 133,
+    "materialImageUploads": 136,
+    "taskPageImageUploads": 8,
+    "readyImageAssetRecords": 144,
+    "productIdPreserved": true,
+    "publicProgrammeVerified": true,
+    "salesEnabled": false
+  },
+  "preservation": {
+    "checkedAt": "2026-10-12T17:30:33.530035+00:00",
+    "passed": true,
+    "checks": {
+      "grants": true,
+      "progress": true,
+      "purchases": true,
+      "offers": true,
+      "accountIds": true,
+      "legacyMaterialIdsPreserved": true,
+      "legacyMaterialsOutsideAcceptedUpdateUnchanged": true,
+      "acceptedLegacyUpdateOtherFieldsPreserved": true,
+      "materialCount": true,
+      "imageAssetsReady": true,
+      "materialMetadata": true,
+      "materialBodiesMatchAppliedCommands": true,
+      "acceptedLegacyUpdateMatchesPackage": true,
+      "productIdentity": true,
+      "productDescription": true,
+      "chapters": true,
+      "materialOrder": true,
+      "chapterMaterialOrder": true,
+      "taskCount": true,
+      "taskDefinitions": true,
+      "taskProvenance": true,
+      "taskPlacement": true,
+      "taskPageBodiesMatchAppliedCommands": true,
+      "taskAccessAndPublication": true
+    },
+    "counts": {
+      "legacyMaterialsPreserved": 22,
+      "grantsPreserved": 2,
+      "progressPreserved": 1,
+      "accountIdsPreserved": 10,
+      "materials": 28,
+      "imageAssetRecords": 144,
+      "tasks": 8,
+      "chapters": 5,
+      "freeMaterials": 10,
+      "freeTasks": 2
+    },
+    "unchangedLegacyMaterialRows": 21,
+    "acceptedUpdatedLegacySourceId": "inside-content:aie-product-brief",
+    "courseMembershipReplacementExplicitlyAccepted": true,
+    "administratorPermissionGrantSeparatelyAccepted": true
+  },
+  "privacy": {
+    "version": 4,
+    "effectiveFrom": "2026-10-12",
+    "digest": "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+    "publishedBeforeSubmissionsEnabled": true,
+    "publicFullTextChecks": [
+      {
+        "path": "/legal/privacy",
+        "httpStatus": 200,
+        "version": 4,
+        "digest": "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+        "effectiveFrom": "2026-10-12",
+        "fullVisibleTextMatches": true
+      },
+      {
+        "path": "/legal/privacy/v4",
+        "httpStatus": 200,
+        "version": 4,
+        "digest": "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+        "effectiveFrom": "2026-10-12",
+        "fullVisibleTextMatches": true
+      },
+      {
+        "path": "/legal/privacy/v3",
+        "httpStatus": 200,
+        "version": 3,
+        "digest": "7775e092160b2f3c54a5cdc4a9238f25ed79fa731c45651c07a162ef7663d401",
+        "effectiveFrom": "2026-09-24",
+        "fullVisibleTextMatches": true
+      }
+    ]
+  },
+  "submissions": {
+    "enabled": true,
+    "configOperation": {
+      "status": "succeeded",
+      "startedAt": "2026-10-12T17:18:27.471757+00:00",
+      "sourceSha": "bdae0c8284fe284569453183a40d567c2b099ec4",
+      "version": "v34",
+      "services": [
+        "api",
+        "mcp"
+      ],
+      "exitCode": 0,
+      "finishedAt": "2026-10-12T17:18:37.937086+00:00"
+    },
+    "liveChecks": {
+      "contextParts": 4,
+      "mcpSubmitted": true,
+      "sameKeyReplayReturnedSameReceipt": true,
+      "formSubmitted": true,
+      "ownMcpAndFormVisible": true,
+      "authorDetailsVerified": 2,
+      "storedSyntheticSubmissions": 2,
+      "studentProjectGraded": false,
+      "nativeClientOAuthTested": false
+    }
+  },
+  "productionAccess": {
+    "checkerSourceSha": "62811a289e621c5b897fdc84ac927c26a45f0bcc",
+    "deployedSha": "bdae0c8284fe284569453183a40d567c2b099ec4",
+    "deployedShaRequired": true,
+    "verdict": "green",
+    "passed": 30,
+    "deferred": 17,
+    "blockedBackgroundWriteRequests": 8,
+    "submissionWriteToolAllowed": false
+  },
+  "monitoring": {
+    "telemetryHealth": [
+      {
+        "name": "web_telemetry_growth",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_digest",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_size",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_dropped",
+        "value": 0
+      }
+    ],
+    "retentionCompleted": "2026-10-12T16:02:20.83586+00:00",
+    "retentionRecent": true,
+    "checkedAt": "2026-10-12T17:22:53.538628+00:00",
+    "memoryAvailableBytes": 1537028096,
+    "memoryAtLeast1GiB": true,
+    "diskAvailableBytes": 12824506368,
+    "watchdogTimerActive": true,
+    "watchdogTelemetryChecksInstalled": true,
+    "telegramMarketingEnabled": "false",
+    "apiSubmissionsEnabled": "true",
+    "mcpSubmissionsEnabled": "true"
+  },
+  "scope": {
+    "realPaymentsPerformed": false,
+    "controlMessagesSent": false,
+    "marketingEnabled": false,
+    "productionRollbackExecuted": false
+  }
+}
