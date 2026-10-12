@@ -688,11 +688,14 @@ export const DesktopActionPanels: Story = {
         within(panel).getByRole("link", { name: "Следующий урок" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
     }
-    await expect(getComputedStyle(panels[0]!).backgroundColor).toBe(
-      getComputedStyle(panels[1]!).backgroundColor,
+    const [top, bottom] = panels;
+    if (top === undefined || bottom === undefined)
+      throw new Error("Reader panels are missing");
+    await expect(getComputedStyle(top).backgroundColor).toBe(
+      getComputedStyle(bottom).backgroundColor,
     );
-    await expect(panels[0]!.getBoundingClientRect().height).toBe(
-      panels[1]!.getBoundingClientRect().height,
+    await expect(top.getBoundingClientRect().height).toBe(
+      bottom.getBoundingClientRect().height,
     );
   },
 };

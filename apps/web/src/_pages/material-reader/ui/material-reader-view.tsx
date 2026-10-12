@@ -1,10 +1,4 @@
-import {
-  ArrowLeft,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  List,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, List } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type {
@@ -21,7 +15,6 @@ import {
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { Button } from "@/shared/ui/button";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import {
   MaterialAssetFile,
@@ -164,59 +157,6 @@ export function MaterialReaderView({
   );
 }
 
-export function SeriesReaderNavigation({
-  context,
-}: {
-  readonly context: SeriesReaderContext | null;
-}) {
-  if (context === null) return null;
-
-  return (
-    <nav
-      aria-label={`Навигация по продукту «${context.series.name}»`}
-      className="max-w-[43rem]"
-      data-series-reader-navigation
-    >
-      <p className="font-semibold">
-        Материал {context.currentPosition} из {context.totalMaterials}
-      </p>
-      <p className="mt-1 break-words text-sm text-muted-foreground">
-        {context.series.name}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          asChild
-          className="h-auto min-h-11 whitespace-normal rounded-lg px-3 py-2 text-center"
-          variant="secondary"
-        >
-          <IntentPrefetchLink href={context.series.href}>
-            Открыть программу
-          </IntentPrefetchLink>
-        </Button>
-        {context.next === null ? null : (
-          <Button
-            asChild
-            className="h-auto min-h-11 whitespace-normal rounded-lg px-3 py-2 text-center"
-          >
-            <IntentPrefetchLink href={context.next.href}>
-              Дальше <ArrowRight aria-hidden="true" />
-            </IntentPrefetchLink>
-          </Button>
-        )}
-      </div>
-      {context.previous === null ? null : (
-        <IntentPrefetchLink
-          className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
-          href={context.previous.href}
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" /> Предыдущий
-          материал
-        </IntentPrefetchLink>
-      )}
-    </nav>
-  );
-}
-
 /**
  * Нижняя панель урока внутри продукта на телефоне и планшете (решение владельца 09.10.2026):
  * предыдущий урок, программа с номером урока, следующий урок. Внутри курса она заменяет общую
@@ -355,17 +295,20 @@ export function MaterialReaderHeader({
 
 export function MaterialReaderFooter({
   seriesContext,
+  format = "guide",
 }: {
   readonly seriesContext: SeriesReaderContext | null;
+  readonly format?: string;
 }) {
   if (seriesContext === null) return null;
 
   return (
-    <footer
-      className="mt-6 hidden border-t border-border pt-4 sm:block"
-      data-reader-footer
-    >
-      <SeriesReaderNavigation context={seriesContext} />
+    <footer className="mt-5" data-reader-footer>
+      <ReaderTopActions
+        position="bottom"
+        context={seriesContext}
+        format={format}
+      />
     </footer>
   );
 }
