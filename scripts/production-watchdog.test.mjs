@@ -275,6 +275,42 @@ describe("production watchdog", () => {
     }
   });
 
+  it("delivers failure and recovery through email when Telegram is unavailable", () => {
+    const fixture = createFixture();
+    try {
+      fixture.config(
+        "WATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\n" +
+          "WATCHDOG_TELEGRAM_CHAT_ID=42\n" +
+          "WATCHDOG_SMTP_URL=smtps://smtp.example.test:465\n" +
+          "WATCHDOG_SMTP_USER=signals\nWATCHDOG_SMTP_PASSWORD=mail-test-secret\n" +
+          "WATCHDOG_EMAIL_FROM=signals@example.test\nWATCHDOG_EMAIL_TO=owner@example.test\n",
+      );
+      fixture.fake("send-fail", "");
+      fixture.fake(
+        "df",
+        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda1 100 90 10 90% /\n",
+      );
+      assertRun(fixture);
+      fixture.fake(
+        "df",
+        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda1 100 48 52 48% /\n",
+      );
+      assertRun(fixture, now + 60);
+      const mail = readOptional(resolve(fixture.root, "mail.log"));
+      assert.match(mail, /To: owner@example\.test/u);
+      assert.match(mail, /Отказ: Диск занят на 90%/u);
+      assert.match(mail, /Восстановлено: Диск занят на 90%/u);
+      assert.match(mail, /Inside production · v18/u);
+      assert.doesNotMatch(mail, /mail-test-secret|signals-test-token/u);
+      assert.equal(fixture.sent(), "");
+      assert.ok(
+        !existsSync(resolve(fixture.root, "var/lib/inside/watchdog/outbox")),
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("signals again when the same failure grows and tolerates an empty state file", () => {
     const fixture = createFixture();
     try {
@@ -573,6 +609,15 @@ case "$args $config" in
   *sendMessage*)
     [[ -f "$fakes/send-fail" ]] && exit 7
     printf '%s\\n' "$args" >>"$INSIDE_WATCHDOG_TEST_ROOT/sent.log"
+    ;;
+  *--upload-file*)
+    while [[ "$#" -gt 0 ]]; do
+      if [[ "$1" == --upload-file ]]; then
+        cat "$2" >>"$INSIDE_WATCHDOG_TEST_ROOT/mail.log"
+        break
+      fi
+      shift
+    done
     ;;
 esac
 `,

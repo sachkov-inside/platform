@@ -1,0 +1,66 @@
+{
+  "applicationSourceSha": "bdae0c8284fe284569453183a40d567c2b099ec4",
+  "platformVersion": "v34",
+  "telegramVersion": "v16",
+  "checkedSourceBase": "34ac1369b063011f81945ec15909110dda185a28",
+  "externalReadOnly": {
+    "checkedAt": "2026-10-12T18:42:01.179Z",
+    "failures": []
+  },
+  "operationalBaseline": {
+    "checkedAt": "2026-10-12T18:42:41.703947+00:00",
+    "watchdogConfigExists": false,
+    "telegramChannelConfigured": false,
+    "emailChannelConfigured": false,
+    "activeSignalKeys": [],
+    "outboxLines": 0,
+    "api": {
+      "tbankConfigured": false
+    },
+    "mcp": {
+      "tbankConfigured": false
+    },
+    "billing-worker": {
+      "tbankConfigured": false
+    },
+    "service": "Result=success\nExecMainStartTimestamp=Mon 2026-10-12 18:42:36 UTC\nExecMainExitTimestamp=Mon 2026-10-12 18:42:38 UTC\nExecMainStatus=0\nCPUUsageNSec=863135000\n",
+    "timerActive": true
+  },
+  "postReleaseFacts": {
+    "telemetryHealth": [
+      {
+        "name": "web_telemetry_growth",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_digest",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_size",
+        "value": 0
+      },
+      {
+        "name": "web_telemetry_dropped",
+        "value": 0
+      }
+    ],
+    "retentionCompleted": "2026-10-12T16:02:20.83586+00:00",
+    "retentionRecent": true,
+    "checkedAt": "2026-10-12T18:42:00.602861+00:00",
+    "memoryAvailableBytes": 1443614720,
+    "memoryAtLeast1GiB": true,
+    "diskAvailableBytes": 12819501056,
+    "watchdogTimerActive": true,
+    "watchdogTelemetryChecksInstalled": true,
+    "telegramMarketingEnabled": "false",
+    "apiSubmissionsEnabled": "true",
+    "mcpSubmissionsEnabled": "true"
+  },
+  "localSignalTests": {
+    "passed": 25,
+    "failed": 0,
+    "transport": "supplied network/process doubles; no live messages"
+  },
+  "scriptSha256": "3b758c119a398a1e369510a1c4ad44f7a5cb57726035286de24f06a1f8e2cb24"
+}
