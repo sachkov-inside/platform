@@ -12,7 +12,8 @@
 | Platform | `v33` | `bc94bf2063efb8061e6f3f792e982bf33f27857b` |
 | Telegram | `v15` | `02ea5bcba24ad1d8fde8f7acd797369236f008db` |
 
-Read-only `production-verify` текущего Platform прошёл 61 проверку, exit 0.
+Read-only `production-verify` текущего Platform завершился exit 0: 60 проверок прошли,
+одна не выполнялась. Тестовое Logto application не выбрано; его credentials не проверялись.
 У Telegram прошли 34 из 35 проверок: история журналов содержит один `telegram.membership` error
 и один timeout `platform.evidence-delivery`. Readiness, образ и manifest совпали с `v15`.
 После следующей выкладки нужен свежий `production-verify`; старые журналы не заменяют её результат.
