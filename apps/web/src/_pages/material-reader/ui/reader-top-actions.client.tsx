@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
 import type { SeriesReaderContext } from "../model/series-reader-context";
 import styles from "./reader-top-actions.module.css";
 
@@ -48,7 +49,10 @@ export function ReaderTopActions({
             ? "Действия материала"
             : "Действия в конце материала"
         }
-        className={`${styles.panel} flex flex-wrap items-center gap-x-0.5 rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm`}
+        className={cn(
+          styles.panel,
+          "flex flex-wrap items-center gap-x-0.5 rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm",
+        )}
         data-reader-top-actions
       >
         {context === null ? (

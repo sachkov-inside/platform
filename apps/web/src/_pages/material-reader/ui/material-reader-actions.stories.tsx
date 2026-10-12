@@ -276,12 +276,12 @@ export const MobileActionPanels: Story = {
         const hitArea = getComputedStyle(action, "::after");
         await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);
         if (!action.matches(":disabled, [aria-disabled='true']")) {
-          await waitFor(() => {
+          await waitFor(async () => {
             const hit = action.ownerDocument.elementFromPoint(
               bounds.x + bounds.width / 2,
               bounds.y - 2,
             );
-            expect(hit !== null && action.contains(hit)).toBe(true);
+            await expect(hit !== null && action.contains(hit)).toBe(true);
           });
         }
       }

@@ -641,13 +641,14 @@ export const Mobile: Story = {
       const panel = canvas.getByRole("navigation", { name });
       const mark = within(panel).getByRole("link", { name: "Изучено" });
       await expect(getComputedStyle(mark).fontSize).toBe("12px");
-      await expect(mark.getBoundingClientRect().height).toBeGreaterThanOrEqual(
-        44,
-      );
+      await expect(mark.getBoundingClientRect().height).toBe(36);
+      await expect(
+        parseFloat(getComputedStyle(mark, "::after").height),
+      ).toBeGreaterThanOrEqual(44);
       const bookmark = within(panel).getByRole("link", { name: "В закладки" });
       await expect(bookmark.getBoundingClientRect().width).toBe(44);
       await expect(
-        bookmark.getBoundingClientRect().height,
+        parseFloat(getComputedStyle(bookmark, "::after").height),
       ).toBeGreaterThanOrEqual(44);
     }
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
