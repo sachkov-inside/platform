@@ -212,7 +212,9 @@ Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distin
 - The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
   panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
   text size. Allow reflow when text is enlarged. Both panels include previous and next lesson arrows, with the same surface and controls
-  on desktop and phones (#1362). Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
+  on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
+  its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
+  Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
 - On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
   prose; outcomes use 14 px. Keep the established desktop sizes from their breakpoints.

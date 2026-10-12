@@ -13,6 +13,7 @@ import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import type { SeriesReaderContext } from "../model/series-reader-context";
+import styles from "./reader-top-actions.module.css";
 
 /** Одна панель для начала и конца материала; её состав не зависит от измерения после гидратации. */
 export function ReaderTopActions({
@@ -31,7 +32,7 @@ export function ReaderTopActions({
   readonly position?: "top" | "bottom";
 }) {
   const link =
-    "inline-flex min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:px-2 sm:text-sm";
+    "inline-flex h-9 min-h-9 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:h-11 sm:min-h-11 sm:px-2 sm:text-sm";
   if (
     context === null &&
     readingAction === undefined &&
@@ -47,12 +48,12 @@ export function ReaderTopActions({
             ? "Действия материала"
             : "Действия в конце материала"
         }
-        className="flex flex-wrap items-center gap-x-0.5 rounded-xl border border-border bg-muted/40 p-0.5 [&_a]:text-xs [&_button]:text-xs sm:[&_a]:text-sm sm:[&_button]:text-sm"
+        className={`${styles.panel} flex flex-wrap items-center gap-x-0.5 rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm`}
         data-reader-top-actions
       >
         {context === null ? (
           returnAction === undefined ? null : (
-            <div className="flex min-h-11 w-full min-w-0 items-center px-1 @min-[16rem]/reader-actions:w-auto @min-[16rem]/reader-actions:flex-1 [&_a]:text-xs sm:[&_a]:text-sm">
+            <div className="flex min-h-9 w-full sm:min-h-11 min-w-0 items-center px-1 @min-[16rem]/reader-actions:w-auto @min-[16rem]/reader-actions:flex-1 [&_a]:text-xs sm:[&_a]:text-sm">
               {returnAction}
             </div>
           )
@@ -61,14 +62,14 @@ export function ReaderTopActions({
             {context.previous === null ? (
               <span
                 aria-hidden="true"
-                className="grid size-11 shrink-0 place-items-center text-muted-foreground/40"
+                className="grid h-9 w-11 shrink-0 sm:h-11 place-items-center text-muted-foreground/40"
               >
                 <ChevronLeft className="size-4" />
               </span>
             ) : (
               <IntentPrefetchLink
                 aria-label="Предыдущий урок"
-                className={`${link} size-11 shrink-0 justify-center rounded-lg hover:bg-muted`}
+                className={`${link} w-11 shrink-0 justify-center rounded-lg hover:bg-muted`}
                 href={context.previous.href}
                 title={context.previous.title}
               >
@@ -89,14 +90,14 @@ export function ReaderTopActions({
             {context.next === null ? (
               <span
                 aria-hidden="true"
-                className="grid size-11 shrink-0 place-items-center text-muted-foreground/40"
+                className="grid h-9 w-11 shrink-0 sm:h-11 place-items-center text-muted-foreground/40"
               >
                 <ChevronRight className="size-4" />
               </span>
             ) : (
               <IntentPrefetchLink
                 aria-label="Следующий урок"
-                className={`${link} size-11 shrink-0 justify-center rounded-lg hover:bg-muted`}
+                className={`${link} w-11 shrink-0 justify-center rounded-lg hover:bg-muted`}
                 href={context.next.href}
                 title={context.next.title}
               >

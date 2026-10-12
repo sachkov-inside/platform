@@ -247,6 +247,7 @@ export const MobileActionPanels: Story = {
     const canvas = within(canvasElement);
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
+      panel.scrollIntoView({ block: "center" });
       const actions = within(panel);
       await expect(
         actions.getByRole("link", { name: /^Открыть программу$/u }),
@@ -265,12 +266,25 @@ export const MobileActionPanels: Story = {
         actions.getByRole("link", { name: "Следующий урок" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
       await expect(panel.getBoundingClientRect().height).toBeLessThanOrEqual(
-        54,
+        38,
       );
-      for (const action of actions.getAllByRole("button"))
-        await expect(
-          action.getBoundingClientRect().height,
-        ).toBeGreaterThanOrEqual(44);
+      for (const action of [
+        ...actions.getAllByRole("button"),
+        ...actions.getAllByRole("link"),
+      ]) {
+        const bounds = action.getBoundingClientRect();
+        const hitArea = getComputedStyle(action, "::after");
+        await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);
+        if (!action.matches(":disabled, [aria-disabled='true']")) {
+          await waitFor(() => {
+            const hit = action.ownerDocument.elementFromPoint(
+              bounds.x + bounds.width / 2,
+              bounds.y - 2,
+            );
+            expect(hit !== null && action.contains(hit)).toBe(true);
+          });
+        }
+      }
     }
     const topPanel = canvas.getByRole("navigation", {
       name: "Действия материала",
