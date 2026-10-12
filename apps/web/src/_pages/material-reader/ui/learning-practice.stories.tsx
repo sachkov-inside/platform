@@ -174,10 +174,14 @@ export const Mobile: Story = {
     const buttons = within(canvasElement).getAllByRole("button", {
       name: "Копировать",
     });
-    for (const button of buttons)
+    for (const button of buttons) {
       await expect(
         button.getBoundingClientRect().height,
+      ).toBeGreaterThanOrEqual(36);
+      await expect(
+        parseFloat(getComputedStyle(button, "::after").height),
       ).toBeGreaterThanOrEqual(44);
+    }
   },
 };
 export const Unavailable: Story = {

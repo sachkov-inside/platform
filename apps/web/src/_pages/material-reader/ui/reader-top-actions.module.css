@@ -53,6 +53,12 @@
 }
 /* Enlarged text reflows instead of clipping the reading action. */
 @container reader-actions (width < 17rem) {
+  .panel:not(.lessonPanel) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(2.25rem, auto) minmax(2.25rem, auto);
+    row-gap: 0.5rem;
+  }
   .lessonPanel {
     grid-template-columns: auto minmax(0, 1fr) auto;
     row-gap: 0.5rem;
