@@ -48,6 +48,7 @@ The final integrated result receives independent review and mandatory project ch
 accepted delivery. An agent completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
+
 - A defect outside the task that blocks it is a blocker. Take its open issue labelled
   `needs-triage` or `ready-for-agent`, or open one; label it `ready-for-agent`, link it to the task
   and fix it first. When the task body gives the agent the right to merge, one revert undoes the
@@ -87,13 +88,13 @@ assignee instead (`docs/agents/issue-tracker.md`).
   paths; only `session-cleanup` fast-forwards it after the merge.
 - An independent task has one branch, one writing worktree and one open pull request. A coordinated
   specification keeps worker branches/worktrees and one final integration PR; that PR closes the
-  specification and its delivered tickets. Another session's
-  worktree, branch, containers, volumes and stash entries are live state: leave them alone.
+  specification and its delivered tickets. Leave other sessions' worktrees, branches, containers,
+  volumes and stash entries alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its
   task. Another worktree needs a new session; a subagent started in its own worktree is one.
 - After the first commit (first accepted integration for a specification), push and open a draft
-  pull request with `Closes #<issue>`. When one task
-  needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
+  pull request with `Closes #<issue>`. If one task needs several PRs, only the last closes it;
+  the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge, without rebase or force-push.
 - The pull request body is a result card in the owner's language with the sections `Что сделано`,
   `Что нужно от владельца`, `Проверка` (checked automatically, for the owner to check by hand, not
@@ -130,11 +131,10 @@ code. The agent then:
 Steps 4 and 5 apply to every handoff of a result to the owner, including a ready pull request, a
 stopped task or a result that waits for acceptance. The delivery format follows the owner's request
 and the invoked skill: a concise chat message is enough when neither calls for an artifact, and a
-requested architecture review or research document keeps its own structure and design. The shared
-`report` skill, its HTML template and `report.py finish` are not completion requirements in this
-project.
+requested architecture review or research document keeps its own structure and design. The shared `report` skill, its HTML template and `report.py finish` are not completion requirements here.
 
 ## Owner corrections
+
 The owner turns a correction into an automatic check or a `CODING_STANDARDS.md` rule with `retro`.
 
 ## Owner gates
