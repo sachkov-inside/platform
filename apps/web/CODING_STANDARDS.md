@@ -210,13 +210,14 @@ Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distin
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
 - The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
-  panels show programme, bookmark and the written reading-state action in one row at normal
-  text size. Allow reflow when text is enlarged. The upper panel has no next button. Keep previous and next
-  arrows only in the floating mobile panel, with the lesson number on one line. Do not repeat
+  panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
+  text size. Allow reflow when text is enlarged. Both panels include previous and next lesson arrows, with the same surface and controls
+  on desktop and phones (#1362). Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
 - On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
   prose; outcomes use 14 px. Keep the established desktop sizes from their breakpoints.
 - A collapsed callout is one 44 px summary row; put body padding only inside its open content.
+- On phones, quiz titles, questions and choices use 14 px with compact padding; from `sm` they use 16 px.
 - A quiz uses the shared semantic result colors, a result icon and a written result. A person
   can change the answer directly; do not repeat the selected text or add a separate retry button.
 

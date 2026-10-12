@@ -229,3 +229,60 @@ export const RichOptionContent: Story = {
     ).toBeVisible();
   },
 };
+
+/** Long choices wrap at phone width without inheriting the larger lesson heading. */
+export const CompactLongChoicesMobile: Story = {
+  ...SwitchAnswersMobile,
+  args: {
+    ...RichOptionContent.args,
+    body: body.map((block) =>
+      block.kind !== "quiz"
+        ? block
+        : {
+            ...block,
+            options: block.options.map((option, index) =>
+              index !== 0
+                ? option
+                : {
+                    ...option,
+                    content: prose(
+                      "Форма написана, но результат ещё не проверен: агент должен подтвердить поведение приложения и назвать доказательства для каждого критерия задания.",
+                    ),
+                  },
+            ),
+          },
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const quiz = canvasElement.querySelector<HTMLElement>(
+      "[data-material-quiz]",
+    );
+    if (quiz === null) throw new Error("Quiz is missing");
+    const heading = within(quiz).getByRole("heading", {
+      name: "Проверьте понимание",
+    });
+    await expect(Number.parseFloat(getComputedStyle(heading).fontSize)).toBe(
+      14,
+    );
+    for (const option of quiz.querySelectorAll<HTMLElement>(
+      "[data-quiz-option]",
+    )) {
+      await expect(Number.parseFloat(getComputedStyle(option).fontSize)).toBe(
+        14,
+      );
+      await expect(option.scrollWidth).toBeLessThanOrEqual(option.clientWidth);
+      await expect(
+        option.getBoundingClientRect().height,
+      ).toBeGreaterThanOrEqual(44);
+    }
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+    await userEvent.click(
+      within(quiz).getByRole("button", { name: /1\. Форма написана/u }),
+    );
+    await expect(
+      within(quiz).getByText("Пока неверно", { exact: true }),
+    ).toBeVisible();
+  },
+};

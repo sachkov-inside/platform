@@ -258,15 +258,12 @@ export const MobileActionPanels: Story = {
         actions.getByRole("button", { name: "Изучено" }),
       ).toBeVisible();
       await expect(actions.getByText("Изучено", { exact: true })).toBeVisible();
-      await expect(actions.queryByRole("link", { name: "Дальше" })).toBeNull();
-      if (name === "Действия материала")
-        await expect(
-          actions.getByText("Назад", { exact: true }),
-        ).not.toBeVisible();
-      else
-        await expect(
-          actions.queryByRole("link", { name: /^Назад$/u }),
-        ).not.toBeInTheDocument();
+      await expect(
+        actions.getByRole("link", { name: "Предыдущий урок" }),
+      ).toHaveAttribute("href", materialReaderHref("first", programme));
+      await expect(
+        actions.getByRole("link", { name: "Следующий урок" }),
+      ).toHaveAttribute("href", materialReaderHref("next", programme));
       await expect(panel.getBoundingClientRect().height).toBeLessThanOrEqual(
         54,
       );
@@ -275,6 +272,24 @@ export const MobileActionPanels: Story = {
           action.getBoundingClientRect().height,
         ).toBeGreaterThanOrEqual(44);
     }
+    const topPanel = canvas.getByRole("navigation", {
+      name: "Действия материала",
+    });
+    const bottomPanel = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    for (const property of [
+      "backgroundColor",
+      "borderTopWidth",
+      "borderRadius",
+      "padding",
+    ] as const)
+      await expect(getComputedStyle(bottomPanel)[property]).toBe(
+        getComputedStyle(topPanel)[property],
+      );
+    await expect(bottomPanel.getBoundingClientRect().height).toBe(
+      topPanel.getBoundingClientRect().height,
+    );
     const pager = canvas.getByRole("navigation", { name: "Уроки продукта" });
     await expect(
       within(pager).getByRole("link", { name: "Предыдущий урок" }),
@@ -285,8 +300,8 @@ export const MobileActionPanels: Story = {
     await expect(
       within(pager).getByText("2 / 3", { exact: true }),
     ).toBeVisible();
-    await expect(canvas.getByText("Материал 2 из 3")).not.toBeVisible();
-    await expect(canvas.getByText("Дальше", { exact: true })).not.toBeVisible();
+    await expect(canvas.queryByText("Материал 2 из 3")).toBeNull();
+    await expect(canvas.queryByText("Дальше", { exact: true })).toBeNull();
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
     );
@@ -653,6 +668,31 @@ export const StandaloneActionsMobile: Story = {
     );
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
+    );
+  },
+};
+
+export const DesktopActionPanels: Story = {
+  ...MobileActionPanels,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const panels = ["Действия материала", "Действия в конце материала"].map(
+      (name) => canvas.getByRole("navigation", { name }),
+    );
+    for (const panel of panels) {
+      await expect(
+        within(panel).getByRole("link", { name: "Предыдущий урок" }),
+      ).toHaveAttribute("href", materialReaderHref("first", programme));
+      await expect(
+        within(panel).getByRole("link", { name: "Следующий урок" }),
+      ).toHaveAttribute("href", materialReaderHref("next", programme));
+    }
+    await expect(getComputedStyle(panels[0]!).backgroundColor).toBe(
+      getComputedStyle(panels[1]!).backgroundColor,
+    );
+    await expect(panels[0]!.getBoundingClientRect().height).toBe(
+      panels[1]!.getBoundingClientRect().height,
     );
   },
 };

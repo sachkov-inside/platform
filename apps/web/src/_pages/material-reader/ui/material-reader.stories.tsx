@@ -1030,7 +1030,7 @@ export const PlaylistReturn: Story = {
   },
   play: async ({ canvasElement }) => {
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
-      name: "Навигация по продукту «Создание Platform Inside»",
+      name: "Действия в конце материала",
     });
     await expect(
       within(seriesNavigation).getByRole("link", { name: "Открыть программу" }),
@@ -1039,10 +1039,13 @@ export const PlaylistReturn: Story = {
       name: "Действия материала",
     });
     await expect(
-      within(top).queryByRole("link", { name: "Дальше" }),
-    ).toBeNull();
+      within(top).getByRole("link", { name: "Следующий урок" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/review-video?from=%2Fproducts%2Fplatform-inside",
+    );
     await expect(
-      within(top).getByRole("link", { name: "Назад" }),
+      within(top).getByRole("link", { name: "Предыдущий урок" }),
     ).toHaveAttribute(
       "href",
       "/materials/first-product?from=%2Fproducts%2Fplatform-inside",
@@ -1069,7 +1072,7 @@ export const PlaylistReturn: Story = {
     ).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
-        name: "Дальше",
+        name: "Следующий урок",
       }),
     ).toHaveAttribute(
       "href",

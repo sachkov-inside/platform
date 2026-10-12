@@ -129,7 +129,7 @@ export function MaterialReaderView({
           )}
           <ReaderOutline items={outline} />
           <article
-            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2]:text-xl sm:[&_h3]:text-lg sm:[&_h4]:text-base md:[&_h2]:text-2xl md:[&_h3]:text-xl md:[&_h4]:text-lg"
+            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3]:text-xl md:[&_h4]:text-lg"
             data-reader-body
           >
             <ReaderBlocks
@@ -145,8 +145,9 @@ export function MaterialReaderView({
           {practiceActions}
           {bookmarkAction === undefined &&
           readingAction === undefined &&
-          deferredPracticeActions === undefined ? null : (
-            <div className="mt-5" data-material-actions>
+          deferredPracticeActions === undefined &&
+          seriesContext === null ? null : (
+            <div className="mt-5" data-material-actions data-reader-footer>
               <ReaderTopActions
                 position="bottom"
                 context={seriesContext}
@@ -156,7 +157,6 @@ export function MaterialReaderView({
               />
             </div>
           )}
-          <MaterialReaderFooter seriesContext={seriesContext} />
         </div>
       </ReaderReturnNavigation>
       <SeriesReaderBar context={seriesContext} />
@@ -237,7 +237,7 @@ export function SeriesReaderBar({
       <div aria-hidden="true" className="h-16 lg:hidden" />
       <nav
         aria-label="Уроки продукта"
-        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-background/95 p-1 shadow-sm backdrop-blur lg:hidden"
+        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm backdrop-blur lg:hidden"
         data-series-reader-bar
       >
         <HidePublicFooter />
@@ -259,7 +259,7 @@ export function SeriesReaderBar({
         )}
         <IntentPrefetchLink
           aria-label={`Программа, урок ${String(context.currentPosition)} из ${String(context.totalMaterials)}`}
-          className="inline-flex min-h-11 min-w-20 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium tabular-nums text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex min-h-11 min-w-14 items-center justify-center whitespace-nowrap rounded-lg px-2 text-xs font-medium tabular-nums text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           title="Открыть программу"
           href={context.series.href}
         >
@@ -325,7 +325,7 @@ export function MaterialReaderHeader({
       {material.outcomes.length === 0 ? null : (
         <section
           aria-labelledby={outcomesHeadingId}
-          className="mt-4 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:mt-5 sm:px-5 sm:py-4"
+          className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2.5 sm:mt-5 sm:px-5 sm:py-4"
           data-material-outcomes
         >
           <h2
@@ -387,7 +387,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
   ));
 
   return (
-    <div className="mt-8 border-y border-black/8 py-2">
+    <div className="mt-6 border-y border-black/8 py-1 sm:mt-8 sm:py-2">
       <details className="group">
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
