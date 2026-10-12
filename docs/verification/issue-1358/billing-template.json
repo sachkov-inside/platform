@@ -7,11 +7,15 @@
       "value": {
         "id": "df776b65-b15a-53ca-83d9-1e1381b2a286",
         "name": "Тест оплаты и возврата — 100 ₽",
-        "benefits": ["product:PRODUCT_ID"],
+        "benefits": ["product:PRODUCT_ID", "support"],
         "benefitPeriods": [
           {
             "capability": "product:PRODUCT_ID",
             "months": null
+          },
+          {
+            "capability": "support",
+            "months": 6
           }
         ],
         "availableForAssignment": false,

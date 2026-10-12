@@ -14,7 +14,8 @@ Preparation only. Nothing in this directory has been applied to production.
   The template contains no publish, refund, grant or message command.
 - [telegram-read.json](telegram-read.json): redacted live Telegram capability read on 2026-10-12, about 18:33 UTC.
 
-The Offer benefits contain only `product:<test Product UUID>`, with `coverage: null`.
+The Offer benefits contain `product:<test Product UUID>` and `support`, with `coverage: null`.
+Product sales require support with an explicit term. The template uses the six-month term already approved in #854.
 Any Product purchase also opens the common community under the current access model.
 It does not grant `product:625a0cca-c8ff-4a65-9125-17194dd3b769` (AIE).
 An unrelated promotion can still change the final amount: inspect active promotions before opening sale.
@@ -57,7 +58,11 @@ The canonical copy passed `loadPackage`; package id:
 `4017cb78933a4161181a1b6c30b65e812df2064c954fb362c675706d27402b2c`.
 Both billing operations passed `ownerOperationSchema` after substitution with a disposable validation UUID.
 This verifies payload shape, not a production binding or persisted configuration.
-Access composition returned only that Product capability and `community`.
+Access composition returns that Product capability, `support` and `community`.
+The revised template passed `productOfferUnsellable`, `offerGrantsWithheld` and `tierLacksComposition` publication guards.
+An in-memory catalog without promotions returned `not_found` while unpublished.
+After simulated publication, ordinary `selectPrice` returned exactly 10000 kopecks without a promotion.
+These checks use a fixed instant and the real functions; they neither persist data nor contact the bank.
 No application behaviour changed, so no new test seam or TDD cycle was needed.
 
 ## Serialized preparation by #854
