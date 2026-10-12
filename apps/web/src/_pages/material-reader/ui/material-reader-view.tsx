@@ -148,10 +148,13 @@ export function MaterialReaderView({
                 readingAction={topReadingAction ?? readingAction}
               />
               {deferredPracticeActions === undefined ? null : (
-                <div className="mt-2 flex flex-wrap items-start" data-reader-practice-actions>
+                <div
+                  className="mt-2 flex flex-wrap items-start"
+                  data-reader-practice-actions
+                >
                   {deferredPracticeActions}
                 </div>
-              )
+              )}
             </div>
           )}
         </div>
