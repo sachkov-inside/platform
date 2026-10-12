@@ -13,14 +13,17 @@ import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import type { SeriesReaderContext } from "../model/series-reader-context";
+import type {
+  SeriesReaderContext,
+  SeriesReaderContextItem,
+} from "../model/series-reader-context";
 import styles from "./reader-top-actions.module.css";
 
 function LessonArrow({
   lesson,
   direction,
 }: {
-  readonly lesson: { readonly href: string; readonly title: string } | null;
+  readonly lesson: SeriesReaderContextItem | null;
   readonly direction: "previous" | "next";
 }) {
   const label = direction === "previous" ? "Предыдущий урок" : "Следующий урок";
@@ -125,7 +128,7 @@ export function ReaderTopActions({
                 title="Открыть программу"
               >
                 <List aria-hidden="true" className="size-4 shrink-0" />
-                <span className="@max-[19rem]/reader-actions:sr-only">
+                <span className="@max-[28rem]/reader-actions:sr-only">
                   Программа
                 </span>
               </IntentPrefetchLink>

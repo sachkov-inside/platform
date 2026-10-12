@@ -276,6 +276,17 @@ async function expectEdgeNavigation(panel: HTMLElement) {
   await expect(
     Math.abs(reading.left + reading.width / 2 - (frame.left + frame.width / 2)),
   ).toBeLessThanOrEqual(1);
+  const programme = actions.getByRole("link", {
+    name: "Открыть программу",
+  });
+  await expect(programme.getBoundingClientRect().right).toBeLessThanOrEqual(
+    reading.left,
+  );
+  const label = programme.querySelector("span");
+  if (label !== null && getComputedStyle(label).position !== "absolute")
+    await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
+      reading.left,
+    );
 }
 
 /** Owner's phone layout: identical actions at both ends, one pager for adjacent lessons. */
@@ -371,6 +382,20 @@ export const MobileActionPanels: Story = {
 export const MobileActionPanels320: Story = {
   ...MobileActionPanels,
   globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+
+export const IntermediateActionPanelWidth: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const name of ["Действия материала", "Действия в конце материала"]) {
+      const panel = canvas.getByRole("navigation", { name });
+      const slot = panel.parentElement;
+      if (slot === null) throw new Error("Reader action container missing");
+      slot.style.width = "305px";
+      await expectEdgeNavigation(panel);
+    }
+  },
 };
 
 export const InitialReadFailureKeepsHeaderPlace: Story = {
