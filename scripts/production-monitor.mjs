@@ -6,7 +6,8 @@ import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { connect } from "node:tls";
 import { pathToFileURL } from "node:url";
 
-const siteOrigin = "https://inside.sachkov.dev";
+const webOrigin = "https://sachkov.dev";
+const apiOrigin = "https://inside.sachkov.dev";
 const identityOrigin = "https://auth.sachkov.dev";
 const requestTimeoutMilliseconds = 15_000;
 const certificateMinimumDays = 14;
@@ -117,11 +118,14 @@ function checkCertificate(host) {
   });
 }
 
-/** @returns {Promise<string[]>} */
-export async function runChecks() {
+/**
+ * @param {(host: string) => Promise<string | null>} certificateCheck
+ * @returns {Promise<string[]>}
+ */
+export async function runChecks(certificateCheck = checkCertificate) {
   const results = await Promise.all([
-    checkUrl(`${siteOrigin}/`, () => Promise.resolve(null)),
-    checkUrl(`${siteOrigin}/billing/cohorts`, async (response) => {
+    checkUrl(`${webOrigin}/`, () => Promise.resolve(null)),
+    checkUrl(`${apiOrigin}/billing/cohorts`, async (response) => {
       /** @type {unknown} */
       const body = await response.json();
       return typeof body === "object" &&
@@ -144,8 +148,9 @@ export async function runChecks() {
           : "неверный issuer";
       },
     ),
-    checkCertificate(new URL(siteOrigin).host),
-    checkCertificate(new URL(identityOrigin).host),
+    certificateCheck(new URL(webOrigin).host),
+    certificateCheck(new URL(apiOrigin).host),
+    certificateCheck(new URL(identityOrigin).host),
   ]);
   return results.filter((result) => result !== null);
 }
@@ -193,6 +198,34 @@ function runLink() {
 }
 
 /**
+ * @param {string} path
+ * @param {readonly string[]} failures
+ * @param {(text: string) => Promise<boolean>} send
+ * @returns {Promise<number>}
+ */
+export async function recordCheck(path, failures, send = notify) {
+  const previous = readState(path);
+  const decision = decide(previous, failures);
+  // Keep delivery pending until the transport confirms it; a killed run must not mute the signal.
+  writeFileSync(
+    path,
+    `${JSON.stringify({ ...decision.state, alerted: previous.alerted })}\n`,
+  );
+  summarize(
+    failures.length === 0
+      ? "Все внешние проверки прошли."
+      : `Внешние проверки с отказом:\n${failures.map((failure) => `- ${failure}`).join("\n")}`,
+  );
+  if (decision.message === null) return 0;
+  summarize(`Сигнал владельцу: ${decision.message}`);
+  const delivered = await send(
+    `Inside production · внешняя проверка\n${decision.message}${runLink()}`,
+  );
+  if (delivered) writeFileSync(path, `${JSON.stringify(decision.state)}\n`);
+  return delivered ? 0 : 1;
+}
+
+/**
  * Код выхода 1 значит: владельцу нужен сигнал, а бот сигналов его не доставил. Красный запуск
  * тогда сам становится сигналом через уведомления GitHub.
  * @param {readonly string[]} argv
@@ -201,20 +234,7 @@ function runLink() {
 async function main(argv) {
   const [command, argument] = argv;
   if (command === "check" && argument !== undefined) {
-    const failures = await runChecks();
-    const decision = decide(readState(argument), failures);
-    writeFileSync(argument, `${JSON.stringify(decision.state)}\n`);
-    summarize(
-      failures.length === 0
-        ? "Все внешние проверки прошли."
-        : `Внешние проверки с отказом:\n${failures.map((failure) => `- ${failure}`).join("\n")}`,
-    );
-    if (decision.message === null) return 0;
-    summarize(`Сигнал владельцу: ${decision.message}`);
-    const delivered = await notify(
-      `Inside production · внешняя проверка\n${decision.message}${runLink()}`,
-    );
-    return delivered || decision.state.consecutiveFailures === 0 ? 0 : 1;
+    return recordCheck(argument, await runChecks());
   }
   if (command === "notify" && argument !== undefined) {
     const delivered = await notify(

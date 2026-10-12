@@ -5,9 +5,48 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
-import { decide, readState } from "./production-monitor.mjs";
+import {
+  decide,
+  readState,
+  recordCheck,
+  runChecks,
+} from "./production-monitor.mjs";
 
 describe("production external monitor", () => {
+  it("checks the current Web, API and identity origins without following redirects", async (context) => {
+    /** @type {string[]} */
+    const requests = [];
+    /** @type {string[]} */
+    const certificates = [];
+    /** @type {typeof fetch} */
+    const fetchDouble = async (input, options) => {
+      requests.push(String(input));
+      assert.equal(options?.redirect, "manual");
+      return Response.json({
+        items: [],
+        issuer: "https://auth.sachkov.dev/oidc",
+      });
+    };
+    context.mock.method(globalThis, "fetch", fetchDouble);
+    assert.deepEqual(
+      await runChecks(async (host) => {
+        certificates.push(host);
+        return null;
+      }),
+      [],
+    );
+    assert.deepEqual(requests.sort(), [
+      "https://auth.sachkov.dev/oidc/.well-known/openid-configuration",
+      "https://inside.sachkov.dev/billing/cohorts",
+      "https://sachkov.dev/",
+    ]);
+    assert.deepEqual(certificates.sort(), [
+      "auth.sachkov.dev",
+      "inside.sachkov.dev",
+      "sachkov.dev",
+    ]);
+  });
+
   it("signals after two failed runs in a row, then stays quiet until the recovery", () => {
     const failures = ["https://inside.sachkov.dev/: HTTP 502"];
     const first = decide({ consecutiveFailures: 0, alerted: false }, failures);
@@ -38,6 +77,32 @@ describe("production external monitor", () => {
     assert.equal(decide(healthy.state, ["x"]).message, null);
   });
 
+  it("retries an undelivered confirmed failure and keeps the GitHub fallback red", async () => {
+    const directory = mkdtempSync(resolve(tmpdir(), "inside-monitor-"));
+    try {
+      const path = resolve(directory, "state.json");
+      const failures = ["https://sachkov.dev/: HTTP 502"];
+      /** @type {string[]} */
+      const messages = [];
+      /** @param {string} message */
+      const reject = async (message) => {
+        messages.push(message);
+        return false;
+      };
+      assert.equal(await recordCheck(path, failures, reject), 0);
+      assert.equal(await recordCheck(path, failures, reject), 1);
+      assert.equal(await recordCheck(path, failures, reject), 1);
+      assert.equal(messages.length, 2);
+      assert.equal(readState(path).alerted, false);
+      assert.equal(await recordCheck(path, failures, async () => true), 0);
+      assert.equal(readState(path).alerted, true);
+      assert.equal(await recordCheck(path, failures, reject), 0);
+      assert.equal(messages.length, 2);
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
   it("starts from a clean state when the saved one is missing or malformed", () => {
     const directory = mkdtempSync(resolve(tmpdir(), "inside-monitor-"));
     try {
@@ -56,6 +121,32 @@ describe("production external monitor", () => {
         consecutiveFailures: 1,
         alerted: false,
       });
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
+  });
+
+  it("retries failed recovery delivery until confirmation, then stays quiet", async () => {
+    const directory = mkdtempSync(resolve(tmpdir(), "inside-monitor-"));
+    try {
+      const path = resolve(directory, "state.json");
+      writeFileSync(path, '{"consecutiveFailures":2,"alerted":true}');
+      /** @type {string[]} */
+      const messages = [];
+      /** @param {string} message */
+      const reject = async (message) => {
+        messages.push(message);
+        return false;
+      };
+      assert.equal(await recordCheck(path, [], reject), 1);
+      assert.equal(await recordCheck(path, [], reject), 1);
+      assert.equal(messages.length, 2);
+      assert.match(messages[1] ?? "", /Восстановлено/u);
+      assert.equal(readState(path).alerted, true);
+      assert.equal(await recordCheck(path, [], async () => true), 0);
+      assert.equal(readState(path).alerted, false);
+      assert.equal(await recordCheck(path, [], reject), 0);
+      assert.equal(messages.length, 2);
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
@@ -80,5 +171,13 @@ describe("production monitor workflow", () => {
       "MONITOR_TELEGRAM_CHAT_ID",
     ]);
     assert.doesNotMatch(workflow, /environment:/u);
+  });
+
+  it("starts a new cache namespace so legacy unconfirmed alerts cannot suppress delivery", () => {
+    assert.match(workflow, /^ {10}restore-keys: production-monitor-v2-$/mu);
+    assert.equal(
+      [...workflow.matchAll(/^ {10}key: production-monitor-v2-/gmu)].length,
+      2,
+    );
   });
 });
