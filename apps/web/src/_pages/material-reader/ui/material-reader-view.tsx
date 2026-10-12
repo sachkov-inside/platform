@@ -144,8 +144,8 @@ export function MaterialReaderView({
               <ReaderTopActions
                 position="bottom"
                 context={seriesContext}
-                bookmarkAction={bookmarkAction}
-                readingAction={readingAction}
+                bookmarkAction={topBookmarkAction ?? bookmarkAction}
+                readingAction={topReadingAction ?? readingAction}
                 extraAction={deferredPracticeActions}
               />
             </div>

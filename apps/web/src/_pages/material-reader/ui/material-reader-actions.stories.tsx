@@ -174,9 +174,9 @@ const meta = {
       },
     },
     readingAction: (
-      <SavedReadingAction compact format="guide" materialId={materialId} />
+      <SavedReadingAction format="guide" materialId={materialId} />
     ),
-    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    bookmarkAction: <SavedBookmarkAction materialId={materialId} />,
     topReadingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
