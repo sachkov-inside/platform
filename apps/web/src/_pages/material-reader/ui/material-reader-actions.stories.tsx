@@ -201,6 +201,7 @@ export const SyncedActions: Story = {
     await waitFor(async () =>
       expect(topRead).toHaveAttribute("aria-pressed", "false"),
     );
+    await document.fonts.ready;
     topRead.focus();
     const before = topRead.getBoundingClientRect();
     const scrollPositions = [
