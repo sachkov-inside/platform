@@ -66,6 +66,7 @@ export function ArtifactCatalogProof({
   });
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("Все");
+  const [variantsExpanded, setVariantsExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState(artifacts[0]?.id);
   const [opened, setOpened] = useState<ArtifactProofItem | null>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
@@ -123,12 +124,24 @@ export function ArtifactCatalogProof({
 
   return (
     <div className="mx-auto w-full max-w-6xl px-5 pb-32 pt-8 sm:px-10 sm:pt-12">
-      <IntentPrefetchLink
-        href="/library/series/inside-ai-engineering"
-        className="inline-flex min-h-11 items-center gap-2 text-sm underline-offset-4 hover:underline"
-      >
-        <ArrowLeft aria-hidden="true" className="size-4" />К программе курса
-      </IntentPrefetchLink>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <IntentPrefetchLink
+          href="/library/series/inside-ai-engineering"
+          className="inline-flex min-h-11 items-center gap-2 text-sm underline-offset-4 hover:underline"
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" />К программе курса
+        </IntentPrefetchLink>
+        <Button
+          variant="ghost"
+          className="min-h-11"
+          aria-expanded={variantsExpanded}
+          onClick={() => {
+            setVariantsExpanded(true);
+          }}
+        >
+          Варианты прототипа
+        </Button>
+      </div>
       {context === "lesson" ? (
         <article className="mx-auto max-w-3xl py-8">
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -337,36 +350,49 @@ export function ArtifactCatalogProof({
           )}
         </>
       )}
-      <aside
-        aria-label="Варианты прототипа"
-        className="fixed bottom-20 left-1/2 z-40 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-[var(--elevation-floating-nav)] lg:bottom-5"
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="min-h-11 min-w-11 text-primary-foreground hover:bg-sidebar-accent hover:text-primary-foreground"
-          aria-label="Предыдущий вариант"
-          onClick={() => {
-            changeVariant(variant - 1);
-          }}
+      {variantsExpanded ? (
+        <aside
+          aria-label="Варианты прототипа"
+          className="fixed bottom-20 left-1/2 z-40 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-primary p-2 text-primary-foreground shadow-[var(--elevation-floating-nav)] lg:bottom-5"
         >
-          <ArrowLeft aria-hidden="true" />
-        </Button>
-        <span className="text-center text-xs font-medium">
-          Прототип · {variants[variant]}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="min-h-11 min-w-11 text-primary-foreground hover:bg-sidebar-accent hover:text-primary-foreground"
-          aria-label="Следующий вариант"
-          onClick={() => {
-            changeVariant(variant + 1);
-          }}
-        >
-          <ArrowRight aria-hidden="true" />
-        </Button>
-      </aside>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 min-w-11 text-primary-foreground hover:bg-sidebar-accent hover:text-primary-foreground"
+            aria-label="Предыдущий вариант"
+            onClick={() => {
+              changeVariant(variant - 1);
+            }}
+          >
+            <ArrowLeft aria-hidden="true" />
+          </Button>
+          <span className="text-center text-xs font-medium">
+            Прототип · {variants[variant]}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 min-w-11 text-primary-foreground hover:bg-sidebar-accent hover:text-primary-foreground"
+            aria-label="Следующий вариант"
+            onClick={() => {
+              changeVariant(variant + 1);
+            }}
+          >
+            <ArrowRight aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 min-w-11 text-primary-foreground hover:bg-sidebar-accent hover:text-primary-foreground"
+            aria-label="Свернуть варианты"
+            onClick={() => {
+              setVariantsExpanded(false);
+            }}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </aside>
+      ) : null}
       {opened === null ? null : (
         <ArtifactPreview
           key={opened.id}
