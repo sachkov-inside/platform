@@ -10,14 +10,14 @@ import type { LegalEdition } from "../document.js";
 export const privacyV4: LegalEdition = {
   key: "privacy",
   version: 4,
-  effectiveFrom: "2026-10-10",
+  effectiveFrom: "2026-10-12",
   title: "Политика обработки персональных данных Inside",
   summary:
     "Какие данные Inside обрабатывает, включая сдачи заданий, на каком основании, кому передаёт и как их удалить.",
-  digest: "8840b5139e286be766ff9821c49ebabdc4a6ef847258943733a17bfd52677f31",
+  digest: "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
   text: `# Политика обработки персональных данных Inside
 
-Версия 4. Действует с 10 октября 2026 года.
+Версия 4. Действует с 12 октября 2026 года.
 Описывает текущие функции Inside, включая собственный приём оплаты, учебные задания и их сдачу,
 и то, какие согласия и где собирает Inside.
 
