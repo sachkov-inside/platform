@@ -1,10 +1,11 @@
 "use client";
 
 import { useId } from "react";
-import { CheckCircle2, Circle, CircleAlert, LoaderCircle } from "lucide-react";
+import { CheckCircle2, Circle, CircleAlert } from "lucide-react";
 import { materialReadingLabels } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import type { ReadingActionProps } from "../model/reading-progress-view";
+import styles from "./reading-action.module.css";
 
 /** Presentation only. The production adapter owns access, commands and saved state. */
 export function ReadingAction({
@@ -16,9 +17,11 @@ export function ReadingAction({
 }: ReadingActionProps) {
   const descriptionId = useId();
   const label = materialReadingLabels(format).complete;
-  const buttonClassName = compact
-    ? "h-11 shrink-0 rounded-lg px-3 aria-disabled:opacity-50"
-    : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50";
+  const buttonClassName = `${styles["button"]} ${
+    compact
+      ? "h-11 shrink-0 rounded-lg px-3 aria-disabled:opacity-50"
+      : "h-auto min-h-11 max-w-full shrink-0 justify-center whitespace-normal rounded-lg px-3 py-2 aria-disabled:opacity-50"
+  }`;
   const isRead = "isRead" in view && view.isRead;
   const loading = view.kind === "loading";
   const pending = view.kind === "pending";
@@ -63,6 +66,7 @@ export function ReadingAction({
         </Button>
       ) : (
         <Button
+          aria-busy={loading || pending}
           aria-describedby={descriptionId}
           aria-disabled={loading || pending || unavailable}
           aria-pressed={
@@ -85,15 +89,15 @@ export function ReadingAction({
               aria-hidden="true"
               className="text-[var(--callout-bad)]"
             />
-          ) : loading || pending ? (
-            <LoaderCircle
-              aria-hidden="true"
-              className="animate-spin motion-reduce:animate-none"
-            />
-          ) : isRead ? (
-            <CheckCircle2 aria-hidden="true" />
           ) : (
-            <Circle aria-hidden="true" />
+            <span
+              aria-hidden="true"
+              className={styles["icon"]}
+              data-read={isRead}
+            >
+              <Circle className={styles["unread"]} />
+              <CheckCircle2 className={styles["read"]} />
+            </span>
           )}
           <span>{label}</span>
         </Button>

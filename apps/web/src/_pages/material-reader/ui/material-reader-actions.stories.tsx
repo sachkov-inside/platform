@@ -202,10 +202,22 @@ export const SyncedActions: Story = {
       expect(topRead).toHaveAttribute("aria-pressed", "false"),
     );
     topRead.focus();
+    const before = topRead.getBoundingClientRect();
+    const scrollPositions = [
+      document.documentElement,
+      ...canvasElement.querySelectorAll<HTMLElement>("*"),
+    ]
+      .filter((element) => element.scrollHeight > element.clientHeight)
+      .map((element) => ({ element, top: element.scrollTop }));
     await userEvent.keyboard("{Enter}");
     await waitFor(async () => {
       await expect(topRead).toHaveAttribute("aria-disabled", "true");
       await expect(bottomRead).toHaveAttribute("aria-disabled", "true");
+      for (const button of [topRead, bottomRead]) {
+        await expect(button).toHaveAttribute("aria-busy", "true");
+        for (const icon of button.querySelectorAll("svg"))
+          await expect(getComputedStyle(icon).animationName).toBe("none");
+      }
     });
     if (release === undefined)
       throw new Error("Reading save was not submitted");
@@ -213,7 +225,12 @@ export const SyncedActions: Story = {
     await waitFor(async () => {
       await expect(topRead).toHaveAttribute("aria-pressed", "true");
       await expect(bottomRead).toHaveAttribute("aria-pressed", "true");
+      await expect(topRead).toHaveAttribute("aria-busy", "false");
     });
+    await expect(topRead.getBoundingClientRect().width).toBe(before.width);
+    await expect(topRead.getBoundingClientRect().height).toBe(before.height);
+    for (const position of scrollPositions)
+      await expect(position.element.scrollTop).toBe(position.top);
     const topBookmark = within(top).getByRole("button", { name: "В закладки" });
     await userEvent.click(topBookmark);
     await waitFor(async () => {

@@ -218,6 +218,11 @@ Compact reading actions use the ghost button variant, with no visible border or 
 Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
 control and pager sizes; Reader and quiz stories enforce typography.
 
+The reading button keeps its geometry and the reader's scroll position while saving. Use the
+shared fast motion token for press feedback and a crossfade between unread and saved icons;
+do not spin the icon. Keep the current saved state until the command succeeds, expose pending
+with `aria-busy` and the status message, and remove transitions under reduced motion.
+
 - Use `text-xs` (12 px) on phones and `text-sm` (14 px) from `sm` for Reader navigation and
   action labels, with 16–20 px icons. Keep the reading-state label visible; an empty circle
   alone does not explain the action.
