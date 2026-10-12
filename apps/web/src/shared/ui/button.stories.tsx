@@ -157,7 +157,12 @@ export const CompactMobileActions: Story = {
       );
       await expect(
         hit !== null && button.contains(hit),
-        JSON.stringify({ bounds: currentBounds.toJSON(), hit: hit?.tagName }),
+        JSON.stringify({
+          x: currentBounds.x,
+          y: currentBounds.y,
+          height: currentBounds.height,
+          hit: hit?.tagName,
+        }),
       ).toBe(true);
     });
     await userEvent.click(button);
