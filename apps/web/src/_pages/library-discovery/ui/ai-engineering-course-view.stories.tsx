@@ -182,6 +182,42 @@ export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+/** Планшет: темы идут по порядку, по две равные карточки в каждом ряду. */
+export const Tablet: Story = {
+  parameters: {
+    viewport: {
+      options: {
+        tablet923: {
+          name: "Tablet 923 × 1512",
+          styles: { width: "923px", height: "1512px" },
+          type: "tablet",
+        },
+      },
+    },
+  },
+  globals: { viewport: { value: "tablet923", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const cards = Array.from(
+      canvasElement.querySelectorAll<HTMLElement>(".aie-bento > li"),
+    );
+    const first = cards[0] ?? fail("Блок тем курса должен содержать карточки");
+    await expect(cards.length).toBeGreaterThan(1);
+    for (const [index, card] of cards.entries()) {
+      await expect(
+        Math.abs(
+          card.getBoundingClientRect().width -
+            first.getBoundingClientRect().width,
+        ),
+      ).toBeLessThan(1);
+      const previous = cards[index - 1];
+      if (index % 2 === 1 && previous !== undefined) {
+        await expect(card.offsetTop).toBe(previous.offsetTop);
+        await expect(card.offsetLeft).toBeGreaterThan(previous.offsetLeft);
+      }
+    }
+  },
+};
+
 const cohort: ProductCohort = {
   productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
