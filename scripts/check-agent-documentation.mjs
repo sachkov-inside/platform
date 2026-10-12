@@ -202,6 +202,22 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         failures.push(`${path}: local pointer does not resolve: ${target}`);
       }
     }
+    if (path === "WORKFLOW.md") {
+      requireText(
+        failures,
+        path,
+        content,
+        "A specification uses one integration branch and final PR",
+        "retain the coordinated specification integration route",
+      );
+      rejectText(
+        failures,
+        path,
+        content,
+        "are not part of this route",
+        "remove the superseded specification integration route prohibition",
+      );
+    }
     if (path === "AGENTS.md") {
       requireText(
         failures,

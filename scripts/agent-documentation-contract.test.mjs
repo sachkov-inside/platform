@@ -142,6 +142,9 @@ describe("harness routing contract", () => {
         ),
       );
       assert.ok(failures.some((failure) => failure.includes("discovery")));
+      assert.ok(
+        failures.some((failure) => failure.includes("integration route")),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

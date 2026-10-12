@@ -8,8 +8,10 @@ this contract and `AGENTS.md` hold what they leave open and the owner's override
 
 - Work that fits one session: `issue → implement → review → pull request`. When the issue leaves an
   owner decision open, the owner grills it first (`grill-with-docs`).
-- Work for several sessions: `grilling → to-spec → to-tickets`, then per ticket its own `implement`
-  session and branch; `implement-spec` and its single integration branch are not part of this route.
+- Preparation for several sessions: `grilling → to-spec → to-tickets`.
+- Owner-requested execution: `orchestrate`, with `implement-spec` as a compatible entry point.
+  A specification uses one integration branch and final PR; independent tasks use separate PRs.
+  Preparation and status requests do not start execution.
 
 The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
 stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
@@ -28,6 +30,7 @@ pre-agreed seams for `tdd`: write those seams down, then write the failing test 
 asking. A criterion with no behaviour needs no test.
 
 ## Coordinated execution
+
 The coordinator follows the portable [orchestrate](.agents/skills/orchestrate/SKILL.md) skill.
 Use native subagents for read-only review. Each writer owns a separate writing worktree; dispatch
 writing sessions through Herdr under the owner's worktree rules. Serialize shared runtime/Compose
