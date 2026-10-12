@@ -4,6 +4,19 @@ Preparation only. Nothing in this directory has been applied to production.
 [Issue #1358](https://github.com/sachkov-inside/platform/issues/1358) owns real acceptance;
 [#854](https://github.com/sachkov-inside/platform/issues/854) owns serialized production writes.
 
+## Public Product shell gate
+
+Importing this new, nonarchived Product exposes `/products/payment-acceptance-1358` to anonymous visitors immediately.
+Its name, summary and chapter programme are public even when every Material is draft and the Offer is unpublished.
+Product has no draft publication gate. `publish: []`, closed Material access and `published: false` on Offer do not hide its shell.
+
+Keep preparation local or read-only until the owner explicitly approves this public shell and its concrete window.
+The #854 production preview has not been applied; it is evidence for review, not permission to apply.
+Defer the entire Product/Material import until that approval is recorded in #1358.
+
+Sources: [Product composition access](../../../apps/backend/src/modules/materials/shared/product-composition.ts),
+[anonymous Product projection](../../../apps/backend/src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.ts).
+
 ## Prepared configuration
 
 - [content-package.json](content-package.json): separate Product `payment-acceptance-1358`, one chapter and one closed Material.
@@ -65,44 +78,64 @@ After simulated publication, ordinary `selectPrice` returned exactly 10000 kopec
 These checks use a fixed instant and the real functions; they neither persist data nor contact the bank.
 No application behaviour changed, so no new test seam or TDD cycle was needed.
 
-## Serialized preparation by #854
+## Read-only preparation by #854
 
 1. Preserve AIE, existing access grants, payments and the shared stand.
-2. Resolve the community decision before publishing or initiating a purchase.
-   The current adapter uses one `TELEGRAM_CANONICAL_CHAT_ID`; it does not route by Product.
-   Switching that setting would redirect the existing community and is not an isolated test.
-   A separate test group requires an agreed integration change; do not infer authorization for it.
-3. Obtain the working Inside terminal configuration through the existing secrets procedure.
-   Check the [payment contour](../../runbooks/production-release.md#payment-contour), including exact receipt fields and callback URLs.
-   Apply identical terminal configuration to `api`, `mcp`, `billing-worker` through #854.
-   Keep Offer sale disabled throughout preparation. Confirm startup readiness after configuration.
-4. Convert the reviewed pretty-printed content package to canonical JSON in a private state directory.
-   The release loader requires canonical JSON bytes; use `canonical` from `tools/authoring/package.mjs`.
-   Load the result with `loadPackage` before previewing it.
-5. Run the existing release preview with the canonical package, target `production` and a private state directory.
-   Use no `--publish` during preparation. Review that only the test Product/Material are changed.
-   Apply that exact preview through the #854 writer; record the package id, Product UUID and Material UUID.
-6. Replace both `PRODUCT_ID` tokens in the billing template with that Product UUID.
-   Validate each operation with `ownerOperationSchema` before sending it through owner billing operations.
-   Verify the resolved Product UUID differs from AIE and the amount remains exactly 10000.
-7. Read the catalog before saving. If those fixed Offer/Option IDs exist, compare their values and revisions.
-   Reuse operation IDs only for identical retries; changed payloads need new operation IDs and current revisions.
-   Save the Offer and Option. Confirm `published: false`, `mode: one_time`, price and benefits by reading them back.
-8. Inspect every active promotion that could match the Option; resolve any automatic discount before sale.
-   Verify anonymous and unauthorized accounts cannot read the closed test Material or AIE bodies.
+2. Use the owner's accepted existing common group; keep `TELEGRAM_CANONICAL_CHAT_ID` unchanged.
+3. Inspect the terminal and [payment contour](../../runbooks/production-release.md#payment-contour), including receipt fields and callback URLs.
+   Coordinate configuration changes and credentials through #854 and the existing owner gates; keep Offer sale disabled.
+4. Convert the reviewed content package to canonical JSON in a private state directory.
+   Use `canonical` and `loadPackage` from `tools/authoring/package.mjs` before previewing it.
+5. Run the existing release preview with target `production` and that private state directory.
+   Use no `--publish`; review that only the test Product/Material are changed.
+   Keep the preview read-only: applying it would expose the public Product shell even with `publish: []`.
+   Record its fingerprint and package id; defer apply until the public-shell/window approval below.
+6. Keep the billing template local until authorized import returns the real test Product UUID.
+   A disposable schema-validation UUID is not an existing Product reference and must not be persisted.
+   Inspect promotions read-only; identify any automatic discount that could change the final 10000-kopeck quote.
 
-Saving an unpublished Offer is preparation. Publishing a Material or Offer is a separate authorized action.
+## Authorized import and unpublished catalog configuration
+
+Before any Product/Material import, record the owner's explicit approval of the public shell and its concrete window.
+Apply only through the existing #854 writer, inside that window, using the exact reviewed preview.
+If its checked inputs changed, refresh the read-only preview and review the changed exposure before applying it.
+Record the package id, Product UUID, Material UUID and current versions returned by the import.
+The anonymous shell is now public; draft Materials remain separate from the shell's visibility.
+
+Replace both `PRODUCT_ID` tokens in the billing template with the returned test Product UUID.
+Validate each operation with `ownerOperationSchema`, then verify the actual Product reference through `content.list`.
+Confirm `content.list` returns the intended available Product and slug, with an ID different from AIE.
+Confirm its source identity separately from the source-scoped import receipt.
+Schema parsing validates payload shape; it does not prove that a disposable UUID exists in production.
+The template's `offers.save` capability UUID validation is not a Product-existence lookup.
+`paymentOptions.save` requires its referenced Offer to exist and be nonarchived.
+Sources: [owner content catalog](../../../apps/backend/src/modules/billing/facets/billing-operations/billing-operations.ts),
+[catalog writes](../../../apps/backend/src/modules/billing/features/manage-catalog/manage-catalog.ts).
+
+Read the billing catalog before saving. If the fixed Offer/Option IDs exist, compare values and current revisions.
+Reuse operation IDs only for identical retries; changed payloads need new operation IDs and current revisions.
+Save the Offer, then its Option. Read back `published: false`, `mode: one_time`, price and benefits.
+Saving an unpublished Offer/Option does not open sale; it also does not hide the already imported Product shell.
+Confirm anonymous and unauthorized accounts cannot read the closed test Material or AIE bodies.
+
+Material publication and Offer sale still require their own recorded authorization.
 Regular production quotes require a published Offer; do not publish merely to obtain a preparatory quote.
 
 ## Owner acceptance record
 
-Before publication, record all fields below in #1358. Empty fields keep acceptance pending.
+Before Product/Material import, record the public-shell/window approval below in #1358.
+Before the corresponding publication, message or money operation, complete its remaining authorization fields.
+Empty fields keep the corresponding action pending.
 
 | Required field | Current state |
 | --- | --- |
-| Short public window, timezone and removal deadline | Pending |
+| Explicit approval to import the public Product shell at `/products/payment-acceptance-1358`, including its name, summary and chapters while Materials are draft | Pending |
+| Concrete shell window: start, end, timezone, import time and deadline to archive the Product | Pending |
+| Offer/Material publication window and deadline to remove sale | Pending |
+| Cleanup authorization: unpublish Offer/Material and archive the test Product, preserving IDs and financial history | Pending |
 | Named fresh buyer and email receipt recipient | Pending |
-| Named Telegram account, private-message recipient and chosen group | Pending |
+| Chosen group | Existing common group; approved by the owner in #1358 |
+| Named Telegram account and private-message recipient | Pending |
 | Controlled messages: login/contact codes, payment/access notices, personal invitation and refund effects | Pending concrete authorization |
 | Authorization for one 100 RUB payment and full 100 RUB refund | Pending |
 | Authorization for public test Material/Offer publication | Pending |
@@ -115,6 +148,8 @@ Do not manually grant test access: it would bypass payment fulfillment and could
 ## Real acceptance and cleanup
 
 After concrete authorization, #854 records the deployed versions and a baseline of AIE identities/access and payment counts.
+Perform the authorized import and unpublished catalog configuration above inside the approved shell window.
+Record the anonymous shell response separately from closed Material access and disabled sale.
 Publish only the test Material and Offer for the agreed window; the Offer is visible in the public catalog.
 Confirm the ordinary quote is exactly 10000 kopecks; if the bank rejects that amount, stop without increasing it.
 The owner personally completes one payment on the working terminal.
@@ -136,7 +171,13 @@ Confirm the bank refund and refund receipt independently, then access revocation
 At the deadline, unpublish the test Offer even if acceptance is incomplete.
 Record its current revision before `offers.unpublish`; verify it disappears from sale and quotes stop succeeding.
 Withdraw the test Material through the reviewed authoring publication path after recording denial evidence.
-Keep the Product, Offer, Option, purchases, refunds and audit history for traceability.
+Unpublishing the Offer or withdrawing the Material does not hide the public Product shell.
+At the approved shell deadline, archive only the test Product through `content_collection_set_archive`:
+`kind: product`, `collectionId: <test Product UUID>`, `archived: true`, with its current `expectedVersion`.
+Verify anonymous `/products/payment-acceptance-1358` no longer exposes the shell.
+Record cleanup failures immediately in #1358; do not extend the public window without owner approval.
+Keep the archived Product, Offer, Option, purchases, refunds and audit history for traceability.
+Source: [existing collection archive operation](../../../apps/backend/src/modules/materials/adapters/mcp/material-authoring-mcp.ts).
 Compare AIE and legacy access with the baseline; do not revoke another ground to force group removal.
 If the buyer has another valid community ground, the buyer was unsuitable and removal acceptance is incomplete.
 Record exact deployed versions, package id, redacted transaction references and each pending criterion in #1358.
