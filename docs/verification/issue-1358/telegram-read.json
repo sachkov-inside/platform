@@ -1,0 +1,27 @@
+{
+  "identityMatches": true,
+  "cohorts": {
+    "configured": false
+  },
+  "webhook": {
+    "host": "telegram.sachkov.dev",
+    "port": "88",
+    "path": "/webhooks/telegram",
+    "hasPinnedIp": true,
+    "pending": 0,
+    "allowedUpdates": [
+      "message",
+      "callback_query",
+      "my_chat_member",
+      "chat_member",
+      "chat_join_request"
+    ],
+    "lastError": false
+  },
+  "chat": {
+    "supergroup": true,
+    "administrator": true,
+    "invite": true,
+    "restrict": true
+  }
+}
