@@ -126,7 +126,8 @@ Restore-container, PostgreSQL-container и временный volume удале�
 Владелец отдельно разрешил `platform:admin` существующему аккаунту публикации.
 Штатная команда добавила право без создания аккаунта; тестовые identities не менялись.
 Живой telemetry summary доступен администратору, обычному аккаунту и учебному MCP отказано.
-Private `/internal/web-telemetry` снаружи отвечает 404. Retention завершился после deploy;
+Private `/internal/web-telemetry` снаружи отвечает 404. Retention завершился во время deploy;
+свежесть результата подтверждена после выпуска.
 watchdog timer активен, установленный скрипт содержит проверки telemetry.
 
 ## Восстановление после отказа
