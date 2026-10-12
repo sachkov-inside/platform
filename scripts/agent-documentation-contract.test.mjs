@@ -16,6 +16,7 @@ import { describe, it } from "node:test";
 
 import {
   checkDocumentation,
+  checkHarnessRouting,
   codingStandardsLineLimit,
   documentationWarnings,
   extractLocalMarkdownTargets,
@@ -101,4 +102,51 @@ describe("agent documentation contract", () => {
       }
     });
   }
+});
+
+describe("harness routing contract", () => {
+  it("accepts portable project discovery and the compatibility entry point", () => {
+    assert.deepEqual(checkHarnessRouting(repositoryRoot), []);
+  });
+
+  it("rejects a missing companion and broken workflow or skill pointers", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
+    try {
+      mkdirSync(join(root, ".agents/skills/implement-spec"), {
+        recursive: true,
+      });
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "[run](.agents/skills/missing/SKILL.md)\n",
+      );
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "[run](.agents/skills/missing/SKILL.md)\n",
+      );
+      writeFileSync(
+        join(root, ".agents/skills/implement-spec/SKILL.md"),
+        "[orchestrate](../orchestrate/SKILL.md)\n",
+      );
+      const failures = checkHarnessRouting(root);
+      assert.ok(failures.some((failure) => failure.includes("companion")));
+      assert.ok(
+        failures.some((failure) =>
+          failure.startsWith("WORKFLOW.md: local pointer"),
+        ),
+      );
+      assert.ok(
+        failures.some((failure) =>
+          failure.startsWith(
+            ".agents/skills/implement-spec/SKILL.md: local pointer",
+          ),
+        ),
+      );
+      assert.ok(failures.some((failure) => failure.includes("discovery")));
+      assert.ok(
+        failures.some((failure) => failure.includes("integration route")),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

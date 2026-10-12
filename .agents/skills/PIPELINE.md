@@ -5,6 +5,10 @@
 
 Версия: workspace `a1233e8`, upstream `dd400c3ad65e57c06f05e832e0aac92c7992f34d`
 
+Частичное обновление harness: workspace `b69d91f` — `implement-spec`, `tdd`, `ask-matt`
+(включая вспомогательные файлы); переносимый `orchestrate` из `skills/orchestrate/SKILL.md`.
+Остальные skills сохраняют указанную выше версию. Legacy helper не устанавливается.
+
 ## Набор
 
 Полный набор pipeline (решение владельца в platform#1048):
@@ -20,6 +24,7 @@
 - handoff
 - implement
 - implement-spec
+- orchestrate
 - improve-codebase-architecture
 - pr
 - prototype
