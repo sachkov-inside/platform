@@ -1374,11 +1374,11 @@ export const ProductModes: Story = {
     await expect(
       canvas.getByText(/Переключить способ можно в шапке урока/u),
     ).toBeVisible();
-    // Уровень сложности не показывается читателю; результаты урока остаются перед текстом.
+    // Сложность и результаты обучения остаются в metadata, без плашки перед текстом.
     await expect(canvas.queryByText("Сложность: Средний")).toBeNull();
     await expect(
-      canvas.getByRole("heading", { name: "Чему научишься" }),
-    ).toBeVisible();
+      canvas.queryByRole("heading", { name: "Чему научишься" }),
+    ).not.toBeInTheDocument();
     // Ветка чужого режима скрыта и от вспомогательных технологий тоже.
     await expect(
       canvas.queryByRole("heading", { name: "Проверка у себя" }),
@@ -1583,8 +1583,8 @@ export const SourceAnchorMetadataCollision: Story = {
     );
     await expect(new Set(ids).size).toBe(ids.length);
     await expect(
-      canvas.getByRole("region", { name: "Чему научишься" }),
-    ).toBeInTheDocument();
+      canvas.queryByRole("region", { name: "Чему научишься" }),
+    ).not.toBeInTheDocument();
   },
 };
 

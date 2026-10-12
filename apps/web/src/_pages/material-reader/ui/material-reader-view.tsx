@@ -77,9 +77,6 @@ export function MaterialReaderView({
 }: MaterialReaderViewProps) {
   const anchors = materialSourceAnchors(body);
   const outline = collectOutline(body, [], anchors);
-  const sourceIds = new Set(anchors.values());
-  let outcomesHeadingId = "material-outcomes-heading";
-  while (sourceIds.has(outcomesHeadingId)) outcomesHeadingId += "-metadata";
 
   return (
     <div
@@ -106,10 +103,7 @@ export function MaterialReaderView({
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          <MaterialReaderHeader
-            material={material}
-            outcomesHeadingId={outcomesHeadingId}
-          />
+          <MaterialReaderHeader material={material} />
           {modeSwitch}
           {primaryVideo === null ? null : (
             <MaterialPrimaryVideo
@@ -235,10 +229,8 @@ export function SeriesReaderBar({
 
 export function MaterialReaderHeader({
   material,
-  outcomesHeadingId = "material-outcomes-heading",
 }: {
   readonly material: MaterialReaderMetadata;
-  readonly outcomesHeadingId?: string;
 }) {
   const publicationDate = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -269,33 +261,6 @@ export function MaterialReaderHeader({
       <p className="mt-3 text-pretty text-[0.9375rem] leading-[1.65] text-body-muted sm:mt-4 sm:text-[1.0625rem] sm:leading-7">
         {material.summary}
       </p>
-      {material.outcomes.length === 0 ? null : (
-        <section
-          aria-labelledby={outcomesHeadingId}
-          className="mt-4 rounded-xl border border-border bg-muted/40 px-3 py-2.5 sm:mt-5 sm:px-5 sm:py-4"
-          data-material-outcomes
-        >
-          <h2
-            className="text-sm font-semibold text-foreground"
-            id={outcomesHeadingId}
-          >
-            Чему научишься
-          </h2>
-          <ul
-            className="mt-2 grid gap-2 text-sm leading-[1.65] text-body-muted sm:text-[0.9375rem] sm:leading-6"
-            role="list"
-          >
-            {material.outcomes.map((outcome) => (
-              <li className="flex gap-2" key={outcome}>
-                <span aria-hidden="true" className="text-accent">
-                  •
-                </span>
-                <span className="min-w-0">{outcome}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </header>
   );
 }

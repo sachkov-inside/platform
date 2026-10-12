@@ -339,7 +339,7 @@ function MaterialRow({
 }
 
 /**
- * Compact programme row. Learning outcomes and difficulty remain in the lesson reader. The row renders
+ * Compact programme row. Learning outcomes and difficulty remain in metadata. The row renders
  * on the server; which lesson continues the reader's path arrives in the browser through
  * `SeriesContinuationProvider`.
  */
