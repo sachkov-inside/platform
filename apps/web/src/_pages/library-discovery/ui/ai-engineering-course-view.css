@@ -503,6 +503,10 @@
   display: grid;
   gap: 0.4rem;
   justify-items: start;
+  max-width: 100%;
+}
+.aie-art-rag span {
+  white-space: normal;
 }
 .aie-art-rag .aie-art-rag-query {
   border: 1px solid
@@ -1351,12 +1355,12 @@
   .aie-bento {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .aie-bento > li[data-size="wide"] {
+    grid-column: auto;
+  }
   .aie-format ol {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-@media (max-width: 47.999rem) {
-  /* Телефон — основной экран: всё в одну колонку, без висящих связок и пустых плашек. */
   .aie-art-flow-steps {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1381,6 +1385,22 @@
     white-space: normal;
     text-align: center;
   }
+}
+/* Три шага агента перестают помещаться в узкой карточке планшетной сетки. */
+@media (max-width: 55.999rem) {
+  .aie-art-agent {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+  .aie-art-agent .aie-art-agent-arrow {
+    transform: rotate(90deg);
+  }
+  .aie-art-agent-tools {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 47.999rem) {
+  /* Телефон — основной экран: всё в одну колонку, без висящих связок и пустых плашек. */
   .aie-bento-art span {
     font-size: 0.78rem;
   }
@@ -1437,23 +1457,10 @@
     width: 100%;
     border-radius: 1rem;
   }
-  .aie-art-agent {
-    grid-template-columns: auto;
-    justify-items: center;
-  }
-  .aie-art-agent .aie-art-agent-arrow {
-    transform: rotate(90deg);
-  }
-  .aie-art-agent-tools {
-    flex-wrap: wrap;
-  }
   .aie-bento,
   .aie-format ol,
   .aie-audience ul {
     grid-template-columns: 1fr;
-  }
-  .aie-bento > li[data-size="wide"] {
-    grid-column: auto;
   }
   .aie-practice,
   .aie-agents {
