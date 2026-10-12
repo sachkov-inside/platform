@@ -776,7 +776,17 @@ pnpm check:full
 
 This adds isolated Testcontainers integration tests and the host full-stack smoke. Stop the full
 Compose stack and start only `pnpm infra:up` first, because the host smoke owns ports 3000, 3001 and
-3002. This host-process smoke remains a local gate for relevant changes and release candidates; it
+3002 by default. If another session owns the stand, keep it running and use a disposable Compose
+project with different `POSTGRES_HOST_PORT`, `OBJECT_STORAGE_HOST_PORT` and
+`OBJECT_STORAGE_CONSOLE_HOST_PORT`. Start only that project's `postgres` and `object-storage`.
+Set free `API_PORT`, `FULLSTACK_WEB_PORT` and `FULLSTACK_MCP_PORT` for the host smoke, plus
+`OBJECT_STORAGE_ENDPOINT` and `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` for its storage port.
+Keep the disposable project's `COMPOSE_PROJECT_NAME` and port variables exported through
+`pnpm check:full` and its final `docker compose down --volumes`. Without an explicit
+`DATABASE_URL`, `scripts/check-database.mjs` resets only `inside_checks` in the selected project's
+PostgreSQL. Do not export the owner's database URL. The host smoke rejects a running API with
+a production release identity instead of treating another stand as its own.
+This host-process smoke remains a local gate for relevant changes and release candidates; it
 does not run on every pull request, but CI runs it nightly on `main`. Pull requests into `main` run
 the four-job application and Docker Compose gate on clean GitHub-hosted runners; see
 [Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
