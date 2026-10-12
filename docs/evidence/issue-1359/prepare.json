@@ -1,0 +1,68 @@
+[
+  {
+    "operation": "offers.save",
+    "operationId": "13590000-0000-4000-8000-000000001001",
+    "value": {
+      "id": "13590000-0000-4000-8000-000000000001",
+      "name": "Inside AI Engineering — первый поток",
+      "benefits": [
+        "product:625a0cca-c8ff-4a65-9125-17194dd3b769",
+        "community",
+        "support"
+      ],
+      "benefitPeriods": [
+        {
+          "capability": "product:625a0cca-c8ff-4a65-9125-17194dd3b769",
+          "months": null
+        },
+        {
+          "capability": "community",
+          "months": null
+        },
+        {
+          "capability": "support",
+          "months": 6
+        }
+      ],
+      "coverage": null,
+      "eligibility": "everyone",
+      "availableForAssignment": false
+    }
+  },
+  {
+    "operation": "paymentOptions.save",
+    "operationId": "13590000-0000-4000-8000-000000001002",
+    "value": {
+      "id": "13590000-0000-4000-8000-000000000002",
+      "offerId": "13590000-0000-4000-8000-000000000001",
+      "mode": "one_time",
+      "months": 1,
+      "priceKopecks": 2990000
+    }
+  },
+  {
+    "operation": "promotions.save",
+    "operationId": "13590000-0000-4000-8000-000000001003",
+    "value": {
+      "id": "13590000-0000-4000-8000-000000000003",
+      "name": "Анкета AIE — 10% до старта (шаблон)",
+      "percent": 10,
+      "code": null,
+      "startsAt": "2026-10-12T00:00:00+03:00",
+      "endsAt": "2026-11-09T00:00:00+03:00",
+      "offerIds": [
+        "13590000-0000-4000-8000-000000000001"
+      ],
+      "paymentOptionIds": [
+        "13590000-0000-4000-8000-000000000002"
+      ],
+      "usageLimit": null
+    }
+  },
+  {
+    "operation": "promotions.archive",
+    "operationId": "13590000-0000-4000-8000-000000001004",
+    "expectedRevision": 1,
+    "id": "13590000-0000-4000-8000-000000000003"
+  }
+]

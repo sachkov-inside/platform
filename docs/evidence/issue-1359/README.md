@@ -1,0 +1,46 @@
+# AIE sales preparation — 12 October 2026
+
+Status: prepared for review and serialized application by #854. Sales are closed.
+The source of the approved commercial conditions and final gates is [#1359](https://github.com/sachkov-inside/platform/issues/1359).
+The application procedure is [the sales setup runbook](../../runbooks/aie-sales-setup.md).
+
+## Prepared files
+
+| File | Purpose | Application gate |
+| --- | --- | --- |
+| [prepare.json](prepare.json) | Four commands: new unpublished AIE Offer, one-time Option, questionnaire template and immediate archive | Reviewed nonpublic preparation, coordinated with #854 |
+| [open-after-go.json](open-after-go.json) | First public preorder cohort creation and publication of that Offer | #1358 acceptance, #854 technical readiness, concrete GO for public cohort changes and sale |
+| [start-date.json](start-date.json) | Same Option at the post-start price; running cohort | Manual action at the start boundary, through #854 |
+| [baseline.json](baseline.json) | Sanitized read-only production state and public observations | Evidence only |
+
+These are command arrays, not automatically executed migrations, seeds or a deployment hook.
+Operation IDs remain fixed for exact-payload retries. Expected revisions require a fresh target check.
+Publishing an Offer is a separate command in a separate file.
+Preparation leaves the public cohort list and landing page unchanged.
+Cohort creation has no expected revision; the later running-stage update expects revision 1.
+An existing cohort requires a fresh revision binding and an authorized public change.
+
+## Production observations
+
+The read-only baseline records the observation timestamp, Product identity and catalogue state.
+There was no AIE Offer, PaymentOption, promotion or cohort. The existing Inside subscription remained unpublished.
+No account, grant, payment, content or production configuration was changed by this session.
+
+The guest browser rendered the published Product, programme and closed purchase page:
+
+- [Product](product-before.png): accepted description; lifetime Materials/chat, six-month support and no author code review.
+- [Programme](programme-before.png): five chapters; 28 total Materials, 27 programme Materials, ten free Materials.
+  The counters describe different collections; eight published Tasks were independently read from PostgreSQL.
+- [Purchase](purchase-before.png): `Этот продукт сейчас не продаётся отдельно.`
+
+HTTP GET returned 200 for `/legal/purchase/v5`, `/legal/privacy/v4` and `/legal/contacts/v2`.
+The displayed editions/dates are recorded in `baseline.json`; this observation did not compare full legal-text digests.
+The published Content identity and release evidence remain in [#1356](https://github.com/sachkov-inside/platform/issues/1356).
+
+## Verification boundary
+
+The isolated PostgreSQL rehearsal applies the same command arrays through the billing interfaces.
+Synthetic questionnaire identities and personal codes stay in its disposable database.
+Its quote and reservation checks contact no bank. Its local publication does not open production sales.
+Production quotes, real payment/refund acceptance, signed-in production checkout and actual opening remain pending.
+The owner confirmed a manual base-price transition on 12 October 2026; only promotion validity windows act automatically.
