@@ -982,7 +982,15 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await expect(
     page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" }),
   ).toBeVisible();
-  await expect(page.locator("[data-series-reader-navigation]")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Предыдущий урок", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Следующий урок", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Назад на Главную" }).first(),
   ).toBeVisible();
