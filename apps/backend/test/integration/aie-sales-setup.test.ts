@@ -71,6 +71,7 @@ test("AIE sales commands preserve the sale gate and agreed prices (#1359)", asyn
   for (const command of await commands("prepare"))
     value(await billing.manage(owner, command));
   expect(value(await billing.offers({})).items).toEqual([]);
+  expect(value(await billing.cohorts()).items).toEqual([]);
   const catalog = value(await billing.ownerCatalog({}));
   expect(catalog.items).toHaveLength(1);
   expect(catalog.items[0]).toMatchObject({
@@ -120,6 +121,7 @@ test("AIE sales commands preserve the sale gate and agreed prices (#1359)", asyn
   expect(quote.snapshot.offer.benefits).toHaveLength(3);
   expect(value(await billing.cohorts()).items).toEqual([
     expect.objectContaining({
+      revision: 1,
       stage: "preorder",
       startsOn: "2026-11-09",
       priceAfterStartKopecks: 3_990_000,
@@ -210,5 +212,8 @@ test("AIE sales commands preserve the sale gate and agreed prices (#1359)", asyn
   expect(value(await billing.offers({})).items[0]?.firstPriceKopecks).toBe(
     3_990_000,
   );
-  expect(value(await billing.cohorts()).items[0]?.stage).toBe("running");
+  expect(value(await billing.cohorts()).items[0]).toMatchObject({
+    stage: "running",
+    revision: 2,
+  });
 });

@@ -39,10 +39,12 @@ The prepared Offer does not enable tariff assignments or a subscription.
    An interruption keeps the AIE Offer unpublished; resume preparation before opening.
 4. Verify the owner catalogue shows one-time 2 990 000 kopecks without a promotion.
    Verify the public catalogue excludes this Offer and a buyer quote refuses it.
-   Verify the cohort says `announcement`, `2026-11-09`, and future display price 3 990 000 kopecks.
+   Verify the public cohort list retains its pre-application state; do not create or update a cohort.
 
 These commands create new billing records. They leave the existing unpublished Inside subscription untouched.
 Preparation does not issue rights, contact respondents, create a payment or publish content.
+It contains only four commands and does not change the public cohort list or landing page.
+`cohorts.save` is a public change even while an Offer is unpublished, so it belongs to the GO stage.
 
 ## Questionnaire price
 
@@ -66,10 +68,15 @@ and an explicit public-sale GO naming this Offer.
 Open #1355/#1357 educational work alone is not a sales gate.
 
 Recheck the current revisions before applying [open-after-go.json](../evidence/issue-1359/open-after-go.json).
-The supplied expected revisions describe an untouched preparation.
+The supplied Offer revision describes an untouched preparation.
+The cohort creation omits `expectedRevision` because the baseline contains no cohort.
+If a cohort exists, bind a new command to its freshly read revision before any public change.
 If the state differs, review a replacement command with a new operationId; retain any unknown command's original payload.
-Apply the preorder cohort and publish this Offer through #854.
-If opening occurs on or after the start date, apply the post-start price first and open with stage `running`.
+The concrete GO must authorize both the public cohort change and publication of this Offer.
+Create the preorder cohort at revision 1 and publish this Offer through #854.
+If opening occurs on or after the start date, apply only the Option price command from `start-date.json` first.
+Create the absent cohort with stage `running`, no expected revision and a new operationId.
+For an existing cohort, bind the running-stage command to its freshly read revision.
 The preorder commands and pre-start quotes then do not describe the actual sale.
 
 Before-start opening requires fresh production quotes for 2 990 000 and 2 691 000 kopecks.
@@ -94,6 +101,8 @@ The transition is not accepted merely because the future display price is presen
 The questionnaire expiry is automatic; the base-price and `running` stage changes require these commands.
 
 Re-read revisions, change the Option to 3 990 000 kopecks, then set the cohort to `running`.
+The supplied cohort update expects revision 1 from the authorized preorder creation.
+It must not create or publish a cohort before the public-change GO.
 Keep the Option's identity and access periods. Verify a fresh quote returns 3 990 000 kopecks,
 including with a previously issued questionnaire code.
 A still-valid, unreserved pre-transition quote must fail reservation with `quote_changed` after the price update.

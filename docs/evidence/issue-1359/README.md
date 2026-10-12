@@ -8,14 +8,17 @@ The application procedure is [the sales setup runbook](../../runbooks/aie-sales-
 
 | File | Purpose | Application gate |
 | --- | --- | --- |
-| [prepare.json](prepare.json) | New unpublished AIE Offer, one-time Option, archived questionnaire template, announcement cohort | Reviewed preparation, coordinated with #854 |
-| [open-after-go.json](open-after-go.json) | Preorder cohort and publication of that Offer | #1358 acceptance, #854 technical readiness, concrete public-sale GO |
+| [prepare.json](prepare.json) | Four commands: new unpublished AIE Offer, one-time Option, questionnaire template and immediate archive | Reviewed nonpublic preparation, coordinated with #854 |
+| [open-after-go.json](open-after-go.json) | First public preorder cohort creation and publication of that Offer | #1358 acceptance, #854 technical readiness, concrete GO for public cohort changes and sale |
 | [start-date.json](start-date.json) | Same Option at the post-start price; running cohort | Manual action at the start boundary, through #854 |
 | [baseline.json](baseline.json) | Sanitized read-only production state and public observations | Evidence only |
 
 These are command arrays, not automatically executed migrations, seeds or a deployment hook.
 Operation IDs remain fixed for exact-payload retries. Expected revisions require a fresh target check.
 Publishing an Offer is a separate command in a separate file.
+Preparation leaves the public cohort list and landing page unchanged.
+Cohort creation has no expected revision; the later running-stage update expects revision 1.
+An existing cohort requires a fresh revision binding and an authorized public change.
 
 ## Production observations
 
