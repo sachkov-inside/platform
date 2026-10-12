@@ -887,10 +887,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   );
   const programmeReturnHref =
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
-  const lowerProgrammePanel =
-    testInfo.project.name === "mobile-chromium"
-      ? "Действия в конце материала"
-      : "Навигация по продукту «Создание Platform Inside»";
+  const lowerProgrammePanel = "Действия в конце материала";
   for (const name of ["Действия материала", lowerProgrammePanel]) {
     const programmeAction = page
       .getByRole("navigation", { name, exact: true })
@@ -939,13 +936,10 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  await expect(page.locator("[data-series-reader-navigation]")).toContainText(
-    "1 из 2",
-  );
-  const harnessNext = readerNextLink(
-    page,
-    testInfo,
-    "Demo #295 · основная серия",
+  const harnessNext = readerNextLink(page, testInfo);
+  await expect(harnessNext).toHaveAttribute(
+    "href",
+    /\/materials\/demo-295-finalnyy-gayd\?/u,
   );
   await expect(harnessNext).toHaveCount(1);
   await expect(harnessNext).toBeVisible();
@@ -966,13 +960,10 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  await expect(page.locator("[data-series-reader-navigation]")).toContainText(
-    "1 из 3",
-  );
-  const mixedNext = readerNextLink(
-    page,
-    testInfo,
-    "Demo #295 · смешанная серия",
+  const mixedNext = readerNextLink(page, testInfo);
+  await expect(mixedNext).toHaveAttribute(
+    "href",
+    /\/materials\/demo-295-video-razbor\?/u,
   );
   await expect(mixedNext).toHaveCount(1);
   await expect(mixedNext).toBeVisible();
@@ -997,17 +988,15 @@ test("uses the selected Series order for a shared Material and leaves standalone
   ).toBeVisible();
 });
 
-function readerNextLink(page: Page, testInfo: TestInfo, productName: string) {
+function readerNextLink(page: Page, testInfo: TestInfo) {
   const mobile = testInfo.project.name === "mobile-chromium";
   return page
     .getByRole("navigation", {
-      name: mobile
-        ? "Уроки продукта"
-        : `Навигация по продукту «${productName}»`,
+      name: mobile ? "Уроки продукта" : "Действия в конце материала",
       exact: true,
     })
     .getByRole("link", {
-      name: mobile ? "Следующий урок" : "Дальше",
+      name: "Следующий урок",
       exact: true,
     });
 }
