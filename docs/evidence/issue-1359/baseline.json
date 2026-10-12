@@ -1,0 +1,96 @@
+{
+  "observedAt": "2026-10-12T18:36:35.97244+00:00",
+  "product": {
+    "id": "625a0cca-c8ff-4a65-9125-17194dd3b769",
+    "slug": "ai-engineering",
+    "name": "AI Engineering",
+    "version": 3,
+    "summary": "Курс по разработке с AI-агентами и созданию AI-систем. В стартовом блоке подготовишь проект и построишь минимальную рабочую платформу. Создание собственного AI-агента, ответы по данным компании, проверка качества и эксплуатация AI-систем входят в планируемые главы 3, 4 и 5.",
+    "archived_at": null
+  },
+  "offers": [
+    {
+      "id": "62000000-0000-4000-8000-000000000624",
+      "revision": 1,
+      "name": "Подписка Inside",
+      "benefits": [
+        "community",
+        "materials",
+        "support"
+      ],
+      "benefit_periods": [],
+      "archived": false,
+      "published": false,
+      "available_for_assignment": true,
+      "coverage": {
+        "productIds": [],
+        "materialIds": [],
+        "wholePlatform": true
+      },
+      "eligibility": "everyone"
+    }
+  ],
+  "optionCount": 0,
+  "cohortCount": 0,
+  "promotionCount": 0,
+  "publishedMaterialMemberships": 28,
+  "publishedTasks": [
+    {
+      "access": "closed",
+      "publication_state": "published",
+      "count": 6
+    },
+    {
+      "access": "free",
+      "publication_state": "published",
+      "count": 2
+    }
+  ],
+  "source": "Read-only PostgreSQL transaction; no production mutations. Public browser observations on 2026-10-12 recorded separately.",
+  "publicObservations": {
+    "product": {
+      "url": "https://sachkov.dev/products/ai-engineering",
+      "rendered": true,
+      "supportMonths": 6,
+      "authorCodeReview": false,
+      "liveSessionSchedulePromised": false,
+      "materialsAndChatExpire": false
+    },
+    "programme": {
+      "url": "https://sachkov.dev/products/ai-engineering/programme",
+      "rendered": true,
+      "chapters": 5,
+      "materialsTotalDisplayed": 28,
+      "programmeMaterialsDisplayed": 27,
+      "freeMaterialsDisplayed": 10,
+      "tasksInChapter1": 2,
+      "tasksInChapter2": 6
+    },
+    "checkout": {
+      "url": "https://sachkov.dev/products/ai-engineering/buy",
+      "renderedText": "Этот продукт сейчас не продаётся отдельно.",
+      "quoteRequested": false,
+      "paymentStarted": false
+    },
+    "legal": {
+      "purchase": {
+        "url": "https://sachkov.dev/legal/purchase/v5",
+        "httpStatus": 200,
+        "version": 5,
+        "effectiveFromDisplayed": "2026-10-01"
+      },
+      "privacy": {
+        "url": "https://sachkov.dev/legal/privacy/v4",
+        "httpStatus": 200,
+        "version": 4,
+        "effectiveFromDisplayed": "2026-10-12"
+      },
+      "contacts": {
+        "url": "https://sachkov.dev/legal/contacts/v2",
+        "httpStatus": 200,
+        "version": 2,
+        "effectiveFromDisplayed": "2026-09-24"
+      }
+    }
+  }
+}

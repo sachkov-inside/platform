@@ -1,0 +1,21 @@
+[
+  {
+    "operation": "cohorts.save",
+    "operationId": "13590000-0000-4000-8000-000000001101",
+    "expectedRevision": 1,
+    "value": {
+      "productId": "625a0cca-c8ff-4a65-9125-17194dd3b769",
+      "name": "Первый поток Inside AI Engineering",
+      "stage": "preorder",
+      "startsOn": "2026-11-09",
+      "nextEvent": "",
+      "priceAfterStartKopecks": 3990000
+    }
+  },
+  {
+    "operation": "offers.publish",
+    "operationId": "13590000-0000-4000-8000-000000001102",
+    "expectedRevision": 1,
+    "id": "13590000-0000-4000-8000-000000000001"
+  }
+]
