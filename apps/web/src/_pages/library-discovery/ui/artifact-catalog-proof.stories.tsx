@@ -1,12 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { userEvent, within } from "storybook/test";
 
+import { ArtifactCourseShellProof } from "./artifact-course-shell.prototype.client";
+
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import {
   ArtifactCatalogProof,
   type ArtifactProofItem,
-} from "./artifact-catalog.prototype.client";
+} from "@/features/product-artifacts/ui/artifact-catalog.prototype.client";
 
 // Synthetic resources for the proof; no Content or production data is changed.
 const prompt = `Review this repository before implementing a change. Produce an evidence-based project map that another engineer can use to find the correct module and its checks. This is a synthetic example for the artifact preview, not an assignment to change this repository.
@@ -158,11 +160,21 @@ const meta = {
   title: "Prototypes/Artifacts/Catalog and preview",
   component: ArtifactCatalogProof,
   args: { artifacts },
+  render: (args) =>
+    args.context === "lesson" ? (
+      <div className="mx-auto w-full max-w-[46rem] py-6">
+        <ArtifactCatalogProof {...args} />
+      </div>
+    ) : (
+      <ArtifactCourseShellProof count={args.artifacts.length}>
+        <ArtifactCatalogProof {...args} />
+      </ArtifactCourseShellProof>
+    ),
   parameters: {
     docs: {
       description: {
         component:
-          "Прототип #1378: три структуры каталога и быстрый просмотр из урока. Данные синтетические; backend и ContentAccess не подключены.",
+          "Прототип #1378: компактные артефакты в актуальной навигации курса и просмотр содержимого в окне. Данные синтетические; backend и ContentAccess не подключены.",
       },
     },
   },
@@ -170,10 +182,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Catalog: Story = {};
-export const OpenSections: Story = { args: { initialVariant: 1 } };
-export const SplitView: Story = { args: { initialVariant: 2 } };
+async function openCatalog({ canvasElement }: { canvasElement: HTMLElement }) {
+  await userEvent.click(
+    within(canvasElement).getByRole("button", { name: /^Артефакты/u }),
+  );
+}
+
+export const Catalog: Story = { play: openCatalog };
 export const Mobile: Story = {
+  play: openCatalog,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const FromLesson: Story = { args: { context: "lesson" } };
@@ -195,6 +212,12 @@ export const PreviewMobile: Story = {
   ...Preview,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
-export const Empty: Story = { args: { artifacts: [] } };
-export const Loading: Story = { args: { status: "loading" } };
-export const Unavailable: Story = { args: { status: "error" } };
+export const Empty: Story = { args: { artifacts: [] }, play: openCatalog };
+export const Loading: Story = {
+  args: { status: "loading" },
+  play: openCatalog,
+};
+export const Unavailable: Story = {
+  args: { status: "error" },
+  play: openCatalog,
+};
