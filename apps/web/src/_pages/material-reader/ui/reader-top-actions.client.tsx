@@ -50,7 +50,7 @@ export function ReaderTopActions({
             : "Действия в конце материала"
         }
         className={cn(
-          styles.panel,
+          styles["panel"],
           "flex flex-wrap items-center gap-x-0.5 rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm",
         )}
         data-reader-top-actions
