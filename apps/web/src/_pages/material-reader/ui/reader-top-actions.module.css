@@ -1,14 +1,109 @@
-/* Reduce the visible phone panel while keeping a 44 px clickable height. */
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+}
+.lessonPanel {
+  display: grid;
+  grid-template-columns: 44px minmax(44px, 1fr) auto minmax(44px, 1fr) 44px;
+}
+.previous,
+.next,
+.programme,
+.reading,
+.bookmark {
+  display: flex;
+  align-items: center;
+  min-height: 2.25rem;
+  min-width: 0;
+}
+.previous,
+.next,
+.reading {
+  justify-content: center;
+}
+.programme {
+  justify-content: flex-start;
+}
+.bookmark {
+  justify-content: flex-end;
+}
+.previous {
+  grid-column: 1;
+}
+.programme {
+  grid-column: 2;
+}
+.reading {
+  grid-column: 3;
+}
+.bookmark {
+  grid-column: 4;
+}
+.next {
+  grid-column: 5;
+}
+@media (width >= 40rem) {
+  .previous,
+  .next,
+  .programme,
+  .reading,
+  .bookmark {
+    min-height: 2.75rem;
+  }
+}
+/* Enlarged text reflows instead of clipping the reading action. */
+@container reader-actions (width < 17rem) {
+  .lessonPanel {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: 0.5rem;
+  }
+  .previous,
+  .programme,
+  .next {
+    grid-row: 1;
+  }
+  .programme {
+    justify-content: center;
+  }
+  .next {
+    grid-column: 3;
+  }
+  .reading,
+  .bookmark {
+    grid-row: 2;
+  }
+  .reading {
+    grid-column: 1 / 3;
+  }
+  .bookmark {
+    grid-column: 3;
+  }
+}
+/* Compact visible controls retain a 44 px clickable height. */
 @media (width < 40rem) {
   .panel :is(a, button) {
     position: relative;
     height: 2.25rem;
     min-height: 2.25rem;
   }
-
   .panel :is(a, button)::after {
     content: "";
     position: absolute;
     inset: -5px 0;
+    width: auto;
+    height: auto;
+    transform: none;
   }
+}
+.lessonPanel :is(a, button) {
+  position: relative;
+}
+.lessonPanel
+  :is(a, button)[data-size="default"]:has(> svg):not(:has(> span))::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  width: auto;
+  height: auto;
+  transform: none;
 }

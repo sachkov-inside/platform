@@ -203,7 +203,7 @@ function MobileTopNavigation({
                     aria-label={item.label}
                     className={cn(
                       "mobile-navigation-link relative grid size-11 place-items-center rounded-full text-muted-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                      current && "bg-primary text-primary-foreground",
+                      current && "text-primary-foreground",
                     )}
                     href={item.href}
                     scroll={onNavigate === undefined}
@@ -211,13 +211,20 @@ function MobileTopNavigation({
                       ? {}
                       : { onNavigate: navigate(item.href) })}
                   >
-                    <Icon
-                      aria-hidden="true"
+                    <span
                       className={cn(
-                        "size-5 shrink-0",
-                        current && "text-accent-bright",
+                        "grid size-9 place-items-center rounded-full",
+                        current && "bg-primary",
                       )}
-                    />
+                    >
+                      <Icon
+                        aria-hidden="true"
+                        className={cn(
+                          "size-4 shrink-0",
+                          current && "text-accent-bright",
+                        )}
+                      />
+                    </span>
                     {item.badge === true && !current ? (
                       <span
                         aria-hidden="true"

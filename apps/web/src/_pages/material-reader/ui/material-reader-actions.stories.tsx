@@ -258,6 +258,26 @@ export const SyncedActionsMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+async function expectEdgeNavigation(panel: HTMLElement) {
+  await panel.ownerDocument.fonts.ready;
+  const actions = within(panel);
+  const frame = panel.getBoundingClientRect();
+  const previous = actions
+    .getByRole("link", { name: "Предыдущий урок" })
+    .getBoundingClientRect();
+  const next = actions
+    .getByRole("link", { name: "Следующий урок" })
+    .getBoundingClientRect();
+  const reading = actions
+    .getByRole("button", { name: "Изучено" })
+    .getBoundingClientRect();
+  await expect(previous.left - frame.left).toBeLessThanOrEqual(10);
+  await expect(frame.right - next.right).toBeLessThanOrEqual(10);
+  await expect(
+    Math.abs(reading.left + reading.width / 2 - (frame.left + frame.width / 2)),
+  ).toBeLessThanOrEqual(1);
+}
+
 /** Owner's phone layout: identical actions at both ends, one pager for adjacent lessons. */
 export const MobileActionPanels: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
@@ -265,7 +285,8 @@ export const MobileActionPanels: Story = {
     const canvas = within(canvasElement);
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
-      panel.scrollIntoView({ block: "center" });
+      panel.scrollIntoView({ block: "center", behavior: "instant" });
+      await expectEdgeNavigation(panel);
       const actions = within(panel);
       await expect(
         actions.getByRole("link", { name: /^Открыть программу$/u }),
@@ -300,9 +321,10 @@ export const MobileActionPanels: Story = {
         await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);
         if (!action.matches(":disabled, [aria-disabled='true']")) {
           await waitFor(async () => {
+            const currentBounds = action.getBoundingClientRect();
             const hit = action.ownerDocument.elementFromPoint(
-              bounds.x + bounds.width / 2,
-              bounds.y - 2,
+              currentBounds.x + currentBounds.width / 2,
+              currentBounds.y - 2,
             );
             await expect(hit !== null && action.contains(hit)).toBe(true);
           });
@@ -720,6 +742,7 @@ export const DesktopActionPanels: Story = {
       (name) => canvas.getByRole("navigation", { name }),
     );
     for (const panel of panels) {
+      await expectEdgeNavigation(panel);
       await expect(
         within(panel).getByRole("link", { name: "Предыдущий урок" }),
       ).toHaveAttribute("href", materialReaderHref("first", programme));

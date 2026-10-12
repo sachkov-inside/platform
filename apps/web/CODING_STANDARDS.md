@@ -231,7 +231,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   padding. Full-width actions need a named layout reason.
 - The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
   panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
-  text size. Allow reflow when text is enlarged. Both panels include previous and next lesson arrows, with the same surface and controls
+  text size. Allow reflow when text is enlarged. Both panels keep previous/next arrows at the left/right edges and the written reading action centred, with the same surface and controls
   on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
   its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
@@ -247,3 +247,12 @@ The 44 px choice preserves comfortable touch targets while reducing visual bulk;
 [W3C target-size guidance](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced)
 explains the enhanced size criterion. These sizes apply to Reader; they do not change other page
 typography.
+
+## Mobile control density
+
+Owner correction 2026-10-12 (#1362): use a 36 px visible footprint for ordinary phone actions,
+16 px action glyphs and choice indicators, and at least 44 px touch extent. Shared Button owns
+the compact phone override for ordinary actions; small editor tool variants keep their size.
+Multiline actions grow instead of clipping. Desktop sizing remains owned by each component.
+Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
+avatars and illustrations do not follow action-icon dimensions.

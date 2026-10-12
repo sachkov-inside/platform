@@ -558,8 +558,7 @@ function hasIssue(
 }
 
 const fieldClassName =
-  "min-h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:min-h-11 sm:text-sm";
+  "min-h-11 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:min-h-11 sm:text-sm";
 
-const authoringSelectTriggerClassName =
-  "min-h-12 text-base sm:min-h-11 sm:text-sm";
+const authoringSelectTriggerClassName = "min-h-11 text-base sm:text-sm";
 const authoringSelectItemClassName = "min-h-11 sm:min-h-10";
