@@ -146,8 +146,12 @@ export function MaterialReaderView({
                 context={seriesContext}
                 bookmarkAction={topBookmarkAction ?? bookmarkAction}
                 readingAction={topReadingAction ?? readingAction}
-                extraAction={deferredPracticeActions}
               />
+              {deferredPracticeActions === undefined ? null : (
+                <div className="mt-2 flex flex-wrap items-start" data-reader-practice-actions>
+                  {deferredPracticeActions}
+                </div>
+              )
             </div>
           )}
         </div>

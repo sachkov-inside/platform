@@ -22,7 +22,6 @@ export function ReaderTopActions({
   returnAction,
   format = "guide",
   position = "top",
-  extraAction,
 }: {
   readonly context: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
@@ -30,7 +29,6 @@ export function ReaderTopActions({
   readonly returnAction?: ReactNode;
   readonly format?: string;
   readonly position?: "top" | "bottom";
-  readonly extraAction?: ReactNode;
 }) {
   const link =
     "inline-flex min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:px-2 sm:text-sm";
@@ -38,8 +36,7 @@ export function ReaderTopActions({
     context === null &&
     readingAction === undefined &&
     bookmarkAction === undefined &&
-    returnAction === undefined &&
-    extraAction === undefined
+    returnAction === undefined
   )
     return null;
   return (
@@ -108,7 +105,6 @@ export function ReaderTopActions({
             )}
           </div>
         )}
-        {extraAction}
         <div className="ml-auto flex max-w-full flex-wrap items-start justify-end gap-1 @min-[16rem]/reader-actions:flex-nowrap">
           {bookmarkAction ?? (
             <Button
