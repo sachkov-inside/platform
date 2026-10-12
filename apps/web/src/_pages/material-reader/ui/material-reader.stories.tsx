@@ -1385,7 +1385,7 @@ export const ProductModes: Story = {
     ).not.toBeInTheDocument();
     // У заголовков разных веток разные якоря: иначе ссылка вела бы в скрытую ветку.
     const anchors = [
-      ...canvasElement.querySelectorAll("[data-variant-branch] h3"),
+      ...canvasElement.querySelectorAll("[data-variant-branch] h2"),
     ].map((heading) => heading.id);
     await expect(anchors).toHaveLength(2);
     await expect(new Set(anchors).size).toBe(2);
