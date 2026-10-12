@@ -201,7 +201,22 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 ## Reader controls
 
-Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distinct from prose.
+Owner corrections 2026-10-10 (#1336) and accepted dimensions 2026-10-12 (#1362): Reader actions stay compact.
+
+At normal phone text size, keep this size contract. Enlarged text can reflow; never clip it.
+
+| Reader element | Phone size |
+| --- | --- |
+| Upper and lower action panels | 38 px high |
+| Visible panel controls / clickable area | 36 px / at least 44 px high |
+| Panel labels / icons | 12 px / 16 px |
+| Floating lesson pager | 146 × 46 px; 44 px arrow controls |
+| Title / prose / outcomes | 22 px / 15 px / 14 px |
+| Quiz heading, question and choices | 14 px |
+
+Compact reading actions use the ghost button variant, with no visible border or filled pill.
+Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
+control and pager sizes; Reader and quiz stories enforce typography.
 
 - Use `text-xs` (12 px) on phones and `text-sm` (14 px) from `sm` for Reader navigation and
   action labels, with 16–20 px icons. Keep the reading-state label visible; an empty circle

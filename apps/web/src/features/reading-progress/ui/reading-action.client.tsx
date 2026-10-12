@@ -47,7 +47,11 @@ export function ReadingAction({
       data-reading-action-state={view.kind}
     >
       {view.kind === "anonymous" ? (
-        <Button asChild className={buttonClassName} variant="outline">
+        <Button
+          asChild
+          className={buttonClassName}
+          variant={compact ? "ghost" : "outline"}
+        >
           <a
             aria-describedby={descriptionId}
             href={view.loginHref}
@@ -74,7 +78,7 @@ export function ReadingAction({
           }}
           title={message}
           type="button"
-          variant={isRead ? (compact ? "secondary" : "default") : "outline"}
+          variant={compact ? "ghost" : isRead ? "default" : "outline"}
         >
           {view.kind === "load-error" ? (
             <CircleAlert

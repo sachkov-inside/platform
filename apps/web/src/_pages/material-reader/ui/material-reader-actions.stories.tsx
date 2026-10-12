@@ -265,14 +265,19 @@ export const MobileActionPanels: Story = {
       await expect(
         actions.getByRole("link", { name: "Следующий урок" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
-      await expect(panel.getBoundingClientRect().height).toBeLessThanOrEqual(
-        38,
+      await expect(panel.getBoundingClientRect().height).toBe(38);
+      const mark = actions.getByRole("button", { name: "Изучено" });
+      await expect(mark).toHaveAttribute("data-variant", "ghost");
+      await expect(getComputedStyle(mark).borderTopColor).toBe(
+        "rgba(0, 0, 0, 0)",
       );
       for (const action of [
         ...actions.getAllByRole("button"),
         ...actions.getAllByRole("link"),
       ]) {
         const bounds = action.getBoundingClientRect();
+        await expect(bounds.height).toBe(36);
+        await expect(getComputedStyle(action).fontSize).toBe("12px");
         const hitArea = getComputedStyle(action, "::after");
         await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);
         if (!action.matches(":disabled, [aria-disabled='true']")) {
@@ -305,6 +310,8 @@ export const MobileActionPanels: Story = {
       topPanel.getBoundingClientRect().height,
     );
     const pager = canvas.getByRole("navigation", { name: "Уроки продукта" });
+    await expect(pager.getBoundingClientRect().height).toBe(46);
+    await expect(pager.getBoundingClientRect().width).toBe(146);
     await expect(
       within(pager).getByRole("link", { name: "Предыдущий урок" }),
     ).toBeVisible();

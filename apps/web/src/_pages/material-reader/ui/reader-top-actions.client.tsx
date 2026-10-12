@@ -122,7 +122,7 @@ export function ReaderTopActions({
             </Button>
           )}
           {readingAction ?? (
-            <Button disabled className="h-11 rounded-lg px-3" variant="outline">
+            <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
               <Circle aria-hidden="true" />
               {materialReadingLabels(format).complete}
             </Button>
