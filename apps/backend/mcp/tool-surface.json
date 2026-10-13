@@ -33,8 +33,6 @@
   "billing_promotions_archive",
   "billing_promotions_save",
   "billing_recipients_lookup",
-  "billing_refunds_decide",
-  "billing_refunds_execute",
   "billing_refunds_read",
   "billing_respondents_import",
   "billing_respondents_issue",

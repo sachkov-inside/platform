@@ -1238,7 +1238,7 @@ export class BillingService {
     });
   }
   /**
-   * Manage offers, payments, refund decisions and manual access with the owner billing permission
+   * Manage offers, payments, refund history and manual access; refund initiation is unavailable
    * @returns any
    * @throws ApiError
    */
@@ -2257,7 +2257,7 @@ export class BillingService {
       decisions: Array<{
         access: 'keep' | 'revoke';
         accountId: string;
-        actorId: string;
+        actorId: string | null;
         amountKopecks: number;
         attempt: {
           amountKopecks: number;
@@ -2511,7 +2511,7 @@ export class BillingService {
       value: {
         access: 'keep' | 'revoke';
         accountId: string;
-        actorId: string;
+        actorId: string | null;
         amountKopecks: number;
         attempt: {
           amountKopecks: number;
@@ -2535,7 +2535,7 @@ export class BillingService {
       decisions: Array<{
         access: 'keep' | 'revoke';
         accountId: string;
-        actorId: string;
+        actorId: string | null;
         amountKopecks: number;
         attempt: {
           amountKopecks: number;

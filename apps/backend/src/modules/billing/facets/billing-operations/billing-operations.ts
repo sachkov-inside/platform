@@ -30,11 +30,7 @@ import {
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
-import { decideRefund } from "../../features/decide-refund/decide-refund.js";
-import {
-  executeRefund,
-  reconcileRefunds,
-} from "../../features/execute-refund/execute-refund.js";
+import { reconcileRefunds } from "../../features/reconcile-refunds/reconcile-refunds.js";
 import {
   listPayments,
   paymentView,
@@ -104,7 +100,7 @@ interface Dependencies {
 }
 /**
  * Одна владельческая поверхность billing для admin API и MCP: каталог, платежи и сверка,
- * решения и исполнение возвратов, ручные права. Одинаковые полномочия, идемпотентность и
+ * история возвратов, ручные права. Одинаковые полномочия, идемпотентность и
  * проверка revision в обоих транспортах; MCP не получает больше власти, чем admin endpoint.
  */
 export class BillingOperations {
@@ -125,6 +121,11 @@ export class BillingOperations {
       });
       if (!permission.ok) return ownerFailure("dependency_unavailable");
       if (!permission.allowed) return ownerFailure("forbidden");
+      if (
+        command.operation === "refunds.decide" ||
+        command.operation === "refunds.execute"
+      )
+        return ownerFailure("method_unavailable");
       if (isOwnerReadOperation(command.operation))
         return await this.dispatch(actorId, command);
       const digest = commandFingerprint(command.operation, command);
@@ -271,7 +272,7 @@ export class BillingOperations {
       {
         prisma: this.dependencies.prisma,
         bank: this.dependencies.bank,
-        clock: this.clock,
+        payments: this.dependencies.payments,
       },
       limit,
     );
@@ -767,13 +768,8 @@ export class BillingOperations {
           : ownerPaymentFailure(result.error.code);
       }
       case "refunds.decide":
-        return await decideRefund(prisma, actorId, command, this.clock());
       case "refunds.execute":
-        return await executeRefund(
-          { prisma, bank: this.dependencies.bank, clock: this.clock },
-          actorId,
-          command,
-        );
+        return ownerFailure("method_unavailable");
       case "refunds.read": {
         const purchase = await prisma.billingPurchase.findUnique({
           where: { id: command.purchaseRef },

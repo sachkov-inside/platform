@@ -1,3 +1,4 @@
+import { acceptBankRefund } from "../../features/accept-bank-refund/accept-bank-refund.js";
 import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -8,6 +9,7 @@ import {
 } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
+  lockBillingPurchase,
   lockBillingSubscription,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -458,8 +460,7 @@ export class BillingPayments {
         if (outcome === "failed") return paymentFailure("provider_unavailable");
         return { ok: true, value: true };
       }
-      if (row.state === "confirmed" || row.state === "failed")
-        return { ok: true, value: true };
+      if (row.state === "failed") return { ok: true, value: true };
       let paymentId = row.paymentId;
       if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
@@ -904,9 +905,12 @@ export class BillingPayments {
   ): Promise<PaymentResult<true>> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return paymentFailure("method_unavailable");
+    if (!z.uuid().safeParse(payment.OrderId).success)
+      return paymentFailure("invalid_notification");
     try {
       return await prisma.$transaction(async (tx) => {
         await lockBillingPricing(tx);
+        await lockBillingPurchase(tx, payment.OrderId);
         const row = await tx.billingPurchase.findUnique({
           where: { id: payment.OrderId },
         });
@@ -957,6 +961,16 @@ export class BillingPayments {
               },
             });
           }
+          return { ok: true, value: true };
+        }
+        if (row.state === "confirmed" && payment.Status === "REFUNDED") {
+          if (
+            !payment.Success ||
+            payment.ErrorCode !== "0" ||
+            row.paymentId === null
+          )
+            return paymentFailure("invalid_notification");
+          await acceptBankRefund(tx, row, now);
           return { ok: true, value: true };
         }
         if (row.state === "confirmed") {

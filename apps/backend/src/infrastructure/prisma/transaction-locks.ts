@@ -168,7 +168,7 @@ export async function lockBillingEnrollmentNotices(
   );
 }
 
-/** Refund decisions and their execution serialize on one confirmed payment; no provider I/O under it. */
+/** Bank refund history and purchase-specific effects serialize on one payment; no provider I/O under it. */
 export async function lockBillingPurchase(
   transaction: AdvisoryLockTransaction,
   purchaseRef: string,

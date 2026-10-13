@@ -858,6 +858,19 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       expect(success.body).toBe("OK");
       expect(success.headers["content-type"]).toContain("text/plain");
       expect(success.headers["cache-control"]).toBe("private, no-store");
+      const refunded = await http.inject({
+        method: "POST",
+        url: "/billing/tbank/notification",
+        payload: s.notify("REFUNDED"),
+      });
+      expect(refunded.statusCode).toBe(200);
+      expect(refunded.body).toBe("OK");
+      expect(value(await payments.history(s.buyer))).toContainEqual(
+        expect.objectContaining({
+          state: "confirmed",
+          refundedKopecks: 200_000,
+        }),
+      );
       const invalid = await http.inject({
         method: "POST",
         url: "/billing/tbank/notification",

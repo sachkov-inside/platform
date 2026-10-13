@@ -1064,8 +1064,9 @@ Pass the purchase in this order:
 
 4. Renewal and refund have no buyer-facing form, so their outcome is chosen in advance on the
    double's own page <http://127.0.0.1:8090>: «Следующее списание» decides what `Charge` answers,
-   and «Возврат» decides whether the bank accepts `Cancel`. A refund is full or partial according to
-   the amount the owner requested, exactly as the bank decides it.
+   and «Возврат» retains the legacy synthetic `Cancel` response controls. Since #1420 Platform
+   exposes no action that invokes those controls; full bank-originated notifications are tested
+   through synthetic adapters in `billing-operations.test.ts`.
 5. Changing a card opens the double's binding form. The new method applies only after the binding
    is confirmed there and `billing-worker` reconciles the session within a minute. A charge against
    a binding the double never issued is declined, so a revoked method stays observable.
@@ -1127,11 +1128,11 @@ contour with an explicit confirmed check type; without it the operation reports
 `method_unavailable` instead of guessing a binding. The local double declares that capability, so
 renewal and card change are verifiable on the stand.
 
-The `billing.payment-recovery` queue also reconciles unresolved refunds. A refund attempt is stored
-before the bank call and its own identifier travels as `ExternalRequestId`, which the bank treats as
-the same request, so reconciliation repeats that identifier instead of sending a second refund. A
-lost response keeps the attempt `unknown` and visible to the owner; only a terminal refunded or
-reversed status settles it, and only then are the recorded access and renewal decisions applied.
+The `billing.payment-recovery` queue reads bank state for historical unresolved refunds.
+It never calls `Cancel`. A full successful `REFUNDED` settles the stored attempt and applies
+purchase-specific revocation. Other states remain unresolved for operator inspection.
+A missed cabinet refund on an already confirmed payment is recovered by explicitly invoking
+`payments.reconcile`; the general payment queue does not poll every historical confirmed payment.
 
 ## Seeded offer catalog
 
@@ -1178,11 +1179,14 @@ no recorded decision reports `unknown`, refuses recurring charges and answers th
 a set through the same `grants.previewBatch` and `grants.applyBatch`. The owner page
 `/authoring/billing` performs the same operations under «Кто этот покупатель».
 
-Refund execution is a real external money operation on the real contour and requires
-`TBANK_CONFIG_JSON`; without a configured contour the operation reports `method_unavailable`. On the
-stand the same command reaches the local double, which returns a full or partial refund according to
-the requested amount and moves no money.
-Automated tests use synthetic bank adapters only and perform no real refunds or grants.
+Refunds are initiated by the seller in the T-Bank cabinet only (#1420, 2026-10-13).
+The owner UI has refund history only; MCP omits `billing_refunds_decide` and
+`billing_refunds_execute`. Historical HTTP commands return `method_unavailable` (422)
+for an authorized owner and send nothing. Read `refunds.read` and use `payments.reconcile`
+to recover a missed full bank result. Preserve payment amounts, history and previous evidence.
+Do not start a real payment or refund for a code check. Cabinet-originated bank acceptance
+requires its own explicit bounded owner packet; the prior Platform DEMO refund is historical
+proof of the previous flow only. Automated tests use synthetic bank adapters and isolated databases.
 
 The first period starts when Inside first verifies and durably records CONFIRMED, whether from a
 signed notification or server reconciliation (owner-approved for #407 on 2026-09-09). Delayed

@@ -324,7 +324,7 @@ export const refundDecisionViewSchema = z.strictObject({
   decisionRef: idSchema,
   purchaseRef: idSchema,
   accountId: idSchema,
-  actorId: idSchema,
+  actorId: idSchema.nullable(),
   amountKopecks: moneySchema,
   /** Решение без основания хранит только доступ, который владелец выбрал сам. */
   basis: refundBasisSchema.nullable(),

@@ -1,4 +1,8 @@
 import {
+  name as bankRefundHistoryName,
+  statement as bankRefundHistoryStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0089-bank-refund-history.js";
+import {
   name as webTelemetryPercentileIndexName,
   statement as webTelemetryPercentileIndexStatement,
 } from "../modules/web-telemetry/infrastructure/postgres/migrations/0088-web-telemetry-percentile-index.js";
@@ -582,6 +586,7 @@ export const platformMigrations = [
     name: webTelemetryPercentileIndexName,
     statement: webTelemetryPercentileIndexStatement,
   },
+  { name: bankRefundHistoryName, statement: bankRefundHistoryStatement },
 ] as const;
 
 export function migrateToLatest(

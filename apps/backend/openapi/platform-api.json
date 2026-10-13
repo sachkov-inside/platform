@@ -79232,6 +79232,7 @@
                                   },
                                   "actorId": {
                                     "format": "uuid",
+                                    "nullable": true,
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "type": "string"
                                   },
@@ -80923,6 +80924,7 @@
                                 },
                                 "actorId": {
                                   "format": "uuid",
+                                  "nullable": true,
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                   "type": "string"
                                 },
@@ -81080,6 +81082,7 @@
                                   },
                                   "actorId": {
                                     "format": "uuid",
+                                    "nullable": true,
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                     "type": "string"
                                   },
@@ -82983,7 +82986,7 @@
             "logto": []
           }
         ],
-        "summary": "Manage offers, payments, refund decisions and manual access with the owner billing permission",
+        "summary": "Manage offers, payments, refund history and manual access; refund initiation is unavailable",
         "tags": [
           "Billing"
         ]

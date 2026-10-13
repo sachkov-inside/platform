@@ -14,7 +14,6 @@ import {
   paymentOutcomeSchema,
   paymentsOutcomeSchema,
   reconciledOutcomeSchema,
-  refundDecisionOutcomeSchema,
   refundsOutcomeSchema,
   subscriptionOutcomeSchema,
   type CatalogOutcome,
@@ -26,15 +25,12 @@ import {
   type PaymentOutcome,
   type PaymentsOutcome,
   type ReconciledOutcome,
-  type RefundDecisionOutcome,
   type RefundsOutcome,
   type SubscriptionOutcome,
   type ApplyBatchInput,
   type ArchiveInput,
   type CancelSubscriptionInput,
   type ClassifyAccountInput,
-  type DecideRefundInput,
-  type ExecuteRefundInput,
   type ExtendGrantInput,
   type ListPaymentsInput,
   type PreviewBatchInput,
@@ -214,32 +210,6 @@ export async function cancelOwnerSubscription(
       billingCommandPayload(input),
     ),
     subscriptionOutcomeSchema,
-  );
-}
-
-export async function decideBillingRefund(
-  input: DecideRefundInput,
-): Promise<BillingCommandResult<RefundDecisionOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/refunds/decide",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    refundDecisionOutcomeSchema,
-  );
-}
-
-export async function executeBillingRefund(
-  input: ExecuteRefundInput,
-): Promise<BillingCommandResult<RefundDecisionOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/refunds/execute",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    refundDecisionOutcomeSchema,
   );
 }
 
