@@ -208,6 +208,7 @@ export function CheckoutFlow({
         if (
           result.code !== "unavailable" &&
           result.code !== "dependency_unavailable" &&
+          result.code !== "provider_unavailable" &&
           result.code !== "unauthorized" &&
           result.code !== "method_unavailable"
         ) {
@@ -241,6 +242,13 @@ export function CheckoutFlow({
       rememberPurchase(result.value.purchaseRef);
       if (result.value.paymentUrl !== null)
         (onNavigate ?? defaultNavigate)(result.value.paymentUrl);
+      else if (result.value.state === "confirmed")
+        (onNavigate ?? defaultNavigate)("/payment/return");
+      else if (
+        result.value.state === "failed" &&
+        selection.identity === identity
+      )
+        requestQuote();
     },
   });
 
@@ -257,6 +265,7 @@ export function CheckoutFlow({
       updateSelection(selection.identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
+      if (result.value.state === "failed") requestQuote();
     },
   });
 

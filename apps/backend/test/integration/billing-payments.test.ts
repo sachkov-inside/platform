@@ -573,9 +573,10 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
           code: codes.get(change.challengeRef),
         }),
       ).toMatchObject({ ok: true });
-      expect(value(await s.runtime().purchase(s.buyer, s.command))).toEqual(
-        original,
-      );
+      expect(value(await s.runtime().purchase(s.buyer, s.command))).toEqual({
+        ...original,
+        state: "pending",
+      });
       expect(
         await s
           .runtime()
@@ -770,9 +771,13 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       where: { id: purchaseRef },
     });
     expect(row.state).toBe("sent");
-    expect(
-      value(await s.runtime().purchase(s.buyer, s.command)).purchaseRef,
-    ).toBe(purchaseRef);
+    expect(await s.runtime().purchase(s.buyer, s.command)).toMatchObject({
+      ok: false,
+      error: { code: "provider_unavailable" },
+    });
+    expect(value(await s.runtime().status(s.buyer, purchaseRef)).state).toBe(
+      "sent",
+    );
     expect(s.requests()).toBe(0);
     const payment = {
       TerminalKey: config.terminalKey,

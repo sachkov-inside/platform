@@ -125,7 +125,7 @@ export class BillingPayments {
         });
       if (replay)
         return fingerprint.recognizes(replay.fingerprint)
-          ? await this.status(accountId, replay.purchaseRef)
+          ? await this.continuePurchase(accountId, replay.purchaseRef)
           : paymentFailure("operation_conflict");
       // Режим приходит из сохранённого расчёта: он решает, нужно ли согласие на списания и
       // появляется ли вообще подписка. Пропавший расчёт отсекается здесь тем же ответом,
@@ -212,6 +212,30 @@ export class BillingPayments {
           const now = this.clock();
           // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
           await endLapsedSubscriptions(tx, accountId, now);
+          const quoted = await tx.billingPurchase.findFirst({
+            where: {
+              accountId,
+              kind: { in: ["initial", "one_time"] },
+              OR: [
+                { quoteRef: command.quoteRef },
+                { state: { in: inFlightStates } },
+              ],
+            },
+            orderBy: { createdAt: "desc" },
+          });
+          if (quoted) {
+            const previous = priceSnapshotSchema.parse(quoted.snapshot);
+            if (previous.paymentOption.id !== snapshot.paymentOption.id)
+              return paymentFailure("payment_in_progress");
+            await tx.billingPurchaseCommand.create({
+              data: {
+                ...key,
+                fingerprint: fingerprint.digest,
+                purchaseRef: quoted.id,
+              },
+            });
+            return { ok: true, value: quoted.id };
+          }
           if (recurring) {
             const current = await tx.billingPurchase.findFirst({
               where: {
@@ -222,8 +246,6 @@ export class BillingPayments {
               },
             });
             if (current) {
-              if (current.state === "confirmed")
-                return paymentFailure("payment_in_progress");
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
@@ -314,9 +336,7 @@ export class BillingPayments {
       // A second tab joins an existing attempt and dispatches nothing, so it must not answer from
       // the interim row that carries no payment URL. The caller that did dispatch already settled
       // the row, so it waits for nothing here.
-      await this.dispatch(prepared.value);
-      await this.awaitBankAnswer(prepared.value);
-      return await this.status(accountId, prepared.value);
+      return await this.continuePurchase(accountId, prepared.value);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
@@ -324,6 +344,19 @@ export class BillingPayments {
         paymentFailure("dependency_unavailable"),
       );
     }
+  }
+
+  private async continuePurchase(
+    accountId: string,
+    purchaseRef: string,
+  ): Promise<PaymentResult<PurchaseStatus>> {
+    const dispatched = await this.dispatch(purchaseRef);
+    await this.awaitBankAnswer(purchaseRef);
+    if (dispatched === "skipped") {
+      const reconciled = await this.reconcile(purchaseRef);
+      if (!reconciled.ok) return reconciled;
+    }
+    return this.status(accountId, purchaseRef);
   }
 
   async status(
@@ -348,7 +381,13 @@ export class BillingPayments {
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
-          paymentUrl: row.state === "pending" ? row.paymentUrl : null,
+          paymentUrl:
+            row.state === "pending" && hasText(row.paymentUrl)
+              ? validatedPaymentUrl(
+                  row.paymentUrl,
+                  this.dependencies.bank?.config.endpoints.formOrigins ?? [],
+                )
+              : null,
           snapshot: row.snapshot,
           access:
             row.state !== "confirmed"
@@ -1210,11 +1249,14 @@ export class BillingPayments {
         } else {
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
+          const payable =
+            payment.Status === "NEW" || payment.Status === "FORM_SHOWED";
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
               ...common,
               state: authorized ? "authorized" : "pending",
+              ...(!payable || authorized ? { paymentUrl: null } : {}),
               ...(hasText(paymentUrl) && !authorized
                 ? {
                     paymentUrl: validatedPaymentUrl(
