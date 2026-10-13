@@ -214,6 +214,11 @@ const lessonsOf = (product) =>
  * }}
  */
 const state = { delayMs: 0, requests: [], unavailable: false };
+/** @type {Promise<void> | undefined} */
+let practiceGate;
+/** @type {(() => void) | undefined} */
+let releasePractice;
+let practiceHeld = false;
 
 /**
  * @param {Lesson} lesson
@@ -836,6 +841,23 @@ const server = createServer(async (request, response) => {
     send(200, { requests: state.requests });
     return;
   }
+  if (url.pathname === "/__practice-hold") {
+    if (request.method === "POST") {
+      const { hold } = z
+        .object({ hold: z.boolean() })
+        .strict()
+        .parse(JSON.parse(await readBody(request)));
+      releasePractice?.();
+      practiceHeld = false;
+      practiceGate = hold
+        ? new Promise((resolve) => {
+            releasePractice = resolve;
+          })
+        : undefined;
+    }
+    send(200, { held: practiceHeld });
+    return;
+  }
   if (url.pathname === "/__control" && request.method === "POST") {
     const control = controlSchema.parse(JSON.parse(await readBody(request)));
     if (typeof control.delayMs === "number") state.delayMs = control.delayMs;
@@ -863,6 +885,15 @@ const server = createServer(async (request, response) => {
         title: "Account verification failed",
         type: "urn:inside:problem:invalid_proof",
       });
+    return;
+  }
+  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+    if (authorized && practiceGate !== undefined) {
+      practiceHeld = true;
+      await practiceGate;
+      practiceHeld = false;
+    }
+    send(200, { practices: [] });
     return;
   }
   const result = state.unavailable

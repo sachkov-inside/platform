@@ -11,6 +11,7 @@ import {
   LockKeyhole,
   MessageSquareText,
 } from "lucide-react";
+import { cn } from "@/shared/lib/utils";
 import type { ReactNode } from "react";
 
 import { materialSourceAnchors } from "@/entities/material";
@@ -202,7 +203,7 @@ export function ProductTaskView({
   return (
     <CourseReadingLayout context={programme}>
       <div
-        className={`@container/task ${styles["task"]}`}
+        className={cn("@container/task", styles["task"])}
         data-product-task={task.code}
         data-product-task-state="open"
       >

@@ -887,15 +887,26 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   );
   const programmeReturnHref =
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
-  const lowerProgrammePanel = "Действия в конце материала";
-  for (const name of ["Действия материала", lowerProgrammePanel]) {
-    const programmeAction = page
-      .getByRole("navigation", { name, exact: true })
-      .getByRole("link", { name: "Открыть программу", exact: true });
-    await expect(programmeAction).toHaveCount(1);
-    await expect(programmeAction).toBeVisible();
+  const course = page.locator("[data-course-reading]:visible");
+  await expect(
+    course.getByRole("navigation", { name: "Действия материала", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    course.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
+  ).toBeVisible();
+  const programmeAction =
+    testInfo.project.name === "mobile-chromium"
+      ? course.getByRole("button", { name: "Вся программа", exact: true })
+      : course.getByRole("link", { name: "Вся программа", exact: true });
+  await expect(programmeAction).toBeVisible();
+  if (testInfo.project.name !== "mobile-chromium")
     await expect(programmeAction).toHaveAttribute("href", programmeReturnHref);
-  }
   await expect(
     page.getByRole("link", { name: "Все материалы продукта", exact: true }),
   ).toHaveCount(0);
@@ -914,10 +925,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
-  await page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
-    .getByRole("link", { name: "Открыть программу", exact: true })
-    .click();
+  if (testInfo.project.name === "mobile-chromium") {
+    await programmeAction.click();
+    await course
+      .getByRole("dialog")
+      .getByRole("link", { name: "Страница программы" })
+      .click();
+  } else await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
   await expect(programme).toHaveCount(1);
   await expect(representativeSeriesItem).toHaveCount(1);
@@ -983,11 +997,11 @@ test("uses the selected Series order for a shared Material and leaves standalone
     page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Предыдущий урок", exact: true }),
+    page.getByRole("link", { name: /^Предыдущий шаг/u }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Следующий урок", exact: true }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Следующий шаг/u })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
   ).toHaveCount(0);
@@ -996,17 +1010,10 @@ test("uses the selected Series order for a shared Material and leaves standalone
   ).toBeVisible();
 });
 
-function readerNextLink(page: Page, testInfo: TestInfo) {
-  const mobile = testInfo.project.name === "mobile-chromium";
+function readerNextLink(page: Page, _testInfo: TestInfo) {
   return page
-    .getByRole("navigation", {
-      name: mobile ? "Уроки продукта" : "Действия в конце материала",
-      exact: true,
-    })
-    .getByRole("link", {
-      name: "Следующий урок",
-      exact: true,
-    });
+    .getByRole("navigation", { name: "Шаги курса", exact: true })
+    .getByRole("link", { name: /^Следующий шаг/u });
 }
 
 async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {

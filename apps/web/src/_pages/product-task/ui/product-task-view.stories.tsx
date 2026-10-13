@@ -202,7 +202,9 @@ export const SubmissionsUnavailable: Story = {
 
 /** Платное задание без доступа: только название и глава, как закрытый материал. */
 export const Closed: Story = {
-  render: () => <ProductTaskClosed task={closedProductTask} />,
+  render: () => (
+    <ProductTaskClosed task={closedProductTask} programme={courseTask} />
+  ),
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(

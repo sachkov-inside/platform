@@ -11,7 +11,7 @@ const guideHeadings = [
   "Файл инструкций",
   "Как проверить настройку",
   "Где пригодится",
-];
+] as const;
 const taskHeadings = [
   "Что нужно сделать",
   "1. Настрой, как агент с тобой разговаривает",
@@ -24,7 +24,7 @@ const taskHeadings = [
   "Что решаешь сам",
   "Сдать",
   "Материалы к заданию",
-];
+] as const;
 
 /** Pinned published source, not a new authoring format. New versions retain ordinary Content rendering. */
 export function projectHarnessIllustrations(
@@ -60,14 +60,12 @@ export function projectHarnessIllustrations(
     illustrations: [
       { after: 0, node: figure("overview") },
       {
-        after:
-          at(guide ? "Бриф в проекте" : taskHeadings[3]!) + (guide ? 3 : 1),
+        after: at(guide ? "Бриф в проекте" : taskHeadings[3]) + (guide ? 3 : 1),
         node: figure("brief"),
       },
       {
         after:
-          at(guide ? "Скиллы Matt Pocock" : taskHeadings[4]!) +
-          (guide ? 10 : 1),
+          at(guide ? "Скиллы Matt Pocock" : taskHeadings[4]) + (guide ? 10 : 1),
         node: figure("skills"),
       },
     ],

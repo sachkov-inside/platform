@@ -236,7 +236,10 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
   marker and `aria-current` identify the current step. Hover changes text only, including chapter
   options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
-  Material ordinals/progress stay separate from mixed guide/task positions. Save, error, denial,
+  The header shows the authored chapter ordinal and its mixed step position/count. Keep the normal
+  legal footer. Navigation rows make no personal access claim from guest-cached composition; target
+  routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
+  Save, error, denial,
   unavailable, protected-body and standalone behavior remains unchanged.
 - Outside checked programme context, the upper lesson panel sits before metadata and the heading. On phones, both upper and lower
   panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal

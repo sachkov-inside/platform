@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, within } from "storybook/test";
 import {
   courseGuide,
-  courseTask,
+  courseNext,
   taskOnlyCourse,
 } from "@/storybook/course-reading.fixtures";
 import {
@@ -12,6 +13,7 @@ import {
   CourseReadingFooter,
 } from "./course-reading.client";
 const meta = {
+  ...publicPageEnvironment("/materials/course-intro"),
   component: CourseReadingLayout,
   title: "Features/Library/Course Reading",
   args: { context: courseGuide, children: <p>Текст материала</p> },
@@ -38,7 +40,7 @@ export const ChapterNavigation: Story = {
     if (selector === null || selector.getClientRects().length === 0) return;
     const chevron = selector.querySelector("svg");
     if (chevron === null) throw new Error("Chapter chevron missing");
-    expect(chevron.getBoundingClientRect().right).toBeLessThanOrEqual(
+    await expect(chevron.getBoundingClientRect().right).toBeLessThanOrEqual(
       selector.getBoundingClientRect().right,
     );
     await userEvent.click(selector);
@@ -47,7 +49,7 @@ export const ChapterNavigation: Story = {
     );
     await expect(selector).toHaveTextContent("Продолжение");
     await expect(canvas.getByLabelText("Текущая глава")).toHaveTextContent(
-      "Доступ закрыт",
+      "Следующий урок",
     );
   },
 };
@@ -56,7 +58,20 @@ export const ServerStepChanges: Story = {
     const [context, setContext] = useState(courseGuide);
     return (
       <>
-        <button onClick={() => setContext(courseTask)}>Открыть задание</button>
+        <button
+          onClick={() => {
+            setContext(courseNext);
+          }}
+        >
+          Следующий урок
+        </button>
+        <button
+          onClick={() => {
+            setContext(courseGuide);
+          }}
+        >
+          Вернуться к первому
+        </button>
         <CourseReadingLayout context={context}>
           <CourseReadingHeader
             context={context}
@@ -69,15 +84,25 @@ export const ServerStepChanges: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const selector = canvas.queryByRole("combobox", { name: "Глава курса" });
+    if (selector === null || selector.getClientRects().length === 0) return;
+    await userEvent.click(selector);
     await userEvent.click(
-      canvas.getByRole("button", { name: "Открыть задание" }),
+      within(document.body).getByRole("option", { name: "Продолжение" }),
     );
-    await expect(canvas.getByRole("heading", { level: 1 })).toHaveTextContent(
-      courseTask.current.title,
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Следующий урок" }),
+    );
+    await expect(selector).toHaveTextContent("Продолжение");
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Вернуться к первому" }),
+    );
+    await expect(selector).toHaveTextContent(
+      courseGuide.chapters[0]?.name ?? "Missing chapter",
     );
     await expect(
       canvasElement.querySelector('[aria-current="step"]'),
-    ).toHaveAttribute("data-course-step", courseTask.current.id);
+    ).toHaveAttribute("data-course-step", courseGuide.current.id);
   },
 };
 export const TaskOnly: Story = {

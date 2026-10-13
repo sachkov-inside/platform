@@ -1,4 +1,7 @@
-import { courseReadingContext } from "@/features/library-discovery";
+import {
+  courseReadingContext,
+  type CourseReadingContext,
+} from "@/features/library-discovery";
 
 export const courseSource = {
   kind: "ready" as const,
@@ -51,21 +54,42 @@ export const courseSource = {
     },
     { id: "soon", name: "Следующая глава", materialIds: [], tasks: [] },
   ],
-};
-export const courseGuide = courseReadingContext({
-  series: courseSource,
-  current: { kind: "material", slug: "course-intro" },
-})!;
-export const courseTask = courseReadingContext({
-  series: courseSource,
-  current: { kind: "task", code: "aie-ch1-onboarding" },
-})!;
-export const taskOnlyCourse = courseReadingContext({
-  series: {
-    ...courseSource,
-    kind: "empty",
-    items: [],
-    chapters: [{ ...courseSource.chapters[0]!, materialIds: [] }],
-  },
-  current: { kind: "task", code: "aie-ch1-onboarding" },
-})!;
+} as const;
+
+function requiredContext(
+  value: CourseReadingContext | null,
+): CourseReadingContext {
+  if (value === null)
+    throw new Error("Course fixture must contain its current step");
+  return value;
+}
+export const courseGuide = requiredContext(
+  courseReadingContext({
+    series: courseSource,
+    current: { kind: "material", slug: "course-intro" },
+  }),
+);
+export const courseTask = requiredContext(
+  courseReadingContext({
+    series: courseSource,
+    current: { kind: "task", code: "aie-ch1-onboarding" },
+  }),
+);
+export const taskOnlyCourse = requiredContext(
+  courseReadingContext({
+    series: {
+      ...courseSource,
+      kind: "empty",
+      items: [],
+      chapters: [{ ...courseSource.chapters[0], materialIds: [] }],
+    },
+    current: { kind: "task", code: "aie-ch1-onboarding" },
+  }),
+);
+
+export const courseNext = requiredContext(
+  courseReadingContext({
+    series: courseSource,
+    current: { kind: "material", slug: "next" },
+  }),
+);

@@ -1,9 +1,8 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, List, LockKeyhole, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, List, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import {
   Select,
   SelectContent,
@@ -29,7 +28,6 @@ export function CourseReadingLayout({
     return <div className={styles["standalone"]}>{children}</div>;
   return (
     <div className={styles["layout"]} data-course-reading>
-      <HidePublicFooter />
       <CourseRail context={context} />
       <div className={styles["document"]}>
         <ProgrammeDialog context={context} />
@@ -56,9 +54,16 @@ export function CourseReadingHeader({
   return (
     <header className={styles["header"]} data-reader-header>
       <p className={styles["position"]}>
-        {chapter?.name}
+        {chapter?.ordinal === undefined
+          ? "Материалы"
+          : `Глава ${String(chapter.ordinal)}`}
+        <span aria-hidden="true">·</span>
         <span>
-          Шаг {context.currentPosition} из {context.totalSteps}
+          Шаг{" "}
+          {(chapter?.steps.findIndex(
+            (step) => step.id === context.current.id,
+          ) ?? -1) + 1}{" "}
+          из {chapter?.steps.length ?? 0}
         </span>
       </p>
       <h1>{title}</h1>
@@ -117,6 +122,9 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
     key: selectionKey,
     chapter: context.currentChapterId,
   });
+  if (selection.key !== selectionKey) {
+    setSelection({ key: selectionKey, chapter: context.currentChapterId });
+  }
   const chapterId =
     selection.key === selectionKey
       ? selection.chapter
@@ -145,9 +153,9 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
       </IntentPrefetchLink>
       <Select
         value={chapterId}
-        onValueChange={(value) =>
-          setSelection({ key: selectionKey, chapter: value })
-        }
+        onValueChange={(value) => {
+          setSelection({ key: selectionKey, chapter: value });
+        }}
       >
         <SelectTrigger
           aria-label="Глава курса"
@@ -202,14 +210,6 @@ function StepLink({
       <span>
         {step.kind === "task" ? <small>Задание</small> : null}
         {step.title}
-        {step.availability === "locked" ? (
-          <span className={styles["availability"]}>
-            <LockKeyhole size={12} aria-hidden="true" />
-            Доступ закрыт
-          </span>
-        ) : step.availability === "unavailable" ? (
-          <span className={styles["availability"]}>Временно недоступно</span>
-        ) : null}
       </span>
     </IntentPrefetchLink>
   );
@@ -251,7 +251,10 @@ function ProgrammeDialog({
         <nav
           aria-label="Вся программа"
           onClick={(event) => {
-            if ((event.target as HTMLElement).closest("a") !== null)
+            if (
+              event.target instanceof Element &&
+              event.target.closest("a") !== null
+            )
               dialog.current?.close();
           }}
         >

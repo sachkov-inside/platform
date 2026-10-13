@@ -39,7 +39,32 @@ and `scrollWidth === clientWidth` at 1440.
 
 Final production screenshots, exact rendered commit/tree, streaming evidence and check results belong in `production/`.
 Full `pnpm check` is reserved for the stable integrated head after review fixes, as requested.
-Independent final Standards/Spec and production visual GO are pending. Proof acceptance is not production visual GO.
+Independent final Standards/Spec delta confirmation and production visual GO are pending. Proof acceptance is not production visual GO.
 
 Review previews: Storybook http://localhost:6207 and real frontend http://localhost:3107.
 These processes belong to this writer; API 3001 and other owners' previews remain untouched.
+
+## Review corrections against a403ffd3
+
+The independent review covers `bf23296a...a403ffd3`; the following corrections precede final captures.
+
+| Axis / finding | Resolution |
+| --- | --- |
+| Standards S1 | Reset stored chapter selection on a changed server key; the A–B–A story selects a different chapter before leaving and confirms reset on return. |
+| Standards S2 | Nested guest login anchors, loading and resolved controls share a 36 px footprint. |
+| Standards S3 | Fully specify centered pseudo-element geometry; measured guest controls have 44 px target height at 320 px, without adjacent overlap. |
+| Standards S4 | Action labels use 14 px from sm and 12 px on phones. |
+| Standards S5 | Course stories use `publicPageEnvironment` and the actual application scroll container. |
+| Standards D1 | Remove the repeated save-error assertion after removal of the duplicated lower panel. |
+| Spec F1 | Use one scoped Task body rhythm; all nine real heading-to-paragraph gaps measured 10 px at 1440 px. |
+| Spec F2 | Common rail/dialog rows make no access claim from guest-cached composition. Target pages retain real authorization; public body does not wait for personal navigation. |
+| Spec F3 | Pending/access course headers reserve disabled bookmark and written reading controls. |
+
+Coordinator corrections restore the per-chapter mixed count and authored chapter ordinal, retain the normal
+legal footer, and scope calm trigger/option hover to course reading. Source-shaped diagram fallbacks remain.
+Existing full-stack/navigation behavior assertions now target the one course action row and named footer;
+standalone duplicate-panel checks remain meaningful. A held-private-practice production navigation case is
+prepared for the final production-build suite; its execution result is recorded with final checks.
+
+Focused correction checks: TypeScript and Oxlint passed; 12 module cases passed; five affected Storybook
+cases passed after the A–B–A story awaited Select dismissal. Web/negative guardrails and docs contract passed.

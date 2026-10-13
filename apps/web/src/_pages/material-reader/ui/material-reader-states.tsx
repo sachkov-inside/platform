@@ -4,10 +4,13 @@ import {
   LockKeyhole,
   SearchX,
   ShieldAlert,
+  Bookmark,
+  Circle,
 } from "lucide-react";
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
+import { materialReadingLabels } from "@/entities/material";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
@@ -107,6 +110,7 @@ export function MaterialReaderPending({
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
+            actions={<ReservedReaderActions format={material.format.slug} />}
           />
           <div
             aria-busy="true"
@@ -247,7 +251,12 @@ export function MaterialReaderAccess({
             <MaterialReaderHeader
               material={material}
               programme={seriesContext?.programme}
-              actions={readingAction}
+              actions={
+                <ReservedReaderActions
+                  format={material.format.slug}
+                  readingAction={readingAction}
+                />
+              }
             />
             <section
               className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
@@ -307,6 +316,34 @@ export function MaterialReaderAccess({
         </ReaderFrame>
       </div>
     </div>
+  );
+}
+
+/** Pending/access states reserve the same truthful actions without starting a personal read. */
+function ReservedReaderActions({
+  format,
+  readingAction,
+}: {
+  readonly format: string;
+  readonly readingAction?: React.ReactNode;
+}) {
+  return (
+    <>
+      <Button
+        disabled
+        variant="ghost"
+        className="size-9 shrink-0 p-0"
+        aria-label="Закладка недоступна"
+      >
+        <Bookmark aria-hidden="true" />
+      </Button>
+      {readingAction ?? (
+        <Button disabled variant="ghost" className="h-9 px-3">
+          <Circle aria-hidden="true" />
+          {materialReadingLabels(format).complete}
+        </Button>
+      )}
+    </>
   );
 }
 

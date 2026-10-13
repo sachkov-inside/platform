@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { cn } from "@/shared/lib/utils";
 import { HarnessDiagram } from "./harness-diagram";
 import styles from "./harness-diagram.module.css";
 const meta = {
@@ -6,7 +7,7 @@ const meta = {
   title: "Features/Project Harness",
   decorators: [
     (Story) => (
-      <div className={`${styles["canvas"]} mx-auto max-w-[43rem]`}>
+      <div className={cn(styles["canvas"], "mx-auto max-w-[43rem]")}>
         <Story />
       </div>
     ),

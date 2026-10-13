@@ -3,8 +3,7 @@
   padding-bottom: 2rem;
 }
 .body {
-  display: grid;
-  gap: 2rem;
+  display: flow-root;
   margin-top: 2rem;
   font-size: 1.125rem;
   line-height: 1.65;
@@ -50,4 +49,23 @@
   .submission {
     padding: 1rem;
   }
+}
+
+.body > :is(h2, h3, h4) {
+  margin-block: 2rem 0.625rem;
+}
+.body > p {
+  margin-block: 0.75rem;
+}
+.body > :is(h2, h3, h4) + p {
+  margin-top: 0.625rem;
+}
+.body > :is(ul, ol, pre, blockquote, section) {
+  margin-top: 1.5rem;
+}
+.body > :first-child {
+  margin-top: 0;
+}
+.body > section > h2 {
+  margin-bottom: 0.625rem;
 }

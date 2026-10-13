@@ -472,9 +472,6 @@ export const SharedFailureAndRetry: Story = {
       await expect(
         top.querySelector("[data-reading-action-state]"),
       ).toHaveAttribute("data-reading-action-state", "error");
-      await expect(
-        top.querySelector("[data-reading-action-state]"),
-      ).toHaveAttribute("data-reading-action-state", "error");
     });
     readingFailure = null;
     await save(reads[0]);

@@ -433,7 +433,9 @@ published memberships with that current label; draft-only labels and entries nev
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing return controls. Within a checked Product,
 Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
-previous/next footer. The mixed reading sequence places chapter tasks after their MaterialId anchors,
+previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count;
+the normal application legal footer remains visible. Common navigation rows make no personal access
+claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,
 with missing anchors at the chapter start. Empty chapters and task-only products remain visible.
 The sequence preserves authored Material order and keeps Material ordinals, progress and counts independent.
 Reader uses explicit validated `from`; it never guesses one Product from several memberships.

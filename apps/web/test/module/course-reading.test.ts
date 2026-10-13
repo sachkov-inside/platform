@@ -42,7 +42,7 @@ const series = {
     { id: "two", name: "Вторая", materialIds: ["second-id"], tasks: [] },
     { id: "three", name: "Без уроков", materialIds: [], tasks: [task("only")] },
   ],
-};
+} as const;
 
 describe("course reading composition", () => {
   it("places leading, missing-anchor and adjacent tasks across chapters without renumbering materials", () => {
@@ -79,7 +79,7 @@ describe("course reading composition", () => {
       ...series,
       kind: "empty" as const,
       items: undefined,
-      chapters: [series.chapters[2]!],
+      chapters: [series.chapters[2]],
     };
     expect(
       courseReadingContext({

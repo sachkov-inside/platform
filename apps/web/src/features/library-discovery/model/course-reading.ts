@@ -22,6 +22,7 @@ export interface CourseReadingStep {
 export interface CourseReadingChapter {
   readonly id: string;
   readonly name: string;
+  readonly ordinal?: number;
   readonly steps: readonly CourseReadingStep[];
 }
 export interface CourseReadingContext {
@@ -73,7 +74,11 @@ export function courseReadingContext({
     | { readonly kind: "task"; readonly code: string };
   readonly returnTarget?: MaterialReaderReturnTarget;
 }): CourseReadingContext | null {
-  const href = productProgrammeHref(series.reference.slug);
+  const programmeHref = productProgrammeHref(series.reference.slug);
+  const href =
+    returnTarget?.href.split("?")[0] === programmeHref
+      ? returnTarget.href
+      : programmeHref;
   const materialReturn = returnTarget?.href ?? href;
   const items = series.kind === "ready" ? (series.items ?? []) : [];
   const chapterByMaterial = new Map(
@@ -107,6 +112,14 @@ export function courseReadingContext({
     return {
       id: `${run.chapter?.id ?? "materials"}:${String(index)}`,
       name: run.chapter?.name ?? "Материалы",
+      ...(run.chapter === null
+        ? {}
+        : {
+            ordinal:
+              series.chapters.findIndex(
+                (chapter) => chapter.id === run.chapter?.id,
+              ) + 1,
+          }),
       steps: [
         ...leading,
         ...run.items.flatMap((item, itemIndex): CourseReadingStep[] => [
