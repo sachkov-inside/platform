@@ -29,8 +29,14 @@ current=$(gh release view --json tagName -q .tagName)            # послед�
 git log --oneline "$current"..origin/main
 ```
 
-Номер следующего выпуска — `current` + 1. Выпускается ровно текущий `main`; CI выпуска повторяет
-проверки PR.
+Номер следующего выпуска — `current` + 1. Выпускается ровно выбранный `main`.
+
+For source selection and merge serialization through publication, use the
+[verification evidence policy](../agents/release-evidence.md). The existing planner and finalizer
+both require current main; v2 deployment evidence retains the published source after main advances.
+
+Use the [verification evidence policy](../agents/release-evidence.md) to reuse exact-source CI
+coverage and fill only missing checks. Release CI checks its actual selected source.
 
 CI выпуска не запускает full-stack smoke. Именно в нём права проверяются через настоящий Web/BFF
 отдельными identities (#904). Поэтому перед выпуском нужен зелёный

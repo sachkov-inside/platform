@@ -80,12 +80,11 @@ Work awaiting owner acceptance stays open with the specific decision recorded.
 Before writing an issue assignment, check remote branches and linked open PRs; Wayfinder uses its assignee.
 Branch `<type>/<issue>-<slug>` from `origin/main`; untracked tasks use `<type>/<slug>`.
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
-One session writes in one worktree. Reuse its task worktree for local iteration;
-a separate writer needs a separate session and writing worktree.
+Keep each writing context in its assigned worktree. Reuse that worktree for local iteration.
 New worktrees live at `<parent>/<repo>.worktrees/<task>`; `REPOSITORIES.md` owns the Inside layout.
 
 The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
-or absolute paths. Only `session-cleanup` fast-forwards it after merge.
+or absolute paths. Update it only when the owner assigns that action.
 Preserve other sessions' worktrees, branches, containers, volumes, and stashes.
 An independent delivery has one branch and PR; a specification retains its worker branches and worktrees.
 
@@ -108,7 +107,9 @@ Documentation changes receive this review before integration. Prototype preview 
 
 Completion follows the owner-requested deliverable's requirements above. Preserve the command's actual exit code and checked scope.
 Documentation-only delivery requires its focused checks; unrelated application suites are not a local completion gate.
-Product delivery requires the full product check. Required CI must pass before integration.
+Reuse applicable successful evidence when its checked inputs are unchanged; record its source, scope, and outcome.
+Product delivery requires successful final-head coverage under the
+[verification evidence policy](docs/agents/release-evidence.md). Required current-head CI and merge-queue CI remain mandatory.
 
 For an integration PR:
 
