@@ -607,6 +607,14 @@ export const OrderedListStartMobile: Story = {
 
 export const Mobile: Story = {
   args: {},
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The contents row toggles its outline through the native summary, without a separate action label.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -762,6 +770,14 @@ export const MobileBatchedIntersection: Story = {
 
 export const Desktop: Story = {
   args: { primaryVideo: readyVideo },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The contents row toggles its outline through the native summary, without a separate action label.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

@@ -348,7 +348,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 
   return (
     <div className="mt-6 border-y border-black/8 py-1 sm:mt-8 sm:py-2">
-      <details className="group">
+      <details>
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
           className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
@@ -356,18 +356,6 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
           <span className="inline-flex items-center gap-2">
             <List aria-hidden="true" className="size-4 text-action" />
             Содержание · {items.length}
-          </span>
-          <span
-            aria-hidden="true"
-            className="text-xs text-muted-foreground group-open:hidden"
-          >
-            Открыть
-          </span>
-          <span
-            aria-hidden="true"
-            className="hidden text-xs text-muted-foreground group-open:inline"
-          >
-            Скрыть
           </span>
         </summary>
         <nav
