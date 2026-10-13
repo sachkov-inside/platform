@@ -32,19 +32,22 @@ const bankRootFingerprint =
 describe("concrete bank boundary", () => {
   test("Init accepts the observed bank hosted form without changing its URL", async () => {
     const paymentUrl = "https://pay.tbank-online.com/synthetic-payment";
-    const bank = new Tbank(config, async () => ({
-      ok: true,
-      json: async () => ({
-        TerminalKey: config.terminalKey,
-        OrderId: "synthetic-order",
-        PaymentId: "synthetic-payment",
-        Amount: 10000,
-        Status: "NEW",
-        Success: true,
-        ErrorCode: "0",
-        PaymentURL: paymentUrl,
+    const bank = new Tbank(config, () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            TerminalKey: config.terminalKey,
+            OrderId: "synthetic-order",
+            PaymentId: "synthetic-payment",
+            Amount: 10000,
+            Status: "NEW",
+            Success: true,
+            ErrorCode: "0",
+            PaymentURL: paymentUrl,
+          }),
       }),
-    }));
+    );
     await expect(
       bank.init({
         orderId: "synthetic-order",
