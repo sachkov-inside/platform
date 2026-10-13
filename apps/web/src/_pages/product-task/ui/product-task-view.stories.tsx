@@ -397,7 +397,7 @@ export const SourceAnchors: Story = {
     await expect(new Set(ids).size).toBe(ids.length);
     await expect(
       page
-        .getByRole("navigation", { name: "Части задания" })
+        .getByRole("navigation", { name: "Действия материала" })
         .querySelector('a[href="#task-submit:page"]'),
     ).not.toBeNull();
     await expect(

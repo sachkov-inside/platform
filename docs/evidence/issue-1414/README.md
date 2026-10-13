@@ -68,3 +68,17 @@ prepared for the final production-build suite; its execution result is recorded 
 
 Focused correction checks: TypeScript and Oxlint passed; 12 module cases passed; five affected Storybook
 cases passed after the A–B–A story awaited Select dismissal. Web/negative guardrails and docs contract passed.
+
+## CI diagnosis before final evidence
+
+Run `38387178752` exposed old composition assertions in UI and navigation checks. Loading stories now
+compare the known course header/actions across pending and resolved states, including 200% text; the
+unknown route skeleton remains separate. Video checks reserve one written disabled action. Task source
+anchor checks retain collision/alias coverage through the real single submission action.
+Programme return checks use the real rail or mobile dialog; request admission and payload assertions stay intact.
+The held-practice test initially inspected a shared backend journal containing earlier archive/mode cases.
+It now clears that journal before its request window and retains the same zero-authorized-product-read
+assertion, held personal practice barrier and public body assertion. The request journal is attached by Playwright.
+Eleven affected UI cases passed locally after these test corrections. Final production-build navigation results
+are recorded after the mandatory check. Route flicker is a separate owner-requested follow-up, #1426;
+future visual/editorial planning is #1427. This ticket does not expand route architecture.

@@ -78,9 +78,17 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     .getByRole("link", { name: "Материал 1", exact: true })
     .click();
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-  const returnLink = page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
-    .getByRole("link", { name: "Открыть программу", exact: true });
+  const course = page.locator("[data-course-reading]:visible");
+  const programmeButton = course.getByRole("button", {
+    name: "Вся программа",
+    exact: true,
+  });
+  const mobile = await programmeButton.isVisible();
+  if (mobile) await programmeButton.click();
+  const returnLink = course.getByRole("link", {
+    name: mobile ? "Страница программы" : "Вся программа",
+    exact: true,
+  });
   await expect(returnLink).toHaveAttribute(
     "href",
     `${programme}?part=materials&at=performance-lesson-1`,

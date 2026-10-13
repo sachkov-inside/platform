@@ -991,7 +991,7 @@ test("снимки перехода «программа → урок → про
   await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
-  const lessonAnchors = ["[data-reader-top-frame]", "[data-reader-header]"];
+  const lessonAnchors = ["[data-course-actions]", "[data-reader-header]"];
   await page
     .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
@@ -1515,9 +1515,11 @@ test("public course body renders while personal practice is held", async ({
   page,
   context,
   baseURL,
-}) => {
+}, testInfo) => {
   if (baseURL === undefined) throw new Error("Web origin is required");
   await signInAsMember(context, baseURL);
+  // The backend journal is shared by earlier cases; this assertion owns only its current request window.
+  await fetch(`${backend}/__requests`, { method: "DELETE" });
   await fetch(`${backend}/__practice-hold`, {
     method: "POST",
     body: JSON.stringify({ hold: true }),
@@ -1536,6 +1538,14 @@ test("public course body renders while personal practice is held", async ({
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     await expect(page.locator("[data-course-reading]:visible")).toBeVisible();
     const requests = await backendRequests();
+    await testInfo.attach("held-private-practice-requests", {
+      body: JSON.stringify({
+        privatePracticeHeld: true,
+        publicBodyVisible: true,
+        requests,
+      }),
+      contentType: "application/json",
+    });
     expect(
       requests.filter(
         (item) => item.path.startsWith("/library/products/") && item.authorized,
