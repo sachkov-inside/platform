@@ -165,8 +165,8 @@ binding лендинга, сохраняя временный bridge на VPS д
 доступ к материалам через `inside.sachkov.dev`.
 
 После успешного финального deploy сначала восстановить сохранённые env-файлы и пересоздать Web
-и затронутые API/MCP/notifications процессы с прежними env по [процедуре изменения настройки](production-release.md#изменение-настройки-без-нового-выпуска).
-В её команде указать `--pull never` и список `web api mcp notifications-worker`. Восстановить прежний проверенный
+и затронутые API/MCP/billing/notifications процессы с прежними env по [процедуре изменения настройки](production-release.md#изменение-настройки-без-нового-выпуска).
+В её команде указать `--pull never` и список `web api mcp billing-worker notifications-worker`. Восстановить прежний проверенный
 `active.caddy` вместе с bridge. Проверить `caddy validate` перед reload, затем старую страницу,
 вход и apex → old app без цикла. После этого при необходимости вернуть DNS/binding лендинга.
 302 `no-store` не закрепляет противоположные маршруты в браузере. На время восстановления
@@ -181,13 +181,20 @@ runtime-конфигурации использовать maintenance; не вы
 
 1. Скопировать maintenance текущего выпуска в `/srv/inside/runtime/caddy/active.caddy`.
    Проверить `caddy validate`, затем выполнить `systemctl reload caddy`.
-2. Восстановить все сохранённые env в `/etc/inside/runtime` с владельцем `root:root` и mode `0600`.
+2. Восстановить все сохранённые env в `/etc/inside/runtime`, включая `billing-worker.env`,
+   с владельцем `root:root` и mode `0600`.
 3. Пересоздать перечисленные процессы образами текущего выпуска по ссылке выше.
-   Убедиться в readiness всех четырёх процессов; при отказе сохранить maintenance.
+   Убедиться в readiness всех пяти процессов; при отказе сохранить maintenance.
 4. Восстановить сохранённый старый `active.caddy` и bridge в импортируемой директории.
    Проверить `caddy validate`, затем выполнить `systemctl reload caddy`.
 5. Проверить старый вход, доступ участника и apex/www → inside без цикла.
    При необходимости восстановить DNS/binding из снимка; сохранить bridge до истечения TTL.
+
+Если при переносе менялась конфигурация Telegram, восстановить сохранённый
+`/etc/inside/telegram/application.env` и применить его с текущим immutable Telegram release,
+проверив readiness и прежние значения кнопок/tracking. Telegram имеет свой Compose и блокировку:
+следовать [его порядку применения и отката](../../apps/telegram/docs/operations/production.md#смена-публичного-адреса-кнопки-после-входа)
+под координацией #854; он не входит в список пяти процессов Platform.
 
 При возврате удалить `LEARNER_MCP_URL`, если его не было в сохранённом env; прежний
 `WEB_BASE_URL` снова задаёт правильный fallback.
