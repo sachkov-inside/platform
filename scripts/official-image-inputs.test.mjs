@@ -58,7 +58,7 @@ const rabbitmqPins = new Map([
   ],
 ]);
 
-test("official acquisition inputs select exact authorized GHCR mirrors and remaining immutable ECR inputs", () => {
+test("official acquisition inputs select authorized GHCR mirrors, pinned Hub Node and remaining immutable ECR inputs", () => {
   for (const path of inputPaths) {
     const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
     // A dotted version excludes service URLs such as rabbitmq:5671 and postgres:5432.
@@ -76,6 +76,14 @@ test("official acquisition inputs select exact authorized GHCR mirrors and remai
           reference,
           `ghcr.io/sachkov-inside/${image}@${runtimeDigest}`,
           `${path}: ${image} must use its verified public mirror without changing identity`,
+        );
+        continue;
+      }
+      if (image === "node:26.10.0-bookworm-slim") {
+        assert.equal(
+          reference,
+          "docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+          `${path}: Telegram Node must preserve its official index through Docker Hub (#1432)`,
         );
         continue;
       }
