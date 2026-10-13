@@ -324,7 +324,7 @@
   }
   .mobileProgramme {
     display: block;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
   }
 }
 @media (max-width: 39.99rem) {
