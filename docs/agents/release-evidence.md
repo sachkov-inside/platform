@@ -5,8 +5,10 @@ identity determine readiness; the machine that ran a check does not.
 
 ## Collect once
 
-1. Select and freeze the exact final source SHA before dispatching the release workflow. Keep that
-   selection through delivery when `main` advances. Record each required check's command or CI job, actual source,
+1. Select and freeze the exact final source SHA before dispatching the release workflow. Serialize
+   unrelated main merges until immutable publication completes: both planning and finalization
+   require the selected SHA to remain current main. After publication, keep that selection through
+   deployment when main advances. Record each required check's command or CI job, actual source,
    outcome, and log or artifact reference. Read the actual checkout SHA for reusable workflows.
 2. Reuse successful exact-source CI evidence for all covered checks. `pnpm check` defines completion;
    its static, unit, UI, and web end-to-end phases may be proved by their corresponding CI jobs.
