@@ -484,7 +484,11 @@ describe("bank payment contour", () => {
       environment: "demo",
       endpoints: {
         apiBaseUrl: "https://securepay.tinkoff.ru/v2",
-        formOrigins: ["https://securepay.tinkoff.ru", "https://pay.tbank.ru"],
+        formOrigins: [
+          "https://securepay.tinkoff.ru",
+          "https://pay.tbank.ru",
+          "https://pay.tbank-online.com",
+        ],
       },
     });
     expect(() =>
