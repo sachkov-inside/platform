@@ -1274,9 +1274,13 @@ describe("владельческие операции billing: платежи, �
         refundedKopecks: 100_000,
       }),
     );
-    expect(await s.reserve()).toMatchObject({
-      purchaseRef: expect.any(String),
-    });
+    const nextPurchase = await s.reserve();
+    expect(nextPurchase).toMatchObject({ purchaseRef: expect.any(String) });
+    value(
+      await s.payments.notification(
+        s.bank.notify(nextPurchase.purchaseRef, "CANCELED"),
+      ),
+    );
   });
 
   test("отложенная выдача после отзыва завершается как устаревшая и не ломает восстановление", async () => {
