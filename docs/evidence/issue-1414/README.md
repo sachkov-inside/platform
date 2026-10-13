@@ -82,3 +82,43 @@ assertion, held personal practice barrier and public body assertion. The request
 Eleven affected UI cases passed locally after these test corrections. Final production-build navigation results
 are recorded after the mandatory check. Route flicker is a separate owner-requested follow-up, #1426;
 future visual/editorial planning is #1427. This ticket does not expand route architecture.
+
+## Final production evidence
+
+Rendered production code: `3b0588e2d2b5f6db04349304f64d723b9e80ec28`; source tree is recorded in
+[production/metrics.json](production/metrics.json). Production UI is unchanged from independently
+accepted `086adfc84c0b6cef42b38aaa88e062add7492a68`; the intervening diff aligns tests and capture code.
+The confirmation removes the browser-storage notice through its actual button. Whole-page captures use the
+shared helper and assert `scrollWidth === clientWidth` first. Every image was inspected; hashes and dimensions
+are in [production/images.json](production/images.json). The local Next dev badge is preview infrastructure.
+
+- Real guide: [desktop](production/live-guide-1440.webp), [390 px](production/live-guide-390.webp),
+  [320 px](production/live-guide-320.webp), [200% text](production/live-guide-390-text-200.webp).
+- Real task: [desktop](production/live-task-1440.webp), [390 px](production/live-task-390.webp),
+  [320 px](production/live-task-320.webp).
+- Derived diagram details: [pastel overview](production/live-guide-overview-detail.webp),
+  [Brief focus](production/live-guide-brief-detail.webp). These are crops of the inspected desktop whole page.
+- Keyboard chapter picker: [open selector](production/live-chapter-keyboard.webp).
+- Operational Storybook: [pending](production/story-pending-320.webp), [access](production/story-access-320.webp),
+  [submitted task](production/story-task-submitted-1440.webp), [task-only](production/story-task-only-1440.webp),
+  [navigation/history fallback](production/story-task-fallback-390.webp).
+
+Measured desktop rail is 240 px; prose/figure column is 688 px. Chevron stays inside the chapter trigger.
+All captured widths (1440/390/320) and 200% phone text have no horizontal overflow. Written reading label
+remains visible at 320 px; pending and guest controls are 36 px high with at least 44 px target height.
+Action labels measure 14 px on desktop and 12 px on phone. Actual Task and standalone fallback body sections
+have 10 px heading-to-paragraph gaps. Task → pipeline → task Range measurements preserve the exact two lines:
+`Как устроен пайплайн ` / `разработки с агентом`. Mobile programme opens and closes by Escape;
+chapter selection opens, moves and confirms by keyboard. These checks do not claim to fix #1426 flicker.
+
+Accessibility: live route scans report no violations. Whole-iframe Storybook scans retain one moderate
+`region` result for the shell skip link `.fixed`; they are not zero. The iframe has hidden Storybook
+no-preview documentation links before that control. The owning `[data-story-content]` scope reports zero
+in the diagnostic comparison; [a11y-scope.json](production/a11y-scope.json) records both results and the
+scaffolding. No rule is disabled. Manual capture uses the existing `globals.a11y.manual` mechanism so it
+cannot race the addon scan. Failed scan attempts did not restart design exploration; only remaining story
+captures were resumed. Script nullability passed `tsconfig.scripts.json` with pinned Node 26.10.0/pnpm 11.27.1.
+
+Independent Standards and Spec passed 086adfc8; Spec also passed the test-only delta to 3b0588e2.
+Required final `pnpm check` and current-head CI follow this evidence commit. Production visual GO remains pending.
+The ECR 429 failure on the prior CI head happened before compilation; #1324/#1390 track that provider issue.

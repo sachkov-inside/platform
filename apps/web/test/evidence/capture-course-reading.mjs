@@ -2,10 +2,11 @@
 /// <reference lib="dom" />
 /** #1414: bounded evidence from the production module, Storybook and real Content routes. */
 import { execFileSync } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, expect } from "@playwright/test";
+import { z } from "zod";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 const live = process.env["COURSE_LIVE_ORIGIN"] ?? "http://localhost:3107";
@@ -29,8 +30,18 @@ const context = await browser.newContext({
   reducedMotion: "reduce",
 });
 const page = await context.newPage();
+const storiesOnly = process.env["COURSE_EVIDENCE_STORIES_ONLY"] === "1";
 /** @type {Record<string, unknown>[]} */
-const results = [];
+const results = storiesOnly
+  ? z
+      .object({
+        results: z.array(z.object({ name: z.string() }).passthrough()),
+      })
+      .parse(
+        JSON.parse(await readFile(resolve(directory, "metrics.json"), "utf8")),
+      )
+      .results.filter((entry) => !entry.name.startsWith("story-"))
+  : [];
 
 /** @param {string} url */
 async function visit(url) {
@@ -94,11 +105,14 @@ async function metrics() {
       title: heading?.textContent,
       position: course?.querySelector("[data-reader-header] p")?.textContent,
       railWidth:
-        rail !== undefined && visible(rail)
+        rail !== undefined && rail !== null && visible(rail)
           ? rail.getBoundingClientRect().width
           : null,
       chevronContained:
-        chevron === undefined || selector === undefined
+        chevron === undefined ||
+        chevron === null ||
+        selector === undefined ||
+        selector === null
           ? null
           : chevron.getBoundingClientRect().right <=
             selector.getBoundingClientRect().right,
@@ -171,81 +185,82 @@ async function pipelineLines() {
 }
 
 try {
-  await visit(`${live}${task}`);
-  const before = await pipelineLines();
-  await page
-    .locator(
-      `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
-    )
-    .click();
-  await expect(
-    page.locator(
-      `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
-    ),
-  ).toHaveAttribute("aria-current", "step");
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  const selected = await pipelineLines();
-  await page
-    .locator(
-      '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
-    )
-    .click();
-  await expect(
-    page.locator(
-      '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
-    ),
-  ).toHaveAttribute("aria-current", "step");
-  await page.evaluate(() => document.fonts.ready.then(() => undefined));
-  const returned = await pipelineLines();
-  expect(selected).toEqual(before);
-  expect(returned).toEqual(before);
-  results.push({
-    name: "pipeline-line-wrap-task-pipeline-task",
-    before,
-    selected,
-    returned,
-  });
-
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 1000 });
-    await visit(`${live}${guide}`);
-    await capture(`live-guide-${width}`);
+  if (!storiesOnly) {
     await visit(`${live}${task}`);
-    await capture(`live-task-${width}`);
+    const before = await pipelineLines();
+    await page
+      .locator(
+        `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
+      )
+      .click();
+    await expect(
+      page.locator(
+        `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
+      ),
+    ).toHaveAttribute("aria-current", "step");
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    const selected = await pipelineLines();
+    await page
+      .locator(
+        '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
+      )
+      .click();
+    await expect(
+      page.locator(
+        '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
+      ),
+    ).toHaveAttribute("aria-current", "step");
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    const returned = await pipelineLines();
+    expect(selected).toEqual(before);
+    expect(returned).toEqual(before);
+    results.push({
+      name: "pipeline-line-wrap-task-pipeline-task",
+      before,
+      selected,
+      returned,
+    });
+
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await visit(`${live}${guide}`);
+      await capture(`live-guide-${width}`);
+      await visit(`${live}${task}`);
+      await capture(`live-task-${width}`);
+    }
+    await page.setViewportSize({ width: 320, height: 1000 });
+    await visit(`${live}${guide}`);
+    await capture("live-guide-320", { whole: false });
+    await visit(`${live}${task}`);
+    await capture("live-task-320", { whole: false });
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await visit(`${live}${guide}`);
+    const selector = page.getByRole("combobox", { name: "Глава курса" });
+    await selector.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await capture("live-chapter-keyboard", { whole: false, a11y: false });
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(selector).toHaveAttribute("aria-expanded", "false");
+
+    await page.setViewportSize({ width: 390, height: 1000 });
+    await visit(`${live}${guide}`);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    await capture("live-guide-390-text-200", { whole: false });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "";
+    });
   }
-  await page.setViewportSize({ width: 320, height: 1000 });
-  await visit(`${live}${guide}`);
-  await capture("live-guide-320", { whole: false });
-  await visit(`${live}${task}`);
-  await capture("live-task-320", { whole: false });
-  await page
-    .getByRole("button", { name: "Вся программа", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).not.toBeVisible();
-
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await visit(`${live}${guide}`);
-  const selector = page.getByRole("combobox", { name: "Глава курса" });
-  await selector.focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("option").first()).toBeVisible();
-  await capture("live-chapter-keyboard", { whole: false, a11y: false });
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await expect(selector).toHaveAttribute("aria-expanded", "false");
-
-  await page.setViewportSize({ width: 390, height: 1000 });
-  await visit(`${live}${guide}`);
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = "200%";
-  });
-  await capture("live-guide-390-text-200", { whole: false });
-  await page.evaluate(() => {
-    document.documentElement.style.fontSize = "";
-  });
-
   for (const [name, story, width] of [
     ["story-pending-320", "pages-material-reader--course-pending", 320],
     ["story-access-320", "pages-material-reader--course-locked", 320],
@@ -258,7 +273,9 @@ try {
     ],
   ]) {
     await page.setViewportSize({ width: Number(width), height: 1000 });
-    await visit(`${storybook}/iframe.html?id=${story}&viewMode=story`);
+    await visit(
+      `${storybook}/iframe.html?id=${story}&viewMode=story&globals=a11y.manual:!true`,
+    );
     await capture(String(name));
   }
   await writeFile(

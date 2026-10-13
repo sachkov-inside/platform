@@ -1,0 +1,39 @@
+{
+  "full": [
+    {
+      "id": "region",
+      "impact": "moderate",
+      "nodes": [
+        {
+          "target": [
+            ".fixed"
+          ],
+          "html": "<a href=\"#app:content\" class=\"fixed left-4 top-4 z-[100] max-w-[calc(100vw-2rem)] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground focus:translate-y-0\">Перейти к содержанию</a>"
+        }
+      ]
+    }
+  ],
+  "scoped": [],
+  "scaffolding": [
+    {
+      "text": "Decorators documentation",
+      "visible": false,
+      "parent": ""
+    },
+    {
+      "text": "Webpack",
+      "visible": false,
+      "parent": ""
+    },
+    {
+      "text": "Vite",
+      "visible": false,
+      "parent": ""
+    },
+    {
+      "text": "Environment Variables documentation",
+      "visible": false,
+      "parent": ""
+    }
+  ]
+}
