@@ -98,8 +98,9 @@ Other synchronous contract commands have explicit termination budgets; asynchron
 ## Official image inputs
 
 CI service containers, application Dockerfile bases, Compose dependencies and explicit
-Testcontainers/SQL inputs select Docker Official Images from `public.ecr.aws/docker/library/`,
-except RabbitMQ, which uses the public `ghcr.io/sachkov-inside/rabbitmq` mirror.
+Testcontainers/SQL inputs select immutable Docker Official Images. The authorized RabbitMQ,
+PostgreSQL `18.4-alpine`/`18.4-alpine3.23` and Node `26.10.0-alpine3.24` indexes use public
+`ghcr.io/sachkov-inside/` mirrors. Caddy and Node `26.10.0-bookworm-slim` retain ECR Public inputs.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 Consumers do not need registry credentials for these inputs.
@@ -142,9 +143,12 @@ The first trusted-main run may create private `postgres` and `node` packages. Af
 the exact copies succeeded, change only those two packages to public. Keep the initial failed
 anonymous verification as evidence, then rerun its finished publishing jobs after the visibility
 change. Copy or identity failures need diagnosis; private visibility is not their assumed cause.
-Require successful anonymous index and every child-manifest comparison for all three inputs before
-a separate reviewed consumer change. Until that verification, PostgreSQL and Node consumers keep
-their existing immutable ECR references. Publishing alone does not change CI or release inputs.
+Require successful anonymous index and every child-manifest comparison before any consumer change.
+The trusted-main [run38363266243](https://github.com/sachkov-inside/platform/actions/runs/38363266243)
+completed all three publishers successfully. The [retained identity receipt](../evidence/issue-1396/official-runtime-mirrors.json)
+records equal index bytes and all16/16/4 child manifests, including `linux/amd64` and `linux/arm64`.
+Consumers now use those exact public GHCR indexes with unchanged versions and digests. This changes
+acquisition inputs; running production processes change only through their separate release procedure.
 
 ### Remaining ECR inputs
 
@@ -164,7 +168,7 @@ Acquisition failures keep their original error and stop startup without a
 retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
 boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
 Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
-smoke; this explicit group contains one ECR Public image, so it has no ECR pair to space.
+smoke; this explicit group now contains no ECR Public image, so it has no ECR pair to space.
 Integration serial enables
 `testcontainers:pull` diagnostics so a Docker pull-stream failure is visible before a subsequent
 missing-image or cleanup error. These acquisition paths do not retry a failed pull.
