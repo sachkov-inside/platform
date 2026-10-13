@@ -16,7 +16,7 @@ const metricsPerDay = 20_000;
 const errorsPerDay = 5_000;
 const millisecondsPerDay = 86_400_000;
 const postgresImage =
-  "public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15";
+  "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15";
 
 async function measure() {
   const container = await new PostgreSqlContainer(postgresImage)

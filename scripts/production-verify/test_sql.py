@@ -17,7 +17,7 @@ class SqlContractTests(unittest.TestCase):
         try:
             subprocess.run(['docker', 'run', '--detach', '--name', cls.container, '--label', 'inside.owner=production-verify-test',
                             '--env', 'POSTGRES_PASSWORD=synthetic-test-only', '--health-cmd', 'pg_isready -h 127.0.0.1 -U postgres',
-                            '--health-interval', '1s', '--health-retries', '30', 'public.ecr.aws/docker/library/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e'],
+                            '--health-interval', '1s', '--health-retries', '30', 'ghcr.io/sachkov-inside/postgres:18.4-alpine3.23@sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e'],
                            check=True, capture_output=True, text=True, timeout=120)
             # TCP health excludes the temporary socket-only server used by image initialization.
             # The budget only bounds a stuck start.
