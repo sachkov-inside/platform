@@ -100,7 +100,8 @@ Other synchronous contract commands have explicit termination budgets; asynchron
 CI service containers, application Dockerfile bases, Compose dependencies and explicit
 Testcontainers/SQL inputs select immutable Docker Official Images. The authorized RabbitMQ,
 PostgreSQL `18.4-alpine`/`18.4-alpine3.23` and Node `26.10.0-alpine3.24` indexes use public
-`ghcr.io/sachkov-inside/` mirrors. Caddy and Node `26.10.0-bookworm-slim` retain ECR Public inputs.
+`ghcr.io/sachkov-inside/` mirrors. Caddy retains its ECR Public input. Telegram Node `26.10.0-bookworm-slim` uses Docker Hub
+(`docker.io/library/node`) with its unchanged index digest (#1432).
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 Consumers do not need registry credentials for these inputs.

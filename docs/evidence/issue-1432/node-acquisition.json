@@ -1,0 +1,31 @@
+{
+  "verifiedOn": "2026-10-13",
+  "baseCommit": "6df3fe1e3638f344123d5ec28f179be887b3eece",
+  "originalFailure": {
+    "run": "https://github.com/sachkov-inside/platform/actions/runs/38400041982/attempts/1",
+    "job": "https://github.com/sachkov-inside/platform/actions/runs/38400041982/job/115305012503",
+    "attempt": 1,
+    "sourceSha": "6df3fe1e3638f344123d5ec28f179be887b3eece",
+    "timeUtc": "2026-10-13T12:52:29Z",
+    "status": 429,
+    "message": "toomanyrequests: Data limit exceeded",
+    "buildExitCode": 1,
+    "excerpt": "original-failure.log"
+  },
+  "diagnosis": "ECR Public rejected the immutable manifest request with a data-limit response before Docker build instructions ran. Quota consumption and its owner remain unknown. A later successful attempt does not establish a permanent provider fix.",
+  "quotaDocumentation": "https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html",
+  "fix": "Select the official Docker Hub repository directly; change only the registry prefix in both Telegram Node bases. No retries, mirrors, credentials, version changes or CI changes.",
+  "metadataVerification": {
+    "method": "Anonymous crane manifest requests with empty DOCKER_CONFIG, no layer pulls; hash raw index bytes and compare ECR and Hub bytes.",
+    "digest": "sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+    "source": "public.ecr.aws/docker/library/node@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+    "target": "docker.io/library/node@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+    "identicalIndexBytes": true,
+    "tagNote": "The current Hub tag resolves to a different digest. The existing pinned digest remains readable; Dockerfile tag is descriptive and its digest selects the immutable content.",
+    "linuxPlatforms": {
+      "amd64": "sha256:0a992e1420e2d70611578f1844a6f10a9d11fe6bb535aabf72efe3007f13d79b",
+      "arm64": "sha256:131c9695bc02b79f4dbb1ca360f5822d5f67f248a621498c22de5883f94122d0"
+    },
+    "limitation": "Metadata access from the owner Mac is not hosted build evidence. Docker Hub quotas remain a provider dependency; this scoped fix removes the confirmed ECR failure path."
+  }
+}
