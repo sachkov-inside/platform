@@ -113,3 +113,76 @@ test("RabbitMQ publisher is restricted to trusted pushes/main dispatch and prese
   assert.match(publisher, /\.manifests\[\]\.digest/u);
   assert.match(publisher, /sha256sum --check/u);
 });
+
+test("runtime publisher admits only the three owner-approved immutable indexes on trusted main", () => {
+  const publisher = readFileSync(
+    new URL(
+      "../.github/workflows/official-runtime-mirror.yml",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const approvedInputs = [
+    [
+      "postgres",
+      "18.4-alpine",
+      "9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+    ],
+    [
+      "postgres",
+      "18.4-alpine3.23",
+      "996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+    ],
+    [
+      "node",
+      "26.10.0-alpine3.24",
+      "0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+    ],
+  ];
+  assert.equal((publisher.match(/- image:/gu) ?? []).length, 3);
+  for (const [image, tag, digest] of approvedInputs) {
+    assert.ok(
+      publisher.includes(
+        `- image: ${image}\n            tag: ${tag}\n            digest: sha256:${digest}`,
+      ),
+      `${image}:${tag} must preserve its approved official index`,
+    );
+  }
+  assert.match(publisher, /permissions: \{\}/u);
+  assert.match(publisher, /branches: \[main\]/u);
+  assert.match(publisher, /github\.repository == 'sachkov-inside\/platform'/u);
+  assert.match(publisher, /github\.ref == 'refs\/heads\/main'/u);
+  assert.match(publisher, /github\.event_name == 'push'/u);
+  assert.match(publisher, /github\.event_name == 'workflow_dispatch'/u);
+  assert.doesNotMatch(
+    publisher,
+    /^ {2}(pull_request|pull_request_target|workflow_run|workflow_call):|secrets\.|actions\/checkout|download-artifact|inputs\./mu,
+  );
+  assert.match(publisher, /packages: write/u);
+  assert.match(publisher, /GHCR_TOKEN: \$\{\{ github\.token \}\}/u);
+  assert.match(
+    publisher,
+    /skopeo copy --all --preserve-digests --retry-times 0/u,
+  );
+  assert.match(
+    publisher,
+    /docker:\/\/docker\.io\/library\/\$IMAGE_NAME@\$IMAGE_DIGEST/u,
+  );
+  assert.match(
+    publisher,
+    /docker:\/\/ghcr\.io\/sachkov-inside\/\$IMAGE_NAME:\$IMAGE_TAG/u,
+  );
+  assert.match(publisher, /printf '\{"auths":\{\}\}\\n'/u);
+  assert.match(
+    publisher,
+    /cmp "\$proof\/upstream-index\.json" "\$proof\/ghcr-index\.json"/u,
+  );
+  assert.match(publisher, /sha256sum --check/u);
+  assert.match(publisher, /\.platform\.architecture == "amd64"/u);
+  assert.match(publisher, /\.platform\.architecture == "arm64"/u);
+  assert.match(publisher, /\.manifests\[\]\.digest/u);
+  assert.match(
+    publisher,
+    /cmp "\$proof\/upstream-\$\{digest#sha256:\}\.json" "\$proof\/ghcr-\$\{digest#sha256:\}\.json"/u,
+  );
+});
