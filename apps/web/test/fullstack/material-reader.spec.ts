@@ -898,7 +898,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     }),
   ).toHaveCount(0);
   await expect(
-    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
+    course.getByRole("navigation", {
+      name:
+        testInfo.project.name === "mobile-chromium"
+          ? "Навигация по урокам"
+          : "Шаги курса",
+      exact: true,
+    }),
   ).toBeVisible();
   const programmeAction =
     testInfo.project.name === "mobile-chromium"
@@ -911,8 +917,10 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     page.getByRole("link", { name: "Все материалы продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Platform", exact: true }),
-  ).toHaveAttribute("href", "/topics/platform");
+    course
+      .locator("[data-reader-header]")
+      .getByRole("link", { name: "Platform", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Назад к программе" }),
   ).toHaveCount(0);

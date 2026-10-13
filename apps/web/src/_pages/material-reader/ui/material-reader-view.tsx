@@ -275,11 +275,6 @@ export function MaterialReaderHeader({
         actions={actions}
         metadata={
           <>
-            <span>{materialTaxonomyLabel(material.format.name)}</span>
-            <span>{programme.name}</span>
-            <IntentPrefetchLink href={topicPath(material.topic.slug)}>
-              {material.topic.name}
-            </IntentPrefetchLink>
             <time dateTime={material.publishedAt}>{publicationDate}</time>
           </>
         }

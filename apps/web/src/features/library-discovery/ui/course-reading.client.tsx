@@ -14,6 +14,7 @@ import type {
   CourseReadingContext,
   CourseReadingStep,
 } from "../model/course-reading";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
 
 /** Shared course composition; routes retain ownership of body, access and mutations. */
@@ -28,6 +29,7 @@ export function CourseReadingLayout({
     return <div className={styles["standalone"]}>{children}</div>;
   return (
     <div className={styles["layout"]} data-course-reading>
+      <HidePublicFooter />
       <CourseRail context={context} />
       <div className={styles["document"]}>
         <ProgrammeDialog context={context} />
@@ -221,17 +223,87 @@ function ProgrammeDialog({
   readonly context: CourseReadingContext;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const chapter = context.chapters.find(
+    (entry) => entry.id === context.currentChapterId,
+  );
+  const chapterStep =
+    (chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1) +
+    1;
+  function openProgramme() {
+    dialog.current?.showModal();
+    dialog.current
+      ?.querySelector('[aria-current="step"]')
+      ?.scrollIntoView({ block: "nearest" });
+  }
   return (
     <div className={styles["mobileProgramme"]}>
-      <button type="button" onClick={() => dialog.current?.showModal()}>
-        <List size={16} aria-hidden="true" />
-        Вся программа
-      </button>
+      <IntentPrefetchLink
+        className={styles["programmeLink"]}
+        href={context.href.split("/programme")[0] as typeof context.href}
+      >
+        <ArrowLeft size={16} aria-hidden="true" /> К странице курса
+      </IntentPrefetchLink>
+      <nav className={styles["dock"]} aria-label="Навигация по урокам">
+        {context.previous === null ? (
+          <button disabled aria-label="Предыдущий шаг">
+            <ArrowLeft size={20} />
+          </button>
+        ) : (
+          <IntentPrefetchLink
+            aria-label="Предыдущий шаг"
+            title={context.previous.title}
+            href={context.previous.href}
+          >
+            <ArrowLeft size={20} aria-hidden="true" />
+          </IntentPrefetchLink>
+        )}
+        <button
+          type="button"
+          className={styles["dockProgramme"]}
+          onClick={openProgramme}
+          aria-haspopup="dialog"
+          aria-label="Вся программа"
+        >
+          <span>
+            Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+            {chapter?.steps.length ?? 0}
+          </span>
+          <strong>
+            <List size={16} aria-hidden="true" /> Программа
+          </strong>
+        </button>
+        {context.next === null ? (
+          <button disabled aria-label="Следующий шаг">
+            <ArrowRight size={20} />
+          </button>
+        ) : (
+          <IntentPrefetchLink
+            aria-label="Следующий шаг"
+            title={context.next.title}
+            href={context.next.href}
+          >
+            <ArrowRight size={20} aria-hidden="true" />
+          </IntentPrefetchLink>
+        )}
+      </nav>
       <dialog
         className={styles["dialog"]}
         ref={dialog}
         aria-label={`Программа: ${context.name}`}
+        closedby="any"
+        onClick={(event) => {
+          if (event.target !== event.currentTarget) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          if (
+            event.clientY < rect.top ||
+            event.clientY > rect.bottom ||
+            event.clientX < rect.left ||
+            event.clientX > rect.right
+          )
+            event.currentTarget.close();
+        }}
       >
+        <div className={styles["grabber"]} aria-hidden="true" />
         <div className={styles["dialogHead"]}>
           <h2>{context.name}</h2>
           <button
@@ -242,6 +314,12 @@ function ProgrammeDialog({
             <X size={20} />
           </button>
         </div>
+        <IntentPrefetchLink
+          className={styles["programmeLink"]}
+          href={context.href.split("/programme")[0] as typeof context.href}
+        >
+          Страница курса
+        </IntentPrefetchLink>
         <IntentPrefetchLink
           className={styles["programmeLink"]}
           href={context.href}
@@ -259,8 +337,15 @@ function ProgrammeDialog({
           }}
         >
           {context.chapters.map((chapter) => (
-            <section key={chapter.id}>
-              <h3>{chapter.name}</h3>
+            <details
+              key={chapter.id}
+              open={chapter.id === context.currentChapterId}
+            >
+              <summary>
+                <span>Глава {chapter.ordinal ?? 1}</span>
+                <strong>{chapter.name}</strong>
+                <small>{chapter.steps.length} шагов</small>
+              </summary>
               <ol>
                 {chapter.steps.map((step) => (
                   <li key={step.id}>
@@ -271,7 +356,7 @@ function ProgrammeDialog({
               {chapter.steps.length === 0 ? (
                 <p className={styles["empty"]}>Глава готовится</p>
               ) : null}
-            </section>
+            </details>
           ))}
         </nav>
       </dialog>

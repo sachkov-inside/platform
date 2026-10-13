@@ -171,11 +171,14 @@ for (const path of ["/legal/terms", "/legal/terms/v1", "/legal/purchase/v5"]) {
   });
 }
 
-test("футер ведёт к документам с любой публичной страницы", async ({
+test("футер скрыт на карте и ведёт к документам с юридической страницы", async ({
   page,
 }) => {
-  // Страница «Карта» не зависит от каталога, поэтому проверяет именно футер оболочки.
   await page.goto("/map");
+  await expect(
+    page.getByRole("navigation", { name: "Документы Inside" }),
+  ).toHaveCount(0);
+  await page.goto("/legal");
 
   const footer = page.getByRole("navigation", { name: "Документы Inside" });
   await expect(

@@ -1822,10 +1822,22 @@ const courseContext = {
   programme: courseGuide,
 };
 export const CourseGuide: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Course Reader: compact mobile heading and actions, floating lesson dock, chapter bottom sheet, course-page return; no taxonomy metadata.",
+      },
+    },
+  },
   args: {
     material: { ...material, slug: "course-intro", title: "Как устроен курс" },
     seriesContext: courseContext,
   },
+};
+export const CourseGuideMobile: Story = {
+  ...CourseGuide,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const CoursePending: Story = {
   render: () => (

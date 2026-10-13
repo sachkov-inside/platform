@@ -154,9 +154,11 @@ export function ApplicationShell({
         <div className="public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(2.5rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] pt-6 lg:shrink-0 lg:pb-[calc(5rem+var(--storage-notice-space,0px))] lg:pt-8">
           {/* Pages keep ordinary block flow; only this wrapper is a flex item. */}
           <div className="min-w-0">{children}</div>
-          <div className="public-footer-slot mt-auto pt-16">
-            <PublicFooter />
-          </div>
+          {showsPublicFooter(currentPath) ? (
+            <div className="public-footer-slot mt-auto pt-16">
+              <PublicFooter />
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
@@ -303,4 +305,15 @@ function isCurrentPath(pathname: string, route: Route): boolean {
   )
     return true;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Course and purchase information retain seller documents; reading stays focused. */
+function showsPublicFooter(path: string): boolean {
+  return (
+    /^\/products\/[^/]+(?:\/buy)?\/?$/u.test(path) ||
+    path === "/payment/checkout" ||
+    path === "/payment/return" ||
+    path === "/legal" ||
+    path.startsWith("/legal/")
+  );
 }
