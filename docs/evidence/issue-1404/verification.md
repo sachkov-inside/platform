@@ -10,10 +10,12 @@ The PR result card records the final checked SHA, required-check exit codes and 
 - `node --test scripts/production-watchdog.test.mjs scripts/production-monitoring.test.mjs`:
   exit 0, 28 tests. Includes failed/incomplete sources, held Telegram/telemetry evidence, readable
   atomic export, Compose service-label format and exited required services versus completed migrations.
-- `python3 -m unittest discover -s scripts -p 'test_monitoring_*.py'`: exit 0, 10 tests.
+- `python3 -m unittest discover -s scripts -p 'test_monitoring_*.py'`: exit 0, 12 tests.
   Restarted Docker ID/PID/StartedAt/RestartCount or exporter InvocationID rejects a pilot even with
   reused cgroup paths. Measurement checks surround baseline, intermediate and final counter reads.
   MCP sample assertions reject value 0 despite a timestamp containing 2, wrong labels and empty ranges.
+  The active-watchdog end-window regression reported CPU 0 before the fix and 5% after it.
+  CPU deltas include active invocations at both boundaries; an unobserved completion rejects the pilot.
 - Guarded real `python3 scripts/monitoring-stack-test.py`: exit 0.
   Real textfile ingestion, datasource query, provisioned dashboard, six alert rules, muted delivery,
   Viewer write HTTP 403, official MCP discovery/instant/range/dashboard/alert reads passed.
@@ -47,8 +49,10 @@ Review base: `4bb1b6a446f2f3c15cbe2886c5b266fe50354d95`; initial head:
 | Spec | Failed Platform SQL cleared skipped Telegram alert | Telegram database alert family is held when its read is skipped. |
 | Spec | Query assertion matched timestamp text | Parsed samples and labels required for instant and range. |
 | Spec | Same-SHA reinstall destroyed previous bundle | Previous pointer changes only when the selected SHA changes. |
-| Owner follow-up | Linux Viewer token ownership differs from image user | Launcher runs operator UID/GID; real Linux-volume authentication passed with mode 0600. |
-| Owner follow-up | Exited(0) required service counted present | Bounded count includes only running services; migration completion remains normal. |
+| Coordinator acceptance | Linux Viewer token ownership differs from image user | Launcher runs operator UID/GID; real Linux-volume authentication passed with mode 0600. |
+| Coordinator acceptance | Exited(0) required service counted present | Bounded count includes only running services; migration completion remains normal. |
+| Standards rereview | Worker wait could bypass remaining cleanup | Kill/wait is an independent bounded step; cleanup ignores repeated catchable signals. |
+| Standards rereview | Active watchdog CPU omitted at window boundaries | Invocation CPU deltas include active initial/final reads; incomplete accounting rejects the pilot. |
 
 ## Acceptance boundaries
 

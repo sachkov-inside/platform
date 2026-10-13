@@ -51,6 +51,20 @@ def require_stable(expected, observed, previous_cpu, current_cpu):
         raise RuntimeError("A monitoring CPU counter reset; discard the pilot")
 
 
+def watchdog_cpu_delta(previous, current):
+    old = previous["CPUUsageNSec"]
+    new = current["CPUUsageNSec"]
+    if not old.isdigit() or not new.isdigit():
+        raise RuntimeError("Watchdog CPU accounting is unavailable; discard the pilot")
+    if previous["InvocationID"] == current["InvocationID"]:
+        if int(new) < int(old):
+            raise RuntimeError("Watchdog CPU counter reset; discard the pilot")
+        return (int(new) - int(old)) / 1_000_000_000
+    if previous["ActiveState"] != "inactive":
+        raise RuntimeError("Watchdog completion CPU was not observed; discard the pilot")
+    return int(new) / 1_000_000_000
+
+
 def main():
     ids = command("docker", "ps", "--filter", "label=com.docker.compose.project=inside-production-monitoring", "--format", "{{.ID}}").splitlines()
     if len(ids) != 2:
@@ -65,7 +79,6 @@ def main():
     require_stable(expected_identities, identities(ids), previous_cpu, previous_cpu)
     initial = sum(previous_cpu)
     watchdog = unit("inside-watchdog.service")
-    invocation = watchdog["InvocationID"]
     watchdog_cpu = 0.0
     max_memory = 0
     minimum_available = mem_available()
@@ -79,10 +92,9 @@ def main():
         require_stable(expected_identities, observed_identities, previous_cpu, current_cpu)
         require_stable(expected_identities, identities(ids), previous_cpu, current_cpu)
         previous_cpu = current_cpu
-        watchdog = unit("inside-watchdog.service")
-        if watchdog["ActiveState"] == "inactive" and watchdog["InvocationID"] != invocation:
-            invocation = watchdog["InvocationID"]
-            watchdog_cpu += int(watchdog["CPUUsageNSec"]) / 1_000_000_000
+        current_watchdog = unit("inside-watchdog.service")
+        watchdog_cpu += watchdog_cpu_delta(watchdog, current_watchdog)
+        watchdog = current_watchdog
         # memory.current includes resident pages and cache; adding unit peak is conservative.
         peak = watchdog.get("MemoryPeak", "0")
         watchdog_memory = int(peak) if peak.isdigit() else 0
@@ -96,7 +108,10 @@ def main():
             # Check again after the final counters, including restarts between this sample's reads.
             final_cpu = [read_group(group)[0] for group in groups]
             require_stable(expected_identities, identities(ids), current_cpu, final_cpu)
-            cpu = sum(current_cpu) - initial + watchdog_cpu
+            final_watchdog = unit("inside-watchdog.service")
+            watchdog_cpu += watchdog_cpu_delta(watchdog, final_watchdog)
+            cpu = sum(final_cpu) - initial + watchdog_cpu
+            elapsed = time.monotonic() - start
             cores = len([line for line in Path("/proc/stat").read_text().splitlines() if line.startswith("cpu") and line[3:4].isdigit()])
             cpu_percent = 100 * cpu / elapsed / cores
             break

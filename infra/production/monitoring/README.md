@@ -172,6 +172,9 @@ MemAvailable and total monitoring data. Targets: memory ≤768 MiB, average CPU 
 MainPID and ControlGroup before, during and after measurement. Any identity change, unavailable
 cgroup or decreasing CPU counter invalidates the pilot, including reuse of the same cgroup path. If any target fails, stop
 **only** monitoring, save the sanitized evidence and report the blocker. Leave the application running.
+Watchdog CPU deltas include active invocations at the beginning and end. Unavailable accounting or
+an invocation change before its completed CPU is observed invalidates the pilot. Keep the pilot
+window exclusive: run no application release or manual watchdog invocation during measurement.
 The worker does not run this production pilot. A future coordinator may run it only after server
 expansion, explicit owner deployment approval and confirmed runtime ownership.
 

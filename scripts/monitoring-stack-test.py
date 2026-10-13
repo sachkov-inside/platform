@@ -307,9 +307,14 @@ def main():
             print(str(error), file=sys.stderr)
         finally:
             # The outer process survives a killed worker and owns all worker descendants.
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGKILL)
-            process.wait(timeout=5)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            try:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=5)
+            except BaseException as error:
+                cleanup_errors.append("Worker shutdown: " + str(error))
             compose = ["docker", "compose", "-p", project, "-f", str(directory / "compose.json")]
             try:
                 if not (directory / "failure.txt").exists() and status:

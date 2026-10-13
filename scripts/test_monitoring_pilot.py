@@ -3,6 +3,7 @@ import copy
 import contextlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -41,6 +42,39 @@ class PilotIdentityTest(unittest.TestCase):
         expected = self.expected()
         with self.assertRaisesRegex(RuntimeError, "counter reset"):
             pilot.require_stable(expected, expected, [4, 7, 1], [0, 7, 1])
+
+    def test_watchdog_cpu_includes_active_initial_and_final_invocations(self):
+        def observation(identifier, state, cpu):
+            return {"InvocationID": identifier, "ActiveState": state, "CPUUsageNSec": str(cpu * 1_000_000_000)}
+        initial = observation("first", "active", 10)
+        completed = observation("first", "inactive", 12)
+        final_active = observation("second", "active", 5)
+        self.assertEqual(pilot.watchdog_cpu_delta(initial, completed), 2)
+        self.assertEqual(pilot.watchdog_cpu_delta(completed, final_active), 5)
+        self.assertEqual(pilot.watchdog_cpu_delta(final_active, observation("second", "active", 8)), 3)
+        with self.assertRaisesRegex(RuntimeError, "completion CPU"):
+            pilot.watchdog_cpu_delta(initial, final_active)
+
+    def test_report_includes_watchdog_active_at_window_end(self):
+        output = io.StringIO()
+        reads = iter([0, 10, 60])
+        def unit_observation(name):
+            if "exporter" in name:
+                return {"ActiveState": "active", "ControlGroup": "/exporter"}
+            return {"ActiveState": "active", "InvocationID": "same", "CPUUsageNSec": str(next(reads) * 1_000_000_000), "MemoryPeak": "0"}
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch.object(pilot, "identities", return_value=self.expected()))
+            stack.enter_context(patch.object(pilot, "command", side_effect=lambda *args: "vm\ngrafana" if args[1] == "ps" else "0" if args[0] == "du" else "101"))
+            stack.enter_context(patch.object(pilot, "unit", side_effect=unit_observation))
+            stack.enter_context(patch.object(pilot, "cgroup", return_value=Path("/same/cgroup")))
+            stack.enter_context(patch.object(pilot, "read_group", return_value=(4, 1024)))
+            stack.enter_context(patch.object(pilot, "mem_available", return_value=1024**3))
+            stack.enter_context(patch.object(pilot.time, "monotonic", side_effect=[0, 600, 600]))
+            stack.enter_context(patch.object(Path, "read_text", return_value="cpu0 0\ncpu1 0\n"))
+            stack.enter_context(contextlib.redirect_stdout(output))
+            pilot.main()
+        report = json.loads(output.getvalue())
+        self.assertEqual(report["average_total_host_cpu_percent"], 5)
 
     def test_measurement_checks_initial_during_and_final_identities(self):
         expected = self.expected()
