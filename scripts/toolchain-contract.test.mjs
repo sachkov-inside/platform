@@ -69,7 +69,7 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|docker\\.io/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
@@ -1070,7 +1070,7 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
     assert.match(
       base,
       new RegExp(
-        `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64}$`,
+        `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|docker\\.io/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64}$`,
         "u",
       ),
       `${path}: ${base}`,
