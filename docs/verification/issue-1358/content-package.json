@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "sourceNamespace": "inside-payment-test",
+  "selection": {
+    "productId": "payment-acceptance-1358",
+    "chapterIds": ["payment-check"],
+    "materialIds": ["payment-access-check-1358"],
+    "complete": true
+  },
+  "materials": [
+    {
+      "sourceId": "payment-access-check-1358",
+      "sourcePath": "payment-access-check.md",
+      "sourceIds": [],
+      "relatedMaterialIds": [],
+      "readingTimeMinutes": 1,
+      "kind": "note",
+      "title": "Проверка тестового доступа",
+      "summary": "Контрольный материал отдельного тестового продукта.",
+      "stage": "ready",
+      "topicId": null,
+      "access": "closed",
+      "showInFeed": false,
+      "difficulty": null,
+      "outcomes": null,
+      "markdown": "# Проверка тестового доступа\n\nЕсли вы читаете этот текст после оплаты, тестовый материал открыт.\n\nЭто отдельный тестовый продукт. Он не содержит материалы AI Engineering.\n\nПосле полного возврата этот материал должен снова стать недоступным.\n",
+      "links": {},
+      "images": {},
+      "coverAssetId": null,
+      "coverAlt": null,
+      "video": null,
+      "videoChapters": [],
+      "artifacts": []
+    }
+  ],
+  "products": [
+    {
+      "sourceId": "payment-acceptance-1358",
+      "slug": "payment-acceptance-1358",
+      "presentation": "default",
+      "page": null,
+      "title": "Тест оплаты и возврата — 100 ₽",
+      "summary": "Отдельный технический тест покупки и полного возврата. Материалы AI Engineering не входят.",
+      "complete": true,
+      "chapters": [
+        {
+          "sourceId": "payment-check",
+          "title": "Проверка доступа",
+          "summary": "Контрольный материал для согласованного тестового участника.",
+          "materialIds": ["payment-access-check-1358"]
+        }
+      ],
+      "materialIds": ["payment-access-check-1358"],
+      "supplementaryMaterialIds": []
+    }
+  ],
+  "assets": [],
+  "diagnostics": []
+}

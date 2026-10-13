@@ -1,0 +1,38 @@
+{
+  "productIdBinding": "Replace PRODUCT_ID with the UUID returned by the source-scoped Product import. Never use the AIE UUID.",
+  "operations": [
+    {
+      "operationId": "9110b0b2-3968-5335-aa85-40feffa2a25f",
+      "operation": "offers.save",
+      "value": {
+        "id": "df776b65-b15a-53ca-83d9-1e1381b2a286",
+        "name": "Тест оплаты и возврата — 100 ₽",
+        "benefits": ["product:PRODUCT_ID", "support"],
+        "benefitPeriods": [
+          {
+            "capability": "product:PRODUCT_ID",
+            "months": null
+          },
+          {
+            "capability": "support",
+            "months": 6
+          }
+        ],
+        "availableForAssignment": false,
+        "coverage": null,
+        "eligibility": "everyone"
+      }
+    },
+    {
+      "operationId": "94d658e3-04f7-50a9-bac9-8beb19c29a6f",
+      "operation": "paymentOptions.save",
+      "value": {
+        "id": "e477b8ba-7194-5f55-8846-cfe811c504b7",
+        "offerId": "df776b65-b15a-53ca-83d9-1e1381b2a286",
+        "mode": "one_time",
+        "months": 1,
+        "priceKopecks": 10000
+      }
+    }
+  ]
+}
