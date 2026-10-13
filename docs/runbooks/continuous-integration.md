@@ -117,6 +117,24 @@ If the organization creates a package privately, change that package's visibilit
 GitHub Packages before expecting the anonymous verification or consumers to pass. A successful
 authenticated push alone does not satisfy this contract.
 
+### PostgreSQL and Node mirror publication
+
+The owner approved three additional official indexes in [#1396](https://github.com/sachkov-inside/platform/issues/1396),
+packet `65c84186ced7744f790fb05000be2ca00f01146c6c2d3a6b9e944d38e013faa2`:
+PostgreSQL `18.4-alpine`, PostgreSQL `18.4-alpine3.23` and Node `26.10.0-alpine3.24`.
+The fixed matrix in [`official-runtime-mirror.yml`](../../.github/workflows/official-runtime-mirror.yml)
+owns their unchanged official index digests. This publisher uses the same trusted-main,
+job-token-only and complete-index verification contract as the RabbitMQ publisher. It accepts no
+branch bootstrap, candidate code, credentials or configurable image input.
+
+The first trusted-main run may create private `postgres` and `node` packages. After verifying that
+the exact copies succeeded, change only those two packages to public. Keep the initial failed
+anonymous verification as evidence, then rerun its finished publishing jobs after the visibility
+change. Copy or identity failures need diagnosis; private visibility is not their assumed cause.
+Require successful anonymous index and every child-manifest comparison for all three inputs before
+a separate reviewed consumer change. Until that verification, PostgreSQL and Node consumers keep
+their existing immutable ECR references. Publishing alone does not change CI or release inputs.
+
 ### Remaining ECR inputs
 
 ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
