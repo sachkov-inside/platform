@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$EUID" -eq 0 ]] || { echo "Run monitoringctl as root" >&2; exit 1; }
+base=/opt/inside/monitoring
+config=/etc/inside/monitoring
+data=/var/lib/inside/monitoring
+export MONITORING_CONFIG_DIR="$config" MONITORING_DATA_DIR="$data"
+compose() { docker compose -p inside-production-monitoring -f "$base/current/compose.yaml" "$@"; }
+case "${1:-}" in
+  install|update)
+    [[ "$(uname -s)/$(uname -m)" == Linux/x86_64 ]] || { echo "This kit supports Linux amd64" >&2; exit 1; }
+    # The selected application release owns watchdog checks and its database schema contract.
+    # Deploy/rollback installs its watchdog from the backend image. Monitoring never overrides it.
+    grep -q 'inside_watchdog_run_timestamp_seconds' /usr/local/libexec/inside/inside-watchdog || {
+      echo "The installed release watchdog lacks metrics. Deploy a checked metrics-capable application release first." >&2
+      exit 1
+    }
+    source_dir="$(cd "$(dirname "$0")" && pwd)"
+    repository="$(cd "$source_dir/../../.." && pwd)"
+    commit="$(git -C "$repository" rev-parse HEAD)"
+    [[ -z "$(git -C "$repository" status --porcelain -- infra/production/monitoring infra/production/watchdog)" ]] || { echo "Install requires committed monitoring/watchdog inputs" >&2; exit 1; }
+    release="$base/releases/$commit"
+    install -d -m 755 "$base/releases" "$release" "$data"
+    install -d -m 750 -o root -g 472 "$config"
+    install -d -m 700 "$data/grafana" "$data/victoria-metrics"
+    chown 472:472 "$data/grafana"
+    chown 65534:65534 "$data/victoria-metrics"
+    cp -R "$source_dir/." "$release/"
+    install -d -m 755 /var/lib/inside/metrics /etc/systemd/system/inside-watchdog.service.d
+    install -m 644 "$release/watchdog-metrics.conf" /etc/systemd/system/inside-watchdog.service.d/metrics.conf
+    for secret in admin-password secret-key; do
+      if [[ ! -f "$config/$secret" ]]; then
+        (umask 077; openssl rand -hex 32 >"$config/$secret")
+      fi
+      chown root:472 "$config/$secret"
+      chmod 640 "$config/$secret"
+    done
+    python3 "$release/render-scrape.py" >"$config/scrape.yaml.tmp"
+    chmod 644 "$config/scrape.yaml.tmp"
+    mv "$config/scrape.yaml.tmp" "$config/scrape.yaml"
+    archive="$(mktemp)"
+    trap 'rm -f "$archive"' EXIT
+    curl --fail --silent --show-error --location --max-time 120 \
+      https://github.com/prometheus/node_exporter/releases/download/v1.12.1/node_exporter-1.12.1.linux-amd64.tar.gz >"$archive"
+    printf 'b51d8a76aa2a9156a55d501aca6276fae09e262259a5e4e831d2c2222f084e63  %s\n' "$archive" | sha256sum --check --status
+    tar -xzf "$archive" -C "$release" --strip-components=1 node_exporter-1.12.1.linux-amd64/node_exporter
+    chmod 755 "$release/node_exporter"
+    if [[ -L "$base/current" ]]; then
+      ln -sfn "$(readlink "$base/current")" "$base/previous"
+    fi
+    ln -sfn "$release" "$base/current.next"
+    mv -Tf "$base/current.next" "$base/current"
+    install -m 644 "$release/inside-node-exporter.service" /etc/systemd/system/inside-node-exporter.service
+    systemctl daemon-reload
+    systemctl enable --now inside-node-exporter.service inside-watchdog.timer
+    systemctl restart inside-node-exporter.service
+    systemctl start inside-watchdog.service
+    compose pull
+    compose up -d
+    ready=false
+    for attempt in {1..30}; do
+      if "$base/current/monitoringctl" verify >/dev/null 2>&1; then ready=true; break; fi
+      sleep 2
+    done
+    [[ "$ready" == true ]] || { echo "Monitoring readiness failed; run rollback or stop" >&2; exit 1; }
+    "$base/current/monitoringctl" verify
+    echo "Monitoring installed from $commit; preserve this commit for rollback."
+    ;;
+  verify)
+    curl --fail --silent --max-time 5 http://127.0.0.1:8428/health >/dev/null
+    curl --fail --silent --max-time 5 http://127.0.0.1:3304/api/health | python3 -c 'import json,sys; assert json.load(sys.stdin)["database"] == "ok"'
+    curl --fail --silent --max-time 5 http://127.0.0.1:9100/metrics | python3 -c 'import sys; text=sys.stdin.read(); assert "inside_watchdog_run_timestamp_seconds " in text; assert "node_textfile_scrape_error 0" in text'
+    echo "Live VM health, Grafana database and watchdog textfile are readable."
+    ;;
+  rollback)
+    [[ -L "$base/previous" ]] || { echo "No previous monitoring bundle" >&2; exit 1; }
+    # Only monitoring configuration/binaries roll back. Never replace release-owned watchdog SQL.
+    ln -sfn "$(readlink "$base/previous")" "$base/current.next"
+    mv -Tf "$base/current.next" "$base/current"
+    python3 "$base/current/render-scrape.py" >"$config/scrape.yaml.tmp"
+    chmod 644 "$config/scrape.yaml.tmp"
+    mv "$config/scrape.yaml.tmp" "$config/scrape.yaml"
+    install -m 644 "$base/current/inside-node-exporter.service" /etc/systemd/system/inside-node-exporter.service
+    systemctl daemon-reload
+    systemctl restart inside-node-exporter.service
+    compose up -d
+    "$base/current/monitoringctl" verify
+    ;;
+  stop)
+    compose down
+    systemctl disable --now inside-node-exporter.service
+    # Keep the release-owned watchdog and its harmless sanitized export. Keep all historical data.
+    ;;
+  *) echo "Usage: monitoringctl install|update|verify|rollback|stop" >&2; exit 2 ;;
+esac

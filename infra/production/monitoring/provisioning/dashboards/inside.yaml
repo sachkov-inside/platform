@@ -1,0 +1,12 @@
+apiVersion: 1
+providers:
+  - name: Inside
+    orgId: 1
+    folder: Inside
+    folderUid: inside-monitoring
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/dashboards

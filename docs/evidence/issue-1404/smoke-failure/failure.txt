@@ -1,0 +1,81 @@
+Failure: {'list_alert_rules'}
+Last HTTP:
+{
+  "http://127.0.0.1:55016/api/health": {
+    "status": 200,
+    "body": "{\n  \"database\": \"ok\",\n  \"version\": \"13.2.3\",\n  \"commit\": \"90ffed056f0884267356c12a0eeb72a022af53f1\"\n}"
+  },
+  "http://127.0.0.1:55015/api/v1/query?query=inside_watchdog_business_count": {
+    "status": 200,
+    "body": "{\"status\":\"success\",\"data\":{\"resultType\":\"vector\",\"result\":[{\"metric\":{\"__name__\":\"inside_watchdog_business_count\",\"check\":\"purchases\",\"instance\":\"node-exporter:9100\",\"job\":\"host\"},\"value\":[1791874715,\"2\"]}]},\"stats\":{\"seriesFetched\": \"1\",\"executionTimeMsec\":1}}"
+  },
+  "http://127.0.0.1:55016/api/dashboards/uid/inside-health": {
+    "status": 200,
+    "body": "{\"meta\":{\"type\":\"db\",\"canSave\":false,\"canEdit\":false,\"canAdmin\":false,\"canStar\":true,\"canDelete\":false,\"slug\":\"inside-production-health\",\"url\":\"/d/inside-health/inside-production-health\",\"expires\":\"0001-01-01T00:00:00Z\",\"created\":\"2026-10-13T06:57:55Z\",\"updated\":\"2026-10-13T06:57:55Z\",\"updatedBy\":\"Anonymous\",\"createdBy\":\"Anonymous\",\"version\":1,\"hasAcl\":false,\"isFolder\":false,\"apiVersion\":\"v0alpha1\",\"folderId\":2216803478376448,\"folderUid\":\"inside-monitoring\",\"folderTitle\":\"Inside\",\"folderUrl\":\"/dashboards/f/inside-monitoring/inside\",\"provisioned\":true,\"provisionedExternalId\":\"inside-health.json\",\"annotationsPermissions\":{\"dashboard\":{\"canAdd\":false,\"canEdit\":false,\"canDelete\":false}}},\"dashboard\":{\"description\":\"Last successful watchdog observations remain visible when a source fails. Always read availability and age before interpreting a zero. Telegram gauges can retain last cycle values even with HTTP 200.\",\"editable\":false,\"id\":2216803515387904,\"panels\":[{\"datasource\":{\"type\":\"prometheus\",\"uid\":\"inside-metrics\"},\"fieldConfig\":{\"defaults\":{},\"overrides\":[]},\"gridPos\":{\"h\":8,\"w\":12,\"x\":0,\"y\":0},\"id\":1,\"options\":{},\"targets\":[{\"expr\":\"time() - inside_watchdog_run_timestamp_seconds\",\"legendFormat\":\"{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}\",\"refId\":\"A\"}],\"title\":\"Watchdog completed age (seconds)\",\"type\":\"stat\"},{\"datasource\":{\"type\":\"prometheus\",\"uid\":\"inside-metrics\"},\"fieldConfig\":{\"defaults\":{},\"overrides\":[]},\"gridPos\":{\"h\":8,\"w\":12,\"x\":12,\"y\":0},\"id\":2,\"options\":{},\"targets\":[{\"expr\":\"inside_watchdog_source_available\",\"legendFormat\":\"{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}\",\"refId\":\"A\"}],\"title\":\"Source available (0 = unavailable)\",\"type\":\"stat\"},{\"datasource\":{\"type\":\"prometheus\",\"uid\":\"inside-metrics\"},\"fieldConfig\":{\"defaults\":{},\"overrides\":[]},\"gridPos\":{\"h\":8,\"w\":12,\"x\":0,\"y\":8},\"id\":3,\"options\":{},\"targets\":[{\"expr\":\"time() - inside_watchdog_source_last_success_timestamp_seconds\",\"legendFormat\":\"{{source}}{{project}}{{"
+  },
+  "http://127.0.0.1:55016/api/v1/provisioning/alert-rules": {
+    "status": 200,
+    "body": "[{\"id\":1,\"uid\":\"inside-source-failure\",\"orgID\":1,\"folderUID\":\"ag12xmuxyus5cb\",\"ruleGroup\":\"inside-health\",\"title\":\"Source unavailable or stale\",\"condition\":\"B\",\"data\":[{\"refId\":\"A\",\"queryType\":\"\",\"relativeTimeRange\":{\"from\":300,\"to\":0},\"datasourceUid\":\"inside-metrics\",\"model\":{\"expr\":\"(1 - inside_watchdog_source_available) + (time() - inside_watchdog_source_last_success_timestamp_seconds \\u003e bool 180)\",\"instant\":true,\"intervalMs\":60000,\"maxDataPoints\":1000,\"refId\":\"A\"}},{\"refId\":\"B\",\"queryType\":\"\",\"relativeTimeRange\":{\"from\":0,\"to\":0},\"datasourceUid\":\"__expr__\",\"model\":{\"conditions\":[{\"evaluator\":{\"params\":[0],\"type\":\"gt\"},\"operator\":{\"type\":\"and\"},\"query\":{\"params\":[\"A\"]},\"reducer\":{\"params\":[],\"type\":\"last\"},\"type\":\"query\"}],\"datasource\":{\"type\":\"__expr__\",\"uid\":\"__expr__\"},\"intervalMs\":1000,\"maxDataPoints\":43200,\"refId\":\"B\",\"type\":\"classic_conditions\"}}],\"updated\":\"2026-10-13T06:57:55Z\",\"noDataState\":\"Alerting\",\"execErrState\":\"Alerting\",\"for\":\"2m\",\"keep_firing_for\":\"0s\",\"annotations\":{\"description\":\"Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289.\",\"summary\":\"Source unavailable or stale\"},\"labels\":{\"stage\":\"metrics\"},\"provenance\":\"file\",\"isPaused\":false,\"notification_settings\":null,\"record\":null},{\"id\":2,\"uid\":\"inside-watchdog-stale\",\"orgID\":1,\"folderUID\":\"ag12xmuxyus5cb\",\"ruleGroup\":\"inside-health\",\"title\":\"Watchdog stopped or deployment suppressed\",\"condition\":\"B\",\"data\":[{\"refId\":\"A\",\"queryType\":\"\",\"relativeTimeRange\":{\"from\":300,\"to\":0},\"datasourceUid\":\"inside-metrics\",\"model\":{\"expr\":\"time() - inside_watchdog_run_timestamp_seconds \\u003e bool 180\",\"instant\":true,\"intervalMs\":60000,\"maxDataPoints\":1000,\"refId\":\"A\"}},{\"refId\":\"B\",\"queryType\":\"\",\"relativeTimeRange\":{\"from\":0,\"to\":0},\"datasourceUid\":\"__expr__\",\"model\":{\"conditions\":[{\"evaluator\":{\"params\":[0],\"type\":\"gt\"},\"operator\":{\"type\":\"and\"},\"query\":{\"params\":[\"A\"]},\"reducer\":{\"params\":[],\"type\":\"last\"},\"type\":\"query\"}],\"datasource\":{\"type\":\"__expr__\",\"u"
+  },
+  "http://127.0.0.1:55016/api/dashboards/db": {
+    "status": 403,
+    "body": "{\"accessErrorId\":\"ACE8439807506\",\"message\":\"You'll need additional permissions to perform this action. Permissions needed: any of dashboards:create, dashboards:write\",\"title\":\"Access denied\"}\n"
+  }
+}
+Service logs:
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:12	build version: victoria-metrics-20261009-130108-tags-v1.154.0-0-g29c43cd2fe
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:13	command-line flags
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -httpListenAddr=":8428"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -memory.allowedBytes="128MiB"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -promscrape.config="/etc/victoria-metrics/scrape.yaml"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -retentionPeriod="7d"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxConcurrentRequests="2"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxLabelsAPIDuration="5s"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxLabelsAPISeries="5000"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxMemoryPerQuery="16MiB"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxPointsPerTimeseries="11000"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxQueryDuration="10s"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxQueueDuration="5s"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxResponseSeries="1000"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxSamplesPerQuery="1000000"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -search.maxUniqueTimeseries="5000"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -storage.minFreeDiskSpaceBytes="4MiB"
+victoria-metrics-1  | 2026-10-13T06:57:33.173Z	info	VictoriaMetrics/lib/logger/flag.go:20	  -storageDataPath="/storage"
+victoria-metrics-1  | 2026-10-13T06:57:33.174Z	info	VictoriaMetrics/app/victoria-metrics/main.go:95	starting VictoriaMetrics at "[:8428]"...
+victoria-metrics-1  | 2026-10-13T06:57:33.174Z	info	VictoriaMetrics/app/vmstorage/main.go:153	opening storage at "/storage" with -retentionPeriod=7d
+victoria-metrics-1  | 2026-10-13T06:57:33.174Z	info	VictoriaMetrics/lib/memory/memory.go:56	limiting caches to 134217728 bytes, leaving 268435456 bytes to the OS according to -memory.allowedBytes=128MiB, system memory limit 402653184 bytes
+victoria-metrics-1  | 2026-10-13T06:57:33.174Z	info	VictoriaMetrics/lib/workingsetcache/cache.go:98	creating new cache at /storage/cache/metricName_tsid with max size 49660559 bytes
+victoria-metrics-1  | 2026-10-13T06:57:33.174Z	info	VictoriaMetrics/lib/workingsetcache/cache.go:98	creating new cache at /storage/cache/metricID_tsid with max size 8388608 bytes
+victoria-metrics-1  | 2026-10-13T06:57:33.175Z	info	VictoriaMetrics/lib/workingsetcache/cache.go:98	creating new cache at /storage/cache/metricID_metricName with max size 13421772 bytes
+victoria-metrics-1  | 2026-10-13T06:57:33.175Z	info	VictoriaMetrics/lib/storage/storage.go:260	resetting tsidCache in order to properly track metric name usage stats
+victoria-metrics-1  | 2026-10-13T06:57:33.175Z	info	VictoriaMetrics/lib/storage/partition.go:200	creating a partition "2026_10" with smallPartsPath="/storage/data/small/2026_10", bigPartsPath="/storage/data/big/2026_10", indexDBPartsPath="/storage/data/indexdb/2026_10"
+victoria-metrics-1  | 2026-10-13T06:57:33.176Z	info	VictoriaMetrics/lib/storage/partition.go:220	partition "2026_10" has been created
+victoria-metrics-1  | 2026-10-13T06:57:33.176Z	info	VictoriaMetrics/app/vmstorage/main.go:177	successfully opened storage "/storage" in 0.002 seconds; partsCount: 0; blocksCount: 0; rowsCount: 0; sizeBytes: 0
+victoria-metrics-1  | 2026-10-13T06:57:33.176Z	info	VictoriaMetrics/app/vmselect/promql/rollup_result_cache.go:129	loading rollupResult cache from "/storage/cache/rollupResult"...
+victoria-metrics-1  | 2026-10-13T06:57:33.176Z	info	VictoriaMetrics/lib/workingsetcache/cache.go:98	creating new cache at /storage/cache/rollupResult with max size 8388608 bytes
+victoria-metrics-1  | 2026-10-13T06:57:33.177Z	info	VictoriaMetrics/app/vmselect/promql/rollup_result_cache.go:158	loaded rollupResult cache from "/storage/cache/rollupResult" in 0.001 seconds; entriesCount: 0, sizeBytes: 0
+victoria-metrics-1  | 2026-10-13T06:57:33.177Z	info	VictoriaMetrics/app/victoria-metrics/main.go:112	started VictoriaMetrics in 0.004 seconds
+victoria-metrics-1  | 2026-10-13T06:57:33.180Z	info	VictoriaMetrics/lib/httpserver/httpserver.go:176	started server at http://0.0.0.0:8428/
+victoria-metrics-1  | 2026-10-13T06:57:33.180Z	info	VictoriaMetrics/lib/httpserver/httpserver.go:178	pprof handlers are exposed at http://0.0.0.0:8428/debug/pprof/
+victoria-metrics-1  | 2026-10-13T06:57:33.180Z	info	VictoriaMetrics/lib/promscrape/scraper.go:117	reading scrape configs from "/etc/victoria-metrics/scrape.yaml"
+victoria-metrics-1  | 2026-10-13T06:57:33.181Z	info	VictoriaMetrics/lib/promscrape/config.go:161	starting service discovery routines...
+victoria-metrics-1  | 2026-10-13T06:57:33.181Z	info	VictoriaMetrics/lib/promscrape/config.go:167	started 2 service discovery routines in 0.000 seconds
+victoria-metrics-1  | 2026-10-13T06:57:33.181Z	info	VictoriaMetrics/lib/promscrape/scraper.go:444	static_configs: added targets: 2, removed targets: 0; total targets: 2
+victoria-metrics-1  | 2026-10-13T06:57:55.623Z	info	VictoriaMetrics/app/vmselect/querystats/querystats.go:72	enabled query stats tracking at `/api/v1/status/top_queries` with -search.queryStats.lastQueriesCount=20000, -search.queryStats.minQueryDuration=1ms, -search.queryStats.minQueryMemoryUsage=1024
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.128991844Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop unique orgID index on alert_configuration if exists"
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.532867177Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop index UQE_dashboard_public_config_uid - v1"
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.533004635Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop index IDX_dashboard_public_config_org_id_dashboard_uid - v1"
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.622454344Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop my_row_id and add primary key to file table if my_row_id exists (auto-generated mysql column)"
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.62568676Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop my_row_id and add primary key to file_meta table if my_row_id exists (auto-generated mysql column)"
+grafana-1           | logger=migrator t=2026-10-13T06:57:35.929288052Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop my_row_id and add primary key with columns snapshot_uid,resource_type,partition_number to table cloud_migration_snapshot_partition if my_row_id exists (auto-generated mysql column)"
+grafana-1           | logger=secret-migrator t=2026-10-13T06:57:44.834674001Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop my_row_id and add primary key with columns namespace,name,version to table secret_encrypted_value if my_row_id exists (auto-generated mysql column)"
+grafana-1           | logger=resource-migrator t=2026-10-13T06:57:45.127659251Z level=warn msg="Skipping migration: Already executed, but not recorded in migration log" id="drop my_row_id and add primary key with columns group,resource to table resource_version if my_row_id exists (auto-generated mysql column)"
+grafana-1           | t=2026-10-13T06:57:47.927625835Z level=warn caller=logger.go:224 time=2026-10-13T06:57:47.92760196Z msg="skipped registering status sub-resource that does not support dual writing" resource=recordingrules.rules.alerting.grafana.app version=v0alpha1 storagePath=recordingrules/status
+grafana-1           | t=2026-10-13T06:57:47.92765271Z level=warn caller=logger.go:224 time=2026-10-13T06:57:47.927650669Z msg="skipped registering status sub-resource that does not support dual writing" resource=alertrules.rules.alerting.grafana.app version=v0alpha1 storagePath=alertrules/status
+grafana-1           | logger=provisioning.plugins t=2026-10-13T06:57:55.020108089Z level=error msg="Failed to read plugin provisioning files from directory" path=/etc/grafana/provisioning/plugins error="open /etc/grafana/provisioning/plugins: no such file or directory"
+node-exporter-1     | time=2026-10-13T06:57:33.449Z level=INFO source=node_exporter.go:217 msg="Starting node_exporter" version="(version=1.12.1, branch=HEAD, revision=6044da783597cc3b57aef7580ddcdcff58a4ee99)"
+node-exporter-1     | time=2026-10-13T06:57:33.449Z level=INFO source=node_exporter.go:218 msg="Build context" build_context="(go=go1.26.5, platform=linux/arm64, user=root@3a6b59999579, date=20260714-12:05:32, tags=unknown)"
+node-exporter-1     | time=2026-10-13T06:57:33.449Z level=INFO source=node_exporter.go:136 msg="Enabled collectors"
+node-exporter-1     | time=2026-10-13T06:57:33.449Z level=INFO source=node_exporter.go:142 msg=textfile
+node-exporter-1     | time=2026-10-13T06:57:33.451Z level=INFO source=tls_config.go:372 msg="Listening on" address=[::]:9100
+node-exporter-1     | time=2026-10-13T06:57:33.452Z level=INFO source=tls_config.go:375 msg="TLS is disabled." http2=false address=[::]:9100

@@ -1,0 +1,468 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "inside-health",
+      "folder": "Inside",
+      "interval": "60s",
+      "rules": [
+        {
+          "uid": "inside-source-failure",
+          "title": "Source unavailable or stale",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "(1 - inside_watchdog_source_available) + (time() - inside_watchdog_source_last_success_timestamp_seconds > bool 180)",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Source unavailable or stale",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "inside-watchdog-stale",
+          "title": "Watchdog stopped or deployment suppressed",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "time() - inside_watchdog_run_timestamp_seconds > bool 180",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Watchdog stopped or deployment suppressed",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "inside-scrape-failure",
+          "title": "Private scrape failed",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "1 - up",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Private scrape failed",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "inside-watchdog-alerts",
+          "title": "Watchdog active or held alert",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "sum(inside_watchdog_alerts_active)",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Watchdog active or held alert",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "inside-data-budget",
+          "title": "Monitoring data exceeds pilot budget",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "sum(vm_data_size_bytes) > bool 2147483648",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Monitoring data exceeds pilot budget",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "inside-service-missing",
+          "title": "Required service absent",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 300,
+                "to": 0
+              },
+              "datasourceUid": "inside-metrics",
+              "model": {
+                "refId": "A",
+                "expr": "sum(inside_watchdog_service_container_count == bool 0)",
+                "instant": true,
+                "intervalMs": 60000,
+                "maxDataPoints": 1000
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "classic_conditions",
+                "datasource": {
+                  "type": "__expr__",
+                  "uid": "__expr__"
+                },
+                "conditions": [
+                  {
+                    "type": "query",
+                    "query": {
+                      "params": ["A"]
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "evaluator": {
+                      "type": "gt",
+                      "params": [0]
+                    },
+                    "operator": {
+                      "type": "and"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "2m",
+          "annotations": {
+            "summary": "Required service absent",
+            "description": "Inspect source availability and age. Alert inspection only; delivery remains deferred under #1289."
+          },
+          "labels": {
+            "stage": "metrics"
+          },
+          "isPaused": false
+        }
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "orgId": 1,
+      "receiver": "metrics-no-delivery",
+      "group_by": ["grafana_folder", "alertname"],
+      "routes": [
+        {
+          "receiver": "metrics-no-delivery",
+          "object_matchers": [["stage", "=", "metrics"]],
+          "mute_time_intervals": ["metrics-only"]
+        }
+      ]
+    }
+  ],
+  "muteTimes": [
+    {
+      "orgId": 1,
+      "name": "metrics-only",
+      "time_intervals": [
+        {
+          "times": [
+            {
+              "start_time": "00:00",
+              "end_time": "24:00"
+            }
+          ],
+          "location": "UTC"
+        }
+      ]
+    }
+  ],
+  "contactPoints": [
+    {
+      "orgId": 1,
+      "name": "metrics-no-delivery",
+      "receivers": [
+        {
+          "uid": "metrics-no-delivery",
+          "type": "email",
+          "disableResolveMessage": true,
+          "settings": {
+            "addresses": "unused@localhost.invalid"
+          }
+        }
+      ]
+    }
+  ]
+}

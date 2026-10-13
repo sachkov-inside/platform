@@ -1,0 +1,70 @@
+name: inside-production-monitoring
+
+x-runtime: &runtime
+  network_mode: host
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  logging:
+    driver: json-file
+    options: { max-size: 5m, max-file: "2" }
+
+services:
+  victoria-metrics:
+    <<: *runtime
+    image: victoriametrics/victoria-metrics:v1.154.0@sha256:4bd592341587d669b7f57d54bbb82bd21ac8675f4e24234b7703a7c0f85197d8
+    user: "65534:65534"
+    mem_limit: 384m
+    cpus: 0.15
+    command:
+      - -httpListenAddr=127.0.0.1:8428
+      - -storageDataPath=/storage
+      - -retentionPeriod=7d
+      - -promscrape.config=/etc/victoria-metrics/scrape.yaml
+      - -memory.allowedBytes=128MiB
+      - -search.maxMemoryPerQuery=16MiB
+      - -search.maxConcurrentRequests=2
+      - -search.maxQueueDuration=5s
+      - -search.maxQueryDuration=10s
+      - -search.maxUniqueTimeseries=5000
+      - -search.maxSamplesPerQuery=1000000
+      - -search.maxResponseSeries=1000
+      - -search.maxPointsPerTimeseries=11000
+      - -search.maxLabelsAPISeries=5000
+      - -search.maxLabelsAPIDuration=5s
+      - -storage.minFreeDiskSpaceBytes=1GiB
+    volumes:
+      - ${MONITORING_DATA_DIR:?MONITORING_DATA_DIR is required}/victoria-metrics:/storage
+      - ${MONITORING_CONFIG_DIR:?MONITORING_CONFIG_DIR is required}/scrape.yaml:/etc/victoria-metrics/scrape.yaml:ro
+
+  grafana:
+    <<: *runtime
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
+    user: "472:472"
+    mem_limit: 256m
+    cpus: 0.15
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      GF_SERVER_HTTP_ADDR: 127.0.0.1
+      GF_SERVER_HTTP_PORT: "3304"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/admin-password
+      GF_SECURITY_SECRET_KEY__FILE: /run/secrets/secret-key
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_SMTP_ENABLED: "false"
+      GF_LOG_LEVEL: warn
+    volumes:
+      - ${MONITORING_DATA_DIR:?MONITORING_DATA_DIR is required}/grafana:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/etc/grafana/dashboards:ro
+      - ${MONITORING_CONFIG_DIR:?MONITORING_CONFIG_DIR is required}/admin-password:/run/secrets/admin-password:ro
+      - ${MONITORING_CONFIG_DIR:?MONITORING_CONFIG_DIR is required}/secret-key:/run/secrets/secret-key:ro

@@ -56,6 +56,56 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("keeps monitoring write permissions while application rollback restores release-owned watchdog code", () => {
+    const fixture = createHostFixture();
+    try {
+      const dropinDirectory = resolve(
+        fixture.root,
+        "etc/systemd/system/inside-watchdog.service.d",
+      );
+      mkdirSync(dropinDirectory, { recursive: true });
+      const permissions = readFileSync(
+        "infra/production/monitoring/watchdog-metrics.conf",
+        "utf8",
+      );
+      writeFileSync(resolve(dropinDirectory, "metrics.conf"), permissions);
+      assertGatewaySuccess(fixture, "deploy", "v1", 530);
+      assertGatewaySuccess(fixture, "deploy", "v2", 531);
+      const oldRelease = resolve(fixture.directory, "old-watchdog");
+      mkdirSync(oldRelease);
+      for (const name of [
+        "inside-watchdog",
+        "inside-watchdog.service",
+        "inside-watchdog.timer",
+      ]) {
+        copyFileSync(
+          resolve("infra/production/watchdog", name),
+          resolve(oldRelease, name),
+        );
+      }
+      writeFileSync(
+        resolve(oldRelease, "inside-watchdog"),
+        "#!/usr/bin/env bash\n# Legacy release without metrics\nexit 0\n",
+      );
+      assertGatewaySuccess(fixture, "rollback", "v1", 532, {
+        INSIDE_DEPLOY_TEST_WATCHDOG_SOURCE: oldRelease,
+      });
+      assert.equal(
+        readFileSync(
+          resolve(fixture.root, "usr/local/libexec/inside/inside-watchdog"),
+          "utf8",
+        ),
+        readFileSync(resolve(oldRelease, "inside-watchdog"), "utf8"),
+      );
+      assert.equal(
+        readFileSync(resolve(dropinDirectory, "metrics.conf"), "utf8"),
+        permissions,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("repairs forward again when the first repair release also fails", () => {
     const fixture = createHostFixture();
     try {

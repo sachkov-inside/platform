@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# This launcher serves stdio locally. Keep the SSH tunnel open in a separate owned terminal.
+token_file="${GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE:-${HOME}/.config/inside/metrics-grafana-token}"
+[[ -r "$token_file" ]] || { echo "Metrics Viewer token is missing: $token_file" >&2; exit 1; }
+export GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE=/run/secrets/viewer-token
+network_args=(--add-host host.docker.internal:host-gateway)
+if [[ "$(uname -s)" == Linux ]]; then
+  network_args=(--network host)
+  export GRAFANA_URL="${GRAFANA_URL:-http://127.0.0.1:3304}"
+else
+  export GRAFANA_URL="${GRAFANA_URL:-http://host.docker.internal:3304}"
+fi
+exec docker run --rm --interactive --init --name "${INSIDE_METRICS_MCP_CONTAINER_NAME:-inside-metrics-mcp-$$}" --read-only --cap-drop ALL \
+  --security-opt no-new-privileges --memory 128m --cpus 0.25 --pids-limit 64 \
+  "${network_args[@]}" \
+  --mount "type=bind,source=$token_file,target=/run/secrets/viewer-token,readonly" \
+  --env GRAFANA_URL --env GRAFANA_SERVICE_ACCOUNT_TOKEN_FILE \
+  grafana/mcp-grafana:2.0.2@sha256:78d208116ec52b09b44f0eca66892073b39aefcb64483c54d43255c8eab7e97a \
+  --transport stdio --disable-write --usage-stats=disabled \
+  --enabled-tools=search,datasource,prometheus,dashboard,alerting,navigation

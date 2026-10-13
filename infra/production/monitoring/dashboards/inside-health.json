@@ -1,0 +1,583 @@
+{
+  "uid": "inside-health",
+  "title": "Inside production health",
+  "schemaVersion": 42,
+  "version": 1,
+  "editable": false,
+  "refresh": "60s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "tags": ["inside", "metrics"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Watchdog completed age (seconds)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - inside_watchdog_run_timestamp_seconds",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "title": "Source available (0 = unavailable)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_source_available",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "title": "Source success age (seconds)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - inside_watchdog_source_last_success_timestamp_seconds",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "title": "Host CPU (%)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "title": "Host available memory (bytes)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemAvailable_bytes",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "title": "Root disk used (%)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"})",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "title": "Container states (unknown is not healthy)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_container_count",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "title": "Container OOM evidence",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_container_oom_count",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "title": "Held watchdog alerts",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_alerts_active",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "title": "Overdue payments and fulfillment (last successful SQL)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_business_count{check=~\"purchases|fulfillment\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "title": "Notification queues (last successful SQL)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_business_count{check=~\"notification_outbox|email_effects|billing_queue_idle\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "title": "Backup last success age (seconds)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - inside_watchdog_backup_last_success_timestamp_seconds",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "title": "Backup timers and last results",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{__name__=~\"inside_watchdog_backup_timer_active|inside_watchdog_backup_success\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "title": "Telegram scrape and readiness",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"telegram\"} or inside_watchdog_telegram_ready",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "title": "Telegram queue age (HTTP success does not prove reconciliation freshness)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{__name__=~\"inside_telegram_.*oldest.*seconds\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "title": "Telegram counters (reset-aware rate)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate({__name__=~\"inside_telegram_.*_total\"}[5m])",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "title": "Telegram backlog and unknown effects",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{__name__=~\"inside_telegram_.*(backlog|unknown|pending|due|restricted)\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 18,
+      "title": "Monitoring RSS (VM and Grafana; exporter measured by operator)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "process_resident_memory_bytes{job=~\"victoria-metrics|grafana\"}",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 19,
+      "title": "VM data bytes",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(vm_data_size_bytes)",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 20,
+      "title": "VM query errors",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(vm_http_request_errors_total[5m])",
+          "legendFormat": "{{source}}{{project}}{{state}}{{check}}{{kind}}{{__name__}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 21,
+      "title": "Required service containers (0 = missing)",
+      "type": "stat",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 80
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "inside-metrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "inside_watchdog_service_container_count",
+          "legendFormat": "{{project}} / {{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ],
+  "description": "Last successful watchdog observations remain visible when a source fails. Always read availability and age before interpreting a zero. Telegram gauges can retain last cycle values even with HTTP 200."
+}

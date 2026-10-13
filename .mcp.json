@@ -3,6 +3,11 @@
     "platform-storybook": {
       "type": "http",
       "url": "http://localhost:6006/mcp"
+    },
+    "platform-metrics": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["infra/production/monitoring/grafana-mcp"]
     }
   }
 }

@@ -1,2 +1,7 @@
 [mcp_servers.platform-storybook]
 url = "http://localhost:6006/mcp"
+
+[mcp_servers.platform-metrics]
+command = "bash"
+args = ["infra/production/monitoring/grafana-mcp"]
+startup_timeout_sec = 30

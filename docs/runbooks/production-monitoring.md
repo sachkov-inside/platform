@@ -5,7 +5,11 @@
 сервере и внешняя проверка из GitHub Actions, без нового стека на VPS и без затрат. Сравнение
 вариантов — в [комментарии к #245](https://github.com/sachkov-inside/platform/issues/245#issuecomment-6034672582).
 
-Мониторинг состоит из трёх частей:
+Комплект метрик из [#1404](https://github.com/sachkov-inside/platform/issues/1404) добавляет Grafana,
+VictoriaMetrics и официальный MCP. Установка, права, rollback и проверка описаны в
+[инструкции комплекта](../../infra/production/monitoring/README.md). Доставка инцидентов остаётся в #1289.
+
+Сигнальный мониторинг состоит из трёх частей:
 
 | Часть | Где работает | Как часто | Что замечает |
 |---|---|---|---|
@@ -189,7 +193,7 @@ GitHub Actions → `Production monitor` → `Run workflow`.
 
 ## Ограничения
 
-- Графиков нет; сводные p75 и группы ошибок доступны через admin read-only MCP
+- Графики доступны после установки комплекта метрик #1404; сводные p75 и группы ошибок доступны через admin read-only MCP
   [Web telemetry](web-telemetry.md). Это не счётчик посетителей.
 - `docker logs --since` читает файлы журнала контейнера каждый запуск; при журнале около 100 MiB это
   заметный CPU. Замерить расход после первого выпуска: `systemctl show inside-watchdog.service

@@ -1,0 +1,22 @@
+[Unit]
+Description=Inside private host and watchdog metrics
+After=network.target
+
+[Service]
+User=nobody
+Group=nogroup
+ExecStart=/opt/inside/monitoring/current/node_exporter --web.listen-address=127.0.0.1:9100 --collector.disable-defaults --collector.cpu --collector.meminfo --collector.filesystem --collector.loadavg --collector.textfile --collector.textfile.directory=/var/lib/inside/metrics --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker)($|/)
+Restart=on-failure
+MemoryMax=64M
+CPUQuota=5%
+TasksMax=32
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

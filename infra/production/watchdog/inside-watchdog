@@ -88,6 +88,17 @@ operation_recorded="$(jq --raw-output \
 stuck_operation=false
 if [[ "$operation_recorded" =~ ^[0-9]+$ ]]; then
   if (( now - operation_recorded < 3600 )); then
+    metrics_dir="$host_root/var/lib/inside/metrics"
+    install -d -m 755 "$metrics_dir"
+    skipped_output="$(mktemp "$metrics_dir/.watchdog.XXXXXX")"
+    if [[ -f "$metrics_dir/watchdog.prom" ]]; then
+      awk '!/^inside_watchdog_deploy_suppressed /' "$metrics_dir/watchdog.prom" >"$skipped_output"
+    else
+      printf 'inside_watchdog_run_timestamp_seconds 0\n' >"$skipped_output"
+    fi
+    printf 'inside_watchdog_deploy_suppressed 1\n' >>"$skipped_output"
+    chmod 644 "$skipped_output"
+    mv -f "$skipped_output" "$metrics_dir/watchdog.prom"
     echo "A production operation is running; the watchdog skips this run"
     exit 0
   fi
@@ -115,15 +126,24 @@ publish_metrics() {
   local metrics_dir="$host_root/var/lib/inside/metrics"
   install -d -m 755 "$metrics_dir"
   output="$(mktemp "$metrics_dir/.watchdog.XXXXXX")"
-  printf 'inside_watchdog_run_timestamp_seconds %s\n' "$now" >"$output"
-  for source in platform_db; do
+  printf 'inside_watchdog_run_timestamp_seconds %s\ninside_watchdog_deploy_suppressed 0\n' "$now" >"$output"
+  for source in containers host_memory host_disk backup_incr backup_diff backup_full backup_age platform_db telegram_db telegram_ready telegram_metrics telegram_webhook logs_api logs_web logs_mcp logs_billing-worker logs_notifications-worker logs_material-assets-worker logs_profile-avatars-worker logs_video-deletions-worker logs_rabbitmq; do
     available=0
     [[ -f "$run_dir/success.$source" ]] && available=1
     last_success=0
-    [[ ! -f "$state_dir/metrics/$source.time" ]] || read -r last_success <"$state_dir/metrics/$source.time"
+    [[ ! -f "$state_dir/metrics/$source.time" ]] || read -r last_success <"$state_dir/metrics/$source.time" || last_success=0
+    [[ "$last_success" =~ ^[0-9]+$ ]] || last_success=0
     printf 'inside_watchdog_source_available{source="%s"} %s\n' "$source" "$available" >>"$output"
     printf 'inside_watchdog_source_last_success_timestamp_seconds{source="%s"} %s\n' "$source" "$last_success" >>"$output"
     [[ ! -f "$state_dir/metrics/$source.prom" ]] || cat "$state_dir/metrics/$source.prom" >>"$output"
+  done
+  local family count active
+  for family in container host backup db telegram watchdog log deploy; do
+    count=0
+    for active in "$state_dir/active/$family".*; do
+      [[ ! -f "$active" ]] || count=$((count + 1))
+    done
+    printf 'inside_watchdog_alerts_active{family="%s"} %s\n' "$family" "$count" >>"$output"
   done
   chmod 644 "$output"
   mv -f "$output" "$metrics_dir/watchdog.prom"
@@ -155,30 +175,48 @@ held() {
 # Платформа и foundation: контейнер не работает, unhealthy или убит по памяти. Одноразовые службы,
 # завершившиеся с кодом 0 (например, migrations Logto), — норма.
 check_containers() {
-  local project listing name state status ids oom_listing oom_name oom
+  local project listing name state status ids oom_listing oom_name oom label running healthy unhealthy down completed unknown ooms required service present
   for project in $WATCHDOG_PROJECTS; do
+    case "$project" in
+      inside-platform-production) label=platform; required="api web mcp billing-worker notifications-worker material-assets-worker profile-avatars-worker video-deletions-worker rabbitmq" ;;
+      inside-production-database) label=database; required=postgres ;;
+      inside-production-logto) label=logto; required=logto ;;
+      inside-production-telegram) label=telegram; required=app ;;
+      *) continue ;;
+    esac
+    running=0 healthy=0 unhealthy=0 down=0 completed=0 unknown=0 ooms=0
     if ! listing="$(docker ps --all --filter "label=com.docker.compose.project=$project" \
       --format '{{.Names}}	{{.State}}	{{.Status}}' 2>/dev/null)"; then
       hold container.
       return
     fi
-    while IFS=$'\t' read -r name state status; do
+    while IFS=$'\t' read -r name state status service; do
       [[ -n "$name" ]] || continue
       case "$state" in
         running)
+          running=$((running + 1))
           if [[ "$status" == *"(unhealthy)"* ]]; then
+            unhealthy=$((unhealthy + 1))
             # Docker ставит unhealthy после двух сбоев проверки за 30 секунд (#654); короткий сбой
             # базы даёт такую отметку на минуту, поэтому сигнал ждёт второго запуска подряд.
             observe "container.$name.unhealthy" 2 "Контейнер $name: unhealthy"
+          elif [[ "$status" == *"(healthy)"* ]]; then
+            healthy=$((healthy + 1))
+          else
+            unknown=$((unknown + 1))
           fi
           ;;
-        created) ;;
+        created) unknown=$((unknown + 1)) ;;
         exited)
           if [[ "$status" != "Exited (0)"* ]]; then
+            down=$((down + 1))
             observe "container.$name.down" 1 "Контейнер $name: $status"
+          else
+            completed=$((completed + 1))
           fi
           ;;
         *)
+          down=$((down + 1))
           observe "container.$name.down" 1 "Контейнер $name: $state"
           ;;
       esac
@@ -187,7 +225,7 @@ check_containers() {
       hold container.
       return
     fi
-    [[ -n "$ids" ]] || continue
+    if [[ -n "$ids" ]]; then
     # shellcheck disable=SC2086
     if ! oom_listing="$(docker inspect --format '{{.Name}} {{.State.OOMKilled}}' $ids 2>/dev/null)"; then
       hold container.
@@ -195,16 +233,29 @@ check_containers() {
     fi
     while read -r oom_name oom; do
       if [[ "$oom" == true ]]; then
+        ooms=$((ooms + 1))
         observe "container.${oom_name#/}.oom" 1 "Контейнер ${oom_name#/}: OOMKilled, память на пределе"
       fi
     done <<<"$oom_listing"
+    fi
+    for state in running healthy unhealthy down completed unknown; do
+      metric containers "inside_watchdog_container_count{project=\"$label\",state=\"$state\"}" "${!state}"
+    done
+    for service in $required; do
+      present="$(awk -F '\t' -v service="$service" '$4 == service { count++ } END { print count+0 }' <<<"$listing")"
+      metric containers "inside_watchdog_service_container_count{project=\"$label\",service=\"$service\"}" "$present"
+    done
+    metric containers "inside_watchdog_container_oom_count{project=\"$label\"}" "$ooms"
   done
+  source_success containers
 }
 
 check_host() {
   local available_kib used_percent
   available_kib="$(awk '/^MemAvailable:/ { print $2 }' "$host_root/proc/meminfo" 2>/dev/null || true)"
   if [[ "$available_kib" =~ ^[0-9]+$ ]]; then
+    metric host_memory inside_watchdog_host_memory_available_bytes "$((available_kib * 1024))"
+    source_success host_memory
     if (( available_kib / 1024 < WATCHDOG_MEMORY_MIN_MIB )); then
       observe host.memory 2 "Доступно $((available_kib / 1024)) MiB памяти, порог $WATCHDOG_MEMORY_MIN_MIB MiB"
     fi
@@ -213,6 +264,8 @@ check_host() {
   fi
   used_percent="$(df -P / 2>/dev/null | awk 'NR == 2 { sub(/%/, "", $5); print $5 }' || true)"
   if [[ "$used_percent" =~ ^[0-9]+$ ]]; then
+    metric host_disk inside_watchdog_host_disk_used_percent "$used_percent"
+    source_success host_disk
     if (( used_percent > WATCHDOG_DISK_MAX_PERCENT )); then
       observe host.disk 1 "Диск занят на $used_percent%, порог $WATCHDOG_DISK_MAX_PERCENT%"
     fi
@@ -246,6 +299,14 @@ check_backup() {
       hold "backup.failed.$kind"
       continue
     fi
+    if [[ "$timer" == active || "$timer" == inactive || "$timer" == failed ]]; then
+      local timer_active=0 backup_success=0
+      [[ "$timer" != active ]] || timer_active=1
+      [[ "$result" != success ]] || backup_success=1
+      metric "backup_$kind" "inside_watchdog_backup_timer_active{kind=\"$kind\"}" "$timer_active"
+      metric "backup_$kind" "inside_watchdog_backup_success{kind=\"$kind\"}" "$backup_success"
+      source_success "backup_$kind"
+    fi
     if [[ "$result" != success ]]; then
       observe "backup.failed.$kind" 1 "Бэкап $kind завершился с результатом $result"
     elif (( exited > newest )); then
@@ -254,8 +315,12 @@ check_backup() {
   done
   if (( newest == 0 )); then
     hold backup.age
-  elif (( now - newest > WATCHDOG_BACKUP_MAX_AGE_HOURS * 3600 )); then
+  else
+    metric backup_age inside_watchdog_backup_last_success_timestamp_seconds "$newest"
+    source_success backup_age
+    if (( now - newest > WATCHDOG_BACKUP_MAX_AGE_HOURS * 3600 )); then
     observe backup.age 1 "Последний успешный бэкап $(((now - newest) / 3600)) ч назад, порог $WATCHDOG_BACKUP_MAX_AGE_HOURS ч"
+    fi
   fi
 }
 
@@ -347,12 +412,16 @@ check_database() {
     esac
   done <<<"$rows"
   source_success platform_db
-  if ! rows="$(read_only_query inside_telegram "$telegram_query")"; then
+  if ! rows="$(read_only_query inside_telegram "$telegram_query")" || ! awk -F '|' '
+    $1 == "community_operations" { if (NF != 2 || $2 !~ /^[0-9]+$/ || seen++) bad=1 }
+    END { exit (bad || seen != 1) }' <<<"$rows"; then
     hold telegram.db.
     observe watchdog.telegram_database 2 "Сторож не может прочитать базу Telegram"
     return
   fi
   value="$(sed -n 's/^community_operations|//p' <<<"$rows")"
+  metric telegram_db inside_watchdog_telegram_community_operations "$value"
+  source_success telegram_db
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 0 )); then
     observe telegram.db.community_operations 1 "Операций вступления в группу failed или unknown за 10 минут: $value" "$value"
   fi
@@ -376,11 +445,20 @@ check_telegram() {
   local metrics value
   if ! curl --fail --silent --max-time 5 --output /dev/null "$WATCHDOG_TELEGRAM_APP_URL/ready"; then
     observe telegram.ready 2 "Telegram /ready не отвечает 200"
+    metric telegram_ready inside_watchdog_telegram_ready 0
+  else
+    metric telegram_ready inside_watchdog_telegram_ready 1
   fi
-  if ! metrics="$(curl --fail --silent --max-time 5 "$WATCHDOG_TELEGRAM_APP_URL/metrics")"; then
+  source_success telegram_ready
+  if ! metrics="$(curl --fail --silent --max-time 5 "$WATCHDOG_TELEGRAM_APP_URL/metrics")" || ! awk '
+    $1 ~ /^inside_telegram_(community_oldest_due_seconds|activation_oldest_pending_seconds|update_failed_total|delivery_api_rejected_total)$/ {
+      if (NF != 2 || $2 !~ /^[0-9]+([.][0-9]+)?$/ || seen[$1]++) bad=1
+    }
+    END { exit (bad || length(seen) != 4) }' <<<"$metrics"; then
     hold telegram.metrics.
     return
   fi
+  source_success telegram_metrics
   value="$(awk '$1 == "inside_telegram_community_oldest_due_seconds" { printf "%d", $2 }' <<<"$metrics")"
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 600 )); then
     observe telegram.metrics.community 1 "Вступление в группу ждёт $((value / 60)) мин"
@@ -422,6 +500,13 @@ check_telegram_webhook() {
     observe telegram.api 2 "Сторож не получил getWebhookInfo через relay"
     return
   fi
+  if [[ ! "$pending" =~ ^[0-9]+$ || ! "$last_error" =~ ^[0-9]+$ ]]; then
+    hold telegram.webhook
+    return
+  fi
+  metric telegram_webhook inside_watchdog_telegram_webhook_pending "$pending"
+  metric telegram_webhook inside_watchdog_telegram_webhook_last_error_timestamp_seconds "$last_error"
+  source_success telegram_webhook
   if [[ "$last_error" =~ ^[0-9]+$ ]] && (( last_error > 0 && now - last_error < 600 )); then
     observe telegram.webhook.delivery 1 "Webhook бота: ошибка доставки за последние 10 минут, в очереди $pending"
   fi
@@ -440,6 +525,10 @@ check_logs() {
   fi
   while IFS=$'\t' read -r name service; do
     [[ -n "$name" ]] || continue
+    case "$service" in
+      api|web|mcp|billing-worker|notifications-worker|material-assets-worker|profile-avatars-worker|video-deletions-worker|rabbitmq) ;;
+      *) continue ;;
+    esac
     if ! logs="$(docker logs --since 5m "$name" 2>&1)"; then
       hold "log.attention.$service"
       [[ "$service" == api ]] && hold log.bank_webhook
@@ -448,6 +537,7 @@ check_logs() {
       continue
     fi
     count="$(grep -c '"status":"operator_attention"' <<<"$logs" || true)"
+    metric "logs_$service" "inside_watchdog_log_events{service=\"$service\",check=\"operator_attention\"}" "$count"
     if (( count > 0 )); then
       observe "log.attention.$service" 1 "$service: operator_attention в журнале, $count за 5 минут"
     fi
@@ -461,6 +551,7 @@ check_logs() {
           select(.statusCode >= 400 and .statusCode < 600) |
           select((.method == "POST" and .probe == "production_verify" and .statusCode == 400) | not)
           ] | length' <<<"$logs")"
+        metric "logs_$service" "inside_watchdog_log_events{service=\"$service\",check=\"bank_webhook_rejected\"}" "$count"
         if (( count > 0 )); then
           observe log.bank_webhook 1 "Webhook банка отклонён: $count за 5 минут"
         fi
@@ -470,6 +561,7 @@ check_logs() {
           select(type == "object") |
           select(.event == "web-telemetry-unavailable" or .event == "client-report-limit-reached")
           ] | length' <<<"$logs")"
+        metric "logs_$service" "inside_watchdog_log_events{service=\"$service\",check=\"web_telemetry_lost\"}" "$count"
         if (( count > 0 )); then
           observe log.web_telemetry 1 "Потери telemetry web: $count за 5 минут" "$count"
         fi
@@ -478,11 +570,13 @@ check_logs() {
           continue
         fi
         count="$(grep -c '"event":"authentication_failed"' <<<"$logs" || true)"
+        metric "logs_$service" "inside_watchdog_log_events{service=\"$service\",check=\"authentication_failed\"}" "$count"
         if (( count >= 5 )); then
           observe log.authentication 1 "Отказов входа за 10 минут: $count"
         fi
         ;;
     esac
+    source_success "logs_$service"
   done <<<"$containers"
 }
 

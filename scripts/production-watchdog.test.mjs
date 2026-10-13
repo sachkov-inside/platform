@@ -107,6 +107,75 @@ describe("production watchdog", () => {
     }
   });
 
+  it("exports host, container, backup and Telegram readings with source availability", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      const metrics = readFileSync(
+        resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom"),
+        "utf8",
+      );
+      for (const expected of [
+        /inside_watchdog_host_memory_available_bytes 1518338048/u,
+        /inside_watchdog_host_disk_used_percent 48/u,
+        /inside_watchdog_container_count\{project="platform",state="running"\} 1/u,
+        /inside_watchdog_container_count\{project="platform",state="healthy"\} 1/u,
+        /inside_watchdog_backup_last_success_timestamp_seconds 1799996400/u,
+        /inside_watchdog_telegram_community_operations 0/u,
+        /source_available\{source="telegram_metrics"\} 1/u,
+        /inside_watchdog_alerts_active\{family="db"\} 0/u,
+      ])
+        assert.match(metrics, expected);
+      fixture.fake("metrics-fail", "");
+      fixture.fake("sql-telegram", "community_operations|secret\n");
+      assertRun(fixture, now + 300);
+      const failed = readFileSync(
+        resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom"),
+        "utf8",
+      );
+      assert.match(failed, /source_available\{source="telegram_db"\} 0/u);
+      assert.match(failed, /source_available\{source="telegram_metrics"\} 0/u);
+      assert.doesNotMatch(failed, /secret/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("keeps an old completed snapshot during deploy suppression and reports initial unknown sources", () => {
+    const fixture = createFixture();
+    const path = resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom");
+    try {
+      fixture.fake("sql", "");
+      assertRun(fixture);
+      const unknown = readFileSync(path, "utf8");
+      assert.match(unknown, /source_available\{source="platform_db"\} 0/u);
+      assert.match(
+        unknown,
+        /last_success_timestamp_seconds\{source="platform_db"\} 0/u,
+      );
+      assert.doesNotMatch(unknown, /business_count/u);
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        JSON.stringify({
+          status: "running",
+          recordedAt: "2027-01-15T07:59:00Z",
+        }),
+      );
+      // The fixture's fixed clock is 2027-01-15T08:00:00Z.
+      const before = readFileSync(path, "utf8");
+      assertRun(fixture, now + 600);
+      const suppressed = readFileSync(path, "utf8");
+      assert.match(suppressed, /inside_watchdog_deploy_suppressed 1/u);
+      assert.match(suppressed, /run_timestamp_seconds 1800000000/u);
+      assert.equal(
+        suppressed.replace(/inside_watchdog_deploy_suppressed [01]\n/u, ""),
+        before.replace(/inside_watchdog_deploy_suppressed [01]\n/u, ""),
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent on a healthy server", () => {
     const fixture = createFixture();
     try {
@@ -596,6 +665,7 @@ function createFixture() {
     "inside-platform-production-api-1\tapi\ninside-platform-production-web-1\tweb\n",
   );
   fake("sql", healthySql);
+  fake("sql-telegram", "community_operations|0\n");
   fake("metrics", healthyMetrics);
   fake("webhook", '{"ok":true,"result":{"pending_update_count":0}}');
   fake(
@@ -679,7 +749,7 @@ config=""
 if [[ "$args" == *"--config -"* ]]; then config="$(cat)"; fi
 case "$args $config" in
   */ready*) [[ -f "$fakes/ready-fail" ]] && exit 22; exit 0 ;;
-  */metrics*) cat "$fakes/metrics" ;;
+  */metrics*) [[ -f "$fakes/metrics-fail" ]] && exit 22; cat "$fakes/metrics" ;;
   *getWebhookInfo*) cat "$fakes/webhook" ;;
   *sendMessage*)
     [[ -f "$fakes/send-fail" ]] && exit 7
