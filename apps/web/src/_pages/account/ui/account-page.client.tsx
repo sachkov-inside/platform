@@ -157,7 +157,7 @@ export function AccountPageClient({
               <input
                 aria-describedby={`${nameHelpId}${nameInvalid ? ` ${nameErrorId}` : ""}`}
                 aria-invalid={nameInvalid || undefined}
-                className="profile-field mt-2 min-h-14 w-full rounded-xl border border-input bg-background px-4 text-2xl font-bold tracking-[-0.025em] shadow-sm transition-colors placeholder:text-xl placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground/65 focus:border-ring"
+                className="profile-field mt-2 min-h-11 w-full sm:min-h-14 rounded-xl border border-input bg-background px-4 text-base font-bold sm:text-2xl tracking-[-0.025em] shadow-sm transition-colors placeholder:text-base sm:placeholder:text-xl placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground/65 focus:border-ring"
                 id="profile-display-name"
                 name="displayName"
                 onBlur={() => {

@@ -286,10 +286,10 @@ export function OneTimeCheckoutPanel({
           <p className="mt-1 text-muted-foreground">
             Повторная покупка не удваивает право и не продлевает уже открытое.
           </p>
-          <label className="mt-3 flex items-start gap-3">
+          <label className="mt-3 flex max-sm:min-h-11 items-start gap-3">
             <input
               checked={acknowledgeExistingAccess}
-              className="mt-1 size-5 shrink-0 rounded border-input accent-primary"
+              className="mt-1 size-4 shrink-0 sm:size-5 rounded border-input accent-primary"
               disabled={pending}
               id={acknowledgeId}
               onChange={onToggleAcknowledge}

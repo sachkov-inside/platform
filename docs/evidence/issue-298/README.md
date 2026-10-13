@@ -15,7 +15,9 @@ Docker video, note, environment guide, deployment guide. The three guides explic
 All six entries have the same dark filled ordinal marker. A dashed line passes through their common
 axis from the first marker to the last. Step labels sit inside the original MaterialCard below its
 title. Video rows use their published summary as plain text, limited to three visible lines; the
-full summary remains in Reader. Covers, card metadata and the mixed reading order are preserved.
+full summary remained in the Reader accepted for #298. The owner removed Reader header summaries
+on 2026-10-13; the current [Reader contract](../../product/platform-mvp-brief.md#контент) owns that
+presentation. Covers, card metadata and the mixed reading order are preserved.
 There are no primary/optional roles or a second Reader path.
 
 The first mobile review caught unbounded video summaries making rows disproportionately tall.

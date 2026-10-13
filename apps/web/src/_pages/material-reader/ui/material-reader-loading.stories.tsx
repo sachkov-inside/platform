@@ -13,7 +13,6 @@ import {
   boxOf,
   desktop,
   mobile,
-  originOf,
   settleStoryFrame,
   stagedLoaders,
   stagedLoadingOf,
@@ -75,6 +74,7 @@ const seriesContext = resolveSeriesReaderContext({
   currentMaterialSlug: material.slug,
   returnTarget,
   series: {
+    chapters: [],
     items: [
       { slug: "first-lesson", title: "Первый урок" },
       { slug: material.slug, title: material.title },
@@ -175,7 +175,7 @@ function PersonalPart({
 
 const measure = (canvasElement: HTMLElement) => ({
   header: boxOf(canvasElement, "[data-reader-header]"),
-  returnRow: boxOf(canvasElement, "[data-reader-top-frame]"),
+  actions: boxOf(canvasElement, "[data-course-actions]"),
 });
 
 const environment = publicPageEnvironment("/materials/instant-navigation");
@@ -198,8 +198,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Ряд возврата и начало шапки стоят на месте с первого кадра скелета. Когда общая часть известна,
- * шапка уже настоящая, и личная часть — открытое тело или отказ с приглашением — её не двигает.
+ * The unknown route has its own skeleton. Once the checked course is known, the personal body or
+ * access result preserves the shared header and action reservation, including enlarged text.
  */
 function loadsInPlace(
   { globals, width }: StoryViewport,
@@ -222,7 +222,8 @@ function loadsInPlace(
         await expect(
           await canvas.findByLabelText("Материал загружается"),
         ).toHaveAttribute("aria-busy", "true");
-        const skeleton = measure(canvasElement);
+        const skeleton = boxOf(canvasElement, "[data-reader-header]");
+        await expect(skeleton.width).toBeLessThanOrEqual(width);
 
         sequence.deliverSharedPart();
         await canvas.findByRole("heading", { level: 1, name: material.title });
@@ -236,8 +237,7 @@ function loadsInPlace(
         else await canvas.findByRole("link", { name: /Купить продукт/u });
         const ready = measure(canvasElement);
 
-        await expect(skeleton.returnRow).toEqual(ready.returnRow);
-        await expect(originOf(skeleton.header)).toEqual(originOf(ready.header));
+        // The unknown route skeleton cannot know a checked Product. Known course layers reserve the same frame.
         await expect(sharedPart).toEqual(ready);
       } finally {
         document.documentElement.style.fontSize = originalFontSize;
@@ -282,9 +282,17 @@ export const PendingVideo: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const marks = canvas.getAllByRole("button", { name: "Просмотрено" });
+    await expect(marks).toHaveLength(1);
+    for (const mark of marks) await expect(mark).toBeDisabled();
+    const top = canvas.getByRole("navigation", { name: "Действия материала" });
+    await expect(top).toBeVisible();
     await expect(
-      canvas.getByRole("button", { name: "Просмотрено" }),
-    ).toBeDisabled();
+      canvas.getByRole("navigation", { name: "Шаги курса" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("navigation", { name: "Действия в конце материала" }),
+    ).toBeNull();
     await expect(canvas.queryByRole("button", { name: "Изучено" })).toBeNull();
   },
 };

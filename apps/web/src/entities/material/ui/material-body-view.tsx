@@ -9,6 +9,12 @@ import type {
   RenderedText,
 } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
+import { MaterialModelComparison } from "./material-model-comparison.client";
+
+export interface MaterialBodyComparison {
+  readonly at: number;
+  readonly labels: readonly string[];
+}
 
 /** Content owns the document; each surface owns asset authorization and addresses. */
 export interface MaterialBodyRendering {
@@ -31,6 +37,9 @@ export function MaterialBodyView(props: {
   readonly rendering: MaterialBodyRendering;
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
+  readonly comparison?: MaterialBodyComparison | undefined;
+  readonly illustrations?:
+    readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
   const anchors = materialSourceAnchors(props.blocks, props.path);
@@ -56,29 +65,66 @@ function BodyBlocks({
   rendering,
   hint,
   hintAt,
+  comparison,
+  illustrations,
   path,
 }: {
   readonly blocks: readonly RenderedBlock[];
   readonly rendering: BodyRendering;
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
+  readonly comparison?: MaterialBodyComparison | undefined;
+  readonly illustrations?:
+    readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
   return blocks.map((block, index) => {
     const blockPath = [...path, index];
-    const view = (
-      <BodyBlockView
-        block={block}
-        rendering={rendering}
-        key={blockPath.join("-")}
-        path={blockPath}
-      />
-    );
-    if (index !== hintAt) return view;
+    if (
+      comparison !== undefined &&
+      index > comparison.at &&
+      index < comparison.at + comparison.labels.length
+    )
+      return null;
+    const view =
+      index === comparison?.at ? (
+        <MaterialModelComparison
+          key={comparison.labels.join("-")}
+          items={comparison.labels.flatMap((label, offset) => {
+            const card = blocks[index + offset];
+            if (card?.kind !== "callout" || card.title === undefined) return [];
+            return [
+              {
+                label,
+                title: card.title,
+                content: (
+                  <BodyBlocks
+                    blocks={card.content}
+                    rendering={rendering}
+                    path={[...path, index + offset]}
+                  />
+                ),
+              },
+            ];
+          })}
+        />
+      ) : (
+        <BodyBlockView
+          block={block}
+          rendering={rendering}
+          key={blockPath.join("-")}
+          path={blockPath}
+        />
+      );
+    const illustration = illustrations?.find(
+      (item) => item.after === index,
+    )?.node;
+    if (index !== hintAt && illustration === undefined) return view;
     return (
       <Fragment key={`hint-${blockPath.join("-")}`}>
-        {hint}
+        {index === hintAt ? hint : null}
         {view}
+        {illustration}
       </Fragment>
     );
   });

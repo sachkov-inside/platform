@@ -833,12 +833,13 @@ async function verifyContinuationRecheck(canvasElement: HTMLElement) {
   );
   if (following === null) throw new Error("Missing following lesson");
   await canvasElement.ownerDocument.fonts.ready;
+  const failRecheck = canvas.getByRole("button", {
+    name: "Сбой повторного чтения продолжения",
+  });
+  // At 200% this fixture control can cross the viewport edge; focus must not scroll the page.
+  failRecheck.focus({ preventScroll: true });
   const before = following.getBoundingClientRect();
-  await userEvent.click(
-    canvas.getByRole("button", {
-      name: "Сбой повторного чтения продолжения",
-    }),
-  );
+  await userEvent.click(failRecheck);
   await expect(
     canvas.getByText("Прогресс сейчас не загрузился. Материалы можно читать."),
   ).toBeVisible();

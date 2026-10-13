@@ -431,7 +431,19 @@ units. Identical case-sensitive labels connect entries within that Series only; 
 stored order or group entity. Current membership owns the label. Published projections enrich only
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
-Reader previous/next still follows every published entry in its one existing order.
+Reader outside checked programme context keeps its existing return controls. Within a checked Product,
+Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
+previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count;
+the normal application legal footer remains visible. Common navigation rows make no personal access
+claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,
+with missing anchors at the chapter start. Empty chapters and task-only products remain visible.
+The sequence preserves authored Material order and keeps Material ordinals, progress and counts independent.
+Reader uses explicit validated `from`; it never guesses one Product from several memberships.
+Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
+Guest composition stays in public cache; personal availability/history stays request-owned.
+Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.
+Mobile offers the full programme through a dialog. Sidebar rows and custom chapter selection use constant 400
+weight and quiet text-only hover; selected state remains semantic and keyboard-accessible (#1414).
 
 The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
 All formats use the ordinal marker, replaced by the saved reading check for studied materials.
@@ -666,8 +678,8 @@ redirect и cache policy остаются за backend.
 порядкового номера и стоят на одной линии пути: у главы с уроками точка залита, у готовящейся —
 пустая, а её описание лежит в пунктирной карточке. Номер урока стоит в квадратной плитке превью:
 без обложки он и есть её рисунок, с обложкой — метка в углу (решение владельца 30.09.2026,
-platform#808). Результаты обучения остаются на странице урока; сложность читателю не показывается,
-но сохраняется в metadata и редакторе (#1336). Отметка
+platform#808). Результаты обучения и сложность читателю не показываются,
+но сохраняются в metadata и редакторе (#1362). Отметка
 изученного и действие «Продолжить» относятся к конкретному уроку. Количества и доступ
 берутся из текущих Materials, а не из демонстрационного набора оформления.
 
@@ -706,8 +718,9 @@ platform#808). Результаты обучения остаются на ст�
 руководства: значение принадлежит уроку и не должно различаться от руководства к руководству. Оба
 необязательны. Черновик принимает от нуля до четырёх пунктов `outcomes`, чтобы автосохранение не
 отказывало автору на втором пункте; публикация требует либо ноль пунктов, либо два–четыре и
-возвращает `outcomes_too_few`. Значения показываются в начале урока до основного текста; компактная карточка программы
-их не дублирует. Их отсутствие страницу не ломает и не дублируется в теле.
+возвращает `outcomes_too_few`. Поля доступны автору в редакторе, но читателю не показываются:
+плашка «Чему научишься» убрана со всех страниц материалов по решению владельца (#1362).
+Компактная карточка программы их не показывает. Их отсутствие страницу не ломает.
 
 ## Application flows
 

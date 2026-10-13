@@ -1,4 +1,9 @@
 import type { Route } from "next";
+import {
+  courseReadingContext,
+  type CourseReadingContext,
+  type ProductChapter,
+} from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 import {
@@ -9,9 +14,12 @@ import {
 interface SeriesContextMaterial {
   readonly slug: string;
   readonly title: string;
+  readonly materialId?: string | undefined;
+  readonly availability?: "available" | "locked" | "unavailable" | undefined;
 }
 
 interface SeriesContextSource {
+  readonly chapters?: readonly ProductChapter[];
   readonly items: readonly SeriesContextMaterial[];
   readonly kind: "ready";
   readonly reference: {
@@ -27,6 +35,7 @@ export interface SeriesReaderContextItem {
 }
 
 export interface SeriesReaderContext {
+  readonly programme?: CourseReadingContext | null;
   readonly currentPosition: number;
   readonly next: SeriesReaderContextItem | null;
   readonly previous: SeriesReaderContextItem | null;
@@ -61,11 +70,28 @@ export function resolveSeriesReaderContext({
   );
   if (currentIndex === -1) return null;
   const programmeHref = productProgrammeHref(series.reference.slug);
+  const programme =
+    series.chapters === undefined
+      ? undefined
+      : courseReadingContext({
+          series: { ...series, chapters: series.chapters },
+          current: { kind: "material", slug: currentMaterialSlug },
+          returnTarget,
+        });
 
   return {
+    ...(programme === undefined ? {} : { programme }),
     currentPosition: currentIndex + 1,
-    next: toContextItem(series.items[currentIndex + 1], returnTarget.href),
-    previous: toContextItem(series.items[currentIndex - 1], returnTarget.href),
+    next:
+      programme?.next ??
+      (programme === undefined
+        ? toContextItem(series.items[currentIndex + 1], returnTarget.href)
+        : null),
+    previous:
+      programme?.previous ??
+      (programme === undefined
+        ? toContextItem(series.items[currentIndex - 1], returnTarget.href)
+        : null),
     series: {
       hasModeVariants: series.reference.hasModeVariants ?? false,
       href:

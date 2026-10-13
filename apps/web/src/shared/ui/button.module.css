@@ -1,0 +1,41 @@
+/* Phone controls share a compact visible footprint; small editor tools stay small. */
+@media (width < 40rem) {
+  .control:where(
+    :not(
+      [data-size="xs"],
+      [data-size="sm"],
+      [data-size="icon-xs"],
+      [data-size="icon-sm"]
+    )
+  ) {
+    position: relative;
+    min-height: 2.25rem;
+    height: auto;
+    padding-block: 0.4375rem;
+  }
+  .control:where([data-size="icon"], [data-size="icon-lg"]) {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+  }
+  .control:where(
+      :not(
+        [data-size="xs"],
+        [data-size="sm"],
+        [data-size="icon-xs"],
+        [data-size="icon-sm"]
+      )
+    )::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  .control svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}

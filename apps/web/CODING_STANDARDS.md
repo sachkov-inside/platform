@@ -201,7 +201,27 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 ## Reader controls
 
-Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distinct from prose.
+Owner corrections 2026-10-10 (#1336) and accepted dimensions 2026-10-12 (#1362): Reader actions stay compact.
+
+At normal phone text size, keep this size contract. Enlarged text can reflow; never clip it.
+
+| Reader element | Phone size |
+| --- | --- |
+| Upper and lower action panels | 38 px high |
+| Visible panel controls / clickable area | 36 px / at least 44 px high |
+| Panel labels / icons | 12 px / 16 px |
+| Floating lesson pager | 146 × 46 px; 44 px arrow controls |
+| Title / prose | 22 px / 15 px |
+| Quiz heading, question and choices | 14 px |
+
+Compact reading actions use the ghost button variant, with no visible border or filled pill.
+Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
+control and pager sizes; Reader and quiz stories enforce typography.
+
+The reading button keeps its geometry and the reader's scroll position while saving. Use the
+shared fast motion token for press feedback and a crossfade between unread and saved icons;
+do not spin the icon. Keep the current saved state until the command succeeds, expose pending
+with `aria-busy` and the status message, and remove transitions under reduced motion.
 
 - Use `text-xs` (12 px) on phones and `text-sm` (14 px) from `sm` for Reader navigation and
   action labels, with 16–20 px icons. Keep the reading-state label visible; an empty circle
@@ -209,14 +229,32 @@ Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distin
 - Keep touch targets at least 44 px high. Size ordinary action buttons to their labels with
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
-- The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
-  panels show programme, bookmark and the written reading-state action in one row at normal
-  text size. Allow reflow when text is enlarged. The upper panel has no next button. Keep previous and next
-  arrows only in the floating mobile panel, with the lesson number on one line. Do not repeat
+- In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
+  a 240 px left chapter rail, minimal position/title/metadata with one truthful action row, and
+  a previous/next footer with neighbor titles. Reserve this composition in shared pending and
+  access states. Mobile uses the full-programme dialog, not a permanent narrow rail or floating pager.
+  Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
+  marker and `aria-current` identify the current step. Hover changes text only, including chapter
+  options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
+  The header shows the authored chapter ordinal and its mixed step position/count. Keep the normal
+  legal footer. Navigation rows make no personal access claim from guest-cached composition; target
+  routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
+  Save, error, denial,
+  unavailable, protected-body and standalone behavior remains unchanged.
+- Outside checked programme context, the upper lesson panel sits before metadata and the heading. On phones, both upper and lower
+  panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
+  text size. Allow reflow when text is enlarged. Both panels keep previous/next arrows at the left/right edges and the written reading action centred, with the same surface and controls
+  on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
+  its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
+  Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
-- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
-  prose; outcomes use 14 px. Keep the established desktop sizes from their breakpoints.
+- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its
+  prose. Keep the established desktop sizes from their breakpoints. Learning outcomes remain in
+  metadata and the editor; the reader has no outcomes panel.
+  Reader headers omit the Material summary, including loading and access states
+  (owner correction 2026-10-13).
 - A collapsed callout is one 44 px summary row; put body padding only inside its open content.
+- On phones, quiz titles, questions and choices use 14 px with compact padding; from `sm` they use 16 px.
 - A quiz uses the shared semantic result colors, a result icon and a written result. A person
   can change the answer directly; do not repeat the selected text or add a separate retry button.
 
@@ -224,3 +262,12 @@ The 44 px choice preserves comfortable touch targets while reducing visual bulk;
 [W3C target-size guidance](https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced)
 explains the enhanced size criterion. These sizes apply to Reader; they do not change other page
 typography.
+
+## Mobile control density
+
+Owner correction 2026-10-12 (#1362): use a 36 px visible footprint for ordinary phone actions,
+16 px action glyphs and choice indicators, and at least 44 px touch extent. Shared Button owns
+the compact phone override for ordinary actions; small editor tool variants keep their size.
+Multiline actions grow instead of clipping. Desktop sizing remains owned by each component.
+Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
+avatars and illustrations do not follow action-icon dimensions.

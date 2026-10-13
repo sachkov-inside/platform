@@ -36,7 +36,7 @@ export function AccountSectionNav({
         <button
           aria-controls={listId}
           aria-expanded={open}
-          className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 text-left text-sm font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 text-left text-sm font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={() => {
             setOpenedFor(open ? null : currentHref);
           }}
@@ -53,7 +53,7 @@ export function AccountSectionNav({
           <ChevronDown
             aria-hidden="true"
             className={cn(
-              "size-5 shrink-0 transition-transform motion-reduce:transition-none",
+              "size-4 shrink-0 transition-transform motion-reduce:transition-none",
               open && "rotate-180",
             )}
           />
@@ -62,7 +62,7 @@ export function AccountSectionNav({
           {sections.map((section) => (
             <li key={section.id}>
               <SectionLink
-                className="min-h-14 flex-col items-start justify-center gap-0.5 rounded-xl border border-border bg-card px-4 py-2"
+                className="min-h-12 flex-col items-start justify-center gap-0.5 rounded-xl border border-border bg-card px-4 py-2"
                 current={section.href === currentHref}
                 section={section}
               >

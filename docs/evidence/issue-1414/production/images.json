@@ -1,0 +1,107 @@
+{
+  "live-chapter-keyboard.webp": {
+    "sha256": "5eee9a370495eeb708713bf329892fdf446e99c5c4a5f723f531381501a2fd19",
+    "pixels": [
+      1440,
+      1000
+    ]
+  },
+  "live-guide-1440.webp": {
+    "sha256": "3ea2a50a5704c08f297728c7b0a4a51d065d230236307e370f22f1d8982cc5ad",
+    "pixels": [
+      1440,
+      9733
+    ]
+  },
+  "live-guide-320.webp": {
+    "sha256": "968e51e866180af687963476bfd85ef0e595f1f582de352412d9cab0a3c5614e",
+    "pixels": [
+      320,
+      1000
+    ]
+  },
+  "live-guide-390-text-200.webp": {
+    "sha256": "967dde5bacf191e85d079c70f01b9428e84fd571fd00fcc1ef059cca68eea1f4",
+    "pixels": [
+      390,
+      1000
+    ]
+  },
+  "live-guide-390.webp": {
+    "sha256": "01de6a1fdf799a3a33e7d3d33380c186c9c4fee419d357062caed984a461fa60",
+    "pixels": [
+      390,
+      11832
+    ]
+  },
+  "live-guide-brief-detail.webp": {
+    "sha256": "2e5a4d4acba5755011b47210c7bde1521b883a4c90d0cae5900c3e68edd2cbc3",
+    "pixels": [
+      704,
+      739
+    ]
+  },
+  "live-guide-overview-detail.webp": {
+    "sha256": "a6b7864da26086fb78c9709a1ddb1cf0e5161e8bbf23c51be757ecbd427e7787",
+    "pixels": [
+      704,
+      739
+    ]
+  },
+  "live-task-1440.webp": {
+    "sha256": "b0e32d8a4bdf3bb4b963373dee35b400a479ecc00a2019fbdd4fbd87e1b49163",
+    "pixels": [
+      1440,
+      6718
+    ]
+  },
+  "live-task-320.webp": {
+    "sha256": "d22ac63cc503d73b83b8125e3ed796f14ad3d7dbe1e65c66d609942b237c74a0",
+    "pixels": [
+      320,
+      1000
+    ]
+  },
+  "live-task-390.webp": {
+    "sha256": "e064c75e9659695b23fda660ad0882671fe6827a5321be437ecf0875aa9c39de",
+    "pixels": [
+      390,
+      8690
+    ]
+  },
+  "story-access-320.webp": {
+    "sha256": "74d9bd4961a06de6a46391cfe520b241db55b3bec07af83629a870a881ebd566",
+    "pixels": [
+      320,
+      1079
+    ]
+  },
+  "story-pending-320.webp": {
+    "sha256": "effb2f76bfeb86226980f4193ba0b222679eb287543a77a939204121ffb0e81e",
+    "pixels": [
+      320,
+      1296
+    ]
+  },
+  "story-task-fallback-390.webp": {
+    "sha256": "1f893c1431519d2501de7196fa0d802a897026be4d513f763d9472afef9e4c00",
+    "pixels": [
+      390,
+      3585
+    ]
+  },
+  "story-task-only-1440.webp": {
+    "sha256": "c24b19d4960240d10617df2018cb6b40a3d9e8b3de0cfefda861d9aa2b85297f",
+    "pixels": [
+      1440,
+      3548
+    ]
+  },
+  "story-task-submitted-1440.webp": {
+    "sha256": "39348a54f6bfa4f0537655e10c9cdb474eb4a4d0b4124462e7620955bbebc9e5",
+    "pixels": [
+      1440,
+      3595
+    ]
+  }
+}

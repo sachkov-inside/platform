@@ -1,14 +1,57 @@
 "use client";
 
-import { ArrowLeft, Bookmark, Circle, List } from "lucide-react";
+import {
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  List,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { materialReadingLabels } from "@/entities/material";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
-import type { SeriesReaderContext } from "../model/series-reader-context";
+import { cn } from "@/shared/lib/utils";
+import type {
+  SeriesReaderContext,
+  SeriesReaderContextItem,
+} from "../model/series-reader-context";
+import styles from "./reader-top-actions.module.css";
 
-/** Одна панель для начала и конца материала; её состав не зависит от измерения после гидратации. */
+function LessonArrow({
+  lesson,
+  direction,
+}: {
+  readonly lesson: SeriesReaderContextItem | null;
+  readonly direction: "previous" | "next";
+}) {
+  const label = direction === "previous" ? "Предыдущий урок" : "Следующий урок";
+  const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
+  const className = "size-9 shrink-0 rounded-full p-0 text-xs sm:text-sm";
+  return lesson === null ? (
+    <Button
+      aria-label={label}
+      className={className}
+      disabled
+      variant="secondary"
+    >
+      <Icon aria-hidden="true" className="size-4" />
+    </Button>
+  ) : (
+    <Button asChild className={className} variant="secondary">
+      <IntentPrefetchLink
+        aria-label={label}
+        href={lesson.href}
+        title={lesson.title}
+      >
+        <Icon aria-hidden="true" className="size-4" />
+      </IntentPrefetchLink>
+    </Button>
+  );
+}
+
+/** Одинаковая панель в начале и конце; соседние уроки всегда по краям. */
 export function ReaderTopActions({
   context,
   readingAction,
@@ -16,7 +59,6 @@ export function ReaderTopActions({
   returnAction,
   format = "guide",
   position = "top",
-  extraAction,
 }: {
   readonly context: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
@@ -24,18 +66,30 @@ export function ReaderTopActions({
   readonly returnAction?: ReactNode;
   readonly format?: string;
   readonly position?: "top" | "bottom";
-  readonly extraAction?: ReactNode;
 }) {
-  const link =
-    "min-h-11 items-center gap-1.5 px-1 text-xs text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring sm:px-2 sm:text-sm";
   if (
     context === null &&
     readingAction === undefined &&
     bookmarkAction === undefined &&
-    returnAction === undefined &&
-    extraAction === undefined
+    returnAction === undefined
   )
     return null;
+  const reading = readingAction ?? (
+    <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
+      <Circle aria-hidden="true" />
+      {materialReadingLabels(format).complete}
+    </Button>
+  );
+  const bookmark = bookmarkAction ?? (
+    <Button
+      aria-label="Закладка недоступна"
+      disabled
+      className="size-11 rounded-lg p-0"
+      variant="ghost"
+    >
+      <Bookmark aria-hidden="true" />
+    </Button>
+  );
   return (
     <div className="@container/reader-actions" data-reader-top-actions-slot>
       <nav
@@ -44,60 +98,48 @@ export function ReaderTopActions({
             ? "Действия материала"
             : "Действия в конце материала"
         }
-        className={`flex flex-wrap items-center gap-x-1 rounded-xl border border-border bg-muted/40 px-1 py-1 [&_a]:text-xs [&_button]:text-xs sm:[&_a]:text-sm sm:[&_button]:text-sm ${position === "bottom" ? "sm:border-0 sm:bg-transparent sm:px-0" : ""}`}
+        className={cn(
+          styles["panel"],
+          context !== null && styles["lessonPanel"],
+          "items-center rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm",
+        )}
         data-reader-top-actions
       >
         {context === null ? (
-          returnAction === undefined ? null : (
-            <div className="flex min-h-11 w-full min-w-0 items-center px-1 @min-[16rem]/reader-actions:w-auto @min-[16rem]/reader-actions:flex-1 [&_a]:text-xs sm:[&_a]:text-sm">
+          <>
+            <div className="flex min-h-9 min-w-0 flex-1 items-center px-1 sm:min-h-11">
               {returnAction}
             </div>
-          )
+            <div className="ml-auto flex max-w-full flex-wrap items-start justify-end gap-1">
+              {bookmark}
+              {reading}
+            </div>
+          </>
         ) : (
-          <div
-            className={`flex w-full min-w-0 flex-wrap items-center gap-x-1 @min-[16rem]/reader-actions:w-auto @min-[16rem]/reader-actions:flex-1 ${position === "bottom" ? "sm:hidden" : ""}`}
-          >
-            {context.previous === null || position === "bottom" ? null : (
+          <>
+            <div className={cn(styles["previous"])}>
+              <LessonArrow lesson={context.previous} direction="previous" />
+            </div>
+            <div className={cn(styles["programme"])}>
               <IntentPrefetchLink
-                className={`${link} hidden sm:inline-flex`}
-                href={context.previous.href}
-                title={context.previous.title}
+                className="inline-flex h-9 min-w-11 items-center justify-center gap-1.5 rounded-lg px-1 text-muted-foreground no-underline hover:bg-muted hover:text-foreground sm:h-11 sm:px-2"
+                href={context.series.href}
+                aria-label="Открыть программу"
+                title="Открыть программу"
               >
-                <ArrowLeft aria-hidden="true" className="size-4" /> Назад
+                <List aria-hidden="true" className="size-4 shrink-0" />
+                <span className="@max-[28rem]/reader-actions:sr-only">
+                  Программа
+                </span>
               </IntentPrefetchLink>
-            )}
-            <IntentPrefetchLink
-              className={`${link} inline-flex min-w-0 justify-start`}
-              href={context.series.href}
-              aria-label="Открыть программу"
-            >
-              <List
-                aria-hidden="true"
-                className="size-4 @max-[18rem]/reader-actions:hidden"
-              />{" "}
-              Программа
-            </IntentPrefetchLink>
-          </div>
+            </div>
+            <div className={cn(styles["reading"])}>{reading}</div>
+            <div className={cn(styles["bookmark"])}>{bookmark}</div>
+            <div className={cn(styles["next"])}>
+              <LessonArrow lesson={context.next} direction="next" />
+            </div>
+          </>
         )}
-        {extraAction}
-        <div className="ml-auto flex max-w-full flex-wrap items-start justify-end gap-1 @min-[16rem]/reader-actions:flex-nowrap">
-          {bookmarkAction ?? (
-            <Button
-              aria-label="Закладка недоступна"
-              disabled
-              className="size-11 rounded-lg p-0"
-              variant="ghost"
-            >
-              <Bookmark aria-hidden="true" />
-            </Button>
-          )}
-          {readingAction ?? (
-            <Button disabled className="h-11 rounded-lg px-3" variant="outline">
-              <Circle aria-hidden="true" />
-              {materialReadingLabels(format).complete}
-            </Button>
-          )}
-        </div>
       </nav>
     </div>
   );

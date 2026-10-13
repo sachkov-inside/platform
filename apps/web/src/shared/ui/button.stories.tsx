@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Trash2 } from "lucide-react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import { Button } from "@/shared/ui/button";
 
@@ -124,4 +124,58 @@ export const Disabled: Story = {
     await expect(button).toBeDisabled();
     await expect(args.onClick).not.toHaveBeenCalled();
   },
+};
+
+export const CompactMobileActions: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  render: (args) => (
+    <div className="grid w-64 max-w-full gap-4 p-2">
+      <Button {...args} className="min-h-12 px-4 text-base">
+        <Trash2 className="size-5" aria-hidden="true" />
+        Сохранить
+      </Button>
+      <Button className="min-h-14 whitespace-normal px-4" variant="outline">
+        Отправить комментарий к выполненному заданию на проверку
+      </Button>
+    </div>
+  ),
+  play: async ({ args, canvasElement }) => {
+    await canvasElement.ownerDocument.fonts.ready;
+    const button = within(canvasElement).getByRole("button", {
+      name: "Сохранить",
+    });
+    const bounds = button.getBoundingClientRect();
+    await expect(bounds.height).toBe(36);
+    await expect(
+      button.querySelector("svg")?.getBoundingClientRect().width,
+    ).toBe(16);
+    await waitFor(async () => {
+      const currentBounds = button.getBoundingClientRect();
+      const hit = canvasElement.ownerDocument.elementFromPoint(
+        currentBounds.x + currentBounds.width / 2,
+        currentBounds.y - 3,
+      );
+      await expect(
+        hit !== null && button.contains(hit),
+        JSON.stringify({
+          x: currentBounds.x,
+          y: currentBounds.y,
+          height: currentBounds.height,
+          hit: hit?.tagName,
+        }),
+      ).toBe(true);
+    });
+    await userEvent.click(button);
+    await expect(args.onClick).toHaveBeenCalledOnce();
+    const multiline = within(canvasElement).getByRole("button", {
+      name: /Отправить комментарий/u,
+    });
+    await expect(multiline.scrollHeight).toBeLessThanOrEqual(
+      multiline.clientHeight,
+    );
+  },
+};
+export const CompactMobileActions320: Story = {
+  ...CompactMobileActions,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
 };

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
+import { projectHarnessIllustrations } from "@/features/project-harness";
 import {
   MaterialResponsiveImage,
   type MaterialImageSource,
@@ -13,12 +14,14 @@ export function TaskPageBody({
   page,
   productSlug,
   code,
+  version,
   children,
 }: {
   readonly children?: ReactNode;
   readonly page: NonNullable<OpenProductTask["task"]["page"]>;
   readonly productSlug: string;
   readonly code: string;
+  readonly version: number;
 }) {
   const assetHref = (assetId: string) =>
     `/api/products/${encodeURIComponent(productSlug)}/tasks/${encodeURIComponent(code)}/assets/${encodeURIComponent(assetId)}`;
@@ -31,6 +34,10 @@ export function TaskPageBody({
   const body = (
     <MaterialBodyView
       blocks={page.body.blocks}
+      illustrations={
+        projectHarnessIllustrations(code, version, page.body.blocks)
+          ?.illustrations
+      }
       path={[]}
       hint={children}
       hintAt={hintAt}

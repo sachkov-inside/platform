@@ -915,7 +915,7 @@ function ChapterSection({
                 value={chapter.name}
               />
             </label>
-            <div className="flex shrink-0 gap-0.5">
+            <div className="flex shrink-0 gap-2 sm:gap-0.5">
               {entries[0] === undefined ? null : (
                 <MaterialPreviewLink
                   label={`Предпросмотр главы «${chapter.name}»`}
@@ -1201,7 +1201,7 @@ function MaterialRow({
             </div>
           </details>
         </div>
-        <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
+        <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-2 sm:gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
           <MaterialPreviewLink
             label={`Предпросмотр «${item.title}»`}
             materialId={item.materialId}

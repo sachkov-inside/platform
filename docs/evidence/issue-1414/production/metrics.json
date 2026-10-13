@@ -1,0 +1,698 @@
+{
+  "sourceSha": "3b0588e2d2b5f6db04349304f64d723b9e80ec28",
+  "sourceTree": "58a6f20386662d29715eb2b0bac52c24076af7e7",
+  "results": [
+    {
+      "name": "pipeline-line-wrap-task-pipeline-task",
+      "before": [
+        "Как устроен пайплайн ",
+        "разработки с агентом"
+      ],
+      "selected": [
+        "Как устроен пайплайн ",
+        "разработки с агентом"
+      ],
+      "returned": [
+        "Как устроен пайплайн ",
+        "разработки с агентом"
+      ]
+    },
+    {
+      "name": "live-guide-1440",
+      "url": "http://localhost:3107/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "scroll": 1440,
+      "title": "Как настроить проект и harness",
+      "position": "Глава 1·Шаг 4 из 11",
+      "railWidth": 240,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "В закладки",
+          "disabled": false,
+          "width": 36,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 105.28125,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "103.281px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -51.6406, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": []
+    },
+    {
+      "name": "live-task-1440",
+      "url": "http://localhost:3107/products/ai-engineering/tasks/aie-ch1-harness",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "scroll": 1440,
+      "title": "Задание 1. Подготовь проект к работе с агентом",
+      "position": "Глава 1·Шаг 5 из 11",
+      "railWidth": 240,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "Сдать",
+          "disabled": false,
+          "width": 66.75,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "64.75px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -32.375, -22)"
+        }
+      ],
+      "gaps": [
+        {
+          "title": "1. Настрой, как агент с тобой разговаривает",
+          "gap": 10
+        },
+        {
+          "title": "2. Создай репозиторий на GitHub и свяжи его с папкой проекта",
+          "gap": 10
+        },
+        {
+          "title": "3. Положи в проект бриф заказчика",
+          "gap": 10
+        },
+        {
+          "title": "4. Установи в проект скиллы Matt Pocock",
+          "gap": 10
+        },
+        {
+          "title": "5. Настрой скиллы на задачи в GitHub Issues",
+          "gap": 10
+        },
+        {
+          "title": "6. Опиши проект в AGENTS.md",
+          "gap": 10
+        },
+        {
+          "title": "7. Проверь, что новая сессия находит всё сама",
+          "gap": 10
+        },
+        {
+          "title": "Что решаешь сам",
+          "gap": 10
+        },
+        {
+          "title": "Сдать",
+          "gap": 10
+        }
+      ],
+      "violations": []
+    },
+    {
+      "name": "live-guide-390",
+      "url": "http://localhost:3107/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "viewport": {
+        "width": 390,
+        "height": 1000
+      },
+      "width": 390,
+      "scroll": 390,
+      "title": "Как настроить проект и harness",
+      "position": "Глава 1·Шаг 4 из 11",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "В закладки",
+          "disabled": false,
+          "width": 36,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 97.109375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "95.1094px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -47.5547, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": []
+    },
+    {
+      "name": "live-task-390",
+      "url": "http://localhost:3107/products/ai-engineering/tasks/aie-ch1-harness",
+      "viewport": {
+        "width": 390,
+        "height": 1000
+      },
+      "width": 390,
+      "scroll": 390,
+      "title": "Задание 1. Подготовь проект к работе с агентом",
+      "position": "Глава 1·Шаг 5 из 11",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "Сдать",
+          "disabled": false,
+          "width": 60.9375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "58.9375px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -29.4688, -22)"
+        }
+      ],
+      "gaps": [
+        {
+          "title": "1. Настрой, как агент с тобой разговаривает",
+          "gap": 10
+        },
+        {
+          "title": "2. Создай репозиторий на GitHub и свяжи его с папкой проекта",
+          "gap": 10
+        },
+        {
+          "title": "3. Положи в проект бриф заказчика",
+          "gap": 10
+        },
+        {
+          "title": "4. Установи в проект скиллы Matt Pocock",
+          "gap": 10
+        },
+        {
+          "title": "5. Настрой скиллы на задачи в GitHub Issues",
+          "gap": 10
+        },
+        {
+          "title": "6. Опиши проект в AGENTS.md",
+          "gap": 10
+        },
+        {
+          "title": "7. Проверь, что новая сессия находит всё сама",
+          "gap": 10
+        },
+        {
+          "title": "Что решаешь сам",
+          "gap": 10
+        },
+        {
+          "title": "Сдать",
+          "gap": 10
+        }
+      ],
+      "violations": []
+    },
+    {
+      "name": "live-guide-320",
+      "url": "http://localhost:3107/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "viewport": {
+        "width": 320,
+        "height": 1000
+      },
+      "width": 320,
+      "scroll": 320,
+      "title": "Как настроить проект и harness",
+      "position": "Глава 1·Шаг 4 из 11",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "В закладки",
+          "disabled": false,
+          "width": 36,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 97.109375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "95.1094px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -47.5547, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": []
+    },
+    {
+      "name": "live-task-320",
+      "url": "http://localhost:3107/products/ai-engineering/tasks/aie-ch1-harness",
+      "viewport": {
+        "width": 320,
+        "height": 1000
+      },
+      "width": 320,
+      "scroll": 320,
+      "title": "Задание 1. Подготовь проект к работе с агентом",
+      "position": "Глава 1·Шаг 5 из 11",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "Сдать",
+          "disabled": false,
+          "width": 60.9375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "58.9375px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -29.4688, -22)"
+        }
+      ],
+      "gaps": [
+        {
+          "title": "1. Настрой, как агент с тобой разговаривает",
+          "gap": 10
+        },
+        {
+          "title": "2. Создай репозиторий на GitHub и свяжи его с папкой проекта",
+          "gap": 10
+        },
+        {
+          "title": "3. Положи в проект бриф заказчика",
+          "gap": 10
+        },
+        {
+          "title": "4. Установи в проект скиллы Matt Pocock",
+          "gap": 10
+        },
+        {
+          "title": "5. Настрой скиллы на задачи в GitHub Issues",
+          "gap": 10
+        },
+        {
+          "title": "6. Опиши проект в AGENTS.md",
+          "gap": 10
+        },
+        {
+          "title": "7. Проверь, что новая сессия находит всё сама",
+          "gap": 10
+        },
+        {
+          "title": "Что решаешь сам",
+          "gap": 10
+        },
+        {
+          "title": "Сдать",
+          "gap": 10
+        }
+      ],
+      "violations": []
+    },
+    {
+      "name": "live-chapter-keyboard",
+      "url": "http://localhost:3107/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "scroll": 1440,
+      "title": "Как настроить проект и harness",
+      "position": "Глава 1·Шаг 4 из 11",
+      "railWidth": 240,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "В закладки",
+          "disabled": false,
+          "width": 36,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 105.28125,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "103.281px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -51.6406, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": []
+    },
+    {
+      "name": "live-guide-390-text-200",
+      "url": "http://localhost:3107/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "viewport": {
+        "width": 390,
+        "height": 1000
+      },
+      "width": 390,
+      "scroll": 390,
+      "title": "Как настроить проект и harness",
+      "position": "Глава 1·Шаг 4 из 11",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "В закладки",
+          "disabled": false,
+          "width": 72,
+          "height": 72,
+          "font": "24px",
+          "targetWidth": "88px",
+          "targetHeight": "88px",
+          "targetTransform": "matrix(1, 0, 0, 1, -44, -44)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 192.203125,
+          "height": 72,
+          "font": "24px",
+          "targetWidth": "190.203px",
+          "targetHeight": "88px",
+          "targetTransform": "matrix(1, 0, 0, 1, -95.1016, -44)"
+        }
+      ],
+      "gaps": [],
+      "violations": []
+    },
+    {
+      "name": "story-pending-320",
+      "url": "http://localhost:6207/iframe.html?id=pages-material-reader--course-pending&viewMode=story&globals=a11y.manual%3A!true",
+      "viewport": {
+        "width": 320,
+        "height": 1000
+      },
+      "width": 320,
+      "scroll": 320,
+      "title": "Публичные skills для agent-first setup",
+      "position": "Глава 1·Шаг 2 из 3",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "",
+          "disabled": true,
+          "width": 36,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": true,
+          "width": 97.109375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "95.1094px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -47.5547, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "targets": [
+            [
+              ".fixed"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "story-access-320",
+      "url": "http://localhost:6207/iframe.html?id=pages-material-reader--course-locked&viewMode=story&globals=a11y.manual%3A!true",
+      "viewport": {
+        "width": 320,
+        "height": 1000
+      },
+      "width": 320,
+      "scroll": 320,
+      "title": "Публичные skills для agent-first setup",
+      "position": "Глава 1·Шаг 2 из 3",
+      "railWidth": null,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "",
+          "disabled": true,
+          "width": 36,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "44px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -22, -22)"
+        },
+        {
+          "label": "Изучено",
+          "disabled": false,
+          "width": 97.109375,
+          "height": 36,
+          "font": "12px",
+          "targetWidth": "95.1094px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -47.5547, -22)"
+        }
+      ],
+      "gaps": [],
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "targets": [
+            [
+              ".fixed"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "story-task-submitted-1440",
+      "url": "http://localhost:6207/iframe.html?id=pages-product-task--submitted&viewMode=story&globals=a11y.manual%3A!true",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "scroll": 1440,
+      "title": "Онбординг нового разработчика за час",
+      "position": "Глава 1·Шаг 3 из 3",
+      "railWidth": 240,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "Сдать",
+          "disabled": false,
+          "width": 66.75,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "64.75px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -32.375, -22)"
+        }
+      ],
+      "gaps": [
+        {
+          "title": "Ситуация",
+          "gap": 10
+        },
+        {
+          "title": "Результат",
+          "gap": 10
+        },
+        {
+          "title": "Обязательно",
+          "gap": 10
+        },
+        {
+          "title": "Дополнительно",
+          "gap": 10
+        },
+        {
+          "title": "Свобода",
+          "gap": 10
+        },
+        {
+          "title": "Сдача",
+          "gap": 10
+        },
+        {
+          "title": "5 октября в 16:40",
+          "gap": 4
+        },
+        {
+          "title": "3 октября в 11:15",
+          "gap": 4
+        }
+      ],
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "targets": [
+            [
+              ".fixed"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "story-task-only-1440",
+      "url": "http://localhost:6207/iframe.html?id=pages-product-task--course-task-only&viewMode=story&globals=a11y.manual%3A!true",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "width": 1440,
+      "scroll": 1440,
+      "title": "Онбординг нового разработчика за час",
+      "position": "Глава 1·Шаг 1 из 1",
+      "railWidth": 240,
+      "chevronContained": true,
+      "controls": [
+        {
+          "label": "Сдать",
+          "disabled": false,
+          "width": 66.75,
+          "height": 36,
+          "font": "14px",
+          "targetWidth": "64.75px",
+          "targetHeight": "44px",
+          "targetTransform": "matrix(1, 0, 0, 1, -32.375, -22)"
+        }
+      ],
+      "gaps": [
+        {
+          "title": "Ситуация",
+          "gap": 10
+        },
+        {
+          "title": "Результат",
+          "gap": 10
+        },
+        {
+          "title": "Обязательно",
+          "gap": 10
+        },
+        {
+          "title": "Дополнительно",
+          "gap": 10
+        },
+        {
+          "title": "Свобода",
+          "gap": 10
+        },
+        {
+          "title": "Сдача",
+          "gap": 10
+        },
+        {
+          "title": "5 октября в 16:40",
+          "gap": 4
+        },
+        {
+          "title": "3 октября в 11:15",
+          "gap": 4
+        }
+      ],
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "targets": [
+            [
+              ".fixed"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "name": "story-task-fallback-390",
+      "url": "http://localhost:6207/iframe.html?id=pages-product-task--course-navigation-unavailable&viewMode=story&globals=a11y.manual%3A!true",
+      "viewport": {
+        "width": 390,
+        "height": 1000
+      },
+      "width": 390,
+      "scroll": 390,
+      "railWidth": null,
+      "chevronContained": null,
+      "controls": [],
+      "gaps": [
+        {
+          "title": "Ситуация",
+          "gap": 10
+        },
+        {
+          "title": "Результат",
+          "gap": 10
+        },
+        {
+          "title": "Обязательно",
+          "gap": 10
+        },
+        {
+          "title": "Дополнительно",
+          "gap": 10
+        },
+        {
+          "title": "Свобода",
+          "gap": 10
+        },
+        {
+          "title": "Сдача",
+          "gap": 10
+        },
+        {
+          "title": "Мои сдачи",
+          "gap": 10
+        }
+      ],
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "targets": [
+            [
+              ".fixed"
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

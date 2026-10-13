@@ -1,3 +1,6 @@
+import { courseGuide } from "@/storybook/course-reading.fixtures";
+import { MaterialReaderPending } from "./material-reader-states";
+import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
   expectVariantDiagram,
@@ -381,7 +384,7 @@ const productModeBody = [
         content: [
           {
             kind: "heading",
-            level: 3,
+            level: 2,
             content: [{ kind: "text", marks: [], text: "Проверка на образце" }],
           },
           {
@@ -401,7 +404,7 @@ const productModeBody = [
         content: [
           {
             kind: "heading",
-            level: 3,
+            level: 2,
             content: [{ kind: "text", marks: [], text: "Проверка у себя" }],
           },
           {
@@ -607,6 +610,7 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("heading", {
         name: "Публичные skills для agent-first setup",
@@ -641,13 +645,14 @@ export const Mobile: Story = {
       const panel = canvas.getByRole("navigation", { name });
       const mark = within(panel).getByRole("link", { name: "Изучено" });
       await expect(getComputedStyle(mark).fontSize).toBe("12px");
-      await expect(mark.getBoundingClientRect().height).toBeGreaterThanOrEqual(
-        44,
-      );
+      await expect(mark.getBoundingClientRect().height).toBe(36);
+      await expect(
+        parseFloat(getComputedStyle(mark, "::after").height),
+      ).toBeGreaterThanOrEqual(44);
       const bookmark = within(panel).getByRole("link", { name: "В закладки" });
       await expect(bookmark.getBoundingClientRect().width).toBe(44);
       await expect(
-        bookmark.getBoundingClientRect().height,
+        parseFloat(getComputedStyle(bookmark, "::after").height),
       ).toBeGreaterThanOrEqual(44);
     }
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
@@ -760,6 +765,7 @@ export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("navigation", { name: "В этом материале" }),
     ).toBeInTheDocument();
@@ -1030,7 +1036,7 @@ export const PlaylistReturn: Story = {
   },
   play: async ({ canvasElement }) => {
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
-      name: "Навигация по продукту «Создание Platform Inside»",
+      name: "Действия в конце материала",
     });
     await expect(
       within(seriesNavigation).getByRole("link", { name: "Открыть программу" }),
@@ -1039,10 +1045,13 @@ export const PlaylistReturn: Story = {
       name: "Действия материала",
     });
     await expect(
-      within(top).queryByRole("link", { name: "Дальше" }),
-    ).toBeNull();
+      within(top).getByRole("link", { name: "Следующий урок" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/review-video?from=%2Fproducts%2Fplatform-inside",
+    );
     await expect(
-      within(top).getByRole("link", { name: "Назад" }),
+      within(top).getByRole("link", { name: "Предыдущий урок" }),
     ).toHaveAttribute(
       "href",
       "/materials/first-product?from=%2Fproducts%2Fplatform-inside",
@@ -1069,7 +1078,7 @@ export const PlaylistReturn: Story = {
     ).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
-        name: "Дальше",
+        name: "Следующий урок",
       }),
     ).toHaveAttribute(
       "href",
@@ -1370,18 +1379,18 @@ export const ProductModes: Story = {
     await expect(
       canvas.getByText(/Переключить способ можно в шапке урока/u),
     ).toBeVisible();
-    // Уровень сложности не показывается читателю; результаты урока остаются перед текстом.
+    // Сложность и результаты обучения остаются в metadata, без плашки перед текстом.
     await expect(canvas.queryByText("Сложность: Средний")).toBeNull();
     await expect(
-      canvas.getByRole("heading", { name: "Чему научишься" }),
-    ).toBeVisible();
+      canvas.queryByRole("heading", { name: "Чему научишься" }),
+    ).not.toBeInTheDocument();
     // Ветка чужого режима скрыта и от вспомогательных технологий тоже.
     await expect(
       canvas.queryByRole("heading", { name: "Проверка у себя" }),
     ).not.toBeInTheDocument();
     // У заголовков разных веток разные якоря: иначе ссылка вела бы в скрытую ветку.
     const anchors = [
-      ...canvasElement.querySelectorAll("[data-variant-branch] h3"),
+      ...canvasElement.querySelectorAll("[data-variant-branch] h2"),
     ].map((heading) => heading.id);
     await expect(anchors).toHaveLength(2);
     await expect(new Set(anchors).size).toBe(2);
@@ -1579,8 +1588,8 @@ export const SourceAnchorMetadataCollision: Story = {
     );
     await expect(new Set(ids).size).toBe(ids.length);
     await expect(
-      canvas.getByRole("region", { name: "Чему научишься" }),
-    ).toBeInTheDocument();
+      canvas.queryByRole("region", { name: "Чему научишься" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -1760,4 +1769,67 @@ export const CollapsibleAdvice: Story = {
 export const CollapsibleAdviceMobile: Story = {
   ...CollapsibleAdvice,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ModelComparison: Story = {
+  args: {
+    material: {
+      ...material,
+      materialId: "model-comparison-fixture",
+      slug: "inside-content-aie-ch1-agent-choice",
+    },
+    body: modelComparisonBlocks,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "GPT" }));
+    await expect(
+      canvas.getByRole("region", { name: "GPT-6.1 Sol / GPT-6 Luna" }),
+    ).toBeVisible();
+  },
+};
+export const ModelComparisonMobile: Story = {
+  ...ModelComparison,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const courseContext = {
+  currentPosition: 2,
+  totalMaterials: 3,
+  previous: courseGuide.previous,
+  next: courseGuide.next,
+  series: {
+    name: courseGuide.name,
+    href: courseGuide.href,
+    hasModeVariants: false,
+  },
+  programme: courseGuide,
+};
+export const CourseGuide: Story = {
+  args: {
+    material: { ...material, slug: "course-intro", title: "Как устроен курс" },
+    seriesContext: courseContext,
+  },
+};
+export const CoursePending: Story = {
+  render: () => (
+    <MaterialReaderPending material={material} seriesContext={courseContext} />
+  ),
+};
+export const CourseLocked: Story = {
+  render: () => (
+    <MaterialReaderAccess
+      material={material}
+      seriesContext={courseContext}
+      invitation={null}
+      readingAction={
+        <SavedReadingAction
+          compact
+          canMark={false}
+          format="guide"
+          materialId={material.materialId}
+        />
+      }
+    />
+  ),
 };

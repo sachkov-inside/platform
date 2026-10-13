@@ -450,17 +450,23 @@ async function boxesOf(
   );
 }
 
-/** Верхняя панель текущего урока; сохранённые скрытые страницы не участвуют в переходе. */
-const readerTopActions = (page: Page) =>
-  page
-    .locator("[data-application-content]")
-    .getByRole("navigation", { exact: true, name: "Действия материала" });
-
-const readerProgrammeLink = (page: Page) =>
-  readerTopActions(page).getByRole("link", {
+/** Course B exposes the real programme link through its mobile tree. */
+async function readerProgrammeLink(page: Page) {
+  const course = page.locator(
+    "[data-application-content] [data-course-reading]:visible",
+  );
+  const button = course.getByRole("button", {
     exact: true,
-    name: "Открыть программу",
+    name: "Вся программа",
   });
+  if (await button.isVisible()) {
+    await button.click();
+    return course
+      .getByRole("dialog")
+      .getByRole("link", { name: "Страница программы" });
+  } else
+    return course.getByRole("link", { exact: true, name: "Вся программа" });
+}
 
 const lessonReady = (page: Page, slug: string) => async () => {
   await page.waitForURL((url) => url.pathname === `/materials/${slug}`);
@@ -588,7 +594,7 @@ test("программа ↔ урок: свой скелет на первом �
   );
   const backToProgramme = await transition(
     page,
-    () => readerProgrammeLink(page).click(),
+    async () => (await readerProgrammeLink(page)).click(),
     programmeReady(page),
   );
   const repeatLesson = await transition(
@@ -602,7 +608,7 @@ test("программа ↔ урок: свой скелет на первом �
   );
   const repeatProgramme = await transition(
     page,
-    () => readerProgrammeLink(page).click(),
+    async () => (await readerProgrammeLink(page)).click(),
     programmeReady(page),
   );
   const historyBack = await transition(
@@ -774,7 +780,7 @@ test("повторный переход не ходит в backend, а гост�
       .first();
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
-  await readerProgrammeLink(page).click();
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   // Журнал backend очищается, когда первый круг закончен целиком: личная часть программы пришла.
   await personalPartLanded(page);
@@ -785,7 +791,7 @@ test("повторный переход не ходит в backend, а гост�
     .first()
     .click();
   await lessonReady(page, paidLesson)();
-  await readerProgrammeLink(page).click();
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   await personalPartLanded(page);
 
@@ -802,7 +808,7 @@ test("повторный переход не ходит в backend, а гост�
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
-  await readerProgrammeLink(page).click();
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   await personalPartLanded(page);
   await rscRequestsSettled(page);
@@ -982,7 +988,7 @@ test("снимки перехода «программа → урок → про
   await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
-  const lessonAnchors = ["[data-reader-top-frame]", "[data-reader-header]"];
+  const lessonAnchors = ["[data-course-actions]", "[data-reader-header]"];
   await page
     .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
@@ -1009,8 +1015,10 @@ test("снимки перехода «программа → урок → про
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
+  const returnLink = await readerProgrammeLink(page);
+  await returnLink.focus();
   await shellPrefetched(programmeShell);
-  await readerProgrammeLink(page).click();
+  await returnLink.click();
   await page.waitForURL((url) => url.pathname === programme);
   const programmeAnchors = [
     "[data-programme-part='back']",
@@ -1169,7 +1177,7 @@ test("Главная ↔ продукт: свой скелет продукта,
 
 test("смена режима прохождения сбрасывает страницы, которые браузер помнит в прежнем режиме", async ({
   page,
-}, testInfo) => {
+}) => {
   const modesProgramme = "/products/navigation-modes/programme";
   // Соседний урок остаётся в документе скрытым, поэтому шаг ищется среди видимого.
   const step = (mode: "example" | "own") =>
@@ -1189,28 +1197,18 @@ test("смена режима прохождения сбрасывает стр
   // У урока продукта с режимами личная часть есть всегда: вариант шага выбирает сервер.
   await expect(step("example")).toBeVisible();
 
-  const mobilePager = page
-    .locator("[data-application-content]")
-    .getByRole("navigation", { exact: true, name: "Уроки продукта" });
-  const next =
-    testInfo.project.use.isMobile === true
-      ? mobilePager.getByRole("link", { exact: true, name: "Следующий урок" })
-      : page
-          .locator("[data-application-content] [data-reader-footer]:visible")
-          .getByRole("link", {
-            exact: true,
-            name: "Дальше",
-          });
+  const next = page
+    .locator("[data-application-content] [data-reader-footer]:visible")
+    .getByRole("link", { name: /^Следующий шаг/u });
   await next.click();
   await lessonReady(page, "navigation-lesson-6")();
   await page.getByRole("button", { exact: true, name: "Свой проект" }).click();
   await expect(step("own")).toBeVisible();
 
   // Первый урок открыт меньше минуты назад и лежит в памяти браузера в прежнем режиме.
-  const previous =
-    testInfo.project.use.isMobile === true
-      ? mobilePager.getByRole("link", { exact: true, name: "Предыдущий урок" })
-      : page.getByRole("link", { exact: true, name: "Предыдущий материал" });
+  const previous = page
+    .locator("[data-application-content] [data-reader-footer]:visible")
+    .getByRole("link", { name: /^Предыдущий шаг/u });
   await previous.click();
   await lessonReady(page, "navigation-lesson-5")();
   await expect(step("own")).toBeVisible();
@@ -1510,4 +1508,57 @@ test("client navigation to another Offer resets the selected tariff on the same 
       Reflect.get(window, "__offerNavigationDocument"),
     ),
   ).toBe(true);
+});
+
+test("public course body renders while personal practice is held", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  if (baseURL === undefined) throw new Error("Web origin is required");
+  await signInAsMember(context, baseURL);
+  // The backend journal is shared by earlier cases; this assertion owns only its current request window.
+  await fetch(`${backend}/__requests`, { method: "DELETE" });
+  await fetch(`${backend}/__practice-hold`, {
+    method: "POST",
+    body: JSON.stringify({ hold: true }),
+  });
+  try {
+    await page.goto(
+      `/materials/${freeLesson}?from=${encodeURIComponent(programme)}`,
+      { waitUntil: "commit" },
+    );
+    await expect
+      .poll(async () => {
+        const result = await fetch(`${backend}/__practice-hold`);
+        return z.object({ held: z.boolean() }).parse(await result.json()).held;
+      })
+      .toBe(true);
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    await expect(page.locator("[data-course-reading]:visible")).toBeVisible();
+    const requests = await backendRequests();
+    await testInfo.attach("held-private-practice-requests", {
+      body: JSON.stringify({
+        privatePracticeHeld: true,
+        publicBodyVisible: true,
+        requests,
+      }),
+      contentType: "application/json",
+    });
+    expect(
+      requests.filter(
+        (item) => item.path.startsWith("/library/products/") && item.authorized,
+      ),
+    ).toEqual([]);
+    expect(
+      requests.some(
+        (item) => item.path.endsWith("/practices") && item.authorized,
+      ),
+    ).toBe(true);
+  } finally {
+    await fetch(`${backend}/__practice-hold`, {
+      method: "POST",
+      body: JSON.stringify({ hold: false }),
+    });
+  }
 });
