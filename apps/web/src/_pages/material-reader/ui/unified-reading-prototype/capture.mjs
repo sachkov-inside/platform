@@ -141,6 +141,17 @@ async function confirmCombined(page) {
     ]) {
       await page.setViewportSize({ width, height: 844 });
       await open(step);
+      if (label === "guide") {
+        const stateLabel = page.locator(
+          '[class*="readingActions"] button > span',
+        );
+        await expect(stateLabel).toHaveText("Не изучено");
+        expect(
+          await stateLabel.evaluate(
+            (element) => element.getBoundingClientRect().width,
+          ),
+        ).toBeGreaterThan(20);
+      }
       await page.evaluate(async (enlarged) => {
         if (enlarged) document.documentElement.style.fontSize = "200%";
         await Promise.allSettled(
@@ -211,11 +222,13 @@ async function confirmCombined(page) {
   await expect(page.getByRole("option", { selected: true })).toContainText(
     "1.",
   );
+  await expect(page.getByRole("option", { selected: true })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     await page.evaluate(() => document.documentElement.clientWidth),
   );
   await page.screenshot({ path: resolve(output, "B-guide-1440-selector.png") });
   await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("option", { name: /^2\./ })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(selector).toContainText("2.");
   await expect(page.locator("article[data-step]")).not.toHaveAttribute(
