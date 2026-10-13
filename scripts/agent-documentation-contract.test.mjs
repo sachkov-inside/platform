@@ -140,7 +140,7 @@ describe("harness routing contract", () => {
     }
   });
 
-  it("rejects a retained coordinator, stale skill pointer and implicit manual invocation", () => {
+  it("rejects retired coordination, automatic stage selection and implicit manual invocation", () => {
     const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
     try {
       const skill = join(root, ".agents/skills/implement-spec");
@@ -152,7 +152,7 @@ describe("harness routing contract", () => {
       );
       writeFileSync(
         join(root, "WORKFLOW.md"),
-        "A specification uses one integration branch and final PR\n",
+        "A specification uses one integration branch and final PR\n| Requested result | Route | Completion |\n",
       );
       writeFileSync(join(root, ".agents/skills/PIPELINE.md"), "Pipeline\n");
       writeFileSync(
@@ -168,6 +168,11 @@ describe("harness routing contract", () => {
         ),
       );
       assert.ok(failures.some((failure) => failure.includes("local pointer")));
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("must not select a pipeline stage"),
+        ),
+      );
       assert.ok(
         failures.some((failure) =>
           failure.includes("native implicit-invocation policy"),
@@ -193,6 +198,10 @@ describe("harness routing contract", () => {
       writeFileSync(
         join(skill, "agents/openai.yaml"),
         "policy:\n  allow_implicit_invocation: false\n",
+      );
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "A specification uses one integration branch and final PR\n",
       );
       assert.deepEqual(checkHarnessRouting(root), []);
     } finally {
