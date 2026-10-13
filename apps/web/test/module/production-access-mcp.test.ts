@@ -52,6 +52,45 @@ describe("production access pass MCP answers", () => {
     ).toBe("Первая строка достаточно длинная для отличительного текста ответа");
   });
 
+  it("chooses protected prose instead of a lesson link repeated in public navigation", () => {
+    const protectedText =
+      "Сравните границы аккаунтов сотрудников и покажите, какие данные остаются закрытыми";
+    const publicLessonTitle = "Как устроен пайплайн разработки с агентом";
+    const body = [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", marks: [], text: protectedText }],
+      },
+      {
+        kind: "bullet_list",
+        items: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [
+                  {
+                    kind: "link",
+                    href: "/materials/inside-content-aie-ch1-pipeline",
+                  },
+                ],
+                text: publicLessonTitle,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const snippet = distinctiveText(body, "text");
+    expect(snippet).toBe(protectedText.slice(0, 80));
+    expect(`<aside>${publicLessonTitle}</aside>`).not.toContain(snippet);
+    expect(
+      `<script>${JSON.stringify({ leaked: protectedText })}</script>`,
+    ).toContain(snippet);
+  });
+
   it("reads the learner MCP result with its value", () => {
     const payload = parseToolPayload({ ok: true, value: { body: [] } });
 

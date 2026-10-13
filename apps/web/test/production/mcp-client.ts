@@ -113,7 +113,8 @@ export function jsonStringLiterals(text: string): string[] {
  * Отличительный текст закрытого ответа: самая поздняя строка не короче 40 символов из нескольких
  * слов. Тизер показывает только начало и описание, поэтому поздний абзац есть лишь в полном ответе.
  * `field` ограничивает поиск полями с этим именем: у тела урока это `text`, то есть то, что
- * страница показывает. Строки с символами, которые HTML или JSON экранируют (кавычки, `&`, `<`,
+ * страница показывает. Подписи ссылок не выбираются: названия уроков повторяются в публичной навигации.
+ * Строки с символами, которые HTML или JSON экранируют (кавычки, `&`, `<`,
  * `>`, `\\` и управляющие символы), не берутся: экранированная утечка иначе прошла бы поиск.
  */
 export function distinctiveText(value: unknown, field?: string): string {
@@ -127,9 +128,23 @@ export function distinctiveText(value: unknown, field?: string): string {
       for (const item of node) visit(item, key);
       return;
     }
-    if (node !== null && typeof node === "object")
+    if (node !== null && typeof node === "object") {
+      if (
+        field === "text" &&
+        "marks" in node &&
+        Array.isArray(node.marks) &&
+        node.marks.some(
+          (mark: unknown) =>
+            mark !== null &&
+            typeof mark === "object" &&
+            "kind" in mark &&
+            mark.kind === "link",
+        )
+      )
+        return;
       for (const [childKey, child] of Object.entries(node))
         visit(child, childKey);
+    }
   };
   visit(value, undefined);
   const snippet = texts
