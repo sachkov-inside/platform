@@ -39,7 +39,8 @@ and `scrollWidth === clientWidth` at 1440.
 
 Final production screenshots, exact rendered commit/tree, streaming evidence and check results belong in `production/`.
 Full `pnpm check` is reserved for the stable integrated head after review fixes, as requested.
-Independent final Standards/Spec delta confirmation and production visual GO are pending. Proof acceptance is not production visual GO.
+Independent final Standards/Spec confirmation is complete through the immutable inputs below.
+The owner gave production visual GO for the real guide/task at a1d1293d, with #1426 explicitly separate.
 
 Review previews: Storybook http://localhost:6207 and real frontend http://localhost:3107.
 These processes belong to this writer; API 3001 and other owners' previews remain untouched.
@@ -120,5 +121,25 @@ cannot race the addon scan. Failed scan attempts did not restart design explorat
 captures were resumed. Script nullability passed `tsconfig.scripts.json` with pinned Node 26.10.0/pnpm 11.27.1.
 
 Independent Standards and Spec passed 086adfc8; Spec also passed the test-only delta to 3b0588e2.
-Required final `pnpm check` and current-head CI follow this evidence commit. Production visual GO remains pending.
+Final Standards passed exact a1d1293d: production source tree, all 15 image hashes/dimensions,
+manual addon mode with independent Axe scan, script null narrowing and truthful region reporting.
+Both axes are clear through these immutable inputs; the accepted production source tree is unchanged.
 The ECR 429 failure on the prior CI head happened before compilation; #1324/#1390 track that provider issue.
+
+## Final programme-return confirmation
+
+The pinned full check on a1d1293d used Node 26.10.0 and pnpm 11.27.1 and exited 1.
+Its only failure matched current-head CI: the mobile slow-backend snapshot waited for programme
+prefetch before opening the mobile programme dialog. The trace showed only the programme button;
+the real programme link was still hidden, without focus or pointer intent.
+
+The existing test selector now exposes the real link first. The snapshot opens the dialog, focuses
+that link, waits for the completed compatible RuntimeShell prefetch, then follows the link.
+The shared-to-personal header/action and programme geometry assertions remain intact.
+No production source, accepted composition, timeout or privacy assertion changed.
+
+Targeted confirmation reused the production build through the existing launcher:
+`fnm exec --using 26.10.0 -- env PRODUCTION_WEB_SKIP_BUILD=1 pnpm --filter @inside/web test:navigation --grep 'снимки перехода'`.
+Both desktop and mobile cases passed (2 tests, 16.8 seconds). Web TypeScript and focused Prettier passed.
+The final pinned full check and current-head CI follow this committed test correction;
+their actual exits and immutable HEAD are recorded in #1414 and PR #1421 without changing that checked head.

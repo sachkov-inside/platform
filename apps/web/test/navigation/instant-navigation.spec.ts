@@ -450,8 +450,8 @@ async function boxesOf(
   );
 }
 
-/** Course B opens the mobile programme tree before following its real programme address. */
-async function openReaderProgramme(page: Page) {
+/** Course B exposes the real programme link through its mobile tree. */
+async function readerProgrammeLink(page: Page) {
   const course = page.locator(
     "[data-application-content] [data-course-reading]:visible",
   );
@@ -461,14 +461,11 @@ async function openReaderProgramme(page: Page) {
   });
   if (await button.isVisible()) {
     await button.click();
-    await course
+    return course
       .getByRole("dialog")
-      .getByRole("link", { name: "Страница программы" })
-      .click();
+      .getByRole("link", { name: "Страница программы" });
   } else
-    await course
-      .getByRole("link", { exact: true, name: "Вся программа" })
-      .click();
+    return course.getByRole("link", { exact: true, name: "Вся программа" });
 }
 
 const lessonReady = (page: Page, slug: string) => async () => {
@@ -597,7 +594,7 @@ test("программа ↔ урок: свой скелет на первом �
   );
   const backToProgramme = await transition(
     page,
-    () => openReaderProgramme(page),
+    async () => (await readerProgrammeLink(page)).click(),
     programmeReady(page),
   );
   const repeatLesson = await transition(
@@ -611,7 +608,7 @@ test("программа ↔ урок: свой скелет на первом �
   );
   const repeatProgramme = await transition(
     page,
-    () => openReaderProgramme(page),
+    async () => (await readerProgrammeLink(page)).click(),
     programmeReady(page),
   );
   const historyBack = await transition(
@@ -783,7 +780,7 @@ test("повторный переход не ходит в backend, а гост�
       .first();
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
-  await openReaderProgramme(page);
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   // Журнал backend очищается, когда первый круг закончен целиком: личная часть программы пришла.
   await personalPartLanded(page);
@@ -794,7 +791,7 @@ test("повторный переход не ходит в backend, а гост�
     .first()
     .click();
   await lessonReady(page, paidLesson)();
-  await openReaderProgramme(page);
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   await personalPartLanded(page);
 
@@ -811,7 +808,7 @@ test("повторный переход не ходит в backend, а гост�
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
-  await openReaderProgramme(page);
+  await (await readerProgrammeLink(page)).click();
   await programmeReady(page)();
   await personalPartLanded(page);
   await rscRequestsSettled(page);
@@ -1018,8 +1015,10 @@ test("снимки перехода «программа → урок → про
     `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
   );
   await lessonReady(page, paidLesson)();
+  const returnLink = await readerProgrammeLink(page);
+  await returnLink.focus();
   await shellPrefetched(programmeShell);
-  await openReaderProgramme(page);
+  await returnLink.click();
   await page.waitForURL((url) => url.pathname === programme);
   const programmeAnchors = [
     "[data-programme-part='back']",
