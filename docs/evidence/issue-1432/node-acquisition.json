@@ -1,0 +1,74 @@
+{
+  "verifiedAt": "2026-10-13T15:43:00.952864+00:00",
+  "originalFailure": {
+    "run": 38400041982,
+    "attempt": 1,
+    "job": 115305012503,
+    "sourceSha": "6df3fe1e3638f344123d5ec28f179be887b3eece",
+    "url": "https://github.com/sachkov-inside/platform/actions/runs/38400041982/attempts/1",
+    "jobUrl": "https://github.com/sachkov-inside/platform/actions/runs/38400041982/job/115305012503",
+    "fullDecodedLogSha256": "da69b476d6c80d45dc9b0e26a392fde5c6182ad92b60b47720caea0bea46e7d1",
+    "retainedExcerpt": "original-docker-failure.log",
+    "result": "HTTP 429 / Data limit exceeded while resolving base metadata; build exit 1",
+    "quotaConsumerAndOwner": "not established"
+  },
+  "image": "node:26.10.0-bookworm-slim",
+  "indexDigest": "sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+  "oldSource": "public.ecr.aws/docker/library/node",
+  "selectedSource": "docker.io/library/node",
+  "currentIndexBytesEqual": true,
+  "upstreamChildren": [
+    {
+      "digest": "sha256:0a992e1420e2d70611578f1844a6f10a9d11fe6bb535aabf72efe3007f13d79b",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      },
+      "verified": true
+    },
+    {
+      "digest": "sha256:8f5869be0968fca2c35a93009027126fb01408a698cb3043b2fe446e69e1ed51",
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      },
+      "verified": true
+    },
+    {
+      "digest": "sha256:131c9695bc02b79f4dbb1ca360f5822d5f67f248a621498c22de5883f94122d0",
+      "platform": {
+        "architecture": "arm64",
+        "os": "linux",
+        "variant": "v8"
+      },
+      "verified": true
+    },
+    {
+      "digest": "sha256:a9c15ee28e69682df05f5665c2b846b0d019293ce566b077e66513f8a4b727cb",
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      },
+      "verified": true
+    },
+    {
+      "digest": "sha256:960c23047ef61ec3beead04b906f0c7b465538ca51d0f230b9efe209e6fe07a5",
+      "platform": {
+        "architecture": "ppc64le",
+        "os": "linux"
+      },
+      "verified": true
+    },
+    {
+      "digest": "sha256:c40a23168c82bd606c4c7dde7dbd016e9c72a269d55c4cf5414b3da741611d79",
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      },
+      "verified": true
+    }
+  ],
+  "verificationMethod": "docker buildx imagetools inspect --raw; SHA-256 of index and each child; cmp upstream/ECR index; docker pull upstream pinned index on linux/amd64",
+  "amd64Pull": "success",
+  "limits": "Metadata and base pull do not prove application build or all-platform runtime; current ECR success does not repair or explain original quota failure."
+}

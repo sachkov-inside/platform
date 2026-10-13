@@ -100,7 +100,8 @@ Other synchronous contract commands have explicit termination budgets; asynchron
 CI service containers, application Dockerfile bases, Compose dependencies and explicit
 Testcontainers/SQL inputs select immutable Docker Official Images. The authorized RabbitMQ,
 PostgreSQL `18.4-alpine`/`18.4-alpine3.23` and Node `26.10.0-alpine3.24` indexes use public
-`ghcr.io/sachkov-inside/` mirrors. Caddy and Node `26.10.0-bookworm-slim` retain ECR Public inputs.
+`ghcr.io/sachkov-inside/` mirrors. Telegram Node `26.10.0-bookworm-slim` uses the official
+`docker.io/library/node` upstream with its unchanged index digest; Caddy retains ECR Public inputs.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 Consumers do not need registry credentials for these inputs.
@@ -149,6 +150,23 @@ completed all three publishers successfully. The [retained identity receipt](../
 records equal index bytes and all16/16/4 child manifests, including `linux/amd64` and `linux/arm64`.
 Consumers now use those exact public GHCR indexes with unchanged versions and digests. This changes
 acquisition inputs; running production processes change only through their separate release procedure.
+
+### Telegram Node acquisition
+
+[#1432](https://github.com/sachkov-inside/platform/issues/1432) retains the Telegram BuildKit
+metadata failure from run38400041982, attempt1, source `6df3fe1e`: ECR returned HTTP429
+`Data limit exceeded` for Node `26.10.0-bookworm-slim`. The error identifies the acquisition
+boundary; the quota consumer and owner remain unknown. A later successful request or build
+is not proof that the ECR quota cause was repaired.
+
+Both Telegram Dockerfile stages now read the same official index directly from Docker Hub.
+The [identity and failure receipt](../evidence/issue-1432/node-acquisition.json) records the
+unchanged index digest, matching current upstream/ECR index bytes, and hash-verified upstream
+child manifests. This removes ECR from this Dockerfile's base acquisition. Docker Hub remains
+subject to its own availability and anonymous limits; this is no general rate-limit guarantee.
+No new public mirror is published, no credentials are added, and no acquisition retry or CI
+exception is introduced. The existing Telegram CI job still builds without layer cache and
+checks Node version, the unprivileged user and compiled application imports.
 
 ### Remaining ECR inputs
 
