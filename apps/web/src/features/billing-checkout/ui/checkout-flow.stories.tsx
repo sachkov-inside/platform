@@ -7,6 +7,7 @@ import {
   productQuote,
   legalDocuments,
   verifiedContact,
+  pendingPurchase,
 } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -40,7 +41,6 @@ const meta = {
     snapshot: productOnlyOffer,
     contact: verifiedContact,
     documents: legalDocuments,
-    contactHref: "/account/email",
     showInclusions: true,
     onDocumentsChanged: fn(),
     onNavigate: fn(),
@@ -152,6 +152,90 @@ export const PersonalLinkRejected: Story = {
     ).toBeInTheDocument();
     await expect(quoteBody).toHaveBeenLastCalledWith(
       expect.objectContaining({ promoCode: "survey-used" }),
+    );
+  },
+};
+
+const purchaseCommand = fn();
+const emailCheckout = fetchBeforeRender((input, init) => {
+  const target = input instanceof Request ? input.url : String(input);
+  const path = new URL(target, window.location.origin).pathname;
+  requestPath(path);
+  if (path === "/api/account/billing/quote")
+    return Promise.resolve(Response.json({ ok: true, value: productQuote }));
+  if (path === "/api/account/billing/consents")
+    return Promise.resolve(
+      Response.json({
+        ok: true,
+        value: {
+          ok: true,
+          evidenceRefs: ["40000000-0000-4000-8000-000000000001"],
+        },
+      }),
+    );
+  if (path === "/api/account/billing/purchase") {
+    const form = init?.body;
+    const command = form instanceof FormData ? form.get("input") : null;
+    if (typeof command === "string") purchaseCommand(JSON.parse(command));
+    return Promise.resolve(Response.json({ ok: true, value: pendingPurchase }));
+  }
+  return Promise.resolve(Response.json({ ok: false, code: "unavailable" }));
+});
+
+export const EmailWithoutCode: Story = {
+  args: { contact: null },
+  beforeEach: emailCheckout,
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    await expect(email).toHaveFocus();
+    await expect(email).toHaveAttribute("aria-invalid", "true");
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Введите email");
+    await expect(requestPath).not.toHaveBeenCalledWith(
+      "/api/account/billing/consents",
+    );
+    await userEvent.type(email, "broken");
+    await userEvent.click(pay);
+    await expect(canvas.getByRole("alert")).toHaveTextContent(
+      "Проверьте email",
+    );
+    await userEvent.clear(email);
+    await userEvent.type(email, "Order@Example.test{Enter}");
+    await waitFor(() =>
+      expect(purchaseCommand).toHaveBeenLastCalledWith(
+        expect.objectContaining({ email: "order@example.test" }),
+      ),
+    );
+    await expect(requestPath).not.toHaveBeenCalledWith(
+      "/api/account/billing/contact/start",
+    );
+    await expect(requestPath).not.toHaveBeenCalledWith(
+      "/api/account/billing/contact/confirm",
+    );
+    await expect(args.onNavigate).toHaveBeenCalled();
+  },
+};
+
+export const AccountEmailPrefilled: Story = {
+  args: { contact: null, initialEmail: "login@example.test" },
+  beforeEach: emailCheckout,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    await expect(email).toHaveValue("login@example.test");
+    await waitFor(() => expect(email).toBeEnabled());
+    await userEvent.clear(email);
+    await userEvent.type(email, "changed@example.test");
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await waitFor(() =>
+      expect(purchaseCommand).toHaveBeenLastCalledWith(
+        expect.objectContaining({ email: "changed@example.test" }),
+      ),
     );
   },
 };

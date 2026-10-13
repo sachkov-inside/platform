@@ -17,3 +17,7 @@ Manifest хранит историческое происхождение corpus
 поставки задаёт [общий контракт](../README.md). Изменение semantics/required fields/enum после
 принятия требует новой version и согласованного corpus обеих сторон. Старый billing corpus
 остаётся неизменяемым для community; его notification shapes больше не являются target новой реализации.
+
+#1401 adds `inside.notification-delivery.v2` for Order Email service messages in the existing email-subscription lane.
+All v1 shapes remain supported with their original recipient semantics. See the [v2 protocol](protocol.md#order-email-delivery-v2--1401).
+The historical source snapshot remains unchanged.

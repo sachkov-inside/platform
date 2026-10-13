@@ -374,7 +374,8 @@ export class BillingService {
     requestBody: {
       acknowledgeExistingAccess: boolean;
       consentEvidenceRefs: Array<string>;
-      contactRevision: number;
+      contactRevision?: number;
+      email?: string;
       operationId: string;
       quoteRef: string;
     },

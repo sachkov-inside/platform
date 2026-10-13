@@ -12,12 +12,9 @@ import {
 import { useBillingContact } from "@/features/billing-contact";
 import { CheckoutFlow } from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
-import { internalRoute } from "@/shared/routing/internal-route";
 import { cn } from "@/shared/lib/utils";
 
 import { ProductPurchaseView } from "./product-purchase-view";
-
-const contactHref = internalRoute("/account/email");
 
 export interface ProductPurchaseProps {
   readonly product: { readonly name: string } | null;
@@ -52,8 +49,7 @@ export function ProductPurchase({
     initialPaymentOptionId(offers, offerId),
   );
   const billing = useCurrentBilling({ enabled: signedIn });
-  // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
-  // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
+  // Контакт подставляет email, а редакции документов нужны для согласия при оплате.
   const contact = useBillingContact({ enabled: signedIn });
   const contactState = contact.data?.ok === true ? contact.data : null;
   const signedOut =
@@ -130,7 +126,7 @@ export function ProductPurchase({
           )}
           <CheckoutFlow
             contact={contactState?.contact ?? null}
-            contactHref={contactHref}
+            initialEmail={contactState?.initialEmail}
             documents={contactState?.documents ?? []}
             showInclusions
             onDocumentsChanged={() => {

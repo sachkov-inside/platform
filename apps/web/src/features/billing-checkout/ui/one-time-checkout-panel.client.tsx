@@ -1,8 +1,6 @@
 "use client";
 import { CalendarClock, MessagesSquare, Play, Users } from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
-import { useId } from "react";
+import { useId, type Ref } from "react";
 
 import {
   LegalDocumentLinks,
@@ -24,9 +22,9 @@ import {
   type PreorderTerms,
   type PriceSnapshot,
   type PurchaseStatus,
-  type VerifiedContact,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
+import { CheckoutEmailField } from "./checkout-email-field.client";
 
 import {
   oneTimeOfferTerms,
@@ -40,8 +38,10 @@ export interface OneTimeCheckoutPanelProps {
   readonly snapshot: PriceSnapshot;
   readonly quote: BillingQuote | null;
   readonly documents: readonly LegalDocument[];
-  readonly contact: VerifiedContact | null;
-  readonly contactHref: Route;
+  readonly email: string;
+  readonly emailError?: string | undefined;
+  readonly onEmailChange: (value: string) => void;
+  readonly emailInputRef?: Ref<HTMLInputElement>;
   readonly acknowledgeExistingAccess: boolean;
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
@@ -90,8 +90,10 @@ export function OneTimeCheckoutPanel({
   snapshot,
   quote,
   documents,
-  contact,
-  contactHref,
+  email,
+  emailError,
+  onEmailChange,
+  emailInputRef,
   acknowledgeExistingAccess,
   existingAccess = false,
   legacyBlocked = false,
@@ -138,13 +140,20 @@ export function OneTimeCheckoutPanel({
   );
   const payable =
     quote !== null &&
-    contact !== null &&
     missingRequired.length === 0 &&
     !legacyBlocked &&
     (!existingAccess || acknowledgeExistingAccess);
 
   return (
-    <section aria-labelledby={headingId} className="min-w-0">
+    <form
+      aria-labelledby={headingId}
+      className="min-w-0"
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (payable && !pending && !paymentBlocked) onPay();
+      }}
+    >
       <h2 className="sr-only" id={headingId}>
         Оплата продукта
       </h2>
@@ -235,21 +244,13 @@ export function OneTimeCheckoutPanel({
         </Button>
       ) : null}
 
-      {contact === null ? (
-        <p
-          className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
-          role="status"
-        >
-          Чек выписывается на подтверждённый адрес, а он пока не подтверждён.{" "}
-          <Link
-            className="font-semibold text-action underline underline-offset-4"
-            href={contactHref}
-          >
-            Подтвердить его в кабинете
-          </Link>
-          .
-        </p>
-      ) : null}
+      <CheckoutEmailField
+        value={email}
+        error={emailError}
+        onChange={onEmailChange}
+        inputRef={emailInputRef}
+        disabled={pending || paymentBlocked}
+      />
 
       <section
         aria-labelledby={termsId}
@@ -303,9 +304,8 @@ export function OneTimeCheckoutPanel({
       <Button
         className={`mt-6 h-auto min-h-12 w-full whitespace-normal text-base ${billingActionClass}`}
         disabled={!payable || pending || paymentBlocked}
-        onClick={onPay}
         size="lg"
-        type="button"
+        type="submit"
       >
         {pending ? "Готовим оплату…" : checkoutButtonLabel(conditions)}
       </Button>
@@ -351,6 +351,6 @@ export function OneTimeCheckoutPanel({
           {error}
         </p>
       )}
-    </section>
+    </form>
   );
 }

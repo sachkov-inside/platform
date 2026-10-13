@@ -60,7 +60,10 @@ export const contentSchema = z.discriminatedUnion("category", [
   }),
 ]);
 export const deliverySchema = z.object({
-  contractVersion: z.literal("inside.notification-delivery.v1"),
+  contractVersion: z.enum([
+    "inside.notification-delivery.v1",
+    "inside.notification-delivery.v2",
+  ]),
   operationId: id,
   notificationRef: id,
   deliveryRef: id,

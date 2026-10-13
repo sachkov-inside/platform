@@ -43,7 +43,20 @@ export function handleBillingPurchase(request: Request): Promise<Response> {
       form,
       purchaseInputSchema,
       purchaseStatusSchema,
-      (input) => requestBillingPurchase(input, accessToken),
+      (input) =>
+        requestBillingPurchase(
+          {
+            operationId: input.operationId,
+            quoteRef: input.quoteRef,
+            consentEvidenceRefs: input.consentEvidenceRefs,
+            acknowledgeExistingAccess: input.acknowledgeExistingAccess,
+            ...(input.email === undefined ? {} : { email: input.email }),
+            ...(input.contactRevision === undefined
+              ? {}
+              : { contactRevision: input.contactRevision }),
+          },
+          accessToken,
+        ),
     ),
   );
 }

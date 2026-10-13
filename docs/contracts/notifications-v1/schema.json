@@ -43,6 +43,9 @@
     },
     {
       "$ref": "#/definitions/dispatchError"
+    },
+    {
+      "$ref": "#/definitions/orderEmailDelivery"
     }
   ],
   "definitions": {
@@ -970,6 +973,96 @@
             "operation_conflict",
             "unavailable"
           ]
+        }
+      }
+    },
+    "orderEmailDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "operationId",
+        "notificationRef",
+        "deliveryRef",
+        "commandRevision",
+        "sourceEventId",
+        "content",
+        "templateRef",
+        "templateRevision",
+        "text",
+        "issuedAt",
+        "notAfter",
+        "binding",
+        "subject"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-delivery.v2"
+        },
+        "operationId": {
+          "$ref": "#/definitions/id"
+        },
+        "notificationRef": {
+          "$ref": "#/definitions/id"
+        },
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
+        },
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "sourceEventId": {
+          "$ref": "#/definitions/id"
+        },
+        "content": {
+          "$ref": "#/definitions/subscriptionContent"
+        },
+        "templateRef": {
+          "$ref": "#/definitions/ref"
+        },
+        "templateRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "issuedAt": {
+          "$ref": "#/definitions/instant"
+        },
+        "notAfter": {
+          "$ref": "#/definitions/instant"
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "accountRef",
+            "contactRef",
+            "contactRevision"
+          ],
+          "properties": {
+            "channel": {
+              "const": "email"
+            },
+            "accountRef": {
+              "$ref": "#/definitions/ref"
+            },
+            "contactRef": {
+              "$ref": "#/definitions/id"
+            },
+            "contactRevision": {
+              "const": 1
+            }
+          }
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\r\\n]*$"
         }
       }
     }

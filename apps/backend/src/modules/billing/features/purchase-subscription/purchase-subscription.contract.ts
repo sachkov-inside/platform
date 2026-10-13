@@ -6,7 +6,8 @@ export const purchaseSubscriptionSchema = z.strictObject({
   operationId: idSchema,
   quoteRef: idSchema,
   // Подписка требует оферты и согласия на списания, разовая покупка — только оферты.
-  contactRevision: z.int().positive(),
+  email: z.string().trim().toLowerCase().pipe(z.email().max(254)).optional(),
+  contactRevision: z.int().positive().optional(),
   consentEvidenceRefs: z.array(idSchema).min(1).max(4),
   acknowledgeExistingAccess: z.boolean(),
 });

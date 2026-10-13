@@ -127,7 +127,7 @@ export class BillingPayments {
         });
       if (replay)
         return fingerprint.recognizes(replay.fingerprint)
-          ? await this.status(accountId, replay.purchaseRef)
+          ? await this.continuePurchase(accountId, replay.purchaseRef)
           : paymentFailure("operation_conflict");
       // Режим приходит из сохранённого расчёта: он решает, нужно ли согласие на списания и
       // появляется ли вообще подписка. Пропавший расчёт отсекается здесь тем же ответом,
@@ -137,16 +137,71 @@ export class BillingPayments {
       });
       if (!quote) return paymentFailure("not_found");
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
+      const blocking = await this.dependencies.prisma.billingPurchase.findFirst(
+        {
+          where: {
+            accountId,
+            kind: { in: ["initial", "one_time"] },
+            state: { in: inFlightStates },
+          },
+        },
+      );
+      if (
+        blocking !== null &&
+        priceSnapshotSchema.parse(blocking.snapshot).paymentOption.id !==
+          snapshot.paymentOption.id
+      ) {
+        await this.awaitBankAnswer(blocking.id);
+        const reconciled = await this.reconcile(blocking.id);
+        if (!reconciled.ok) return reconciled;
+        const current = await this.status(accountId, blocking.id);
+        if (!current.ok) return current;
+        if (current.value.state === "confirmed") {
+          const confirmedRef = current.value.purchaseRef;
+          const resumed = await this.dependencies.prisma.$transaction(
+            async (tx): Promise<PaymentResult<string>> => {
+              await lockBillingPricing(tx);
+              const key = { accountId, operationId: command.operationId };
+              const receipt = await tx.billingPurchaseCommand.findUnique({
+                where: { accountId_operationId: key },
+              });
+              if (receipt)
+                return fingerprint.recognizes(receipt.fingerprint)
+                  ? { ok: true, value: receipt.purchaseRef }
+                  : paymentFailure("operation_conflict");
+              await tx.billingPurchaseCommand.create({
+                data: {
+                  ...key,
+                  fingerprint: fingerprint.digest,
+                  purchaseRef: confirmedRef,
+                },
+              });
+              return { ok: true, value: confirmedRef };
+            },
+          );
+          if (!resumed.ok) return resumed;
+          return await this.continuePurchase(accountId, resumed.value);
+        }
+      }
       const mode = paymentMode(snapshot.paymentOption);
       const recurring = mode === "subscription";
-      const [contact, legacy, capabilities, grounds] = await Promise.all([
-        this.dependencies.contact.read(accountId),
-        this.dependencies.grants.readLegacyClassification(accountId),
-        this.dependencies.grants.resolveCapabilities(accountId),
-        readPurchaseGrounds(this.dependencies.grants, accountId),
-      ]);
-      if (!contact.ok || !legacy.ok || !capabilities.ok || grounds === null)
+      const [contact, legacy, initialCapabilities, grounds] = await Promise.all(
+        [
+          this.dependencies.contact.read(accountId),
+          this.dependencies.grants.readLegacyClassification(accountId),
+          this.dependencies.grants.resolveCapabilities(accountId),
+          readPurchaseGrounds(this.dependencies.grants, accountId),
+        ],
+      );
+      if (
+        !contact.ok ||
+        !legacy.ok ||
+        !initialCapabilities.ok ||
+        grounds === null
+      )
         return paymentFailure("dependency_unavailable");
+      let capabilities = initialCapabilities.capabilities;
+      let settledPurchaseRef: string | undefined;
       const admission = paymentAdmission({
         context: "purchase",
         snapshot,
@@ -155,12 +210,16 @@ export class BillingPayments {
         recurringAllowed: legacy.recurringAllowed,
       });
       if (!admission.ok) return paymentFailure(admission.error.code);
+      const orderEmail = command.email;
       if (
-        !contact.contact ||
-        contact.contact.revision !== command.contactRevision
+        orderEmail === undefined &&
+        (!contact.contact ||
+          contact.contact.revision !== command.contactRevision)
       )
         return paymentFailure("contact_required");
-      const verifiedContact = contact.contact;
+      const email = orderEmail ?? contact.contact?.email;
+      if (email === undefined) return paymentFailure("contact_required");
+      const { email: _email, ...storedCommand } = command;
       const consents = await Promise.all(
         command.consentEvidenceRefs.map((ref) =>
           this.dependencies.contact.readConsent(accountId, ref),
@@ -200,125 +259,194 @@ export class BillingPayments {
         )
       )
         return paymentFailure("consent_required");
-      const prepared = await this.dependencies.prisma.$transaction(
-        async (tx): Promise<PaymentResult<string>> => {
-          await lockBillingPricing(tx);
-          const key = { accountId, operationId: command.operationId };
-          const existingCommand = await tx.billingPurchaseCommand.findUnique({
-            where: { accountId_operationId: key },
-          });
-          if (existingCommand)
-            return fingerprint.recognizes(existingCommand.fingerprint)
-              ? { ok: true, value: existingCommand.purchaseRef }
-              : paymentFailure("operation_conflict");
-          const now = this.clock();
-          // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
-          await endLapsedSubscriptions(tx, accountId, now);
-          if (recurring) {
-            const current = await tx.billingPurchase.findFirst({
+      const prepare = () =>
+        this.dependencies.prisma.$transaction(
+          async (
+            tx,
+          ): Promise<
+            PaymentResult<string | { readonly settledPurchaseRef: string }>
+          > => {
+            await lockBillingPricing(tx);
+            const key = { accountId, operationId: command.operationId };
+            const existingCommand = await tx.billingPurchaseCommand.findUnique({
+              where: { accountId_operationId: key },
+            });
+            if (existingCommand)
+              return fingerprint.recognizes(existingCommand.fingerprint)
+                ? { ok: true, value: existingCommand.purchaseRef }
+                : paymentFailure("operation_conflict");
+            const now = this.clock();
+            // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
+            await endLapsedSubscriptions(tx, accountId, now);
+            let continuingPurchase = await tx.billingPurchase.findFirst({
               where: {
                 accountId,
-                kind: "initial",
-                lifecycleActive: true,
-                state: { not: "failed" },
+                kind: { in: ["initial", "one_time"] },
+                OR: [
+                  { quoteRef: command.quoteRef },
+                  { state: { in: inFlightStates } },
+                ],
               },
+              orderBy: { createdAt: "desc" },
             });
-            if (current) {
-              if (current.state === "confirmed")
+            if (continuingPurchase === null && !recurring) {
+              const confirmed = await tx.billingPurchase.findFirst({
+                where: {
+                  accountId,
+                  kind: "one_time",
+                  state: "confirmed",
+                  snapshot: {
+                    path: ["paymentOption", "id"],
+                    equals: snapshot.paymentOption.id,
+                  },
+                },
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              });
+              if (confirmed !== null) {
+                const waiting = await tx.billingFulfillment.count({
+                  where: { purchaseRef: confirmed.id, appliedAt: null },
+                });
+                if (waiting > 0) continuingPurchase = confirmed;
+                else if (settledPurchaseRef !== confirmed.id)
+                  return {
+                    ok: true,
+                    value: { settledPurchaseRef: confirmed.id },
+                  };
+              }
+            }
+            if (continuingPurchase) {
+              const previous = priceSnapshotSchema.parse(
+                continuingPurchase.snapshot,
+              );
+              if (previous.paymentOption.id !== snapshot.paymentOption.id)
                 return paymentFailure("payment_in_progress");
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
                   fingerprint: fingerprint.digest,
-                  purchaseRef: current.id,
+                  purchaseRef: continuingPurchase.id,
                 },
               });
-              return { ok: true, value: current.id };
+              return { ok: true, value: continuingPurchase.id };
             }
-          }
-          const purchaseRef = randomUUID();
-          const reservation = await reservePurchaseInTransaction(
-            tx,
-            {
-              accountId,
-              purchaseRef,
-              quoteRef: command.quoteRef,
-              amountLimits: {
-                minimumKopecks: bank.config.minimumKopecks,
-                maximumKopecks: bank.config.maximumKopecks,
+            if (recurring) {
+              const current = await tx.billingPurchase.findFirst({
+                where: {
+                  accountId,
+                  kind: "initial",
+                  lifecycleActive: true,
+                  state: { not: "failed" },
+                },
+              });
+              if (current) {
+                await tx.billingPurchaseCommand.create({
+                  data: {
+                    ...key,
+                    fingerprint: fingerprint.digest,
+                    purchaseRef: current.id,
+                  },
+                });
+                return { ok: true, value: current.id };
+              }
+            }
+            const purchaseRef = randomUUID();
+            const reservation = await reservePurchaseInTransaction(
+              tx,
+              {
+                accountId,
+                purchaseRef,
+                quoteRef: command.quoteRef,
+                amountLimits: {
+                  minimumKopecks: bank.config.minimumKopecks,
+                  maximumKopecks: bank.config.maximumKopecks,
+                },
               },
-            },
-            now,
-          );
-          if (!reservation.ok)
-            return paymentFailure(
-              reservation.error.code === "reservation_conflict"
-                ? "payment_in_progress"
-                : reservation.error.code,
+              now,
             );
-          // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
-          const admission = paymentAdmission({
-            context: "purchase",
-            snapshot: reservation.value,
-            sale: saleCapability(bank.config, true),
-            grounds,
-            recurringAllowed: legacy.recurringAllowed,
-          });
-          if (!admission.ok) {
-            await tx.billingPromoReservation.delete({ where: { purchaseRef } });
-            return paymentFailure(admission.error.code);
-          }
-          if (
-            !command.acknowledgeExistingAccess &&
-            capabilities.capabilities.some((value) =>
-              reservation.value.offer.benefits.includes(value.capability),
-            )
-          ) {
-            // No external effect exists; release the pricing capacity in this transaction.
-            await tx.billingPromoReservation.delete({ where: { purchaseRef } });
-            return paymentFailure("existing_access");
-          }
-          await tx.billingPurchase.create({
-            data: {
-              id: purchaseRef,
-              accountId,
-              quoteRef: command.quoteRef,
-              state: "prepared",
-              environment: bank.config.environment,
-              // Разовая покупка не занимает место подписки: она ничем не продлевается и заканчивается собой.
-              ...(recurring
-                ? {}
-                : { kind: "one_time", lifecycleActive: false }),
-              terminalRef: bank.config.terminalKey,
-              amountKopecks: reservation.value.firstPriceKopecks,
+            if (!reservation.ok)
+              return paymentFailure(
+                reservation.error.code === "reservation_conflict"
+                  ? "payment_in_progress"
+                  : reservation.error.code,
+              );
+            // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
+            const admission = paymentAdmission({
+              context: "purchase",
               snapshot: reservation.value,
-              acceptance: { command, evidence },
-              contact: {
-                revision: verifiedContact.revision,
-                verifiedAt: verifiedContact.verifiedAt,
-                emailCiphertext: bank.sealBinding(
-                  `${purchaseRef}:contact`,
-                  verifiedContact.email,
-                ),
+              sale: saleCapability(bank.config, true),
+              grounds,
+              recurringAllowed: legacy.recurringAllowed,
+            });
+            if (!admission.ok) {
+              await tx.billingPromoReservation.delete({
+                where: { purchaseRef },
+              });
+              return paymentFailure(admission.error.code);
+            }
+            if (
+              !command.acknowledgeExistingAccess &&
+              capabilities.some((value) =>
+                reservation.value.offer.benefits.includes(value.capability),
+              )
+            ) {
+              // No external effect exists; release the pricing capacity in this transaction.
+              await tx.billingPromoReservation.delete({
+                where: { purchaseRef },
+              });
+              return paymentFailure("existing_access");
+            }
+            await tx.billingPurchase.create({
+              data: {
+                id: purchaseRef,
+                accountId,
+                quoteRef: command.quoteRef,
+                state: "prepared",
+                environment: bank.config.environment,
+                // Разовая покупка не занимает место подписки: она ничем не продлевается и заканчивается собой.
+                ...(recurring
+                  ? {}
+                  : { kind: "one_time", lifecycleActive: false }),
+                terminalRef: bank.config.terminalKey,
+                amountKopecks: reservation.value.firstPriceKopecks,
+                snapshot: reservation.value,
+                acceptance: { command: storedCommand, evidence },
+                contact: {
+                  ...(orderEmail === undefined && contact.contact !== null
+                    ? {
+                        revision: contact.contact.revision,
+                        verifiedAt: contact.contact.verifiedAt,
+                      }
+                    : { source: "order" }),
+                  emailCiphertext: bank.sealBinding(
+                    `${purchaseRef}:contact`,
+                    email,
+                  ),
+                },
+                fiscalization: "pending",
+                createdAt: now,
+                updatedAt: now,
               },
-              fiscalization: "pending",
-              createdAt: now,
-              updatedAt: now,
-            },
-          });
-          await tx.billingPurchaseCommand.create({
-            data: { ...key, fingerprint: fingerprint.digest, purchaseRef },
-          });
-          return { ok: true, value: purchaseRef };
-        },
-      );
-      if (!prepared.ok) return prepared;
-      // A second tab joins an existing attempt and dispatches nothing, so it must not answer from
-      // the interim row that carries no payment URL. The caller that did dispatch already settled
-      // the row, so it waits for nothing here.
-      await this.dispatch(prepared.value);
-      await this.awaitBankAnswer(prepared.value);
-      return await this.status(accountId, prepared.value);
+            });
+            await tx.billingPurchaseCommand.create({
+              data: { ...key, fingerprint: fingerprint.digest, purchaseRef },
+            });
+            return { ok: true, value: purchaseRef };
+          },
+        );
+      let prepared = await prepare();
+      while (prepared.ok) {
+        if (typeof prepared.value === "string")
+          return await this.continuePurchase(accountId, prepared.value);
+        // Fulfillment may finish after admission read. Refresh outside the pricing transaction;
+        // a different confirmed purchase on the next pass requires its own fresh access read.
+        settledPurchaseRef = prepared.value.settledPurchaseRef;
+        const refreshed =
+          await this.dependencies.grants.resolveCapabilities(accountId);
+        if (!refreshed.ok) return paymentFailure("dependency_unavailable");
+        capabilities = refreshed.capabilities;
+        prepared = await prepare();
+      }
+      return prepared;
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
@@ -326,6 +454,107 @@ export class BillingPayments {
         paymentFailure("dependency_unavailable"),
       );
     }
+  }
+
+  /** Immutable order recipient; the Account argument prevents cross-account reads. */
+  async purchaseEmail(
+    accountId: string,
+    purchaseRef: string,
+  ): Promise<PaymentResult<string | null>> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(purchaseRef).success
+    )
+      return paymentFailure("invalid_request");
+    try {
+      const row = await this.dependencies.prisma.billingPurchase.findFirst({
+        where: { id: purchaseRef, accountId },
+        select: { contact: true },
+      });
+      if (!row) return { ok: true, value: null };
+      const bank = this.dependencies.bank;
+      if (!bank) return paymentFailure("dependency_unavailable");
+      const contact = z
+        .object({ emailCiphertext: z.string() })
+        .parse(row.contact);
+      return {
+        ok: true,
+        value: z
+          .email()
+          .parse(
+            bank.openBinding(`${purchaseRef}:contact`, contact.emailCiphertext),
+          ),
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "purchaseEmail" },
+        error,
+        paymentFailure("dependency_unavailable"),
+      );
+    }
+  }
+
+  /** Linked contact takes priority; otherwise renewal retains the first order's recipient. */
+  async subscriptionEmail(
+    accountId: string,
+    subscriptionRef: string,
+  ): Promise<PaymentResult<string | null>> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(subscriptionRef).success
+    )
+      return paymentFailure("invalid_request");
+    try {
+      const subscription =
+        await this.dependencies.prisma.billingSubscription.findFirst({
+          where: { id: subscriptionRef, accountId },
+          select: { id: true },
+        });
+      if (!subscription) return { ok: true, value: null };
+      const contact = await this.dependencies.contact.read(accountId);
+      if (!contact.ok) return paymentFailure("dependency_unavailable");
+      if (contact.contact !== null)
+        return { ok: true, value: contact.contact.email };
+      const initial = await this.dependencies.prisma.billingPurchase.findFirst({
+        where: { accountId, subscriptionRef, kind: "initial" },
+        select: { id: true },
+      });
+      return initial === null
+        ? { ok: true, value: null }
+        : await this.purchaseEmail(accountId, initial.id);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "subscriptionEmail" },
+        error,
+        paymentFailure("dependency_unavailable"),
+      );
+    }
+  }
+
+  private async continuePurchase(
+    accountId: string,
+    purchaseRef: string,
+  ): Promise<PaymentResult<PurchaseStatus>> {
+    const bank = this.dependencies.bank;
+    if (!bank) return paymentFailure("method_unavailable");
+    const dispatched = await this.dispatch(purchaseRef);
+    await this.awaitBankAnswer(purchaseRef);
+    if (dispatched === "skipped") {
+      const reconciled = await this.reconcile(purchaseRef);
+      if (!reconciled.ok) return reconciled;
+    }
+    const result = await this.status(accountId, purchaseRef);
+    if (!result.ok || result.value.paymentUrl === null) return result;
+    return {
+      ok: true,
+      value: purchaseStatusSchema.parse({
+        ...result.value,
+        paymentUrl: validatedPaymentUrl(
+          result.value.paymentUrl,
+          bank.config.endpoints.formOrigins,
+        ),
+      }),
+    };
   }
 
   async status(
@@ -771,12 +1000,12 @@ export class BillingPayments {
     if (current?.state !== "active") return {};
     const [legacy, verified, consented] = await Promise.all([
       grants.readLegacyClassification(current.accountId),
-      contact.read(current.accountId),
+      this.subscriptionEmail(current.accountId, subscriptionRef),
       inspectRecurringConsent(contact, current.accountId, current.consent),
     ]);
     if (!legacy.ok || !verified.ok || consented === "unavailable")
       return { failed: true };
-    const verifiedContact = verified.contact;
+    const email = verified.value;
     const snapshot = renewalPriceSnapshot(
       current.snapshot,
       current.pendingChange,
@@ -823,7 +1052,7 @@ export class BillingPayments {
           return {};
         }
         // Классификация, согласие, контакт и границы терминала — операторский разбор, не отказ покупателя.
-        if (!admission.ok || consented !== "valid" || !verifiedContact)
+        if (!admission.ok || consented !== "valid" || email === null)
           return { blocked: true };
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
@@ -846,12 +1075,8 @@ export class BillingPayments {
               bank.openBinding(row.bindingRef, row.bindingCiphertext),
             ),
             contact: {
-              revision: verifiedContact.revision,
-              verifiedAt: verifiedContact.verifiedAt,
-              emailCiphertext: bank.sealBinding(
-                `${attemptRef}:contact`,
-                verifiedContact.email,
-              ),
+              source: "subscription",
+              emailCiphertext: bank.sealBinding(`${attemptRef}:contact`, email),
             },
             fiscalization: "pending",
             createdAt: now,
@@ -1245,12 +1470,15 @@ export class BillingPayments {
         } else {
           const authorized =
             row.state === "authorized" || payment.Status === "AUTHORIZED";
+          const payable =
+            payment.Status === "NEW" || payment.Status === "FORM_SHOWED";
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
               ...common,
               state: authorized ? "authorized" : "pending",
-              ...(hasText(paymentUrl) && !authorized
+              ...(!payable || authorized ? { paymentUrl: null } : {}),
+              ...(hasText(paymentUrl) && !authorized && payable
                 ? {
                     paymentUrl: validatedPaymentUrl(
                       paymentUrl,

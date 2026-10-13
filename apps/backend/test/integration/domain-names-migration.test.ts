@@ -492,6 +492,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
           ),
       },
       payments: {
+        subscriptionEmail: () => Promise.resolve({ ok: true, value: null }),
         dispatch: () =>
           Promise.reject(new Error("scheduled change must not dispatch")),
         status: () =>

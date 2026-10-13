@@ -1,6 +1,5 @@
 "use client";
-import type { Route } from "next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
@@ -26,6 +25,7 @@ import {
 } from "../api/billing-checkout.browser";
 import {
   acceptedPurchaseDocuments,
+  checkoutEmailSchema,
   rememberPurchase,
   type QuoteInput,
   type PurchaseInput,
@@ -37,7 +37,7 @@ export interface CheckoutFlowProps {
   readonly snapshot: PriceSnapshot;
   readonly contact: VerifiedContact | null;
   readonly documents: readonly LegalDocument[];
-  readonly contactHref: Route;
+  readonly initialEmail?: string | undefined;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
   /** Показывать ли состав разовой покупки: его строит сама панель из снимка условий. */
@@ -75,7 +75,7 @@ type PaymentRequest =
   | {
       readonly quote: BillingQuote;
       readonly identity: object;
-      readonly contact: VerifiedContact;
+      readonly email: string;
       readonly documents: readonly LegalDocument[];
       readonly acknowledgeExistingAccess: boolean;
     };
@@ -97,7 +97,7 @@ export function CheckoutFlow({
   snapshot,
   contact,
   documents,
-  contactHref,
+  initialEmail,
   onPurchase,
   onNavigate,
   showInclusions = false,
@@ -126,6 +126,10 @@ export function CheckoutFlow({
   };
   const [attempt, setAttempt] = useState<PurchaseAttempt | null>(null);
   const [paymentError, setPaymentError] = useState<string>();
+  const [editedEmail, setEditedEmail] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string>();
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const email = editedEmail ?? contact?.email ?? initialEmail ?? "";
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
   const { operationId, completeOperation } = useRepeatableOperations();
 
@@ -183,7 +187,7 @@ export function CheckoutFlow({
       if (!consents.ok) return consents;
       const payload = {
         quoteRef: input.quote.quoteRef,
-        contactRevision: input.contact.revision,
+        email: input.email,
         consentEvidenceRefs: [...consents.value.evidenceRefs],
         acknowledgeExistingAccess: input.acknowledgeExistingAccess,
       };
@@ -196,7 +200,7 @@ export function CheckoutFlow({
         command,
         identity: input.identity,
         snapshot: input.quote.snapshot,
-        email: input.contact.email,
+        email: input.email,
       });
       return startBillingPurchase(command);
     },
@@ -208,6 +212,7 @@ export function CheckoutFlow({
         if (
           result.code !== "unavailable" &&
           result.code !== "dependency_unavailable" &&
+          result.code !== "provider_unavailable" &&
           result.code !== "unauthorized" &&
           result.code !== "method_unavailable"
         ) {
@@ -231,16 +236,33 @@ export function CheckoutFlow({
         }
         return;
       }
-      // Даже pending/unknown — восстановленный receipt, HTTP-неопределённость закончилась.
-      setAttempt(null);
-      setPaymentError(undefined);
-      completeOperation("purchase");
+      const waitingWithoutForm =
+        result.value.paymentUrl === null &&
+        result.value.state !== "confirmed" &&
+        result.value.state !== "failed";
+      // Потерянный URL не восстанавливается GetState: сохраняем команду до исхода банка.
+      if (!waitingWithoutForm) {
+        setAttempt(null);
+        completeOperation("purchase");
+      }
+      setPaymentError(
+        waitingWithoutForm
+          ? "Форма оплаты пока недоступна. Повторите проверку состояния — новая оплата не создаётся."
+          : undefined,
+      );
       updateSelection(identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
       rememberPurchase(result.value.purchaseRef);
       if (result.value.paymentUrl !== null)
         (onNavigate ?? defaultNavigate)(result.value.paymentUrl);
+      else if (result.value.state === "confirmed")
+        (onNavigate ?? defaultNavigate)("/payment/return");
+      else if (
+        result.value.state === "failed" &&
+        selection.identity === identity
+      )
+        requestQuote();
     },
   });
 
@@ -257,6 +279,16 @@ export function CheckoutFlow({
       updateSelection(selection.identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
+      if (
+        result.value.state === "failed" ||
+        result.value.state === "confirmed"
+      ) {
+        setAttempt(null);
+        setPaymentError(undefined);
+        completeOperation("purchase");
+        if (result.value.state === "failed") requestQuote();
+        else (onNavigate ?? defaultNavigate)("/payment/return");
+      }
     },
   });
 
@@ -281,26 +313,36 @@ export function CheckoutFlow({
 
   const shared = {
     acknowledgeExistingAccess: acknowledge,
-    contact,
-    contactHref,
+    email,
+    emailError,
+    emailInputRef,
+    onEmailChange: (value: string) => {
+      setEditedEmail(value);
+      setEmailError(undefined);
+    },
     documents,
     error,
     existingAccess,
     legacyBlocked,
     onPay: () => {
-      if (
-        quote === null ||
-        contact === null ||
-        attempt !== null ||
-        payMutation.isPending
-      )
+      if (quote === null || attempt !== null || payMutation.isPending) return;
+      const address = checkoutEmailSchema.safeParse(email);
+      if (!address.success) {
+        setEmailError(
+          email.trim() === ""
+            ? "Введите email, чтобы получить чек."
+            : "Проверьте email: например, name@example.com.",
+        );
+        emailInputRef.current?.focus();
         return;
+      }
+      setEmailError(undefined);
       updateSelection(selection.identity, { error: undefined });
       setPaymentError(undefined);
       payMutation.mutate({
         quote,
         identity: selection.identity,
-        contact,
+        email: address.data,
         documents,
         acknowledgeExistingAccess: acknowledge,
       });
