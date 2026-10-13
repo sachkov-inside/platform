@@ -45,7 +45,9 @@ export const OwnGroundsAndPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: legalSeller.email }),
+      within(
+        canvas.getByText(/Для возврата обратитесь к продавцу:/u),
+      ).getByRole("link", { name: legalSeller.email }),
     ).toHaveAttribute("href", `mailto:${legalSeller.email}`);
     // Оплатой открывается и подписка, и отдельно купленное руководство.
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
