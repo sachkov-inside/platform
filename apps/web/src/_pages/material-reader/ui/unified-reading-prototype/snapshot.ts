@@ -68,7 +68,7 @@ export const variants = ["A", "B", "C"] as const;
 export type Variant = (typeof variants)[number];
 export const variantNames = {
   A: "Программа слева",
-  B: "Оглавление справа",
+  B: "Текущая глава",
   C: "Одна колонка",
 };
 export function findStep(id: string): Step {

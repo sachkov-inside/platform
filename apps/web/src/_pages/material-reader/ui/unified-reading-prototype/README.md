@@ -10,7 +10,7 @@ Production promotion and the owner visual verdict remain pending.
 ## Variants
 
 - A: the complete chapter programme sits to the left of the shared reading column.
-- B: article contents sit to the right; the programme opens from the shared compact panel.
+- B (default): the selected 240 px left rail shows one chapter and its linear steps. Position sits above the title; quiet metadata/actions sit below. Named neighbouring steps form the footer.
 - C: a single reading column includes an inline contents disclosure.
 
 Use `variant=A|B|C`, `step=<fixture-id>`, and `scenario=ready|history|unavailable|version|closed|expired` on the iframe URL.
@@ -19,6 +19,19 @@ Its settings expose the in-memory submission scenarios.
 Guide controls support local bookmark/read toggles; task controls expose submission only.
 Navigation follows all 34 steps in the unchanged programme fixture.
 The pilot sequence is the setup guide, harness task, then pipeline guide.
+
+## Selected direction and owner refinements
+
+The owner selected navigation B from `prototype/course-reader-programme`, pinned commit `77a65abae16d57008fc9e2278942677ccc65e724` (PR #1413).
+The coordinator handoff is `.reports/course-ui/prototypes/navigation-b-handoff.md` in its worktree; it is provenance, not a runtime input.
+The 2026-10-13 feedback supersedes the original repeated-pager requirement for B only. A/C preserve that comparison.
+B combines the selected parent header/footer/rail with this proof's reading styles, task submission and diagrams.
+The existing shared Select replaces the native chapter picker on the desktop rail. Mobile uses the existing full-programme dialog/tree.
+Sidebar rows use constant 400 weight, 14 px text and 1.6 line height. Active color/mark and aria-current preserve orientation.
+Hover changes text color only. No sidebar transition is added, so reduced motion introduces no animation.
+The Range-rect browser reproduction records exact pipeline line breaks before/after task selection in the evidence folder.
+The owner accepted B as a direction and authorized a subsequent real-route integration. Final production visual GO and deployment remain gated.
+This proof commit remains separate; the coordinator assigns the integration branch and scope next.
 
 ## Run and inspect
 
@@ -29,8 +42,8 @@ pnpm storybook --port 6207 --ci
 ```
 
 Open [the playground](http://localhost:6207/?path=/story/prototypes-unified-guide-task-reading--playground).
-Direct [guide](http://127.0.0.1:6207/iframe.html?id=prototypes-unified-guide-task-reading--playground&viewMode=story&variant=A&step=inside-content-aie-ch1-project-setup)
-and [task](http://127.0.0.1:6207/iframe.html?id=prototypes-unified-guide-task-reading--playground&viewMode=story&variant=A&step=aie-ch1-harness) links accept the same variant parameters.
+Direct [guide](http://127.0.0.1:6207/iframe.html?id=prototypes-unified-guide-task-reading--playground&viewMode=story&variant=B&step=inside-content-aie-ch1-project-setup)
+and [task](http://127.0.0.1:6207/iframe.html?id=prototypes-unified-guide-task-reading--playground&viewMode=story&variant=B&step=aie-ch1-harness) links accept the same variant parameters.
 
 Ports 6006 and 6206 belong to other sessions. Keep them running.
 The isolated preview uses port 6207. No Compose or product stand restart is needed.
@@ -80,5 +93,9 @@ See [the evidence record](../../../../../../../docs/evidence/issue-1414/README.m
 Initial checks: focused TypeScript and lint passed; the Storybook MCP focused accessibility/test run passed.
 The initial inspection also captured 720, 320 and 200% root-text enlargement.
 Its fixes use a warm semantic gray diagram canvas, conditional source captions, a compact 320 programme control and collapsible prototype settings.
-One confirmation batch, full repository checks and coordinator standards/spec review remain in progress.
+The final owner-refined B batch is in `docs/evidence/issue-1414/combined-b`, separate from historical right-contents B captures.
+Its metrics record the exact proof code commit and subtree.
+Run `node apps/web/src/_pages/material-reader/ui/unified-reading-prototype/capture.mjs docs/evidence/issue-1414/combined-b --combined-b`.
+The bounded browser checks cover header/footer, custom Select keyboard/selected state, 320/720/200% text, real step order, dialog focus and local form failure/history states.
+Full repository check and independent delta review results are linked to their exact head in #1414.
 The coordinator reviews the committed diff from the fixed base. Owner visual acceptance is the remaining promotion gate.

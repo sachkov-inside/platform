@@ -62,20 +62,37 @@ export function HarnessDiagram({
           <strong>AGENTS.md</strong>
           <span>Что за проект · кто решает · указатели</span>
         </div>
-        <Relation label="указывает, где искать" />
+        <div className={styles["inputRelation"]} aria-hidden="true">
+          <span>указывает, где искать</span>
+        </div>
         <div className={styles["diagramInputs"]}>
-          <div className={styles["diagramNode"]} data-subject="brief">
-            <strong>Бриф</strong>
-            <span>Требования заказчика</span>
+          <div className={styles["inputBranch"]}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M1 12h20m-5-5 5 5-5 5" />
+            </svg>
+            <div className={styles["diagramNode"]} data-subject="brief">
+              <strong>Бриф</strong>
+              <span>Требования заказчика</span>
+            </div>
           </div>
-          <div className={styles["diagramNode"]} data-subject="skills">
-            <strong>.agents/skills</strong>
-            <span>Копия набора</span>
-            <small>Источник + коммит</small>
+          <div className={styles["inputBranch"]}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M1 12h20m-5-5 5 5-5 5" />
+            </svg>
+            <div className={styles["diagramNode"]} data-subject="skills">
+              <strong>.agents/skills</strong>
+              <span>Копия набора</span>
+              <small>Источник + коммит</small>
+            </div>
           </div>
-          <div className={styles["diagramNode"]} data-subject="tracker">
-            <strong>Настройка трекера</strong>
-            <span>Адрес Issues и пометки</span>
+          <div className={styles["inputBranch"]}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M1 12h20m-5-5 5 5-5 5" />
+            </svg>
+            <div className={styles["diagramNode"]} data-subject="tracker">
+              <strong>Настройка трекера</strong>
+              <span>Адрес Issues и пометки</span>
+            </div>
           </div>
         </div>
         {focus === "skills" ? (
@@ -98,11 +115,11 @@ export function HarnessDiagram({
       <div className={styles["githubBoundary"]}>
         <p className={styles["boundaryLabel"]}>GitHub</p>
         <div className={styles["githubNodes"]}>
-          <div className={styles["diagramNode"]}>
+          <div className={styles["diagramNode"]} data-subject="tracker">
             <strong>origin/main</strong>
             <span>Файлы проекта на GitHub</span>
           </div>
-          <div className={styles["diagramNode"]}>
+          <div className={styles["diagramNode"]} data-subject="tracker">
             <strong>Issues и labels</strong>
             <span>Задачи и пометки</span>
           </div>

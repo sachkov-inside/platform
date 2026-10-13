@@ -28,6 +28,13 @@ import { z } from "zod";
 import { MaterialBodyView, materialSourceAnchors } from "@/entities/material";
 import type { RenderedBlock } from "@/entities/material.model";
 import { Button } from "@/shared/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import { HarnessDiagram } from "./harness-diagram";
 import {
@@ -35,7 +42,7 @@ import {
   TaskSubmission,
   type DemoSubmission,
   type Scenario,
-} from "./task-submission";
+} from "./task-submission.fixtures";
 import {
   findStep,
   guideId,
@@ -60,7 +67,7 @@ const scenarioSchema = z.enum([
 const storyId = "prototypes-unified-guide-task-reading--playground";
 
 export function UnifiedReadingPrototype() {
-  const [variant, setVariant] = useState<Variant>("A");
+  const [variant, setVariant] = useState<Variant>("B");
   const [currentId, setCurrentId] = useState(guideId);
   const [scenario, setScenario] = useState<Scenario>("ready");
   const [read, setRead] = useState<ReadonlySet<string>>(new Set());
@@ -97,7 +104,7 @@ export function UnifiedReadingPrototype() {
   useEffect(() => {
     function restore() {
       const params = new URLSearchParams(window.location.search);
-      setVariant(z.enum(variants).catch("A").parse(params.get("variant")));
+      setVariant(z.enum(variants).catch("B").parse(params.get("variant")));
       const step = params.get("step");
       setCurrentId(
         snapshot.steps.some((item) => item.id === step) && step !== null
@@ -115,10 +122,12 @@ export function UnifiedReadingPrototype() {
   useEffect(() => {
     const active = rail.current?.querySelector('[aria-current="step"]');
     if (active instanceof HTMLElement && rail.current !== null) {
-      const r = rail.current.getBoundingClientRect();
-      const a = active.getBoundingClientRect();
-      if (a.bottom > r.bottom) rail.current.scrollTop += a.bottom - r.bottom;
-      if (a.top < r.top) rail.current.scrollTop += a.top - r.top;
+      const railRect = rail.current.getBoundingClientRect();
+      const activeStepRect = active.getBoundingClientRect();
+      if (activeStepRect.bottom > railRect.bottom)
+        rail.current.scrollTop += activeStepRect.bottom - railRect.bottom;
+      if (activeStepRect.top < railRect.top)
+        rail.current.scrollTop += activeStepRect.top - railRect.top;
     }
     article.current
       ?.querySelectorAll("[data-material-quiz]")
@@ -184,7 +193,7 @@ export function UnifiedReadingPrototype() {
       variants[
         (variants.indexOf(variant) + direction + variants.length) %
           variants.length
-      ] ?? "A";
+      ] ?? "B";
     setVariant(selected);
     updateUrl(current, selected);
   }
@@ -280,6 +289,56 @@ export function UnifiedReadingPrototype() {
       </details>
     ));
   }
+  function readingControls() {
+    return (
+      <>
+        {current.kind === "material" ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={
+                bookmarks.has(currentId)
+                  ? "Убрать закладку"
+                  : "Добавить закладку"
+              }
+              onClick={() => {
+                toggle(setBookmarks);
+              }}
+            >
+              <Bookmark
+                size={16}
+                aria-hidden="true"
+                fill={bookmarks.has(currentId) ? "currentColor" : "none"}
+              />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-pressed={read.has(currentId)}
+              onClick={() => {
+                toggle(setRead);
+              }}
+            >
+              <Check size={16} aria-hidden="true" />
+              <span>{read.has(currentId) ? "Изучено" : "Не изучено"}</span>
+            </Button>
+          </>
+        ) : isPilotTask ? (
+          <a
+            href="#pilot-submit"
+            onClick={() => {
+              document.getElementById("pilot-submit")?.scrollIntoView();
+            }}
+          >
+            Сдать
+          </a>
+        ) : (
+          <span>Задание</span>
+        )}
+      </>
+    );
+  }
   function pager(position: "upper" | "lower") {
     return (
       <nav
@@ -316,52 +375,7 @@ export function UnifiedReadingPrototype() {
           <List size={16} aria-hidden="true" />
           <span>Программа</span>
         </Button>
-        <div className={styles["readingActions"]}>
-          {current.kind === "material" ? (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-label={
-                  bookmarks.has(currentId)
-                    ? "Убрать закладку"
-                    : "Добавить закладку"
-                }
-                onClick={() => {
-                  toggle(setBookmarks);
-                }}
-              >
-                <Bookmark
-                  size={16}
-                  aria-hidden="true"
-                  fill={bookmarks.has(currentId) ? "currentColor" : "none"}
-                />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-pressed={read.has(currentId)}
-                onClick={() => {
-                  toggle(setRead);
-                }}
-              >
-                <Check size={16} aria-hidden="true" />
-                <span>{read.has(currentId) ? "Изучено" : "Не изучено"}</span>
-              </Button>
-            </>
-          ) : isPilotTask ? (
-            <a
-              href="#pilot-submit"
-              onClick={() => {
-                document.getElementById("pilot-submit")?.scrollIntoView();
-              }}
-            >
-              Сдать
-            </a>
-          ) : (
-            <span>Задание</span>
-          )}
-        </div>
+        <div className={styles["readingActions"]}>{readingControls()}</div>
         {next === undefined ? (
           <span className={styles["disabledArrow"]} />
         ) : (
@@ -460,19 +474,50 @@ export function UnifiedReadingPrototype() {
       onClickCapture={followBodyLink}
       data-step={currentId}
     >
-      {pager("upper")}
+      {variant === "B" ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className={styles["mobileProgramme"]}
+          onClick={() => {
+            dialog.current?.showModal();
+          }}
+        >
+          <List aria-hidden="true" size={16} />
+          Программа
+        </Button>
+      ) : (
+        pager("upper")
+      )}
       <header className={styles["header"]}>
+        {variant === "B" ? (
+          <p className={styles["position"]}>
+            Глава {current.chapter} · Шаг{" "}
+            {(chapter?.steps.indexOf(currentId) ?? 0) + 1} из{" "}
+            {chapter?.steps.length}
+          </p>
+        ) : null}
         <h1>{current.title}</h1>
-        <p className={styles["orientation"]}>
-          {current.kind === "task" ? "Задание" : "Гайд"} · Глава{" "}
-          {current.chapter} · Шаг {(chapter?.steps.indexOf(currentId) ?? 0) + 1}{" "}
-          из {chapter?.steps.length}
-        </p>
+        {variant === "B" ? (
+          <div className={styles["readingMeta"]}>
+            <span>
+              {current.kind === "task" ? "Задание" : "Гайд"} · AI Engineering
+            </span>
+            <div className={styles["readingActions"]}>{readingControls()}</div>
+          </div>
+        ) : (
+          <p className={styles["orientation"]}>
+            {current.kind === "task" ? "Задание" : "Гайд"} · Глава{" "}
+            {current.chapter} · Шаг{" "}
+            {(chapter?.steps.indexOf(currentId) ?? 0) + 1} из{" "}
+            {chapter?.steps.length}
+          </p>
+        )}
         {isPilotTask ? (
           <div className={styles["taskStatus"]}>
             <span>{displayed.length === 0 ? "Ещё не сдано" : "Сдано"}</span>
             <small>Требования: версия {task.version}</small>
-            <a href="#pilot-submit">Сдать</a>
+            {variant === "B" ? null : <a href="#pilot-submit">Сдать</a>}
             <a href="#pilot-mine">Мои сдачи</a>
           </div>
         ) : null}
@@ -520,7 +565,60 @@ export function UnifiedReadingPrototype() {
           </>
         )}
       </div>
-      {pager("lower")}
+      {variant === "B" ? (
+        <nav
+          aria-label="Соседние шаги программы"
+          className={styles["neighbours"]}
+        >
+          {previous === undefined ? (
+            <span />
+          ) : (
+            <a
+              href={href(previous)}
+              aria-label={"Предыдущий шаг: " + previous.title}
+              onClick={(event) => {
+                event.preventDefault();
+                go(previous);
+              }}
+            >
+              <ArrowLeft size={16} aria-hidden="true" />
+              <span>
+                <small>
+                  {previous.kind === "task"
+                    ? "Предыдущее задание"
+                    : "Предыдущий урок"}
+                </small>
+                {previous.title}
+              </span>
+            </a>
+          )}
+          {next === undefined ? (
+            <span>Программа завершена</span>
+          ) : (
+            <a
+              href={href(next)}
+              aria-label={"Следующий шаг: " + next.title}
+              className={styles["nextNeighbour"]}
+              onClick={(event) => {
+                event.preventDefault();
+                go(next);
+              }}
+            >
+              <span>
+                <small>
+                  {next.kind === "task"
+                    ? "Следующее задание"
+                    : "Следующий урок"}
+                </small>
+                {next.title}
+              </span>
+              <ArrowRight size={16} aria-hidden="true" />
+            </a>
+          )}
+        </nav>
+      ) : (
+        pager("lower")
+      )}
     </article>
   );
   return (
@@ -529,19 +627,63 @@ export function UnifiedReadingPrototype() {
       lang="ru"
     >
       <div className={styles["layout"]}>
-        {variant === "A" ? (
+        {variant === "A" || variant === "B" ? (
           <aside
             className={styles["rail"]}
             ref={rail}
             aria-label="Программа курса"
           >
-            {programme()}
+            {variant === "A" ? (
+              programme()
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={styles["allProgramme"]}
+                  onClick={() => {
+                    dialog.current?.showModal();
+                  }}
+                >
+                  <ArrowLeft size={14} aria-hidden="true" />
+                  Вся программа
+                </Button>
+                <div className={styles["chapterPicker"]}>
+                  <span>Глава</span>
+                  <Select
+                    value={String(current.chapter)}
+                    onValueChange={(value) => {
+                      const firstId = snapshot.chapters.find(
+                        (item) => item.number === Number(value),
+                      )?.steps[0];
+                      if (firstId !== undefined) go(findStep(firstId));
+                    }}
+                  >
+                    <SelectTrigger
+                      aria-label="Выбрать главу"
+                      className={styles["chapterTrigger"]}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className={styles["chapterOptions"]}>
+                      {snapshot.chapters.map((item) => (
+                        <SelectItem
+                          key={item.number}
+                          value={String(item.number)}
+                          disabled={item.steps.length === 0}
+                        >
+                          {item.number}. {item.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {chapter?.steps.map((id) => stepLink(findStep(id)))}
+              </>
+            )}
           </aside>
         ) : null}
         {content}
-        {variant === "B" ? (
-          <aside className={styles["rail"]}>{contents()}</aside>
-        ) : null}
       </div>
       <dialog
         ref={dialog}

@@ -1,0 +1,70 @@
+{
+  "method": "Range rects per character after document.fonts.ready; task/pipeline/task",
+  "beforeCssSha256": "c792d1e67bb15d70f13818fc734a7578bfb9c12c12db5b34e57dc818f557d5c4",
+  "before": [
+    {
+      "state": "task",
+      "fontSize": "12px",
+      "fontWeight": "400",
+      "lines": [
+        "Как устроен пайплайн разработки",
+        "с агентом"
+      ],
+      "height": 58.375
+    },
+    {
+      "state": "pipeline",
+      "fontSize": "12px",
+      "fontWeight": "650",
+      "lines": [
+        "Как устроен пайплайн",
+        "разработки с агентом"
+      ],
+      "height": 58.375
+    },
+    {
+      "state": "task",
+      "fontSize": "12px",
+      "fontWeight": "400",
+      "lines": [
+        "Как устроен пайплайн разработки",
+        "с агентом"
+      ],
+      "height": 58.375
+    }
+  ],
+  "after": [
+    {
+      "state": "task",
+      "fontSize": "14px",
+      "fontWeight": "400",
+      "lines": [
+        "Как устроен пайплайн",
+        "разработки с агентом"
+      ],
+      "height": 64.78125
+    },
+    {
+      "state": "pipeline",
+      "fontSize": "14px",
+      "fontWeight": "400",
+      "lines": [
+        "Как устроен пайплайн",
+        "разработки с агентом"
+      ],
+      "height": 64.78125
+    },
+    {
+      "state": "task",
+      "fontSize": "14px",
+      "fontWeight": "400",
+      "lines": [
+        "Как устроен пайплайн",
+        "разработки с агентом"
+      ],
+      "height": 64.78125
+    }
+  ],
+  "afterCssSha256": "66ee1c27531c6f624dd5e867eaaa96d26d1d03856e748fd832e23e7eb524b990",
+  "result": "All task/pipeline/task line-break strings match with 14px, weight 400."
+}

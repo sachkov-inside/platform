@@ -24,7 +24,121 @@
   padding-inline: 1.5rem;
 }
 .variantB .layout {
-  grid-template-columns: minmax(0, 43rem) 11rem;
+  grid-template-columns: 15rem minmax(0, 43rem);
+}
+.variantB .rail {
+  margin-top: 0;
+  padding-right: 1.25rem;
+  border-right: 1px solid var(--border);
+}
+.allProgramme {
+  min-height: 2.75rem;
+  padding-inline: 0;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--body-muted);
+}
+.chapterPicker {
+  display: grid;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+  color: var(--body-muted);
+}
+.chapterPicker > span {
+  font-size: 0.75rem;
+}
+.chapterTrigger {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+.chapterTrigger[data-state="open"] {
+  border-bottom-color: var(--ring);
+}
+.chapterTrigger:hover,
+.chapterTrigger[data-state="open"] {
+  background: var(--background);
+}
+.chapterTrigger:focus-visible {
+  box-shadow: none;
+}
+.chapterOptions {
+  max-width: min(24rem, calc(100vw - 2rem));
+  font-size: 0.8125rem;
+}
+.chapterOptions [data-slot="select-item"] {
+  min-height: 2.75rem;
+  font-size: inherit;
+  white-space: normal;
+  font-weight: 400;
+}
+.chapterOptions [data-slot="select-item"][data-state="checked"] {
+  background: var(--popover);
+  color: var(--foreground);
+}
+.variantB .header {
+  margin-top: 0;
+}
+.variantB .header h1 {
+  margin-block: 0.75rem;
+}
+.position {
+  color: var(--body-muted);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+.readingMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--body-muted);
+}
+.readingMeta .readingActions {
+  margin-inline: auto 0;
+}
+.mobileProgramme {
+  display: none;
+}
+.neighbours {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.75rem;
+  border-top: 1px solid var(--border);
+  margin-top: 3.5rem;
+  padding-top: 1.5rem;
+}
+.neighbours a {
+  display: flex;
+  align-items: start;
+  gap: 0.75rem;
+  min-height: 4rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  text-decoration: none;
+}
+.neighbours svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.neighbours small {
+  display: block;
+  margin-bottom: 0.3125rem;
+  color: var(--body-muted);
+  font-size: 0.6875rem;
+}
+.nextNeighbour {
+  justify-content: end;
+  text-align: right;
 }
 .variantC .layout {
   display: block;
@@ -74,13 +188,13 @@
 .pager {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.5rem;
   padding-block: 0.0625rem;
   min-height: 2.375rem;
   border-block: 1px solid var(--border);
   font-size: 0.875rem;
 }
-.pager :is(button, a) {
+:is(.pager, .readingMeta) :is(button, a) {
   position: relative;
   min-width: 2.25rem;
   min-height: 2.25rem;
@@ -92,14 +206,15 @@
   gap: 0.375rem;
   font-size: inherit;
   line-height: 1.4;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   text-decoration: none;
   white-space: normal;
 }
-.pager :is(button, a)::after {
+:is(.pager, .readingMeta) :is(button, a)::after {
   content: "";
   position: absolute;
-  inset: -0.25rem 0;
+  inset: -0.25rem;
+  min-width: 2.75rem;
   min-height: 2.75rem;
 }
 .pager > :last-child {
@@ -110,7 +225,7 @@
   align-items: center;
   justify-content: center;
   margin-inline: auto;
-  gap: 0.125rem;
+  gap: 0.5rem;
 }
 .disabledArrow {
   width: 2.25rem;
@@ -126,7 +241,7 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   overscroll-behavior: contain;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }
 .variantA .rail {
   padding-top: 0.625rem;
@@ -155,16 +270,17 @@
   min-height: 2.75rem;
   padding: 0.625rem 0.25rem;
   line-height: 1.6;
+  font-size: 0.875rem;
+  font-weight: 400;
   color: var(--body-muted);
   text-decoration: none;
 }
 .step[aria-current="step"] {
   color: var(--foreground);
-  font-weight: 650;
+  font-weight: 400;
 }
 .step:hover {
   color: var(--foreground);
-  background: var(--muted);
 }
 .step small {
   font-size: 0.625rem;
@@ -264,7 +380,7 @@
   line-height: 1.55;
   padding: 1.5rem;
   background: var(--muted);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   color: var(--foreground);
 }
 .diagramTop {
@@ -273,12 +389,32 @@
   align-items: center;
 }
 .diagramNode {
+  --diagram-hue: var(--border);
   padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--diagram-hue) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--diagram-hue) 10%, var(--card));
   text-align: center;
   min-width: 0;
+}
+.diagramNode[data-subject="personal"] {
+  --diagram-hue: var(--callout-definition);
+}
+.diagramNode[data-subject="lookup"] {
+  --diagram-hue: var(--callout-tip);
+}
+.diagramNode[data-subject="brief"] {
+  --diagram-hue: var(--callout-example);
+}
+.diagramNode[data-subject="skills"] {
+  --diagram-hue: var(--callout-good);
+}
+.diagramNode[data-subject="tracker"] {
+  --diagram-hue: var(--callout-warning);
+}
+.diagram:not([data-focus="overview"]) .diagramNode {
+  border-color: color-mix(in oklab, var(--diagram-hue) 12%, var(--border));
+  background: color-mix(in oklab, var(--diagram-hue) 2%, var(--card));
 }
 .diagramNode :is(strong, span, small) {
   display: block;
@@ -322,7 +458,7 @@
 .projectBoundary {
   border: 1px dashed var(--border);
   padding: 0.875rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 .boundaryLabel {
   margin-bottom: 0.75rem;
@@ -333,6 +469,55 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
+}
+.inputRelation {
+  position: relative;
+  padding-block: 0.375rem 1.5rem;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--body-muted);
+}
+.inputRelation::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  height: 1.25rem;
+  border-left: 1px solid var(--muted-foreground);
+}
+.inputBranch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.inputBranch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -0.25rem;
+  right: -0.25rem;
+  border-top: 1px solid var(--muted-foreground);
+}
+.inputBranch:first-child::before {
+  left: 50%;
+}
+.inputBranch:last-child::before {
+  right: 50%;
+}
+.inputBranch svg {
+  width: 24px;
+  height: 24px;
+  rotate: 90deg;
+  stroke: var(--muted-foreground);
+  stroke-width: 1;
+  fill: none;
+  flex-shrink: 0;
+}
+.inputBranch .diagramNode {
+  width: 100%;
+  flex: 1;
 }
 .diagramNote {
   margin-top: 0.75rem;
@@ -349,7 +534,7 @@
 .githubBoundary {
   padding: 0.875rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 .diagram figcaption {
   margin-top: 1rem;
@@ -359,8 +544,8 @@
 .diagram[data-focus="brief"] [data-subject="brief"],
 .diagram[data-focus="skills"] [data-subject="skills"],
 .diagram[data-focus="lookup"] [data-subject="lookup"] {
-  border-color: var(--callout-tip);
-  background: color-mix(in srgb, var(--callout-tip) 8%, var(--card));
+  border-color: color-mix(in oklab, var(--diagram-hue) 55%, var(--border));
+  background: color-mix(in oklab, var(--diagram-hue) 12%, var(--card));
 }
 .supplement {
   font-size: 0.8125rem;
@@ -409,7 +594,7 @@
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
   background: var(--muted);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
 .address code {
@@ -418,7 +603,7 @@
 .phrase {
   padding: 1rem;
   background: var(--muted);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
 }
 .phrase p {
   font-size: 0.875rem;
@@ -472,7 +657,7 @@
 .form :is(input, textarea) {
   border: 1px solid var(--input);
   background: var(--card);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   min-height: 2.75rem;
   padding: 0.625rem 0.75rem;
   font: inherit;
@@ -536,7 +721,7 @@
   max-height: calc(100dvh - 3rem);
   padding: 1.25rem;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   background: var(--background);
   color: var(--foreground);
   margin: auto;
@@ -577,7 +762,7 @@
   justify-content: center;
   gap: 0.375rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   color: var(--background);
   background: var(--foreground);
   font-size: 0.75rem;
@@ -588,14 +773,14 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
 }
 .switcher select {
   background: var(--foreground);
   color: var(--background);
   border: 1px solid var(--muted-foreground);
   padding: 0.5rem;
-  border-radius: 0.375rem;
+  border-radius: var(--radius-sm);
   max-width: 11rem;
   min-height: 2.75rem;
   font: inherit;
@@ -614,6 +799,38 @@
   .diagramInputs {
     grid-template-columns: 1fr;
     gap: 0.5rem;
+  }
+  .diagramInputs {
+    gap: 0;
+  }
+  .inputRelation::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50%;
+    border-top: 1px solid var(--muted-foreground);
+  }
+  .inputBranch {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding-block: 0.25rem;
+  }
+  .inputBranch::before,
+  .inputBranch:first-child::before,
+  .inputBranch:last-child::before {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    border-top: 0;
+    border-left: 1px solid var(--muted-foreground);
+  }
+  .inputBranch:last-child::before {
+    bottom: 50%;
+  }
+  .inputBranch svg {
+    rotate: none;
   }
   .sideways {
     max-width: none;
@@ -637,7 +854,7 @@
     grid-template-columns: 11.5rem minmax(0, 43rem);
   }
   .variantB .layout {
-    grid-template-columns: minmax(0, 43rem) 10rem;
+    grid-template-columns: 15rem minmax(0, 43rem);
   }
 }
 @media (max-width: 63.99rem) {
@@ -649,6 +866,13 @@
     display: block;
     max-width: 46rem;
     margin-inline: auto;
+  }
+  .mobileProgramme {
+    display: inline-flex;
+    min-height: 2.75rem;
+    margin-bottom: 1rem;
+    padding-inline: 0;
+    font-size: 0.75rem;
   }
 }
 @media (max-width: 47.99rem) {
@@ -679,10 +903,17 @@
   .pager {
     font-size: 0.75rem;
     flex-wrap: wrap;
-    gap: 0.125rem;
+    gap: 0.5rem;
   }
   .pager :is(a, button) {
     padding-inline: 0.25rem;
+  }
+  .pager > button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .taskStatus {
     gap: 0.25rem 0.75rem;
@@ -733,7 +964,7 @@
   gap: 0.5rem;
   background: var(--foreground);
   padding: 0.875rem;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   font-size: 0.75rem;
 }
 .prototypeSettings select {
@@ -741,7 +972,7 @@
   max-width: 100%;
 }
 @media (max-width: 22.49rem) {
-  .pager > button > span {
+  :is(.pager, .readingMeta) .readingActions button > span {
     position: absolute;
     width: 1px;
     height: 1px;

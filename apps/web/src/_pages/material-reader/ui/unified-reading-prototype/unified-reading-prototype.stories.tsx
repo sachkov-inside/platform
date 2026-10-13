@@ -6,7 +6,7 @@ import {
   subscribedMemberRoutes,
 } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
-import { UnifiedReadingPrototype } from "./unified-reading-prototype";
+import { UnifiedReadingPrototype } from "./unified-reading-prototype.fixtures";
 
 const environment = publicPageEnvironment(
   "/materials/inside-content-aie-ch1-project-setup",
