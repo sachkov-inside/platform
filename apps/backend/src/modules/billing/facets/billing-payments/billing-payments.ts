@@ -986,6 +986,11 @@ export class BillingPayments {
               },
             });
           }
+          if (isQuotedPurchase(kind))
+            await tx.billingPromoReservation.update({
+              where: { purchaseRef: row.id },
+              data: { state: "confirmed" },
+            });
           await acceptBankRefund(tx, refundedPurchase, now);
           return { ok: true, value: true };
         }

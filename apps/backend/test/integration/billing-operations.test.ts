@@ -1274,6 +1274,9 @@ describe("владельческие операции billing: платежи, �
         refundedKopecks: 100_000,
       }),
     );
+    expect(await s.reserve()).toMatchObject({
+      purchaseRef: expect.any(String),
+    });
   });
 
   test("отложенная выдача после отзыва завершается как устаревшая и не ломает восстановление", async () => {
