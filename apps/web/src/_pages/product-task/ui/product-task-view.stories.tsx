@@ -39,6 +39,11 @@ import {
 } from "./product-task-states";
 import { ProductTaskClosed, ProductTaskView } from "./product-task-view";
 
+import {
+  courseTask,
+  taskOnlyCourse,
+} from "@/storybook/course-reading.fixtures";
+
 const returnTo = "/products/ai-engineering/tasks/aie-ch1-onboarding";
 const environment = publicPageEnvironment(returnTo);
 
@@ -69,6 +74,7 @@ const meta = {
     },
   },
   args: {
+    programme: courseTask,
     learnerMcpUrl,
     page: openProductTask,
     returnTo,
@@ -77,6 +83,10 @@ const meta = {
 } satisfies Meta<typeof ProductTaskView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+export const CourseTaskOnly: Story = { args: { programme: taskOnlyCourse } };
+export const CourseNavigationUnavailable: Story = {
+  args: { programme: null, submissions: { kind: "unavailable" } },
+};
 
 /** Сданное дважды задание: последняя сдача по текущей версии, первая — с отзывом автора. */
 export const Submitted: Story = {

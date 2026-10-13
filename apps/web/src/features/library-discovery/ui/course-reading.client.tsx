@@ -1,0 +1,277 @@
+"use client";
+
+import { ArrowLeft, ArrowRight, List, LockKeyhole, X } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
+import type {
+  CourseReadingContext,
+  CourseReadingStep,
+} from "../model/course-reading";
+import styles from "./course-reading.module.css";
+
+/** Shared course composition; routes retain ownership of body, access and mutations. */
+export function CourseReadingLayout({
+  context,
+  children,
+}: {
+  readonly context: CourseReadingContext | null;
+  readonly children: ReactNode;
+}) {
+  if (context === null)
+    return <div className={styles["standalone"]}>{children}</div>;
+  return (
+    <div className={styles["layout"]} data-course-reading>
+      <HidePublicFooter />
+      <CourseRail context={context} />
+      <div className={styles["document"]}>
+        <ProgrammeDialog context={context} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function CourseReadingHeader({
+  context,
+  title,
+  metadata,
+  actions,
+}: {
+  readonly context: CourseReadingContext;
+  readonly title: string;
+  readonly metadata: ReactNode;
+  readonly actions?: ReactNode;
+}) {
+  const chapter = context.chapters.find(
+    (entry) => entry.id === context.currentChapterId,
+  );
+  return (
+    <header className={styles["header"]} data-reader-header>
+      <p className={styles["position"]}>
+        {chapter?.name}
+        <span>
+          Шаг {context.currentPosition} из {context.totalSteps}
+        </span>
+      </p>
+      <h1>{title}</h1>
+      <div className={styles["metadataRow"]}>
+        <div className={styles["metadata"]}>{metadata}</div>
+        <nav
+          aria-label="Действия материала"
+          className={styles["actions"]}
+          data-course-actions
+        >
+          {actions}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+export function CourseReadingFooter({
+  context,
+}: {
+  readonly context: CourseReadingContext;
+}) {
+  return (
+    <nav
+      aria-label="Шаги курса"
+      className={styles["footer"]}
+      data-reader-footer
+    >
+      {(["previous", "next"] as const).map((direction) => {
+        const step = context[direction];
+        const Icon = direction === "previous" ? ArrowLeft : ArrowRight;
+        return (
+          <div key={direction} className={styles[direction]}>
+            {step === null ? null : (
+              <IntentPrefetchLink href={step.href}>
+                <span>
+                  {direction === "previous"
+                    ? "Предыдущий шаг"
+                    : "Следующий шаг"}
+                  <Icon aria-hidden="true" size={16} />
+                </span>
+                <strong>{step.title}</strong>
+              </IntentPrefetchLink>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+function CourseRail({ context }: { readonly context: CourseReadingContext }) {
+  // Next preserves this component between steps; a new server-selected step owns the selection.
+  const selectionKey = `${context.current.id}:${context.currentChapterId}`;
+  const [selection, setSelection] = useState({
+    key: selectionKey,
+    chapter: context.currentChapterId,
+  });
+  const chapterId =
+    selection.key === selectionKey
+      ? selection.chapter
+      : context.currentChapterId;
+  const chapter = context.chapters.find((entry) => entry.id === chapterId);
+  const rail = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = rail.current;
+    const active = element?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (element === null || active === undefined || active === null) return;
+    const railRect = element.getBoundingClientRect();
+    const activeStepRect = active.getBoundingClientRect();
+    if (activeStepRect.bottom > railRect.bottom)
+      element.scrollTop += activeStepRect.bottom - railRect.bottom + 12;
+    else if (activeStepRect.top < railRect.top)
+      element.scrollTop -= railRect.top - activeStepRect.top + 12;
+  }, [context.current.id, chapterId]);
+  return (
+    <aside className={styles["rail"]} aria-label="Текущая глава">
+      <IntentPrefetchLink
+        className={styles["programmeLink"]}
+        href={context.href}
+      >
+        <List size={16} aria-hidden="true" />
+        Вся программа
+      </IntentPrefetchLink>
+      <Select
+        value={chapterId}
+        onValueChange={(value) =>
+          setSelection({ key: selectionKey, chapter: value })
+        }
+      >
+        <SelectTrigger
+          aria-label="Глава курса"
+          className={styles["chapterTrigger"]}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className={styles["chapterMenu"]}>
+          {context.chapters.map((entry) => (
+            <SelectItem
+              className={styles["chapterOption"]}
+              value={entry.id}
+              key={entry.id}
+            >
+              {entry.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className={styles["railSteps"]} ref={rail}>
+        {chapter?.steps.length === 0 ? (
+          <p className={styles["empty"]}>Глава готовится</p>
+        ) : (
+          <ol>
+            {chapter?.steps.map((step) => (
+              <li key={step.id}>
+                <StepLink step={step} current={context.current.id} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function StepLink({
+  step,
+  current,
+}: {
+  readonly step: CourseReadingStep;
+  readonly current: string;
+}) {
+  return (
+    <IntentPrefetchLink
+      className={styles["step"]}
+      data-course-step={step.id}
+      aria-current={step.id === current ? "step" : undefined}
+      href={step.href}
+    >
+      <span aria-hidden="true" className={styles["mark"]} />
+      <span>
+        {step.kind === "task" ? <small>Задание</small> : null}
+        {step.title}
+        {step.availability === "locked" ? (
+          <span className={styles["availability"]}>
+            <LockKeyhole size={12} aria-hidden="true" />
+            Доступ закрыт
+          </span>
+        ) : step.availability === "unavailable" ? (
+          <span className={styles["availability"]}>Временно недоступно</span>
+        ) : null}
+      </span>
+    </IntentPrefetchLink>
+  );
+}
+
+function ProgrammeDialog({
+  context,
+}: {
+  readonly context: CourseReadingContext;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  return (
+    <div className={styles["mobileProgramme"]}>
+      <button type="button" onClick={() => dialog.current?.showModal()}>
+        <List size={16} aria-hidden="true" />
+        Вся программа
+      </button>
+      <dialog
+        className={styles["dialog"]}
+        ref={dialog}
+        aria-label={`Программа: ${context.name}`}
+      >
+        <div className={styles["dialogHead"]}>
+          <h2>{context.name}</h2>
+          <button
+            type="button"
+            aria-label="Закрыть программу"
+            onClick={() => dialog.current?.close()}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <IntentPrefetchLink
+          className={styles["programmeLink"]}
+          href={context.href}
+        >
+          Страница программы
+        </IntentPrefetchLink>
+        <nav
+          aria-label="Вся программа"
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest("a") !== null)
+              dialog.current?.close();
+          }}
+        >
+          {context.chapters.map((chapter) => (
+            <section key={chapter.id}>
+              <h3>{chapter.name}</h3>
+              <ol>
+                {chapter.steps.map((step) => (
+                  <li key={step.id}>
+                    <StepLink step={step} current={context.current.id} />
+                  </li>
+                ))}
+              </ol>
+              {chapter.steps.length === 0 ? (
+                <p className={styles["empty"]}>Глава готовится</p>
+              ) : null}
+            </section>
+          ))}
+        </nav>
+      </dialog>
+    </div>
+  );
+}

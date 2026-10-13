@@ -1,3 +1,6 @@
+import { courseReadingContext } from "@/features/library-discovery";
+import { BackendConnectionError } from "@/shared/api/backend/index.server";
+import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -25,19 +28,37 @@ export async function ProductTaskPage({
   const { slug, code } = await params;
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
-  const [result, submissions] = await Promise.all([
+  const [result, submissions, series] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
     loadOwnSubmissions(code, accessToken),
+    loadTaskProgramme(slug, accessToken),
   ]);
   if (result.kind === "not-found") notFound();
   if (result.kind === "unavailable") return <ProductTaskUnavailable />;
-  if (result.kind === "closed") return <ProductTaskClosed task={result.task} />;
+  const programme =
+    (series?.kind === "ready" || series?.kind === "empty") &&
+    series.reference.slug === slug
+      ? courseReadingContext({ series, current: { kind: "task", code } })
+      : null;
+  if (result.kind === "closed")
+    return <ProductTaskClosed task={result.task} programme={programme} />;
   return (
     <ProductTaskView
       learnerMcpUrl={readWebRuntimeConfig().learnerMcp.url}
       page={result.page}
+      programme={programme}
       returnTo={productTaskHref(slug, code)}
       submissions={submissions}
     />
   );
+}
+
+/** Navigation is supplementary: a failed composition read leaves the authorized task and form usable. */
+async function loadTaskProgramme(slug: string, token: string | undefined) {
+  try {
+    return await loadPublishedSeries(slug, token);
+  } catch (error) {
+    if (error instanceof BackendConnectionError) return null;
+    throw error;
+  }
 }

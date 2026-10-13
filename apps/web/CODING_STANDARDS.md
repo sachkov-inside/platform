@@ -229,7 +229,16 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
 - Keep touch targets at least 44 px high. Size ordinary action buttons to their labels with
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
-- The upper lesson panel sits before metadata and the heading. On phones, both upper and lower
+- In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
+  a 240 px left chapter rail, minimal position/title/metadata with one truthful action row, and
+  a previous/next footer with neighbor titles. Reserve this composition in shared pending and
+  access states. Mobile uses the full-programme dialog, not a permanent narrow rail or floating pager.
+  Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
+  marker and `aria-current` identify the current step. Hover changes text only, including chapter
+  options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
+  Material ordinals/progress stay separate from mixed guide/task positions. Save, error, denial,
+  unavailable, protected-body and standalone behavior remains unchanged.
+- Outside checked programme context, the upper lesson panel sits before metadata and the heading. On phones, both upper and lower
   panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
   text size. Allow reflow when text is enlarged. Both panels keep previous/next arrows at the left/right edges and the written reading action centred, with the same surface and controls
   on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;

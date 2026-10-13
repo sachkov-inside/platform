@@ -1,0 +1,243 @@
+.canvas {
+  container-type: inline-size;
+  container-name: harness;
+  min-width: 0;
+}
+.diagram {
+  margin-block: 2rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  padding: 1.5rem;
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+}
+.diagramTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+.diagramNode {
+  --diagram-hue: var(--border);
+  padding: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--diagram-hue) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--diagram-hue) 10%, var(--card));
+  text-align: center;
+  min-width: 0;
+}
+.diagramNode[data-subject="personal"] {
+  --diagram-hue: var(--callout-definition);
+}
+.diagramNode[data-subject="lookup"] {
+  --diagram-hue: var(--callout-tip);
+}
+.diagramNode[data-subject="brief"] {
+  --diagram-hue: var(--callout-example);
+}
+.diagramNode[data-subject="skills"] {
+  --diagram-hue: var(--callout-good);
+}
+.diagramNode[data-subject="tracker"] {
+  --diagram-hue: var(--callout-warning);
+}
+.diagram:not([data-focus="overview"]) .diagramNode {
+  border-color: color-mix(in oklab, var(--diagram-hue) 12%, var(--border));
+  background: color-mix(in oklab, var(--diagram-hue) 2%, var(--card));
+}
+.diagramNode :is(strong, span, small) {
+  display: block;
+}
+.diagramNode strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.diagramNode span {
+  margin-top: 0.25rem;
+  color: var(--body-muted);
+}
+.diagramNode small {
+  margin-top: 0.25rem;
+  color: var(--body-muted);
+  font-size: 0.75rem;
+}
+.relation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--body-muted);
+  text-align: center;
+}
+.relation svg {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1;
+  flex-shrink: 0;
+}
+.sideways {
+  max-width: 5.5rem;
+}
+.sideways svg {
+  rotate: -90deg;
+  height: 24px;
+  width: 40px;
+}
+.projectBoundary {
+  border: 1px dashed var(--border);
+  padding: 0.875rem;
+  border-radius: var(--radius-md);
+}
+.boundaryLabel {
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--body-muted);
+}
+.diagramInputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.inputRelation {
+  position: relative;
+  padding-block: 0.375rem 1.5rem;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--body-muted);
+}
+.inputRelation::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  height: 1.25rem;
+  border-left: 1px solid var(--muted-foreground);
+}
+.inputBranch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.inputBranch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -0.25rem;
+  right: -0.25rem;
+  border-top: 1px solid var(--muted-foreground);
+}
+.inputBranch:first-child::before {
+  left: 50%;
+}
+.inputBranch:last-child::before {
+  right: 50%;
+}
+.inputBranch svg {
+  width: 24px;
+  height: 24px;
+  rotate: 90deg;
+  stroke: var(--muted-foreground);
+  stroke-width: 1;
+  fill: none;
+  flex-shrink: 0;
+}
+.inputBranch .diagramNode {
+  width: 100%;
+  flex: 1;
+}
+.diagramNote {
+  margin-top: 0.75rem;
+  text-align: center;
+  color: var(--body-muted);
+  font-size: 0.75rem;
+}
+.githubRelations,
+.githubNodes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.githubBoundary {
+  padding: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.diagram figcaption {
+  margin-top: 1rem;
+  color: var(--body-muted);
+  font-size: 0.75rem;
+}
+.diagram[data-focus="brief"] [data-subject="brief"],
+.diagram[data-focus="skills"] [data-subject="skills"],
+.diagram[data-focus="lookup"] [data-subject="lookup"] {
+  border-color: color-mix(in oklab, var(--diagram-hue) 55%, var(--border));
+  background: color-mix(in oklab, var(--diagram-hue) 12%, var(--card));
+}
+
+@container harness (max-width: 35rem) {
+  .diagram {
+    padding: min(0.875rem, 4cqi);
+  }
+  .projectBoundary,
+  .githubBoundary {
+    padding: min(0.875rem, 4cqi);
+  }
+  .diagramNode {
+    padding: min(0.75rem, 3.5cqi);
+  }
+  .diagramTop,
+  .diagramInputs {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .diagramInputs {
+    gap: 0;
+  }
+  .inputRelation::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50%;
+    border-top: 1px solid var(--muted-foreground);
+  }
+  .inputBranch {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding-block: 0.25rem;
+  }
+  .inputBranch::before,
+  .inputBranch:first-child::before,
+  .inputBranch:last-child::before {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    border-top: 0;
+    border-left: 1px solid var(--muted-foreground);
+  }
+  .inputBranch:last-child::before {
+    bottom: 50%;
+  }
+  .inputBranch svg {
+    rotate: none;
+  }
+  .sideways {
+    max-width: none;
+  }
+  .sideways svg {
+    rotate: none;
+    width: 24px;
+    height: 40px;
+  }
+  .githubRelations,
+  .githubNodes {
+    gap: 0.5rem;
+  }
+  .relation {
+    font-size: 0.75rem;
+  }
+}

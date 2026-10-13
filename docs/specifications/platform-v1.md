@@ -431,7 +431,17 @@ units. Identical case-sensitive labels connect entries within that Series only; 
 stored order or group entity. Current membership owns the label. Published projections enrich only
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
-Reader previous/next still follows every published entry in its one existing order.
+Reader outside checked programme context keeps its existing return controls. Within a checked Product,
+Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
+previous/next footer. The mixed reading sequence places chapter tasks after their MaterialId anchors,
+with missing anchors at the chapter start. Empty chapters and task-only products remain visible.
+The sequence preserves authored Material order and keeps Material ordinals, progress and counts independent.
+Reader uses explicit validated `from`; it never guesses one Product from several memberships.
+Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
+Guest composition stays in public cache; personal availability/history stays request-owned.
+Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.
+Mobile offers the full programme through a dialog. Sidebar rows and custom chapter selection use constant 400
+weight and quiet text-only hover; selected state remains semantic and keyboard-accessible (#1414).
 
 The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
 All formats use the ordinal marker, replaced by the saved reading check for studied materials.

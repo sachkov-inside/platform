@@ -8,6 +8,26 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
+  it.each([undefined, "/", "/products/other"])(
+    "does not guess a product from memberships when from is %s",
+    (from) => {
+      expect(
+        resolveSeriesReaderContext({
+          currentMaterialSlug: "shared",
+          returnTarget: parseMaterialReaderReturnTarget(from),
+          series: {
+            kind: "ready",
+            reference: {
+              name: "Selected",
+              slug: "selected",
+              hasModeVariants: true,
+            },
+            items: [{ slug: "shared", title: "Shared" }],
+          },
+        }),
+      ).toBeNull();
+    },
+  );
   it.each([
     ["/products/programme", "/products/programme/programme"],
     [

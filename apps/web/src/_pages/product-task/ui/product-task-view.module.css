@@ -1,0 +1,53 @@
+.task {
+  min-width: 0;
+  padding-bottom: 2rem;
+}
+.body {
+  display: grid;
+  gap: 2rem;
+  margin-top: 2rem;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.body h2 {
+  font-size: 1.5rem;
+}
+.body h3 {
+  font-size: 1.25rem;
+}
+.submission {
+  scroll-margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+.submitLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding-inline: 0.75rem;
+  text-decoration: none;
+  color: var(--foreground);
+}
+.submitLink:hover {
+  background: var(--muted);
+}
+@media (max-width: 39.99rem) {
+  .body {
+    font-size: 0.9375rem;
+  }
+  .body h2 {
+    font-size: 1.125rem;
+  }
+  .body h3 {
+    font-size: 1rem;
+  }
+  .submission {
+    padding: 1rem;
+  }
+}

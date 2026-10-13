@@ -75,6 +75,7 @@ const seriesContext = resolveSeriesReaderContext({
   currentMaterialSlug: material.slug,
   returnTarget,
   series: {
+    chapters: [],
     items: [
       { slug: "first-lesson", title: "Первый урок" },
       { slug: material.slug, title: material.title },

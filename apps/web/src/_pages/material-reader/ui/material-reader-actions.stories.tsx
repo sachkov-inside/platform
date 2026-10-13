@@ -20,6 +20,8 @@ import { MaterialReaderView } from "./material-reader-view";
 const materialId = "10000000-0000-4000-8000-000000001336";
 const accountId = "20000000-0000-4000-8000-000000001336";
 const at = "2026-10-10T08:00:00.000Z";
+import { courseGuide } from "@/storybook/course-reading.fixtures";
+
 const programme = productProgrammeHref("ai-engineering");
 const environment = publicPageEnvironment("/materials/course-intro", {
   account: "authenticated",
@@ -447,18 +449,16 @@ export const InitialReadFailureKeepsHeaderPlaceMobile: Story = {
 };
 
 export const SharedFailureAndRetry: Story = {
+  args: {
+    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const top = await canvas.findByRole("navigation", {
       name: "Действия материала",
     });
-    const bottom = canvasElement.querySelector<HTMLElement>(
-      "[data-material-actions]",
-    );
-    if (bottom === null) throw new Error("Bottom actions are missing");
     const reads = [
       within(top).getByRole("button", { name: "Изучено" }),
-      within(bottom).getByRole("button", { name: "Изучено" }),
     ] as const;
     const save = async (button: HTMLElement) => {
       release = undefined;
@@ -473,11 +473,11 @@ export const SharedFailureAndRetry: Story = {
         top.querySelector("[data-reading-action-state]"),
       ).toHaveAttribute("data-reading-action-state", "error");
       await expect(
-        bottom.querySelector("[data-reading-action-state]"),
+        top.querySelector("[data-reading-action-state]"),
       ).toHaveAttribute("data-reading-action-state", "error");
     });
     readingFailure = null;
-    await save(reads[1]);
+    await save(reads[0]);
     await waitFor(async () => {
       for (const button of reads)
         await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -495,12 +495,12 @@ export const SharedFailureAndRetry: Story = {
     );
     await waitFor(async () => {
       await expect(
-        bottom.querySelector("[data-bookmark-action-state]"),
+        top.querySelector("[data-bookmark-action-state]"),
       ).toHaveAttribute("data-bookmark-action-state", "error");
     });
     bookmarkFailure = null;
     await userEvent.click(
-      within(bottom).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "В закладки" }),
     );
     await waitFor(() =>
       expect(top.querySelector("[data-bookmark-action-state]")).toHaveAttribute(
@@ -513,22 +513,21 @@ export const SharedFailureAndRetry: Story = {
     );
     await waitFor(() =>
       expect(
-        within(bottom).getByRole("button", { name: "В закладки" }),
+        within(top).getByRole("button", { name: "В закладки" }),
       ).toHaveAttribute("aria-pressed", "false"),
     );
   },
 };
 
 export const SharedConflictAndDenial: Story = {
+  args: {
+    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const top = await canvas.findByRole("navigation", {
       name: "Действия материала",
     });
-    const bottom = canvasElement.querySelector<HTMLElement>(
-      "[data-material-actions]",
-    );
-    if (bottom === null) throw new Error("Bottom actions are missing");
     const save = async () => {
       release = undefined;
       await userEvent.click(
@@ -541,11 +540,11 @@ export const SharedConflictAndDenial: Story = {
     await save();
     await waitFor(() =>
       expect(
-        within(bottom).getByRole("button", { name: "Обновить статус" }),
+        within(top).getByRole("button", { name: "Обновить статус" }),
       ).toBeVisible(),
     );
     await userEvent.click(
-      within(bottom).getByRole("button", { name: "Обновить статус" }),
+      within(top).getByRole("button", { name: "Обновить статус" }),
     );
     await waitFor(() =>
       expect(
@@ -555,7 +554,7 @@ export const SharedConflictAndDenial: Story = {
     readingFailure = "denied";
     await save();
     await waitFor(async () => {
-      for (const root of [top, bottom]) {
+      for (const root of [top]) {
         await expect(
           root.querySelector("[data-reading-action-state]"),
         ).toHaveAttribute("data-reading-action-state", "ready");
@@ -569,7 +568,7 @@ export const SharedConflictAndDenial: Story = {
       within(top).getByRole("button", { name: "В закладки" }),
     );
     await waitFor(async () => {
-      for (const root of [top, bottom])
+      for (const root of [top])
         await expect(
           root.querySelector("[data-bookmark-action-state]"),
         ).toHaveAttribute("data-bookmark-action-state", "denied");
@@ -620,12 +619,14 @@ function ReaderWithRecheckedAccess(
 }
 
 export const AccessRestoredAfterDenial: Story = {
+  args: {
+    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+  },
   render: (args) => <ReaderWithRecheckedAccess {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const panels = [
       await canvas.findByRole("navigation", { name: "Действия материала" }),
-      canvas.getByRole("navigation", { name: "Действия в конце материала" }),
     ] as const;
     const save = async () => {
       release = undefined;

@@ -38,6 +38,8 @@ export function MaterialBodyView(props: {
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
+  readonly illustrations?:
+    readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
   const anchors = materialSourceAnchors(props.blocks, props.path);
@@ -64,6 +66,7 @@ function BodyBlocks({
   hint,
   hintAt,
   comparison,
+  illustrations,
   path,
 }: {
   readonly blocks: readonly RenderedBlock[];
@@ -71,6 +74,8 @@ function BodyBlocks({
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
+  readonly illustrations?:
+    readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
   return blocks.map((block, index) => {
@@ -111,11 +116,15 @@ function BodyBlocks({
           path={blockPath}
         />
       );
-    if (index !== hintAt) return view;
+    const illustration = illustrations?.find(
+      (item) => item.after === index,
+    )?.node;
+    if (index !== hintAt && illustration === undefined) return view;
     return (
       <Fragment key={`hint-${blockPath.join("-")}`}>
-        {hint}
+        {index === hintAt ? hint : null}
         {view}
+        {illustration}
       </Fragment>
     );
   });

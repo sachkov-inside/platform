@@ -1,3 +1,5 @@
+import { courseGuide } from "@/storybook/course-reading.fixtures";
+import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
   variantDiagram,
@@ -1789,4 +1791,45 @@ export const ModelComparison: Story = {
 export const ModelComparisonMobile: Story = {
   ...ModelComparison,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const courseContext = {
+  currentPosition: 2,
+  totalMaterials: 3,
+  previous: courseGuide.previous,
+  next: courseGuide.next,
+  series: {
+    name: courseGuide.name,
+    href: courseGuide.href,
+    hasModeVariants: false,
+  },
+  programme: courseGuide,
+};
+export const CourseGuide: Story = {
+  args: {
+    material: { ...material, slug: "course-intro", title: "Как устроен курс" },
+    seriesContext: courseContext,
+  },
+};
+export const CoursePending: Story = {
+  render: () => (
+    <MaterialReaderPending material={material} seriesContext={courseContext} />
+  ),
+};
+export const CourseLocked: Story = {
+  render: () => (
+    <MaterialReaderAccess
+      material={material}
+      seriesContext={courseContext}
+      invitation={null}
+      readingAction={
+        <SavedReadingAction
+          compact
+          canMark={false}
+          format="guide"
+          materialId={material.materialId}
+        />
+      }
+    />
+  ),
 };

@@ -18,3 +18,13 @@ export {
   type PlaylistCardPresentation,
   type TopicCardPresentation,
 } from "./ui/collection-cards";
+export {
+  courseReadingContext,
+  type CourseReadingContext,
+  type CourseReadingStep,
+} from "./model/course-reading";
+export {
+  CourseReadingLayout,
+  CourseReadingHeader,
+  CourseReadingFooter,
+} from "./ui/course-reading.client";

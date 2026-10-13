@@ -28,8 +28,15 @@ import {
 import { topicPath } from "@/shared/routing/public-page-path";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
+import { projectHarnessIllustrations } from "@/features/project-harness";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
+import {
+  CourseReadingLayout,
+  CourseReadingHeader,
+  CourseReadingFooter,
+  type CourseReadingContext,
+} from "@/features/library-discovery";
 import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
@@ -86,7 +93,8 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
-      <ReaderReturnNavigation
+      <ReaderFrame
+        context={seriesContext}
         repeatAtBottom={seriesContext === null}
         hideReturn={seriesContext !== null}
         target={returnTarget}
@@ -105,7 +113,16 @@ export function MaterialReaderView({
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
-          <MaterialReaderHeader material={material} />
+          <MaterialReaderHeader
+            material={material}
+            programme={seriesContext?.programme}
+            actions={
+              <>
+                {topBookmarkAction ?? bookmarkAction}
+                {topReadingAction ?? readingAction}
+              </>
+            }
+          />
           {modeSwitch}
           {primaryVideo === null ? null : (
             <MaterialPrimaryVideo
@@ -138,12 +155,16 @@ export function MaterialReaderView({
           deferredPracticeActions === undefined &&
           seriesContext === null ? null : (
             <div className="mt-5" data-material-actions data-reader-footer>
-              <ReaderTopActions
-                position="bottom"
-                context={seriesContext}
-                bookmarkAction={topBookmarkAction ?? bookmarkAction}
-                readingAction={topReadingAction ?? readingAction}
-              />
+              {seriesContext?.programme == null ? (
+                <ReaderTopActions
+                  position="bottom"
+                  context={seriesContext}
+                  bookmarkAction={topBookmarkAction ?? bookmarkAction}
+                  readingAction={topReadingAction ?? readingAction}
+                />
+              ) : (
+                <CourseReadingFooter context={seriesContext.programme} />
+              )}
               {deferredPracticeActions === undefined ? null : (
                 <div
                   className="mt-2 flex flex-wrap items-start"
@@ -155,7 +176,7 @@ export function MaterialReaderView({
             </div>
           )}
         </div>
-      </ReaderReturnNavigation>
+      </ReaderFrame>
       <SeriesReaderBar context={seriesContext} />
     </div>
   );
@@ -172,7 +193,7 @@ export function SeriesReaderBar({
 }: {
   readonly context: SeriesReaderContext | null;
 }) {
-  if (context === null) return null;
+  if (context === null || context.programme != null) return null;
   const step =
     "grid size-11 place-items-center rounded-lg text-foreground no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
   return (
@@ -232,8 +253,12 @@ export function SeriesReaderBar({
 
 export function MaterialReaderHeader({
   material,
+  programme,
+  actions,
 }: {
   readonly material: MaterialReaderMetadata;
+  readonly programme?: CourseReadingContext | null | undefined;
+  readonly actions?: ReactNode;
 }) {
   const publicationDate = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -242,6 +267,21 @@ export function MaterialReaderHeader({
     timeZone: "UTC",
   }).format(new Date(material.publishedAt));
 
+  if (programme != null)
+    return (
+      <CourseReadingHeader
+        context={programme}
+        title={material.title}
+        actions={actions}
+        metadata={
+          <>
+            <span>{materialTaxonomyLabel(material.format.name)}</span>
+            <span>{programme.name}</span>
+            <time dateTime={material.publishedAt}>{publicationDate}</time>
+          </>
+        }
+      />
+    );
   return (
     <header className="flex min-w-0 flex-col" data-reader-header>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground sm:text-sm">
@@ -273,6 +313,8 @@ export function MaterialReaderFooter({
   readonly format?: string;
 }) {
   if (seriesContext === null) return null;
+  if (seriesContext.programme != null)
+    return <CourseReadingFooter context={seriesContext.programme} />;
 
   return (
     <footer className="mt-5" data-reader-footer>
@@ -355,22 +397,29 @@ function ReaderBlocks({
   readonly materialSlug: string;
   readonly path: readonly number[];
 }) {
+  const harness = projectHarnessIllustrations(
+    materialSlug,
+    contentVersion,
+    blocks,
+  );
   return (
     <MaterialBodyView
       blocks={blocks}
       comparison={agentChoiceComparison(materialSlug, blocks)}
+      illustrations={harness?.illustrations}
       hint={hint}
       hintAt={hintAt}
       path={path}
       rendering={{
         headingId,
-        image: (block) => (
-          <MaterialAssetImage
-            {...block}
-            materialId={materialId}
-            contentVersion={contentVersion}
-          />
-        ),
+        image: (block) =>
+          harness?.replacesOverview === true ? null : (
+            <MaterialAssetImage
+              {...block}
+              materialId={materialId}
+              contentVersion={contentVersion}
+            />
+          ),
         file: (block) => (
           <MaterialAssetFile
             {...block}
@@ -417,4 +466,21 @@ function headingId(path: readonly number[]): string {
 
 function textContent(content: readonly ReaderText[]): string {
   return content.map(({ text }) => text).join("");
+}
+
+/** Course pages share the accepted frame; independent Materials keep their original return controls. */
+export function ReaderFrame({
+  context,
+  children,
+  ...props
+}: React.ComponentProps<typeof ReaderReturnNavigation> & {
+  readonly context: SeriesReaderContext | null;
+}) {
+  return context?.programme == null ? (
+    <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
+  ) : (
+    <CourseReadingLayout context={context.programme}>
+      {children}
+    </CourseReadingLayout>
+  );
 }
