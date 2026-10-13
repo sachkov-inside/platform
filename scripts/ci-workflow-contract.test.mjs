@@ -452,6 +452,27 @@ describe("application CI workflow contract", () => {
     );
   });
 
+  it("bounds the owner telemetry exclusion to PR1408, its queue and ordinal v36", () => {
+    assert.match(workflow, /github\.repository == 'sachkov-inside\/platform'/u);
+    assert.match(
+      workflow,
+      /github\.event_name == 'pull_request' && github\.event\.pull_request\.number == 1408/u,
+    );
+    assert.match(workflow, /github\.event_name == 'merge_group'/u);
+    assert.match(workflow, /refs\/heads\/gh-readonly-queue\/main\/pr-1408-/u);
+    assert.match(workflow, /github\.workflow == 'Publish ordinal release'/u);
+    assert.match(workflow, /github\.event\.inputs\.version == 'v36'/u);
+    const integration = jobBlock("integration");
+    assert.match(
+      integration,
+      /name: Measure the canonical telemetry resource budget\n {8}if: \$\{\{ env\.TELEMETRY_RESOURCE_OWNER_EXCLUSION != 'true' \}\}/u,
+    );
+    assert.match(integration, /outcome: "owner-excluded"/u);
+    assert.match(integration, /exitCode: null/u);
+    assert.match(integration, /authorizationRef: "owner-2026-10-13-1408-v36"/u);
+    assert.doesNotMatch(integration, /continue-on-error:/u);
+  });
+
   it("requires canonical resource measurement and retains evidence after success or failure", () => {
     const integration = jobBlock("integration");
     const measurement = integration.indexOf(

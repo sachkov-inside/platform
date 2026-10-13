@@ -144,6 +144,14 @@ production mode rejects that contour outright, and
 the production Compose and its environment templates. `BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true`
 declares the stand's mail interceptor in the same way and is rejected in production mode.
 
+Real DEMO and production terminals share the fixed API endpoint and exact HTTPS hosted-form
+origins in [`tbank-config.ts`](../../apps/backend/src/config/tbank-config.ts). The policy includes
+`https://pay.tbank-online.com`, returned by the bank's original Init response during #1358 DEMO
+acceptance and verified in the authenticated matching bank order (#1407). Userinfo, fragments,
+non-HTTPS URLs, alternate ports and other hosts remain rejected. The local double keeps only its
+own configured origin. A hosted-form URL is opaque: keep the bank's original URL rather than
+constructing it from `PaymentId` or changing its host.
+
 `recurringCardConfirmed` and `cardOnlyHostedConfirmed` are required booleans of the terminal. What
 they gate, the catalog and startup refusals and the production terminal values are owned by the
 [production release runbook](production-release.md#payment-contour).

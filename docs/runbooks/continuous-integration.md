@@ -55,6 +55,17 @@ smoke; production deployment commands and access-pass requests keep their existi
 ruleset requires this exact check name; individual job names may evolve without changing the
 branch-protection interface.
 
+### Bounded payment-launch telemetry exception
+
+The owner's decision of 2026-10-13 excludes the resource measurement only for PR #1408, its
+`main/pr-1408-*` merge group, and the `Publish ordinal release` caller requesting v36. The
+measurement step is skipped. A separate `owner-excluded.json` records the actual checkout SHA,
+null exit code and authorization `owner-2026-10-13-1408-v36` in the existing telemetry artifact.
+This records exclusion, not a passing measurement. Failed run38366592429 remains failed; #1397
+retains the first-query diagnosis. Every functional CI job, exact-source check and CI Gate remains
+required. Other PRs, merge groups, Telegram releases and v37 onward still run the unchanged
+measurement. No monitoring process or production telemetry collection is stopped by this exception.
+
 The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
 runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
 checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_SMOKE_CACHE_ONLY=1`.

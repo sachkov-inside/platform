@@ -23,12 +23,22 @@ const checkNames = [
 const evidenceSchema = z.strictObject({
   schemaVersion: z.literal("inside.course-release-preflight.v1"),
   checks: z.array(
-    z.strictObject({
-      name: z.enum(checkNames),
-      sourceSha: sourceShaSchema,
-      exitCode: z.int(),
-      evidenceRef: z.string().min(1),
-    }),
+    z.union([
+      z.strictObject({
+        name: z.enum(checkNames),
+        sourceSha: sourceShaSchema,
+        exitCode: z.int(),
+        evidenceRef: z.string().min(1),
+      }),
+      z.strictObject({
+        name: z.literal("telemetry-resource-budget"),
+        sourceSha: sourceShaSchema,
+        exitCode: z.null(),
+        outcome: z.literal("owner-excluded"),
+        authorizationRef: z.literal("owner-2026-10-13-1408-v36"),
+        evidenceRef: z.string().min(1),
+      }),
+    ]),
   ),
   publication: z.strictObject({
     sourceSha: sourceShaSchema,
@@ -80,14 +90,21 @@ export function assessCourseRelease(value, now) {
   const { manifest, evidence } = input;
   if (manifest.source.sha !== input.currentMainSha)
     throw new Error("release source is not current main");
+  let telemetryExcluded = false;
   for (const name of checkNames) {
     const receipts = evidence.checks.filter((check) => check.name === name);
+    const receipt = receipts[0];
+    const ownerExcluded =
+      name === "telemetry-resource-budget" &&
+      manifest.version === "v36" &&
+      receipt?.exitCode === null;
     if (
       receipts.length !== 1 ||
-      receipts[0]?.sourceSha !== manifest.source.sha ||
-      receipts[0]?.exitCode !== 0
+      receipt?.sourceSha !== manifest.source.sha ||
+      (receipt.exitCode !== 0 && !ownerExcluded)
     )
       throw new Error("missing, failed or stale check evidence");
+    if (ownerExcluded) telemetryExcluded = true;
   }
   if (
     evidence.publication.sourceSha !== manifest.source.sha ||
@@ -144,6 +161,7 @@ export function assessCourseRelease(value, now) {
         ? "eligible-after-host-preflight"
         : "repair-forward",
     backupLabel: evidence.backup.label,
+    ...(telemetryExcluded ? { telemetryResourceBudget: "owner-excluded" } : {}),
   };
 }
 

@@ -68,7 +68,11 @@ const bankEndpointsSchema = z.strictObject({
 });
 const realBankEndpoints = {
   apiBaseUrl: "https://securepay.tinkoff.ru/v2",
-  formOrigins: ["https://securepay.tinkoff.ru", "https://pay.tbank.ru"],
+  formOrigins: [
+    "https://securepay.tinkoff.ru",
+    "https://pay.tbank.ru",
+    "https://pay.tbank-online.com",
+  ],
 } as const;
 const withinLimits = (value: {
   minimumKopecks: number;

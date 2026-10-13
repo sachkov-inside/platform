@@ -30,6 +30,35 @@ const bankRootFingerprint =
   "D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31";
 
 describe("concrete bank boundary", () => {
+  test("Init accepts the observed bank hosted form without changing its URL", async () => {
+    const paymentUrl = "https://pay.tbank-online.com/synthetic-payment";
+    const bank = new Tbank(config, () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            TerminalKey: config.terminalKey,
+            OrderId: "synthetic-order",
+            PaymentId: "synthetic-payment",
+            Amount: 10000,
+            Status: "NEW",
+            Success: true,
+            ErrorCode: "0",
+            PaymentURL: paymentUrl,
+          }),
+      }),
+    );
+    await expect(
+      bank.init({
+        orderId: "synthetic-order",
+        accountId: "synthetic-account",
+        amount: 10000,
+        name: "Synthetic purchase",
+        email: "buyer@example.test",
+        initiator: "0",
+      }),
+    ).resolves.toMatchObject({ PaymentURL: paymentUrl, Status: "NEW" });
+  });
   test("signature excludes nested receipt/DATA and Token, but binds all scalar fields", () => {
     const payload = {
       Amount: 100,
@@ -60,6 +89,7 @@ describe("concrete bank boundary", () => {
     expect(origins).toEqual([
       "https://securepay.tinkoff.ru",
       "https://pay.tbank.ru",
+      "https://pay.tbank-online.com",
     ]);
     expect(validatedPaymentUrl("https://pay.tbank.ru/new/test", origins)).toBe(
       "https://pay.tbank.ru/new/test",
@@ -74,11 +104,23 @@ describe("concrete bank boundary", () => {
       "https://user@securepay.tinkoff.ru/",
       "https://securepay.tinkoff.ru/#fake",
       "https://securepay.tinkoff.ru:8443/",
+      "https://pay.tbank-online.com.evil.test/a",
+      "https://tbank-online.com/a",
+      "https://evil.tbank-online.com/a",
+      "http://pay.tbank-online.com/a",
+      "https://user:password@pay.tbank-online.com/a",
+      "https://pay.tbank-online.com/a#fake",
+      "https://pay.tbank-online.com:8443/a",
     ])
       expect(() => validatedPaymentUrl(url, origins)).toThrow();
     // Контур двойника принимает только свой origin: боевая форма остаётся у боевого терминала.
     expect(() =>
       validatedPaymentUrl("https://securepay.tinkoff.ru/order/test", [
+        "http://127.0.0.1:8090",
+      ]),
+    ).toThrow();
+    expect(() =>
+      validatedPaymentUrl("https://pay.tbank-online.com/order/test", [
         "http://127.0.0.1:8090",
       ]),
     ).toThrow();

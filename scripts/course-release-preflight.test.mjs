@@ -114,6 +114,72 @@ test("preflight requires the telemetry resource budget before a release", () => 
   assert.throws(() => assessCourseRelease(failed, now), /check evidence/u);
 });
 
+test("preflight admits only the explicit owner-excluded telemetry receipt for v36", () => {
+  const first = fixture();
+  const previous = { ...first.manifest, version: "v35" };
+  const previousDigest = `sha256:${"e".repeat(64)}`;
+  const input = {
+    ...first,
+    previousManifest: previous,
+    previousManifestDigest: previousDigest,
+    manifest: {
+      ...first.manifest,
+      version: "v36",
+      rollback: {
+        previous: {
+          version: "v35",
+          sourceSha: sha,
+          manifestSha256: previousDigest,
+          schemaIdentity: digest,
+          compatible: true,
+          verifiedByWorkflowRunId: 854,
+        },
+      },
+    },
+    evidence: {
+      ...first.evidence,
+      checks: [
+        ...first.evidence.checks.filter(
+          (receipt) => receipt.name !== "telemetry-resource-budget",
+        ),
+        {
+          name: "telemetry-resource-budget",
+          sourceSha: sha,
+          exitCode: null,
+          outcome: "owner-excluded",
+          authorizationRef: "owner-2026-10-13-1408-v36",
+          evidenceRef: "evidence/owner-excluded.json",
+        },
+      ],
+    },
+  };
+  const result = assessCourseRelease(input, now);
+  assert.equal(result.version, "v36");
+  assert.equal(result.telemetryResourceBudget, "owner-excluded");
+
+  const excluded = input.evidence.checks.at(-1);
+  assert.ok(excluded);
+  excluded.sourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  excluded.sourceSha = sha;
+  assert.ok("authorizationRef" in excluded);
+  excluded.authorizationRef = "unapproved";
+  assert.throws(
+    () => assessCourseRelease(input, now),
+    /invalid preflight evidence/u,
+  );
+  excluded.authorizationRef = "owner-2026-10-13-1408-v36";
+  input.manifest.version = "v37";
+  assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  input.manifest.version = "v36";
+  const functional = input.evidence.checks.find(
+    (receipt) => receipt.name === "check:full",
+  );
+  assert.ok(functional);
+  functional.exitCode = 1;
+  assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+});
+
 test("preflight rejects stale backup, a different backup restore and production network access", () => {
   const stale = fixture();
   stale.evidence.backup.finishedAt = "2026-10-10T10:05:00Z";
