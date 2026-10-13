@@ -786,8 +786,8 @@ Keep the disposable project's `COMPOSE_PROJECT_NAME` and port variables exported
 `DATABASE_URL`, `scripts/check-database.mjs` resets only `inside_checks` in the selected project's
 PostgreSQL. Do not export the owner's database URL. The host smoke rejects a running API with
 a production release identity instead of treating another stand as its own.
-This host-process smoke remains a local gate for relevant changes and release candidates; it
-does not run on every pull request, but CI runs it nightly on `main`. Pull requests into `main` run
+For release candidates, use the [verification evidence policy](../agents/release-evidence.md).
+This host-process smoke fills missing coverage or diagnoses failures; CI runs it nightly on `main`. Pull requests into `main` run
 the four-job application and Docker Compose gate on clean GitHub-hosted runners; see
 [Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
 failure-diagnostics contract.

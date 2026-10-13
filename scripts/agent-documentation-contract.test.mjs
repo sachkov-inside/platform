@@ -105,16 +105,13 @@ describe("agent documentation contract", () => {
 });
 
 describe("harness routing contract", () => {
-  it("accepts portable project discovery and the compatibility entry point", () => {
+  it("accepts original specification discovery and native manual-skill policy", () => {
     assert.deepEqual(checkHarnessRouting(repositoryRoot), []);
   });
 
-  it("rejects a missing companion and broken workflow or skill pointers", () => {
+  it("rejects a missing original skill and broken workflow pointers", () => {
     const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
     try {
-      mkdirSync(join(root, ".agents/skills/implement-spec"), {
-        recursive: true,
-      });
       writeFileSync(
         join(root, "AGENTS.md"),
         "[run](.agents/skills/missing/SKILL.md)\n",
@@ -123,28 +120,90 @@ describe("harness routing contract", () => {
         join(root, "WORKFLOW.md"),
         "[run](.agents/skills/missing/SKILL.md)\n",
       );
-      writeFileSync(
-        join(root, ".agents/skills/implement-spec/SKILL.md"),
-        "[orchestrate](../orchestrate/SKILL.md)\n",
-      );
       const failures = checkHarnessRouting(root);
-      assert.ok(failures.some((failure) => failure.includes("companion")));
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("original specification skill is missing"),
+        ),
+      );
       assert.ok(
         failures.some((failure) =>
           failure.startsWith("WORKFLOW.md: local pointer"),
         ),
       );
+      assert.ok(failures.some((failure) => failure.includes("owner-invoked")));
+      assert.ok(
+        failures.some((failure) => failure.includes("integration contract")),
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects retired coordination, automatic stage selection and implicit manual invocation", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
+    try {
+      const skill = join(root, ".agents/skills/implement-spec");
+      mkdirSync(join(skill, "agents"), { recursive: true });
+      mkdirSync(join(root, ".agents/skills/orchestrate"), { recursive: true });
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "[run](.agents/skills/implement-spec/SKILL.md)\n",
+      );
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "A specification uses one integration branch and final PR\n| Requested result | Route | Completion |\n",
+      );
+      writeFileSync(join(root, ".agents/skills/PIPELINE.md"), "Pipeline\n");
+      writeFileSync(
+        join(skill, "SKILL.md"),
+        "---\ndisable-model-invocation: true\n---\n[old](../orchestrate/SKILL.md)\n",
+      );
+
+      let failures = checkHarnessRouting(root);
+      assert.ok(failures.some((failure) => failure.includes("remains active")));
       assert.ok(
         failures.some((failure) =>
-          failure.startsWith(
-            ".agents/skills/implement-spec/SKILL.md: local pointer",
-          ),
+          failure.includes("superseded orchestrate pointer"),
         ),
       );
-      assert.ok(failures.some((failure) => failure.includes("discovery")));
+      assert.ok(failures.some((failure) => failure.includes("local pointer")));
       assert.ok(
-        failures.some((failure) => failure.includes("integration route")),
+        failures.some((failure) =>
+          failure.includes("must not select a pipeline stage"),
+        ),
       );
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("native implicit-invocation policy"),
+        ),
+      );
+
+      writeFileSync(
+        join(skill, "agents/openai.yaml"),
+        "policy:\n  allow_implicit_invocation: true\n",
+      );
+      failures = checkHarnessRouting(root);
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("native implicit-invocation policy"),
+        ),
+      );
+
+      rmSync(join(root, ".agents/skills/orchestrate"), { recursive: true });
+      writeFileSync(
+        join(skill, "SKILL.md"),
+        "---\ndisable-model-invocation: true\n---\nOriginal body\n",
+      );
+      writeFileSync(
+        join(skill, "agents/openai.yaml"),
+        "policy:\n  allow_implicit_invocation: false\n",
+      );
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "A specification uses one integration branch and final PR\n",
+      );
+      assert.deepEqual(checkHarnessRouting(root), []);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

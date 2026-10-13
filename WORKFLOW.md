@@ -1,153 +1,141 @@
 # Developer process
 
-The process is the pipeline skills in `.agents/skills` (set and version in
-`.agents/skills/PIPELINE.md`) plus this contract. The skills stay as `sync-pipeline` delivers them;
-this contract and `AGENTS.md` hold what they leave open and the owner's overrides.
+Pipeline skills in `.agents/skills` supply workflows; this contract owns project completion requirements and owner overrides.
+Keep synchronized skills unchanged. Put project exceptions here and verification commands in `AGENTS.md`.
 
-## Routes
+## Completion requirements
 
-- Work that fits one session: `issue → implement → review → pull request`. When the issue leaves an
-  owner decision open, the owner grills it first (`grill-with-docs`).
-- Preparation for several sessions: `grilling → to-spec → to-tickets`.
-- Owner-requested execution: `orchestrate`, with `implement-spec` as a compatible entry point.
-  A specification uses one integration branch and final PR; independent tasks use separate PRs.
-  Preparation and status requests do not start execution.
+Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
+The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a manual skill.
+An explicitly invoked skill completes its internal actions, including required subordinate skills, without renewed approval.
+Preparation completes its own result and recommends the next stage; the owner assigns that stage separately.
+Readiness labels, status requests, resumed chats, and repository membership supply context, not new execution assignments.
+Resumption preserves existing authorization for the assigned work.
 
-The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
-stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
-there before a task gets `ready-for-agent`. A visual change follows
-`docs/agents/frontend-delivery.md`: before that label, the owner accepts its prototype (skill
-`prototype`, kept as a Storybook proof on a `prototype/*` branch), or the ticket takes the
-temporary-UI path with a linked integration ticket. After `to-tickets` publishes the tickets, the
-same session removes `ready-for-agent` from the issue it broke down: this overrides the skill's
-"Do NOT close or modify any parent issue".
+| Owner-requested deliverable | Completion requirements |
+|---|---|
+| Explanation, opinion, investigation, or discussion | Answer with evidence; change files only when requested |
+| Runnable design or state-model comparison | Provide an accessible preview of the requested variants and verify the interaction being evaluated |
+| Documentation-only change | Verify claims, pass `pnpm docs:check` and focused checks, and review before integration |
+| Product implementation | Pass the product check in `AGENTS.md` on the final head, independent review, and required CI |
 
-A task labelled `ready-for-agent` runs from `implement` to a ready pull request without stopping.
-The owner starts it with `/implement #<issue>` in Claude Code or `$implement #<issue>` in Codex
-CLI/IDE. When the skill is absent from the runtime catalog or the task arrives as plain text, read
-`.agents/skills/implement/SKILL.md` and follow it. The acceptance criteria of the task name the
-pre-agreed seams for `tdd`: write those seams down, then write the failing test first, without
-asking. A criterion with no behaviour needs no test.
+A prototype remains outside production imports and uses fixtures or in-memory state for mutations.
+For UI prototypes, use the existing Storybook foundation. Open the requested variants in a browser;
+check relevant viewport sizes and the interaction that answers the design question. Share the URL as
+soon as it works, with its limitations. Full-project checks, independent finish review, issue creation,
+and a pull request are not prerequisites for this preview or prototype completion.
+This scoped rule overrides general skill requirements for those delivery steps during prototyping.
+Capture the proof and owner decision on a `prototype/*` branch before promotion or another-session handoff.
+A selected variant records a direction; implementation starts when the owner's assignment includes it.
 
-## Coordinated execution
+Production work can also receive early feedback through a local preview and focused checks.
+An early preview does not claim final acceptance. Run full checks after implementation and review fixes
+settle; repeat them when changed inputs or failures invalidate their evidence.
 
-The coordinator follows the portable [orchestrate](.agents/skills/orchestrate/SKILL.md) skill.
-Use native subagents for read-only review. Each writer owns a separate writing worktree; dispatch
-writing sessions through Herdr under the owner's worktree rules. Serialize shared runtime/Compose
-operations under the existing singleton ownership rule. Mandatory checks, frontend acceptance,
-merge queue and owner gates apply to coordinated work too.
+Before `ready-for-agent`, resolve owner decisions. Visual work follows
+[frontend delivery](docs/agents/frontend-delivery.md): an accepted Storybook proof on `prototype/*`,
+or temporary semantic UI with a linked integration ticket. After publishing child tickets, remove
+`ready-for-agent` from the parent; this overrides `to-tickets`' restriction on modifying parents.
+An explicit implementation assignment runs through a ready PR without renewed approval.
+The owner can invoke [implement](.agents/skills/implement/SKILL.md) for a ticket or
+[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification.
+Acceptance criteria identify agreed seams for `tdd`;
+write their failing tests first. A criterion with no behaviour needs no test.
 
-Issues and PRs keep the linked task map: dependencies, decisions, worker/session IDs, resource
-owners, accepted commits, checks and next actions. On resumption reconcile it with actual runtime
-state, preserve active workers and recovered results, and assign only remaining work. Owner-paused
-assignments resume only on the owner's request. Reuse evidence only while checked inputs remain
-valid; final checks still run on the integrated head.
+## Sessions and coordinated execution
 
-Every task receives independent review before integration. Its writer resolves findings.
-The final integrated result receives independent review and mandatory project checks before
-accepted delivery. An agent completion message or green CI alone does not establish acceptance.
+Keep single-session work in its current writing worktree. Native workers inherit the current agent and model
+unless the owner selects otherwise. Codex work stays in Codex, including native review subagents.
+Herdr manages independent owner or project sessions; a native subagent is not a new owner session.
+Name another runtime or session only from verified runtime information.
+
+When the owner invokes `implement-spec`, follow its original body with these project overrides.
+A specification uses one integration branch and final PR; independent assigned tasks use separate PRs.
+Coordinate only the assigned specification or tickets and the coordinator's own workers and resources.
+Use native implementer and merger workers for the assigned specification.
+Each implementer owns an isolated writing worktree based on the integration branch.
+Every writing context stays in its assigned worktree. Use native subagents for independent review.
+Use Herdr for separately assigned owner or project sessions under the owner's worktree rules.
+Preserve other project sessions and their resources.
+Serialize shared runtime/Compose operations under singleton ownership.
+
+Keep the task map in issues and PRs: dependencies, decisions, session IDs, resource owners, commits,
+checks, and next actions. On resumption reconcile actual state and assign only remaining assigned work.
+Preserve active workers and recovered results. Resume owner-paused work only on the owner's request.
+Every implementation ticket requires independent review before acceptance into the integration branch or durable integration.
+The final integrated specification requires a separate independent review and mandatory checks before delivery.
+A completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
 
-- A defect outside the task that blocks it is a blocker. Take its open issue labelled
-  `needs-triage` or `ready-for-agent`, or open one; label it `ready-for-agent`, link it to the task
-  and fix it first. When the task body gives the agent the right to merge, one revert undoes the
-  fix, and the fix changes only tests, CI jobs, documentation or scripts outside release and
-  deploy, copy the merge line into the body of the blocker issue. Otherwise ask the owner whether
-  the agent may merge.
-- A task that waits for the owner's acceptance stays open with a comment naming what the owner
-  accepts.
-
-## Merge
-
-The right to merge is a line in the task body; without it, the owner merges. A merge goes through
-the [merge queue](docs/runbooks/continuous-integration.md#merge-queue).
-
-## Is the task taken
-
-A task is taken when the remote has its branch or a linked open pull request. Check both before
-the first write:
-
-```bash
-git ls-remote --heads origin | grep -E "/[a-z]+/<issue>-"
-gh pr list --state open --search "<issue> in:body"
-```
-
-Nothing protects the gap between the start and the first push. A Wayfinder ticket is taken by its
-assignee instead (`docs/agents/issue-tracker.md`).
+A defect outside the task that blocks it receives a linked issue labelled `ready-for-agent`.
+Reuse its open `needs-triage` or `ready-for-agent` issue, or open one. Fix the blocker first.
+If the task body grants merge permission, one revert undoes the fix, and the fix touches only tests,
+CI, docs, or scripts outside release/deploy, copy the merge line into the blocker issue.
+Otherwise use existing owner authorization or ask for the missing permission.
+Work awaiting owner acceptance stays open with the specific decision recorded.
 
 ## Branch, worktree and pull request
 
-- Branch `<type>/<issue>-<slug>` from the current `origin/main`, in its own worktree. Types:
-  `feat`, `fix`, `docs`, `chore`, `research`, `prototype`. Trivial untracked work uses
-  `<type>/<slug>`.
-- Worktree place: `<parent>/<repo>.worktrees/<task>`, beside the repository checkout.
-  `<task>` is the branch without its type prefix. The current Inside layout is in `REPOSITORIES.md`.
-- The primary checkout belongs to the owner: read it and leave its tracked files unchanged. Keep
-  requested local artifacts outside tracked paths. Reach the checkout through `git -C` or absolute
-  paths; only `session-cleanup` fast-forwards it after the merge.
-- An independent task has one branch, one writing worktree and one open pull request. A coordinated
-  specification keeps worker branches/worktrees and one final integration PR; that PR closes the
-  specification and its delivered tickets. Leave other sessions' worktrees, branches, containers,
-  volumes and stash entries alone.
-- One agent session works in one worktree: the one it starts in, or the one it creates for its
-  task. Another worktree needs a new session; a subagent started in its own worktree is one.
-- After the first commit (first accepted integration for a specification), push and open a draft
-  pull request with `Closes #<issue>`. If one task needs several PRs, only the last closes it;
-  the others say `Part of #<issue>`.
-- Once the branch is pushed, integrate `origin/main` by merge, without rebase or force-push.
-- The pull request body is a result card in the owner's language with the sections `Что сделано`,
-  `Что нужно от владельца`, `Проверка` (checked automatically, for the owner to check by hand, not
-  checked), `Ревью` (findings with outcomes), `Риск merge` and `Что дальше`. The skill `pr` fills
-  it: Summary goes into `Что сделано`, Evidence into `Проверка`, Merge Danger into `Риск merge`.
+Before writing an issue assignment, check remote branches and linked open PRs; Wayfinder uses its assignee.
+Branch `<type>/<issue>-<slug>` from `origin/main`; untracked tasks use `<type>/<slug>`.
+Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
+Keep each writing context in its assigned worktree. Reuse that worktree for local iteration.
+New worktrees live at `<parent>/<repo>.worktrees/<task>`; `REPOSITORIES.md` owns the Inside layout.
 
-## Review
+The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
+or absolute paths. Update it only when the owner assigns that action.
+Preserve other sessions' worktrees, branches, containers, volumes, and stashes.
+An independent delivery has one branch and PR; a specification retains its worker branches and worktrees.
 
-- Record the starting point (`git rev-parse origin/main`) before the first change.
-- Commit, then run `code-review` from that starting point: it reviews `git diff <start>...HEAD`, so
-  it cannot see an uncommitted change. When the runtime cannot start its sub-agents, run the review
-  as a separate process with the same input: the diff, the task and the coding standards.
-- Every finding gets one outcome: fixed, moved to a linked issue, or rejected with evidence.
-- After the fixes, run one more review pass, then close what remains with outcomes.
+For durable integration, push the first commit and open a draft PR. Link an existing issue when one exists.
+Use `Closes #<issue>` on the final delivery PR and `Part of #<issue>` on earlier supporting PRs.
+After pushing, integrate `origin/main` by merge; avoid rebase and force-push.
+PR bodies use the owner's language and these sections: `Что сделано`, `Что нужно от владельца`,
+`Проверка`, `Ревью`, `Риск merge`, and `Что дальше`. Apply `pr`; include unchecked limits.
 
-## Done
+## Review before integration
 
-Done means the check under `Commands` in `AGENTS.md` is green on the final head with its real exit
-code. The agent then:
+Record the base before changing files. Commit, then run `code-review` against the immutable task commit
+from that base. Supply the assignment and applicable standards. Reviewers use native read-only subagents;
+when unavailable, use a separate review process with the same inputs.
+Each finding is fixed, moved to a linked issue, or rejected with evidence.
+After fixes, review the changed findings again and record outcomes.
+Documentation changes receive this review before integration. Prototype preview and discussion use the scoped completion requirements.
 
-1. marks the acceptance criteria in the task;
-2. brings the pull request to green CI on the current head. A failed check is diagnosed and fixed.
-   Re-run a failure that diagnosis attributes to the CI provider. When the diff changes neither the
-   failed test or job nor code that the failed test runs, re-run it once without further diagnosis
-   and make sure an open issue tracks the failure: find it or open one with `needs-triage`. The
-   re-run unblocks the pull request; the issue fixes the cause. A failure after that re-run is
-   diagnosed; when it blocks the task, it is a blocker;
-3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
-   `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
-4. runs `session-cleanup` and records each resource it keeps and why;
-5. gives the owner the result, the checks that ran and those that did not, material limitations
-   and the next step, with a link to the pull request or requested artifact when one exists.
+## Completion and handoff
 
-Steps 4 and 5 apply to every handoff of a result to the owner, including a ready pull request, a
-stopped task or a result that waits for acceptance. The delivery format follows the owner's request
-and the invoked skill: a concise chat message is enough when neither calls for an artifact, and a
-requested architecture review or research document keeps its own structure and design. The shared `report` skill, its HTML template and `report.py finish` are not completion requirements here.
+Completion follows the owner-requested deliverable's requirements above. Preserve the command's actual exit code and checked scope.
+Documentation-only delivery requires its focused checks; unrelated application suites are not a local completion gate.
+Reuse applicable successful evidence when its checked inputs are unchanged; record its source, scope, and outcome.
+Product delivery requires successful final-head coverage under the
+[verification evidence policy](docs/agents/release-evidence.md). Required current-head CI and merge-queue CI remain mandatory.
+
+For an integration PR:
+
+1. Mark acceptance criteria and check required CI on the current head.
+2. Diagnose and fix failures. Re-run a confirmed provider failure. An unaffected test/job failure gets
+   one re-run with an open tracking issue; diagnose any repeated failure.
+3. Compare `closingIssuesReferences` with the linked task before merge.
+4. Use existing standing or task-specific merge authorization and the
+   [merge queue](docs/runbooks/continuous-integration.md#merge-queue).
+
+For a final handoff, state the result, actual checks, material limitations, and the next action.
+Link the PR or requested artifact. A local preview update needs only its URL, scope, and relevant checks.
+Run `session-cleanup` when the task ends; inspect and clean only resources owned by this session.
+Preserve an owner review server while it is needed. Record its port, PID, cwd, source, and stop/restart
+instructions before pane closure. A resource with changed ownership belongs to its new owner.
+If no disposable resources remain, record that fact; avoid unrelated machine-wide inventories.
+A preview link does not trigger server shutdown or final task cleanup.
+The shared `report` skill and its HTML report are not completion requirements here.
 
 ## Owner corrections
 
-The owner turns a correction into an automatic check or a `CODING_STANDARDS.md` rule with `retro`.
+Turn mechanical failures into checks and judgement rules into their owning contract.
+Apply `writing-for-agents` to agent instructions; use `retro` when the owner requests a retrospective.
 
 ## Owner gates
 
-Explicit owner approval is required for:
-
-- releases and deployments;
-- publishing;
-- paid actions;
-- credentials;
-- external messages;
-- a merge, unless the task body gives that right to the agent.
-
-An approval covers the scope the owner stated and lasts until the owner withdraws it. Inside that
-scope, act without asking again; a restart of a stand that the agent started at the owner's
-request is one such case. Waiting for an answer is never consent.
+Owner authorization is required for releases/deployments, publishing, paid actions, credentials,
+external messages, and merges. Existing standing or task-specific authorization covers its stated scope
+until withdrawn; follow it without asking again. Waiting for an answer is never consent.

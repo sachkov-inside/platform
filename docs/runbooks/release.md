@@ -29,13 +29,19 @@ current=$(gh release view --json tagName -q .tagName)            # послед�
 git log --oneline "$current"..origin/main
 ```
 
-Номер следующего выпуска — `current` + 1. Выпускается ровно текущий `main`; CI выпуска повторяет
-проверки PR.
+Номер следующего выпуска — `current` + 1. Выпускается ровно выбранный `main`.
 
-CI выпуска не запускает full-stack smoke. Именно в нём права проверяются через настоящий Web/BFF
-отдельными identities (#904). Поэтому перед выпуском нужен зелёный
-[nightly full-stack smoke](continuous-integration.md#nightly-full-stack-smoke) ровно на коммите
-выпуска:
+For source selection and merge serialization through publication, use the
+[verification evidence policy](../agents/release-evidence.md). The existing planner and finalizer
+both require current main; v2 deployment evidence retains the published source after main advances.
+
+Use the [verification evidence policy](../agents/release-evidence.md) to reuse exact-source CI
+coverage and fill only missing checks. Release CI checks its actual selected source.
+
+Release CI does not run the full-stack smoke. That smoke verifies access through the real Web/BFF
+with separate identities (#904). Follow the [verification evidence policy](../agents/release-evidence.md)
+for required final-source coverage and local fallbacks. Inspect existing successful
+[nightly full-stack smoke](continuous-integration.md#nightly-full-stack-smoke) receipts on the selected source:
 
 ```bash
 release_sha=$(git rev-parse origin/main)
@@ -44,9 +50,10 @@ gh run list --repo sachkov-inside/platform -w nightly-fullstack.yml --branch mai
   -q ".[] | select(.headSha == \"$release_sha\" and .conclusion == \"success\")"
 ```
 
-Если зелёного запуска на этом коммите нет, запустите его и дождитесь успеха:
-`gh workflow run nightly-fullstack.yml --repo sachkov-inside/platform --ref main`. Красный прогон
-останавливает выпуск до исправления.
+If full-stack coverage is missing, fill that gap under the policy. To obtain a nightly receipt,
+run `gh workflow run nightly-fullstack.yml --repo sachkov-inside/platform --ref main` while main
+remains the selected source, and require success on that source. A failed check requires diagnosis
+before release.
 
 ## 2. Нужен ли разовый шаг на сервере
 

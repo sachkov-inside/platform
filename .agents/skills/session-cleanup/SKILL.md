@@ -1,55 +1,40 @@
 ---
 name: session-cleanup
-description: "Clean up what an agent session started: worktree, local branch, containers, volumes, stand processes, stash entries and temporary files. Use as the last step of a task, before the handoff to the owner, or when asked to clean up after a session."
+description: "Clean up resources owned by the current task or session before handoff, or when the owner requests cleanup."
 ---
 
-Cleanup is the writing agent's last step. A session is complete when nothing it started keeps
-running and its local state is clean. Touch only what this session started; name the owner of
-anything else in the handoff and leave it in place.
+Cleanup is the writing agent's last step. Preserve other sessions and resources.
+Use the task and PR resource records to identify what this session acquired or explicitly inherited.
+A resource with changed ownership belongs to its new owner.
 
-## 1. List the leftovers
+## 1. Inspect owned resources
 
-Run from the repository root:
+Check the current worktree's status and branch. Inspect only recorded worktrees, branches,
+containers, volumes, processes, temporary files and safety stashes owned by this task.
+Use a process's PID and working directory, or a container's Compose labels, to confirm ownership.
+When ownership is uncertain, preserve the resource and record that uncertainty in the handoff.
+If the session acquired no disposable resources, record that fact; no machine-wide inventory is needed.
+Before any repository Compose command, follow the singleton ownership rule in
+[local development](../../../docs/runbooks/local-development.md#parallel-worktrees-and-singleton-ownership).
 
-```bash
-git worktree list; git branch -vv | grep ': gone]'; git stash list; \
-docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Label "com.docker.compose.project.working_dir"}}'; \
-docker volume ls -f dangling=true --format '{{.Name}}\t{{.Label "com.docker.compose.project"}}'; \
-lsof -nP -iTCP -sTCP:LISTEN
-```
+## 2. Release disposable resources
 
-The Compose working directory, the Compose project of a volume, and a process's current directory
-show which worktree owns a resource. Read a listening process's directory with
-`lsof -a -p <pid> -d cwd`; on Linux without `lsof`, use `ss -ltnp` and `readlink /proc/<pid>/cwd`.
+Stop and remove the owned containers, volumes and processes. Delete owned temporary files.
+Preserve a preview while the owner needs it. Record its port, PID, cwd, source, and stop/restart
+instructions before closing its pane or handing ownership to another session.
 
-## 2. Always
+## 3. Resolve task-local state
 
-- Stop and remove the containers, volumes and stand processes the session started, and free their
-  ports.
-- Delete the temporary files the session created outside the worktree.
-
-## 3. While the pull request is open
-
-Keep the worktree and the task branch. Do step 2 only.
-
-## 4. After the merge, or when the issue closed without a pull request
-
-1. Check that the worktree has no uncommitted changes and that every commit is kept by a remote
-   branch or the merged pull request. A squash-merged pull request keeps its commits even when
-   they are not ancestors of `main`.
-2. Remove the worktree and delete the local task branch. For a squash-merged branch use
-   `git branch -D`.
-3. Run `git worktree prune`. Delete merged local branches whose upstream is gone, unless a
-   worktree still uses them.
-4. Find the session's safety stash entries by their messages. Compare each with the merged pull
-   request, then drop it.
-5. Fast-forward the primary checkout to `origin/main` only when it is on `main` and has no
-   uncommitted changes. Otherwise leave it and name the branch or files that prevented the update.
-
-If unpublished work remains after the merge, keep the worktree and name the exact blocker in the
-handoff.
+While a PR is open, keep its writing worktree and branch.
+After merge or closure, remove an owned task worktree and branch only when its changes are clean
+and every commit is preserved by a remote branch or merged PR. A squash-merged PR preserves its
+commits even when they are not ancestors of `main`.
+Inspect owned safety stashes against the merged result before dropping them.
+Keep unpublished work and record the exact remaining action.
+The primary checkout and unrelated local branches remain with their owners; update them only
+when the assignment includes that action.
 
 ## Done when
 
-The command from step 1 shows nothing that this session started, or the handoff names each
-leftover and why it stays.
+Every disposable resource owned by this task is released, or the handoff names its owner and why
+it remains. Other sessions' worktrees, branches, stashes, containers, volumes and processes are preserved.

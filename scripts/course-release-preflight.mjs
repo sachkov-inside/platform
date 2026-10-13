@@ -20,7 +20,27 @@ const checkNames = [
   "fullstack",
   "telemetry-resource-budget",
 ];
-const evidenceSchema = z.strictObject({
+const coverageNames = [
+  "check",
+  "integration",
+  "enrollment",
+  "buyer-journey",
+  "compose-smoke-shutdown",
+  "standards",
+  "spec",
+  "ci",
+  "fullstack",
+  "telemetry-resource-budget",
+];
+const excludedTelemetrySchema = z.strictObject({
+  name: z.literal("telemetry-resource-budget"),
+  sourceSha: sourceShaSchema,
+  exitCode: z.null(),
+  outcome: z.literal("owner-excluded"),
+  authorizationRef: z.literal("owner-2026-10-13-1408-v36"),
+  evidenceRef: z.string().min(1),
+});
+const legacyEvidenceSchema = z.strictObject({
   schemaVersion: z.literal("inside.course-release-preflight.v1"),
   checks: z.array(
     z.union([
@@ -30,14 +50,7 @@ const evidenceSchema = z.strictObject({
         exitCode: z.int(),
         evidenceRef: z.string().min(1),
       }),
-      z.strictObject({
-        name: z.literal("telemetry-resource-budget"),
-        sourceSha: sourceShaSchema,
-        exitCode: z.null(),
-        outcome: z.literal("owner-excluded"),
-        authorizationRef: z.literal("owner-2026-10-13-1408-v36"),
-        evidenceRef: z.string().min(1),
-      }),
+      excludedTelemetrySchema,
     ]),
   ),
   publication: z.strictObject({
@@ -63,6 +76,34 @@ const evidenceSchema = z.strictObject({
     databasesPassed: z.array(z.enum(["inside", "logto", "inside_telegram"])),
   }),
 });
+const evidenceSchema = z.union([
+  legacyEvidenceSchema,
+  legacyEvidenceSchema.extend({
+    schemaVersion: z.literal("inside.course-release-preflight.v2"),
+    selectedSourceSha: sourceShaSchema,
+    checks: z.array(
+      z.union([
+        z.strictObject({
+          name: z.enum(coverageNames),
+          sourceSha: sourceShaSchema,
+          exitCode: z.int(),
+          evidenceRef: z.string().min(1),
+          execution: z.discriminatedUnion("kind", [
+            z.strictObject({
+              kind: z.literal("ci"),
+              workflowRunId: z.int().positive(),
+              job: z.string().min(1),
+              conclusion: z.literal("success"),
+            }),
+            z.strictObject({ kind: z.literal("local") }),
+            z.strictObject({ kind: z.literal("review") }),
+          ]),
+        }),
+        excludedTelemetrySchema,
+      ]),
+    ),
+  }),
+]);
 const inputSchema = z.strictObject({
   currentMainSha: sourceShaSchema,
   manifest: releaseManifestSchema,
@@ -79,7 +120,7 @@ const backupMaxAgeMilliseconds = 8 * 60 * 60 * 1_000;
 /** @type {readonly ["backend", "web"]} */
 const imageKinds = ["backend", "web"];
 
-/** Local evidence gate; host deploy preflight remains authoritative for live state.
+/** Release evidence gate; host deploy preflight remains authoritative for live state.
  * @param {unknown} value
  * @param {Date} now
  */
@@ -88,10 +129,18 @@ export function assessCourseRelease(value, now) {
   if (!parsed.success) throw new Error("invalid preflight evidence");
   const input = parsed.data;
   const { manifest, evidence } = input;
-  if (manifest.source.sha !== input.currentMainSha)
-    throw new Error("release source is not current main");
+  const selectedSourceSha =
+    evidence.schemaVersion === "inside.course-release-preflight.v2"
+      ? evidence.selectedSourceSha
+      : input.currentMainSha;
+  if (manifest.source.sha !== selectedSourceSha)
+    throw new Error("release source does not match selected source");
   let telemetryExcluded = false;
-  for (const name of checkNames) {
+  const requiredChecks =
+    evidence.schemaVersion === "inside.course-release-preflight.v2"
+      ? coverageNames
+      : checkNames;
+  for (const name of requiredChecks) {
     const receipts = evidence.checks.filter((check) => check.name === name);
     const receipt = receipts[0];
     const ownerExcluded =
