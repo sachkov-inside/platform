@@ -174,7 +174,11 @@ async function confirmCombined(page) {
               "article p, article h1, article h2, article h3, figure strong, figure span",
             ),
           ]
-            .filter((element) => element.scrollWidth > element.clientWidth + 1)
+            .filter(
+              (element) =>
+                !element.classList.contains("sr-only") &&
+                element.scrollWidth > element.clientWidth + 1,
+            )
             .map((element) => element.textContent),
         };
       });
