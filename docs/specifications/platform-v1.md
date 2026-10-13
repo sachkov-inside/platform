@@ -906,6 +906,25 @@ platform#808). Результаты обучения остаются на ст�
    Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и
    не повторяет registration автоматически.
 
+### Planned Material attachment viewer (#1378)
+
+The owner narrowed #1378 on 2026-10-13 to files attached directly to a Material.
+A reader opens an inline reference to inspect a file list and selected file content.
+Text files support exact copying without a mandatory download. Readers can download
+an individual file or a file set. Unsupported previews retain the download action.
+Mobile viewing preserves readable content; closing restores focus and the reading position.
+
+The implementation must reuse MaterialAsset ownership and ContentAccess. Authoring and
+Content import must preserve file references and logical paths within a Material.
+Updates replace current content without reader-facing history. Existing ProductArtifacts
+remain unchanged. Separate artifact catalogs, installation prompts, MCP delivery and
+repository mirroring are outside this scope.
+
+This is a planned contract, not shipped behavior. PR #1379 at
+`cbd9ab5e0933a136c9f211afb1f11ff039c08ddd` remains unaccepted historical proof.
+The separate attachment-viewer proof requires relayed owner visual acceptance before
+production integration or deployment.
+
 ### Assets, downloads и video
 
 1. `Assets` принимает non-video bytes через quarantine, проверяет ownership, actual size,
