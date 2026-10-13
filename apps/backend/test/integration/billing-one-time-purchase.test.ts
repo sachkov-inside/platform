@@ -263,13 +263,15 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         return Promise.reject(new Error("Synthetic bank state unavailable"));
       return Promise.resolve(Response.json(event(status)));
     });
-    const runtime = new BillingPayments({
-      prisma: db.prisma,
-      bank,
-      contact,
-      grants,
-      clock: () => now,
-    });
+    const runtimeWith = (projector = grants) =>
+      new BillingPayments({
+        prisma: db.prisma,
+        bank,
+        contact,
+        grants: projector,
+        clock: () => now,
+      });
+    const runtime = runtimeWith();
     const notify = (state: string, extra = {}) => {
       const body = event(state, extra);
       return { ...body, Token: tbankToken(body, config.password) };
@@ -346,6 +348,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       offerId,
       optionId,
       runtime,
+      runtimeWith,
       notify,
       command,
       buy,
@@ -433,6 +436,31 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       paymentUrl: null,
       access: "preparing",
     });
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("выдача доступа между допуском и резервом не разрешает повторное списание", async () => {
+    const s = await scenario();
+    value(await s.runtime.purchase(s.buyer, await s.command()));
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    const command = await s.command();
+    let fulfilled = false;
+    const concurrentFulfillment = s.runtimeWith({
+      ...grants,
+      async resolveCapabilities(buyer) {
+        const access = await grants.resolveCapabilities(buyer);
+        if (!fulfilled) {
+          fulfilled = true;
+          expect(await s.runtime.recover()).toMatchObject({ ok: true });
+        }
+        return access;
+      },
+    });
+    expect(
+      await concurrentFulfillment.purchase(s.buyer, command),
+    ).toMatchObject({ ok: false, error: { code: "existing_access" } });
     expect(s.requests()).toHaveLength(1);
   });
 

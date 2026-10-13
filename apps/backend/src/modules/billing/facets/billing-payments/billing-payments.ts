@@ -157,14 +157,23 @@ export class BillingPayments {
       }
       const mode = paymentMode(snapshot.paymentOption);
       const recurring = mode === "subscription";
-      const [contact, legacy, capabilities, grounds] = await Promise.all([
-        this.dependencies.contact.read(accountId),
-        this.dependencies.grants.readLegacyClassification(accountId),
-        this.dependencies.grants.resolveCapabilities(accountId),
-        readPurchaseGrounds(this.dependencies.grants, accountId),
-      ]);
-      if (!contact.ok || !legacy.ok || !capabilities.ok || grounds === null)
+      const [contact, legacy, initialCapabilities, grounds] = await Promise.all(
+        [
+          this.dependencies.contact.read(accountId),
+          this.dependencies.grants.readLegacyClassification(accountId),
+          this.dependencies.grants.resolveCapabilities(accountId),
+          readPurchaseGrounds(this.dependencies.grants, accountId),
+        ],
+      );
+      if (
+        !contact.ok ||
+        !legacy.ok ||
+        !initialCapabilities.ok ||
+        grounds === null
+      )
         return paymentFailure("dependency_unavailable");
+      let capabilities = initialCapabilities.capabilities;
+      let settledPurchaseRef: string | undefined;
       const admission = paymentAdmission({
         context: "purchase",
         snapshot,
@@ -218,166 +227,190 @@ export class BillingPayments {
         )
       )
         return paymentFailure("consent_required");
-      const prepared = await this.dependencies.prisma.$transaction(
-        async (tx): Promise<PaymentResult<string>> => {
-          await lockBillingPricing(tx);
-          const key = { accountId, operationId: command.operationId };
-          const existingCommand = await tx.billingPurchaseCommand.findUnique({
-            where: { accountId_operationId: key },
-          });
-          if (existingCommand)
-            return fingerprint.recognizes(existingCommand.fingerprint)
-              ? { ok: true, value: existingCommand.purchaseRef }
-              : paymentFailure("operation_conflict");
-          const now = this.clock();
-          // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
-          await endLapsedSubscriptions(tx, accountId, now);
-          let quoted = await tx.billingPurchase.findFirst({
-            where: {
-              accountId,
-              kind: { in: ["initial", "one_time"] },
-              OR: [
-                { quoteRef: command.quoteRef },
-                { state: { in: inFlightStates } },
-              ],
-            },
-            orderBy: { createdAt: "desc" },
-          });
-          if (quoted === null && !recurring) {
-            const confirmed = await tx.billingPurchase.findFirst({
+      const prepare = () =>
+        this.dependencies.prisma.$transaction(
+          async (
+            tx,
+          ): Promise<
+            PaymentResult<string | { readonly settledPurchaseRef: string }>
+          > => {
+            await lockBillingPricing(tx);
+            const key = { accountId, operationId: command.operationId };
+            const existingCommand = await tx.billingPurchaseCommand.findUnique({
+              where: { accountId_operationId: key },
+            });
+            if (existingCommand)
+              return fingerprint.recognizes(existingCommand.fingerprint)
+                ? { ok: true, value: existingCommand.purchaseRef }
+                : paymentFailure("operation_conflict");
+            const now = this.clock();
+            // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
+            await endLapsedSubscriptions(tx, accountId, now);
+            let continuingPurchase = await tx.billingPurchase.findFirst({
               where: {
                 accountId,
-                kind: "one_time",
-                state: "confirmed",
-                snapshot: {
-                  path: ["paymentOption", "id"],
-                  equals: snapshot.paymentOption.id,
+                kind: { in: ["initial", "one_time"] },
+                OR: [
+                  { quoteRef: command.quoteRef },
+                  { state: { in: inFlightStates } },
+                ],
+              },
+              orderBy: { createdAt: "desc" },
+            });
+            if (continuingPurchase === null && !recurring) {
+              const confirmed = await tx.billingPurchase.findFirst({
+                where: {
+                  accountId,
+                  kind: "one_time",
+                  state: "confirmed",
+                  snapshot: {
+                    path: ["paymentOption", "id"],
+                    equals: snapshot.paymentOption.id,
+                  },
                 },
-              },
-              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            });
-            if (
-              confirmed !== null &&
-              (await tx.billingFulfillment.count({
-                where: { purchaseRef: confirmed.id, appliedAt: null },
-              })) > 0
-            )
-              quoted = confirmed;
-          }
-          if (quoted) {
-            const previous = priceSnapshotSchema.parse(quoted.snapshot);
-            if (previous.paymentOption.id !== snapshot.paymentOption.id)
-              return paymentFailure("payment_in_progress");
-            await tx.billingPurchaseCommand.create({
-              data: {
-                ...key,
-                fingerprint: fingerprint.digest,
-                purchaseRef: quoted.id,
-              },
-            });
-            return { ok: true, value: quoted.id };
-          }
-          if (recurring) {
-            const current = await tx.billingPurchase.findFirst({
-              where: {
-                accountId,
-                kind: "initial",
-                lifecycleActive: true,
-                state: { not: "failed" },
-              },
-            });
-            if (current) {
+                orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+              });
+              if (confirmed !== null) {
+                const waiting = await tx.billingFulfillment.count({
+                  where: { purchaseRef: confirmed.id, appliedAt: null },
+                });
+                if (waiting > 0) continuingPurchase = confirmed;
+                else if (settledPurchaseRef !== confirmed.id)
+                  return {
+                    ok: true,
+                    value: { settledPurchaseRef: confirmed.id },
+                  };
+              }
+            }
+            if (continuingPurchase) {
+              const previous = priceSnapshotSchema.parse(
+                continuingPurchase.snapshot,
+              );
+              if (previous.paymentOption.id !== snapshot.paymentOption.id)
+                return paymentFailure("payment_in_progress");
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
                   fingerprint: fingerprint.digest,
-                  purchaseRef: current.id,
+                  purchaseRef: continuingPurchase.id,
                 },
               });
-              return { ok: true, value: current.id };
+              return { ok: true, value: continuingPurchase.id };
             }
-          }
-          const purchaseRef = randomUUID();
-          const reservation = await reservePurchaseInTransaction(
-            tx,
-            {
-              accountId,
-              purchaseRef,
-              quoteRef: command.quoteRef,
-              amountLimits: {
-                minimumKopecks: bank.config.minimumKopecks,
-                maximumKopecks: bank.config.maximumKopecks,
+            if (recurring) {
+              const current = await tx.billingPurchase.findFirst({
+                where: {
+                  accountId,
+                  kind: "initial",
+                  lifecycleActive: true,
+                  state: { not: "failed" },
+                },
+              });
+              if (current) {
+                await tx.billingPurchaseCommand.create({
+                  data: {
+                    ...key,
+                    fingerprint: fingerprint.digest,
+                    purchaseRef: current.id,
+                  },
+                });
+                return { ok: true, value: current.id };
+              }
+            }
+            const purchaseRef = randomUUID();
+            const reservation = await reservePurchaseInTransaction(
+              tx,
+              {
+                accountId,
+                purchaseRef,
+                quoteRef: command.quoteRef,
+                amountLimits: {
+                  minimumKopecks: bank.config.minimumKopecks,
+                  maximumKopecks: bank.config.maximumKopecks,
+                },
               },
-            },
-            now,
-          );
-          if (!reservation.ok)
-            return paymentFailure(
-              reservation.error.code === "reservation_conflict"
-                ? "payment_in_progress"
-                : reservation.error.code,
+              now,
             );
-          // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
-          const admission = paymentAdmission({
-            context: "purchase",
-            snapshot: reservation.value,
-            sale: saleCapability(bank.config, true),
-            grounds,
-            recurringAllowed: legacy.recurringAllowed,
-          });
-          if (!admission.ok) {
-            await tx.billingPromoReservation.delete({ where: { purchaseRef } });
-            return paymentFailure(admission.error.code);
-          }
-          if (
-            !command.acknowledgeExistingAccess &&
-            capabilities.capabilities.some((value) =>
-              reservation.value.offer.benefits.includes(value.capability),
-            )
-          ) {
-            // No external effect exists; release the pricing capacity in this transaction.
-            await tx.billingPromoReservation.delete({ where: { purchaseRef } });
-            return paymentFailure("existing_access");
-          }
-          await tx.billingPurchase.create({
-            data: {
-              id: purchaseRef,
-              accountId,
-              quoteRef: command.quoteRef,
-              state: "prepared",
-              environment: bank.config.environment,
-              // Разовая покупка не занимает место подписки: она ничем не продлевается и заканчивается собой.
-              ...(recurring
-                ? {}
-                : { kind: "one_time", lifecycleActive: false }),
-              terminalRef: bank.config.terminalKey,
-              amountKopecks: reservation.value.firstPriceKopecks,
+            if (!reservation.ok)
+              return paymentFailure(
+                reservation.error.code === "reservation_conflict"
+                  ? "payment_in_progress"
+                  : reservation.error.code,
+              );
+            // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
+            const admission = paymentAdmission({
+              context: "purchase",
               snapshot: reservation.value,
-              acceptance: { command, evidence },
-              contact: {
-                revision: verifiedContact.revision,
-                verifiedAt: verifiedContact.verifiedAt,
-                emailCiphertext: bank.sealBinding(
-                  `${purchaseRef}:contact`,
-                  verifiedContact.email,
-                ),
+              sale: saleCapability(bank.config, true),
+              grounds,
+              recurringAllowed: legacy.recurringAllowed,
+            });
+            if (!admission.ok) {
+              await tx.billingPromoReservation.delete({
+                where: { purchaseRef },
+              });
+              return paymentFailure(admission.error.code);
+            }
+            if (
+              !command.acknowledgeExistingAccess &&
+              capabilities.some((value) =>
+                reservation.value.offer.benefits.includes(value.capability),
+              )
+            ) {
+              // No external effect exists; release the pricing capacity in this transaction.
+              await tx.billingPromoReservation.delete({
+                where: { purchaseRef },
+              });
+              return paymentFailure("existing_access");
+            }
+            await tx.billingPurchase.create({
+              data: {
+                id: purchaseRef,
+                accountId,
+                quoteRef: command.quoteRef,
+                state: "prepared",
+                environment: bank.config.environment,
+                // Разовая покупка не занимает место подписки: она ничем не продлевается и заканчивается собой.
+                ...(recurring
+                  ? {}
+                  : { kind: "one_time", lifecycleActive: false }),
+                terminalRef: bank.config.terminalKey,
+                amountKopecks: reservation.value.firstPriceKopecks,
+                snapshot: reservation.value,
+                acceptance: { command, evidence },
+                contact: {
+                  revision: verifiedContact.revision,
+                  verifiedAt: verifiedContact.verifiedAt,
+                  emailCiphertext: bank.sealBinding(
+                    `${purchaseRef}:contact`,
+                    verifiedContact.email,
+                  ),
+                },
+                fiscalization: "pending",
+                createdAt: now,
+                updatedAt: now,
               },
-              fiscalization: "pending",
-              createdAt: now,
-              updatedAt: now,
-            },
-          });
-          await tx.billingPurchaseCommand.create({
-            data: { ...key, fingerprint: fingerprint.digest, purchaseRef },
-          });
-          return { ok: true, value: purchaseRef };
-        },
-      );
-      if (!prepared.ok) return prepared;
-      // A second tab joins an existing attempt and dispatches nothing, so it must not answer from
-      // the interim row that carries no payment URL. The caller that did dispatch already settled
-      // the row, so it waits for nothing here.
-      return await this.continuePurchase(accountId, prepared.value);
+            });
+            await tx.billingPurchaseCommand.create({
+              data: { ...key, fingerprint: fingerprint.digest, purchaseRef },
+            });
+            return { ok: true, value: purchaseRef };
+          },
+        );
+      let prepared = await prepare();
+      while (prepared.ok) {
+        if (typeof prepared.value === "string")
+          return await this.continuePurchase(accountId, prepared.value);
+        // Fulfillment may finish after admission read. Refresh outside the pricing transaction;
+        // a different confirmed purchase on the next pass requires its own fresh access read.
+        settledPurchaseRef = prepared.value.settledPurchaseRef;
+        const refreshed =
+          await this.dependencies.grants.resolveCapabilities(accountId);
+        if (!refreshed.ok) return paymentFailure("dependency_unavailable");
+        capabilities = refreshed.capabilities;
+        prepared = await prepare();
+      }
+      return prepared;
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
