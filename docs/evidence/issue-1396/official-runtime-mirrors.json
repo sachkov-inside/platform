@@ -1,0 +1,39 @@
+{
+  "verifiedAt": "2026-10-13T07:38:00.758456+00:00",
+  "approvedManifest": "65c84186ced7744f790fb05000be2ca00f01146c6c2d3a6b9e944d38e013faa2",
+  "trustedMainSHA": "878a5072c95bd7a33326585bf80c9bdc5ceb8f38",
+  "publisherRun": 38363266243,
+  "publisherAll3JobsSuccess": true,
+  "inputs": [
+    {
+      "input": "postgres-18.4-alpine",
+      "indexDigest": "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+      "indexBytesEqual": true,
+      "allChildManifestBytesEqual": true,
+      "childManifestCount": 16,
+      "amd64AndArm64": true,
+      "anonymousAuthFileEmpty": true
+    },
+    {
+      "input": "postgres-18.4-alpine3.23",
+      "indexDigest": "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+      "indexBytesEqual": true,
+      "allChildManifestBytesEqual": true,
+      "childManifestCount": 16,
+      "amd64AndArm64": true,
+      "anonymousAuthFileEmpty": true
+    },
+    {
+      "input": "node-26.10.0-alpine3.24",
+      "indexDigest": "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+      "indexBytesEqual": true,
+      "allChildManifestBytesEqual": true,
+      "childManifestCount": 4,
+      "amd64AndArm64": true,
+      "anonymousAuthFileEmpty": true
+    }
+  ],
+  "consumersSwitched": false,
+  "consumerScope": "Only registry prefix changes for these three immutable inputs; Caddy, Node bookworm and RabbitMQ remain unchanged",
+  "evidenceStage": "Publisher verification before the separate consumer change"
+}

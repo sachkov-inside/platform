@@ -299,7 +299,7 @@ origin = await listen(identity);
 
 // ------------------------------------------------------------------ база, API и банк
 const container = await new PostgreSqlContainer(
-  "public.ecr.aws/docker/library/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+  "ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
 ).start();
 const databaseUrl = container.getConnectionUri();
 const prisma = createPrismaClient(databaseUrl);

@@ -20,10 +20,27 @@ const inputPaths = [
   "apps/backend/src/infrastructure/notification-transport/topology.ts",
   "apps/backend/scripts/enrollment-browser-fixture.ts",
   "apps/backend/scripts/buyer-journey-fixture.ts",
+  "apps/backend/scripts/measure-web-telemetry.ts",
   "scripts/billing-contact-proof.mjs",
   "scripts/production-verify/test_sql.py",
   "apps/telegram/scripts/production-smoke.sh",
 ];
+
+// Owner-approved #1396 packet65c84186; anonymous complete-index verification passed.
+const runtimePins = new Map([
+  [
+    "postgres:18.4-alpine",
+    "sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+  ],
+  [
+    "postgres:18.4-alpine3.23",
+    "sha256:996d0920e4ff9df1fc19dacb904492f3c1ec0ec1cc338f0ad7123be7731c5f5e",
+  ],
+  [
+    "node:26.10.0-alpine3.24",
+    "sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80",
+  ],
+]);
 
 // Authorized #1337 inputs; these are the original official OCI indexes, not new builds.
 const rabbitmqPins = new Map([
@@ -41,7 +58,7 @@ const rabbitmqPins = new Map([
   ],
 ]);
 
-test("official acquisition inputs select immutable ECR inputs and the authorized GHCR RabbitMQ mirror", () => {
+test("official acquisition inputs select exact authorized GHCR mirrors and remaining immutable ECR inputs", () => {
   for (const path of inputPaths) {
     const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
     // A dotted version excludes service URLs such as rabbitmq:5671 and postgres:5432.
@@ -51,6 +68,17 @@ test("official acquisition inputs select immutable ECR inputs and the authorized
     let count = 0;
     for (const [reference] of references) {
       count++;
+      const image = reference.split("/").at(-1)?.split("@")[0];
+      assert.ok(image, `${path}: missing official image identity`);
+      const runtimeDigest = runtimePins.get(image);
+      if (runtimeDigest !== undefined) {
+        assert.equal(
+          reference,
+          `ghcr.io/sachkov-inside/${image}@${runtimeDigest}`,
+          `${path}: ${image} must use its verified public mirror without changing identity`,
+        );
+        continue;
+      }
       assert.match(
         reference,
         reference.includes("rabbitmq:")
