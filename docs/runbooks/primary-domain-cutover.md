@@ -90,6 +90,12 @@ IP берётся из действующей конфигурации productio
    В `api.env` и `mcp.env` заменить браузерные `PUBLIC_SITE_ORIGIN`,
    `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` на `https://sachkov.dev`;
    в `api.env` и `notifications-worker.env` заменить `NOTIFICATIONS_PLATFORM_ORIGIN`.
+   В `/etc/inside/telegram/application.env` заменить публичный
+   `TELEGRAM_SIGN_IN_RETURN_URL` на `https://sachkov.dev/` для кнопки «Открыть Inside» после входа.
+   Если настроена другая публичная страница, сохранить её путь при замене origin.
+   Адрес не содержит OAuth code/state или токенов; query и fragment эта настройка не принимает.
+   Применение к Telegram и проверка новой кнопки описаны в
+   [runbook Telegram](../../apps/telegram/docs/operations/production.md#смена-публичного-адреса-кнопки-после-входа).
    Сохранить копии всех изменённых env. Адрес notification банка и `MCP_SERVER_URL` не менять;
    sales flags и каталог не менять. Существующий `returnUrl` банка ведёт через старый redirect.
 5. Убрать **только созданную нами временную копию** `primary-domain-stage.caddy` из импортируемой
