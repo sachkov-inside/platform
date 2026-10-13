@@ -67,7 +67,7 @@ smoke verifies fresh/prefix upgrades, frozen N-1 queries and runtime readiness.
 
 The orchestrator owns merge and release. After deployment, production acceptance still checks
 available server memory of at least 1 GiB, ingestion, retention completion and the read-only MCP
-summary. The full monitoring stack remains #1289.
+summary. Monitoring design is [issue #1411](https://github.com/sachkov-inside/platform/issues/1411); no stack or implementation is approved.
 
 ## Cloud verification — 11 October 2026
 

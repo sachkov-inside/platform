@@ -1,7 +1,7 @@
 # Web telemetry in Platform PostgreSQL
 
 [Issue #707](https://github.com/sachkov-inside/platform/issues/707) owns this intermediate self-hosted
-scope. The separate monitoring stack is #1289.
+scope. Monitoring design is [issue #1411](https://github.com/sachkov-inside/platform/issues/1411); no stack or implementation is approved.
 
 ## Collection and privacy
 

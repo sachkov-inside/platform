@@ -4,7 +4,8 @@
 [telemetry](web-telemetry.md) и [foundation/backup](production-foundation.md). Он готовит технический
 выпуск; production-приёмка интерфейса, контент, сообщения, реальные деньги и открытие продаж имеют
 свои подтверждения. Количество материалов и календарь не являются условиями технического выпуска.
-Полный monitoring #1289, marketing и Tribute migration остаются после запуска.
+Проектирование мониторинга [#1411](https://github.com/sachkov-inside/platform/issues/1411) остаётся после запуска; стек не утверждён, реализация не разрешена.
+Marketing и Tribute migration остаются после запуска.
 
 ## До публикации
 
