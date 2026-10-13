@@ -793,7 +793,14 @@
 }
 @container reading (max-width: 35rem) {
   .diagram {
-    padding: 0.875rem;
+    padding: min(0.875rem, 4cqi);
+  }
+  .projectBoundary,
+  .githubBoundary {
+    padding: min(0.875rem, 4cqi);
+  }
+  .diagramNode {
+    padding: min(0.75rem, 3.5cqi);
   }
   .diagramTop,
   .diagramInputs {
