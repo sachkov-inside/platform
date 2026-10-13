@@ -88,7 +88,10 @@ BillingPayments resolves the immutable encrypted order snapshot only for that Ac
 Raw email is absent from both commands and broker headers. An order email is never an identity or verified contact.
 The current confirmed Billing Contact takes precedence when creating a new command; such a binding still uses delivery v1.
 V2 cannot carry a material announcement or Telegram delivery. The existing source, deadlines, digest, idempotency, authorization and unknown-send rules apply unchanged.
-Changing a binding does not retarget an immutable queued command or resend a potentially started send.
+Changing a binding never mutates an immutable command or resends a potentially started send.
+When confirmation replaces an order binding, a correlated `suppressed` result proves that the order send did not start.
+Only then may Notifications stage the next command revision for the same Delivery, using the current confirmed contact and delivery v1.
+The old order command remains unchanged. `sent` and `unknown` results prohibit this promotion.
 
 ## Delivery command и дедупликация
 

@@ -36,7 +36,9 @@ export function CheckoutEmailField({
         inputMode="email"
         maxLength={254}
         name="email"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
         ref={inputRef}
         required
         spellCheck={false}

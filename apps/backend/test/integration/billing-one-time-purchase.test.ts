@@ -16,7 +16,11 @@ import {
   assembleBillingNotificationOutbox,
   type BillingPricing,
 } from "../../src/modules/billing/index.js";
-import { Notifications } from "../../src/modules/notifications/index.js";
+import {
+  Notifications,
+  assembleNotificationRecipients,
+} from "../../src/modules/notifications/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   Tbank,
   tbankToken,
@@ -383,16 +387,23 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       ok: true,
     });
     expect(await s.runtime.recover()).toMatchObject({ ok: true });
-    expect(await capabilitiesOf(s.buyer)).toMatchObject({
-      capabilities: expect.arrayContaining([
-        expect.objectContaining({ capability: s.capability }),
-      ]),
-    });
+    expect(
+      (await capabilitiesOf(s.buyer)).capabilities.some(
+        (entry) => entry.capability === s.capability,
+      ),
+    ).toBe(true);
   });
 
-  test.each([false, true])(
+  test.each([
+    "unlinked",
+    "before-command",
+    "after-command",
+    "after-sent",
+    "after-unknown",
+  ] as const)(
     "сообщение об оплате использует email заказа или позднее подтверждённый контакт (%s)",
-    async (linked) => {
+    async (linkAt) => {
+      const linked = linkAt !== "unlinked";
       const s = await scenario({ verifyContact: false });
       const orderEmail = `order-${s.buyer}@example.test`;
       const linkedEmail = `linked-${s.buyer}@example.test`;
@@ -408,7 +419,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         },
       );
       value(await s.runtime.recover());
-      if (linked) {
+      const confirmContact = async () => {
         const started = await contact.start(s.buyer, {
           operationId: randomUUID(),
           email: linkedEmail,
@@ -422,8 +433,11 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
             code: codes.get(started.challengeRef),
           }),
         ).toMatchObject({ ok: true });
-      }
-      const recipient = linked ? linkedEmail : orderEmail;
+      };
+      if (linkAt === "before-command") await confirmContact();
+      const alreadyStarted =
+        linkAt === "after-sent" || linkAt === "after-unknown";
+      const recipient = linked && !alreadyStarted ? linkedEmail : orderEmail;
       const notices = new BillingNotices({
         prisma: db.prisma,
         enrollments: grants,
@@ -442,38 +456,54 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
             resolve: (event) => notices.resolveNotice(event),
             canRead: () => Promise.resolve("denied"),
           },
-          recipients: {
-            exists: (id) => contacts.exists(id),
-            enumerate: (query) => contacts.enumerate(query),
-            binding: async (id, channel, source) => {
-              if (channel !== "email") return null;
-              const verified = await contacts.binding(id);
-              if (verified !== null) return verified;
-              return source?.status === "current" &&
-                source.purchaseRef !== undefined
-                ? {
-                    channel: "email",
-                    accountRef: id,
-                    contactRef: source.purchaseRef,
-                    contactRevision: 1,
-                  }
-                : null;
-            },
-            email: async (binding) =>
-              binding.accountRef === binding.contactRef
-                ? contacts.email(binding)
-                : value(
-                    await s.runtime.purchaseEmail(
-                      binding.accountRef,
-                      binding.contactRef,
-                    ),
-                  ),
-          },
+          recipients: assembleNotificationRecipients(
+            contacts,
+            s.runtime,
+            new TelegramAccountLinks(db.prisma),
+          ),
         },
         accounts,
       );
       const outbox = assembleBillingNotificationOutbox(db.prisma);
       const sent: string[] = [];
+      if (linkAt === "after-command" || alreadyStarted) {
+        while (
+          await outbox.relay("billing", async (envelope) => {
+            await notifications.acceptEvent(envelope);
+          })
+        ) {
+          /* stage the immutable order command before contact confirmation */
+        }
+        await notifications.sweep();
+        const queued = await db.prisma.notificationCommand.findMany({
+          where: { delivery: { notification: { accountId: s.buyer } } },
+        });
+        expect(queued).toHaveLength(1);
+        expect(JSON.parse(queued[0]?.payload ?? "{}")).toMatchObject({
+          contractVersion: "inside.notification-delivery.v2",
+          commandRevision: 1,
+          binding: { contactRef: purchase.purchaseRef },
+        });
+        if (alreadyStarted) {
+          while (
+            await notifications.transport.outbox.relay(
+              "emailSubscription",
+              async (envelope) => {
+                await notifications.acceptEvent(envelope);
+              },
+            )
+          ) {
+            /* admit the order command while its contact is still current */
+          }
+          await notifications.sweep((message) => {
+            sent.push(message.email);
+            return Promise.resolve({
+              state: linkAt === "after-unknown" ? "unknown" : "sent",
+            });
+          });
+        }
+        await confirmContact();
+      }
       for (let pass = 0; pass < 8; pass += 1) {
         while (
           await outbox.relay("billing", async (envelope) => {
@@ -482,9 +512,9 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         ) {
           /* drain source events */
         }
-        await notifications.sweep(async (message) => {
+        await notifications.sweep((message) => {
           sent.push(message.email);
-          return { state: "sent" };
+          return Promise.resolve({ state: "sent" });
         });
         for (const lane of ["emailSubscription", "emailResult"] as const)
           while (
@@ -492,10 +522,17 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
               lane,
               async (envelope) => {
                 if (lane === "emailSubscription") {
-                  const command = JSON.parse(envelope.payload);
+                  const command = z
+                    .object({
+                      commandRevision: z.number(),
+                      binding: z.object({ accountRef: z.string() }),
+                    })
+                    .parse(JSON.parse(envelope.payload));
                   if (command.binding.accountRef === s.buyer)
                     expect(envelope.version).toBe(
-                      linked
+                      linked &&
+                        (linkAt !== "after-command" ||
+                          command.commandRevision > 1)
                         ? "inside.notification-delivery.v1"
                         : "inside.notification-delivery.v2",
                     );
@@ -506,10 +543,20 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
           ) {
             /* drain delivery commands and results */
           }
-        if (sent.includes(recipient)) break;
+        if (!alreadyStarted && sent.includes(recipient)) break;
       }
       expect(sent.filter((email) => email === recipient)).toHaveLength(1);
       expect(sent).not.toContain(`${s.buyer}@example.test`);
+      if (linked && !alreadyStarted) expect(sent).not.toContain(orderEmail);
+      if (alreadyStarted) {
+        expect(sent).not.toContain(linkedEmail);
+        const deliveries = await notifications.readDeliveries(s.buyer);
+        expect(
+          deliveries.filter((delivery) => delivery.channel === "email"),
+        ).toMatchObject([
+          { state: linkAt === "after-unknown" ? "unknown" : "sent" },
+        ]);
+      }
       expect(
         value(await s.runtime.status(s.buyer, purchase.purchaseRef)).access,
       ).toBe("ready");

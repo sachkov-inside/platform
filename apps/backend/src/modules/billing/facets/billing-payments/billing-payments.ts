@@ -399,7 +399,7 @@ export class BillingPayments {
       });
       return initial === null
         ? { ok: true, value: null }
-        : this.purchaseEmail(accountId, initial.id);
+        : await this.purchaseEmail(accountId, initial.id);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "subscriptionEmail" },

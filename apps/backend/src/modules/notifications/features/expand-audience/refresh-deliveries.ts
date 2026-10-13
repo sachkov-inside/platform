@@ -24,7 +24,7 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
       state: "suppressed",
       recoverySkipped: false,
       nextCommandAt: { lte: deps.now() },
-      reason: { in: ["expired", "superseded"] },
+      reason: { in: ["expired", "superseded", "binding_conflict"] },
     },
     orderBy: [{ nextCommandAt: "asc" }, { id: "asc" }],
     take: 25,
@@ -92,12 +92,34 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
       )
         return;
       const binding = answer(facts.binding);
-      if (!binding || fingerprint(binding) !== fingerprint(old.binding)) return;
+      if (!binding) return;
+      // Only a correlated suppressed result proves that the order send never started.
+      // Promote that order binding to this Account's confirmed contact in a new command;
+      // sent/unknown effects and all other recipient changes keep their existing rules.
+      const orderContactPromotion =
+        old.contractVersion === "inside.notification-delivery.v2" &&
+        old.binding.channel === "email" &&
+        source.content.category === "subscription" &&
+        old.binding.contactRef === source.purchaseRef &&
+        binding.channel === "email" &&
+        binding.accountRef === old.binding.accountRef &&
+        binding.contactRef === binding.accountRef;
+      if (delivery.reason === "binding_conflict" && !orderContactPromotion)
+        return;
+      if (
+        fingerprint(binding) !== fingerprint(old.binding) &&
+        !orderContactPromotion
+      )
+        return;
       // Без адреса читателя команду не пересобрать: замена подождёт настройки доставки.
       if (deps.origin === undefined) return;
       const template = renderNotification(source, deps.origin);
       const command = {
         ...old,
+        contractVersion: orderContactPromotion
+          ? ("inside.notification-delivery.v1" as const)
+          : old.contractVersion,
+        binding,
         operationId: randomUUID(),
         commandRevision: old.commandRevision + 1,
         sourceEventId: event.messageId,

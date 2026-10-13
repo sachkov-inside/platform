@@ -37,7 +37,7 @@ import {
   NotificationOperationsController,
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
-import { hasText } from "../../infrastructure/contracts/text.js";
+import { assembleNotificationRecipients } from "./assemble-notification-recipients.js";
 
 @Module({
   imports: [
@@ -117,62 +117,11 @@ import { hasText } from "../../infrastructure/contracts/text.js";
                     : "denied";
               },
             },
-            recipients: {
-              enumerate: (query) => contacts.enumerate(query),
-              exists: (account) => contacts.exists(account),
-              email: async (binding) => {
-                if (binding.contactRef === binding.accountRef)
-                  return contacts.email(binding);
-                if (binding.contactRevision !== 1) return null;
-                const result = await payments.purchaseEmail(
-                  binding.accountRef,
-                  binding.contactRef,
-                );
-                if (!result.ok)
-                  throw new Error("notification_order_contact_unavailable");
-                return result.value;
-              },
-              binding: async (account, channel, source) => {
-                if (channel === "email") {
-                  const verified = await contacts.binding(account);
-                  if (verified !== null) return verified;
-                  if (
-                    source?.status !== "current" ||
-                    source.accountId !== account ||
-                    source.purchaseRef === undefined
-                  )
-                    return null;
-                  const result = await payments.purchaseEmail(
-                    account,
-                    source.purchaseRef,
-                  );
-                  if (!result.ok)
-                    throw new Error("notification_order_contact_unavailable");
-                  return result.value === null
-                    ? null
-                    : {
-                        channel: "email",
-                        accountRef: account,
-                        contactRef: source.purchaseRef,
-                        contactRevision: 1,
-                      };
-                }
-                const result = await telegram.readBinding({
-                  accountId: account,
-                });
-                if (!result.ok)
-                  throw new Error("notification_binding_unavailable");
-                return hasText(result.binding?.telegramIdentityRef) &&
-                  hasText(result.binding.accountRef)
-                  ? {
-                      channel: "telegram",
-                      ...result.binding,
-                      accountRef: result.binding.accountRef,
-                      telegramIdentityRef: result.binding.telegramIdentityRef,
-                    }
-                  : null;
-              },
-            },
+            recipients: assembleNotificationRecipients(
+              contacts,
+              payments,
+              telegram,
+            ),
           },
           accounts,
           config.notifications?.quarantineCapacity,
