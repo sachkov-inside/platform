@@ -5,7 +5,8 @@ identity determine readiness; the machine that ran a check does not.
 
 ## Collect once
 
-1. Select the exact final source SHA. Record each required check's command or CI job, actual source,
+1. Select and freeze the exact final source SHA before dispatching the release workflow. Keep that
+   selection through delivery when `main` advances. Record each required check's command or CI job, actual source,
    outcome, and log or artifact reference. Read the actual checkout SHA for reusable workflows.
 2. Reuse successful exact-source CI evidence for all covered checks. `pnpm check` defines completion;
    its static, unit, UI, and web end-to-end phases may be proved by their corresponding CI jobs.
@@ -34,7 +35,8 @@ Harness documentation alone does not require an application release. Keep the ac
 selected SHA unless the approved application diff changes. Deliver documentation through its PR;
 apply the owner's explicit current-session override while that PR completes.
 
-The course preflight v2 receipts name coverage instead of local aggregate commands. Each receipt
+The course preflight v2 binds `selectedSourceSha` to the manifest, publication and all coverage.
+Its receipts name coverage instead of local aggregate commands. Each receipt
 binds its source and evidence reference; CI receipts also identify the successful workflow and job.
 The operator verifies those references against GitHub before submitting the receipt. V1 receipts
 remain valid historical inputs and retain their original requirements.

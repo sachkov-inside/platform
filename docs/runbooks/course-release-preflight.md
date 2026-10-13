@@ -116,7 +116,7 @@ Docker CLI. Каждый случай
 ## Проверяемый preflight
 
 `pnpm release:course:preflight <evidence.json> <manifest.json> <runtime.tar.gz> [previous-manifest.json]`
-проверяет текущий локальный `origin/main`, ровно одну успешную квитанцию каждого check на том же SHA,
+binds v2 `selectedSourceSha` (frozen before publication), exactly one successful receipt per coverage item,
 publication run, immutable status, bundle hash, `RepoDigests` скачанных образов и binding предыдущего
 manifest. Перед командой выполнить `git fetch origin main:refs/remotes/origin/main`.
 Она ничего не выкладывает и не заменяет host preflight. Evidence — аттестация оператора с raw logs
@@ -130,6 +130,7 @@ jobs; Compose references development and production jobs and their cleanup. Pres
 ```json
 {
   "schemaVersion": "inside.course-release-preflight.v2",
+  "selectedSourceSha": "<frozen-release-40-hex>",
   "checks": [
     {"name":"check","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
     {"name":"integration","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<parallel-and-serial-jobs>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},

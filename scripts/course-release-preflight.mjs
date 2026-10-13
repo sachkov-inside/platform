@@ -80,6 +80,7 @@ const evidenceSchema = z.union([
   legacyEvidenceSchema,
   legacyEvidenceSchema.extend({
     schemaVersion: z.literal("inside.course-release-preflight.v2"),
+    selectedSourceSha: sourceShaSchema,
     checks: z.array(
       z.union([
         z.strictObject({
@@ -128,8 +129,12 @@ export function assessCourseRelease(value, now) {
   if (!parsed.success) throw new Error("invalid preflight evidence");
   const input = parsed.data;
   const { manifest, evidence } = input;
-  if (manifest.source.sha !== input.currentMainSha)
-    throw new Error("release source is not current main");
+  const selectedSourceSha =
+    evidence.schemaVersion === "inside.course-release-preflight.v2"
+      ? evidence.selectedSourceSha
+      : input.currentMainSha;
+  if (manifest.source.sha !== selectedSourceSha)
+    throw new Error("release source does not match selected source");
   let telemetryExcluded = false;
   const requiredChecks =
     evidence.schemaVersion === "inside.course-release-preflight.v2"

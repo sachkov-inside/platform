@@ -31,6 +31,9 @@ git log --oneline "$current"..origin/main
 
 Номер следующего выпуска — `current` + 1. Выпускается ровно выбранный `main`.
 
+Freeze the selected source before dispatching publication; later main movement does not select a
+different source for an in-flight release. Keep every receipt bound to the frozen source.
+
 Use the [verification evidence policy](../agents/release-evidence.md) to reuse exact-source CI
 coverage and fill only missing checks. Release CI checks its actual selected source.
 

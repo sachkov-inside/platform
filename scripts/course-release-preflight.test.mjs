@@ -254,6 +254,7 @@ function ciFixture() {
     evidence: {
       ...input.evidence,
       schemaVersion: "inside.course-release-preflight.v2",
+      selectedSourceSha: sha,
       checks: names.map((name) => ({
         name,
         sourceSha: sha,
@@ -344,4 +345,20 @@ test("v2 requires CI run identity and successful conclusion", () => {
       ),
     /invalid preflight evidence/u,
   );
+});
+
+test("v2 freezes selected source while main advances and refuses mismatching proof", () => {
+  const input = ciFixture();
+  input.currentMainSha = "c".repeat(40);
+  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+  input.evidence.selectedSourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(input, now), /selected source/u);
+  input.evidence.selectedSourceSha = sha;
+  const proof = input.evidence.checks[0];
+  assert.ok(proof);
+  proof.sourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  const legacy = fixture();
+  legacy.currentMainSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(legacy, now), /selected source/u);
 });
