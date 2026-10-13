@@ -1,9 +1,9 @@
 # Developer process
 
-Pipeline skills in `.agents/skills` supply workflows; this contract owns project routes and owner overrides.
+Pipeline skills in `.agents/skills` supply workflows; this contract owns project completion requirements and owner overrides.
 Keep synchronized skills unchanged. Put project exceptions here and verification commands in `AGENTS.md`.
 
-## Routes
+## Completion requirements
 
 Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
 The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a manual skill.
@@ -12,12 +12,12 @@ Preparation completes its own result and recommends the next stage; the owner as
 Readiness labels, status requests, resumed chats, and repository membership supply context, not new execution assignments.
 Resumption preserves existing authorization for the assigned work.
 
-| Requested result | Route | Completion |
-|---|---|---|
-| Explanation, opinion, investigation, or discussion | Read and discuss | Answer with evidence; change files only when requested |
-| Runnable design or state-model comparison | Build the requested preview | Show the requested variants and verify the interaction being evaluated |
-| Documentation-only change | Edit, verify claims, review before integration | Pass `pnpm docs:check` and any check needed for the changed claims |
-| Product implementation | Implement, review, pull request | Pass the product check in `AGENTS.md` on the final head and required CI |
+| Owner-requested deliverable | Completion requirements |
+|---|---|
+| Explanation, opinion, investigation, or discussion | Answer with evidence; change files only when requested |
+| Runnable design or state-model comparison | Provide an accessible preview of the requested variants and verify the interaction being evaluated |
+| Documentation-only change | Verify claims, pass `pnpm docs:check` and focused checks, and review before integration |
+| Product implementation | Pass the product check in `AGENTS.md` on the final head, independent review, and required CI |
 
 A prototype remains outside production imports and uses fixtures or in-memory state for mutations.
 For UI prototypes, use the existing Storybook foundation. Open the requested variants in a browser;
@@ -46,15 +46,17 @@ write their failing tests first. A criterion with no behaviour needs no test.
 
 Keep single-session work in its current writing worktree. Native workers inherit the current agent and model
 unless the owner selects otherwise. Codex work stays in Codex, including native review subagents.
-Herdr manages independent project sessions; a native subagent is not a new owner session.
+Herdr manages independent owner or project sessions; a native subagent is not a new owner session.
 Name another runtime or session only from verified runtime information.
 
 When the owner invokes `implement-spec`, follow its original body with these project overrides.
 A specification uses one integration branch and final PR; independent assigned tasks use separate PRs.
 Coordinate only the assigned specification or tickets and the coordinator's own workers and resources.
-Keep a small assignment in one writing session. When independent assigned tasks justify separate writers,
-dispatch through Herdr under the owner's worktree rules; each writer owns a separate writing worktree.
-Use native subagents for read-only review. Preserve other project sessions and their resources.
+Use native implementer and merger workers for the assigned specification.
+Each implementer owns an isolated writing worktree based on the integration branch.
+Every writing context stays in its assigned worktree. Use native subagents for independent review.
+Use Herdr for separately assigned owner or project sessions under the owner's worktree rules.
+Preserve other project sessions and their resources.
 Serialize shared runtime/Compose operations under singleton ownership.
 
 Keep the task map in issues and PRs: dependencies, decisions, session IDs, resource owners, commits,
@@ -100,11 +102,11 @@ from that base. Supply the assignment and applicable standards. Reviewers use na
 when unavailable, use a separate review process with the same inputs.
 Each finding is fixed, moved to a linked issue, or rejected with evidence.
 After fixes, review the changed findings again and record outcomes.
-Documentation changes receive this review before integration. Prototype preview and discussion use the scoped rule under Routes.
+Documentation changes receive this review before integration. Prototype preview and discussion use the scoped completion requirements.
 
 ## Completion and handoff
 
-Completion follows the route under Routes. Preserve the command's actual exit code and checked scope.
+Completion follows the owner-requested deliverable's requirements above. Preserve the command's actual exit code and checked scope.
 Documentation-only delivery requires its focused checks; unrelated application suites are not a local completion gate.
 Product delivery requires the full product check. Required CI must pass before integration.
 

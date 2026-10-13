@@ -23,7 +23,7 @@ Inspect the catalog with `docs-list`, component documentation with `docs-show`, 
 another worktree, inspect the local stories and catalog source and review the owned preview through
 browser tools. Report that fallback; a port conflict alone does not require a new agent session.
 Runtime MCP bindings live in `.mcp.json` or `.codex/config.toml`; change them only when the task needs
-a durable integration change. Follow [WORKFLOW.md](../../WORKFLOW.md#routes) for prototype completion.
+a durable integration change. Follow [WORKFLOW.md](../../WORKFLOW.md#completion-requirements) for prototype completion.
 
 ## Delivery contract
 

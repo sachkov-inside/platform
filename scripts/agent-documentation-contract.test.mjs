@@ -133,7 +133,7 @@ describe("harness routing contract", () => {
       );
       assert.ok(failures.some((failure) => failure.includes("owner-invoked")));
       assert.ok(
-        failures.some((failure) => failure.includes("integration route")),
+        failures.some((failure) => failure.includes("integration contract")),
       );
     } finally {
       rmSync(root, { recursive: true, force: true });

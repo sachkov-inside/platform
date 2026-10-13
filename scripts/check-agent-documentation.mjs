@@ -223,14 +223,14 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         path,
         content,
         "A specification uses one integration branch and final PR",
-        "retain the coordinated specification integration route",
+        "retain the coordinated specification integration contract",
       );
       rejectText(
         failures,
         path,
         content,
-        "are not part of this route",
-        "remove the superseded specification integration route prohibition",
+        "| Requested result | Route |",
+        "completion requirements must not select a pipeline stage",
       );
     }
     if (path === "AGENTS.md") {

@@ -25,7 +25,7 @@ historical sources.
 
 ## Commands
 
-Choose verification from the requested deliverable in [WORKFLOW.md](WORKFLOW.md#routes).
+Verification follows the requested deliverable in [WORKFLOW.md](WORKFLOW.md#completion-requirements).
 For product implementation, `pnpm check` defines done: it must be green on the final head.
 `pnpm check:full` and the Compose smoke below are the checks before a release.
 
