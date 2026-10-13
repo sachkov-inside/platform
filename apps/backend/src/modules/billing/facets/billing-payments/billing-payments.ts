@@ -425,7 +425,6 @@ export class BillingPayments {
                 fiscalization: "pending",
                 createdAt: now,
                 updatedAt: now,
-
               },
             });
             await tx.billingPurchaseCommand.create({
@@ -556,7 +555,6 @@ export class BillingPayments {
         ),
       }),
     };
-
   }
 
   async status(

@@ -626,6 +626,40 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     );
   });
 
+  test("покупатель без подтверждённого контакта продолжает заказ с неизменным email чека", async () => {
+    const s = await scenario({ verifyContact: false });
+    const { contactRevision: _firstRevision, ...firstInput } =
+      await s.command();
+    const original = value(
+      await s.runtime.purchase(s.buyer, {
+        ...firstInput,
+        email: "order@example.test",
+      }),
+    );
+    const { contactRevision: _retryRevision, ...retryInput } =
+      await s.command();
+    const retry = { ...retryInput, email: "changed@example.test" };
+    expect(value(await s.runtime.purchase(s.buyer, retry))).toEqual(original);
+    expect(s.requests()).toHaveLength(1);
+    expect(s.requests()[0]).toMatchObject({
+      Receipt: { Email: "order@example.test" },
+    });
+    expect(
+      value(await s.runtime.purchaseEmail(s.buyer, original.purchaseRef)),
+    ).toBe("order@example.test");
+    s.outcome("CONFIRMED");
+    expect(value(await s.runtime.purchase(s.buyer, retry))).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(value(await s.runtime.purchase(s.buyer, retry))).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      access: "ready",
+    });
+    expect(s.requests()).toHaveLength(1);
+  });
+
   test("повторная оплата из новой вкладки сверяет банк и продолжает прежнюю разовую покупку", async () => {
     const s = await scenario();
     const original = value(
@@ -844,7 +878,6 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       }),
     ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
     expect(s.requests()).toHaveLength(1);
-
   });
 
   test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
