@@ -42,6 +42,10 @@
   --action-hover: oklch(0.41 0.15 36);
   --body-muted: oklch(0.4 0.015 128);
   --callout-note: oklch(0.45 0.02 128);
+  --model-comparison-ink: #42623e;
+  --model-comparison-surface: #f0f5ef;
+  --model-comparison-border: #d0dfcd;
+  --model-comparison-selected-text: #fff;
   --callout-tip: oklch(0.47 0.08 210);
   --callout-warning: oklch(0.52 0.12 75);
   --callout-example: oklch(0.48 0.1 255);
@@ -116,6 +120,10 @@
   --eyebrow: #66655f;
   /* Публичная оболочка светлая всегда, поэтому виды врезок держат здесь свои светлые значения. */
   --callout-note: oklch(0.45 0.02 128);
+  --model-comparison-ink: #42623e;
+  --model-comparison-surface: #f0f5ef;
+  --model-comparison-border: #d0dfcd;
+  --model-comparison-selected-text: #fff;
   --callout-tip: oklch(0.47 0.08 210);
   --callout-warning: oklch(0.52 0.12 75);
   --callout-example: oklch(0.48 0.1 255);
@@ -161,6 +169,10 @@
   --eyebrow: var(--muted-foreground);
   --reader-foreground: var(--muted-foreground);
   --callout-note: oklch(0.78 0.02 120);
+  --model-comparison-ink: #bfd4b9;
+  --model-comparison-surface: #20271f;
+  --model-comparison-border: #40523b;
+  --model-comparison-selected-text: #182216;
   --callout-tip: oklch(0.76 0.09 210);
   --callout-warning: oklch(0.79 0.12 80);
   --callout-example: oklch(0.76 0.11 255);

@@ -311,7 +311,7 @@ export function ProductTaskView({
               {page.relatedMaterials.map((material) => (
                 <li key={material.slug}>
                   <IntentPrefetchLink
-                    className="flex min-h-14 items-center gap-3 rounded-xl bg-muted/65 px-4 py-2 text-base no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+                    className="flex min-h-11 items-center gap-3 sm:min-h-14 rounded-xl bg-muted/65 px-4 py-2 text-base no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
                     href={materialPath(material.slug)}
                   >
                     <span className="min-w-0 flex-1 text-sm font-medium leading-6 [overflow-wrap:anywhere]">

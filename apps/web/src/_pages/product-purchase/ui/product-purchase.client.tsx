@@ -103,7 +103,7 @@ export function ProductPurchase({
                         checked={
                           offer.paymentOption.id === selected.paymentOption.id
                         }
-                        className="size-5 shrink-0 accent-primary"
+                        className="size-4 shrink-0 sm:size-5 accent-primary"
                         name="product-offer"
                         onChange={() => {
                           setSelectedId(offer.paymentOption.id);

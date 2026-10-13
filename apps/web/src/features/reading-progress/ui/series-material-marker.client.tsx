@@ -23,7 +23,9 @@ export function SeriesMaterialMarker({
       aria-label={`Материал ${String(ordinal)}${isRead ? ", изучен" : ""}`}
       className={cn(
         "grid place-items-center rounded-full text-xs font-bold",
-        statusOnly ? "size-6" : "size-8 ring-4 ring-background",
+        statusOnly
+          ? "size-5 sm:size-6"
+          : "size-6 ring-4 ring-background sm:size-8",
         isRead ? "bg-accent text-accent-foreground" : "bg-primary text-white",
       )}
       data-series-marker
@@ -31,7 +33,11 @@ export function SeriesMaterialMarker({
       role="img"
     >
       {isRead ? (
-        <Check aria-hidden="true" className="size-5" strokeWidth={3} />
+        <Check
+          aria-hidden="true"
+          className="size-4 sm:size-5"
+          strokeWidth={3}
+        />
       ) : (
         <span aria-hidden="true">{ordinal}</span>
       )}

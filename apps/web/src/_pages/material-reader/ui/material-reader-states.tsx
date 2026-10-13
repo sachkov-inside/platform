@@ -114,7 +114,10 @@ export function MaterialReaderPending({
           >
             <ReaderBodySkeleton />
           </div>
-          <MaterialReaderFooter seriesContext={seriesContext} />
+          <MaterialReaderFooter
+            seriesContext={seriesContext}
+            format={material.format.slug}
+          />
         </div>
       </ReaderReturnNavigation>
     </div>
@@ -289,7 +292,10 @@ export function MaterialReaderAccess({
               </div>
             </section>
             {readingAction}
-            <MaterialReaderFooter seriesContext={seriesContext} />
+            <MaterialReaderFooter
+              seriesContext={seriesContext}
+              format={material.format.slug}
+            />
           </div>
         </ReaderReturnNavigation>
       </div>

@@ -172,10 +172,10 @@ function ChannelToggle({
   readonly onChange: (channel: NotificationChannel, value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 text-sm leading-6">
+    <label className="flex max-sm:min-h-11 items-start gap-3 text-sm leading-6">
       <input
         checked={checked}
-        className="mt-1 size-5 shrink-0 accent-primary"
+        className="mt-1 size-4 shrink-0 sm:size-5 accent-primary"
         disabled={disabled}
         name={`notification-channel-${channel}`}
         onChange={(event) => {

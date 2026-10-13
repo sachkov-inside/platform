@@ -1,3 +1,4 @@
+import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
@@ -123,5 +124,31 @@ export const CollapsibleCallouts: Story = {
 };
 export const CollapsibleCalloutsMobile: Story = {
   ...CollapsibleCallouts,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ModelComparison: Story = {
+  args: {
+    blocks: modelComparisonBlocks,
+    comparison: { at: 1, labels: ["Claude", "GPT", "DeepSeek", "GLM", "Kimi"] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole("button")).toHaveLength(5);
+    await expect(
+      canvas.getByText("Продолжение урока после сравнения."),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Kimi" }));
+    await expect(canvas.getByRole("region", { name: "Kimi K3" })).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "Ссылка на тарифы" }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector('[data-material-block="callout"]'),
+    ).toBeNull();
+  },
+};
+export const ModelComparisonMobile: Story = {
+  ...ModelComparison,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
