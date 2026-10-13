@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-test("monitoring connectivity renderer process contract", () => {
+test("monitoring configuration, pilot identity and MCP sample contracts", () => {
   const result = spawnSync(
     "python3",
     [
@@ -14,7 +14,7 @@ test("monitoring connectivity renderer process contract", () => {
       "-s",
       "scripts",
       "-p",
-      "test_monitoring_config.py",
+      "test_monitoring_*.py",
     ],
     { encoding: "utf8", timeout: 30_000 },
   );

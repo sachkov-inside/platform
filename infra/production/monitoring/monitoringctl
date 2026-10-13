@@ -45,7 +45,7 @@ case "${1:-}" in
     printf 'b51d8a76aa2a9156a55d501aca6276fae09e262259a5e4e831d2c2222f084e63  %s\n' "$archive" | sha256sum --check --status
     tar -xzf "$archive" -C "$release" --strip-components=1 node_exporter-1.12.1.linux-amd64/node_exporter
     chmod 755 "$release/node_exporter"
-    if [[ -L "$base/current" ]]; then
+    if [[ -L "$base/current" && "$(readlink "$base/current")" != "$release" ]]; then
       ln -sfn "$(readlink "$base/current")" "$base/previous"
     fi
     ln -sfn "$release" "$base/current.next"
@@ -56,7 +56,7 @@ case "${1:-}" in
     systemctl restart inside-node-exporter.service
     systemctl start inside-watchdog.service
     compose pull
-    compose up -d
+    compose up -d --force-recreate victoria-metrics grafana
     ready=false
     for attempt in {1..30}; do
       if "$base/current/monitoringctl" verify >/dev/null 2>&1; then ready=true; break; fi
@@ -83,7 +83,7 @@ case "${1:-}" in
     install -m 644 "$base/current/inside-node-exporter.service" /etc/systemd/system/inside-node-exporter.service
     systemctl daemon-reload
     systemctl restart inside-node-exporter.service
-    compose up -d
+    compose up -d --force-recreate victoria-metrics grafana
     "$base/current/monitoringctl" verify
     ;;
   stop)

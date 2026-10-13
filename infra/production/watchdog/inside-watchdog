@@ -186,7 +186,7 @@ check_containers() {
     esac
     running=0 healthy=0 unhealthy=0 down=0 completed=0 unknown=0 ooms=0
     if ! listing="$(docker ps --all --filter "label=com.docker.compose.project=$project" \
-      --format '{{.Names}}	{{.State}}	{{.Status}}' 2>/dev/null)"; then
+      --format '{{.Names}}	{{.State}}	{{.Status}}	{{.Label "com.docker.compose.service"}}' 2>/dev/null)"; then
       hold container.
       return
     fi
@@ -242,7 +242,7 @@ check_containers() {
       metric containers "inside_watchdog_container_count{project=\"$label\",state=\"$state\"}" "${!state}"
     done
     for service in $required; do
-      present="$(awk -F '\t' -v service="$service" '$4 == service { count++ } END { print count+0 }' <<<"$listing")"
+      present="$(awk -F '\t' -v service="$service" '$4 == service && $2 == "running" { count++ } END { print count+0 }' <<<"$listing")"
       metric containers "inside_watchdog_service_container_count{project=\"$label\",service=\"$service\"}" "$present"
     done
     metric containers "inside_watchdog_container_oom_count{project=\"$label\"}" "$ooms"
@@ -385,9 +385,12 @@ check_database() {
       if (NF != 2 || $2 !~ /^[0-9]+$/ || seen[$1]++) bad=1
     }
     END { exit (bad || !seen["purchases"] || !seen["fulfillment"] ||
-      !seen["notification_outbox"] || !seen["email_effects"] || !seen["billing_queue_idle"]) }
+      !seen["notification_outbox"] || !seen["email_effects"] || !seen["billing_queue_idle"] ||
+      !seen["web_telemetry_growth"] || !seen["web_telemetry_digest"] || !seen["web_telemetry_size"] ||
+      !seen["web_telemetry_dropped"] || !seen["web_telemetry_retention"]) }
     ' <<<"$rows"; then
     hold db.
+    hold telegram.db.
     observe watchdog.database 2 "Сторож не может прочитать базу Platform"
     return
   fi

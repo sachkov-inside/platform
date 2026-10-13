@@ -11,7 +11,7 @@ def command(*args):
 
 
 def unit(name):
-    return dict(line.split("=", 1) for line in command("systemctl", "show", name, "--property=ControlGroup,CPUUsageNSec,MemoryPeak,InvocationID,ActiveState").splitlines())
+    return dict(line.split("=", 1) for line in command("systemctl", "show", name, "--property=ControlGroup,CPUUsageNSec,MemoryPeak,InvocationID,ActiveState,MainPID").splitlines())
 
 
 def cgroup(pid):
@@ -30,16 +30,40 @@ def mem_available():
     return int(row.split()[1]) * 1024
 
 
+def identities(ids):
+    containers = []
+    template = '{"id":{{json .Id}},"pid":{{json .State.Pid}},"started_at":{{json .State.StartedAt}},"restart_count":{{json .RestartCount}},"running":{{json .State.Running}}}'
+    for identifier in ids:
+        value = json.loads(command("docker", "inspect", "--format", template, identifier))
+        if not isinstance(value, dict) or value.get("running") is not True or not isinstance(value.get("pid"), int) or value["pid"] <= 0:
+            raise RuntimeError("Monitoring container identity is unavailable")
+        containers.append(value)
+    exporter = unit("inside-node-exporter.service")
+    if exporter["ActiveState"] != "active" or not exporter["InvocationID"] or exporter["MainPID"] == "0":
+        raise RuntimeError("node_exporter identity is unavailable")
+    return containers, {key: exporter[key] for key in ("ControlGroup", "InvocationID", "MainPID", "ActiveState")}
+
+
+def require_stable(expected, observed, previous_cpu, current_cpu):
+    if expected != observed:
+        raise RuntimeError("A monitoring process restarted; discard the pilot")
+    if len(previous_cpu) != len(current_cpu) or any(current < previous for previous, current in zip(previous_cpu, current_cpu)):
+        raise RuntimeError("A monitoring CPU counter reset; discard the pilot")
+
+
 def main():
     ids = command("docker", "ps", "--filter", "label=com.docker.compose.project=inside-production-monitoring", "--format", "{{.ID}}").splitlines()
     if len(ids) != 2:
         raise RuntimeError("Both monitoring containers must run throughout the pilot")
+    expected_identities = identities(ids)
     groups = [cgroup(command("docker", "inspect", "--format", "{{.State.Pid}}", identifier)) for identifier in ids]
     exporter = unit("inside-node-exporter.service")
     if exporter["ActiveState"] != "active":
         raise RuntimeError("node_exporter must be active")
     groups.append(Path("/sys/fs/cgroup") / exporter["ControlGroup"].lstrip("/"))
-    initial = sum(read_group(group)[0] for group in groups)
+    previous_cpu = [read_group(group)[0] for group in groups]
+    require_stable(expected_identities, identities(ids), previous_cpu, previous_cpu)
+    initial = sum(previous_cpu)
     watchdog = unit("inside-watchdog.service")
     invocation = watchdog["InvocationID"]
     watchdog_cpu = 0.0
@@ -49,7 +73,12 @@ def main():
     samples = 0
     start = time.monotonic()
     while True:
+        observed_identities = identities(ids)
         readings = [read_group(group) for group in groups]
+        current_cpu = [value for value, _ in readings]
+        require_stable(expected_identities, observed_identities, previous_cpu, current_cpu)
+        require_stable(expected_identities, identities(ids), previous_cpu, current_cpu)
+        previous_cpu = current_cpu
         watchdog = unit("inside-watchdog.service")
         if watchdog["ActiveState"] == "inactive" and watchdog["InvocationID"] != invocation:
             invocation = watchdog["InvocationID"]
@@ -64,7 +93,10 @@ def main():
         samples += 1
         elapsed = time.monotonic() - start
         if elapsed >= 600:
-            cpu = sum(value for value, _ in readings) - initial + watchdog_cpu
+            # Check again after the final counters, including restarts between this sample's reads.
+            final_cpu = [read_group(group)[0] for group in groups]
+            require_stable(expected_identities, identities(ids), current_cpu, final_cpu)
+            cpu = sum(current_cpu) - initial + watchdog_cpu
             cores = len([line for line in Path("/proc/stat").read_text().splitlines() if line.startswith("cpu") and line[3:4].isdigit()])
             cpu_percent = 100 * cpu / elapsed / cores
             break

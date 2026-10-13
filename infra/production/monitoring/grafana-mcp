@@ -12,6 +12,7 @@ else
   export GRAFANA_URL="${GRAFANA_URL:-http://host.docker.internal:3304}"
 fi
 exec docker run --rm --interactive --init --name "${INSIDE_METRICS_MCP_CONTAINER_NAME:-inside-metrics-mcp-$$}" --read-only --cap-drop ALL \
+  --user "$(id -u):$(id -g)" \
   --security-opt no-new-privileges --memory 128m --cpus 0.25 --pids-limit 64 \
   "${network_args[@]}" \
   --mount "type=bind,source=$token_file,target=/run/secrets/viewer-token,readonly" \

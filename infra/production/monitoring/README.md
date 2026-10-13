@@ -1,36 +1,39 @@
 # Private production metrics (#1404)
 
-The monitoring kit provides Grafana OSS, single-node VictoriaMetrics and an unprivileged
-node_exporter. It runs beside the application. The coordinator owns production application,
-monitoring installation and rollback. Obtain the production runtime lease before any mutation.
-For the current rollout, #854 holds that lease; the worker must never restart production.
+This branch prepares Grafana OSS, single-node VictoriaMetrics and an unprivileged node_exporter
+for local verification and a ready PR. Production installation is not authorized or scheduled.
+The owner requires server expansion and an explicit deployment decision first. #854 retains
+exclusive production ownership. This task makes no runtime changes or lease request.
+Production observations, listener verification and the ten-minute resource pilot remain pending
+in #1404. The PR does not close that ticket automatically.
 
 ```text
 release-owned watchdog → readable atomic textfile → native node_exporter
 Telegram loopback /metrics ───────────────────────→ VictoriaMetrics → Grafana → official MCP
 ```
 
-## Installation and runtime window
+## Future installation reference
 
 Prerequisites: Ubuntu amd64, Docker Compose, Python 3, curl, openssl, sha256sum, systemd and an
 application release containing this metrics-capable watchdog. The deployed release installs
 watchdog code and units from its digest-pinned backend image. `monitoringctl` never installs
 watchdog code, and its drop-in changes only `ReadWritePaths`.
 
-An old application release such as v35 cannot provide the new textfile. First deliver the checked
-application release through the existing release procedure. Coordinate its maintenance window
-separately: an application release restarts application processes. A monitoring-only update does
+An old application release such as v35 cannot provide the new textfile. A future checked
+application release must provide it through the existing release procedure. This dependency is
+documented, not scheduled. After the owner authorizes deployment, coordinate its window separately: an application release restarts application processes. A monitoring-only update does
 not restart the application. Do not manually pin a different watchdog executable to the monitoring
 bundle; its SQL must follow the deployed application's schema.
 
-Reserve approximately 20 minutes **after images are available and the application prerequisite is
-satisfied**: 2–5 minutes for installation/startup, up to 2 minutes for ingestion and inspection,
+For a future deployment, estimate approximately 20 minutes **after server expansion, explicit
+owner approval, available images and the application prerequisite**: 2–5 minutes for installation/startup, up to 2 minutes for ingestion and inspection,
 10 minutes for the pilot, and 3 minutes for stop/rollback contingency. This is a planning estimate,
 not a measured production duration. Cold image downloads and the application release need extra
 lease time. Installation starts the existing watchdog once and restarts only node_exporter and
 monitoring containers. State the application release's expected downtime using its release plan.
 
-From the checked checkout, after the lease is granted:
+Future reference only. Run from the checked checkout after explicit owner deployment approval
+and coordinator confirmation of exclusive runtime ownership:
 
 ```bash
 sudo bash infra/production/monitoring/monitoringctl install
@@ -54,7 +57,7 @@ configuration with `install` when the Telegram loopback setting changes.
 
 Run `update` from the new clean, checked checkout. It keeps credentials and data, records
 `previous`, selects the new bundle, refreshes scrape configuration, restarts node_exporter and
-recreates only changed monitoring containers. The application remains under its release owner.
+recreates both monitoring containers to refresh bind-mounted scrape configuration. The application remains under its release owner.
 If startup or `verify` fails, immediately run rollback, or stop on first installation:
 
 ```bash
@@ -97,7 +100,8 @@ New trusted project sessions discover the repo-relative launcher. Codex project 
 loaded only for trusted projects; see [official MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
 and [project configuration](https://learn.chatgpt.com/docs/config-file/config-basic).
 Global Codex settings are unchanged. Start sessions from the repository root. The launcher reads
-the token file, uses stdio, pins the official Docker image, disables write tools and anonymous
+the token file, uses stdio, runs the official binary with the operator UID/GID to read the mode-0600 token,
+pins the official Docker image, disables write tools and anonymous
 usage reporting, and enables datasource, Prometheus, dashboard, search, alerting and navigation
 categories. It preserves instant/range PromQL and metric/label discovery. It does not disable queries.
 
@@ -134,8 +138,9 @@ files. During a release, suppression preserves the completed timestamp and obser
 
 Container `running`, `healthy`, `unhealthy`, `unknown`, `down` and successful one-shot `completed`
 states are separate. Running without a healthcheck is `unknown`, not healthy. Container counts
-report discovered states. A separate bounded required-service list reports service container counts;
-zero means missing, not healthy. This detection has no new business threshold.
+report discovered states. A separate bounded required-service list reports **running** service container counts;
+an exited required API, web or worker has count zero even after exit code 0. Successful migration
+containers remain completed and are excluded from the required long-running list. This detection has no new business threshold.
 Telegram counters support reset-aware `rate`/`increase`. Its gauges can preserve an earlier
 reconciliation cycle even when `/metrics` returns 200. HTTP scrape freshness does not prove
 reconciliation freshness; inspect readiness, source ages and the gauge's own meaning together.
@@ -163,9 +168,12 @@ range points at 11000 and label scans at 5000. VM stops ingestion below 1 GiB fr
 The read-only pilot measures at least 600 seconds. It reports a conservative resident-memory upper
 bound from cgroups plus watchdog peak, CPU as a percentage of total host capacity, minimum host
 MemAvailable and total monitoring data. Targets: memory ≤768 MiB, average CPU ≤5%, MemAvailable
-≥700 MiB and data <2 GiB. A missing/restarted cgroup invalidates the pilot. If any target fails, stop
+≥700 MiB and data <2 GiB. The pilot compares Docker ID, PID, StartedAt and RestartCount plus node_exporter InvocationID,
+MainPID and ControlGroup before, during and after measurement. Any identity change, unavailable
+cgroup or decreasing CPU counter invalidates the pilot, including reuse of the same cgroup path. If any target fails, stop
 **only** monitoring, save the sanitized evidence and report the blocker. Leave the application running.
-The worker does not run this production pilot; the coordinator runs it after the lease and acceptance.
+The worker does not run this production pilot. A future coordinator may run it only after server
+expansion, explicit owner deployment approval and confirmed runtime ownership.
 
 Record checked commit, image versions/digests, watchdog release, listener addresses, sample period,
 actual measurements and datasource/MCP responses without credentials or customer data. Inspect
@@ -184,7 +192,8 @@ pnpm check
 The real smoke owns its random Compose project and loopback ports. It verifies real node_exporter
 textfile ingestion, VM HTTP queries, Grafana provisioning, Viewer write rejection, official MCP
 initialize/tools/list, metric/label discovery, instant/range queries and dashboard/alert reads.
-It cleans up containers and volumes on failure and success. Before cleanup, failures print service
+An outer supervisor cleans up its process group, containers and volumes on success, failure,
+timeout, interruption and worker SIGKILL. Cleanup errors preserve the original failure status. Before cleanup, failures print service
 logs and the last captured HTTP status/body; optional `--evidence-directory PATH` preserves them.
 Its bridge network and 64 MiB tmpfs isolate it from production and the singleton application stand.
 Only the smoke lowers VM's free-space floor to 4 MiB for that tmpfs; production keeps 1 GiB.

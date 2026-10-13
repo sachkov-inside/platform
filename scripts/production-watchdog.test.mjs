@@ -176,6 +176,111 @@ describe("production watchdog", () => {
     }
   });
 
+  it("uses Compose service labels and does not equate running without a healthcheck with healthy", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "ps-inside-platform-production",
+        "custom-api-name\trunning\tUp 1 hour\tapi\n",
+      );
+      assertRun(fixture);
+      const metrics = readFileSync(
+        resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom"),
+        "utf8",
+      );
+      assert.match(
+        metrics,
+        /service_container_count\{project="platform",service="api"\} 1/u,
+      );
+      assert.match(
+        metrics,
+        /service_container_count\{project="platform",service="web"\} 0/u,
+      );
+      assert.match(
+        metrics,
+        /container_count\{project="platform",state="healthy"\} 0/u,
+      );
+      assert.match(
+        metrics,
+        /container_count\{project="platform",state="unknown"\} 1/u,
+      );
+      assert.doesNotMatch(metrics, /custom-api-name/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("holds telemetry evidence when a required SQL observation disappears", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("sql", healthySql.replace("retention|0", "retention|1"));
+      assertRun(fixture);
+      fixture.fake(
+        "sql",
+        healthySql.replace("web_telemetry_retention|0\n", ""),
+      );
+      assertRun(fixture, now + 60);
+      const metrics = readFileSync(
+        resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom"),
+        "utf8",
+      );
+      assert.match(metrics, /source_available\{source="platform_db"\} 0/u);
+      assert.match(
+        metrics,
+        /business_count\{check="web_telemetry_retention"\} 1/u,
+      );
+      assert.doesNotMatch(
+        fixture.signals(),
+        /Восстановлено: Очистка telemetry/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("requires live long-running services while allowing completed migrations", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "ps-inside-platform-production",
+        "custom-api-name\texited\tExited (0) 1 hour ago\tapi\ncustom-migration\texited\tExited (0) 1 hour ago\tmigrate\n",
+      );
+      assertRun(fixture);
+      const metrics = readFileSync(
+        resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom"),
+        "utf8",
+      );
+      assert.match(
+        metrics,
+        /service_container_count\{project="platform",service="api"\} 0/u,
+      );
+      assert.match(
+        metrics,
+        /container_count\{project="platform",state="completed"\} 2/u,
+      );
+      assert.doesNotMatch(metrics, /service="migrate"/u);
+      assert.doesNotMatch(fixture.signals(), /custom-migration/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("holds skipped Telegram database evidence when the Platform database fails", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("sql-telegram", "community_operations|2\n");
+      assertRun(fixture);
+      fixture.fake("sql-fail", "");
+      assertRun(fixture, now + 60);
+      assert.doesNotMatch(
+        fixture.signals(),
+        /Восстановлено: Операций вступления/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent on a healthy server", () => {
     const fixture = createFixture();
     try {
@@ -243,8 +348,11 @@ describe("production watchdog", () => {
     try {
       fixture.fake(
         "sql",
-        healthySql +
-          "\nweb_telemetry_growth|1\nweb_telemetry_digest|2\nweb_telemetry_size|1\nweb_telemetry_dropped|15\n",
+        healthySql
+          .replace("growth|0", "growth|1")
+          .replace("digest|0", "digest|2")
+          .replace("size|0", "size|1")
+          .replace("dropped|0", "dropped|15"),
       );
       const failure = assertRun(fixture);
       assert.match(failure, /Рост ошибок web за 10 минут/u);
@@ -264,7 +372,7 @@ describe("production watchdog", () => {
   it("signals lost telemetry and overdue retention, then clears both after recovery", () => {
     const fixture = createFixture();
     try {
-      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|1\n");
+      fixture.fake("sql", healthySql.replace("retention|0", "retention|1"));
       fixture.fake(
         "logs-inside-platform-production-web-1",
         '{"event":"web-telemetry-unavailable","kind":"vitals"}\n' +
@@ -274,7 +382,7 @@ describe("production watchdog", () => {
       assert.match(failure, /Очистка telemetry не завершалась за 26 часов/u);
       assert.match(failure, /Потери telemetry web: 2 за 5 минут/u);
       assert.equal(assertRun(fixture, now + 60), "");
-      fixture.fake("sql", healthySql + "\nweb_telemetry_retention|0\n");
+      fixture.fake("sql", healthySql);
       fixture.fake("logs-inside-platform-production-web-1", "");
       const recovery = assertRun(fixture, now + 120);
       assert.match(recovery, /Восстановлено: Очистка telemetry/u);
@@ -323,14 +431,9 @@ describe("production watchdog", () => {
     try {
       fixture.fake(
         "sql",
-        [
-          "purchases|0",
-          "fulfillment|1",
-          "notification_outbox|3",
-          "email_effects|0",
-          "billing_queue_idle|0",
-          "",
-        ].join("\n"),
+        healthySql
+          .replace("fulfillment|0", "fulfillment|1")
+          .replace("notification_outbox|0", "notification_outbox|3"),
       );
       fixture.fake(
         "backup-incr",
@@ -608,6 +711,11 @@ const healthySql = [
   "notification_outbox|0",
   "email_effects|0",
   "billing_queue_idle|0",
+  "web_telemetry_growth|0",
+  "web_telemetry_digest|0",
+  "web_telemetry_size|0",
+  "web_telemetry_dropped|0",
+  "web_telemetry_retention|0",
   "",
 ].join("\n");
 
@@ -698,7 +806,9 @@ case "$1" in
     elif [[ "$args" == *"--quiet"* ]]; then
       [[ -f "$fakes/ps-$project" ]] && cut -f1 "$fakes/ps-$project"
     elif [[ "$args" == *"--all"* ]]; then
-      [[ -f "$fakes/ps-$project" ]] && cat "$fakes/ps-$project"
+      if [[ -f "$fakes/ps-$project" ]]; then
+        if [[ "$args" == *"com.docker.compose.service"* ]]; then cat "$fakes/ps-$project"; else cut -f1-3 "$fakes/ps-$project"; fi
+      fi
     else
       cat "$fakes/platform-containers"
     fi
