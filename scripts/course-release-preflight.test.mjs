@@ -234,3 +234,114 @@ test("new schema requires repair forward and cannot forge previous compatibility
   input.manifest.rollback.previous.compatible = true;
   assert.throws(() => assessCourseRelease(input, now), /schema binding/u);
 });
+
+function ciFixture() {
+  const input = fixture();
+  const names = [
+    "check",
+    "integration",
+    "enrollment",
+    "buyer-journey",
+    "compose-smoke-shutdown",
+    "standards",
+    "spec",
+    "ci",
+    "fullstack",
+    "telemetry-resource-budget",
+  ];
+  return {
+    ...input,
+    evidence: {
+      ...input.evidence,
+      schemaVersion: "inside.course-release-preflight.v2",
+      checks: names.map((name) => ({
+        name,
+        sourceSha: sha,
+        exitCode: 0,
+        evidenceRef: `evidence/${name}.json`,
+        execution: {
+          kind: "ci",
+          workflowRunId: 123,
+          job: name,
+          conclusion: "success",
+        },
+      })),
+    },
+  };
+}
+
+test("v2 reuses exact-source CI coverage without duplicate local aggregate receipts", () => {
+  assert.equal(assessCourseRelease(ciFixture(), now).sourceSha, sha);
+});
+
+test("v2 rejects missing coverage, failed cleanup and synthetic source evidence", () => {
+  for (const name of [
+    "integration",
+    "enrollment",
+    "buyer-journey",
+    "fullstack",
+  ]) {
+    const input = ciFixture();
+    input.evidence.checks = input.evidence.checks.filter(
+      (check) => check.name !== name,
+    );
+    assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  }
+  const failed = ciFixture();
+  const cleanup = failed.evidence.checks.find(
+    (check) => check.name === "compose-smoke-shutdown",
+  );
+  assert.ok(cleanup);
+  cleanup.exitCode = 1;
+  assert.throws(() => assessCourseRelease(failed, now), /check evidence/u);
+  const stale = ciFixture();
+  const staleCheck = stale.evidence.checks[0];
+  assert.ok(staleCheck);
+  staleCheck.sourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(stale, now), /check evidence/u);
+});
+
+test("v2 requires CI run identity and successful conclusion", () => {
+  const input = ciFixture();
+  const invalid = {
+    ...input.evidence.checks[0],
+    execution: { kind: "ci", job: "static", conclusion: "success" },
+  };
+  assert.throws(
+    () =>
+      assessCourseRelease(
+        {
+          ...input,
+          evidence: {
+            ...input.evidence,
+            checks: [invalid, ...input.evidence.checks.slice(1)],
+          },
+        },
+        now,
+      ),
+    /invalid preflight evidence/u,
+  );
+  const failed = {
+    ...invalid,
+    execution: {
+      kind: "ci",
+      workflowRunId: 123,
+      job: "static",
+      conclusion: "failure",
+    },
+  };
+  assert.throws(
+    () =>
+      assessCourseRelease(
+        {
+          ...input,
+          evidence: {
+            ...input.evidence,
+            checks: [failed, ...input.evidence.checks.slice(1)],
+          },
+        },
+        now,
+      ),
+    /invalid preflight evidence/u,
+  );
+});

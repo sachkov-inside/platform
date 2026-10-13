@@ -11,11 +11,10 @@
 1. Получить свежий `origin/main` и включить его через merge. Записать итоговый SHA, список отличий
    от production и точные версии Platform/Telegram. #855 и #806 уже в main; это не подтверждение
    production-приёмки «Сдач». Принятый Reader `501dc62e` и вариант A прототипа не заменяют её.
-2. На итоговом commit выполнить `pnpm check:full`, независимые Standards/Spec review и guarded
-   [Compose smoke с shutdown](local-development.md#start-from-a-fresh-clone).
-   Сохранить реальные exit codes и логи вне Git. Отдельно сохранить exit code shutdown; успешный
-   smoke с неуспешным shutdown не проходит preflight. Проверить current-head CI и fullstack именно
-   на release SHA, как требует [release](release.md#1-что-выпускаем).
+2. Collect final-source coverage under the [verification evidence policy](../agents/release-evidence.md).
+   Reuse successful CI and nightly receipts, including cleanup; fill only named missing coverage.
+   Keep independent Standards/Spec review receipts. Submit v2 evidence below; local aggregate runs
+   are fallback choices, not mandatory duplicate executions.
 3. Заполнить [техническую форму](../../config/release/course-launch-inputs.example.json) по разделу
    ниже. Секреты и реальные identities остаются в защищённом хранилище. `credentials://` — условные
    ссылки на записи владельца, не встроенный resolver и не свидетельство существования credential.
@@ -123,20 +122,25 @@ manifest. Перед командой выполнить `git fetch origin main:
 Она ничего не выкладывает и не заменяет host preflight. Evidence — аттестация оператора с raw logs
 по `evidenceRef`; script не может подтвердить содержимое произвольно заполненного receipt.
 
-Формат evidence (`checks` содержит все восемь имён):
+Evidence v2 uses coverage receipts. Each CI receipt identifies its workflow and job; local fallback
+receipts use `execution: {"kind":"local"}`, and independent reviews use `{"kind":"review"}`.
+The `check` receipt references all four completion phases; integration references parallel and serial
+jobs; Compose references development and production jobs and their cleanup. Preserve actual logs.
 
 ```json
 {
-  "schemaVersion": "inside.course-release-preflight.v1",
+  "schemaVersion": "inside.course-release-preflight.v2",
   "checks": [
-    {"name":"check","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>"},
-    {"name":"check:full","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>"},
-    {"name":"compose-smoke-shutdown","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log-and-shutdown>"},
-    {"name":"standards","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
-    {"name":"spec","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>"},
-    {"name":"ci","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"},
-    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>"},
-    {"name":"telemetry-resource-budget","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<telemetry-measure-log>"}
+    {"name":"check","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"integration","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<parallel-and-serial-jobs>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"enrollment","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<job-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"buyer-journey","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<job-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"compose-smoke-shutdown","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log-and-shutdown>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"standards","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>","execution":{"kind":"review"}},
+    {"name":"spec","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>","execution":{"kind":"review"}},
+    {"name":"ci","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
+    {"name":"telemetry-resource-budget","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<telemetry-measure-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}}
   ],
   "publication": {"sourceSha":"<40-hex>","workflowRunId":1,"immutable":true,"succeeded":true},
   "backup": {"label":"<label>","finishedAt":"<UTC-ISO>","checkExitCode":0},

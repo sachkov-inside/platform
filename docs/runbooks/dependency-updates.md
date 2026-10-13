@@ -40,7 +40,7 @@ Repository dependency changes preserve:
 - strict peer dependencies; overrides only under Security overrides below;
 - atomic package-family updates;
 - `pnpm check`, Docker image/config checks and the Compose clean/repeat smoke in CI;
-- local `pnpm check:full` when the update can affect the browser-to-host application path.
+- browser-to-host coverage under the [verification evidence policy](../agents/release-evidence.md).
 
 ## Security overrides
 

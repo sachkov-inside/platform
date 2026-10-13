@@ -355,7 +355,7 @@ level runs:
 | Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
 | Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
 | Nightly | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | Nightly full-stack smoke |
-| Before a release | `pnpm check:full`, which includes the full-stack smoke and the integration suite, on the release commit | local, see `AGENTS.md` |
+| Before a release | Exact-source coverage receipts; reuse successful CI and nightly evidence | [verification evidence policy](../agents/release-evidence.md) |
 
 | After a deploy or rollback | Production pass with test identities against production: the job `Production access pass` in `deploy.yml`, also run by hand through `workflow_dispatch` | [production release](production-release.md#проход-доступа-после-выпуска) |
 

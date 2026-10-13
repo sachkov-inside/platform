@@ -25,8 +25,8 @@ historical sources.
 
 ## Commands
 
-`pnpm check` is the check that defines done: it must be green on the final head. `pnpm check:full`
-and the Compose smoke below are the checks before a release.
+Completion and release: read the [verification evidence policy](docs/agents/release-evidence.md).
+It defines exact-source CI reuse, coverage gaps, and local fallbacks.
 
 The primary development stack requires Docker with Compose; host Node.js and pnpm are an optional
 fallback and use the versions pinned in `.node-version` and `packageManager`.

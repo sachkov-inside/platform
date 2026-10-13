@@ -112,8 +112,8 @@ assignee instead (`docs/agents/issue-tracker.md`).
 
 ## Done
 
-Done means the check under `Commands` in `AGENTS.md` is green on the final head with its real exit
-code. The agent then:
+Done means final-head coverage is successful under the
+[verification evidence policy](docs/agents/release-evidence.md). The agent then:
 
 1. marks the acceptance criteria in the task;
 2. brings the pull request to green CI on the current head. A failed check is diagnosed and fixed.
