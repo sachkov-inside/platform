@@ -147,7 +147,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       telegram,
-      /image: public\.ecr\.aws\/docker\/library\/postgres:18\.4-alpine@sha256:[a-f0-9]{64}$/mu,
+      /image: ghcr\.io\/sachkov-inside\/postgres:18\.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15$/mu,
     );
     assert.match(
       telegram,
