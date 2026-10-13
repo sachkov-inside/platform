@@ -14,7 +14,11 @@ import {
   accountId,
   type Accounts,
 } from "../accounts/index.js";
-import { BillingModule, BillingNotices } from "../billing/index.js";
+import {
+  BillingModule,
+  BillingNotices,
+  BillingPayments,
+} from "../billing/index.js";
 import {
   TelegramAccountLinksModule,
   TelegramAccountLinks,
@@ -59,6 +63,7 @@ import { hasText } from "../../infrastructure/contracts/text.js";
         CONTENT_ACCESS,
         PLATFORM_CONFIG,
         BillingNotices,
+        BillingPayments,
         MaterialAnnouncements,
       ],
       useFactory: (
@@ -69,6 +74,7 @@ import { hasText } from "../../infrastructure/contracts/text.js";
         access: ContentAccess,
         config: PlatformConfig,
         notices: BillingNotices,
+        payments: BillingPayments,
         announcements: MaterialAnnouncements,
       ) =>
         new Notifications(
@@ -114,9 +120,43 @@ import { hasText } from "../../infrastructure/contracts/text.js";
             recipients: {
               enumerate: (query) => contacts.enumerate(query),
               exists: (account) => contacts.exists(account),
-              email: (binding) => contacts.email(binding),
-              binding: async (account, channel) => {
-                if (channel === "email") return contacts.binding(account);
+              email: async (binding) => {
+                if (binding.contactRef === binding.accountRef)
+                  return contacts.email(binding);
+                if (binding.contactRevision !== 1) return null;
+                const result = await payments.purchaseEmail(
+                  binding.accountRef,
+                  binding.contactRef,
+                );
+                if (!result.ok)
+                  throw new Error("notification_order_contact_unavailable");
+                return result.value;
+              },
+              binding: async (account, channel, source) => {
+                if (channel === "email") {
+                  const verified = await contacts.binding(account);
+                  if (verified !== null) return verified;
+                  if (
+                    source?.status !== "current" ||
+                    source.accountId !== account ||
+                    source.purchaseRef === undefined
+                  )
+                    return null;
+                  const result = await payments.purchaseEmail(
+                    account,
+                    source.purchaseRef,
+                  );
+                  if (!result.ok)
+                    throw new Error("notification_order_contact_unavailable");
+                  return result.value === null
+                    ? null
+                    : {
+                        channel: "email",
+                        accountRef: account,
+                        contactRef: source.purchaseRef,
+                        contactRevision: 1,
+                      };
+                }
                 const result = await telegram.readBinding({
                   accountId: account,
                 });

@@ -208,7 +208,7 @@ export async function dispatchEmail(
       attemptRef,
     };
     const permit = await authorizeDispatch(deps, "email", request);
-    // Current verified contact is resolved through Accounts, never from the command or environment.
+    // The recipient owner resolves the verified Account contact or immutable order snapshot.
     const email =
       permit.status === "allowed"
         ? await deps.recipients.email(command.binding)

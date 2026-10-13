@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { decodeJwt } from "jose";
 import {
   requestBillingContact,
   requestStartBillingContact,
@@ -42,9 +43,23 @@ export async function handleReadBillingContact(): Promise<Response> {
         status: result.response.status,
       });
     const parsed = readContactSchema.safeParse(result.body);
-    return parsed.success
-      ? Response.json(parsed.data)
-      : new Response(null, { status: 502 });
+    if (!parsed.success) return new Response(null, { status: 502 });
+    // Backend authenticated this token. The claim only prefills an editable field;
+    // it neither creates a billing contact nor decides Account ownership here.
+    let initialEmail: string | undefined;
+    try {
+      const email = z
+        .email()
+        .max(254)
+        .safeParse(decodeJwt(token)["inside_verified_email"]);
+      if (email.success) initialEmail = email.data;
+    } catch {
+      // Telegram sessions and opaque tokens can have no email presentation.
+    }
+    return Response.json({
+      ...parsed.data,
+      ...(initialEmail === undefined ? {} : { initialEmail }),
+    });
   });
 }
 export function handleStartBillingContact(request: Request): Promise<Response> {

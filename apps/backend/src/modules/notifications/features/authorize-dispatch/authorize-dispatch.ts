@@ -166,6 +166,7 @@ async function readDispatchFacts(
   const binding = await deps.recipients.binding(
     notification.accountId,
     channel,
+    source,
   );
   return {
     notificationId: notification.id,

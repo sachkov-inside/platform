@@ -346,7 +346,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       ],
     };
     expect(await billing.acceptConsents(owner, command)).toMatchObject({
-      error: { code: "contact_required" },
+      ok: true,
     });
     await verify(owner, "consent@example.test");
     expect(

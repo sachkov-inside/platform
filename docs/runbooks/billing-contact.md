@@ -33,8 +33,11 @@ SMTP acceptance не доказывает получение письма. Timeo
 защищённый backup ключа. **Нельзя просто заменить ключ**: текущая версия envelope не реализует keyring
 или автоматическую миграцию. Ротация требует отдельной контролируемой миграции ciphertext и
 инвалидации pending challenges; изменение ключа HMAC также сбрасывает recipient-fingerprint
-сопоставление. В #410 фоновые отправки читают подтверждённый контакт через интерфейс Accounts,
-фиксируют revision получателя и заново проверяют её перед отправкой. SQL-доступ к чужому модулю запрещён.
+сопоставление. Service messages first resolve the confirmed contact through Accounts.
+Without one, purchase messages resolve the encrypted order snapshot through BillingPayments (#1401).
+The bank envelope key must remain available for reading these order addresses after restart.
+Notifications records the recipient reference/version and checks it before provider I/O; it never reads another module's SQL schema.
+The [purchase email policy](../product/subscription-billing-v1.md#purchase-email--1401) owns renewal fallback and later confirmation.
 
 ## Локальное доказательство
 

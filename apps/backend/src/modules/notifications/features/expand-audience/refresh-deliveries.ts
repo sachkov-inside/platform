@@ -144,7 +144,11 @@ async function readRefreshFacts(
     current &&
     (!access || (access.status === "fulfilled" && access.value === "allowed"))
       ? await settle(() =>
-          deps.recipients.binding(notification.accountId, channel.data),
+          deps.recipients.binding(
+            notification.accountId,
+            channel.data,
+            current,
+          ),
         )
       : undefined;
   return { eventPayload: notification.eventPayload, source, access, binding };

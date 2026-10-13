@@ -142,7 +142,11 @@ export function encodeNotification(
   const route = lanes[lane];
   const channel = lane.startsWith("telegram") ? "telegram" : "email";
   if (
-    body.contractVersion !== route.version ||
+    (body.contractVersion !== route.version &&
+      !(
+        lane === "emailSubscription" &&
+        body.contractVersion === "inside.notification-delivery.v2"
+      )) ||
     (route.version === "inside.notification-event.v1" &&
       body.eventType !== route.key) ||
     (route.version === "inside.notification-delivery.v1" &&
@@ -163,7 +167,7 @@ export function encodeNotification(
   return {
     lane,
     messageId: messageId.toLowerCase(),
-    version: route.version,
+    version: body.contractVersion,
     payload,
     digest: digestNotificationPayload(payload),
   };

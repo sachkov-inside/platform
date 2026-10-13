@@ -77,6 +77,19 @@ ID. Account.createdAt и история opt-in должны соответств
 появиться из нового opt-in/Account. Уникальный ключ предотвращает повтор на границе checkpoint.
 После смены email/Telegram binding новая identity не наследует queued send автоматически.
 
+## Order email delivery v2 — #1401
+
+`inside.notification-delivery.v2` is an additional closed email command shape for subscription-category purchase service messages.
+The email-subscription lane accepts v1 and v2; all other lanes keep their current version.
+The AMQP `type` equals the payload `contractVersion`. Exchanges, queues, result and dispatch-authorization versions remain unchanged.
+
+V2 binding has `channel: email`, the purchasing `accountRef`, `contactRef: purchaseRef`, and `contactRevision: 1`.
+BillingPayments resolves the immutable encrypted order snapshot only for that Account.
+Raw email is absent from both commands and broker headers. An order email is never an identity or verified contact.
+The current confirmed Billing Contact takes precedence when creating a new command; such a binding still uses delivery v1.
+V2 cannot carry a material announcement or Telegram delivery. The existing source, deadlines, digest, idempotency, authorization and unknown-send rules apply unchanged.
+Changing a binding does not retarget an immutable queued command or resend a potentially started send.
+
 ## Delivery command и дедупликация
 
 `inside.notification-delivery.v1`: общий Notification/Delivery, closed content category/kind,

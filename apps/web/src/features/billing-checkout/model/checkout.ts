@@ -50,10 +50,16 @@ export const quoteInputSchema = z.strictObject({
   optionRevision: z.number().int().positive(),
   promoCode: promoCodeSchema.optional(),
 });
+export const checkoutEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email().max(254));
 export const purchaseInputSchema = z.strictObject({
   operationId: z.uuid(),
   quoteRef: z.uuid(),
-  contactRevision: z.number().int().positive(),
+  email: checkoutEmailSchema.optional(),
+  contactRevision: z.number().int().positive().optional(),
   // Разовой покупке довольно одной оферты, подписке нужна ещё и согласие на списания. Нижняя
   // граница здесь повторяет контракт приложения: он принимает от одного свидетельства.
   consentEvidenceRefs: z.array(z.uuid()).min(1).max(4),

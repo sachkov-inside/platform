@@ -263,9 +263,14 @@ is independent of profile presentation and Account Rights.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
 **Billing Contact**:
-An Account-owned verified email for receipts and subscription notifications, independent of its
-sign-in identity. A pending replacement becomes the contact only after verification.
+An optional Account-owned verified email for service notifications and subsequent subscription receipts, independent of its sign-in identity.
+A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
+
+**Order Email**:
+The email chosen for one purchase and its receipt, without proof of ownership or a change to the purchasing Account.
+It is the fallback for purchase messages and subscription renewals when the Account has no Billing Contact.
+_Avoid_: Billing Contact, login email, verified identity
 
 **Legal Edition**:
 One published version of a legal document, identified by its document key, version number,
@@ -501,8 +506,8 @@ _Avoid_: Current chat roster, all new members, Cohort
 _Avoid_: Событие продукта, рассылка, попытка отправки
 
 **Notification Delivery**:
-Доставка одного Notification по выбранному каналу подтверждённому получателю. Результат одного
-канала не определяет результат другого и не означает прочтения.
+Delivery of one Notification through one channel to an eligible recipient: a verified channel contact or the Order Email for purchase messages.
+One channel result neither determines another channel result nor proves that the recipient read the message.
 _Avoid_: Notification, broker acknowledgement, прочтение
 
 **Publication Announcement**:

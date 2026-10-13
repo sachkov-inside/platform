@@ -1,7 +1,5 @@
 "use client";
-import type { Route } from "next";
-import Link from "next/link";
-import { useId } from "react";
+import { useId, type Ref } from "react";
 
 import {
   LegalDocumentLinks,
@@ -26,17 +24,19 @@ import {
   type LegalDocument,
   type PriceSnapshot,
   type PurchaseStatus,
-  type VerifiedContact,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
+import { CheckoutEmailField } from "./checkout-email-field.client";
 
 export interface CheckoutPanelProps {
   readonly snapshot: PriceSnapshot;
   /** Сохранённый расчёт: точные суммы и срок действия условий. */
   readonly quote: BillingQuote | null;
   readonly documents: readonly LegalDocument[];
-  readonly contact: VerifiedContact | null;
-  readonly contactHref: Route;
+  readonly email: string;
+  readonly emailError?: string | undefined;
+  readonly onEmailChange: (value: string) => void;
+  readonly emailInputRef?: Ref<HTMLInputElement>;
   readonly acknowledgeExistingAccess: boolean;
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
@@ -69,8 +69,10 @@ export function CheckoutPanel({
   snapshot,
   quote,
   documents,
-  contact,
-  contactHref,
+  email,
+  emailError,
+  onEmailChange,
+  emailInputRef,
   acknowledgeExistingAccess,
   existingAccess = false,
   legacyBlocked = false,
@@ -95,13 +97,17 @@ export function CheckoutPanel({
   );
   const payable =
     quote !== null &&
-    contact !== null &&
     missingRequired.length === 0 &&
     !legacyBlocked &&
     (!existingAccess || acknowledgeExistingAccess);
 
   return (
-    <section
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (payable && !pending && !paymentBlocked) onPay();
+      }}
       aria-labelledby={headingId}
       className="min-w-0 rounded-2xl border border-border bg-card p-6 shadow-card"
     >
@@ -178,29 +184,13 @@ export function CheckoutPanel({
               : "Это разовый платёж: подписку он не оформляет и списаний по нему не будет."}
           </p>
 
-          {contact === null ? (
-            <div className="mt-5 rounded-xl border border-border bg-secondary/50 p-4 text-sm leading-6">
-              <p className="font-semibold">Нужен подтверждённый email.</p>
-              <p className="mt-1 text-muted-foreground">
-                На него придёт чек
-                {recurring ? " и служебные сообщения о подписке" : ""}.
-              </p>
-              <Link
-                className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
-                href={contactHref}
-              >
-                Подтвердить email
-              </Link>
-            </div>
-          ) : (
-            <p className="mt-5 break-words text-sm text-muted-foreground">
-              Чек придёт на{" "}
-              <span className="font-semibold text-foreground">
-                {contact.email}
-              </span>
-              .
-            </p>
-          )}
+          <CheckoutEmailField
+            value={email}
+            error={emailError}
+            onChange={onEmailChange}
+            inputRef={emailInputRef}
+            disabled={pending || paymentBlocked}
+          />
 
           {missingRequired.length > 0 ? (
             <p
@@ -260,8 +250,7 @@ export function CheckoutPanel({
               <Button
                 className={`mt-6 w-full sm:w-auto ${billingActionClass}`}
                 disabled={!payable || pending || paymentBlocked}
-                onClick={onPay}
-                type="button"
+                type="submit"
               >
                 {pending ? "Готовим оплату…" : checkoutButtonLabel(conditions)}
               </Button>
@@ -312,6 +301,6 @@ export function CheckoutPanel({
           {error}
         </p>
       )}
-    </section>
+    </form>
   );
 }

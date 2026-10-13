@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { UnsecuredJWT } from "jose";
 const fakes = vi.hoisted(() => ({
   token: vi.fn(),
   read: vi.fn(),
@@ -39,6 +40,28 @@ function request(
 beforeEach(() => {
   vi.clearAllMocks();
   fakes.token.mockResolvedValue("trusted-token");
+});
+
+it("prefills the authenticated email without creating a verified billing contact", async () => {
+  const token = new UnsecuredJWT({
+    inside_verified_email: "login@example.test",
+  }).encode();
+  fakes.token.mockResolvedValue(token);
+  fakes.read.mockResolvedValue({
+    ok: true,
+    body: { ok: true, contact: null, documents: [] },
+    response: new Response(),
+  });
+  const response = await handleReadBillingContact();
+  expect(await response.json()).toEqual({
+    ok: true,
+    contact: null,
+    documents: [],
+    initialEmail: "login@example.test",
+  });
+  expect(fakes.read).toHaveBeenCalledWith(token);
+  expect(fakes.start).not.toHaveBeenCalled();
+  expect(fakes.confirm).not.toHaveBeenCalled();
 });
 it("preserves command identity, validates results and uses the authenticated token", async () => {
   const result = {

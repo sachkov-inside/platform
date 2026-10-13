@@ -15,7 +15,7 @@ Runtime #436 добавляет core/facets/email; producers подключаю�
 
 | Владелец | Интерфейс, вводимый вместе с потребителем |
 |---|---|
-| Billing | Immutable notice-ready event/outbox; `resolveNotice(event)` возвращает актуальные purpose, template data, recipient Account и deadline или superseded/unavailable |
+| Billing | Immutable notice-ready event/outbox; `resolveNotice(event)` returns authoritative purpose, template data, recipient Account, optional purchase reference and deadline; public BillingPayments resolves an owned Order Email |
 | Materials | First-publication event/outbox; `resolveAnnouncement(materialRef, occurrenceRef)` возвращает publication identity, текущие title/reader path/contentVersion или unpublished/not_found |
 | Accounts | Публичные verified email/contact revision и Account enumeration; никакого чтения чужой schema |
 | ContentAccess | Текущий доступ Account к Material через существующий публичный facet; нет provider I/O |
@@ -59,6 +59,10 @@ republication после cutover не становится ложной перв
 петлевого адреса стенда, у которого сертификата нет. Изменённый материал требует обновить
 ещё не начатую command по protocol revision rules, если заголовок/ссылка стали неактуальны.
 Нельзя просто подменить payload ранее поставленной команды или послать новый ID после unknown.
+
+Purchase service email follows the [#1401 recipient policy](../product/subscription-billing-v1.md#purchase-email--1401).
+Order bindings use delivery v2 in the existing email-subscription lane; verified-contact, material and Telegram commands retain delivery v1.
+Both shapes and their shared deadlines, authorization and recovery rules live in the [protocol](../contracts/notifications-v1/protocol.md#order-email-delivery-v2--1401).
 
 Notifications сохраняет сведения о неподключённом/неподтверждённом канале; не выдаёт его за sent.
 Доставки каналов независимы, но смена binding в том же канале не снимает запрет повторного
