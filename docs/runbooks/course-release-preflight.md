@@ -30,6 +30,13 @@
    Docker driver и фактическим checkout SHA. PR artifact может относиться к synthetic merge SHA;
    для release receipt нужен успешный замер именно release SHA, без переименования старого proof.
 
+   Owner exception `owner-2026-10-13-1408-v36` excludes only the telemetry resource measurement for
+   payment-fix release v36. Its receipt must bind the manifest's exact Source SHA and contain
+   `exitCode: null`, `outcome: "owner-excluded"` and the exact `authorizationRef`; it must never claim
+   exit 0. Preflight reports `telemetryResourceBudget: "owner-excluded"`. All other check receipts,
+   publication, assets, backup and restore checks remain mandatory. Other releases require the
+   ordinary successful telemetry receipt. See the [CI exception](continuous-integration.md#bounded-payment-launch-telemetry-exception).
+
 ## Backup и изолированная проверка восстановления
 
 Foundation — единственный владелец PostgreSQL и pgBackRest. Перед изменениями выполнить
