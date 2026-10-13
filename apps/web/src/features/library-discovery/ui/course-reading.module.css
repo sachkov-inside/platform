@@ -576,3 +576,9 @@
 .dialog .step[aria-current="step"] .mark {
   background: var(--action);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog summary > svg {
+    transition: none;
+  }
+}

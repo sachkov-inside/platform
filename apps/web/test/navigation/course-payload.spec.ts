@@ -84,9 +84,12 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     exact: true,
   });
   const mobile = await programmeButton.isVisible();
-  if (mobile) await programmeButton.click();
+  if (mobile) {
+    await programmeButton.click();
+    await page.keyboard.press("Escape");
+  }
   const returnLink = course.getByRole("link", {
-    name: mobile ? "Страница программы" : "Вся программа",
+    name: mobile ? "К курсу" : "Вся программа",
     exact: true,
   });
   await expect(returnLink).toHaveAttribute(

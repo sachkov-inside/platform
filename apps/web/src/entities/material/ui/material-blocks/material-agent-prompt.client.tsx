@@ -50,7 +50,7 @@ export function MaterialAgentPrompt({
 
   return (
     <div
-      className="mt-8 overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground"
+      className="mt-8 overflow-hidden overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground"
       data-material-block="agentPrompt"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-6">
@@ -59,7 +59,7 @@ export function MaterialAgentPrompt({
         </p>
         <Button
           aria-label={labels[state]}
-          className="min-h-11 min-w-[10.5rem] rounded-xl bg-sidebar-accent px-4 text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
+          className="min-h-11 min-w-[10.5rem] overflow-hidden rounded-xl bg-sidebar-accent px-4 text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
           onClick={copy}
           type="button"
           variant="secondary"
