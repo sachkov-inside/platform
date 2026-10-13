@@ -27,8 +27,8 @@ const meta = {
     snapshot: supportOffer,
     quote: null,
     documents: legalDocuments,
-    contact: verifiedContact,
-    contactHref: "/account/purchases",
+    email: verifiedContact.email,
+    onEmailChange: fn(),
     acknowledgeExistingAccess: false,
     purchase: null,
     onQuote: fn(),
@@ -88,16 +88,17 @@ export const ReadyToPay: Story = {
   },
 };
 
-export const ContactRequired: Story = {
-  args: { quote: savedQuote, contact: null },
-  play: async ({ canvasElement }) => {
+export const EmailRequired: Story = {
+  args: { email: "", quote: savedQuote },
+  play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
+    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    await expect(email).toHaveValue("");
     await expect(
-      canvas.getByRole("link", { name: "Подтвердить email" }),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: /оплатить/iu }),
-    ).toBeDisabled();
+      canvas.queryByRole("link", { name: /Подтвердить/u }),
+    ).not.toBeInTheDocument();
+    await userEvent.type(email, "a");
+    await expect(args.onEmailChange).toHaveBeenCalledWith("a");
   },
 };
 

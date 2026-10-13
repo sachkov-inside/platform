@@ -454,10 +454,6 @@ export class BillingContact {
           })
         )
           return contactFailure("operation_conflict");
-        const contact = await transaction.billingContact.findUnique({
-          where: { accountId },
-        });
-        if (!contact?.verifiedAt) return contactFailure("contact_required");
         const selected: LegalDocument[] = [];
         for (const presented of command.documents) {
           const document = this.documents.find(

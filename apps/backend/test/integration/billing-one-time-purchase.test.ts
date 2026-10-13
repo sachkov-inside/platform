@@ -6,13 +6,21 @@ import { z } from "zod";
 import {
   assembleAccounts,
   BillingContact,
+  NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
+  BillingNotices,
+  assembleBillingNotificationOutbox,
   type BillingPricing,
 } from "../../src/modules/billing/index.js";
+import {
+  Notifications,
+  assembleNotificationRecipients,
+} from "../../src/modules/notifications/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   Tbank,
   tbankToken,
@@ -66,6 +74,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
   let pricing: BillingPricing;
   let grants: ReturnType<typeof assembleAccessGrants>;
   let contact: BillingContact;
+  let accounts: ReturnType<typeof assembleAccounts>;
   const codes = new Map<string, string>();
 
   /** Права покупателя так, как их видит проверка доступа. */
@@ -88,7 +97,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     await db.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
-    const accounts = assembleAccounts({
+    accounts = assembleAccounts({
       prisma: db.prisma,
       emailFingerprintKey: "synthetic-billing-fingerprint-key-000000",
     });
@@ -128,6 +137,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       /** Срок общей группы в Offer; без него группа не называется в составе. */
       readonly communityMonths?: number | null;
       readonly terminal?: ReturnType<typeof syntheticTbankConfig>;
+      readonly verifyContact?: boolean;
     } = {},
   ) {
     const terminal = options.terminal ?? config;
@@ -140,22 +150,24 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         logtoSubject: buyer,
       },
     });
-    const start = await contact.start(buyer, {
-      operationId: randomUUID(),
-      email: `${buyer}@example.test`,
-      expectedRevision: 0,
-    });
-    if (!start.ok) throw new Error(start.error.code);
-    if (
-      !(
-        await contact.confirm(buyer, {
-          operationId: randomUUID(),
-          challengeRef: start.challengeRef,
-          code: codes.get(start.challengeRef),
-        })
-      ).ok
-    )
-      throw new Error("contact");
+    if (options.verifyContact !== false) {
+      const start = await contact.start(buyer, {
+        operationId: randomUUID(),
+        email: `${buyer}@example.test`,
+        expectedRevision: 0,
+      });
+      if (!start.ok) throw new Error(start.error.code);
+      if (
+        !(
+          await contact.confirm(buyer, {
+            operationId: randomUUID(),
+            challengeRef: start.challengeRef,
+            code: codes.get(start.challengeRef),
+          })
+        ).ok
+      )
+        throw new Error("contact");
+    }
     const productId = randomUUID();
     const capability =
       options.scopedMaterials === true ? "materials" : `product:${productId}`;
@@ -349,6 +361,257 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       },
     };
   }
+
+  test("покупатель без подтверждённого контакта оплачивает заказ с email для чека", async () => {
+    const s = await scenario({ verifyContact: false });
+    const { contactRevision: _contactRevision, ...input } = await s.command();
+    const command = { ...input, email: "buyer-order@example.test" };
+    const purchase = value(await s.runtime.purchase(s.buyer, command));
+    expect(s.requests()[0]).toMatchObject({
+      Receipt: { Email: "buyer-order@example.test" },
+    });
+    expect(await contact.read(s.buyer)).toMatchObject({
+      ok: true,
+      contact: null,
+    });
+    const row = await db.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    });
+    expect(JSON.stringify(row.acceptance)).not.toContain(
+      "buyer-order@example.test",
+    );
+    expect(row.contact).not.toHaveProperty("verifiedAt");
+    expect(value(await s.runtime.purchase(s.buyer, command))).toEqual(purchase);
+    expect(s.requests()).toHaveLength(1);
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(
+      (await capabilitiesOf(s.buyer)).capabilities.some(
+        (entry) => entry.capability === s.capability,
+      ),
+    ).toBe(true);
+  });
+
+  test.each([
+    "unlinked",
+    "before-command",
+    "after-command",
+    "after-sent",
+    "after-unknown",
+  ] as const)(
+    "сообщение об оплате использует email заказа или позднее подтверждённый контакт (%s)",
+    async (linkAt) => {
+      const linked = linkAt !== "unlinked";
+      const s = await scenario({ verifyContact: false });
+      const orderEmail = `order-${s.buyer}@example.test`;
+      const linkedEmail = `linked-${s.buyer}@example.test`;
+      const purchase = value(
+        await s.runtime.purchase(s.buyer, {
+          ...(await s.command()),
+          email: orderEmail,
+        }),
+      );
+      expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject(
+        {
+          ok: true,
+        },
+      );
+      value(await s.runtime.recover());
+      const confirmContact = async () => {
+        const started = await contact.start(s.buyer, {
+          operationId: randomUUID(),
+          email: linkedEmail,
+          expectedRevision: 0,
+        });
+        if (!started.ok) throw new Error(started.error.code);
+        expect(
+          await contact.confirm(s.buyer, {
+            operationId: randomUUID(),
+            challengeRef: started.challengeRef,
+            code: codes.get(started.challengeRef),
+          }),
+        ).toMatchObject({ ok: true });
+      };
+      if (linkAt === "before-command") await confirmContact();
+      const alreadyStarted =
+        linkAt === "after-sent" || linkAt === "after-unknown";
+      const recipient = linked && !alreadyStarted ? linkedEmail : orderEmail;
+      const notices = new BillingNotices({
+        prisma: db.prisma,
+        enrollments: grants,
+        clock: () => now,
+      });
+      const contacts = new NotificationAccounts(
+        db.prisma,
+        billingContactProtection(Buffer.alloc(32, 42).toString("base64")),
+      );
+      const notifications = new Notifications(
+        {
+          prisma: db.prisma,
+          now: () => now,
+          origin: "https://inside.example.test",
+          sources: {
+            resolve: (event) => notices.resolveNotice(event),
+            canRead: () => Promise.resolve("denied"),
+          },
+          recipients: assembleNotificationRecipients(
+            contacts,
+            s.runtime,
+            new TelegramAccountLinks(db.prisma),
+          ),
+        },
+        accounts,
+      );
+      const outbox = assembleBillingNotificationOutbox(db.prisma);
+      const sent: string[] = [];
+      if (linkAt === "after-command" || alreadyStarted) {
+        while (
+          await outbox.relay("billing", async (envelope) => {
+            await notifications.acceptEvent(envelope);
+          })
+        ) {
+          /* stage the immutable order command before contact confirmation */
+        }
+        await notifications.sweep();
+        const queued = await db.prisma.notificationCommand.findMany({
+          where: { delivery: { notification: { accountId: s.buyer } } },
+        });
+        expect(queued).toHaveLength(1);
+        expect(JSON.parse(queued[0]?.payload ?? "{}")).toMatchObject({
+          contractVersion: "inside.notification-delivery.v2",
+          commandRevision: 1,
+          binding: { contactRef: purchase.purchaseRef },
+        });
+        if (alreadyStarted) {
+          while (
+            await notifications.transport.outbox.relay(
+              "emailSubscription",
+              async (envelope) => {
+                await notifications.acceptEvent(envelope);
+              },
+            )
+          ) {
+            /* admit the order command while its contact is still current */
+          }
+          await notifications.sweep((message) => {
+            sent.push(message.email);
+            return Promise.resolve({
+              state: linkAt === "after-unknown" ? "unknown" : "sent",
+            });
+          });
+        }
+        await confirmContact();
+      }
+      for (let pass = 0; pass < 8; pass += 1) {
+        while (
+          await outbox.relay("billing", async (envelope) => {
+            await notifications.acceptEvent(envelope);
+          })
+        ) {
+          /* drain source events */
+        }
+        await notifications.sweep((message) => {
+          sent.push(message.email);
+          return Promise.resolve({ state: "sent" });
+        });
+        for (const lane of ["emailSubscription", "emailResult"] as const)
+          while (
+            await notifications.transport.outbox.relay(
+              lane,
+              async (envelope) => {
+                if (lane === "emailSubscription") {
+                  const command = z
+                    .object({
+                      commandRevision: z.number(),
+                      binding: z.object({ accountRef: z.string() }),
+                    })
+                    .parse(JSON.parse(envelope.payload));
+                  if (command.binding.accountRef === s.buyer)
+                    expect(envelope.version).toBe(
+                      linked &&
+                        (linkAt !== "after-command" ||
+                          command.commandRevision > 1)
+                        ? "inside.notification-delivery.v1"
+                        : "inside.notification-delivery.v2",
+                    );
+                }
+                await notifications.acceptEvent(envelope);
+              },
+            )
+          ) {
+            /* drain delivery commands and results */
+          }
+        if (!alreadyStarted && sent.includes(recipient)) break;
+      }
+      expect(sent.filter((email) => email === recipient)).toHaveLength(1);
+      expect(sent).not.toContain(`${s.buyer}@example.test`);
+      if (linked && !alreadyStarted) expect(sent).not.toContain(orderEmail);
+      if (alreadyStarted) {
+        expect(sent).not.toContain(linkedEmail);
+        const deliveries = await notifications.readDeliveries(s.buyer);
+        expect(
+          deliveries.filter((delivery) => delivery.channel === "email"),
+        ).toMatchObject([
+          { state: linkAt === "after-unknown" ? "unknown" : "sent" },
+        ]);
+      }
+      expect(
+        value(await s.runtime.status(s.buyer, purchase.purchaseRef)).access,
+      ).toBe("ready");
+    },
+  );
+
+  test("email другого аккаунта и позднее подтверждение не меняют владельца покупки", async () => {
+    const other = await scenario();
+    const s = await scenario({ verifyContact: false });
+    const input = {
+      ...(await s.command()),
+      email: `${other.buyer}@example.test`,
+    };
+    const purchase = value(await s.runtime.purchase(s.buyer, input));
+    expect(
+      await s.runtime.purchase(s.buyer, { ...input, email: "invalid-email" }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(
+      await s.runtime.purchase(s.buyer, {
+        ...input,
+        email: "different@example.test",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    value(await s.runtime.recover());
+    const started = await contact.start(s.buyer, {
+      operationId: randomUUID(),
+      email: `${other.buyer}@example.test`,
+      expectedRevision: 0,
+    });
+    if (!started.ok) throw new Error(started.error.code);
+    expect(
+      await contact.confirm(s.buyer, {
+        operationId: randomUUID(),
+        challengeRef: started.challengeRef,
+        code: codes.get(started.challengeRef),
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      value(await s.runtime.status(s.buyer, purchase.purchaseRef)).access,
+    ).toBe("ready");
+    expect(
+      await s.runtime.status(other.buyer, purchase.purchaseRef),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(
+      value(await s.runtime.purchaseEmail(other.buyer, purchase.purchaseRef)),
+    ).toBeNull();
+    expect((await capabilitiesOf(other.buyer)).capabilities).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ capability: s.capability }),
+      ]),
+    );
+  });
 
   test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
     const s = await scenario();

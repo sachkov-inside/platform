@@ -231,6 +231,37 @@ it("переносит ожидаемый исход покупки без по�
   expect(await response.json()).toEqual({ ok: false, code: "existing_access" });
 });
 
+it("передаёт нормализованный email заказа без подтверждённого контакта", async () => {
+  fakes.purchase.mockResolvedValue(ok(pendingPurchase));
+  const input = {
+    operationId,
+    quoteRef: savedQuote.quoteRef,
+    email: " Buyer@Example.test ",
+    consentEvidenceRefs: [evidence[0]],
+    acknowledgeExistingAccess: false,
+  };
+  expect(
+    await (
+      await handleBillingPurchase(
+        command("/api/account/billing/purchase", input),
+      )
+    ).json(),
+  ).toEqual({ ok: true, value: pendingPurchase });
+  expect(fakes.purchase).toHaveBeenCalledWith(
+    { ...input, email: "buyer@example.test" },
+    "trusted-token",
+  );
+  fakes.purchase.mockClear();
+  expect(
+    await (
+      await handleBillingPurchase(
+        command("/api/account/billing/purchase", { ...input, email: "broken" }),
+      )
+    ).json(),
+  ).toEqual({ ok: false, code: "invalid_request" });
+  expect(fakes.purchase).not.toHaveBeenCalled();
+});
+
 it("отклоняет неполную команду покупки до обращения к бэкенду", async () => {
   const response = await handleBillingPurchase(
     command("/api/account/billing/purchase", {

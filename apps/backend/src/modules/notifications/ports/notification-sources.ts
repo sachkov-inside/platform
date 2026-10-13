@@ -15,6 +15,7 @@ export type NotificationSource =
       readonly accountId: string | null;
       readonly title: string;
       readonly readerPath: string;
+      readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
     };
@@ -35,6 +36,7 @@ export interface NotificationRecipients {
   binding(
     accountId: string,
     channel: "email" | "telegram",
+    source?: NotificationSource,
   ): Promise<Binding | null>;
   email(
     binding: Extract<Binding, { channel: "email" }>,

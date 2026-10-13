@@ -10,6 +10,7 @@ export const contactSchema = verifiedContactSchema;
 export const readContactSchema = z.object({
   ok: z.literal(true),
   contact: contactSchema.nullable(),
+  initialEmail: z.email().max(254).optional(),
   documents: z.array(legalDocumentSchema).default([]),
 });
 export const startContactInputSchema = z.strictObject({

@@ -155,12 +155,16 @@ export class BillingPayments {
         recurringAllowed: legacy.recurringAllowed,
       });
       if (!admission.ok) return paymentFailure(admission.error.code);
+      const orderEmail = command.email;
       if (
-        !contact.contact ||
-        contact.contact.revision !== command.contactRevision
+        orderEmail === undefined &&
+        (!contact.contact ||
+          contact.contact.revision !== command.contactRevision)
       )
         return paymentFailure("contact_required");
-      const verifiedContact = contact.contact;
+      const email = orderEmail ?? contact.contact?.email;
+      if (email === undefined) return paymentFailure("contact_required");
+      const { email: _email, ...storedCommand } = command;
       const consents = await Promise.all(
         command.consentEvidenceRefs.map((ref) =>
           this.dependencies.contact.readConsent(accountId, ref),
@@ -292,13 +296,17 @@ export class BillingPayments {
               terminalRef: bank.config.terminalKey,
               amountKopecks: reservation.value.firstPriceKopecks,
               snapshot: reservation.value,
-              acceptance: { command, evidence },
+              acceptance: { command: storedCommand, evidence },
               contact: {
-                revision: verifiedContact.revision,
-                verifiedAt: verifiedContact.verifiedAt,
+                ...(orderEmail === undefined && contact.contact !== null
+                  ? {
+                      revision: contact.contact.revision,
+                      verifiedAt: contact.contact.verifiedAt,
+                    }
+                  : { source: "order" }),
                 emailCiphertext: bank.sealBinding(
                   `${purchaseRef}:contact`,
-                  verifiedContact.email,
+                  email,
                 ),
               },
               fiscalization: "pending",
@@ -322,6 +330,81 @@ export class BillingPayments {
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "purchase" },
+        error,
+        paymentFailure("dependency_unavailable"),
+      );
+    }
+  }
+
+  /** Immutable order recipient; the Account argument prevents cross-account reads. */
+  async purchaseEmail(
+    accountId: string,
+    purchaseRef: string,
+  ): Promise<PaymentResult<string | null>> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(purchaseRef).success
+    )
+      return paymentFailure("invalid_request");
+    try {
+      const row = await this.dependencies.prisma.billingPurchase.findFirst({
+        where: { id: purchaseRef, accountId },
+        select: { contact: true },
+      });
+      if (!row) return { ok: true, value: null };
+      const bank = this.dependencies.bank;
+      if (!bank) return paymentFailure("dependency_unavailable");
+      const contact = z
+        .object({ emailCiphertext: z.string() })
+        .parse(row.contact);
+      return {
+        ok: true,
+        value: z
+          .email()
+          .parse(
+            bank.openBinding(`${purchaseRef}:contact`, contact.emailCiphertext),
+          ),
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "purchaseEmail" },
+        error,
+        paymentFailure("dependency_unavailable"),
+      );
+    }
+  }
+
+  /** Linked contact takes priority; otherwise renewal retains the first order's recipient. */
+  async subscriptionEmail(
+    accountId: string,
+    subscriptionRef: string,
+  ): Promise<PaymentResult<string | null>> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(subscriptionRef).success
+    )
+      return paymentFailure("invalid_request");
+    try {
+      const subscription =
+        await this.dependencies.prisma.billingSubscription.findFirst({
+          where: { id: subscriptionRef, accountId },
+          select: { id: true },
+        });
+      if (!subscription) return { ok: true, value: null };
+      const contact = await this.dependencies.contact.read(accountId);
+      if (!contact.ok) return paymentFailure("dependency_unavailable");
+      if (contact.contact !== null)
+        return { ok: true, value: contact.contact.email };
+      const initial = await this.dependencies.prisma.billingPurchase.findFirst({
+        where: { accountId, subscriptionRef, kind: "initial" },
+        select: { id: true },
+      });
+      return initial === null
+        ? { ok: true, value: null }
+        : await this.purchaseEmail(accountId, initial.id);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "subscriptionEmail" },
         error,
         paymentFailure("dependency_unavailable"),
       );
@@ -771,12 +854,12 @@ export class BillingPayments {
     if (current?.state !== "active") return {};
     const [legacy, verified, consented] = await Promise.all([
       grants.readLegacyClassification(current.accountId),
-      contact.read(current.accountId),
+      this.subscriptionEmail(current.accountId, subscriptionRef),
       inspectRecurringConsent(contact, current.accountId, current.consent),
     ]);
     if (!legacy.ok || !verified.ok || consented === "unavailable")
       return { failed: true };
-    const verifiedContact = verified.contact;
+    const email = verified.value;
     const snapshot = renewalPriceSnapshot(
       current.snapshot,
       current.pendingChange,
@@ -823,7 +906,7 @@ export class BillingPayments {
           return {};
         }
         // Классификация, согласие, контакт и границы терминала — операторский разбор, не отказ покупателя.
-        if (!admission.ok || consented !== "valid" || !verifiedContact)
+        if (!admission.ok || consented !== "valid" || email === null)
           return { blocked: true };
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
@@ -846,12 +929,8 @@ export class BillingPayments {
               bank.openBinding(row.bindingRef, row.bindingCiphertext),
             ),
             contact: {
-              revision: verifiedContact.revision,
-              verifiedAt: verifiedContact.verifiedAt,
-              emailCiphertext: bank.sealBinding(
-                `${attemptRef}:contact`,
-                verifiedContact.email,
-              ),
+              source: "subscription",
+              emailCiphertext: bank.sealBinding(`${attemptRef}:contact`, email),
             },
             fiscalization: "pending",
             createdAt: now,

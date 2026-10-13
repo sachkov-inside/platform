@@ -115,7 +115,6 @@ const meta = {
     snapshot: productOnlyOffer,
     contact: verifiedContact,
     documents: legalDocuments,
-    contactHref: "/account/email",
     onNavigate: fn(),
     onPurchase: fn(),
   },
@@ -446,7 +445,7 @@ function retryChangedConditions(
       );
       const first = purchaseInputSchema.parse(original);
       await expect(next.operationId).not.toBe(first.operationId);
-      await expect(next.contactRevision).toBe(3);
+      await expect(next.email).toBe("new@example.test");
       await expect(next.quoteRef).toBe(productWithSupportQuote.quoteRef);
       await expect(
         canvas.getByRole("button", {

@@ -166,8 +166,9 @@ legacy-группы. Юридические тексты/реквизиты и �
   без отдельной формы регистрации и ссылок «Ещё не зарегистрированы?» / «Создать аккаунт»;
   Telegram-вход доступен при серверном включении функции;
 - управляет private Account и отдельным Member Profile;
-- подтверждает отдельный email для чеков и уведомлений в разделе «Покупки» личного кабинета,
-  когда настроен канал подтверждения; это не добавляет способ входа и не объединяет Account. Контракт контакта,
+- enters an editable email before one-time or subscription payment, without an obligatory confirmation code;
+- optionally confirms a Billing Contact in «Покупки» for future service messages and subscription receipts;
+  confirmation adds no sign-in method and merges no Account. The [purchase email policy](subscription-billing-v1.md#purchase-email--1401) owns recipient precedence. Контракт контакта,
   согласий и границы checkout определены в [billing specification](../specifications/subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406);
 - при первом входе, по почте или через Telegram, принимает условия использования кнопкой
   «Принять условия и продолжить»; до этого кабинет, покупки и связка с ботом закрыты, а новая

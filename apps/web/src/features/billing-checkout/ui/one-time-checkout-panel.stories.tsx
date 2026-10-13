@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   confirmedProductPurchase,
@@ -24,8 +24,8 @@ const meta = {
     snapshot: productWithSupportOffer,
     quote: productWithSupportQuote,
     documents: legalDocuments,
-    contact: verifiedContact,
-    contactHref: "/account/email",
+    email: verifiedContact.email,
+    onEmailChange: fn(),
     acknowledgeExistingAccess: false,
     purchase: null,
     showInclusions: true,
@@ -89,7 +89,7 @@ export const Ready: Story = {
     ).toBeInTheDocument();
     // Футер оболочки ведёт к тем же документам, поэтому ссылки ищутся в самой оплате.
     const payment = within(
-      canvas.getByRole("region", { name: "Оплата продукта" }),
+      canvas.getByRole("form", { name: "Оплата продукта" }),
     );
     for (const name of [
       "Оферта разовой покупки",
@@ -153,21 +153,17 @@ export const Preorder: Story = {
   },
 };
 
-export const ContactRequired: Story = {
-  args: { contact: null },
-  play: async ({ canvasElement }) => {
+export const EmailRequired: Story = {
+  args: { email: "" },
+  play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    // Формы подтверждения здесь нет: страница объясняет предел и ведёт в кабинет.
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "пока не подтверждён",
-    );
+    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    await expect(email).toHaveValue("");
     await expect(
-      canvas.getByRole("link", { name: "Подтвердить его в кабинете" }),
-    ).toBeInTheDocument();
-    await expect(canvas.queryByLabelText("Email")).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: /^Оплатить /u }),
-    ).toBeDisabled();
+      canvas.queryByRole("link", { name: /Подтвердить/u }),
+    ).not.toBeInTheDocument();
+    await userEvent.type(email, "a");
+    await expect(args.onEmailChange).toHaveBeenCalledWith("a");
   },
 };
 

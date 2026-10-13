@@ -68,8 +68,8 @@ legal, DEMO и продажи принимаются отдельно в #402/#4
 допустим только `mode: subscription`; разовый режим добавляет #495. Старые snapshots без новых
 полей продолжают читаться.
 
-`POST accounts/current/billing/purchase` принимает quote, revision подтверждённого контакта,
-ссылки на согласия с актуальными terms/recurring и acknowledgement пересекающихся прав.
+`POST accounts/current/billing/purchase` accepts `quoteRef`, a normalized `email`, applicable consent evidence and overlapping-access acknowledgement.
+For existing clients, an omitted email can still resolve the verified contact through `contactRevision`; new checkout sends email directly.
 `GET accounts/current/billing/purchases/:purchaseRef` показывает собственную покупку Account:
 банковское состояние, сохранённый snapshot, готовность доступа и отдельный результат чека.
 Повтор operationId возвращает ту же покупку; другая вкладка присоединяется к уже начатой попытке.
@@ -891,7 +891,7 @@ Offer и меняет только `eligibility`, поэтому состав, �
 | `content-access` | Финальный доступ к материалам/файлам/video token из публичного entitlement facet, без provider I/O | #404 |
 | `telegram-membership` | Community desired state, entitlement revision, outbox и delivery observation; project/sweep/authorizeDispatch/readDelivery | #415 |
 | `billing` | Notice-ready event, due reminder и актуальность billing source | #410 |
-| `notifications` | Общие Notification/Delivery, verified recipient snapshot, email/Telegram adapters и authorizeDispatch по [Notifications v1](notifications-v1.md) | #434/#436/#410 |
+| `notifications` | Общие Notification/Delivery, recipient snapshot, email/Telegram adapters и authorizeDispatch по [Notifications v1](notifications-v1.md) | #434/#436/#410 |
 
 Каждая строка описывает реальный потребительский seam; это не требование создать отдельный класс
 или DI token для каждой операции. State-owning Prisma delegates остаются внутри capability.
@@ -937,7 +937,7 @@ Workshop отменён [ADR 0033](../adr/0033-product-tariff-payment-model.md) 
 | Paid grant receipt | EventRef + periodRef + Account + revision; повтор не добавляет длительность |
 | Manual/batch operation | Actor + operationId + rowKey, targetAccount и immutable payload; preview не выдаёт права |
 | Refund attempt | Payment + full_refund_confirmed; запись результата и outbox отзыва сериализуются замком покупки |
-| Notice/dispatch | NoticeRef + revision + channel + verified recipient version; external-send-started сохраняется до I/O |
+| Notice/dispatch | NoticeRef + revision + channel + recipient reference/version; external-send-started сохраняется до I/O |
 
 Integer kopecks, RUB, без float. Время сохраняется как instant; расчёт календарных месяцев —
 `Europe/Moscow`, локальное исходное число и время сохраняются как anchor. Jan 31 → Feb last day →
@@ -978,7 +978,7 @@ Upgrade: рациональный расчёт стоимости старшег
 `POST accounts/current/billing/quote` сохраняет ценовой quote на 15 минут для Account из
 trusted adapter. Он содержит offer/option revisions, названия, состав, календарные месяцы,
 RUB/Europe/Moscow, первую и обычную следующую сумму, выбранную скидку. Это ценовой этап:
-подтверждённый contact, legal versions, recurring consent, календарный anchor/next date и
+Order Email, legal versions, recurring consent, календарный anchor/next date и
 предупреждение о действующих правах присоединяет purchase orchestration #407; quote сам по
 себе не разрешает оплату и не является согласием. Повтор operationId возвращает тот же quote,
 даже после истечения; для нового согласия нужен новый operationId.
@@ -1028,7 +1028,7 @@ Order не равен попытке списания, Payment не равен p
 
 | Вход | Переход / результат |
 |---|---|
-| Checkout after verified contact/consent/classification | Persist order/attempt/snapshot/reservations → Init; browser не передаёт сумму, terminal или получателя |
+| Checkout after valid email/consent/classification | Persist order/attempt/snapshot/reservations → Init; browser supplies email but never amount, terminal or Account identity |
 | Init result received | Проверенные bank host/HTTPS PaymentURL и PaymentId сохранены; выдаётся redirect |
 | Init timeout/crash | `unknown`; CheckOrder ищет точное совпадение; 0/multiple остаются unknown, без второго Init |
 | AUTHORIZED | Привязка сохраняется после проверки; paid period ещё не создан |
@@ -1127,7 +1127,8 @@ Logto identity или login fingerprint. GET `accounts/current/billing/contact` 
 подтверждённый адрес, revision и применимые документы. Start принимает `operationId`, email и
 `expectedRevision` (0 для первого адреса). Confirm принимает `operationId`, `challengeRef`, code.
 При смене старый контакт действует до подтверждения нового. Совпадение адресов разных Account
-не объединяет их и не передаёт права. Неподтверждённый адрес не возвращается как получатель чека.
+не объединяет их и не передаёт права. This endpoint returns only a confirmed Billing Contact.
+Checkout separately accepts an Order Email under [#1401](#checkout-email-without-a-code--1401).
 
 Код живёт 10 минут; новый challenge отменяет предыдущий. У challenge не более 5 проверок кода.
 Отправки сериализуются: минимум минута между запросами Account, до 5 в час на Account и до 10
@@ -1152,7 +1153,33 @@ POST `accounts/current/billing/consents` принимает `operationId`, `cont
 документов; отметки согласий #411 заменены в #658 принятием кнопкой. Она использует production BFF/API; Storybook
 подставляет только presentation.
 SMTP и ключ хранения подключаются явно; без конфигурации start/confirm возвращают unavailable.
+Consent acceptance requires an authenticated Account and exact legal editions, independently of a Billing Contact.
 [Runbook контактов](../runbooks/billing-contact.md) описывает эксплуатационную границу и proof.
+
+## Checkout email without a code — #1401
+
+The [product policy](../product/subscription-billing-v1.md#purchase-email--1401) applies to every payment mode.
+The purchase command validates, trims and lowercases `email`, with a maximum of 254 characters.
+Invalid input fails before bank I/O; the web form shows a field error and focuses the email input.
+The BFF prefills the editable field from the authenticated token's `inside_verified_email` presentation claim when available.
+This claim changes neither authentication nor the confirmed Billing Contact.
+
+Billing encrypts the immutable Order Email with the existing bank-binding envelope, bound to the purchase reference through AAD.
+The persisted acceptance command excludes plaintext email. Its protected payload digest still detects a changed email under the same `operationId`.
+Retries keep the exact original command; they cannot silently replace the email after an uncertain bank response.
+`purchaseEmail(accountId, purchaseRef)` resolves only an owned order snapshot through the public BillingPayments facet.
+`subscriptionEmail(accountId, subscriptionRef)` prefers the current confirmed Billing Contact, then the owned initial purchase snapshot.
+Renewal, upgrade and resumption do not require email confirmation; consent and bank capability gates remain active.
+
+BillingNotices resolves the relevant purchase reference from the authoritative payment, refund or subscription fact.
+Notifications prefers Accounts' current confirmed contact; otherwise purchase service messages use the owned order snapshot.
+An order binding uses `inside.notification-delivery.v2`, `contactRef = purchaseRef`, `contactRevision = 1`.
+The existing `inside.notification-delivery.v1` semantics remain unchanged for verified contact and Telegram bindings.
+Both versions contain no raw recipient address; authorization rechecks the current binding before provider I/O.
+Existing immutable command and unknown-send recovery rules still apply: changing a contact never resends a potentially started command.
+
+No operation here creates or links a login identity. Optional Billing Contact confirmation and identity-provider linkage remain separate.
+Neither a matching email nor later confirmation moves a purchase, access or past receipt to another Account.
 
 ## Переход и юридические страницы
 
