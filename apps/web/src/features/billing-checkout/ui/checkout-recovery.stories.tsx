@@ -262,7 +262,7 @@ function lostPurchaseResponse(
         purchasedSnapshot = quotedSnapshot;
         return Promise.reject(new TypeError("synthetic lost response"));
       }
-      if (unavailableRetry) {
+      if (unavailableRetry !== false) {
         const code = unavailableRetry;
         unavailableRetry = false;
         return Promise.resolve(Response.json({ ok: false, code }));

@@ -452,8 +452,11 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     const results = await Promise.all(
       commands.map((command) => s.runtime.purchase(s.buyer, command)),
     );
-    const first = value(results[0]!);
-    expect(value(results[1]!)).toEqual(first);
+    const [firstResult, secondResult] = results;
+    if (firstResult === undefined || secondResult === undefined)
+      throw new Error("Both tabs must answer");
+    const first = value(firstResult);
+    expect(value(secondResult)).toEqual(first);
     expect(first.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
     expect(s.requests()).toHaveLength(1);
   });
