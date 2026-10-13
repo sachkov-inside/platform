@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { productPath } from "@/shared/routing/public-page-path";
 import { placeChapterTasks } from "@/entities/product-task.model";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import {
@@ -28,6 +29,7 @@ export interface CourseReadingChapter {
 export interface CourseReadingContext {
   readonly name: string;
   readonly href: Route;
+  readonly courseHref: Route;
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
@@ -154,6 +156,7 @@ export function courseReadingContext({
   return {
     name: series.reference.name,
     href,
+    courseHref: productPath(series.reference.slug),
     chapters,
     current: step,
     currentChapterId: chapter.id,

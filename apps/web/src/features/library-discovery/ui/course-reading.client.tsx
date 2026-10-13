@@ -223,6 +223,18 @@ function ProgrammeDialog({
   readonly context: CourseReadingContext;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    const desktop = window.matchMedia("(width >= 64rem)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) element?.close();
+    };
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => {
+      desktop.removeEventListener("change", closeOnDesktop);
+      element?.close();
+    };
+  }, [context.current.id]);
   const chapter = context.chapters.find(
     (entry) => entry.id === context.currentChapterId,
   );
@@ -239,7 +251,7 @@ function ProgrammeDialog({
     <div className={styles["mobileProgramme"]}>
       <IntentPrefetchLink
         className={styles["programmeLink"]}
-        href={context.href.split("/programme")[0] as typeof context.href}
+        href={context.courseHref}
       >
         <ArrowLeft size={16} aria-hidden="true" /> К странице курса
       </IntentPrefetchLink>
@@ -292,6 +304,13 @@ function ProgrammeDialog({
         aria-label={`Программа: ${context.name}`}
         closedby="any"
         onClick={(event) => {
+          if (
+            event.target instanceof Element &&
+            event.target.closest("a") !== null
+          ) {
+            event.currentTarget.close();
+            return;
+          }
           if (event.target !== event.currentTarget) return;
           const rect = event.currentTarget.getBoundingClientRect();
           if (
@@ -316,7 +335,7 @@ function ProgrammeDialog({
         </div>
         <IntentPrefetchLink
           className={styles["programmeLink"]}
-          href={context.href.split("/programme")[0] as typeof context.href}
+          href={context.courseHref}
         >
           Страница курса
         </IntentPrefetchLink>
@@ -326,16 +345,7 @@ function ProgrammeDialog({
         >
           Страница программы
         </IntentPrefetchLink>
-        <nav
-          aria-label="Вся программа"
-          onClick={(event) => {
-            if (
-              event.target instanceof Element &&
-              event.target.closest("a") !== null
-            )
-              dialog.current?.close();
-          }}
-        >
+        <nav aria-label="Вся программа">
           {context.chapters.map((chapter) => (
             <details
               key={chapter.id}

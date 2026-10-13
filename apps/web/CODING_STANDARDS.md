@@ -230,14 +230,17 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
 - In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
-  a 240 px left chapter rail, minimal position/title/metadata with one truthful action row, and
-  a previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Mobile uses the full-programme dialog, not a permanent narrow rail or floating pager.
+  a 240 px left chapter rail, position/title/date with one truthful action row, and
+  a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
+  access states. Owner correction 2026-10-13: mobile uses a floating rounded, blurred lesson dock
+  with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
+  a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
+  and desktop resize. Keep the mobile course heading at 20 px; omit format, course and topic metadata.
   Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
   marker and `aria-current` identify the current step. Hover changes text only, including chapter
   options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
-  The header shows the authored chapter ordinal and its mixed step position/count. Keep the normal
-  legal footer. Navigation rows make no personal access claim from guest-cached composition; target
+  The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal
+  footer only on course landing, purchase, payment and legal routes. Navigation rows make no personal access claim from guest-cached composition; target
   routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
   Save, error, denial,
   unavailable, protected-body and standalone behavior remains unchanged.
@@ -248,7 +251,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
-- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its
+- Outside checked course context, use 22 px on phones for the Reader title and 15 px with a 1.65 line height for its
   prose. Keep the established desktop sizes from their breakpoints. Learning outcomes remain in
   metadata and the editor; the reader has no outcomes panel.
   Reader headers omit the Material summary, including loading and access states

@@ -94,6 +94,7 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     `${programme}?part=materials&at=performance-lesson-1`,
   );
   await returnLink.click();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await expect(page).toHaveURL(/part=materials.*at=performance-lesson-1/u);
   await expect(
     page.locator('[data-route-material="performance-lesson-1"]:visible'),
