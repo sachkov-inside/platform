@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
+import { agentChoiceComparison } from "../../model/agent-choice-comparison";
 import { HarnessDiagram } from "./harness-diagram";
 import {
   exampleSubmissions,
@@ -443,6 +444,7 @@ export function UnifiedReadingPrototype() {
     return (
       <MaterialBodyView
         blocks={blocks}
+        comparison={agentChoiceComparison(currentId, blocks)}
         path={[]}
         rendering={{
           ...rendering,

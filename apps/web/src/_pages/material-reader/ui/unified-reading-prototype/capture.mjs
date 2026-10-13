@@ -23,7 +23,7 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
 const records = [];
 try {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ reducedMotion: "reduce" });
   for (const variant of combined ? ["B"] : ["A", "B", "C"]) {
     for (const width of [1440, 390]) {
       for (const [label, step] of [
