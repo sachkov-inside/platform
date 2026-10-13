@@ -13,13 +13,17 @@ history, not an alternative product model.
 
 ## Review surface
 
-Before frontend implementation or interactive UI review, start `pnpm storybook` from the task's
-worktree. If port `6006` belongs to another session, wait for its handoff first. Use the
-project-local `platform-storybook` MCP server at `http://localhost:6006/mcp`: inspect the component
-catalog with `docs-list` and component documentation with `docs-show` before choosing an
-implementation, and fetch `get-storybook-story-instructions` before editing stories. Claude Code
-reads the server from `.mcp.json`, Codex from `.codex/config.toml`; a session loads it at start and
-only in the trusted project or worktree. Start a new session after changing that configuration.
+Before frontend implementation or interactive UI review, use Storybook from the task's worktree.
+Reuse its owned preview when the source matches. Otherwise start `pnpm storybook` on an available
+local port; preserve another session's listener on `6006` or any other port.
+
+Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it.
+Inspect the catalog with `docs-list`, component documentation with `docs-show`, and
+`get-storybook-story-instructions` before editing stories. If the configured endpoint belongs to
+another worktree, inspect the local stories and catalog source and review the owned preview through
+browser tools. Report that fallback; a port conflict alone does not require a new agent session.
+Runtime MCP bindings live in `.mcp.json` or `.codex/config.toml`; change them only when the task needs
+a durable integration change. Follow [WORKFLOW.md](../../WORKFLOW.md#routes) for prototype completion.
 
 ## Delivery contract
 

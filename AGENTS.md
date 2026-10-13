@@ -25,8 +25,9 @@ historical sources.
 
 ## Commands
 
-`pnpm check` is the check that defines done: it must be green on the final head. `pnpm check:full`
-and the Compose smoke below are the checks before a release.
+Choose verification from the requested deliverable in [WORKFLOW.md](WORKFLOW.md#routes).
+For product implementation, `pnpm check` defines done: it must be green on the final head.
+`pnpm check:full` and the Compose smoke below are the checks before a release.
 
 The primary development stack requires Docker with Compose; host Node.js and pnpm are an optional
 fallback and use the versions pinned in `.node-version` and `packageManager`.
@@ -49,8 +50,9 @@ Before an agent runs repository Compose commands from any worktree, it must read
 - The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
   symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
-- For owner-assigned specifications, task sets, or resumed execution, use
+- For coordinated execution of owner-assigned specifications or task sets, use
   [orchestrate](.agents/skills/orchestrate/SKILL.md); `implement-spec` is its compatible entry point.
+  Resume other work through its existing route in `WORKFLOW.md`.
 - Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 
 ## Human communication
