@@ -73,6 +73,7 @@
   scrollbar-width: thin;
   overscroll-behavior: contain;
   padding-right: 12px;
+  padding-bottom: 4px;
 }
 .menuTitle {
   margin: 0 0 18px;
@@ -174,6 +175,7 @@
 }
 .variantA .sidebar {
   margin-top: 152px;
+  max-height: calc(100dvh - 340px);
 }
 .variantB .layout {
   grid-template-columns: 238px minmax(0, 680px);

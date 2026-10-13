@@ -102,13 +102,22 @@ export function ReaderProgrammePrototype({
   const position = chapter.steps.indexOf(current.id) + 1;
 
   useEffect(() => {
-    const rail = sidebar.current;
-    const active = rail?.querySelector('[aria-current="step"]');
-    if (rail === null || active === undefined || active === null) return;
-    const frame = rail.getBoundingClientRect();
-    const row = active.getBoundingClientRect();
-    if (row.bottom > frame.bottom) rail.scrollTop += row.bottom - frame.bottom;
-    else if (row.top < frame.top) rail.scrollTop += row.top - frame.top;
+    let cancelled = false;
+    void document.fonts.ready.then(() => {
+      if (cancelled) return;
+      const rail = sidebar.current;
+      const active = rail?.querySelector('[aria-current="step"]');
+      if (rail === null || active === undefined || active === null) return;
+      const frame = rail.getBoundingClientRect();
+      const row = active.getBoundingClientRect();
+      if (row.bottom > frame.bottom - 2)
+        rail.scrollTop += row.bottom - frame.bottom + 2;
+      else if (row.top < frame.top + 2)
+        rail.scrollTop += row.top - frame.top - 2;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [current.id, variant]);
 
   // Scope repeated quiz landmarks to this proof without changing the shared renderer.
