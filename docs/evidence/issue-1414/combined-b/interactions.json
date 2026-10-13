@@ -1,0 +1,74 @@
+{
+  "codeCommit": "5b34fba14cfe9f3d01d6148cebf90704452e77ef",
+  "codeTree": "209910224281cb5bbce8aba11a5d84a3db55507f",
+  "interactions": [
+    {
+      "customSelector": "selected state; keyboard change; Escape restores focus"
+    },
+    {
+      "guideAnchors": [
+        {
+          "title": "Зачем поручать настройку агенту",
+          "id": "зачем-поручать-настройку-агенту"
+        },
+        {
+          "title": "Как подключить GitHub",
+          "id": "как-подключить-github"
+        },
+        {
+          "title": "Бриф в проекте",
+          "id": "бриф-в-проекте"
+        },
+        {
+          "title": "Скиллы Matt Pocock",
+          "id": "скиллы-matt-pocock"
+        },
+        {
+          "title": "Трекер задач",
+          "id": "трекер-задач"
+        },
+        {
+          "title": "Файл инструкций",
+          "id": "файл-инструкций"
+        },
+        {
+          "title": "Как проверить настройку",
+          "id": "как-проверить-настройку"
+        },
+        {
+          "title": "Где пригодится",
+          "id": "где-пригодится"
+        }
+      ],
+      "keyboardDialog": "34 steps; Escape restores focus",
+      "sequence": "guide/task/pipeline/task",
+      "browserBack": "pipeline",
+      "taskReadingControls": "absent"
+    },
+    {
+      "scenario": "ready",
+      "result": "passed"
+    },
+    {
+      "scenario": "history",
+      "result": "passed"
+    },
+    {
+      "scenario": "unavailable",
+      "result": "passed"
+    },
+    {
+      "scenario": "version",
+      "result": "passed"
+    },
+    {
+      "scenario": "closed",
+      "result": "passed"
+    },
+    {
+      "scenario": "expired",
+      "result": "passed"
+    }
+  ],
+  "outboundMutations": []
+}

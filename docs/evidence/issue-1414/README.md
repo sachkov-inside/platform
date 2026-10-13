@@ -13,7 +13,8 @@ Focused TypeScript and lint passed. The initial Storybook MCP focused test/a11y 
 The Impeccable detector reported advisory type-ramp differences only; approved Reader sizes take precedence.
 The first full `pnpm check` failed at the Web architecture boundary: `task-submission.tsx` imported a Storybook fixture.
 The entry and task support now use the existing `*.fixtures.tsx` isolation contract. Guardrails remain unchanged; focused Web guardrails passed.
-The required full-check result is recorded in #1414 and PR #1417 against its exact final head.
+The owner deferred a second prototype full check. The required complete `pnpm check` runs once on the final production integration head.
+This proof has passing focused TypeScript, type-aware lint, Web guardrails, documentation and Storybook test/a11y checks.
 Owner visual verdict: pending. This record grants no production promotion or merge.
 
 Screenshot names identify variant, surface, width and region.
@@ -55,3 +56,25 @@ Corrections are implemented; the coordinator records independent final delta con
 Before the fix, task/pipeline/task changed pipeline's line breaks despite equal row heights.
 After the fix, all three states use 14 px/400 and identical line-break strings.
 Sidebar hover changes text color without a filled background or animation.
+
+## Final B confirmation
+
+Code commit: `5b34fba14cfe9f3d01d6148cebf90704452e77ef`.
+Proof subtree: `209910224281cb5bbce8aba11a5d84a3db55507f`.
+`combined-b/metrics.json` records ten guide/task layouts: 1440, 390, 720, 320 and 390 with 200% root text.
+Every case passed the horizontal-overflow assertion. Narrow/enlarged cases also passed visible-label clipping and 44 px action-target checks.
+Reading-state text remains visibly present at 320 px, as required by the delta Standards review.
+The final browser context uses reduced motion; the helper still performs its normal settled-layout checks.
+Fluid diagram padding prevents enlarged GitHub labels from losing their reading space.
+
+`combined-b/interactions.json` records custom Select selected state, keyboard chapter changes and restored focus after Escape.
+The programme dialog contains all 34 steps. Guide/task/pipeline/back and browser Back passed; task bookmark/read actions are absent.
+Ready/history/unavailable/version/closed/expired form states passed. No outbound POST/PUT/PATCH/DELETE request occurred.
+The canonical agent-choice comparison uses the existing page-model helper. A targeted browser check found five choices and switched to the GPT card.
+The helper exists in the accepted parent Reader lineage; the coordinator selects its production preservation scope separately.
+
+Normal-size geometry preserves the 688 px reading column, 28/18 px desktop title/prose and 22/15 px mobile title/prose.
+The final B screenshots cover header, footer, submission, selector, overview and Brief focus.
+The selector capture waits for the complete frame; the earlier compositor frame was replaced without a design change.
+Very tall whole-page PNGs remain local; versioned WebP `part-NN` tiles preserve the complete geometry at its original scale.
+Independent final delta confirmation is recorded by the coordinator in #1414.

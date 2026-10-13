@@ -98,4 +98,7 @@ Its metrics record the exact proof code commit and subtree.
 Run `node apps/web/src/_pages/material-reader/ui/unified-reading-prototype/capture.mjs docs/evidence/issue-1414/combined-b --combined-b`.
 The bounded browser checks cover header/footer, custom Select keyboard/selected state, 320/720/200% text, real step order, dialog focus and local form failure/history states.
 Full repository check and independent delta review results are linked to their exact head in #1414.
+The owner deferred the second prototype full suite; the mandatory complete `pnpm check` runs on the final production integration head.
+The proof's final B browser confirmation passed. It uses reduced motion and keeps the reading-state label visible at 320 px.
+The existing page-model `agentChoiceComparison` preserves the canonical five-card comparison; a targeted browser switch passed.
 The coordinator reviews the committed diff from the fixed base. Owner visual acceptance is the remaining promotion gate.

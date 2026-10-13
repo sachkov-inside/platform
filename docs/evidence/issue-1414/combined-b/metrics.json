@@ -1,0 +1,169 @@
+{
+  "codeCommit": "5b34fba14cfe9f3d01d6148cebf90704452e77ef",
+  "codeTree": "209910224281cb5bbce8aba11a5d84a3db55507f",
+  "records": [
+    {
+      "variant": "B",
+      "label": "guide",
+      "width": 1440,
+      "scroll": 1440,
+      "articleWidth": 688,
+      "titleSize": "28px",
+      "proseSize": "18px",
+      "lineHeight": "29.7px"
+    },
+    {
+      "variant": "B",
+      "label": "task",
+      "width": 1440,
+      "scroll": 1440,
+      "articleWidth": 688,
+      "titleSize": "28px",
+      "proseSize": "18px",
+      "lineHeight": "29.7px"
+    },
+    {
+      "variant": "B",
+      "label": "guide",
+      "width": 390,
+      "scroll": 390,
+      "articleWidth": 318,
+      "titleSize": "22px",
+      "proseSize": "15px",
+      "lineHeight": "24.75px"
+    },
+    {
+      "variant": "B",
+      "label": "task",
+      "width": 390,
+      "scroll": 390,
+      "articleWidth": 318,
+      "titleSize": "22px",
+      "proseSize": "15px",
+      "lineHeight": "24.75px"
+    },
+    {
+      "variant": "B",
+      "label": "guide",
+      "enlarged": false,
+      "width": 720,
+      "scroll": 720,
+      "actions": [
+        {
+          "label": "Добавить закладку",
+          "visibleWidth": 36,
+          "visibleHeight": 36,
+          "targetWidth": 44,
+          "targetHeight": 44
+        },
+        {
+          "label": "Не изучено",
+          "visibleWidth": 105.59375,
+          "visibleHeight": 36,
+          "targetWidth": 113.59375,
+          "targetHeight": 44
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "variant": "B",
+      "label": "task",
+      "enlarged": false,
+      "width": 720,
+      "scroll": 720,
+      "actions": [
+        {
+          "label": "Сдать",
+          "visibleWidth": 50.9375,
+          "visibleHeight": 36,
+          "targetWidth": 58.9375,
+          "targetHeight": 44
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "variant": "B",
+      "label": "guide",
+      "enlarged": false,
+      "width": 320,
+      "scroll": 320,
+      "actions": [
+        {
+          "label": "Добавить закладку",
+          "visibleWidth": 36,
+          "visibleHeight": 36,
+          "targetWidth": 44,
+          "targetHeight": 44
+        },
+        {
+          "label": "Не изучено",
+          "visibleWidth": 105.59375,
+          "visibleHeight": 36,
+          "targetWidth": 113.59375,
+          "targetHeight": 44
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "variant": "B",
+      "label": "task",
+      "enlarged": false,
+      "width": 320,
+      "scroll": 320,
+      "actions": [
+        {
+          "label": "Сдать",
+          "visibleWidth": 50.9375,
+          "visibleHeight": 36,
+          "targetWidth": 58.9375,
+          "targetHeight": 44
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "variant": "B",
+      "label": "guide",
+      "enlarged": true,
+      "width": 390,
+      "scroll": 390,
+      "actions": [
+        {
+          "label": "Добавить закладку",
+          "visibleWidth": 72,
+          "visibleHeight": 72,
+          "targetWidth": 88,
+          "targetHeight": 88
+        },
+        {
+          "label": "Не изучено",
+          "visibleWidth": 209.1875,
+          "visibleHeight": 72,
+          "targetWidth": 225.1875,
+          "targetHeight": 88
+        }
+      ],
+      "clipped": []
+    },
+    {
+      "variant": "B",
+      "label": "task",
+      "enlarged": true,
+      "width": 390,
+      "scroll": 390,
+      "actions": [
+        {
+          "label": "Сдать",
+          "visibleWidth": 101.859375,
+          "visibleHeight": 72,
+          "targetWidth": 117.859375,
+          "targetHeight": 88
+        }
+      ],
+      "clipped": []
+    }
+  ]
+}

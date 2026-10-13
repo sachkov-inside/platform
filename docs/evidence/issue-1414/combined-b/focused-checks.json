@@ -1,0 +1,35 @@
+{
+  "codeCommit": "5b34fba14cfe9f3d01d6148cebf90704452e77ef",
+  "checks": [
+    {
+      "command": "pnpm --filter @inside/web exec tsc --noEmit",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm exec oxlint --type-aware --deny-warnings apps/web/src/_pages/material-reader/ui/unified-reading-prototype",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm --filter @inside/web guardrails",
+      "exitCode": 0
+    },
+    {
+      "command": "pnpm docs:check",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "Storybook MCP test-run (Playground; accessibility enabled)",
+      "exitCode": 0
+    }
+  ],
+  "targetedBrowser": {
+    "agentChoiceComparison": "Five canonical model buttons; GPT card visible after selecting GPT",
+    "sidebarWrap": "Range rect strings unchanged across task/pipeline/task",
+    "states": "See interactions.json"
+  },
+  "fullCheck": "Initial run failed Storybook isolation; fixed. Owner deferred second prototype suite to final production integration head."
+}
