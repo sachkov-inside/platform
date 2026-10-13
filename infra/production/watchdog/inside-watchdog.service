@@ -14,6 +14,7 @@ ProtectHome=true
 ProtectSystem=strict
 # systemd создаёт /var/lib/inside/watchdog до запуска; без этого ProtectSystem=strict не дал бы
 # смонтировать путь для записи, и служба не стартовала бы.
-StateDirectory=inside/watchdog
+StateDirectory=inside/watchdog inside/metrics
 StateDirectoryMode=0700
+ExecStartPre=/usr/bin/chmod 0755 /var/lib/inside/metrics
 UMask=0077

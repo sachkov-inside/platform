@@ -63,7 +63,7 @@ for key in WATCHDOG_MEMORY_MIN_MIB WATCHDOG_DISK_MAX_PERCENT WATCHDOG_BACKUP_MAX
   fi
 done
 
-install -d -m 700 "$state_dir" "$state_dir/streak" "$state_dir/active" "$state_dir/counters"
+install -d -m 700 "$state_dir" "$state_dir/streak" "$state_dir/active" "$state_dir/counters" "$state_dir/metrics"
 exec 9>>"$state_dir/watchdog.lock"
 if ! flock --exclusive --nonblock 9; then
   echo "Another watchdog run is active" >&2
@@ -98,6 +98,36 @@ run_dir="$(mktemp -d "$state_dir/run.XXXXXX")"
 trap 'rm -r "$run_dir"' EXIT
 observations="$run_dir/observations"
 mkdir "$observations"
+
+# Numeric snapshots stay private until a complete run atomically publishes one readable file.
+# Each source replaces its last good snapshot only after a successful read.
+metric() {
+  printf '%s %s\n' "$2" "$3" >>"$run_dir/metrics.$1"
+}
+source_success() {
+  [[ -f "$run_dir/metrics.$1" ]] || : >"$run_dir/metrics.$1"
+  mv "$run_dir/metrics.$1" "$state_dir/metrics/$1.prom"
+  printf '%s\n' "$now" >"$state_dir/metrics/$1.time"
+  : >"$run_dir/success.$1"
+}
+publish_metrics() {
+  local source last_success available output
+  local metrics_dir="$host_root/var/lib/inside/metrics"
+  install -d -m 755 "$metrics_dir"
+  output="$(mktemp "$metrics_dir/.watchdog.XXXXXX")"
+  printf 'inside_watchdog_run_timestamp_seconds %s\n' "$now" >"$output"
+  for source in platform_db; do
+    available=0
+    [[ -f "$run_dir/success.$source" ]] && available=1
+    last_success=0
+    [[ ! -f "$state_dir/metrics/$source.time" ]] || read -r last_success <"$state_dir/metrics/$source.time"
+    printf 'inside_watchdog_source_available{source="%s"} %s\n' "$source" "$available" >>"$output"
+    printf 'inside_watchdog_source_last_success_timestamp_seconds{source="%s"} %s\n' "$source" "$last_success" >>"$output"
+    [[ ! -f "$state_dir/metrics/$source.prom" ]] || cat "$state_dir/metrics/$source.prom" >>"$output"
+  done
+  chmod 644 "$output"
+  mv -f "$output" "$metrics_dir/watchdog.prom"
+}
 
 # observe KEY CONFIRM TEXT [LEVEL]: условие отказа выполнено в этом запуске. Сигнал уходит, когда
 # условие держится CONFIRM запусков подряд. LEVEL — число, например зависших покупок: его рост при
@@ -285,13 +315,23 @@ read_only_query() {
 
 check_database() {
   local rows name value
-  if ! rows="$(read_only_query inside "$platform_query")"; then
+  if ! rows="$(read_only_query inside "$platform_query")" || ! awk -F '|' '
+    $1 ~ /^(purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention))$/ {
+      if (NF != 2 || $2 !~ /^[0-9]+$/ || seen[$1]++) bad=1
+    }
+    END { exit (bad || !seen["purchases"] || !seen["fulfillment"] ||
+      !seen["notification_outbox"] || !seen["email_effects"] || !seen["billing_queue_idle"]) }
+    ' <<<"$rows"; then
     hold db.
     observe watchdog.database 2 "Сторож не может прочитать базу Platform"
     return
   fi
   while IFS='|' read -r name value; do
     [[ "$value" =~ ^[0-9]+$ ]] || continue
+    case "$name" in
+      purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|web_telemetry_growth|web_telemetry_digest|web_telemetry_size|web_telemetry_dropped|web_telemetry_retention)
+        metric platform_db "inside_watchdog_business_count{check=\"$name\"}" "$value" ;;
+    esac
     (( value > 0 )) || continue
     case "$name" in
       purchases) observe db.purchases 1 "Покупок без итога дольше порога: $value" "$value" ;;
@@ -306,6 +346,7 @@ check_database() {
       billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
     esac
   done <<<"$rows"
+  source_success platform_db
   if ! rows="$(read_only_query inside_telegram "$telegram_query")"; then
     hold telegram.db.
     observe watchdog.telegram_database 2 "Сторож не может прочитать базу Telegram"
@@ -509,6 +550,8 @@ if [[ -s "$messages" ]]; then
   done <"$messages"
   tail -n 1000 "$signals_log" >"$signals_log.tmp" && mv "$signals_log.tmp" "$signals_log"
 fi
+
+publish_metrics
 
 # Доставка. Пока канал не настроен, сигналы остаются в журнале systemd и signals.log. Недоставленные
 # сообщения ждут в outbox следующего запуска; outbox хранит не больше 50 строк. Сообщение несёт

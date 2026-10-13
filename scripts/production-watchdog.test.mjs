@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  statSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -27,6 +28,80 @@ describe("production watchdog", () => {
       );
       assertRun(fixture);
       assert.equal(fixture.signals(), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("publishes sanitized readable business observations from successful reads", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql.replace("purchases|0", "purchases|2") +
+          "customer@example.test|99\n",
+      );
+      assertRun(fixture);
+      const path = resolve(
+        fixture.root,
+        "var/lib/inside/metrics/watchdog.prom",
+      );
+      const metrics = readFileSync(path, "utf8");
+      assert.match(
+        metrics,
+        /inside_watchdog_business_count\{check="purchases"\} 2/u,
+      );
+      assert.match(
+        metrics,
+        /inside_watchdog_source_available\{source="platform_db"\} 1/u,
+      );
+      assert.match(
+        metrics,
+        /inside_watchdog_source_last_success_timestamp_seconds\{source="platform_db"\} 1800000000/u,
+      );
+      assert.doesNotMatch(metrics, /customer|@|token|v18/u);
+      assert.equal(statSync(path).mode & 0o777, 0o644);
+      assert.equal(
+        statSync(resolve(fixture.root, "var/lib/inside/watchdog")).mode & 0o777,
+        0o700,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("retains failed-source evidence and freshness until a complete recovery", () => {
+    const fixture = createFixture();
+    const path = resolve(fixture.root, "var/lib/inside/metrics/watchdog.prom");
+    try {
+      fixture.fake("sql", healthySql.replace("purchases|0", "purchases|2"));
+      assertRun(fixture);
+      fixture.fake("sql-fail", "");
+      assertRun(fixture, now + 300);
+      let metrics = readFileSync(path, "utf8");
+      assert.match(metrics, /business_count\{check="purchases"\} 2/u);
+      assert.match(metrics, /source_available\{source="platform_db"\} 0/u);
+      assert.match(
+        metrics,
+        /last_success_timestamp_seconds\{source="platform_db"\} 1800000000/u,
+      );
+      assert.doesNotMatch(fixture.signals(), /Восстановлено: Покупок/u);
+      rmSync(resolve(fixture.root, "fake/sql-fail"));
+      fixture.fake("sql", "purchases|0\n");
+      assertRun(fixture, now + 360);
+      metrics = readFileSync(path, "utf8");
+      assert.match(metrics, /business_count\{check="purchases"\} 2/u);
+      assert.match(metrics, /source_available\{source="platform_db"\} 0/u);
+      assert.doesNotMatch(fixture.signals(), /Восстановлено: Покупок/u);
+      fixture.fake("sql", healthySql);
+      assertRun(fixture, now + 420);
+      metrics = readFileSync(path, "utf8");
+      assert.match(metrics, /business_count\{check="purchases"\} 0/u);
+      assert.match(
+        metrics,
+        /last_success_timestamp_seconds\{source="platform_db"\} 1800000420/u,
+      );
+      assert.match(fixture.signals(), /Восстановлено: Покупок/u);
     } finally {
       fixture.cleanup();
     }
