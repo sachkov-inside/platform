@@ -10,12 +10,14 @@ The PR result card records the final checked SHA, required-check exit codes and 
 - `node --test scripts/production-watchdog.test.mjs scripts/production-monitoring.test.mjs`:
   exit 0, 28 tests. Includes failed/incomplete sources, held Telegram/telemetry evidence, readable
   atomic export, Compose service-label format and exited required services versus completed migrations.
-- `python3 -m unittest discover -s scripts -p 'test_monitoring_*.py'`: exit 0, 12 tests.
+- `python3 -m unittest discover -s scripts -p 'test_monitoring_*.py'`: exit 0, 13 tests.
   Restarted Docker ID/PID/StartedAt/RestartCount or exporter InvocationID rejects a pilot even with
   reused cgroup paths. Measurement checks surround baseline, intermediate and final counter reads.
   MCP sample assertions reject value 0 despite a timestamp containing 2, wrong labels and empty ranges.
   The active-watchdog end-window regression reported CPU 0 before the fix and 5% after it.
   CPU deltas include active invocations at both boundaries; an unobserved completion rejects the pilot.
+  Missing/nonnumeric watchdog MemoryPeak rejects the pilot. A final numeric 128 MiB peak is included;
+  the pre-fix report omitted it. Numeric zero remains a valid measured value.
 - Guarded real `python3 scripts/monitoring-stack-test.py`: exit 0.
   Real textfile ingestion, datasource query, provisioned dashboard, six alert rules, muted delivery,
   Viewer write HTTP 403, official MCP discovery/instant/range/dashboard/alert reads passed.
@@ -53,6 +55,7 @@ Review base: `4bb1b6a446f2f3c15cbe2886c5b266fe50354d95`; initial head:
 | Coordinator acceptance | Exited(0) required service counted present | Bounded count includes only running services; migration completion remains normal. |
 | Standards rereview | Worker wait could bypass remaining cleanup | Kill/wait is an independent bounded step; cleanup ignores repeated catchable signals. |
 | Standards rereview | Active watchdog CPU omitted at window boundaries | Invocation CPU deltas include active initial/final reads; incomplete accounting rejects the pilot. |
+| Standards focused audit | Unknown watchdog memory became zero | Missing/nonnumeric MemoryPeak rejects the pilot; final measured peak contributes to the upper bound. |
 
 ## Acceptance boundaries
 

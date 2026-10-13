@@ -57,11 +57,12 @@ class PilotIdentityTest(unittest.TestCase):
 
     def test_report_includes_watchdog_active_at_window_end(self):
         output = io.StringIO()
-        reads = iter([0, 10, 60])
+        reads = iter([(0, 0), (10, 0), (60, 128 * 1024**2)])
         def unit_observation(name):
             if "exporter" in name:
                 return {"ActiveState": "active", "ControlGroup": "/exporter"}
-            return {"ActiveState": "active", "InvocationID": "same", "CPUUsageNSec": str(next(reads) * 1_000_000_000), "MemoryPeak": "0"}
+            cpu, peak = next(reads)
+            return {"ActiveState": "active", "InvocationID": "same", "CPUUsageNSec": str(cpu * 1_000_000_000), "MemoryPeak": str(peak)}
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch.object(pilot, "identities", return_value=self.expected()))
             stack.enter_context(patch.object(pilot, "command", side_effect=lambda *args: "vm\ngrafana" if args[1] == "ps" else "0" if args[0] == "du" else "101"))
@@ -75,6 +76,27 @@ class PilotIdentityTest(unittest.TestCase):
             pilot.main()
         report = json.loads(output.getvalue())
         self.assertEqual(report["average_total_host_cpu_percent"], 5)
+        self.assertEqual(report["monitoring_memory_upper_bound_bytes"], 3 * 1024 + 128 * 1024**2)
+
+    def test_unknown_watchdog_memory_rejects_measurement(self):
+        for peak in (None, "[not set]"):
+            with self.subTest(peak=peak), contextlib.ExitStack() as stack:
+                def unit_observation(name):
+                    value = {"ActiveState": "active" if "exporter" in name else "inactive", "ControlGroup": "/exporter", "InvocationID": "same", "CPUUsageNSec": "0"}
+                    if peak is not None:
+                        value["MemoryPeak"] = peak
+                    return value
+                stack.enter_context(patch.object(pilot, "identities", return_value=self.expected()))
+                stack.enter_context(patch.object(pilot, "command", side_effect=lambda *args: "vm\ngrafana" if args[1] == "ps" else "0" if args[0] == "du" else "101"))
+                stack.enter_context(patch.object(pilot, "unit", side_effect=unit_observation))
+                stack.enter_context(patch.object(pilot, "cgroup", return_value=Path("/same/cgroup")))
+                stack.enter_context(patch.object(pilot, "read_group", return_value=(4, 1024)))
+                stack.enter_context(patch.object(pilot, "mem_available", return_value=1024**3))
+                stack.enter_context(patch.object(pilot.time, "monotonic", side_effect=[0, 600, 600]))
+                stack.enter_context(patch.object(Path, "read_text", return_value="cpu0 0\ncpu1 0\n"))
+                stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                with self.assertRaisesRegex(RuntimeError, "memory accounting"):
+                    pilot.main()
 
     def test_measurement_checks_initial_during_and_final_identities(self):
         expected = self.expected()

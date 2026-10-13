@@ -65,6 +65,13 @@ def watchdog_cpu_delta(previous, current):
     return int(new) / 1_000_000_000
 
 
+def watchdog_memory(watchdog):
+    peak = watchdog.get("MemoryPeak", "")
+    if not peak.isdigit():
+        raise RuntimeError("Watchdog memory accounting is unavailable; discard the pilot")
+    return int(peak)
+
+
 def main():
     ids = command("docker", "ps", "--filter", "label=com.docker.compose.project=inside-production-monitoring", "--format", "{{.ID}}").splitlines()
     if len(ids) != 2:
@@ -80,7 +87,7 @@ def main():
     initial = sum(previous_cpu)
     watchdog = unit("inside-watchdog.service")
     watchdog_cpu = 0.0
-    max_memory = 0
+    max_memory = watchdog_memory(watchdog)
     minimum_available = mem_available()
     max_data = 0
     samples = 0
@@ -96,9 +103,7 @@ def main():
         watchdog_cpu += watchdog_cpu_delta(watchdog, current_watchdog)
         watchdog = current_watchdog
         # memory.current includes resident pages and cache; adding unit peak is conservative.
-        peak = watchdog.get("MemoryPeak", "0")
-        watchdog_memory = int(peak) if peak.isdigit() else 0
-        max_memory = max(max_memory, sum(memory for _, memory in readings) + watchdog_memory)
+        max_memory = max(max_memory, sum(memory for _, memory in readings) + watchdog_memory(watchdog))
         minimum_available = min(minimum_available, mem_available())
         used = int(command("du", "-sb", "/var/lib/inside/monitoring").split()[0])
         max_data = max(max_data, used)
@@ -106,10 +111,12 @@ def main():
         elapsed = time.monotonic() - start
         if elapsed >= 600:
             # Check again after the final counters, including restarts between this sample's reads.
-            final_cpu = [read_group(group)[0] for group in groups]
+            final_readings = [read_group(group) for group in groups]
+            final_cpu = [cpu for cpu, _ in final_readings]
             require_stable(expected_identities, identities(ids), current_cpu, final_cpu)
             final_watchdog = unit("inside-watchdog.service")
             watchdog_cpu += watchdog_cpu_delta(watchdog, final_watchdog)
+            max_memory = max(max_memory, sum(memory for _, memory in final_readings) + watchdog_memory(final_watchdog))
             cpu = sum(final_cpu) - initial + watchdog_cpu
             elapsed = time.monotonic() - start
             cores = len([line for line in Path("/proc/stat").read_text().splitlines() if line.startswith("cpu") and line[3:4].isdigit()])
