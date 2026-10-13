@@ -1,0 +1,122 @@
+[
+  {
+    "variant": "A",
+    "label": "guide",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "A",
+    "label": "task",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "A",
+    "label": "guide",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  },
+  {
+    "variant": "A",
+    "label": "task",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  },
+  {
+    "variant": "B",
+    "label": "guide",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "B",
+    "label": "task",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "B",
+    "label": "guide",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  },
+  {
+    "variant": "B",
+    "label": "task",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  },
+  {
+    "variant": "C",
+    "label": "guide",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "C",
+    "label": "task",
+    "width": 1440,
+    "scroll": 1440,
+    "articleWidth": 688,
+    "titleSize": "28px",
+    "proseSize": "18px",
+    "lineHeight": "29.7px"
+  },
+  {
+    "variant": "C",
+    "label": "guide",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  },
+  {
+    "variant": "C",
+    "label": "task",
+    "width": 390,
+    "scroll": 390,
+    "articleWidth": 318,
+    "titleSize": "22px",
+    "proseSize": "15px",
+    "lineHeight": "24.75px"
+  }
+]
