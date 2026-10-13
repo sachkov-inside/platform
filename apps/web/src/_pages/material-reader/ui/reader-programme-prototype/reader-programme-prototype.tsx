@@ -358,7 +358,12 @@ export function ReaderProgrammePrototype({
           ) : null}
         </div>
       </div>
-      <div className={styles["body"]}>
+      <div
+        className={cn(
+          styles["body"],
+          "[&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3:not([data-comparison-heading])]:text-xl md:[&_h4]:text-lg",
+        )}
+      >
         {body === undefined ? (
           <section className={styles["access"]}>
             <LockKeyhole size={22} aria-hidden="true" />
