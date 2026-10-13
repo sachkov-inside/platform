@@ -175,16 +175,17 @@ function lineCount(content) {
 export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
-  const companion = ".agents/skills/orchestrate/SKILL.md";
   const entryPoint = ".agents/skills/implement-spec/SKILL.md";
-  if (
-    existsSync(resolve(repositoryRoot, entryPoint)) &&
-    !existsSync(resolve(repositoryRoot, companion))
-  ) {
-    failures.push(`${entryPoint}: portable orchestrate companion is missing`);
+  if (!existsSync(resolve(repositoryRoot, entryPoint))) {
+    failures.push(`${entryPoint}: original specification skill is missing`);
+  }
+  if (existsSync(resolve(repositoryRoot, ".agents/skills/orchestrate"))) {
+    failures.push(
+      ".agents/skills/orchestrate: superseded entry point remains active",
+    );
   }
   const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
-  for (const skill of ["orchestrate", "implement-spec", "ask-matt", "tdd"]) {
+  for (const skill of ["implement-spec", "ask-matt", "tdd"]) {
     walk(resolve(repositoryRoot, ".agents/skills", skill), (path, name) => {
       if (name.endsWith(".md")) files.push(relative(repositoryRoot, path));
     });
@@ -195,6 +196,20 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
       continue;
     }
     const content = read(repositoryRoot, path);
+    rejectText(
+      failures,
+      path,
+      content,
+      "orchestrate/SKILL.md",
+      "replace the superseded orchestrate pointer",
+    );
+    rejectText(
+      failures,
+      path,
+      content,
+      "/orchestrate",
+      "replace the superseded orchestrate command",
+    );
     for (const target of extractLocalMarkdownTargets(content)) {
       if (
         !existsSync(resolve(dirname(resolve(repositoryRoot, path)), target))
@@ -223,11 +238,30 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         failures,
         path,
         content,
-        companion,
-        "route execution discovery to portable orchestrate",
+        entryPoint,
+        "point to the owner-invoked original specification skill",
       );
     }
   }
+  walk(resolve(repositoryRoot, ".agents/skills"), (path, name) => {
+    if (
+      name !== "SKILL.md" ||
+      !readFileSync(path, "utf8").includes("disable-model-invocation: true")
+    ) {
+      return;
+    }
+    const adapter = resolve(dirname(path), "agents/openai.yaml");
+    if (
+      !existsSync(adapter) ||
+      !readFileSync(adapter, "utf8").includes(
+        "policy:\n  allow_implicit_invocation: false",
+      )
+    ) {
+      failures.push(
+        `${relative(repositoryRoot, adapter)}: manual skill requires native implicit-invocation policy`,
+      );
+    }
+  });
   return failures;
 }
 

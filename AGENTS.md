@@ -50,9 +50,9 @@ Before an agent runs repository Compose commands from any worktree, it must read
 - The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
   symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
-- For coordinated execution of owner-assigned specifications or task sets, use
-  [orchestrate](.agents/skills/orchestrate/SKILL.md); `implement-spec` is its compatible entry point.
-  Resume other work through its existing route in `WORKFLOW.md`.
+- When the owner invokes [implement-spec](.agents/skills/implement-spec/SKILL.md), apply the
+  project execution rules in [WORKFLOW.md](WORKFLOW.md#sessions-and-coordinated-execution).
+  `WORKFLOW.md` owns stage selection and ordinary task completion.
 - Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 
 ## Human communication

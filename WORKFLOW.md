@@ -5,13 +5,17 @@ Keep synchronized skills unchanged. Put project exceptions here and verification
 
 ## Routes
 
-Choose the route from the owner's requested result. A follow-up keeps that route unless its scope changes.
-Owner instructions and existing authorization take precedence over workflow defaults.
+Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
+The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a manual skill.
+An explicitly invoked skill completes its internal actions, including required subordinate skills, without renewed approval.
+Preparation completes its own result and recommends the next stage; the owner assigns that stage separately.
+Readiness labels, status requests, resumed chats, and repository membership supply context, not new execution assignments.
+Resumption preserves existing authorization for the assigned work.
 
 | Requested result | Route | Completion |
 |---|---|---|
 | Explanation, opinion, investigation, or discussion | Read and discuss | Answer with evidence; change files only when requested |
-| Runnable design or state-model comparison | `prototype` | Show the requested variants and verify the interaction being evaluated |
+| Runnable design or state-model comparison | Build the requested preview | Show the requested variants and verify the interaction being evaluated |
 | Documentation-only change | Edit, verify claims, review before integration | Pass `pnpm docs:check` and any check needed for the changed claims |
 | Product implementation | Implement, review, pull request | Pass the product check in `AGENTS.md` on the final head and required CI |
 
@@ -28,34 +32,36 @@ Production work can also receive early feedback through a local preview and focu
 An early preview does not claim final acceptance. Run full checks after implementation and review fixes
 settle; repeat them when changed inputs or failures invalidate their evidence.
 
-The owner starts `grilling`, `to-spec`, and `to-tickets` separately. Finish the requested stage and wait.
-Preparation, status requests, and design selection do not start an unassigned implementation.
 Before `ready-for-agent`, resolve owner decisions. Visual work follows
 [frontend delivery](docs/agents/frontend-delivery.md): an accepted Storybook proof on `prototype/*`,
 or temporary semantic UI with a linked integration ticket. After publishing child tickets, remove
 `ready-for-agent` from the parent; this overrides `to-tickets`' restriction on modifying parents.
-A `ready-for-agent` assignment runs through a ready PR without renewed approval.
-Use [implement](.agents/skills/implement/SKILL.md) for implementation, including plain-text assignments.
+An explicit implementation assignment runs through a ready PR without renewed approval.
+The owner can invoke [implement](.agents/skills/implement/SKILL.md) for a ticket or
+[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification.
 Acceptance criteria identify agreed seams for `tdd`;
 write their failing tests first. A criterion with no behaviour needs no test.
 
 ## Sessions and coordinated execution
 
-Keep single-session work in its current writing worktree. Use the owner's selected runtime and model;
-otherwise inherit the current session. Codex work stays in Codex, including native review subagents.
+Keep single-session work in its current writing worktree. Native workers inherit the current agent and model
+unless the owner selects otherwise. Codex work stays in Codex, including native review subagents.
+Herdr manages independent project sessions; a native subagent is not a new owner session.
 Name another runtime or session only from verified runtime information.
 
-Use [orchestrate](.agents/skills/orchestrate/SKILL.md) for coordinated specifications or task sets.
-A specification uses one integration branch and final PR; independent tasks use separate PRs.
-Delegate writing when independent ready tasks justify separate writers; a small task does not require dispatch.
-Each writer owns a separate writing worktree. Dispatch through Herdr under the owner's worktree rules.
-Use native subagents for read-only review. Serialize shared runtime/Compose operations under singleton ownership.
+When the owner invokes `implement-spec`, follow its original body with these project overrides.
+A specification uses one integration branch and final PR; independent assigned tasks use separate PRs.
+Coordinate only the assigned specification or tickets and the coordinator's own workers and resources.
+Keep a small assignment in one writing session. When independent assigned tasks justify separate writers,
+dispatch through Herdr under the owner's worktree rules; each writer owns a separate writing worktree.
+Use native subagents for read-only review. Preserve other project sessions and their resources.
+Serialize shared runtime/Compose operations under singleton ownership.
 
 Keep the task map in issues and PRs: dependencies, decisions, session IDs, resource owners, commits,
-checks, and next actions. On resumption reconcile actual state and assign only remaining work.
+checks, and next actions. On resumption reconcile actual state and assign only remaining assigned work.
 Preserve active workers and recovered results. Resume owner-paused work only on the owner's request.
-Independent review precedes durable integration. Coordinated product delivery also requires independent
-final review and mandatory checks on the integrated result.
+Every implementation ticket requires independent review before durable integration.
+Coordinated implementation also requires independent final review and mandatory checks on the integrated result.
 A completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
@@ -94,7 +100,7 @@ from that base. Supply the assignment and applicable standards. Reviewers use na
 when unavailable, use a separate review process with the same inputs.
 Each finding is fixed, moved to a linked issue, or rejected with evidence.
 After fixes, review the changed findings again and record outcomes.
-Prototype preview and intermediate feedback use the scoped completion rule under Routes.
+Documentation changes receive this review before integration. Prototype preview and discussion use the scoped rule under Routes.
 
 ## Completion and handoff
 
