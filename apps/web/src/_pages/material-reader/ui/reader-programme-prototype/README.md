@@ -1,0 +1,31 @@
+# Course Reader programme prototype
+
+Question: can a compact programme rail make lessons and tasks discoverable while preserving quiet reading?
+
+Owner reference: the supplied Anthropic guide screenshot. Preserve the incumbent fonts, tokens and public shell.
+
+Three structural alternatives on one Storybook route:
+
+- A: all chapter headings, with the active chapter expanded; rail starts beside the body, as in the reference.
+- B: one chapter at a time, selected above a linear list; rail starts beside the title.
+- C: a small window around the current step, with the complete programme behind one action.
+
+Use `?variant=A|B|C`, `step=<id>` and optional `theme=dark` on the iframe URL.
+The floating prototype bar cycles variants, including keyboard arrows outside interactive controls.
+Chapter-one document bodies and all 34 programme steps were captured read-only from the existing local API.
+Thirteen public assets are copied locally. The proof can render without a live database.
+Task steps follow their actual `afterMaterialId` placement. All variants share that sequence.
+Closed chapter-two steps retain their place and show a safe access state.
+Local read/bookmark toggles have no persistence. No submission, auth or production mutation is connected.
+
+Run from the repository root:
+
+```bash
+pnpm storybook --port 6206 --ci
+```
+
+Open `http://127.0.0.1:6206/iframe.html?id=prototypes-course-reader-programme--playground&viewMode=story&variant=A`.
+
+This is throwaway presentation on `prototype/course-reader-programme`, outside main and all production routes.
+The running owner frontend on 3100 and shared API/database remain unchanged.
+Decision pending: owner compares the three layouts. Keep the selected verdict with the implementation task before promotion.
