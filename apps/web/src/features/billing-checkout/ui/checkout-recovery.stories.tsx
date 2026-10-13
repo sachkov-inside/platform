@@ -421,18 +421,32 @@ function retryChangedConditions(
       await expect(purchaseRequest).toHaveBeenCalledTimes(2);
       await expect(purchaseRequest).toHaveBeenLastCalledWith(original);
       await expect(consentRequest).toHaveBeenCalledTimes(1);
-      await expect(
-        canvas.queryByRole("button", {
-          name: "Повторить первоначальную покупку",
-        }),
-      ).not.toBeInTheDocument();
-      await waitFor(() =>
-        expect(
+      if (state === "unknown") {
+        await expect(
+          canvas.getByRole("button", {
+            name: "Повторить первоначальную покупку",
+          }),
+        ).toBeEnabled();
+        await expect(
           canvas.getByRole("button", {
             name: /^(?:Оплатить |Оформить подписку и оплатить )/u,
           }),
-        ).toBeEnabled(),
-      );
+        ).toBeDisabled();
+        return;
+      } else {
+        await expect(
+          canvas.queryByRole("button", {
+            name: "Повторить первоначальную покупку",
+          }),
+        ).not.toBeInTheDocument();
+        await waitFor(() =>
+          expect(
+            canvas.getByRole("button", {
+              name: /^(?:Оплатить |Оформить подписку и оплатить )/u,
+            }),
+          ).toBeEnabled(),
+        );
+      }
       // Восстановленный receipt завершил доставку. Новую покупку допускает серверная политика.
       await userEvent.click(
         canvas.getByRole("button", {
@@ -612,7 +626,10 @@ export const UnavailableBankKeepsOriginalCommand: Story = {
   },
 };
 
-function bankOutcomes(states: readonly ("pending" | "failed" | "confirmed")[]) {
+function bankOutcomes(
+  states: readonly ("pending" | "failed" | "confirmed")[],
+  formAvailable = true,
+) {
   let quotes = 0;
   let purchases = 0;
   return fetchBeforeRender((input, init) => {
@@ -656,7 +673,10 @@ function bankOutcomes(states: readonly ("pending" | "failed" | "confirmed")[]) {
             ...pendingPurchase,
             snapshot: productOnlyOffer,
             state,
-            paymentUrl: state === "pending" ? pendingPurchase.paymentUrl : null,
+            paymentUrl:
+              state === "pending" && formAvailable
+                ? pendingPurchase.paymentUrl
+                : null,
             access: state === "confirmed" ? "preparing" : "awaiting_payment",
           },
         }),
@@ -734,5 +754,29 @@ export const OriginalPurchaseResponseLost: Story = {
       canvas.getByRole("button", { name: /^Оплатить /u }),
     ).toBeDisabled();
     await expect(args.onPurchase).not.toHaveBeenCalled();
+  },
+};
+
+export const MissingFormKeepsStateRetry: Story = {
+  beforeEach: () => bankOutcomes(["pending", "confirmed"], false),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
+    await waitFor(() => expect(pay).toBeEnabled());
+    await userEvent.click(pay);
+    await canvas.findByText(
+      "Форма оплаты пока недоступна. Повторите проверку состояния — новая оплата не создаётся.",
+    );
+    await expect(pay).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Повторить первоначальную покупку" }),
+    );
+    await waitFor(() =>
+      expect(args.onNavigate).toHaveBeenCalledWith("/payment/return"),
+    );
+    await expect(purchaseRequest.mock.calls[1]?.[0]).toEqual(
+      purchaseRequest.mock.calls[0]?.[0],
+    );
+    await expect(consentRequest).toHaveBeenCalledTimes(1);
   },
 };

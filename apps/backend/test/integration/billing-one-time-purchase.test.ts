@@ -280,13 +280,14 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     async function command(
       accepted: readonly Consent[] = ["terms"],
       acknowledgeExistingAccess = false,
+      paymentOptionId = optionId,
     ) {
       const quote = value(
         await pricing.quote(
           buyer,
           await prepareInvitedQuote(db.prisma, buyer, {
             operationId: randomUUID(),
-            paymentOptionId: optionId,
+            paymentOptionId,
             optionRevision: 1,
           }),
         ),
@@ -415,6 +416,26 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(s.requests()).toHaveLength(1);
   });
 
+  test("перезагрузка после подтверждения до выдачи доступа не начинает второй платёж", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    const reloaded = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(reloaded).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+      paymentUrl: null,
+      access: "preparing",
+    });
+    expect(s.requests()).toHaveLength(1);
+  });
+
   test("отклонённая банком попытка сохраняется, новая попытка возможна только с новым расчётом", async () => {
     const s = await scenario();
     const command = await s.command();
@@ -459,6 +480,38 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(value(secondResult)).toEqual(first);
     expect(first.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
     expect(s.requests()).toHaveLength(1);
+  });
+
+  test("выбор другого варианта сначала сверяет прежний платёж и разрешает замену после отказа", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    const otherOptionId = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: otherOptionId,
+          offerId: s.offerId,
+          mode: "one_time",
+          months: 1,
+          priceKopecks: 390_000,
+        },
+      }),
+    );
+    const replacementCommand = await s.command(["terms"], false, otherOptionId);
+    s.outcome("REJECTED");
+    const replacement = value(
+      await s.runtime.purchase(s.buyer, replacementCommand),
+    );
+    expect(replacement.purchaseRef).not.toBe(original.purchaseRef);
+    expect(
+      value(await s.runtime.status(s.buyer, original.purchaseRef)).state,
+    ).toBe("failed");
+    expect(s.stateRequests()).toBe(1);
+    expect(s.requests()).toHaveLength(2);
   });
 
   test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {

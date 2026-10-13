@@ -135,6 +135,26 @@ export class BillingPayments {
       });
       if (!quote) return paymentFailure("not_found");
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
+      const blocking = await this.dependencies.prisma.billingPurchase.findFirst(
+        {
+          where: {
+            accountId,
+            kind: { in: ["initial", "one_time"] },
+            state: { in: inFlightStates },
+          },
+        },
+      );
+      if (
+        blocking !== null &&
+        priceSnapshotSchema.parse(blocking.snapshot).paymentOption.id !==
+          snapshot.paymentOption.id
+      ) {
+        await this.awaitBankAnswer(blocking.id);
+        const reconciled = await this.reconcile(blocking.id);
+        if (!reconciled.ok) return reconciled;
+        const current = await this.status(accountId, blocking.id);
+        if (!current.ok || current.value.state === "confirmed") return current;
+      }
       const mode = paymentMode(snapshot.paymentOption);
       const recurring = mode === "subscription";
       const [contact, legacy, capabilities, grounds] = await Promise.all([
@@ -212,7 +232,7 @@ export class BillingPayments {
           const now = this.clock();
           // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
           await endLapsedSubscriptions(tx, accountId, now);
-          const quoted = await tx.billingPurchase.findFirst({
+          let quoted = await tx.billingPurchase.findFirst({
             where: {
               accountId,
               kind: { in: ["initial", "one_time"] },
@@ -223,6 +243,27 @@ export class BillingPayments {
             },
             orderBy: { createdAt: "desc" },
           });
+          if (quoted === null && !recurring) {
+            const confirmed = await tx.billingPurchase.findFirst({
+              where: {
+                accountId,
+                kind: "one_time",
+                state: "confirmed",
+                snapshot: {
+                  path: ["paymentOption", "id"],
+                  equals: snapshot.paymentOption.id,
+                },
+              },
+              orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            });
+            if (
+              confirmed !== null &&
+              (await tx.billingFulfillment.count({
+                where: { purchaseRef: confirmed.id, appliedAt: null },
+              })) > 0
+            )
+              quoted = confirmed;
+          }
           if (quoted) {
             const previous = priceSnapshotSchema.parse(quoted.snapshot);
             if (previous.paymentOption.id !== snapshot.paymentOption.id)
@@ -350,13 +391,26 @@ export class BillingPayments {
     accountId: string,
     purchaseRef: string,
   ): Promise<PaymentResult<PurchaseStatus>> {
+    const bank = this.dependencies.bank;
+    if (!bank) return paymentFailure("method_unavailable");
     const dispatched = await this.dispatch(purchaseRef);
     await this.awaitBankAnswer(purchaseRef);
     if (dispatched === "skipped") {
       const reconciled = await this.reconcile(purchaseRef);
       if (!reconciled.ok) return reconciled;
     }
-    return this.status(accountId, purchaseRef);
+    const result = await this.status(accountId, purchaseRef);
+    if (!result.ok || result.value.paymentUrl === null) return result;
+    return {
+      ok: true,
+      value: purchaseStatusSchema.parse({
+        ...result.value,
+        paymentUrl: validatedPaymentUrl(
+          result.value.paymentUrl,
+          bank.config.endpoints.formOrigins,
+        ),
+      }),
+    };
   }
 
   async status(
@@ -381,13 +435,7 @@ export class BillingPayments {
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
-          paymentUrl:
-            row.state === "pending" && hasText(row.paymentUrl)
-              ? validatedPaymentUrl(
-                  row.paymentUrl,
-                  this.dependencies.bank?.config.endpoints.formOrigins ?? [],
-                )
-              : null,
+          paymentUrl: row.state === "pending" ? row.paymentUrl : null,
           snapshot: row.snapshot,
           access:
             row.state !== "confirmed"
@@ -1257,7 +1305,7 @@ export class BillingPayments {
               ...common,
               state: authorized ? "authorized" : "pending",
               ...(!payable || authorized ? { paymentUrl: null } : {}),
-              ...(hasText(paymentUrl) && !authorized
+              ...(hasText(paymentUrl) && !authorized && payable
                 ? {
                     paymentUrl: validatedPaymentUrl(
                       paymentUrl,

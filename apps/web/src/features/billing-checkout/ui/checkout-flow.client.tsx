@@ -232,10 +232,20 @@ export function CheckoutFlow({
         }
         return;
       }
-      // Даже pending/unknown — восстановленный receipt, HTTP-неопределённость закончилась.
-      setAttempt(null);
-      setPaymentError(undefined);
-      completeOperation("purchase");
+      const waitingWithoutForm =
+        result.value.paymentUrl === null &&
+        result.value.state !== "confirmed" &&
+        result.value.state !== "failed";
+      // Потерянный URL не восстанавливается GetState: сохраняем команду до исхода банка.
+      if (!waitingWithoutForm) {
+        setAttempt(null);
+        completeOperation("purchase");
+      }
+      setPaymentError(
+        waitingWithoutForm
+          ? "Форма оплаты пока недоступна. Повторите проверку состояния — новая оплата не создаётся."
+          : undefined,
+      );
       updateSelection(identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
@@ -265,7 +275,16 @@ export function CheckoutFlow({
       updateSelection(selection.identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
-      if (result.value.state === "failed") requestQuote();
+      if (
+        result.value.state === "failed" ||
+        result.value.state === "confirmed"
+      ) {
+        setAttempt(null);
+        setPaymentError(undefined);
+        completeOperation("purchase");
+        if (result.value.state === "failed") requestQuote();
+        else (onNavigate ?? defaultNavigate)("/payment/return");
+      }
     },
   });
 
