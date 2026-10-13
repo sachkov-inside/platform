@@ -60,8 +60,8 @@ Serialize shared runtime/Compose operations under singleton ownership.
 Keep the task map in issues and PRs: dependencies, decisions, session IDs, resource owners, commits,
 checks, and next actions. On resumption reconcile actual state and assign only remaining assigned work.
 Preserve active workers and recovered results. Resume owner-paused work only on the owner's request.
-Every implementation ticket requires independent review before durable integration.
-Coordinated implementation also requires independent final review and mandatory checks on the integrated result.
+Every implementation ticket requires independent review before acceptance into the integration branch or durable integration.
+The final integrated specification requires a separate independent review and mandatory checks before delivery.
 A completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
