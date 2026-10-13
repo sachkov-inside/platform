@@ -379,32 +379,48 @@
 }
 .dialog details {
   border-top: 1px solid var(--border);
-  margin-top: 1rem;
-  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  padding-top: 0.25rem;
 }
 .dialog summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   cursor: pointer;
   min-height: 2.75rem;
-  padding-right: 1rem;
+  padding-block: 0.5rem;
+  list-style: none;
 }
-.dialog summary > span {
+.dialog summary::-webkit-details-marker {
+  display: none;
+}
+.chapterLabel {
+  min-width: 0;
+}
+.chapterLabel > span {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--muted-foreground);
 }
-.dialog summary > strong {
+.chapterLabel > strong {
   display: block;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  margin-block: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 0.125rem;
 }
-.dialog summary > small {
-  font-size: 0.75rem;
+.dialog summary > svg {
+  flex-shrink: 0;
   color: var(--muted-foreground);
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.dialog details[open] > summary > svg {
+  transform: rotate(90deg);
 }
 .dialog .step {
-  padding: 0.75rem 0.5rem;
-  margin-block: 0.25rem;
+  padding: 0.5rem;
+  margin-block: 0.125rem;
   border-radius: var(--radius-sm);
 }
 .dialog .step[aria-current="step"] {
@@ -541,8 +557,8 @@
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.25rem;
-  margin-bottom: 1.25rem;
-  padding: 0.125rem 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: color-mix(in srgb, var(--muted) 40%, transparent);
@@ -552,4 +568,11 @@
 }
 .actionPanel .actions {
   gap: 0.25rem;
+}
+
+.dialog .step:not([aria-current="step"]) .mark {
+  background: transparent;
+}
+.dialog .step[aria-current="step"] .mark {
+  background: var(--action);
 }

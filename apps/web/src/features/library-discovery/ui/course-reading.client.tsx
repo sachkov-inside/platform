@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, List, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronRight, List, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
@@ -322,7 +322,7 @@ function ProgrammeDialog({
       >
         <div className={styles["grabber"]} aria-hidden="true" />
         <div className={styles["dialogHead"]}>
-          <h2>{context.name}</h2>
+          <h2>Программа</h2>
           <button
             type="button"
             aria-label="Закрыть программу"
@@ -331,18 +331,6 @@ function ProgrammeDialog({
             <X size={20} />
           </button>
         </div>
-        <IntentPrefetchLink
-          className={styles["programmeLink"]}
-          href={context.courseHref}
-        >
-          Страница курса
-        </IntentPrefetchLink>
-        <IntentPrefetchLink
-          className={styles["programmeLink"]}
-          href={context.href}
-        >
-          Страница программы
-        </IntentPrefetchLink>
         <nav aria-label="Вся программа">
           {context.chapters.map((chapter) => (
             <details
@@ -350,9 +338,11 @@ function ProgrammeDialog({
               open={chapter.id === context.currentChapterId}
             >
               <summary>
-                <span>Глава {chapter.ordinal ?? 1}</span>
-                <strong>{chapter.name}</strong>
-                <small>{chapter.steps.length} шагов</small>
+                <span className={styles["chapterLabel"]}>
+                  <span>Глава {chapter.ordinal ?? 1}</span>
+                  <strong>{chapter.name}</strong>
+                </span>
+                <ChevronRight size={18} aria-hidden="true" />
               </summary>
               <ol>
                 {chapter.steps.map((step) => (
