@@ -93,12 +93,23 @@ export function ReaderProgrammePrototype({
   const [bookmarked, setBookmarked] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const article = useRef<HTMLElement>(null);
+  const sidebar = useRef<HTMLElement>(null);
   const current = findStep(currentId);
   const chapter = findChapter(current.chapter);
   const index = snapshot.steps.indexOf(current);
   const previous = snapshot.steps[index - 1];
   const next = snapshot.steps[index + 1];
   const position = chapter.steps.indexOf(current.id) + 1;
+
+  useEffect(() => {
+    const rail = sidebar.current;
+    const active = rail?.querySelector('[aria-current="step"]');
+    if (rail === null || active === undefined || active === null) return;
+    const frame = rail.getBoundingClientRect();
+    const row = active.getBoundingClientRect();
+    if (row.bottom > frame.bottom) rail.scrollTop += row.bottom - frame.bottom;
+    else if (row.top < frame.top) rail.scrollTop += row.top - frame.top;
+  }, [current.id, variant]);
 
   // Scope repeated quiz landmarks to this proof without changing the shared renderer.
   useEffect(() => {
@@ -451,7 +462,11 @@ export function ReaderProgrammePrototype({
         </span>
       </div>
       <div className={styles["layout"]}>
-        <aside className={styles["sidebar"]} aria-label="Программа курса">
+        <aside
+          ref={sidebar}
+          className={styles["sidebar"]}
+          aria-label="Программа курса"
+        >
           {side}
         </aside>
         {content}
@@ -583,7 +598,11 @@ function VariantC({
   openProgramme,
 }: MenuProps) {
   const index = chapter.steps.indexOf(current.id);
-  const nearby = chapter.steps.slice(Math.max(0, index - 2), index + 3);
+  const start = Math.min(
+    Math.max(0, index - 2),
+    Math.max(0, chapter.steps.length - 5),
+  );
+  const nearby = chapter.steps.slice(start, start + 5);
   return (
     <nav className={styles["nearby"]} aria-label="Ближайшие шаги">
       <button

@@ -19,7 +19,7 @@
 }
 .article h1 {
   margin: 12px 0 16px;
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1.2;
   font-weight: 600;
   letter-spacing: -0.025em;
@@ -54,14 +54,8 @@
 }
 .body {
   margin-top: 36px;
-  font-size: 17px;
-  line-height: 1.8;
-}
-.body h2 {
-  font-size: 23px;
-  line-height: 1.3;
-  letter-spacing: -0.02em;
-  margin-top: 40px;
+  font-size: 18px;
+  line-height: 1.65;
 }
 .figure {
   margin: 30px 0;
@@ -181,9 +175,6 @@
 .variantA .sidebar {
   margin-top: 152px;
 }
-.variantA .article h1 {
-  font-size: 34px;
-}
 .variantB .layout {
   grid-template-columns: 238px minmax(0, 680px);
   gap: 68px;
@@ -192,12 +183,6 @@
 .variantB .sidebar {
   padding-right: 24px;
   border-right: 1px solid var(--border);
-}
-.variantB .article h1 {
-  font-size: 28px;
-}
-.variantB .body {
-  font-size: 16px;
 }
 .backProgramme {
   display: flex;
@@ -255,9 +240,6 @@
 }
 .variantC .sidebar {
   margin-top: 6px;
-}
-.variantC .article h1 {
-  font-size: 30px;
 }
 .chapterCaption {
   color: var(--muted-foreground);
@@ -451,7 +433,7 @@
   .variantA .article h1,
   .variantB .article h1,
   .variantC .article h1 {
-    font-size: 25px;
+    font-size: 22px;
     margin-top: 12px;
   }
   .place {
@@ -462,11 +444,8 @@
   }
   .body,
   .variantB .body {
-    font-size: 16px;
+    font-size: 15px;
     margin-top: 28px;
-  }
-  .body h2 {
-    font-size: 22px;
   }
   .actions {
     gap: 0;
@@ -488,5 +467,17 @@
   }
   .variantName {
     max-width: 155px;
+  }
+}
+@media (min-width: 640px) and (max-width: 767px) {
+  .article h1,
+  .variantA .article h1,
+  .variantB .article h1,
+  .variantC .article h1 {
+    font-size: 24px;
+  }
+  .body,
+  .variantB .body {
+    font-size: 16px;
   }
 }
