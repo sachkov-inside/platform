@@ -1275,7 +1275,7 @@ describe("владельческие операции billing: платежи, �
       }),
     );
     const nextPurchase = await s.reserve();
-    expect(nextPurchase).toMatchObject({ purchaseRef: expect.any(String) });
+    expect(nextPurchase.purchaseRef).not.toBe(purchase.purchaseRef);
     value(
       await s.payments.notification(
         s.bank.notify(nextPurchase.purchaseRef, "CANCELED"),
