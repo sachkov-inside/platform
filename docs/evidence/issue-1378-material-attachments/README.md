@@ -23,10 +23,14 @@ Markdown displays its exact source. An unsupported `.drawio` file offers a downl
 - `material-desktop.png`: inline reference in the real public application shell, 1440 × 1000.
 - `viewer-desktop.png`: file explorer and selected JSON source, 1440 × 1000.
 - `viewer-mobile.png`: readable source and collapsed selector, 390 × 844.
-- `files-mobile.png`: expanded file selector, 390 × 844.
+- `files-mobile.png`: expanded nested file selector, 390 × 844.
+- `long-file-mobile.png`: end of a 4,360-character file, 390 × 844.
 
 Browser checks verified exact clipboard text, file switching, Escape focus restoration,
 mobile selector dismissal, unsupported preview and no dialog overflow at 200% text size.
+The nested `skills/review/checklist.md` fixture verifies two directory levels.
+The long source reached its final marker on mobile and copied byte-for-byte.
+Reader controls have at least 44-pixel touch targets.
 The ZIP was decoded and all four entries matched the individual fixture bytes and paths.
 TypeScript, focused lint and documentation checks passed before review.
 Full `pnpm check`, Storybook tests and independent review are recorded in the linked PR;

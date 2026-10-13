@@ -14,7 +14,8 @@ export interface AttachmentProofFile {
 
 interface FileGroup {
   readonly name: string;
-  readonly files: readonly AttachmentProofFile[];
+  readonly files: AttachmentProofFile[];
+  readonly groups: Map<string, FileGroup>;
 }
 
 export function MaterialAttachmentViewerProof({
@@ -76,19 +77,20 @@ function AttachmentWindow({
   const [showFiles, setShowFiles] = useState(false);
   const [feedback, setFeedback] = useState("");
   const selected = files.find((file) => file.path === selectedPath) ?? files[0];
-  const groups = new Map<string, AttachmentProofFile[]>();
+  const root: FileGroup = { name: "", files: [], groups: new Map() };
   for (const file of files) {
-    const directory = file.path.includes("/")
-      ? file.path.slice(0, file.path.lastIndexOf("/"))
-      : "";
-    const entries = groups.get(directory) ?? [];
-    entries.push(file);
-    groups.set(directory, entries);
+    const directories = file.path.split("/").slice(0, -1);
+    let group = root;
+    for (const directory of directories) {
+      let child = group.groups.get(directory);
+      if (child === undefined) {
+        child = { name: directory, files: [], groups: new Map() };
+        group.groups.set(directory, child);
+      }
+      group = child;
+    }
+    group.files.push(file);
   }
-  const grouped: readonly FileGroup[] = [...groups].map(([name, files]) => ({
-    name,
-    files,
-  }));
 
   useEffect(() => {
     const element = dialog.current;
@@ -111,6 +113,51 @@ function AttachmentWindow({
     setSelectedPath(path);
     setFeedback("");
     setShowFiles(false);
+  }
+
+  function renderGroup(group: FileGroup) {
+    const list = (
+      <ul className="space-y-1">
+        {group.files.map((file) => (
+          <li key={file.path}>
+            <button
+              type="button"
+              aria-pressed={selected?.path === file.path}
+              onClick={() => {
+                select(file.path);
+              }}
+              className={`flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm focus-visible:outline-2 focus-visible:outline-ring ${selected?.path === file.path ? "bg-secondary font-medium" : "hover:bg-muted"}`}
+            >
+              <FileText
+                aria-hidden="true"
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              />
+              <span className="break-words [overflow-wrap:anywhere]">
+                {file.path.split("/").at(-1)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+
+    const children = (
+      <>
+        {list}
+        {[...group.groups.values()].map((child) => (
+          <details open key={child.name} className="mt-3">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+              <Folder aria-hidden="true" className="size-4 shrink-0" />
+              {child.name}
+            </summary>
+            <div className="ml-3 border-l border-border pl-2">
+              {renderGroup(child)}
+            </div>
+          </details>
+        ))}
+      </>
+    );
+    return children;
   }
 
   return (
@@ -149,6 +196,7 @@ function AttachmentWindow({
           <Button
             variant="ghost"
             size="icon"
+            className="min-h-11 min-w-11"
             aria-label="Закрыть просмотр файлов"
             onClick={() => dialog.current?.close()}
           >
@@ -159,7 +207,7 @@ function AttachmentWindow({
           <aside className="flex shrink-0 flex-col border-b border-border md:w-60 md:border-b-0 md:border-r">
             <Button
               variant="ghost"
-              className="justify-start rounded-none md:hidden"
+              className="min-h-11 justify-start rounded-none md:hidden"
               aria-expanded={showFiles}
               onClick={() => {
                 setShowFiles(!showFiles);
@@ -172,45 +220,7 @@ function AttachmentWindow({
               aria-label="Вложенные файлы"
               className={`${showFiles ? "block" : "hidden"} max-h-[35dvh] overflow-auto p-3 md:block md:max-h-none md:flex-1`}
             >
-              {grouped.map((group) => {
-                const list = (
-                  <ul className="space-y-1">
-                    {group.files.map((file) => (
-                      <li key={file.path}>
-                        <button
-                          type="button"
-                          aria-pressed={selected?.path === file.path}
-                          onClick={() => {
-                            select(file.path);
-                          }}
-                          className={`flex min-h-10 w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm focus-visible:outline-2 focus-visible:outline-ring ${selected?.path === file.path ? "bg-secondary font-medium" : "hover:bg-muted"}`}
-                        >
-                          <FileText
-                            aria-hidden="true"
-                            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                          />
-                          <span className="break-words [overflow-wrap:anywhere]">
-                            {file.path.split("/").at(-1)}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                );
-                return group.name === "" ? (
-                  <div key="root">{list}</div>
-                ) : (
-                  <details open key={group.name} className="mt-3">
-                    <summary className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md px-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
-                      <Folder aria-hidden="true" className="size-4 shrink-0" />
-                      {group.name}
-                    </summary>
-                    <div className="ml-3 border-l border-border pl-2">
-                      {list}
-                    </div>
-                  </details>
-                );
-              })}
+              {renderGroup(root)}
             </nav>
             {files.length > 1 ? (
               <a
@@ -240,6 +250,7 @@ function AttachmentWindow({
                       <Button
                         variant="outline"
                         size="sm"
+                        className="min-h-11"
                         onClick={() => {
                           void navigator.clipboard
                             .writeText(selected.text ?? "")
@@ -258,7 +269,7 @@ function AttachmentWindow({
                       </Button>
                     )}
                     <a
-                      className="inline-flex min-h-9 items-center gap-2 px-2 text-sm underline underline-offset-4"
+                      className="inline-flex min-h-11 items-center gap-2 px-2 text-sm underline underline-offset-4"
                       href={selected.downloadHref}
                       download={selected.path.split("/").at(-1)}
                     >
@@ -267,7 +278,7 @@ function AttachmentWindow({
                     </a>
                     {files.length > 1 ? (
                       <a
-                        className="inline-flex min-h-9 items-center gap-2 px-2 text-sm underline underline-offset-4 md:hidden"
+                        className="inline-flex min-h-11 items-center gap-2 px-2 text-sm underline underline-offset-4 md:hidden"
                         href={bundleHref}
                         download="material-files.zip"
                       >
