@@ -124,7 +124,7 @@ Telegram выпускается независимо из `apps/telegram` в pla
 процессы `healthy`, воркеры `ready`, нет `operator_attention`, у очередей есть consumers, маршруты
 отвечают ожидаемыми кодами. Сторож установлен и запускается: команды
 [проверки после выпуска](production-monitoring.md#проверка-после-выпуска). Затем открыть
-`https://inside.sachkov.dev` и войти. Записать `free -m`:
+`https://sachkov.dev` и войти. Записать `free -m`:
 при доступной памяти ниже 500 MiB — меры из [VPS resources](production-release.md#vps-resources).
 
 ## 7. Откат

@@ -96,8 +96,15 @@ IP берётся из действующей конфигурации productio
    Адрес не содержит OAuth code/state или токенов; query и fragment эта настройка не принимает.
    Применение к Telegram и проверка новой кнопки описаны в
    [runbook Telegram](../../apps/telegram/docs/operations/production.md#смена-публичного-адреса-кнопки-после-входа).
+   В Telegram также проверить браузерный `PLATFORM_ACCOUNT_URL` и адреса переходов
+   `PLATFORM_TRACKING_REDIRECT_URL` / `PLATFORM_TRACKING_TARGET_PREFIXES`: при старом origin
+   заменить его на `https://sachkov.dev`, сохранив pathname и правила разрешённых префиксов.
+   В `TBANK_CONFIG_JSON` файлов `api.env`, `mcp.env` и `billing-worker.env` обновить только
+   `returnUrl` до `https://sachkov.dev/payment/return` (или сохранить иной согласованный path/query).
+   `notificationUrl` банка остаётся прежним.
    Сохранить копии всех изменённых env. Адрес notification банка и `MCP_SERVER_URL` не менять;
-   sales flags и каталог не менять. Существующий `returnUrl` банка ведёт через старый redirect.
+   sales flags и каталог не менять. Прежний `returnUrl` банка совместим со старым redirect,
+   но новые настройки задают основной домен.
 5. Убрать **только созданную нами временную копию** `primary-domain-stage.caddy` из импортируемой
    директории без reload. Иначе она конфликтует с доменами финального/maintenance fragment.
    Текущий Caddy сохраняет загруженный bridge до следующего reload.
@@ -197,3 +204,45 @@ callback, временный bridge без кэширования, закрыт�
 
 Семантика redirect с сохранением URI: [Caddy redir](https://caddyserver.com/docs/caddyfile/directives/redir).
 Настройка base URL и callback: [Logto Next.js](https://docs.logto.io/quick-starts/next-app-router).
+
+## Где проверять публичный домен
+
+Поиск старого hostname сам по себе не означает, что адрес устарел. Проверить назначение ссылки
+и её владельца, затем сопоставить server-owned env с работающим контейнером. Шаблоны репозитория
+не подтверждают фактические значения production. Проверка runtime и применение проходят через
+существующего координатора #854; не выводить целые env или настройки терминала с секретами.
+
+| Пользовательский адрес | Где задаётся | После переноса |
+| --- | --- | --- |
+| Сайт, callback и выход | Web `WEB_BASE_URL` | `https://sachkov.dev` |
+| Новые ссылки юридических согласий | API/MCP `PUBLIC_SITE_ORIGIN` | `https://sachkov.dev`; прежние сохранённые согласия не переписывать |
+| Ссылки в рассылках и tracking Platform | API/MCP `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` | `https://sachkov.dev` |
+| Ссылки уведомлений | API и notifications worker `NOTIFICATIONS_PLATFORM_ORIGIN` | `https://sachkov.dev` |
+| Возврат из банка | API/MCP/billing worker `TBANK_CONFIG_JSON.returnUrl` | `https://sachkov.dev/payment/return`; сохранить согласованный path/query |
+| Кнопка после входа через бота | Telegram `TELEGRAM_SIGN_IN_RETURN_URL` | `https://sachkov.dev/` или согласованный pathname; query/fragment не допускаются |
+| Кнопка аккаунта при активации курса | Telegram `PLATFORM_ACCOUNT_URL` | основной домен с прежним pathname; query/fragment не допускаются |
+| Tracking Telegram | Telegram `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | основной домен с прежними путями и разрешёнными префиксами; query/fragment не допускаются |
+| Поддержка при конфликте Account | Backend `MEMBERSHIP_SUPPORT_URL`, если он указывает на сайт | основной домен; отдельный согласованный канал поддержки сохраняется |
+
+Проверенные шаблоны Web/API/MCP/notifications worker уже задают основной домен для этих origins.
+Шаблоны `TBANK_CONFIG_JSON` и production smoke задают основной `returnUrl` и прежний
+`notificationUrl`. Адрес Telegram проверяется отдельно в его server-owned конфигурации.
+
+Сохраняют старый домен: банковский `notificationUrl`, разрешённые server-to-server API,
+Logto connector `platformUrl`, авторский и учебный MCP с discovery и authoring transfer.
+`LOGTO_AUDIENCE=https://api.inside.sachkov.dev` — идентификатор ресурса, не адрес сайта.
+`BILLING_CONTACT_FROM` — проверенный почтовый отправитель; смена Web hostname не меняет его.
+Конфигурация старого redirect, временного DNS bridge, rollback и тесты их совместимости также
+содержат старый hostname намеренно. Исторические документы, сохранённые согласия, выпущенные
+сообщения и опубликованные юридические редакции не переписываются при смене env.
+
+### Наблюдение юридических страниц 13 октября 2026 года
+
+Read-only HTTP GET главной и `/legal/privacy`, `/legal/cookies`, `/legal/terms` на
+`https://sachkov.dev` вернули 200. В атрибутах href/src/content этих HTML не обнаружены
+абсолютные ссылки на `inside.sachkov.dev`; текст трёх юридических страниц содержит старый домен.
+Это не проверка всех страниц, входа или настроек production. Текущие тексты принадлежат
+`packages/legal/src/editions/privacy-v4.ts`, `cookies-v2.ts` и `terms-v1.ts` и соответствующим
+редакциям в `docs/legal`. Их адресные формулировки требуют отдельных новых редакций по
+[правилам юридического комплекта](../legal/README.md); опубликованный текст под прежним номером
+не изменять. Учебный MCP внутри политики сохраняет свой служебный адрес.

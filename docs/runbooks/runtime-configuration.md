@@ -157,7 +157,7 @@ they gate, the catalog and startup refusals and the production terminal values a
 [production release runbook](production-release.md#payment-contour).
 
 `PUBLIC_SITE_ORIGIN` is the bare origin where the published legal editions are readable, such as
-`https://inside.sachkov.dev`. The consent catalogue appends `/legal/<document>` to it and stores the
+`https://sachkov.dev`. The consent catalogue appends `/legal/<document>` to it and stores the
 resulting address with every accepted consent, so a trailing path, query, fragment or credentials
 fail startup. It is required in production; local runs default to `http://127.0.0.1:3000`. Changing
 it does not rewrite the addresses already stored with earlier consents.

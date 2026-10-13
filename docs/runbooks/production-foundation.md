@@ -362,7 +362,7 @@ PostgreSQL service использует `init: true`: Docker init собирае
    Сервис `logto-migrations` выполняет seed и `alteration deploy` закреплённой версии, затем
    Compose пересоздаёт `logto`. Прежний образ остаётся на сервере для отката.
 5. Проверьте discovery `https://auth.sachkov.dev/oidc/.well-known/openid-configuration`: issuer
-   `https://auth.sachkov.dev/oidc`. Затем войдите на `https://inside.sachkov.dev`. Учебный доступ
+   `https://auth.sachkov.dev/oidc`. Затем войдите на `https://sachkov.dev`. Учебный доступ
    после обновления настраивает и проверяет
    [learner access](learning-practice-review.md#universal-learner-access-938).
 
