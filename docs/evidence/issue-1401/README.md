@@ -15,4 +15,5 @@ Reproduce route evidence with `UPDATE_EVIDENCE=issue-1401 pnpm smoke:buyer-journ
 Storybook stories: `pages-product-payment--mobile`, `pages-product-payment--desktop`, `pages-product-payment-flow--email-without-code`.
 Snapshots use the shared `screenshotWholePage` helper and contain no real buyer data.
 
-Owner visual acceptance is pending. Automated checks do not establish visual GO or authorize a merge.
+The owner accepted this checkout form and its mobile/desktop evidence in chat on 2026-10-13.
+Visual GO covers the production checkout with the editable Order Email field. Merge remains an owner action.
