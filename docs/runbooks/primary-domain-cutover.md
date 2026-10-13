@@ -90,8 +90,21 @@ IP берётся из действующей конфигурации productio
    В `api.env` и `mcp.env` заменить браузерные `PUBLIC_SITE_ORIGIN`,
    `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` на `https://sachkov.dev`;
    в `api.env` и `notifications-worker.env` заменить `NOTIFICATIONS_PLATFORM_ORIGIN`.
+   В `/etc/inside/telegram/application.env` заменить публичный
+   `TELEGRAM_SIGN_IN_RETURN_URL` на `https://sachkov.dev/` для кнопки «Открыть Inside» после входа.
+   Если настроена другая публичная страница, сохранить её путь при замене origin.
+   Адрес не содержит OAuth code/state или токенов; query и fragment эта настройка не принимает.
+   Применение к Telegram и проверка новой кнопки описаны в
+   [runbook Telegram](../../apps/telegram/docs/operations/production.md#смена-публичного-адреса-кнопки-после-входа).
+   В Telegram также проверить браузерный `PLATFORM_ACCOUNT_URL` и адреса переходов
+   `PLATFORM_TRACKING_REDIRECT_URL` / `PLATFORM_TRACKING_TARGET_PREFIXES`: при старом origin
+   заменить его на `https://sachkov.dev`, сохранив pathname и правила разрешённых префиксов.
+   В `TBANK_CONFIG_JSON` файлов `api.env`, `mcp.env` и `billing-worker.env` обновить только
+   `returnUrl` до `https://sachkov.dev/payment/return` (или сохранить иной согласованный path/query).
+   `notificationUrl` банка остаётся прежним.
    Сохранить копии всех изменённых env. Адрес notification банка и `MCP_SERVER_URL` не менять;
-   sales flags и каталог не менять. Существующий `returnUrl` банка ведёт через старый redirect.
+   sales flags и каталог не менять. Прежний `returnUrl` банка совместим со старым redirect,
+   но новые настройки задают основной домен.
 5. Убрать **только созданную нами временную копию** `primary-domain-stage.caddy` из импортируемой
    директории без reload. Иначе она конфликтует с доменами финального/maintenance fragment.
    Текущий Caddy сохраняет загруженный bridge до следующего reload.
@@ -152,8 +165,8 @@ binding лендинга, сохраняя временный bridge на VPS д
 доступ к материалам через `inside.sachkov.dev`.
 
 После успешного финального deploy сначала восстановить сохранённые env-файлы и пересоздать Web
-и затронутые API/MCP/notifications процессы с прежними env по [процедуре изменения настройки](production-release.md#изменение-настройки-без-нового-выпуска).
-В её команде указать `--pull never` и список `web api mcp notifications-worker`. Восстановить прежний проверенный
+и затронутые API/MCP/billing/notifications процессы с прежними env по [процедуре изменения настройки](production-release.md#изменение-настройки-без-нового-выпуска).
+В её команде указать `--pull never` и список `web api mcp billing-worker notifications-worker`. Восстановить прежний проверенный
 `active.caddy` вместе с bridge. Проверить `caddy validate` перед reload, затем старую страницу,
 вход и apex → old app без цикла. После этого при необходимости вернуть DNS/binding лендинга.
 302 `no-store` не закрепляет противоположные маршруты в браузере. На время восстановления
@@ -168,13 +181,20 @@ runtime-конфигурации использовать maintenance; не вы
 
 1. Скопировать maintenance текущего выпуска в `/srv/inside/runtime/caddy/active.caddy`.
    Проверить `caddy validate`, затем выполнить `systemctl reload caddy`.
-2. Восстановить все сохранённые env в `/etc/inside/runtime` с владельцем `root:root` и mode `0600`.
+2. Восстановить все сохранённые env в `/etc/inside/runtime`, включая `billing-worker.env`,
+   с владельцем `root:root` и mode `0600`.
 3. Пересоздать перечисленные процессы образами текущего выпуска по ссылке выше.
-   Убедиться в readiness всех четырёх процессов; при отказе сохранить maintenance.
+   Убедиться в readiness всех пяти процессов; при отказе сохранить maintenance.
 4. Восстановить сохранённый старый `active.caddy` и bridge в импортируемой директории.
    Проверить `caddy validate`, затем выполнить `systemctl reload caddy`.
 5. Проверить старый вход, доступ участника и apex/www → inside без цикла.
    При необходимости восстановить DNS/binding из снимка; сохранить bridge до истечения TTL.
+
+Если при переносе менялась конфигурация Telegram, восстановить сохранённый
+`/etc/inside/telegram/application.env` и применить его с текущим immutable Telegram release,
+проверив readiness и прежние значения кнопок/tracking. Telegram имеет свой Compose и блокировку:
+следовать [его порядку применения и отката](../../apps/telegram/docs/operations/production.md#смена-публичного-адреса-кнопки-после-входа)
+под координацией #854; он не входит в список пяти процессов Platform.
 
 При возврате удалить `LEARNER_MCP_URL`, если его не было в сохранённом env; прежний
 `WEB_BASE_URL` снова задаёт правильный fallback.
@@ -191,3 +211,45 @@ callback, временный bridge без кэширования, закрыт�
 
 Семантика redirect с сохранением URI: [Caddy redir](https://caddyserver.com/docs/caddyfile/directives/redir).
 Настройка base URL и callback: [Logto Next.js](https://docs.logto.io/quick-starts/next-app-router).
+
+## Где проверять публичный домен
+
+Поиск старого hostname сам по себе не означает, что адрес устарел. Проверить назначение ссылки
+и её владельца, затем сопоставить server-owned env с работающим контейнером. Шаблоны репозитория
+не подтверждают фактические значения production. Проверка runtime и применение проходят через
+существующего координатора #854; не выводить целые env или настройки терминала с секретами.
+
+| Пользовательский адрес | Где задаётся | После переноса |
+| --- | --- | --- |
+| Сайт, callback и выход | Web `WEB_BASE_URL` | `https://sachkov.dev` |
+| Новые ссылки юридических согласий | API/MCP `PUBLIC_SITE_ORIGIN` | `https://sachkov.dev`; прежние сохранённые согласия не переписывать |
+| Ссылки в рассылках и tracking Platform | API/MCP `TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN`, `TELEGRAM_TRACKING_ORIGIN` | `https://sachkov.dev` |
+| Ссылки уведомлений | API и notifications worker `NOTIFICATIONS_PLATFORM_ORIGIN` | `https://sachkov.dev` |
+| Возврат из банка | API/MCP/billing worker `TBANK_CONFIG_JSON.returnUrl` | `https://sachkov.dev/payment/return`; сохранить согласованный path/query |
+| Кнопка после входа через бота | Telegram `TELEGRAM_SIGN_IN_RETURN_URL` | `https://sachkov.dev/` или согласованный pathname; query/fragment не допускаются |
+| Кнопка аккаунта при активации курса | Telegram `PLATFORM_ACCOUNT_URL` | основной домен с прежним pathname; query/fragment не допускаются |
+| Tracking Telegram | Telegram `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | основной домен с прежними путями и разрешёнными префиксами; query/fragment не допускаются |
+| Поддержка при конфликте Account | Backend `MEMBERSHIP_SUPPORT_URL`, если он указывает на сайт | основной домен; отдельный согласованный канал поддержки сохраняется |
+
+Проверенные шаблоны Web/API/MCP/notifications worker уже задают основной домен для этих origins.
+Шаблоны `TBANK_CONFIG_JSON` и production smoke задают основной `returnUrl` и прежний
+`notificationUrl`. Адрес Telegram проверяется отдельно в его server-owned конфигурации.
+
+Сохраняют старый домен: банковский `notificationUrl`, разрешённые server-to-server API,
+Logto connector `platformUrl`, авторский и учебный MCP с discovery и authoring transfer.
+`LOGTO_AUDIENCE=https://api.inside.sachkov.dev` — идентификатор ресурса, не адрес сайта.
+`BILLING_CONTACT_FROM` — проверенный почтовый отправитель; смена Web hostname не меняет его.
+Конфигурация старого redirect, временного DNS bridge, rollback и тесты их совместимости также
+содержат старый hostname намеренно. Исторические документы, сохранённые согласия, выпущенные
+сообщения и опубликованные юридические редакции не переписываются при смене env.
+
+### Наблюдение юридических страниц 13 октября 2026 года
+
+Read-only HTTP GET главной и `/legal/privacy`, `/legal/cookies`, `/legal/terms` на
+`https://sachkov.dev` вернули 200. В атрибутах href/src/content этих HTML не обнаружены
+абсолютные ссылки на `inside.sachkov.dev`; текст трёх юридических страниц содержит старый домен.
+Это не проверка всех страниц, входа или настроек production. Текущие тексты принадлежат
+`packages/legal/src/editions/privacy-v4.ts`, `cookies-v2.ts` и `terms-v1.ts` и соответствующим
+редакциям в `docs/legal`. Их адресные формулировки требуют отдельных новых редакций по
+[правилам юридического комплекта](../legal/README.md); опубликованный текст под прежним номером
+не изменять. Учебный MCP внутри политики сохраняет свой служебный адрес.
