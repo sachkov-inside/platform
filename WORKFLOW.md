@@ -35,7 +35,8 @@ Before `ready-for-agent`, resolve owner decisions. Visual work follows
 or temporary semantic UI with a linked integration ticket. After publishing child tickets, remove
 `ready-for-agent` from the parent; this overrides `to-tickets`' restriction on modifying parents.
 A `ready-for-agent` assignment runs through a ready PR without renewed approval.
-Use `implement` for implementation. Acceptance criteria identify agreed seams for `tdd`;
+Use [implement](.agents/skills/implement/SKILL.md) for implementation, including plain-text assignments.
+Acceptance criteria identify agreed seams for `tdd`;
 write their failing tests first. A criterion with no behaviour needs no test.
 
 ## Sessions and coordinated execution
@@ -53,7 +54,8 @@ Use native subagents for read-only review. Serialize shared runtime/Compose oper
 Keep the task map in issues and PRs: dependencies, decisions, session IDs, resource owners, commits,
 checks, and next actions. On resumption reconcile actual state and assign only remaining work.
 Preserve active workers and recovered results. Resume owner-paused work only on the owner's request.
-Independent review precedes durable integration; review the integrated result when integration changes it.
+Independent review precedes durable integration. Coordinated product delivery also requires independent
+final review and mandatory checks on the integrated result.
 A completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
@@ -101,6 +103,7 @@ Documentation-only delivery requires its focused checks; unrelated application s
 Product delivery requires the full product check. Required CI must pass before integration.
 
 For an integration PR:
+
 1. Mark acceptance criteria and check required CI on the current head.
 2. Diagnose and fix failures. Re-run a confirmed provider failure. An unaffected test/job failure gets
    one re-run with an open tracking issue; diagnose any repeated failure.
@@ -117,10 +120,12 @@ If no disposable resources remain, record that fact; avoid unrelated machine-wid
 A preview link does not trigger server shutdown or final task cleanup.
 The shared `report` skill and its HTML report are not completion requirements here.
 
-## Owner corrections and gates
+## Owner corrections
 
 Turn mechanical failures into checks and judgement rules into their owning contract.
 Apply `writing-for-agents` to agent instructions; use `retro` when the owner requests a retrospective.
+
+## Owner gates
 
 Owner authorization is required for releases/deployments, publishing, paid actions, credentials,
 external messages, and merges. Existing standing or task-specific authorization covers its stated scope
