@@ -67,7 +67,8 @@ DNS/TCP/QUIC между российским устройством и серв�
 | `/api/account/billing/quote`, `/purchase`, `/payment/return`, bank-hosted destination | Checkout BFF → API → Т-Банк; затем браузерный hosted payment | [checkout transport](../../apps/web/src/features/billing-checkout/api/billing-checkout.browser.ts), api env. Actual hosted destination не получен: не создавали order |
 | bank/Telegram/Kinescope/Tribute callbacks на `inside.sachkov.dev` и `sachkov.dev` | Provider → ограниченные публичные ingress; отдельные секреты/подписи | Caddy fragment. Сохранять service domains, методы и authentication; browser migration не разрешает перенос callbacks |
 
-Наблюдавшиеся browser origins: `sachkov.dev`, `auth.sachkov.dev`, `inside.sachkov.dev`.
+В сохранённом browser evidence наблюдаются `sachkov.dev` и `auth.sachkov.dev`.
+Запросы к `inside.sachkov.dev` подтверждены отдельно HTTP-контролем curl.
 Это карта наблюдённого контроля плюс source-bound условные зависимости,
 а не полный HAR курса. Web-to-API private endpoint `http://api:3001`, PostgreSQL
 и RabbitMQ не являются прямыми browser dependencies.
