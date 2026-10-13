@@ -3,7 +3,14 @@
 Use this policy for completion, release preparation, and deployment handoff. Coverage and source
 identity determine readiness; the machine that ran a check does not.
 
-## Collect once
+## Task completion
+
+Accept successful provider checks bound to the final PR head or its merge-queue candidate. Record
+both the reviewed head and the actual CI checkout SHA, including GitHub synthetic merges. Keep
+that provider binding; a synthetic checkout does not require duplicate local runs on the branch
+head. These completion checks do not prove a different application's release source.
+
+## Release evidence
 
 1. Select and freeze the exact final source SHA before dispatching the release workflow. Serialize
    unrelated main merges until immutable publication completes: both planning and finalization
@@ -20,7 +27,7 @@ identity determine readiness; the machine that ran a check does not.
    successful exact-source nightly run for full-stack coverage. Dispatch it only when coverage is
    missing. Keep independent Standards and Spec reviews bound to the reviewed final change.
 
-Completion requires every applicable coverage item to have successful evidence on the selected
+Release readiness requires every applicable coverage item to have successful evidence on the selected
 source. A failed check requires diagnosis; an absent or stale check remains pending. A synthetic PR
 merge SHA proves only that SHA. Final-source CI must cover a different release SHA; changing an
 artifact's source label is not evidence. Record skipped or owner-excluded checks truthfully under
