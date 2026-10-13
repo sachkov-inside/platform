@@ -212,7 +212,8 @@ function BodyBlockView({
       return (
         <div className="mt-8 overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground">
           <pre
-            className="overflow-x-auto p-5 focus-visible:outline-offset-[-3px] font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
+            className="overflow-x-auto p-5 font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
+            data-material-code-scroll
             tabIndex={0}
           >
             <code>{block.text}</code>
