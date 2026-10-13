@@ -203,8 +203,9 @@ export const MobileTopNavigation: Story = {
     if (scrollRoot === null) throw new Error("Документ не прокручивается");
     scrollRoot.scrollTop = 600;
     await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-    await expect(header.getBoundingClientRect().top).toBe(0);
+    await waitFor(() => expect(header.getBoundingClientRect().bottom).toBeLessThanOrEqual(0));
     scrollRoot.scrollTop = 0;
+    await waitFor(() => expect(header.getBoundingClientRect().top).toBe(0));
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
   },
 };
@@ -212,7 +213,7 @@ export const MobileTopNavigation: Story = {
 /** Короткая страница: подвал стоит внизу экрана, а не сразу под текстом. */
 function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
   return {
-    ...publicPageEnvironment("/does-not-exist"),
+    ...publicPageEnvironment("/legal/terms"),
     globals: viewport,
     render: () => <PageNotFound />,
     play: async ({ canvasElement }) => {

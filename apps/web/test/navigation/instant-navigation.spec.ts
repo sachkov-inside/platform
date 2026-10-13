@@ -1121,7 +1121,12 @@ test("Главная ↔ продукт: свой скелет продукта,
   );
   const backHome = await transition(
     page,
-    () => page.getByRole("link", { name: "Назад на Главную" }).first().click(),
+    () =>
+      page
+        .getByRole("main")
+        .getByRole("link", { name: "Главная" })
+        .first()
+        .click(),
     homeReady,
   );
   const repeatProduct = await transition(
@@ -1135,7 +1140,12 @@ test("Главная ↔ продукт: свой скелет продукта,
   );
   const repeatHome = await transition(
     page,
-    () => page.getByRole("link", { name: "Назад на Главную" }).first().click(),
+    () =>
+      page
+        .getByRole("main")
+        .getByRole("link", { name: "Главная" })
+        .first()
+        .click(),
     homeReady,
   );
   record("home-product", testInfo.project.name, {

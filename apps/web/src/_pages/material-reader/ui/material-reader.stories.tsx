@@ -694,7 +694,9 @@ export const Mobile: Story = {
     await expect(
       canvasElement.querySelector("[data-public-header]"),
     ).not.toBeVisible();
-    const back = canvas.getByRole("link", { name: "Назад на Главную" });
+    const back = within(canvas.getByRole("main")).getByRole("link", {
+      name: "Главная",
+    });
     await expect(
       canvasElement.querySelector('[data-reader-return="top"]')?.contains(back),
     ).toBe(true);
@@ -786,7 +788,9 @@ export const Desktop: Story = {
       canvas.getByRole("navigation", { name: "В этом материале" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getAllByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getAllByRole("link", {
+        name: "Главная",
+      }),
     ).toHaveLength(1);
     await expect(
       canvas.getByRole("region", { name: "Таблица в материале" }),
@@ -1111,7 +1115,7 @@ export const NotFound: Story = {
       canvas.getByRole("heading", { name: "Материал не найден" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeInTheDocument();
   },
 };
@@ -1257,7 +1261,7 @@ export const ShortMaterial: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeVisible();
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),

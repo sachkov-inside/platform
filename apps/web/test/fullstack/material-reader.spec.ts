@@ -121,7 +121,8 @@ test("Home filters public products and preserves the reader return", async ({
   );
   await material.click();
   await page
-    .getByRole("link", { name: "Назад на Главную", exact: true })
+    .getByRole("main")
+    .getByRole("link", { name: "Главная", exact: true })
     .click();
   await expect(page).toHaveURL(/\/\?format=guide$/u);
   await expect(
@@ -399,7 +400,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     "Как устроен Inside Platform · Sachkov Inside",
   );
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }).first(),
+    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
   ).toBeVisible();
   await expect(page.getByRole("main")).toContainText(
     "PostgreSQL хранит current Material",
@@ -772,7 +773,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }),
+    page.getByRole("main").getByRole("link", { name: "Главная" }),
   ).toHaveAttribute("href", "/");
   await expect(
     page.getByRole("heading", { level: 1, name: "Platform" }),
@@ -1014,7 +1015,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
     page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }).first(),
+    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
   ).toBeVisible();
 });
 

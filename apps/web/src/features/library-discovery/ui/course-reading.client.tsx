@@ -55,6 +55,17 @@ export function CourseReadingHeader({
   );
   return (
     <header className={styles["header"]} data-reader-header>
+      <nav aria-label="Действия материала" className={styles["actionPanel"]}>
+        <IntentPrefetchLink
+          className={styles["programmeLink"]}
+          href={context.href}
+        >
+          <ArrowLeft size={16} aria-hidden="true" /> К курсу
+        </IntentPrefetchLink>
+        <div className={styles["actions"]} data-course-actions>
+          {actions}
+        </div>
+      </nav>
       <p className={styles["position"]}>
         {chapter?.ordinal === undefined
           ? "Материалы"
@@ -71,13 +82,6 @@ export function CourseReadingHeader({
       <h1>{title}</h1>
       <div className={styles["metadataRow"]}>
         <div className={styles["metadata"]}>{metadata}</div>
-        <nav
-          aria-label="Действия материала"
-          className={styles["actions"]}
-          data-course-actions
-        >
-          {actions}
-        </nav>
       </div>
     </header>
   );
@@ -249,12 +253,6 @@ function ProgrammeDialog({
   }
   return (
     <div className={styles["mobileProgramme"]}>
-      <IntentPrefetchLink
-        className={styles["programmeLink"]}
-        href={context.courseHref}
-      >
-        <ArrowLeft size={16} aria-hidden="true" /> К странице курса
-      </IntentPrefetchLink>
       <nav className={styles["dock"]} aria-label="Навигация по урокам">
         {context.previous === null ? (
           <button disabled aria-label="Предыдущий шаг">

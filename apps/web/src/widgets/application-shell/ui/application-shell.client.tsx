@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
@@ -201,6 +201,20 @@ function MobileTopNavigation({
   readonly items: readonly ApplicationNavigationItem[];
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let previous = window.scrollY;
+    const onScroll = () => {
+      const current = Math.max(0, window.scrollY);
+      if (Math.abs(current - previous) < 4) return;
+      setHidden(current > 56 && current > previous);
+      previous = current;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
   const home = items.find((item) => item.icon === "home");
   const sections = items.filter((item) => item.icon !== "home");
   const navigate =
@@ -212,7 +226,13 @@ function MobileTopNavigation({
         };
   return (
     <header
-      className="mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden"
+      className={cn(
+        "mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden motion-safe:transition-transform motion-safe:duration-200 focus-within:translate-y-0",
+        hidden && "-translate-y-full",
+      )}
+      onFocusCapture={() => {
+        setHidden(false);
+      }}
       data-mobile-header
     >
       <div className="public-page-container mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3">
