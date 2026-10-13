@@ -542,6 +542,47 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(s.requests()).toHaveLength(2);
   });
 
+  test("потерянный ответ подтверждённого платежа при смене варианта повторяет ту же покупку", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    const otherOptionId = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: otherOptionId,
+          offerId: s.offerId,
+          mode: "one_time",
+          months: 1,
+          priceKopecks: 390_000,
+        },
+      }),
+    );
+    const command = await s.command(["terms"], false, otherOptionId);
+    s.outcome("CONFIRMED");
+    expect(value(await s.runtime.purchase(s.buyer, command))).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    const repeated = value(await s.runtime.purchase(s.buyer, command));
+    expect(repeated).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+      access: "ready",
+    });
+    expect(
+      await s.runtime.purchase(s.buyer, {
+        ...command,
+        acknowledgeExistingAccess: true,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(s.requests()).toHaveLength(1);
+  });
+
   test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
     const s = await scenario();
     const command = await s.command();

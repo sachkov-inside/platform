@@ -153,7 +153,33 @@ export class BillingPayments {
         const reconciled = await this.reconcile(blocking.id);
         if (!reconciled.ok) return reconciled;
         const current = await this.status(accountId, blocking.id);
-        if (!current.ok || current.value.state === "confirmed") return current;
+        if (!current.ok) return current;
+        if (current.value.state === "confirmed") {
+          const confirmedRef = current.value.purchaseRef;
+          const resumed = await this.dependencies.prisma.$transaction(
+            async (tx): Promise<PaymentResult<string>> => {
+              await lockBillingPricing(tx);
+              const key = { accountId, operationId: command.operationId };
+              const receipt = await tx.billingPurchaseCommand.findUnique({
+                where: { accountId_operationId: key },
+              });
+              if (receipt)
+                return fingerprint.recognizes(receipt.fingerprint)
+                  ? { ok: true, value: receipt.purchaseRef }
+                  : paymentFailure("operation_conflict");
+              await tx.billingPurchaseCommand.create({
+                data: {
+                  ...key,
+                  fingerprint: fingerprint.digest,
+                  purchaseRef: confirmedRef,
+                },
+              });
+              return { ok: true, value: confirmedRef };
+            },
+          );
+          if (!resumed.ok) return resumed;
+          return await this.continuePurchase(accountId, resumed.value);
+        }
       }
       const mode = paymentMode(snapshot.paymentOption);
       const recurring = mode === "subscription";
