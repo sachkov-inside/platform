@@ -49,11 +49,14 @@ export function MaterialQuiz({
     <section
       aria-label="Проверьте понимание"
       data-material-quiz
-      className="my-8 rounded-xl border p-4 text-base leading-relaxed sm:p-5"
+      className="my-6 rounded-xl border p-3 text-sm leading-[1.55] sm:my-8 sm:p-5 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
     >
-      <h2 className="flex items-center gap-2 text-base font-semibold">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-action text-accent-foreground">
-          <CircleHelp aria-hidden="true" className="size-5" />
+      <h2
+        data-quiz-heading
+        className="flex items-center gap-2 text-sm font-semibold sm:text-base"
+      >
+        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-action text-accent-foreground">
+          <CircleHelp aria-hidden="true" className="size-4 sm:size-5" />
         </span>
         Проверьте понимание
       </h2>
@@ -71,7 +74,7 @@ export function MaterialQuiz({
               key={option.id}
               data-quiz-option
               data-result={optionResult}
-              className="relative flex min-h-11 w-full gap-3 rounded-lg border border-border bg-card px-3 py-2 pr-9 text-left"
+              className="relative flex min-h-11 w-full gap-2 rounded-lg border border-border bg-card px-2.5 py-2 pr-8 text-left text-sm leading-[1.5] sm:px-3 sm:pr-9 sm:text-base"
             >
               <button
                 type="button"
@@ -110,7 +113,7 @@ export function MaterialQuiz({
           );
         })}
         <Button
-          className="min-h-11 px-3"
+          className="min-h-11 px-2.5 text-sm sm:px-3"
           variant="ghost"
           aria-pressed={answer === "dontKnow"}
           onClick={() => {

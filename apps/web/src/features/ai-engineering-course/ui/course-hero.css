@@ -304,3 +304,16 @@
     transition: none;
   }
 }
+
+@media (width < 40rem) {
+  .aie-hero-action {
+    position: relative;
+    min-height: 2.25rem;
+    font-size: 0.875rem;
+  }
+  .aie-hero-action::after {
+    content: "";
+    position: absolute;
+    inset: -4px 0;
+  }
+}

@@ -1199,7 +1199,7 @@ test("смена режима прохождения сбрасывает стр
           .locator("[data-application-content] [data-reader-footer]:visible")
           .getByRole("link", {
             exact: true,
-            name: "Дальше",
+            name: "Следующий урок",
           });
   await next.click();
   await lessonReady(page, "navigation-lesson-6")();
@@ -1210,7 +1210,9 @@ test("смена режима прохождения сбрасывает стр
   const previous =
     testInfo.project.use.isMobile === true
       ? mobilePager.getByRole("link", { exact: true, name: "Предыдущий урок" })
-      : page.getByRole("link", { exact: true, name: "Предыдущий материал" });
+      : page
+          .locator("[data-application-content] [data-reader-footer]:visible")
+          .getByRole("link", { exact: true, name: "Предыдущий урок" });
   await previous.click();
   await lessonReady(page, "navigation-lesson-5")();
   await expect(step("own")).toBeVisible();

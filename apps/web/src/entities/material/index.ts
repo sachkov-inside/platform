@@ -57,5 +57,6 @@ export {
 export { materialSourceAnchors } from "./model/material-source-anchors";
 export {
   MaterialBodyView,
+  type MaterialBodyComparison,
   type MaterialBodyRendering,
 } from "./ui/material-body-view";

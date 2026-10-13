@@ -22,3 +22,4 @@ export {
   practiceReviewSetupText,
   type LearnerMcpConnection,
 } from "./model/practice-review-setup";
+export { agentChoiceComparison } from "./model/agent-choice-comparison";
