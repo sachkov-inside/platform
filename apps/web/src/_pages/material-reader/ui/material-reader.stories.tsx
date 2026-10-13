@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { BookmarkAction } from "@/features/bookmarks";
+import { ReadingAction } from "@/features/reading-progress";
+import { MaterialReaderView as PrototypeReader } from "./material-reader.prototype";
 import { courseGuide } from "@/storybook/course-reading.fixtures";
 import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
@@ -1848,4 +1852,134 @@ export const CourseLocked: Story = {
       }
     />
   ),
+};
+
+/** Throwaway #1427 proof. Local state only; no learner writes. */
+export const MobileReaderPrototype: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "#1427 mobile Reader prototype: compact heading, actions, chapter sheet and lesson dock. In-memory state; not the production route.",
+      },
+    },
+  },
+  render: function MobileProof(args) {
+    const [isRead, setRead] = useState(false);
+    const [bookmarked, setBookmark] = useState(false);
+    const [stepIndex, setStepIndex] = useState(1);
+    const titles = [
+      "Как устроен курс",
+      "Как выбрать и настроить агента",
+      "Как агент работает с проектом",
+      "Как настроить проект и harness",
+      "Подготовь проект к работе с агентом",
+      "Как устроен пайплайн разработки с агентом",
+      "Какие файлы нужны агенту",
+      "Как устроено приложение",
+      "Команда проверки и CI",
+      "Ревью и завершение задачи",
+      "Заложи основу проекта",
+    ];
+    const steps = titles.map((title, index) => ({
+      ...courseGuide.current,
+      id: `prototype-step-${index}`,
+      href: `/materials/prototype-step-${index}` as typeof courseGuide.current.href,
+      title,
+      kind:
+        index === 4 || index === 10 ? ("task" as const) : ("material" as const),
+    }));
+    const current = steps[stepIndex] ?? courseGuide.current;
+    const context = {
+      ...courseGuide,
+      current,
+      previous: steps[stepIndex - 1] ?? null,
+      next: steps[stepIndex + 1] ?? null,
+      currentPosition: stepIndex + 1,
+      totalSteps: 11,
+      chapters: [
+        {
+          ...courseGuide.chapters[0]!,
+          name: "Подготовь проект к разработке",
+          steps,
+        },
+        ...courseGuide.chapters.slice(1),
+      ],
+    };
+    return (
+      <div
+        onClick={(event) => {
+          if (!(event.target instanceof Element)) return;
+          const href = event.target.closest("a")?.getAttribute("href");
+          const index = steps.findIndex((step) => step.href === href);
+          if (index < 0) return;
+          event.preventDefault();
+          setStepIndex(index);
+          setRead(false);
+          setBookmark(false);
+          window.scrollTo({ top: 0 });
+        }}
+      >
+        <PrototypeReader
+          {...args}
+          material={{ ...args.material, title: current.title }}
+          seriesContext={{ ...courseContext, programme: context }}
+          primaryVideo={null}
+          body={[
+            {
+              kind: "heading",
+              level: 2,
+              content: [{ kind: "text", text: "Агент и модель", marks: [] }],
+            },
+            {
+              kind: "paragraph",
+              content: [
+                {
+                  kind: "text",
+                  text: "Агент объединяет модель с инструментами. Модель обрабатывает переданные сведения и выбирает следующий шаг. Среда агента, то есть сама программа вроде Codex, Claude Code или OpenCode, выполняет инструменты и возвращает результат модели.",
+                  marks: [],
+                },
+              ],
+            },
+            {
+              kind: "heading",
+              level: 2,
+              content: [
+                { kind: "text", text: "Базовая настройка агента", marks: [] },
+              ],
+            },
+            {
+              kind: "paragraph",
+              content: [
+                {
+                  kind: "text",
+                  text: "Настройте агента перед первым заданием. Затем откройте проект и прочитайте его правила работы.",
+                  marks: [],
+                },
+              ],
+            },
+          ]}
+          topReadingAction={
+            <ReadingAction
+              compact
+              format="guide"
+              view={{ kind: "ready", isRead, canMark: true }}
+              onSetReadingState={setRead}
+              onRefresh={() => undefined}
+            />
+          }
+          topBookmarkAction={
+            <BookmarkAction
+              view={{ kind: "ready", bookmarked }}
+              onToggle={setBookmark}
+            />
+          }
+          readingAction={undefined}
+          bookmarkAction={undefined}
+          practiceActions={undefined}
+        />
+      </div>
+    );
+  },
 };
