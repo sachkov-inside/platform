@@ -1,3 +1,4 @@
+import { legalSeller } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
@@ -43,6 +44,11 @@ type Story = StoryObj<typeof meta>;
 export const OwnGroundsAndPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(
+      within(
+        canvas.getByText(/Для возврата обратитесь к продавцу:/u),
+      ).getByRole("link", { name: legalSeller.email }),
+    ).toHaveAttribute("href", `mailto:${legalSeller.email}`);
     // Оплатой открывается и подписка, и отдельно купленное руководство.
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     // Ручная выдача переживает подписку и не называется покупкой.

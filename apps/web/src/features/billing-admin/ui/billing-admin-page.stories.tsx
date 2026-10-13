@@ -416,6 +416,15 @@ export const Payments: Story = {
   }),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
+    await expect(
+      page.queryByRole("button", { name: "Принять решение" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      page.queryByRole("button", { name: "Исполнить возврат" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      page.getByText(/Продавец выполняет возврат только в кабинете Т-Банка/u),
+    ).toBeVisible();
     await userEvent.click(
       page.getByRole("button", { name: "Показать платежи" }),
     );

@@ -1,3 +1,4 @@
+import { acceptBankRefund } from "../../features/accept-bank-refund/accept-bank-refund.js";
 import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -8,6 +9,7 @@ import {
 } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
+  lockBillingPurchase,
   lockBillingSubscription,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -458,8 +460,7 @@ export class BillingPayments {
         if (outcome === "failed") return paymentFailure("provider_unavailable");
         return { ok: true, value: true };
       }
-      if (row.state === "confirmed" || row.state === "failed")
-        return { ok: true, value: true };
+      if (row.state === "failed") return { ok: true, value: true };
       let paymentId = row.paymentId;
       if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
@@ -556,7 +557,9 @@ export class BillingPayments {
         }
         const command = parsed.data;
         const result = await this.dependencies.grants.applyPaidPeriod(command);
-        if (result.ok) {
+        // applyPaidPeriod возвращает revision_conflict только когда это основание уже имеет
+        // такую или более новую редакцию. Устаревшая выдача не ждёт вечного повторения после отзыва.
+        if (result.ok || result.error.code === "revision_conflict") {
           await this.dependencies.prisma.billingFulfillment.update({
             where: { eventRef: row.eventRef },
             data: { appliedAt: this.clock() },
@@ -904,9 +907,12 @@ export class BillingPayments {
   ): Promise<PaymentResult<true>> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return paymentFailure("method_unavailable");
+    if (!z.uuid().safeParse(payment.OrderId).success)
+      return paymentFailure("invalid_notification");
     try {
       return await prisma.$transaction(async (tx) => {
         await lockBillingPricing(tx);
+        await lockBillingPurchase(tx, payment.OrderId);
         const row = await tx.billingPurchase.findUnique({
           where: { id: payment.OrderId },
         });
@@ -957,6 +963,35 @@ export class BillingPayments {
               },
             });
           }
+          return { ok: true, value: true };
+        }
+        if (row.state !== "failed" && payment.Status === "REFUNDED") {
+          if (!payment.Success || payment.ErrorCode !== "0")
+            return paymentFailure("invalid_notification");
+          // REFUNDED доказывает расчёт даже при пропущенном CONFIRMED. Условия периода
+          // фиксируются и сразу отменяются той же транзакцией, без выдачи прав.
+          let refundedPurchase = row;
+          if (row.state !== "confirmed") {
+            const period = await settleConfirmedAttempt(tx, row, now);
+            refundedPurchase = await tx.billingPurchase.update({
+              where: { id: row.id },
+              data: {
+                state: "confirmed",
+                paymentId: payment.PaymentId,
+                confirmedAt: now,
+                periodEndsAt: period.endsAt,
+                lifecycleActive: false,
+                paymentUrl: null,
+                updatedAt: now,
+              },
+            });
+          }
+          if (isQuotedPurchase(kind))
+            await tx.billingPromoReservation.update({
+              where: { purchaseRef: row.id },
+              data: { state: "confirmed" },
+            });
+          await acceptBankRefund(tx, refundedPurchase, now);
           return { ok: true, value: true };
         }
         if (row.state === "confirmed") {

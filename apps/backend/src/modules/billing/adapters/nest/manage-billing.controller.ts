@@ -106,7 +106,7 @@ export class ManageBillingController {
   @ApiOperation({
     operationId: "manageBilling",
     summary:
-      "Manage offers, payments, refund decisions and manual access with the owner billing permission",
+      "Manage offers, payments, refund history and manual access; refund initiation is unavailable",
   })
   @ApiBody({ schema: toOpenApiSchema(ownerOperationSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(ownerResponseSchema) })

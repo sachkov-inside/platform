@@ -77,8 +77,6 @@ export function BillingAdminView({
   onReadPayment,
   onReconcilePayment,
   onReadRefunds,
-  onDecideRefund,
-  onExecuteRefund,
   onCancelSubscription,
   onReadGrants,
   onReadClassification,
@@ -95,8 +93,9 @@ export function BillingAdminView({
           Оплата и права
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          Проверенные владельческие операции вместо правки базы. Реальные
-          возвраты, выдачи и смена терминала требуют отдельного разрешения.
+          Проверенные владельческие операции вместо правки базы. Выдачи и смена
+          терминала требуют отдельного разрешения. Возвраты выполняются в
+          кабинете Т-Банка.
         </p>
       </header>
 
@@ -143,8 +142,6 @@ export function BillingAdminView({
       {respondentControls}
       <PaymentsSection
         onCancelSubscription={onCancelSubscription}
-        onDecideRefund={onDecideRefund}
-        onExecuteRefund={onExecuteRefund}
         onListPayments={onListPayments}
         onReadPayment={onReadPayment}
         onReadRefunds={onReadRefunds}

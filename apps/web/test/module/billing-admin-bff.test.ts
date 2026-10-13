@@ -1,3 +1,4 @@
+import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
@@ -118,8 +119,7 @@ it("не отправляет пустые необязательные филь
   );
 });
 
-it("исполняет возврат с бюджетом банковской команды и не принимает новую сумму", async () => {
-  fakes.manage.mockResolvedValue(problem("refund_in_progress", 409));
+it("не передаёт запуск возврата бэкенду", async () => {
   const response = await handleExecuteRefund(
     command("/api/authoring/billing/refunds/execute", {
       operationId,
@@ -129,18 +129,36 @@ it("исполняет возврат с бюджетом банковской �
   );
   expect(await response.json()).toEqual({
     ok: false,
-    code: "refund_in_progress",
+    code: "method_unavailable",
   });
-  expect(fakes.manage).toHaveBeenCalledWith(
-    {
-      operation: "refunds.execute",
+  expect(fakes.manage).not.toHaveBeenCalled();
+});
+it("не передаёт решение о возврате бэкенду и сохраняет границу сессии", async () => {
+  const input = {
+    operationId,
+    purchaseRef,
+    amountKopecks: 100,
+    basis: "withdrawal",
+    recurring: "cancel",
+    reason: "Обращение покупателя",
+  };
+  const response = await handleDecideRefund(
+    command("/api/authoring/billing/refunds/decide", input),
+  );
+  expect(await response.json()).toEqual({
+    ok: false,
+    code: "method_unavailable",
+  });
+  fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+  const unauthenticated = await handleExecuteRefund(
+    command("/api/authoring/billing/refunds/execute", {
       operationId,
       decisionRef,
       expectedRevision: 1,
-    },
-    "owner-token",
-    { bankCommand: true },
+    }),
   );
+  expect(unauthenticated.status).toBe(401);
+  expect(fakes.manage).not.toHaveBeenCalled();
 });
 
 it("отклоняет решение о возврате без основания", async () => {

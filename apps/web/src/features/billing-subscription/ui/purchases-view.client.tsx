@@ -1,4 +1,5 @@
 "use client";
+import { legalSeller } from "@inside/legal";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
@@ -77,6 +78,13 @@ export function PurchasesSectionView({
         subscription={subscription}
       />
       <BillingHistory notices={notices} payments={payments} />
+      <p className="text-sm text-muted-foreground">
+        Для возврата обратитесь к продавцу:{" "}
+        <a className="underline" href={`mailto:${legalSeller.email}`}>
+          {legalSeller.email}
+        </a>
+        .
+      </p>
       <BillingSectionError error={error} />
     </div>
   );

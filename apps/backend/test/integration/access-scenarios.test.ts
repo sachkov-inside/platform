@@ -1106,35 +1106,49 @@ describe("таблица сценариев доступа (реальный Pos
     basis: "withdrawal" | "compensation",
     amountKopecks: number,
   ) {
-    const decided = owned(
-      await operations.execute(owner, {
-        operation: "refunds.decide",
-        operationId: randomUUID(),
-        purchaseRef,
-        amountKopecks,
-        basis,
-        recurring: "keep",
-        reason:
-          basis === "withdrawal"
-            ? "Возврат по отказу от договора"
-            : "Возврат без отказа от договора",
-      }),
-    );
-    if (decided.outcome !== "refundDecision")
-      throw new Error(`Unexpected outcome ${decided.outcome}`);
-    expect(
-      owned(
-        await operations.execute(owner, {
-          operation: "refunds.execute",
+    if (basis === "withdrawal") {
+      value(await payments.notification(bank.notify(purchaseRef, "REFUNDED")));
+    } else {
+      // Историческая компенсация до #1420: сохраняем прежнее подтверждённое основание без новой банковской операции.
+      const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: purchaseRef },
+      });
+      const decisionRef = randomUUID();
+      await db.prisma.billingRefundDecision.create({
+        data: {
+          id: decisionRef,
+          purchaseRef,
+          accountId: purchase.accountId,
+          actorId: owner,
           operationId: randomUUID(),
-          decisionRef: decided.value.decisionRef,
-          expectedRevision: 1,
-        }),
-      ),
-    ).toMatchObject({
-      outcome: "refundDecision",
-      value: { state: "executed" },
-    });
+          amountKopecks: BigInt(amountKopecks),
+          basis: "compensation",
+          access: "keep",
+          recurring: "keep",
+          reason: "Historical compensation before #1420",
+          state: "executed",
+          revision: 3,
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+      await db.prisma.billingRefund.create({
+        data: {
+          id: randomUUID(),
+          decisionRef,
+          purchaseRef,
+          paymentId: z.string().parse(purchase.paymentId),
+          environment: purchase.environment,
+          terminalRef: purchase.terminalRef,
+          amountKopecks: BigInt(amountKopecks),
+          state: "confirmed",
+          observedStatus: "PARTIAL_REFUNDED",
+          errorCode: "0",
+          createdAt: now,
+          updatedAt: now,
+        },
+      });
+    }
     value(await payments.recover());
   }
 

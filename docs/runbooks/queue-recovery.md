@@ -18,7 +18,7 @@ Runbook для оператора, когда фоновая работа опл
 
 | Очередь | Что делает | Чем владеет |
 |---|---|---|
-| `billing.payment-recovery` | сверяет неподтверждённые покупки через банк и незавершённые возвраты тем же `ExternalRequestId` | покупки и возвраты |
+| `billing.payment-recovery` | сверяет неподтверждённые покупки и читает банковское состояние исторических незавершённых возвратов без `Cancel` | покупки и возвраты |
 | `billing.subscription-renewal` | продлевает подписки и сверяет смену карты | подписки |
 | `billing.subscription-notices` | ставит напоминания о подписке | календарь уведомлений |
 | `tribute.source-reconciliation` | сопоставляет подтверждённые источники Tribute пачками по 50 | [Tribute](tribute-access-convergence.md) |
@@ -97,8 +97,9 @@ psql_read --command "select delivery, result_status, count(*), min(issued_at) as
 3. **Покупка застряла** в `sent`, `unknown` или `pending`. Сверка идёт автоматически. Для одной
    покупки владелец может запросить её явно: владельческая операция `payments.reconcile` с
    `purchaseRef` в `/authoring/billing` или MCP. Повтор `Init` приложение не делает никогда.
-4. **Возврат с потерянным ответом** остаётся `unknown` и сверяется тем же запросом. Не отправляйте
-   новый возврат: повторите `refunds.read` и дождитесь сверки.
+4. **Исторический возврат с потерянным ответом** остаётся `unknown` до чтения банковского состояния.
+   С #1420 сверка не отправляет `Cancel`. Читайте `refunds.read`; при пропущенном полном
+   возврате из кабинета банка выполните `payments.reconcile` по точной покупке.
 5. **Tribute** — по [Tribute access convergence](tribute-access-convergence.md): `tribute.status`,
    `tribute.retryEvent`, сверка реестра.
 

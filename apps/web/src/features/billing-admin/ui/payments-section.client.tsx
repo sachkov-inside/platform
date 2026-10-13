@@ -10,18 +10,13 @@ import { Button } from "@/shared/ui/button";
 
 import type {
   CancelSubscriptionInput,
-  DecideRefundInput,
-  ExecuteRefundInput,
   ListPaymentsInput,
   PaymentOutcome,
   PaymentView,
   PurchaseCommandInput,
   RefundsOutcome,
 } from "../model/admin-operations";
-import {
-  decideRefundInputSchema,
-  listPaymentsInputSchema,
-} from "../model/admin-operations";
+import { listPaymentsInputSchema } from "../model/admin-operations";
 import type { AdminCommand } from "./admin-command";
 import {
   AdminField,
@@ -43,15 +38,6 @@ const refundBases = {
     consequence: "доступ сохраняется",
   },
 } as const;
-const refundBasisOptions = (["withdrawal", "compensation"] as const).map(
-  (value) => {
-    const { label, consequence } = refundBases[value];
-    return {
-      value,
-      label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${consequence}`,
-    };
-  },
-);
 export interface PaymentsSectionProps {
   readonly payments: readonly PaymentView[];
   readonly paymentsCursor: string | null;
@@ -64,8 +50,6 @@ export interface PaymentsSectionProps {
     input: AdminCommand<PurchaseCommandInput>,
   ) => void;
   readonly onReadRefunds: (input: AdminCommand<PurchaseCommandInput>) => void;
-  readonly onDecideRefund: (input: AdminCommand<DecideRefundInput>) => void;
-  readonly onExecuteRefund: (input: AdminCommand<ExecuteRefundInput>) => void;
   readonly onCancelSubscription: (
     input: AdminCommand<CancelSubscriptionInput>,
   ) => void;
@@ -81,8 +65,6 @@ export function PaymentsSection({
   onReadPayment,
   onReconcilePayment,
   onReadRefunds,
-  onDecideRefund,
-  onExecuteRefund,
   onCancelSubscription,
 }: PaymentsSectionProps) {
   return (
@@ -292,95 +274,9 @@ export function PaymentsSection({
       </AdminSection>
 
       <AdminSection
-        description="Решение фиксирует сумму, основание возврата и судьбу автопродления. Отказ от договора прекращает права покупки после подтверждённого возврата, компенсация без отказа доступ сохраняет. Исполнение наследует решение и не принимает новую сумму."
+        description="Покупатель обращается к продавцу. Продавец выполняет возврат только в кабинете Т-Банка. Здесь доступна история подтверждённых возвратов."
         title="Возвраты"
       >
-        <form
-          className="grid gap-4"
-          onSubmit={onAdminSubmit((form) => {
-            // Значения приходят из собственных списков формы и проверяются той же схемой, что команда.
-            const basis = decideRefundInputSchema.shape.basis.safeParse(
-              formText(form.get("refundBasis")),
-            );
-            const recurring = decideRefundInputSchema.shape.recurring.safeParse(
-              formText(form.get("refundRecurring")),
-            );
-            if (!basis.success || !recurring.success) return;
-            onDecideRefund({
-              purchaseRef: formText(form.get("refundPurchase")),
-              amountKopecks: Number(formText(form.get("refundAmount"))),
-              basis: basis.data,
-              recurring: recurring.data,
-              reason: formText(form.get("refundReason")),
-            });
-          })}
-        >
-          <AdminField label="Платёж" name="refundPurchase" required />
-          <AdminField
-            hint="В копейках, не больше остатка."
-            inputMode="numeric"
-            label="Сумма"
-            name="refundAmount"
-            required
-          />
-          <AdminSelect
-            label="Основание возврата"
-            name="refundBasis"
-            placeholder="Выберите основание"
-            options={refundBasisOptions}
-          />
-          <AdminSelect
-            label="Автопродление"
-            name="refundRecurring"
-            options={[
-              { value: "keep", label: "Сохранить" },
-              { value: "cancel", label: "Отменить" },
-            ]}
-          />
-          <AdminTextArea
-            label="Основание"
-            maxLength={reasonMaxLength}
-            name="refundReason"
-            required
-          />
-          <p>
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              type="submit"
-            >
-              Принять решение
-            </Button>
-          </p>
-        </form>
-
-        <form
-          className="grid gap-4 border-t border-border pt-5"
-          onSubmit={onAdminSubmit((form) => {
-            onExecuteRefund({
-              decisionRef: formText(form.get("executeDecision")),
-              expectedRevision: Number(formText(form.get("executeRevision"))),
-            });
-          })}
-        >
-          <AdminField label="Решение" name="executeDecision" required />
-          <AdminField
-            inputMode="numeric"
-            label="Ожидаемая редакция"
-            name="executeRevision"
-            required
-          />
-          <p>
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              type="submit"
-            >
-              Исполнить возврат
-            </Button>
-          </p>
-        </form>
-
         {refunds === null ? null : (
           <div className="border-t border-border pt-5 text-sm">
             <p>

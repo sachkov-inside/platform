@@ -423,6 +423,33 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(s.requests()[0]).not.toHaveProperty("Recurrent");
   });
 
+  test("полный банковский возврат разовой покупки отзывает продукт, чат и сопровождение без подписки", async () => {
+    const s = await scenario({ communityMonths: 12, supportMonths: 6 });
+    const purchase = await s.buy();
+    expect(await s.runtime.notification(s.notify("REFUNDED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect((await capabilitiesOf(s.buyer)).capabilities).toEqual([]);
+    expect(await s.runtime.history(s.buyer)).toMatchObject({
+      ok: true,
+      value: [
+        {
+          purchaseRef: purchase.purchaseRef,
+          kind: "one_time",
+          state: "confirmed",
+          amountKopecks: 290_000,
+          refundedKopecks: 290_000,
+        },
+      ],
+    });
+    expect(
+      await db.prisma.billingSubscription.count({
+        where: { accountId: s.buyer },
+      }),
+    ).toBe(0);
+  });
+
   test("право на продукт живёт срок, который называет Offer, а без названного срока бессрочно", async () => {
     // Право без названного срока не наследует срок варианта: у разовой покупки нет оплаченного периода.
     const silent = await scenario({

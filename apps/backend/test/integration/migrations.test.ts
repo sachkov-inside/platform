@@ -251,6 +251,7 @@ describe("Platform migrations", () => {
         "0086_product_cohort_price_after_start",
         "0087_web_telemetry",
         "0088_web_telemetry_percentile_index",
+        "0089_bank_refund_history",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -930,6 +931,7 @@ describe("Platform migrations", () => {
           "0086_product_cohort_price_after_start",
           "0087_web_telemetry",
           "0088_web_telemetry_percentile_index",
+          "0089_bank_refund_history",
         ],
       });
 

@@ -36,7 +36,6 @@ import {
   readClassificationInputSchema,
   readGrantsInputSchema,
   reconciledOutcomeSchema,
-  refundDecisionOutcomeSchema,
   refundsOutcomeSchema,
   revokeGrantInputSchema,
   savePaymentOptionInputSchema,
@@ -246,23 +245,36 @@ export function handleCancelOwnerSubscription(
   );
 }
 
+/** Исторические маршруты сохраняют проверку сессии и Origin, но больше не обращаются к backend. */
+function disabledRefund(
+  request: Request,
+  schema: z.ZodType,
+): Promise<Response> {
+  return handleAuthenticatedMutation(request, (form) => {
+    let input: unknown;
+    try {
+      const text = form.get("input");
+      if (typeof text !== "string")
+        return Promise.resolve({ ok: false, code: "invalid_request" });
+      input = JSON.parse(text);
+    } catch {
+      return Promise.resolve({ ok: false, code: "invalid_request" });
+    }
+    return Promise.resolve({
+      ok: false,
+      code: schema.safeParse(input).success
+        ? "method_unavailable"
+        : "invalid_request",
+    });
+  });
+}
+
 export function handleDecideRefund(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    decideRefundInputSchema,
-    refundDecisionOutcomeSchema,
-    (input) => ({ ...input, operation: "refunds.decide" }),
-  );
+  return disabledRefund(request, decideRefundInputSchema);
 }
 
 export function handleExecuteRefund(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    executeRefundInputSchema,
-    refundDecisionOutcomeSchema,
-    (input) => ({ ...input, operation: "refunds.execute" }),
-    { bankCommand: true },
-  );
+  return disabledRefund(request, executeRefundInputSchema);
 }
 
 export function handleReadRefunds(request: Request): Promise<Response> {

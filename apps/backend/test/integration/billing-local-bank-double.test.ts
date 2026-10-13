@@ -21,6 +21,7 @@ import {
 import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import {
   Tbank,
+  tbankToken,
   type BankRequest,
 } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import {
@@ -37,12 +38,6 @@ function value<T>(
 ): T {
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
-}
-function asRefundDecision(result: OwnerResult) {
-  if (!result.ok) throw new Error(result.error.code);
-  if (result.result.outcome !== "refundDecision")
-    throw new Error(`Unexpected outcome ${result.result.outcome}`);
-  return result.result.value;
 }
 function asRefunds(result: OwnerResult) {
   if (!result.ok) throw new Error(result.error.code);
@@ -606,70 +601,26 @@ describe("локальная продажа через двойника банк
     );
   });
 
-  test("возврат проходит частью и целиком, повтор сверки не возвращает дважды", async () => {
+  test("полный возврат из кабинета банка сохраняется один раз и отзывает права", async () => {
     const s = await scenario();
     const { purchaseRef, paymentUrl } = await s.beginPurchase();
     await s.choose(paymentUrl, "confirmed");
     value(await s.payments.recover());
-
-    const partial = asRefundDecision(
-      await s.operations.execute(owner, {
-        operation: "refunds.decide",
-        operationId: randomUUID(),
-        purchaseRef,
-        amountKopecks: 40_000,
-        basis: "compensation",
-        recurring: "keep",
-        reason: "Стенд: частичный возврат",
-      }),
-    );
-    const partialExecuted = asRefundDecision(
-      await s.operations.execute(owner, {
-        operation: "refunds.execute",
-        operationId: randomUUID(),
-        decisionRef: partial.decisionRef,
-        expectedRevision: 1,
-      }),
-    );
-    expect(partialExecuted).toMatchObject({
-      state: "executed",
-      attempt: {
-        state: "confirmed",
-        amountKopecks: 40_000,
-        observedStatus: "PARTIAL_REFUNDED",
-        errorCode: "0",
-      },
+    const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchaseRef },
     });
-
-    const rest = asRefundDecision(
-      await s.operations.execute(owner, {
-        operation: "refunds.decide",
-        operationId: randomUUID(),
-        purchaseRef,
-        amountKopecks: 60_000,
-        basis: "withdrawal",
-        recurring: "cancel",
-        reason: "Стенд: возврат остатка",
-      }),
-    );
-    const restExecuted = asRefundDecision(
-      await s.operations.execute(owner, {
-        operation: "refunds.execute",
-        operationId: randomUUID(),
-        decisionRef: rest.decisionRef,
-        expectedRevision: 1,
-      }),
-    );
-    expect(restExecuted).toMatchObject({
-      state: "executed",
-      attempt: {
-        state: "confirmed",
-        amountKopecks: 60_000,
-        observedStatus: "REFUNDED",
-        errorCode: "0",
-      },
-    });
-
+    const body = {
+      TerminalKey: config.terminalKey,
+      OrderId: purchaseRef,
+      PaymentId: purchase.paymentId,
+      Amount: 100_000,
+      Status: "REFUNDED",
+      Success: true,
+      ErrorCode: "0",
+    };
+    const notification = { ...body, Token: tbankToken(body, config.password) };
+    value(await s.payments.notification(notification));
+    value(await s.payments.notification(notification));
     const totals = asRefunds(
       await s.operations.execute(owner, {
         operation: "refunds.read",
@@ -681,7 +632,7 @@ describe("локальная продажа через двойника банк
       refundedKopecks: 100_000,
       refundableKopecks: 0,
     });
-    // Сверка незавершённых возвратов ничего не отправляет заново: обе попытки уже подтверждены.
+    // Подтверждённый банковский возврат не создаёт попыток отправки.
     expect(await s.operations.reconcileRefunds()).toMatchObject({
       inspected: 0,
       settled: 0,

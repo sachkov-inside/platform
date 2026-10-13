@@ -457,6 +457,24 @@ describe("Billing pricing HTTP", () => {
         })
       ).statusCode,
     ).toBe(400);
+    for (const payload of [
+      { ...decision, amountKopecks: 100 },
+      {
+        operation: "refunds.execute",
+        operationId: randomUUID(),
+        decisionRef: randomUUID(),
+        expectedRevision: 1,
+      },
+    ]) {
+      const denied = await server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload,
+      });
+      expect(denied.statusCode).toBe(422);
+      expect(denied.json()).toMatchObject({ code: "method_unavailable" });
+    }
     const grant = {
       operation: "grants.revoke",
       operationId: randomUUID(),

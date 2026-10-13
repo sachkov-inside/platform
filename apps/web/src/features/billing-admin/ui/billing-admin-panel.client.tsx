@@ -27,8 +27,6 @@ import {
   archiveBillingPromotion,
   cancelOwnerSubscription,
   classifyAccount,
-  decideBillingRefund,
-  executeBillingRefund,
   extendAccessGrant,
   listBillingPayments,
   previewAccessGrantBatch,
@@ -296,36 +294,6 @@ export function BillingAdminPanel({
             }),
           () => undefined,
           "Продление отменено; оплаченный срок сохранён.",
-        );
-      }}
-      onDecideRefund={(input) => {
-        dispatch(
-          () =>
-            decideBillingRefund({
-              ...input,
-              operationId: operationId("refunds.decide", input),
-            }),
-          (value) => {
-            setNotice(
-              `Решение ${value.result.value.decisionRef}, редакция ${String(value.result.value.revision)}.`,
-            );
-          },
-          "Решение о возврате записано.",
-        );
-      }}
-      onExecuteRefund={(input) => {
-        dispatch(
-          () =>
-            executeBillingRefund({
-              ...input,
-              operationId: operationId("refunds.execute", input),
-            }),
-          (value) => {
-            setNotice(
-              `Состояние решения: ${value.result.value.state}. Банк отвечает своим исходом.`,
-            );
-          },
-          "Возврат отправлен.",
         );
       }}
       onExtendGrant={(input) => {

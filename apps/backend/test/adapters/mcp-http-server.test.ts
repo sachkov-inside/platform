@@ -73,15 +73,15 @@ describe("MCP Streamable HTTP adapter", () => {
       expect(tools.map(({ name }) => name).sort()).toEqual(
         readCommittedToolSurface(),
       );
-      // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
-      const refund = tools.find(
-        (tool) => tool.name === "billing_refunds_execute",
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_refunds_execute",
       );
-      expect(refund?.annotations).toMatchObject({
-        readOnlyHint: false,
-        destructiveHint: true,
-        openWorldHint: true,
-      });
+      expect(tools.map(({ name }) => name)).not.toContain(
+        "billing_refunds_decide",
+      );
+      expect(
+        tools.find((tool) => tool.name === "billing_refunds_read")?.annotations,
+      ).toMatchObject({ readOnlyHint: true });
       expect(
         tools.find((tool) => tool.name === "billing_offers_publish")
           ?.annotations,

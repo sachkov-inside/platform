@@ -23,6 +23,8 @@ export function registerBillingTools(
 ): void {
   for (const option of ownerOperationSchema.options) {
     const operation = option.shape.operation.value;
+    if (operation === "refunds.decide" || operation === "refunds.execute")
+      continue;
     // Инструмент называет операцию собой: сам дискриминатор не входит в аргументы модели.
     const inputSchema = withoutOperation(option.shape);
     server.registerTool(
@@ -63,10 +65,6 @@ function withoutOperation(shape: z.ZodRawShape): z.ZodObject<z.ZodRawShape> {
 
 function description(operation: string): string {
   switch (operation) {
-    case "refunds.decide":
-      return "Record a refund decision: amount, basis and whether renewal is cancelled. Basis withdrawal (the buyer withdrew from the contract) revokes the purchase's access once the refund is confirmed; basis compensation keeps access. Sends nothing to the bank. Reuse operationId on retry.";
-    case "refunds.execute":
-      return "Send the decided refund to the bank with decisionRef and expectedRevision. This is a real external money operation: the amount comes from the decision and cannot be changed here. A lost response stays unknown and is reconciled by the same attempt, never resent as a new refund.";
     case "refunds.read":
       return "Read refund decisions, their bank attempts and the remaining refundable amount for one payment. Sends nothing.";
     case "payments.reconcile":

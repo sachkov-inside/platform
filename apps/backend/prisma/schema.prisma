@@ -1536,8 +1536,8 @@ model BillingRefundDecision {
   id String @id @db.Uuid
   purchaseRef String @map("purchase_ref") @db.Uuid
   accountId String @map("account_id") @db.Uuid
-  actorId String @map("actor_id") @db.Uuid
-  operationId String @map("operation_id") @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  operationId String? @map("operation_id") @db.Uuid
   amountKopecks BigInt @map("amount_kopecks")
   basis String?
   access String
