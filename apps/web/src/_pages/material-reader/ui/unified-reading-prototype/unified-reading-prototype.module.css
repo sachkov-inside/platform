@@ -978,12 +978,3 @@
   width: 100%;
   max-width: 100%;
 }
-@media (max-width: 22.49rem) {
-  :is(.pager, .readingMeta) .readingActions button > span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-}
