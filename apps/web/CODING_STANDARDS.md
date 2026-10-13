@@ -236,9 +236,11 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
-- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
+- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its
   prose. Keep the established desktop sizes from their breakpoints. Learning outcomes remain in
   metadata and the editor; the reader has no outcomes panel.
+  Reader headers omit the Material summary, including loading and access states
+  (owner correction 2026-10-13).
 - A collapsed callout is one 44 px summary row; put body padding only inside its open content.
 - On phones, quiz titles, questions and choices use 14 px with compact padding; from `sm` they use 16 px.
 - A quiz uses the shared semantic result colors, a result icon and a written result. A person

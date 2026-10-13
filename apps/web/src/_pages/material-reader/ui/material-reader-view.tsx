@@ -261,9 +261,6 @@ export function MaterialReaderHeader({
       <h1 className="mt-3 break-words text-balance text-[1.375rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 sm:text-2xl md:text-[1.75rem]">
         {material.title}
       </h1>
-      <p className="mt-3 text-pretty text-[0.9375rem] leading-[1.65] text-body-muted sm:mt-4 sm:text-[1.0625rem] sm:leading-7">
-        {material.summary}
-      </p>
     </header>
   );
 }
