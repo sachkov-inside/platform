@@ -607,6 +607,7 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("heading", {
         name: "Публичные skills для agent-first setup",
@@ -760,6 +761,7 @@ export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
     await expect(
       canvas.getByRole("navigation", { name: "В этом материале" }),
     ).toBeInTheDocument();

@@ -214,8 +214,10 @@ Owner correction 2026-10-10 (#1336): Reader actions must stay compact and distin
   text size. Allow reflow when text is enlarged. The upper panel has no next button. Keep previous and next
   arrows only in the floating mobile panel, with the lesson number on one line. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
-- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its summary and
+- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its
   prose; outcomes use 14 px. Keep the established desktop sizes from their breakpoints.
+  Reader headers omit the Material summary, including loading and access states
+  (owner correction 2026-10-13).
 - A collapsed callout is one 44 px summary row; put body padding only inside its open content.
 - A quiz uses the shared semantic result colors, a result icon and a written result. A person
   can change the answer directly; do not repeat the selected text or add a separate retry button.

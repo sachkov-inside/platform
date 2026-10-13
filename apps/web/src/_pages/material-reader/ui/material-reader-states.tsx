@@ -58,8 +58,6 @@ export function MaterialReaderLoading() {
         >
           <div className="h-4 w-64 max-w-full rounded-md bg-muted sm:h-5" />
           <div className="mt-3 h-[1.65rem] w-4/5 rounded-lg bg-muted sm:mt-4 sm:h-[1.8rem] md:h-[2.1rem]" />
-          <div className="mt-3 h-[1.546875rem] w-full rounded-md bg-muted/80 sm:mt-4 sm:h-7" />
-          <div className="h-[1.546875rem] w-3/4 rounded-md bg-muted/80 sm:h-7" />
         </div>
         <ReaderBodySkeleton />
       </div>
