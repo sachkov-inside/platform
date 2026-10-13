@@ -58,7 +58,7 @@ const rabbitmqPins = new Map([
   ],
 ]);
 
-test("official acquisition inputs select exact authorized GHCR mirrors and remaining immutable ECR inputs", () => {
+test("official acquisition inputs select exact GHCR mirrors, Telegram upstream Node and remaining immutable ECR inputs", () => {
   for (const path of inputPaths) {
     const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
     // A dotted version excludes service URLs such as rabbitmq:5671 and postgres:5432.
@@ -70,6 +70,14 @@ test("official acquisition inputs select exact authorized GHCR mirrors and remai
       count++;
       const image = reference.split("/").at(-1)?.split("@")[0];
       assert.ok(image, `${path}: missing official image identity`);
+      if (path === "apps/telegram/infra/production/Dockerfile") {
+        assert.equal(
+          reference,
+          "docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
+          `${path}: both stages must use the verified upstream Node index without changing identity (#1432)`,
+        );
+        continue;
+      }
       const runtimeDigest = runtimePins.get(image);
       if (runtimeDigest !== undefined) {
         assert.equal(
@@ -97,6 +105,13 @@ test("official acquisition inputs select exact authorized GHCR mirrors and remai
       }
     }
     assert.ok(count > 0, `${path} must declare its official image input`);
+    if (path === "apps/telegram/infra/production/Dockerfile") {
+      assert.equal(
+        count,
+        2,
+        `${path}: toolchain and runtime must both be pinned`,
+      );
+    }
   }
 });
 
