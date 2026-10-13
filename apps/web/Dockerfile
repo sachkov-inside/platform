@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
+FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
@@ -61,7 +61,7 @@ FROM development AS production-build
 ARG CSP_LOCAL_OBJECT_STORAGE_ORIGIN=""
 RUN pnpm --filter @inside/web build
 
-FROM public.ecr.aws/docker/library/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production
+FROM ghcr.io/sachkov-inside/node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS web-production
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

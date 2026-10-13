@@ -69,7 +69,7 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
@@ -724,7 +724,7 @@ describe("supported toolchain contract", () => {
             " AS web-production",
           ),
         ),
-      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
+      /apps\/web\/Dockerfile: FROM ghcr\.io\/sachkov-inside\/node:/u,
     );
     const workspace = read("pnpm-workspace.yaml");
     assert.notDeepEqual(
@@ -745,13 +745,13 @@ describe("supported toolchain contract", () => {
           "apps/web/Dockerfile",
           dockerfile.replace(
             new RegExp(
-              `FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
+              `FROM ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
               "u",
             ),
-            "FROM public.ecr.aws/docker/library/node:22.0.0-$1 AS web-production",
+            "FROM ghcr.io/sachkov-inside/node:22.0.0-$1 AS web-production",
           ),
         ),
-      /apps\/web\/Dockerfile: FROM public\.ecr\.aws\/docker\/library\/node:/u,
+      /apps\/web\/Dockerfile: FROM ghcr\.io\/sachkov-inside\/node:/u,
     );
   });
 
@@ -1061,9 +1061,7 @@ const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
  * @param {string} dockerfile
  */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
-  const nodeBases =
-    dockerfile.match(/^FROM public\.ecr\.aws\/docker\/library\/node:\S+/gmu) ??
-    [];
+  const nodeBases = dockerfile.match(/^FROM \S*node:\S+/gmu) ?? [];
   assert.ok(
     nodeBases.length > 1,
     `${path} must build its production stage from Node`,
@@ -1072,7 +1070,7 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
     assert.match(
       base,
       new RegExp(
-        `^FROM public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-[^\\s@]+@sha256:[a-f0-9]{64}$`,
+        `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64}$`,
         "u",
       ),
       `${path}: ${base}`,
