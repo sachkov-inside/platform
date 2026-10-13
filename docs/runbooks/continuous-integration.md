@@ -378,8 +378,8 @@ a configuration. The identity specs require their settings in `beforeAll`, at ex
 same tooling test checks that an absent or empty required setting fails with its name.
 
 The host-process `pnpm smoke:fullstack` is intentionally not a per-pull-request job and not part of
-`CI Gate`; it runs nightly instead (see below). Run `pnpm check:full` locally when a change can
-affect the browser-to-host application path, or before a release candidate is selected.
+`CI Gate`; it runs nightly instead (see below). For release coverage or local diagnosis, use the
+[verification evidence policy](../agents/release-evidence.md).
 
 ## Nightly full-stack smoke
 
