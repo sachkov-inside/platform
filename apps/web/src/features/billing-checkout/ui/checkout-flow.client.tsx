@@ -212,6 +212,7 @@ export function CheckoutFlow({
         if (
           result.code !== "unavailable" &&
           result.code !== "dependency_unavailable" &&
+          result.code !== "provider_unavailable" &&
           result.code !== "unauthorized" &&
           result.code !== "method_unavailable"
         ) {
@@ -235,16 +236,33 @@ export function CheckoutFlow({
         }
         return;
       }
-      // Даже pending/unknown — восстановленный receipt, HTTP-неопределённость закончилась.
-      setAttempt(null);
-      setPaymentError(undefined);
-      completeOperation("purchase");
+      const waitingWithoutForm =
+        result.value.paymentUrl === null &&
+        result.value.state !== "confirmed" &&
+        result.value.state !== "failed";
+      // Потерянный URL не восстанавливается GetState: сохраняем команду до исхода банка.
+      if (!waitingWithoutForm) {
+        setAttempt(null);
+        completeOperation("purchase");
+      }
+      setPaymentError(
+        waitingWithoutForm
+          ? "Форма оплаты пока недоступна. Повторите проверку состояния — новая оплата не создаётся."
+          : undefined,
+      );
       updateSelection(identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
       rememberPurchase(result.value.purchaseRef);
       if (result.value.paymentUrl !== null)
         (onNavigate ?? defaultNavigate)(result.value.paymentUrl);
+      else if (result.value.state === "confirmed")
+        (onNavigate ?? defaultNavigate)("/payment/return");
+      else if (
+        result.value.state === "failed" &&
+        selection.identity === identity
+      )
+        requestQuote();
     },
   });
 
@@ -261,6 +279,16 @@ export function CheckoutFlow({
       updateSelection(selection.identity, { error: undefined });
       setPurchase(result.value);
       onPurchase?.(result.value);
+      if (
+        result.value.state === "failed" ||
+        result.value.state === "confirmed"
+      ) {
+        setAttempt(null);
+        setPaymentError(undefined);
+        completeOperation("purchase");
+        if (result.value.state === "failed") requestQuote();
+        else (onNavigate ?? defaultNavigate)("/payment/return");
+      }
     },
   });
 

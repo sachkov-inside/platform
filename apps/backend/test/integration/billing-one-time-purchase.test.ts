@@ -229,6 +229,8 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
 
     let orderId = "";
     let status = "NEW";
+    let stateUnavailable = false;
+    let stateRequests = 0;
     const requests: Record<string, unknown>[] = [];
     // Каждая попытка — свой платёж банка: терминал не сопоставляет два заказа одному PaymentId.
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
@@ -268,15 +270,20 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
           }),
         );
       }
+      stateRequests += 1;
+      if (stateUnavailable)
+        return Promise.reject(new Error("Synthetic bank state unavailable"));
       return Promise.resolve(Response.json(event(status)));
     });
-    const runtime = new BillingPayments({
-      prisma: db.prisma,
-      bank,
-      contact,
-      grants,
-      clock: () => now,
-    });
+    const runtimeWith = (projector = grants) =>
+      new BillingPayments({
+        prisma: db.prisma,
+        bank,
+        contact,
+        grants: projector,
+        clock: () => now,
+      });
+    const runtime = runtimeWith();
     const notify = (state: string, extra = {}) => {
       const body = event(state, extra);
       return { ...body, Token: tbankToken(body, config.password) };
@@ -287,13 +294,14 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     async function command(
       accepted: readonly Consent[] = ["terms"],
       acknowledgeExistingAccess = false,
+      paymentOptionId = optionId,
     ) {
       const quote = value(
         await pricing.quote(
           buyer,
           await prepareInvitedQuote(db.prisma, buyer, {
             operationId: randomUUID(),
-            paymentOptionId: optionId,
+            paymentOptionId,
             optionRevision: 1,
           }),
         ),
@@ -352,10 +360,15 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       offerId,
       optionId,
       runtime,
+      runtimeWith,
       notify,
       command,
       buy,
       requests: () => requests,
+      stateRequests: () => stateRequests,
+      stateUnavailable: (unavailable: boolean) => {
+        stateUnavailable = unavailable;
+      },
       outcome: (state: string) => {
         status = state;
       },
@@ -611,6 +624,227 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         expect.objectContaining({ capability: s.capability }),
       ]),
     );
+  });
+
+  test("повторная оплата из новой вкладки сверяет банк и продолжает прежнюю разовую покупку", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    const retry = await s.command();
+    const continued = value(await s.runtime.purchase(s.buyer, retry));
+    expect(continued).toEqual(original);
+    expect(continued.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
+    expect(s.stateRequests()).toBe(1);
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("повторная оплата находит CONFIRMED в банке и возвращает состояние доступа без нового платежа", async () => {
+    const s = await scenario();
+    const command = await s.command();
+    const original = value(await s.runtime.purchase(s.buyer, command));
+    s.outcome("CONFIRMED");
+    const confirmed = value(await s.runtime.purchase(s.buyer, command));
+    expect(confirmed).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+      paymentUrl: null,
+      access: "preparing",
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(
+      value(await s.runtime.status(s.buyer, original.purchaseRef)).access,
+    ).toBe("ready");
+    expect(s.requests()).toHaveLength(1);
+    expect(
+      value(
+        await s.runtime.purchase(s.buyer, {
+          ...command,
+          operationId: randomUUID(),
+        }),
+      ).state,
+    ).toBe("confirmed");
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("недоступная сверка сохраняет попытку: точный повтор после восстановления банка продолжает её", async () => {
+    const s = await scenario();
+    const command = await s.command();
+    const original = value(await s.runtime.purchase(s.buyer, command));
+    s.stateUnavailable(true);
+    expect(await s.runtime.purchase(s.buyer, command)).toMatchObject({
+      ok: false,
+      error: { code: "provider_unavailable" },
+    });
+    expect(s.requests()).toHaveLength(1);
+    s.stateUnavailable(false);
+    expect(value(await s.runtime.purchase(s.buyer, command))).toEqual(original);
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("перезагрузка после подтверждения до выдачи доступа не начинает второй платёж", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    const reloaded = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(reloaded).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+      paymentUrl: null,
+      access: "preparing",
+    });
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("выдача доступа между допуском и резервом не разрешает повторное списание", async () => {
+    const s = await scenario();
+    value(await s.runtime.purchase(s.buyer, await s.command()));
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    const command = await s.command();
+    let fulfilled = false;
+    const concurrentFulfillment = s.runtimeWith({
+      ...grants,
+      async resolveCapabilities(buyer) {
+        const access = await grants.resolveCapabilities(buyer);
+        if (!fulfilled) {
+          fulfilled = true;
+          expect(await s.runtime.recover()).toMatchObject({ ok: true });
+        }
+        return access;
+      },
+    });
+    expect(
+      await concurrentFulfillment.purchase(s.buyer, command),
+    ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("отклонённая банком попытка сохраняется, новая попытка возможна только с новым расчётом", async () => {
+    const s = await scenario();
+    const command = await s.command();
+    const original = value(await s.runtime.purchase(s.buyer, command));
+    s.outcome("REJECTED");
+    expect(value(await s.runtime.purchase(s.buyer, command))).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "failed",
+      paymentUrl: null,
+    });
+    expect(
+      value(
+        await s.runtime.purchase(s.buyer, {
+          ...command,
+          operationId: randomUUID(),
+        }),
+      ).state,
+    ).toBe("failed");
+    expect(s.requests()).toHaveLength(1);
+    s.outcome("NEW");
+    const replacement = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(replacement.state).toBe("pending");
+    expect(replacement.purchaseRef).not.toBe(original.purchaseRef);
+    expect(s.requests()).toHaveLength(2);
+    expect(
+      value(await s.runtime.status(s.buyer, original.purchaseRef)).state,
+    ).toBe("failed");
+  });
+
+  test("параллельные вкладки с разными расчётами продолжают один платёж", async () => {
+    const s = await scenario();
+    const commands = [await s.command(), await s.command()];
+    const results = await Promise.all(
+      commands.map((command) => s.runtime.purchase(s.buyer, command)),
+    );
+    const [firstResult, secondResult] = results;
+    if (firstResult === undefined || secondResult === undefined)
+      throw new Error("Both tabs must answer");
+    const first = value(firstResult);
+    expect(value(secondResult)).toEqual(first);
+    expect(first.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("выбор другого варианта сначала сверяет прежний платёж и разрешает замену после отказа", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    const otherOptionId = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: otherOptionId,
+          offerId: s.offerId,
+          mode: "one_time",
+          months: 1,
+          priceKopecks: 390_000,
+        },
+      }),
+    );
+    const replacementCommand = await s.command(["terms"], false, otherOptionId);
+    s.outcome("REJECTED");
+    const replacement = value(
+      await s.runtime.purchase(s.buyer, replacementCommand),
+    );
+    expect(replacement.purchaseRef).not.toBe(original.purchaseRef);
+    expect(
+      value(await s.runtime.status(s.buyer, original.purchaseRef)).state,
+    ).toBe("failed");
+    expect(s.stateRequests()).toBe(1);
+    expect(s.requests()).toHaveLength(2);
+  });
+
+  test("потерянный ответ подтверждённого платежа при смене варианта повторяет ту же покупку", async () => {
+    const s = await scenario();
+    const original = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    const otherOptionId = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: otherOptionId,
+          offerId: s.offerId,
+          mode: "one_time",
+          months: 1,
+          priceKopecks: 390_000,
+        },
+      }),
+    );
+    const command = await s.command(["terms"], false, otherOptionId);
+    s.outcome("CONFIRMED");
+    expect(value(await s.runtime.purchase(s.buyer, command))).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    const repeated = value(await s.runtime.purchase(s.buyer, command));
+    expect(repeated).toMatchObject({
+      purchaseRef: original.purchaseRef,
+      state: "confirmed",
+      access: "ready",
+    });
+    expect(
+      await s.runtime.purchase(s.buyer, {
+        ...command,
+        acknowledgeExistingAccess: true,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(s.requests()).toHaveLength(1);
+
   });
 
   test("точный повтор разовой покупки возвращает pending после смены контакта и истечения расчёта", async () => {
