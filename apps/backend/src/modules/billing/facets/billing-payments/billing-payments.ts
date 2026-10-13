@@ -557,7 +557,9 @@ export class BillingPayments {
         }
         const command = parsed.data;
         const result = await this.dependencies.grants.applyPaidPeriod(command);
-        if (result.ok) {
+        // applyPaidPeriod возвращает revision_conflict только когда это основание уже имеет
+        // такую или более новую редакцию. Устаревшая выдача не ждёт вечного повторения после отзыва.
+        if (result.ok || result.error.code === "revision_conflict") {
           await this.dependencies.prisma.billingFulfillment.update({
             where: { eventRef: row.eventRef },
             data: { appliedAt: this.clock() },
@@ -963,14 +965,28 @@ export class BillingPayments {
           }
           return { ok: true, value: true };
         }
-        if (row.state === "confirmed" && payment.Status === "REFUNDED") {
-          if (
-            !payment.Success ||
-            payment.ErrorCode !== "0" ||
-            row.paymentId === null
-          )
+        if (row.state !== "failed" && payment.Status === "REFUNDED") {
+          if (!payment.Success || payment.ErrorCode !== "0")
             return paymentFailure("invalid_notification");
-          await acceptBankRefund(tx, row, now);
+          // REFUNDED доказывает расчёт даже при пропущенном CONFIRMED. Условия периода
+          // фиксируются и сразу отменяются той же транзакцией, без выдачи прав.
+          let refundedPurchase = row;
+          if (row.state !== "confirmed") {
+            const period = await settleConfirmedAttempt(tx, row, now);
+            refundedPurchase = await tx.billingPurchase.update({
+              where: { id: row.id },
+              data: {
+                state: "confirmed",
+                paymentId: payment.PaymentId,
+                confirmedAt: now,
+                periodEndsAt: period.endsAt,
+                lifecycleActive: false,
+                paymentUrl: null,
+                updatedAt: now,
+              },
+            });
+          }
+          await acceptBankRefund(tx, refundedPurchase, now);
           return { ok: true, value: true };
         }
         if (row.state === "confirmed") {

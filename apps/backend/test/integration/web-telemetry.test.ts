@@ -49,7 +49,16 @@ const vital = (value: number) => ({
 it("preserves telemetry and exact p75 when upgrading the 0087 index", async () => {
   const previous = await createTestDatabase();
   try {
-    await runMigrationsToLatest(previous.url, platformMigrations.slice(0, -1));
+    await runMigrationsToLatest(
+      previous.url,
+      platformMigrations.slice(
+        0,
+        platformMigrations.findIndex(
+          (migration) =>
+            migration.name === "0088_web_telemetry_percentile_index",
+        ),
+      ),
+    );
     const existing = new WebTelemetry({
       prisma: previous.prisma,
       clock: () => new Date("2026-10-08T12:00:00Z"),
@@ -65,7 +74,10 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
     `;
     expect(before).toEqual([{ p75: 325, saved: 4 }]);
     expect(await migrateToLatest(previous.url)).toEqual({
-      appliedMigrations: ["0088_web_telemetry_percentile_index"],
+      appliedMigrations: [
+        "0088_web_telemetry_percentile_index",
+        "0089_bank_refund_history",
+      ],
     });
     expect(await existing.summary("owner", 30)).toMatchObject({
       ok: true,

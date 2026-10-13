@@ -1253,6 +1253,62 @@ describe("владельческие операции billing: платежи, �
     }
   });
 
+  test("полный возврат до локального CONFIRMED не позволяет позднему подтверждению выдать права", async () => {
+    const s = await scenario();
+    const purchase = await s.reserve();
+    expect(
+      await s.payments.notification(
+        s.bank.notify(purchase.purchaseRef, "REFUNDED"),
+      ),
+    ).toMatchObject({ ok: true });
+    expect(
+      await s.payments.notification(
+        s.bank.notify(purchase.purchaseRef, "CONFIRMED"),
+      ),
+    ).toMatchObject({ ok: true });
+    value(await s.payments.recover());
+    expect(await s.capabilities()).toEqual([]);
+    expect(value(await s.payments.history(s.buyer))).toContainEqual(
+      expect.objectContaining({
+        purchaseRef: purchase.purchaseRef,
+        refundedKopecks: 100_000,
+      }),
+    );
+  });
+
+  test("отложенная выдача после отзыва завершается как устаревшая и не ломает восстановление", async () => {
+    const s = await scenario();
+    const purchase = await s.reserve();
+    expect(
+      await s.payments.notification(
+        s.bank.notify(purchase.purchaseRef, "CONFIRMED"),
+      ),
+    ).toMatchObject({ ok: true });
+    await db.prisma.billingFulfillment.updateMany({
+      where: { purchaseRef: purchase.purchaseRef },
+      data: { nextAttemptAt: new Date("2030-03-31T10:01:00Z") },
+    });
+    expect(
+      await s.payments.notification(
+        s.bank.notify(purchase.purchaseRef, "REFUNDED"),
+      ),
+    ).toMatchObject({ ok: true });
+    value(await s.payments.recover());
+    expect(await s.capabilities()).toEqual([]);
+    now = new Date("2030-03-31T10:01:00Z");
+    expect(value(await s.payments.recover())).toMatchObject({ failed: 0 });
+    expect(await s.capabilities()).toEqual([]);
+    expect(
+      asPayment(
+        await s.operations.execute(owner, {
+          operation: "payments.read",
+          operationId: randomUUID(),
+          purchaseRef: purchase.purchaseRef,
+        }),
+      ).value.access,
+    ).toBe("ready");
+  });
+
   test("межсемейная гонка одного operationId применяет только одну команду", async () => {
     const s = await scenario();
     const recipient = await account();

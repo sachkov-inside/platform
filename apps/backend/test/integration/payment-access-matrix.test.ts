@@ -93,12 +93,6 @@ function asClassification(result: OwnerResult) {
     throw new Error(`Unexpected outcome ${value.outcome}`);
   return value;
 }
-function asRefundDecision(result: OwnerResult) {
-  const value = success(result);
-  if (value.outcome !== "refundDecision")
-    throw new Error(`Unexpected outcome ${value.outcome}`);
-  return value.value;
-}
 const config = syntheticTbankConfig({
   environment: "demo",
   terminalKey: "SYNTHETICMATRIX",
@@ -690,34 +684,13 @@ describe("оплата, выдача прав и доступ к материа�
       ).rows,
     ).toHaveLength(1);
   }
-  /** Подтверждённый возврат с отзывом оплаченного основания: деньги и права решаются вместе. */
+  /** Полный банковский возврат конкретной покупки. Platform не отправляет Cancel. */
   async function refundWithRevoke(
-    operations: BillingOperations,
+    payments: BillingPayments,
+    bank: BankFixture,
     purchaseRef: string,
-    amountKopecks: number,
-    recurring: "keep" | "cancel" = "keep",
   ) {
-    const decided = asRefundDecision(
-      await operations.execute(owner, {
-        operation: "refunds.decide",
-        operationId: randomUUID(),
-        purchaseRef,
-        amountKopecks,
-        basis: "withdrawal",
-        recurring,
-        reason: "Синтетический возврат с отзывом доступа",
-      }),
-    );
-    expect(
-      asRefundDecision(
-        await operations.execute(owner, {
-          operation: "refunds.execute",
-          operationId: randomUUID(),
-          decisionRef: decided.decisionRef,
-          expectedRevision: 1,
-        }),
-      ),
-    ).toMatchObject({ state: "executed", attempt: { state: "confirmed" } });
+    value(await payments.notification(bank.notify(purchaseRef, "REFUNDED")));
   }
 
   /** Один платёжный стенд: свой банк, свои платежи и своё продление. */
@@ -1646,25 +1619,20 @@ describe("оплата, выдача прав и доступ к материа�
     ]);
     const senior = await seniorOffer();
     const bought = await productOffer();
-    const { operations, pay, payments } = billingStand();
+    const { operations, pay, payments, bank } = billingStand();
     const subscribed = await pay(withBoth, senior.optionId, {
       recurring: true,
     });
     const productPurchase = await pay(withBoth, bought.optionId);
     // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
-    await refundWithRevoke(operations, productPurchase, productPriceKopecks);
+    await refundWithRevoke(payments, bank, productPurchase);
     value(await payments.recover());
     expect(await capabilities(withBoth)).toEqual([
       { capability: "community", validUntil: subscriptionEndsAt },
       { capability: "materials", validUntil: subscriptionEndsAt },
     ]);
     // Снятие последнего основания забирает и чат.
-    await refundWithRevoke(
-      operations,
-      subscribed,
-      subscriptionPriceKopecks,
-      "cancel",
-    );
+    await refundWithRevoke(payments, bank, subscribed);
     value(await payments.recover());
     expect(await capabilities(withBoth)).toEqual([]);
 
@@ -1674,14 +1642,14 @@ describe("оплата, выдача прав и доступ к материа�
       capability: "community",
       validUntil: null,
     });
-    await refundWithRevoke(operations, refundedPurchase, productPriceKopecks);
+    await refundWithRevoke(payments, bank, refundedPurchase);
     value(await payments.recover());
     expect(await capabilities(refunded)).toEqual([]);
 
     // Тот же возврат при независимом бессрочном праве оставляет чат открытым.
     const keptPurchase = await pay(kept, bought.optionId);
     await manualProductGrant(operations, kept, productB);
-    await refundWithRevoke(operations, keptPurchase, productPriceKopecks);
+    await refundWithRevoke(payments, bank, keptPurchase);
     value(await payments.recover());
     expect(await capabilities(kept)).toEqual([
       { capability: "community", validUntil: null },

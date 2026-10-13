@@ -541,7 +541,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "сумма вне допустимого, неподтверждённый платёж и чужие полномочия отклоняются",
+        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
@@ -649,7 +649,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "сумма вне допустимого, неподтверждённый платёж и чужие полномочия отклоняются",
+        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
       ),
       "nest-http": test(
         billingHttp,
