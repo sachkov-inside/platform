@@ -456,10 +456,12 @@ export const PersonalTaskPending: Story = {
     await expect(
       page.getByRole("status", { name: "Задание загружается" }),
     ).toBeVisible();
-    expect(
+    await expect(
       canvasElement.querySelector('[data-product-task-state="loading"]'),
     ).toBeNull();
-    expect(canvasElement.querySelector("[data-product-task-form]")).toBeNull();
+    await expect(
+      canvasElement.querySelector("[data-product-task-form]"),
+    ).toBeNull();
   },
 };
 
@@ -503,11 +505,11 @@ function courseLoadsInPlace({
       };
       stagedLoadingOf(loaded).deliverPersonalPart();
       await canvas.findByRole("link", { name: "Сдать", exact: true });
-      expect(originOf(boxOf(canvasElement, "[data-task-header]"))).toEqual(
-        before.header,
-      );
-      expect(boxOf(canvasElement, navigation)).toEqual(before.navigation);
-      expect(boxOf(canvasElement, "[data-reader-header] h1")).toEqual(
+      await expect(
+        originOf(boxOf(canvasElement, "[data-task-header]")),
+      ).toEqual(before.header);
+      await expect(boxOf(canvasElement, navigation)).toEqual(before.navigation);
+      await expect(boxOf(canvasElement, "[data-reader-header] h1")).toEqual(
         before.title,
       );
     },

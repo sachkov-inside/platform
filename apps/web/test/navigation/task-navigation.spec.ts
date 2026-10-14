@@ -189,7 +189,9 @@ test("task intent retains the public course frame while personal requirements wa
     page.locator('[data-product-task-state="pending"]:visible'),
   ).toHaveCount(0);
   expect(
-    await page.evaluate(() => Reflect.get(window, "__taskNavigationDocument")),
+    await page.evaluate(
+      () => Reflect.get(window, "__taskNavigationDocument") === true,
+    ),
   ).toBe(true);
   expect((await taskRequests()).length).toBe(reads);
   expect(rsc).toEqual([]);
