@@ -624,7 +624,7 @@ CPU в покое этим smoke не измерен: снимок сделан 
 Команда владельца на выпуск фиксирует один commit `main`; release workflow проверяет GitHub
 `workflow_dispatch` binding и сохраняет source при последующих изменениях main. Публикация
 использует только trusted source evidence с доказанным совпадением полного дерева и исполняет
-missing checks. Receipt `release-source-receipt` содержит source/tree, provider runs и gaps;
+missing checks. Receipt `release-source-receipt-<producing attempt>` содержит source/tree, provider runs и gaps;
 source checks не заменяют проверку image revision/digest и immutable ordinal manifest.
 
 Разрешение на выпуск охватывает публикацию, выкладку и проверку production как один результат.

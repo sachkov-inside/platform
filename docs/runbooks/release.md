@@ -37,7 +37,7 @@ git log --oneline "$current"..origin/main
 
 [Политика evidence](../agents/release-evidence.md) задаёт проверку доверенного CI: provider run,
 actual source, значимые входы и покрытие. Для synthetic merge queue совпадение полных Git trees
-проверяется по API; одно ancestry не подходит. Release сохраняет `release-source-receipt` с
+проверяется по API; одно ancestry не подходит. Release сохраняет `release-source-receipt-<producing attempt>` с
 выбранным source, reused runs и gaps и запускает только недостающие source checks на фиксированном
 SHA. Platform требует full-stack smoke вместе с integration и Compose; Telegram — свою полную
 suite. Неудавшийся missing check останавливает публикацию. Истёкший или недоступный artifact
