@@ -207,7 +207,7 @@ export function projectAccessCapabilities(
         )
           continue;
       }
-      // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
+      // The bridge exposes only its explicit capabilities.
       for (const opened of capabilitiesOpenedBy(capability))
         include(opened, projection.validUntil.toISOString());
     }
