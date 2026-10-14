@@ -841,3 +841,26 @@ boundary и доступ к мигрированным таблицам собс
 дождитесь нового reconciliation и подтвердите Platform flow. Старые positive observations не
 продлеваются только из-за restore. В #184 запишите время восстановления и актуальность данных;
 RPO/RTO относятся к реальной проверке, а не наличию этого runbook.
+
+## Зафиксированный source и итог выпуска (#1430)
+
+Команда владельца на выпуск фиксирует один commit `main`; release workflow проверяет GitHub
+`workflow_dispatch` binding и сохраняет source при последующих изменениях main. Публикация
+использует только trusted source evidence с доказанным совпадением полного дерева и исполняет
+missing checks. Receipt `release-source-receipt` содержит source/tree, provider runs и gaps;
+source checks не заменяют проверку image revision/digest и immutable ordinal manifest.
+
+Разрешение на выпуск охватывает публикацию, выкладку и проверку production как один результат.
+Перед downtime сообщите ожидаемый перерыв. Сохраняйте обязательные fresh backup и isolated
+restore; успешная restore proof не разрешает восстановление production. После выкладки проверьте
+выбранную версию, доступность и применимые критические сценарии (login, права, ключевые страницы)
+на безопасных тестовых данных. Реальные платежи, outbound messages, продажи и публикация
+контента/юридических документов требуют прежних отдельных разрешений.
+
+Итоговый receipt отдельно фиксирует publication, deployment, version/availability и каждый
+production scenario: passed, failed или deferred с причиной и evidence. Недоступная тестовая
+учётная запись оставляет явный gap. Required verification failure исключает успешный итог,
+даже если серверная выкладка завершилась. При отказе запишите фактический deployed state и
+подготовьте проверенный recovery plan с совместимостью и допустимым rollback window.
+Rollback или repair-forward выполняется только по новой команде владельца; автоматические
+down-migrations и restore production database не разрешены.

@@ -12,26 +12,42 @@ head. These completion checks do not prove a different application's release sou
 
 ## Release evidence
 
-1. Select and freeze the exact final source SHA before dispatching the release workflow. Serialize
-   unrelated main merges until immutable publication completes: both planning and finalization
-   require the selected SHA to remain current main. After publication, keep that selection through
-   deployment when main advances. Record each required check's command or CI job, actual source,
-   outcome, and log or artifact reference. Read the actual checkout SHA for reusable workflows.
-2. Reuse successful exact-source CI evidence for all covered checks. `pnpm check` defines completion;
-   its static, unit, UI, and web end-to-end phases may be proved by their corresponding CI jobs.
-3. Fill only named coverage gaps. Use targeted local commands for development or diagnosis.
-   `pnpm check:full` and guarded Compose remain available as local fallbacks when equivalent CI
-   evidence is missing. A local Compose run includes successful shutdown and owns its resources.
-4. Before release, prove backend integration (parallel and serial), enrollment, buyer journey,
-   full-stack access scenarios, and development/production Compose with cleanup. Reuse an existing
-   successful exact-source nightly run for full-stack coverage. Dispatch it only when coverage is
-   missing. Keep independent Standards and Spec reviews bound to the reviewed final change.
+1. The owner's release command freezes one main commit. GitHub `workflow_dispatch` binds that
+   command to its `head_sha` and `head_branch`; `scripts/captured-release-main.sh` verifies the
+   server run, repository and owning release workflow at planning and finalization. The selected
+   SHA must equal that provider-captured main SHA. Later main commits neither replace this source
+   nor block publication. Ordinal history and immutable manifests are revalidated independently.
+2. `scripts/collect-release-source-evidence.sh` examines at most 30 successful Application CI runs.
+   Only successful, completed runs in this repository from main push or the main merge queue are
+   eligible. Their `ci-source-evidence-<attempt>` artifact binds source, tree, event, run and attempt, selected
+   coverage and successful coverage. Every selected job must have succeeded. Provider run identity
+   and its Git commit tree are checked separately through GitHub's API. Attempt-specific provider
+   jobs must independently show a successful Coverage plan, CI Gate and every artifact-selected job,
+   each bound to the same run, attempt and head SHA. Missing or skipped jobs reject reuse even if
+   the run summary and artifact claim success. Receipts retain the reused provider job IDs.
+3. Reuse requires the release tree, provider CI tree and artifact tree to be identical. This
+   conservatively treats every tracked input as significant, including workflow, scripts, lockfile,
+   runtime Markdown and configuration. A synthetic merge-queue commit can prove another SHA only
+   through this verified whole-tree correspondence. Ancestry, a green summary or an edited source
+   label cannot prove correspondence. Older, expired, unavailable or incomplete evidence leaves
+   uncovered checks; it never grants an exception.
+4. Both release workflows retain `release-source-receipt.json` as the `release-source-receipt`
+   artifact for 90 days. Finalization retains `release-source-complete` with the successful gap
+   workflow result and executed IDs; reused and executed IDs must partition the required plan. It names selected source/tree, required coverage, reused provider runs and
+   their source/attempt, covered checks and missing checks. The reusable Application CI receives
+   exactly those missing job IDs on the frozen SHA. Its CI Gate validates the selected gap plan;
+   a failed or cancelled gap prevents publication. Platform includes full-stack access scenarios,
+   parallel/serial integration and both Compose modes; Telegram includes its complete suite.
+   Source evidence does not replace the images' digest/revision/schema verification.
 
-Release readiness requires every applicable coverage item to have successful evidence on the selected
-source. A failed check requires diagnosis; an absent or stale check remains pending. A synthetic PR
-merge SHA proves only that SHA. Final-source CI must cover a different release SHA; changing an
-artifact's source label is not evidence. Record skipped or owner-excluded checks truthfully under
-an existing explicit authorization; this policy grants no new exceptions.
+`pnpm check` still defines task completion. Local targeted commands and `pnpm check:full` plus
+guarded Compose remain development/diagnosis fallbacks. Compose evidence includes shutdown and
+session-owned resources. Independent Standards and Spec reviews remain bound to the reviewed
+change. Manual full-stack investigation remains available; no scheduled run is required for release.
+
+Release readiness requires every applicable item to succeed on the selected source or its proven
+identical tree. Missing checks run; failed checks need diagnosis. Record skipped, deferred or
+owner-excluded checks explicitly under their existing authorization, never as passed checks.
 
 ## Release boundary
 
@@ -44,7 +60,7 @@ Harness documentation alone does not require an application release. Keep the ac
 selected SHA unless the approved application diff changes. Deliver documentation through its PR;
 apply the owner's explicit current-session override while that PR completes.
 
-The course preflight v2 binds `selectedSourceSha` to the manifest, publication and all coverage.
+The active course preflight v3 binds `selectedSourceSha` to the manifest, publication and all coverage.
 Its receipts name coverage instead of local aggregate commands. Each receipt
 binds its source and evidence reference; CI receipts also identify the successful workflow and job.
 The operator verifies those references against GitHub before submitting the receipt. V1 receipts

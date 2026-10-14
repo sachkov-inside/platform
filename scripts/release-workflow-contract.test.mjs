@@ -28,7 +28,8 @@ describe("ordinal release workflow contract", () => {
     assert.match(releaseWorkflow, /^ {2}group: platform-release$/mu);
     assert.match(releaseWorkflow, /^ {2}cancel-in-progress: false$/mu);
     assert.match(plan, /bash scripts\/plan-release\.sh/u);
-    assert.match(planScript, /git\/ref\/heads\/main/u);
+    assert.match(planScript, /captured-release-main\.sh/u);
+    assert.match(ci, /coverage_json: \$\{\{ needs\.plan\.outputs\.missing_coverage \}\}/u);
     assert.match(planScript, /bash scripts\/check-release-immutability\.sh/u);
     assert.match(
       read("scripts/check-release-immutability.sh"),
@@ -172,7 +173,7 @@ function jobPermissions(workflow, job) {
 /** @param {string} workflow */
 function assertReleasePermissions(workflow) {
   const expected = {
-    plan: { contents: "read" },
+    plan: { contents: "read", actions: "read" },
     ci: { contents: "read" },
     "build-images": { contents: "read", packages: "write" },
     finalize: { actions: "read", contents: "write" },

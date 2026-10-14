@@ -445,8 +445,9 @@ Release creation keep their existing `GITHUB_TOKEN` permissions. Missing or deni
 or disabled immutability, stops publication. Do not substitute a broad personal token for the
 workflow token or skip this check.
 
-`.github/workflows/release.yml` remains the sole publication entry point. It captures exact current
-`main`, reuses application CI, embeds the ordinal and source SHA in both images, publishes their
+`.github/workflows/release.yml` remains the sole publication entry point. It freezes the main commit bound to the owner-commanded `workflow_dispatch` run, verifies
+that provider binding at planning/finalization even after main advances, reuses trusted
+source evidence with identical Git trees and executes only missing application CI checks, embeds the ordinal and source SHA in both images, publishes their
 public GHCR digests, proves anonymous digest access, validates the downloaded image result against
 the canonical contract and captured source before executing that exact backend image, then creates
 the immutable GitHub Release with
@@ -457,8 +458,13 @@ schema identity, successful publication run and exact previous manifest when one
 gh workflow run release.yml --ref main --field version=vN
 ```
 
-Publishing is not deployment and does not authorize production mutation. The complete local
-publication proof remains:
+The publication workflow performs publication. An explicit owner release command authorizes
+publication, deployment and post-deployment verification as one outcome under #1430. Keep the
+selected manifest source and image digests for deployment; source-test reuse does not replace image
+verification, fresh backup or isolated restore. Record production availability/version/scenario
+results and deferred gaps separately from successful server deployment. A required production
+verification failure prevents a successful release outcome. Recovery needs a checked plan and a
+separate owner command for rollback or repair-forward. The complete local publication proof remains:
 
 ```bash
 pnpm release:dry-run

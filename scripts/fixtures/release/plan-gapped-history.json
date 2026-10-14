@@ -1,7 +1,7 @@
 {
   "requestedVersion": "v4",
   "sourceSha": "4444444444444444444444444444444444444444",
-  "currentMainSha": "4444444444444444444444444444444444444444",
+  "capturedMainSha": "4444444444444444444444444444444444444444",
   "existingTags": ["v1", "v3"],
   "existingReleases": [
     {
