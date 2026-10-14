@@ -107,7 +107,11 @@ export class BillingContact {
     accountId: string,
     evidenceRef: string,
   ): Promise<ReadConsentResult> {
-    const [result] = await this.readConsents(accountId, [evidenceRef]);
+    const [result] = await this.readPaymentConsents(
+      accountId,
+      [evidenceRef],
+      "readConsent",
+    );
     return result ?? contactFailure("not_found");
   }
 
@@ -116,10 +120,22 @@ export class BillingContact {
     accountId: string,
     evidenceRefs: readonly string[],
   ): Promise<readonly ReadConsentResult[]> {
+    return this.readPaymentConsents(accountId, evidenceRefs, "readConsents");
+  }
+
+  private async readPaymentConsents(
+    accountId: string,
+    evidenceRefs: readonly string[],
+    operation: "readConsent" | "readConsents",
+  ): Promise<readonly ReadConsentResult[]> {
     if (!z.uuid().safeParse(accountId).success)
       return evidenceRefs.map(() => contactFailure("forbidden"));
     const validRefs = [
-      ...new Set(evidenceRefs.filter((ref) => z.uuid().safeParse(ref).success)),
+      ...new Set(
+        evidenceRefs
+          .filter((ref) => z.uuid().safeParse(ref).success)
+          .map((ref) => ref.toLowerCase()),
+      ),
     ];
     if (validRefs.length === 0)
       return evidenceRefs.map(() => contactFailure("not_found"));
@@ -130,7 +146,7 @@ export class BillingContact {
       });
       const byId = new Map(rows.map((row) => [row.id, row]));
       return evidenceRefs.map((ref): ReadConsentResult => {
-        const row = byId.get(ref);
+        const row = byId.get(ref.toLowerCase());
         if (!hasText(row?.contextRef)) return contactFailure("not_found");
         return {
           ok: true,
@@ -155,7 +171,7 @@ export class BillingContact {
       });
     } catch (error) {
       const failure = dependencyFailure(
-        { module: "accounts", operation: "readConsents" },
+        { module: "accounts", operation },
         error,
         contactFailure("internal_error"),
       );

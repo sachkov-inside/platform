@@ -483,10 +483,19 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       });
       const missing = randomUUID();
       const refs = [
-        ...result.evidenceRefs,
+        ...result.evidenceRefs.map((ref) => ref.toUpperCase()),
         missing,
         result.evidenceRefs[0] ?? missing,
       ];
+      expect(
+        await reader.readConsent(
+          owner,
+          result.evidenceRefs[0]?.toUpperCase() ?? missing,
+        ),
+      ).toMatchObject({
+        ok: true,
+        evidence: { evidenceRef: result.evidenceRefs[0] },
+      });
       const reading = await measured.measure(() =>
         reader.readConsents(owner, refs),
       );
