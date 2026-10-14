@@ -1,4 +1,7 @@
-import { tariffCoverage } from "@inside/access-capabilities";
+import {
+  previewProductRevocation,
+  revokeProductAccess,
+} from "../../features/revoke-product-access/revoke-product-access.js";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
 import { coverageSchema, productCapability } from "@inside/access-capabilities";
@@ -8,11 +11,7 @@ import {
 } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
-import {
-  enrollmentView,
-  enrollmentBenefitTerms,
-  enrollmentSourceState,
-} from "../../shared/enrollment-view.js";
+import { assembleEnrollmentViews } from "../../shared/enrollment-views.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import {
@@ -78,6 +77,8 @@ import {
 import {
   resolveAccessCapabilities,
   resolveAccessCapabilitiesForAccounts,
+  readAccessCapabilityFacts,
+  projectAccessCapabilities,
 } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
 import {
   listAccessGrants,
@@ -507,28 +508,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         });
         return {
           ok: true as const,
-          value: await Promise.all(
-            rows.map(async (row) => {
-              const view = enrollmentView(row, now);
-              if (row.origin === "tribute" && view.state !== "revoked")
-                view.state =
-                  (await enrollmentSourceState(prisma, row.id, now)) ??
-                  view.state;
-              const benefitGrants = await prisma.accessGrant.findMany({
-                where: { enrollmentId: row.id },
-              });
-              return {
-                ...view,
-                benefitTerms: enrollmentBenefitTerms(benefitGrants),
-                ...(dependencies.contentCatalog === undefined
-                  ? {}
-                  : {
-                      content: await dependencies.contentCatalog.resolve(
-                        tariffCoverage(view.tier.benefits, view.tier.coverage),
-                      ),
-                    }),
-              };
-            }),
+          value: await assembleEnrollmentViews(
+            prisma,
+            rows,
+            now,
+            dependencies.contentCatalog,
+            false,
           ),
         };
       } catch (error) {
@@ -576,41 +561,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         });
         return {
           ok: true as const,
-          value: await Promise.all(
-            rows.map(async (row) => {
-              const view = enrollmentView(row, now);
-              if (row.origin === "tribute" && view.state !== "revoked")
-                view.state =
-                  (await enrollmentSourceState(prisma, row.id, now)) ??
-                  view.state;
-              const benefitGrants = await prisma.accessGrant.findMany({
-                where: { enrollmentId: row.id },
-              });
-              const changes = await prisma.accessChange.findMany({
-                where: {
-                  accountId: targetAccountId,
-                  grantId: { in: benefitGrants.map((grant) => grant.id) },
-                },
-                orderBy: { revision: "desc" },
-                take: 100,
-              });
-              return {
-                ...view,
-                benefitTerms: enrollmentBenefitTerms(benefitGrants),
-                history: changes.map((change) => ({
-                  kind: change.kind,
-                  reason: change.reason,
-                  recordedAt: change.recordedAt.toISOString(),
-                })),
-                ...(dependencies.contentCatalog === undefined
-                  ? {}
-                  : {
-                      content: await dependencies.contentCatalog.resolve(
-                        tariffCoverage(view.tier.benefits, view.tier.coverage),
-                      ),
-                    }),
-              };
-            }),
+          value: await assembleEnrollmentViews(
+            prisma,
+            rows,
+            now,
+            dependencies.contentCatalog,
+            true,
           ),
         };
       }),
@@ -632,6 +588,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     applyBatch: (actorId: string, command: ApplyGrantBatchCommand) =>
       manage(actorId, "billing:manage", () =>
         applyGrantBatch(prisma, accounts, actorId, command, clock()),
+      ),
+    previewProductRevocation: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        previewProductRevocation(prisma, accounts, input, clock()),
+      ),
+    revokeProductAccess: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        revokeProductAccess(prisma, accounts, actorId, input, clock()),
       ),
     changeGrant: (actorId: string, command: ChangeAccessGrantCommand) =>
       manage(actorId, "billing:manage", () =>
@@ -718,7 +682,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
       try {
-        return await readOwnAccess(prisma, targetAccountId, clock());
+        return await readOwnAccess(
+          prisma,
+          targetAccountId,
+          clock(),
+          dependencies.contentCatalog,
+        );
       } catch (error) {
         return dependencyFailure(
           { module: "account-rights", operation: "readOwnAccess" },
@@ -727,7 +696,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async resolveCapabilitiesForAccounts(targetAccountIds: readonly string[]) {
+    async resolveCapabilitiesForAccounts(
+      targetAccountIds: readonly string[],
+      resource?: { productIds: readonly string[]; materialId?: string },
+    ) {
       if (!targetAccountIds.every((id) => z.uuid().safeParse(id).success))
         return accessFailure("invalid_input");
       try {
@@ -739,6 +711,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             transaction,
             uniqueIds,
             now,
+            resource,
           );
         });
         return { ok: true as const, accounts };
@@ -753,7 +726,47 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async resolveCapabilities(targetAccountId: string) {
+    /** One Account snapshot, at most 1000 resources, values aligned with input order. */
+    async resolveCapabilitiesMany(
+      targetAccountId: string,
+      resources: readonly {
+        productIds: readonly string[];
+        materialId?: string;
+      }[],
+    ) {
+      if (
+        !z.uuid().safeParse(targetAccountId).success ||
+        resources.length > 1000
+      )
+        return accessFailure("invalid_input");
+      try {
+        return await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          const now = clock();
+          const facts = await readAccessCapabilityFacts(
+            transaction,
+            accountId(targetAccountId),
+            now,
+          );
+          return {
+            ok: true as const,
+            values: resources.map((resource) =>
+              projectAccessCapabilities(facts, now, resource),
+            ),
+          };
+        });
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "resolveCapabilitiesMany" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    async resolveCapabilities(
+      targetAccountId: string,
+      resource?: { productIds: readonly string[]; materialId?: string },
+    ) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
       try {
@@ -764,6 +777,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               transaction,
               accountId(targetAccountId),
               clock(),
+              resource,
+              { includeRevision: true },
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
         });

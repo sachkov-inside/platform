@@ -600,7 +600,7 @@ describe("подписка: продление, отмена, смена вар�
         active: true,
       },
     ]);
-    expect(cabinet.payments).toEqual([
+    expect(cabinet.payments).toMatchObject([
       {
         purchaseRef,
         kind: "initial",

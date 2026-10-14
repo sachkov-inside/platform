@@ -10,9 +10,7 @@ set -euo pipefail
 bash scripts/check-release-immutability.sh
 unset RELEASE_SETTINGS_READ_TOKEN
 
-current_main_sha="$(
-  gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
-)"
+captured_main_sha="$(bash scripts/captured-release-main.sh)"
 existing_tags="$(
   gh api --paginate --slurp \
     --header "X-GitHub-Api-Version: 2026-03-10" \
@@ -33,13 +31,13 @@ existing_releases="$(
 jq --null-input \
   --arg requestedVersion "$REQUESTED_VERSION" \
   --arg sourceSha "$SOURCE_SHA" \
-  --arg currentMainSha "$current_main_sha" \
+  --arg capturedMainSha "$captured_main_sha" \
   --argjson existingTags "$existing_tags" \
   --argjson existingReleases "$existing_releases" \
   '{
     requestedVersion: $requestedVersion,
     sourceSha: $sourceSha,
-    currentMainSha: $currentMainSha,
+    capturedMainSha: $capturedMainSha,
     existingTags: $existingTags,
     existingReleases: $existingReleases
   }' |

@@ -16,9 +16,7 @@ legacy_repository=sachkov-inside/inside-telegram
 legacy_tags="$(gh api --paginate --slurp "repos/$legacy_repository/tags?per_page=100" | jq '[.[][] | .name]')"
 legacy_releases="$(gh api --paginate --slurp "repos/$legacy_repository/releases?per_page=100" | jq '[.[][] | select(.draft == false and .prerelease == false) | {version: .tag_name, immutable, targetCommitish: .target_commitish, assets: [.assets[].name]}]')"
 
-current_main_sha="$(
-  gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha
-)"
+captured_main_sha="$(bash scripts/captured-release-main.sh)"
 existing_tags="$(
   gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/tags?per_page=100" |
     jq '[.[][] | .name]'
@@ -36,7 +34,7 @@ existing_releases="$(
 jq --null-input \
   --arg requestedVersion "$REQUESTED_VERSION" \
   --arg sourceSha "$SOURCE_SHA" \
-  --arg currentMainSha "$current_main_sha" \
+  --arg capturedMainSha "$captured_main_sha" \
   --argjson legacyTags "$legacy_tags" \
   --argjson legacyReleases "$legacy_releases" \
   --argjson existingTags "$existing_tags" \
@@ -44,7 +42,7 @@ jq --null-input \
   '{
     requestedVersion: $requestedVersion,
     sourceSha: $sourceSha,
-    currentMainSha: $currentMainSha,
+    capturedMainSha: $capturedMainSha,
     legacyTags: $legacyTags,
     legacyReleases: $legacyReleases,
     existingTags: $existingTags,

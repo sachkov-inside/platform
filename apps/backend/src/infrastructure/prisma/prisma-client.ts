@@ -97,6 +97,7 @@ export type TelegramMembershipPrisma = Pick<
   | "telegramLinkTransaction"
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"
+  | "productCommunity"
   | "telegramCommunityDesiredState"
   | "telegramCommunityOperation"
   | "telegramCommunityAuthorization"
@@ -141,6 +142,7 @@ export type ReadingActivityPrisma = Pick<
   | "readingEvent"
   | "readingCommand"
   | "readingMaterialVisit"
+  | "productLearningStarted"
   | "readerPreferences"
   // Materials delegates: a reading command rereads Material facts in its own transaction.
   | "material"
@@ -200,6 +202,7 @@ export type BillingPrisma = Pick<
   | "tariffAssignment"
   | "sourceEntitlement"
   | "accessGrant"
+  | "productAccessExclusion"
   | "accessChange"
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"

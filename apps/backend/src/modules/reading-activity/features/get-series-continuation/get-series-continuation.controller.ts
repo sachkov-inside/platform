@@ -35,6 +35,7 @@ import { continueMaterialSchema } from "../get-continue-materials/get-continue-m
 export const seriesContinuationHttpSchema = z
   .object({
     collection: publishedCatalogFacetHttpSchema,
+    started: z.boolean(),
     read: z.number().int().nonnegative(),
     total: z.number().int().nonnegative(),
     continuation: z

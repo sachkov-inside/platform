@@ -14,6 +14,7 @@ import { z } from "zod";
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
+import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -645,6 +646,12 @@ function route(method, url, entitled) {
   if (/^\/products\/[^/]+\/artifacts$/u.test(path))
     return json({ artifacts: [] });
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
+  if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
+    return json(null);
+  if (path === "/accounts/current/billing")
+    return json({ subscription: null, notices: [], grounds: [], payments: [] });
+  if (path === "/accounts/current/billing/contact")
+    return json({ ok: true, contact: null, documents: [] });
   if (path === "/billing/offers") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {
@@ -832,6 +839,11 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const ownHistory = await productTaskHistoryRoute(request, url, readBody);
+  if (ownHistory !== null) {
+    send(ownHistory.status, ownHistory.value);
+    return;
+  }
   const submissions = await taskSubmissionsRoute(request, url, readBody);
   if (submissions !== null) {
     send(submissions.status, submissions.value);

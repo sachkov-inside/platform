@@ -1,5 +1,4 @@
 "use client";
-import { CalendarClock, MessagesSquare, Play, Users } from "lucide-react";
 import { useId, type Ref } from "react";
 
 import {
@@ -16,6 +15,7 @@ import {
   formatKopecks,
   paymentMode,
   promotionLabel,
+  preorderDiscount,
   purchaseConsentPolicy,
   type BillingQuote,
   type LegalDocument,
@@ -31,7 +31,6 @@ import {
   oneTimePriceSharesLine,
   oneTimePurchaseInclusions,
   oneTimeTermsSummary,
-  type CheckoutInclusion,
 } from "../model/one-time-terms";
 
 export interface OneTimeCheckoutPanelProps {
@@ -39,6 +38,7 @@ export interface OneTimeCheckoutPanelProps {
   readonly quote: BillingQuote | null;
   readonly documents: readonly LegalDocument[];
   readonly email: string;
+  readonly accountEmailPresent?: boolean;
   readonly emailError?: string | undefined;
   readonly onEmailChange: (value: string) => void;
   readonly emailInputRef?: Ref<HTMLInputElement>;
@@ -79,18 +79,12 @@ function documentLabel(document: LegalDocument): string {
   );
 }
 
-const inclusionIcons = {
-  composition: Play,
-  materials: CalendarClock,
-  chat: Users,
-  support: MessagesSquare,
-} as const satisfies Record<CheckoutInclusion["kind"], unknown>;
-
 export function OneTimeCheckoutPanel({
   snapshot,
   quote,
   documents,
   email,
+  accountEmailPresent = false,
   emailError,
   onEmailChange,
   emailInputRef,
@@ -121,6 +115,10 @@ export function OneTimeCheckoutPanel({
     preorder.priceAfterStartKopecks > conditions.firstPriceKopecks
       ? preorder.priceAfterStartKopecks
       : null;
+  const preorderSaving = preorderDiscount(
+    conditions.firstPriceKopecks,
+    afterStart,
+  );
   const terms = oneTimeOfferTerms(conditions);
   // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
   // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
@@ -147,7 +145,7 @@ export function OneTimeCheckoutPanel({
   return (
     <form
       aria-labelledby={headingId}
-      className="min-w-0"
+      className="min-w-0 rounded-2xl border border-border bg-card p-5 sm:p-7"
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
@@ -158,81 +156,38 @@ export function OneTimeCheckoutPanel({
         Оплата продукта
       </h2>
 
-      {shownInclusions.length === 0 ? null : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {shownInclusions.map((inclusion) => {
-            const Icon = inclusionIcons[inclusion.kind];
-            return (
-              <li
-                className={`grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-secondary p-4 ${inclusion.kind === "composition" ? "sm:col-span-2" : ""}`}
-                key={inclusion.kind}
-              >
-                <span
-                  aria-hidden="true"
-                  className="grid size-10 place-items-center rounded-xl bg-background text-foreground"
-                >
-                  <Icon className="size-5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                    {inclusion.caption}
-                  </span>
-                  <span className="mt-0.5 block break-words font-semibold leading-6">
-                    {inclusion.title}
-                  </span>
-                  {inclusion.detail === undefined ? null : (
-                    <span className="block break-words text-sm leading-5 text-muted-foreground">
-                      {inclusion.detail}
-                    </span>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <div className="mt-4 rounded-2xl bg-primary p-5 text-white">
-        <p className="font-semibold">Без подписки и доплат</p>
-        <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
-          <span className="text-3xl font-bold tabular-nums tracking-[-0.04em]">
+      <div>
+        <p className="flex flex-wrap items-baseline gap-x-3">
+          <span className="text-3xl font-bold tabular-nums">
             {formatKopecks(conditions.firstPriceKopecks)}
           </span>
           {afterStart === null ? null : (
-            <s className="text-lg font-semibold tabular-nums text-white/60">
+            <s className="text-sm text-muted-foreground">
               <span className="sr-only">Цена после старта: </span>
               {formatKopecks(afterStart)}
             </s>
           )}
-          <span className="text-sm text-white/70">разово</span>
+          {promotion === undefined && preorderSaving !== null ? (
+            <span className="text-sm font-semibold">{preorderSaving}</span>
+          ) : null}
+          {promotion === undefined ? null : (
+            <span className="text-sm font-semibold">{promotion}</span>
+          )}
         </p>
-        {preorder === null ? null : (
-          <p className="mt-1 text-sm leading-6 text-white/85">
-            Цена предзаказа действует до старта потока {preorder.startsOn}.
-            {afterStart === null
-              ? ""
-              : ` После старта — ${formatKopecks(afterStart)}.`}
-          </p>
-        )}
-        <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
-        {promotion === undefined ? null : (
-          <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
-        )}
+        <p className="mt-1 text-sm text-muted-foreground">Разовая оплата</p>
         {promoRejected ? (
-          <p className="mt-2 text-sm leading-6 text-white/85" role="status">
-            Скидка по ссылке не применилась: ссылка уже использована или больше
-            не действует. Если это ошибка, напишите тому, кто прислал ссылку.
+          <p className="mt-2 text-sm text-muted-foreground" role="status">
+            Скидка по ссылке не применилась.
           </p>
         ) : null}
         {quote === null ? (
-          <p className="mt-3 text-sm leading-6 text-white/70" role="status">
+          <p className="mt-3 text-sm text-muted-foreground" role="status">
             {pending
               ? "Готовим точные условия…"
               : "Точные условия пока не сохранены."}
           </p>
         ) : null}
       </div>
-
       {quote === null && !pending ? (
         <Button
           className={`mt-4 ${billingActionClass}`}
@@ -244,28 +199,42 @@ export function OneTimeCheckoutPanel({
         </Button>
       ) : null}
 
-      <CheckoutEmailField
-        value={email}
-        error={emailError}
-        onChange={onEmailChange}
-        inputRef={emailInputRef}
-        disabled={pending || paymentBlocked}
-      />
+      {accountEmailPresent ? null : (
+        <CheckoutEmailField
+          value={email}
+          error={emailError}
+          onChange={onEmailChange}
+          inputRef={emailInputRef}
+          disabled={pending || paymentBlocked}
+        />
+      )}
 
-      <section
-        aria-labelledby={termsId}
-        className="mt-5 rounded-2xl border border-border p-4 text-sm leading-6"
-      >
-        <h3 className="font-semibold" id={termsId}>
-          Условия покупки
-        </h3>
+      <details className="mt-5 border-t border-border pt-4 text-sm leading-6">
+        <summary className="min-h-11 cursor-pointer font-semibold" id={termsId}>
+          Условия и документы покупки
+        </summary>
+        {shownInclusions.length === 0 ? null : (
+          <ul className="mt-2 grid gap-2">
+            {shownInclusions.map((item) => (
+              <li key={item.kind}>
+                {item.title}
+                {item.detail === undefined ? "" : `: ${item.detail}`}
+              </li>
+            ))}
+          </ul>
+        )}
         <ul className="mt-2 grid list-disc gap-1.5 pl-5 text-muted-foreground">
           {oneTimeTermsSummary(terms).map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
-      </section>
-
+        <p className="mt-2 text-muted-foreground">{priceShares}</p>
+        <LegalDocumentLinks
+          className="mt-3"
+          label="Документы покупки:"
+          keys={["purchase", "terms", "contacts", "privacy"]}
+        />
+      </details>
       {missingRequired.length > 0 ? (
         <p
           className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
@@ -274,12 +243,6 @@ export function OneTimeCheckoutPanel({
           Условия продажи ещё не опубликованы, поэтому принять оплату нельзя.
         </p>
       ) : null}
-
-      <LegalDocumentLinks
-        className="mt-5"
-        label="Документы этой покупки:"
-        keys={["purchase", "terms", "contacts", "privacy"]}
-      />
 
       {existingAccess ? (
         <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
@@ -311,7 +274,7 @@ export function OneTimeCheckoutPanel({
       </Button>
 
       {missingRequired.length > 0 ? null : (
-        <AcceptanceNote className="mt-3" underage>
+        <AcceptanceNote className="mt-3">
           Нажимая «{checkoutActionName(conditions)}», вы принимаете{" "}
           {applicable
             .filter((document) => required.includes(document.kind))

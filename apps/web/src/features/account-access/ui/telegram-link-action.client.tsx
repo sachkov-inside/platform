@@ -13,6 +13,7 @@ import { useTelegramLinkFlow } from "../model/use-telegram-link-flow.client";
 const accessHref: Route = "/account/access";
 
 export interface TelegramLinkActionProps {
+  readonly label?: "Подключить Telegram" | "Привязать Telegram";
   /** Перечитывает состояние, которое показывает кнопку, после каждого шага привязки. */
   readonly onRefresh: () => Promise<void>;
   readonly className?: string;
@@ -25,6 +26,7 @@ export interface TelegramLinkActionProps {
  */
 export function TelegramLinkAction({
   className,
+  label = "Подключить Telegram",
   onRefresh,
 }: TelegramLinkActionProps) {
   const flow = useTelegramLinkFlow(onRefresh);
@@ -71,7 +73,7 @@ export function TelegramLinkAction({
         ) : (
           <Send aria-hidden="true" />
         )}
-        Подключить Telegram
+        {label}
       </Button>
       {detour ? (
         <p className="text-xs leading-5 text-muted-foreground" role="alert">

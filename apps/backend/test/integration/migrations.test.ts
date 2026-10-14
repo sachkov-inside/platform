@@ -80,6 +80,7 @@ const accountRightsTables = [
   "evidence_receipts",
   "invitations",
   "legacy_classifications",
+  "product_access_exclusions",
   "source_entitlements",
   "tariff_assignments",
   "tribute_import_reviews",
@@ -102,6 +103,7 @@ const telegramMembershipTables = [
   "community_operations",
   "community_projection_cursor",
   "community_projection_retries",
+  "product_communities",
   "link_transactions",
 ] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
@@ -252,6 +254,10 @@ describe("Platform migrations", () => {
         "0087_web_telemetry",
         "0088_web_telemetry_percentile_index",
         "0089_bank_refund_history",
+        "0090_explicit_community_rights",
+        "0091_product_communities",
+        "0092_product_access_exclusions",
+        "0093_product_learning_started",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -270,6 +276,7 @@ describe("Platform migrations", () => {
       "events",
       "material_states",
       "material_visits",
+      "product_learning_started",
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
@@ -932,6 +939,10 @@ describe("Platform migrations", () => {
           "0087_web_telemetry",
           "0088_web_telemetry_percentile_index",
           "0089_bank_refund_history",
+          "0090_explicit_community_rights",
+          "0091_product_communities",
+          "0092_product_access_exclusions",
+          "0093_product_learning_started",
         ],
       });
 

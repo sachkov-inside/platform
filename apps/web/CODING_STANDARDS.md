@@ -132,6 +132,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 - Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
   List consumers retain continuation through filtered empty pages and offer retry after a failed page.
+- Bound the initially rendered choices in large authoring selectors and collection editors. Keep the
+  complete choices reachable through search or continuation, and retain unsaved editor state through
+  filtering, continuation and saved-name reordering. A render bound does not shorten the owner list.
 - Keep optional data behind its own completion boundary when it does not determine the primary view.
   A permitted Material body can render while auxiliary Practice data is pending or unavailable.
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
@@ -143,6 +146,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   outcome instead of an exhausted page.
 - When initial data must be server-rendered and continue in the browser, use one complete path:
   request-isolated `QueryClient`, prefetch, dehydration, and `HydrationBoundary`.
+- A server-rendered private history keeps its bounded-page cursor in the address and preserves
+  that address for retries. Paging history does not replace the independent current/latest fact.
+  A filter-choice continuation stays independent from the row cursor and preserves the selection.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache
   policy; HTTP cache policy belongs to the BFF/backend boundary.
 - A browser-owned fact shown by several surfaces is reset on every open surface at the moment a

@@ -114,7 +114,7 @@ test("покупатель курса проходит путь от стран�
   const pay = page.getByRole("button", { name: /^Оплатить/u });
   await expect(pay).toBeEnabled();
   await pay.click();
-  const emailInput = page.getByRole("textbox", { name: "Email для чека" });
+  const emailInput = page.getByRole("textbox", { name: "Email" });
   await expect(emailInput).toBeFocused();
   await expect(emailInput).toHaveAttribute("aria-invalid", "true");
   await emailInput.fill("broken");
@@ -149,6 +149,10 @@ test("покупатель курса проходит путь от стран�
   await screenshotWholePage(page, {
     path: evidencePath("issue-1401", `${info.project.name}-checkout.png`),
   });
+  await prepareEvidenceDirectory("issue-1442");
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-checkout.png`),
+  });
   await pay.click();
   await page.getByRole("button", { name: "Оплата прошла" }).click();
 
@@ -166,7 +170,9 @@ test("покупатель курса проходит путь от стран�
 
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
-  await expect(page.getByText("Общий чат").first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ваши продукты" }),
+  ).toBeVisible();
   const billingResponse = await fullStackBrowserRequest(
     page,
     "/api/account/billing",
@@ -208,6 +214,19 @@ test("покупатель курса проходит путь от стран�
   expect(
     z.object({ contact: z.null() }).parse(await contactResponse.json()).contact,
   ).toBeNull();
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-purchases.png`),
+  });
+  await page.goto(`/products/${slug}/programme`);
+  await expect(
+    page.getByRole("button", { name: "Онбординг", exact: true }).first(),
+  ).toBeVisible();
+  await screenshotWholePage(page, {
+    path: evidencePath(
+      "issue-1442",
+      `${info.project.name}-live-onboarding.png`,
+    ),
+  });
   expect(contactMutations).toEqual([]);
   expect(browserErrors).toEqual([]);
 });

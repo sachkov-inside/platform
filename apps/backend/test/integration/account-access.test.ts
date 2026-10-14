@@ -282,7 +282,7 @@ describe("independent Account access", () => {
         expect(reading.result.ok && reading.result.accounts.size).toBe(size);
         expect(
           reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
-        ).toBe(3 * Math.ceil(size / 500));
+        ).toBe(4 * Math.ceil(size / 500));
         if (reading.result.ok)
           for (const access of reading.result.accounts.values()) {
             expect(access).toEqual({
@@ -317,7 +317,7 @@ describe("independent Account access", () => {
       expect(reading.result).toEqual({ kind: "active", validUntil: end });
       expect(
         reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(2);
+      ).toBe(3);
     } finally {
       await measured.prisma.$disconnect();
     }
@@ -431,6 +431,20 @@ describe("independent Account access", () => {
           { productIds: [], materialId },
         ]),
       ).toEqual([expected]);
+      const resource = { productIds: [], materialId };
+      const scopedSet = await grants.resolveCapabilitiesForAccounts(
+        [target.toUpperCase()],
+        resource,
+      );
+      const scalar = await grants.resolveCapabilities(target, resource);
+      const many = await grants.resolveCapabilitiesMany(target, [resource]);
+      expect(
+        scopedSet.ok &&
+          scopedSet.accounts.get(target.toUpperCase())?.capabilities,
+      ).toEqual(scalar.ok ? scalar.capabilities : null);
+      expect(many.ok && many.values[0]?.capabilities).toEqual(
+        scalar.ok ? scalar.capabilities : null,
+      );
       if (scenario.endsWith("bridge")) {
         const set = await grants.resolveCapabilitiesForAccounts([target]);
         const single = await grants.resolveCapabilities(target);
@@ -446,6 +460,28 @@ describe("independent Account access", () => {
       }
     },
   );
+  test("Account sets preserve rights for valid uppercase UUIDs and requested map keys", async () => {
+    now = new Date(start);
+    const target = await member();
+    await paidMaterials(target, end);
+    const upper = target.toUpperCase();
+    const single = await grants.resolveCapabilities(upper);
+    const set = await grants.resolveCapabilitiesForAccounts([
+      upper,
+      target,
+      upper,
+    ]);
+    expect(single.ok).toBe(true);
+    expect(set.ok).toBe(true);
+    if (!single.ok || !set.ok) return;
+    const expected = {
+      capabilities: single.capabilities,
+      revision: single.revision,
+      nextBoundary: single.nextBoundary,
+    };
+    expect(set.accounts.get(upper)).toEqual(expected);
+    expect(set.accounts.get(target)).toEqual(expected);
+  });
   test("projects an Account set with the same finite, absent and future rights", async () => {
     now = new Date(start);
     const active = await member();
@@ -476,7 +512,7 @@ describe("independent Account access", () => {
       result = reading.result;
       expect(
         reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(3);
+      ).toBe(4);
     } finally {
       await measured.prisma.$disconnect();
     }

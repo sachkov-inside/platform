@@ -706,6 +706,63 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     },
   );
 
+  test("Product entry requires its configured group and its own community right", async () => {
+    const account = await member();
+    const productId = randomUUID();
+    const app = community(new ProviderDouble());
+    expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
+      kind: "none",
+    });
+    expect(
+      await app.configureProductCommunity(owner, {
+        productId,
+        groupRef: "primary",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
+      kind: "none",
+    });
+    await grantCommunity(account, null);
+    expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
+      kind: "none",
+    });
+    const productGrant = await grants.previewBatch(owner, {
+      operationId: randomUUID(),
+      rows: [
+        {
+          rowKey: "product",
+          accountId: account,
+          source: "manual",
+          sourceRef: randomUUID(),
+          terms: {
+            capabilities: [`product:${productId}`],
+            startsAt: start,
+            validUntil: null,
+            reason: "Product fixture",
+          },
+        },
+      ],
+    });
+    if (!productGrant.ok) throw new Error(productGrant.error.code);
+    expect(
+      await grants.applyBatch(owner, {
+        operationId: randomUUID(),
+        previewRef: productGrant.previewRef,
+        expectedRevision: productGrant.revision,
+        confirmedRows: ["product"],
+      }),
+    ).toMatchObject({ ok: true });
+    expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
+      kind: "link_telegram",
+    });
+    expect(
+      await app.configureProductCommunity(account, {
+        productId,
+        groupRef: null,
+      }),
+    ).toMatchObject({ ok: false });
+  });
+
   test("a granted right is delivered once, a revoke supersedes it, and a replay never resurrects it", async () => {
     now = new Date(start);
     const account = await member();
@@ -1621,6 +1678,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
   async function grantProduct(
     accountId: string,
     validUntil: string | null,
+    includeCommunity = true,
   ): Promise<{ grantRef: string; revision: number }> {
     const preview = await grants.previewBatch(owner, {
       operationId: randomUUID(),
@@ -1631,7 +1689,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [`product:${randomUUID()}`],
+            capabilities: includeCommunity
+              ? [`product:${randomUUID()}`, "community"]
+              : [`product:${randomUUID()}`],
             reason: "Synthetic product right",
             startsAt: start,
             validUntil,
@@ -1652,7 +1712,18 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     return { grantRef: row.grantRef, revision: row.revision };
   }
 
-  test("a Product right alone admits to the one shared chat, and its revocation closes it", async () => {
+  test("a Product-only grant never implies community admission", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantProduct(account, null, false);
+    const app = community(new ProviderDouble());
+    expect(await app.readOwnCommunityEntry(account)).toEqual({ kind: "none" });
+    await app.project(account);
+    expect(await operations(account)).toHaveLength(0);
+  });
+
+  test("an explicit Product community right admits to the shared group, and its revocation closes it", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
@@ -1736,6 +1807,33 @@ describe.each([1, 100, 1000, 1001])(
       await isolated.prisma.account.createMany({
         data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
       });
+      if (size === 1) {
+        const groupProduct = randomUUID();
+        const foreignProduct = randomUUID();
+        await isolated.prisma.productCommunity.create({
+          data: {
+            productId: groupProduct,
+            groupRef: "primary",
+            updatedBy: owner,
+            updatedAt: fixed,
+          },
+        });
+        await isolated.prisma.accessGrant.createMany({
+          data: ids.map((id) => ({
+            id: randomUUID(),
+            accountId: id,
+            source: "paid",
+            sourceRef: randomUUID(),
+            capabilities: ["community"],
+            coverage: { productIds: [foreignProduct], materialIds: [] },
+            startsAt: fixed,
+            validUntil: null,
+            revision: 1,
+            reason:
+              "A foreign Product community right must not authorize the configured group",
+          })),
+        });
+      }
       await isolated.prisma.telegramCommunityOperation.createMany({
         data: ids.map((id) => ({
           operationId: randomUUID(),
@@ -1776,10 +1874,10 @@ describe.each([1, 100, 1000, 1001])(
         botStartUrl: "https://t.me/inside_test_bot",
         clock: () => fixed,
       });
-    }, 30_000);
+    });
     afterAll(async () => {
-      await measured?.prisma.$disconnect();
-      await isolated?.dispose();
+      await measured.prisma.$disconnect();
+      await isolated.dispose();
     });
     if (size === 1001)
       test("a failed Account-set dependency never reports a partial success", async () => {
@@ -1807,7 +1905,7 @@ describe.each([1, 100, 1000, 1001])(
         (sql) => sql.startsWith("SELECT") && sql.includes('"account_rights"'),
       );
       expect(rightsReads.length).toBe(
-        3 * Math.ceil(Math.min(size, 1000) / 500),
+        4 * Math.ceil(Math.min(size, 1000) / 500),
       );
     });
   },

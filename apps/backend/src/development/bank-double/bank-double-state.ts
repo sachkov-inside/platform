@@ -117,6 +117,8 @@ const orderSchema = z.object({
   email: z.string(),
   recurrent: z.boolean(),
   notificationUrl: z.string(),
+  successUrl: z.url().optional(),
+  failUrl: z.url().optional(),
   rebillId: z.string().optional(),
   refundedKopecks: z.int().nonnegative(),
   refunds: z.array(z.tuple([z.string(), refundSchema])),

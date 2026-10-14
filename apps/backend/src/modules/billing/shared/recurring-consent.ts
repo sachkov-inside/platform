@@ -4,7 +4,7 @@ import {
   type SubscriptionConsent,
 } from "../domain/subscription-change.js";
 
-type ConsentReader = Pick<BillingContact, "readConsent">;
+type ConsentReader = Pick<BillingContact, "readConsents">;
 interface AcceptedDocument {
   readonly kind: string;
   readonly documentId: string;
@@ -25,9 +25,7 @@ async function readAll(
   | { status: "read"; evidence: readonly AcceptedConsent[] | undefined }
   | { status: "unavailable" }
 > {
-  const results = await Promise.all(
-    evidenceRefs.map((ref) => contact.readConsent(accountId, ref)),
-  );
+  const results = await contact.readConsents(accountId, evidenceRefs);
   if (
     results.some(
       (result) => !result.ok && result.error.code === "internal_error",
