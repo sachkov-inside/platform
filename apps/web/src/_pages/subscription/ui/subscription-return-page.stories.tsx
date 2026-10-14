@@ -1,3 +1,4 @@
+import { Suspense, use } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { expect, mocked, waitFor } from "storybook/test";
@@ -13,7 +14,21 @@ import {
   publicPageEnvironment,
   routeContent,
 } from "@/storybook/story-environment";
-import { SubscriptionReturnPage } from "./subscription-return-page.client";
+import {
+  boxOf,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  desktop,
+  mobile,
+  type StoryViewport,
+  type StagedLoading,
+} from "@/storybook/loads-in-place";
+import {
+  SubscriptionReturnPage,
+  SubscriptionReturnLoading,
+} from "./subscription-return-page.client";
 const environment = publicPageEnvironment("/payment/return", {
   account: "authenticated",
 });
@@ -96,3 +111,33 @@ export const Failed: Story = {
     ).toBeInTheDocument();
   },
 };
+
+function ArrivedReturn({ sequence }: { readonly sequence: StagedLoading }) {
+  use(sequence.sharedPart);
+  return <SubscriptionReturnPage />;
+}
+function loadsInPlace({ globals, width }: StoryViewport): Story {
+  return {
+    beforeEach: returned(confirmedProductPurchase, true),
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<SubscriptionReturnLoading />}>
+        <ArrivedReturn sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const canvas = routeContent(canvasElement);
+      await expect(canvas.getByRole("status")).toHaveTextContent(
+        "Проверяем состояние оплаты",
+      );
+      const heading = originOf(boxOf(canvasElement, "h1"));
+      stagedLoadingOf(loaded).deliverSharedPart();
+      await canvas.findByText("Открыт", { exact: true });
+      await expect(originOf(boxOf(canvasElement, "h1"))).toEqual(heading);
+    },
+  };
+}
+export const LoadsInPlace: Story = loadsInPlace(desktop);
+export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
