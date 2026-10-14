@@ -12,20 +12,14 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
-import {
-  readGuestProductSale,
-  readViewerProductSale,
-} from "@/entities/subscription.sale.server";
+import { resolvePurchaseProduct, type PurchaseProduct } from "../api/resolve-purchase-product.server";
+import { readReaderSeries } from "../api/read-reader-series.server";
 import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   loadReaderProductMode,
   readerHasSeenProductModeHint,
 } from "@/features/product-modes.reader.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import {
-  loadPublishedSeries,
-  readPublicSeries,
-} from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import {
@@ -44,7 +38,6 @@ import type {
   MaterialReaderResult,
   PublicMaterialResult,
 } from "../model/material-reader-view";
-import { soleSoldProduct } from "../model/purchase-product";
 import {
   resolveSeriesReaderContext,
   type SeriesReaderContext,
@@ -197,7 +190,7 @@ async function PersonalMaterialReader({
   // личного чтения. Вошедшему урок может быть открыт, и лишний запрос каталога ему не нужен.
   const guestPurchaseProduct =
     accessToken === undefined && sharedMaterial?.kind === "teaser"
-      ? resolvePurchaseProduct(sharedMaterial.material, returnTarget, undefined)
+      ? resolvePurchaseProduct(sharedMaterial.material, productSlugOf(returnTarget), undefined)
       : undefined;
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
@@ -209,7 +202,7 @@ async function PersonalMaterialReader({
         : loadMaterialReader(slug, accessToken),
       productSlug === undefined
         ? Promise.resolve(null)
-        : readSeriesAs(productSlug, accessToken),
+        : readReaderSeries(productSlug, accessToken),
       productSlug === undefined
         ? Promise.resolve(defaultProductMode)
         : loadReaderProductMode(accessToken),
@@ -279,7 +272,7 @@ async function ResolvedMaterialReader({
 }) {
   if (result.kind === "access") {
     const purchaseProduct = await (startedPurchaseProduct ??
-      resolvePurchaseProduct(result.material, returnTarget, accessToken));
+      resolvePurchaseProduct(result.material, productSlugOf(returnTarget), accessToken));
     const invitation = purchaseInvitation({
       ...(purchaseProduct === undefined ? {} : { product: purchaseProduct }),
       from: materialReaderHref(slug, returnTarget.href),
@@ -375,16 +368,6 @@ function productSlugOf(
   return returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
 }
 
-/** Состав продукта глазами читателя: гостю хватает общего кеша, вошедшему нужен его собственный. */
-function readSeriesAs(
-  slug: string,
-  accessToken: string | undefined,
-): Promise<PublishedSeriesResult> {
-  return accessToken === undefined
-    ? readPublicSeries(slug)
-    : loadPublishedSeries(slug, accessToken);
-}
-
 /** Без урока нет и его места в продукте, поэтому возврат в продукт заменяется возвратом на Главную. */
 function ReaderUnavailable({
   returnTarget,
@@ -418,72 +401,3 @@ function effectiveReturnTargetOf(
     : returnTarget;
 }
 
-interface PurchaseProduct {
-  readonly slug: string;
-  readonly sold: boolean;
-}
-
-/**
- * Руководство, которым человек занят, важнее тарифов: если у него есть своя цена, дальше идёт его
- * оплата. Без пути захода призыв ведёт к единственному продаваемому продукту среди продуктов
- * материала: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
- */
-function resolvePurchaseProduct(
-  material: ResolvedMaterial["material"],
-  returnTarget: MaterialReaderReturnTarget,
-  accessToken: string | undefined,
-): Promise<PurchaseProduct | undefined> {
-  const returnProductSlug = productSlugOf(returnTarget);
-  return returnProductSlug !== undefined
-    ? productIsSold(returnProductSlug, accessToken).then((sold) => ({
-        slug: returnProductSlug,
-        sold,
-      }))
-    : soleSoldMembership(
-        material.seriesMemberships.map(({ series }) => series.slug),
-        accessToken,
-      );
-}
-
-/** Единственное продаваемое руководство материала, если такое есть. */
-async function soleSoldMembership(
-  slugs: readonly string[],
-  accessToken?: string,
-): Promise<{ readonly slug: string; readonly sold: true } | undefined> {
-  const products = await Promise.all(
-    slugs.map(async (slug) => ({
-      slug,
-      sold: await productIsSold(slug, accessToken),
-    })),
-  );
-  const slug = soleSoldProduct(products);
-  return slug === undefined ? undefined : { slug, sold: true };
-}
-
-/** Руководство продаётся, только когда владелец завёл ему цену; сбой каталога её не выдумывает. */
-async function productIsSold(
-  slug: string,
-  accessToken?: string,
-): Promise<boolean> {
-  const product = await readSeriesAs(slug, accessToken);
-  const productId =
-    product.kind === "ready" || product.kind === "empty"
-      ? product.reference.id
-      : undefined;
-  if (productId === undefined) return false;
-  const sale = await (accessToken === undefined
-    ? readGuestProductSale(productId)
-    : readViewerProductSale(productId, accessToken));
-  return sale.kind === "ready" && sale.sold;
-}
-
-/** Учебный MCP из конфигурации и абсолютный адрес инструкции, которую читает агент ученика. */
-async function readerLearnerMcp(): Promise<ReaderLearnerMcp> {
-  return {
-    ...readWebRuntimeConfig().learnerMcp,
-    setupUrl: publicPageUrl(
-      await readPublicSiteOrigin(),
-      "/practice-review-setup.txt",
-    ),
-  };
-}
