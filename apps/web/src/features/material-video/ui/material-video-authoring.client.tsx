@@ -157,12 +157,12 @@ export function MaterialVideoAuthoring({
   );
 
   const reconcile = useCallback(
-    async (videoId: string) => {
+    async (videoId: string, isCurrent: () => boolean = () => true) => {
       const revision = operation.current;
       const targetIsDeletion = deletionVideo?.videoId === videoId;
       if (!targetIsDeletion) setPhase("processing");
       const result = await reconcileVideo({ videoId });
-      if (revision !== operation.current) return;
+      if (revision !== operation.current || !isCurrent()) return;
       if (targetIsDeletion) {
         if (result.kind === "ready" && isDeletionState(result.value.state)) {
           setDeletionVideo(result.value);
@@ -192,11 +192,21 @@ export function MaterialVideoAuthoring({
         deletionVideo.state !== "deleting")
     )
       return;
-    const timer = window.setInterval(() => {
-      void reconcile(deletionVideo.videoId);
+    let active = true;
+    let timer: number | undefined;
+    const poll = async () => {
+      await reconcile(deletionVideo.videoId, () => active);
+      if (active)
+        timer = window.setTimeout(() => {
+          void poll();
+        }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
+    };
+    timer = window.setTimeout(() => {
+      void poll();
     }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
     return () => {
-      window.clearInterval(timer);
+      active = false;
+      window.clearTimeout(timer);
     };
   }, [deletionVideo, reconcile]);
 

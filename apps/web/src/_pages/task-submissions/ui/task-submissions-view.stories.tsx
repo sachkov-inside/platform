@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useEffect, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import {
   TaskSubmissionsLoading,
@@ -7,6 +7,7 @@ import {
   TaskSubmissionsState,
   TaskSubmissionsView,
 } from "@/_pages/task-submissions";
+import { useTaskSubmissionsRuntime } from "./task-submissions-runtime.client";
 import { presentTaskSubmissions } from "../model/task-submissions-presentation";
 import type { TaskSubmissions } from "../model/task-submissions";
 import { withMutationFetch } from "@/storybook/mutation-mock";
@@ -429,6 +430,16 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
 
+const acceptedDraftCommits = fn();
+
+function FeedbackCommitProbe() {
+  const { drafts } = useTaskSubmissionsRuntime();
+  useEffect(() => {
+    acceptedDraftCommits(drafts);
+  }, [drafts]);
+  return null;
+}
+
 /** RSC reads can arrive out of order after navigating between filtered pages. */
 function FeedbackSnapshots() {
   const [snapshot, setSnapshot] = useState(1);
@@ -450,6 +461,7 @@ function FeedbackSnapshots() {
   });
   return (
     <div className="h-full min-h-0">
+      <FeedbackCommitProbe />
       <Button
         onClick={() => {
           setSnapshot(3);
@@ -469,21 +481,28 @@ function FeedbackSnapshots() {
   );
 }
 export const FreshFeedbackSurvivesStaleRead: Story = {
+  beforeEach: () => {
+    environment.beforeEach();
+    acceptedDraftCommits.mockClear();
+  },
   render: () => <FeedbackSnapshots />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const comment = canvas.getByRole("textbox", {
       name: /Комментарий для ученика/u,
     });
-    await userEvent.clear(comment);
-    await userEvent.type(comment, "Серверный отзыв 1");
+    await expect(comment).toHaveValue("Серверный отзыв 1");
+    await waitFor(() => expect(acceptedDraftCommits).toHaveBeenCalledTimes(2));
     await userEvent.click(
       canvas.getByRole("button", { name: "Свежий серверный ответ" }),
     );
     await expect(comment).toHaveValue("Серверный отзыв 3");
+    await waitFor(() => expect(acceptedDraftCommits).toHaveBeenCalledTimes(3));
     await userEvent.click(
       canvas.getByRole("button", { name: "Запоздалый серверный ответ" }),
     );
     await expect(comment).toHaveValue("Серверный отзыв 3");
+    await expect(acceptedDraftCommits).toHaveBeenCalledTimes(3);
+    console.info("EC-2 committed draft snapshots: initial=2, newer=3, stale=3");
   },
 };
