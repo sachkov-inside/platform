@@ -284,6 +284,13 @@ async function linkedPerson() {
 async function drain() {
   for (let round = 0; round < 3; round++) await worker.processAvailable();
 }
+function deferred() {
+  let signal: (() => void) | undefined;
+  const promise = new Promise<void>((resolve) => {
+    signal = resolve;
+  });
+  return { promise, resolve: () => required(signal)() };
+}
 function activationMessages(user: number) {
   return db
     .selectFrom("start_response_deliveries")
@@ -540,8 +547,8 @@ describe("the owner's button in the course group", () => {
     await send(person.user, start);
     unavailable.delete("course");
     clock.value = new Date(clock.now().getTime() + 61_000);
-    const entered = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
+    const entered = deferred();
+    const release = deferred();
     const begin = platform.begin.bind(platform);
     const spy = vi
       .spyOn(platform, "begin")
