@@ -3,12 +3,13 @@ import {
   autosaveWhileHidden,
 } from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
 } from "@/widgets/material-authoring/route-states";
+import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import {
   authoringPageEnvironment,
@@ -171,5 +172,98 @@ export const FailedAfterActivity: Story = {
       () => new Response(null, { status: 503 }),
     );
     await expect(canvas.queryByText("Сохранено")).not.toBeInTheDocument();
+  },
+};
+
+function topicCollectionWorkload(size: number): Story {
+  return {
+    args: {
+      initialCollections: Array.from({ length: size }, (_, index) => ({
+        ...collections[0],
+        id: `97000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+        name: `Тема ${String(index + 1).padStart(4, "0")}`,
+        slug: `topic-${String(index + 1)}`,
+      })),
+    },
+    play: async ({ canvasElement }) => {
+      const page = routeContent(canvasElement);
+      await expect(
+        page.getAllByRole("button", { name: /^Тема \d+/u }),
+      ).toHaveLength(Math.min(size, 20));
+      await userEvent.type(
+        page.getByRole("searchbox", { name: "Поиск тем" }),
+        `Тема ${String(size).padStart(4, "0")}`,
+      );
+      const last = page.getByRole("button", {
+        name: new RegExp(`^Тема ${String(size).padStart(4, "0")}`, "u"),
+      });
+      await expect(last).toBeVisible();
+      await userEvent.click(last);
+      await expect(page.getByRole("textbox", { name: "Название" })).toHaveValue(
+        `Тема ${String(size).padStart(4, "0")}`,
+      );
+    },
+  };
+}
+export const CollectionWorkloadOne: Story = topicCollectionWorkload(1);
+export const CollectionWorkloadHundred: Story = topicCollectionWorkload(100);
+export const CollectionWorkloadThousand: Story = topicCollectionWorkload(1000);
+
+export const UnsavedDraftAcrossSearchAndResort: Story = {
+  ...topicCollectionWorkload(40),
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(page.getByRole("button", { name: /^Тема 0001/u }));
+    await userEvent.clear(page.getByRole("textbox", { name: "Название" }));
+    const search = page.getByRole("searchbox", { name: "Поиск тем" });
+    await userEvent.type(search, "Тема 0040");
+    await userEvent.click(page.getByRole("button", { name: /^Тема 0040/u }));
+    const originalFetch = window.fetch;
+    const lastId = "97000000-0000-4000-8000-000000000040";
+    const write = spyOn(window, "fetch").mockImplementation((input, init) => {
+      const body = init?.body;
+      if (!(body instanceof FormData) || body.get("collectionId") !== lastId)
+        return originalFetch(input, init);
+      const name = body.get("name");
+      if (typeof name !== "string")
+        throw new Error("The collection command must carry its edited name");
+      return Promise.resolve(
+        Response.json({
+          kind: "saved",
+          collection: {
+            ...collections[0],
+            id: lastId,
+            name,
+            slug: "topic-40",
+            version: 4,
+          },
+        }),
+      );
+    });
+    try {
+      const lastName = page.getByRole("textbox", {
+        name: "Название",
+      });
+      await userEvent.clear(lastName);
+      await userEvent.type(lastName, "ААА новая первая тема");
+      await flushPendingEdits();
+      await waitFor(() => expect(write).toHaveBeenCalledOnce());
+      await userEvent.clear(search);
+      await expect(
+        page
+          .getAllByRole("textbox", { name: "Название" })
+          .filter(
+            (node) => node instanceof HTMLInputElement && node.value === "",
+          ),
+      ).toHaveLength(1);
+      await expect(
+        page.getByRole("button", { name: /^ААА новая первая тема/u }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Показать ещё" }),
+      ).toBeVisible();
+    } finally {
+      write.mockRestore();
+    }
   },
 };

@@ -132,6 +132,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 - Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
   List consumers retain continuation through filtered empty pages and offer retry after a failed page.
+- Bound the initially rendered choices in large authoring selectors and collection editors. Keep the
+  complete choices reachable through search or continuation, and retain unsaved editor state through
+  filtering, continuation and saved-name reordering. A render bound does not shorten the owner list.
 - Keep optional data behind its own completion boundary when it does not determine the primary view.
   A permitted Material body can render while auxiliary Practice data is pending or unavailable.
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
