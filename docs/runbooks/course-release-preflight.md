@@ -125,6 +125,19 @@ receipts use `execution: {"kind":"local"}`, and independent reviews use `{"kind"
 The `check` receipt references all four completion phases; integration references parallel and serial
 jobs; Compose references development and production jobs and their cleanup. Preserve actual logs.
 
+For a synthetic queue commit, preserve the actual checked `checks[].sourceSha`; do not replace it
+with `selectedSourceSha`. V3 can include `sourceCorrespondence: {"candidates": [...]}` using the
+provider run/job/artifact inputs of `selectReleaseEvidence` in `scripts/release-source-evidence.mjs`.
+The operator must obtain and verify these inputs against GitHub; preflight checks the same trust,
+coverage and whole-tree rules as release publication, and binds the receipt's workflow run, actual
+source and exact provider job name to the proved run. Aggregate receipts require their complete
+job coverage in that same run, with `execution.job` naming one of its applicable provider jobs. The CLI obtains the selected commit's tree directly from Git. Missing proof,
+a different tree, an untrusted run or incomplete job coverage fails the receipt. Direct API callers
+must supply `selectedSourceTreeSha` from the selected immutable source, rather than copying the
+candidate's tree. Standards/Spec review receipts still require the selected commit itself.
+This manual receipt remains an operator attestation, not a live GitHub provider query.
+
+
 ```json
 {
   "schemaVersion": "inside.course-release-preflight.v3",

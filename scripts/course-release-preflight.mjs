@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
+import { selectReleaseEvidence } from "./release-source-evidence.mjs";
+import { applicationCoverage, ciJobNames } from "./ci-coverage-plan.mjs";
 import {
   releaseManifestSchema,
   sourceShaSchema,
@@ -105,6 +107,9 @@ const evidenceSchema = z.union([
   coverageEvidenceSchema,
   coverageEvidenceSchema.extend({
     schemaVersion: z.literal("inside.course-release-preflight.v3"),
+    sourceCorrespondence: z
+      .strictObject({ candidates: z.array(z.unknown()) })
+      .optional(),
     checks: z.array(
       coverageReceiptSchema.extend({ name: z.enum(activeCoverageNames) }),
     ),
@@ -112,6 +117,7 @@ const evidenceSchema = z.union([
 ]);
 const inputSchema = z.strictObject({
   currentMainSha: sourceShaSchema,
+  selectedSourceTreeSha: sourceShaSchema.optional(),
   manifest: releaseManifestSchema,
   previousManifest: releaseManifestSchema.nullable(),
   previousManifestDigest: sha256DigestSchema.nullable(),
@@ -125,6 +131,19 @@ const inputSchema = z.strictObject({
 const backupMaxAgeMilliseconds = 8 * 60 * 60 * 1_000;
 /** @type {readonly ["backend", "web"]} */
 const imageKinds = ["backend", "web"];
+
+/** CI jobs proving each operator coverage receipt. Reviews always bind the selected commit.
+ * @type {Record<string, string[]>}
+ */
+const receiptCoverage = {
+  check: ["static", "unit", "contracts", "ui", "web-e2e"],
+  integration: ["integration", "integration-serial"],
+  enrollment: ["integration"],
+  "buyer-journey": ["integration"],
+  "compose-smoke-shutdown": ["compose-development", "compose-production"],
+  ci: applicationCoverage.platform,
+  fullstack: ["fullstack"],
+};
 
 /** Release evidence gate; host deploy preflight remains authoritative for live state.
  * @param {unknown} value
@@ -155,10 +174,46 @@ export function assessCourseRelease(value, now) {
       name === "telemetry-resource-budget" &&
       manifest.version === "v36" &&
       receipt?.exitCode === null;
+    let sourceMatches = receipt?.sourceSha === manifest.source.sha;
+    const executedReceipt = coverageReceiptSchema.safeParse(receipt);
+    if (
+      !sourceMatches &&
+      executedReceipt.success &&
+      executedReceipt.data.execution.kind === "ci" &&
+      evidence.schemaVersion === "inside.course-release-preflight.v3" &&
+      evidence.sourceCorrespondence !== undefined &&
+      input.selectedSourceTreeSha !== undefined
+    ) {
+      const requiredCoverage = receiptCoverage[name];
+      if (requiredCoverage !== undefined) {
+        const proof = selectReleaseEvidence({
+          repository: manifest.source.repository,
+          sourceSha: manifest.source.sha,
+          treeSha: input.selectedSourceTreeSha,
+          requiredCoverage,
+          candidates: evidence.sourceCorrespondence.candidates,
+        });
+        const workflowRunId = executedReceipt.data.execution.workflowRunId;
+        const actualJob = executedReceipt.data.execution.job;
+        const applicableJobs =
+          name === "ci"
+            ? [ciJobNames["ci-gate"]]
+            : requiredCoverage.map((id) => ciJobNames[id]);
+        sourceMatches =
+          applicableJobs.includes(actualJob) &&
+          proof.evidenceRuns.some(
+            (run) =>
+              run.runId === workflowRunId &&
+              run.sourceSha === executedReceipt.data.sourceSha &&
+              run.providerJobs.some((job) => job.name === actualJob) &&
+              requiredCoverage.every((job) => run.coverage.includes(job)),
+          );
+      }
+    }
     if (
       receipts.length !== 1 ||
-      receipt?.sourceSha !== manifest.source.sha ||
-      (receipt.exitCode !== 0 && !ownerExcluded)
+      !sourceMatches ||
+      (receipt?.exitCode !== 0 && !ownerExcluded)
     )
       throw new Error("missing, failed or stale check evidence");
     if (ownerExcluded) telemetryExcluded = true;
@@ -257,6 +312,11 @@ function main() {
   const result = assessCourseRelease(
     {
       manifest,
+      selectedSourceTreeSha: execFileSync(
+        "git",
+        ["rev-parse", `${manifest.source.sha}^{tree}`],
+        { encoding: "utf8" },
+      ).trim(),
       evidence: jsonFile(evidenceFile),
       currentMainSha: execFileSync("git", ["rev-parse", "origin/main"], {
         encoding: "utf8",
