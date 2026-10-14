@@ -62,14 +62,14 @@ export class CoverageCatalog {
     if (rows.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
     const references = new Set([
-      ...rows.map((row) => `${row.kind}:${row.id}`),
-      ...productIds.map((id) => `product:${id}`),
-      ...materialIds.map((id) => `material:${id}`),
+      ...rows.map((row) => `${row.kind}/${row.id}`),
+      ...productIds.map((id) => `product/${id}`),
+      ...materialIds.map((id) => `material/${id}`),
     ]);
     if (references.size > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
     const byReference = new Map(
-      rows.map((row) => [`${row.kind}:${row.id}`, row]),
+      rows.map((row) => [`${row.kind}/${row.id}`, row]),
     );
     const activeProducts = rows.filter(
       (row) => row.kind === "product" && row.available,
@@ -87,7 +87,7 @@ export class CoverageCatalog {
         ...scope.materialIds.map((id) => ({ id, kind: "material" as const })),
       ].map(
         (item) =>
-          byReference.get(`${item.kind}:${item.id}`) ?? {
+          byReference.get(`${item.kind}/${item.id}`) ?? {
             ...item,
             title: "Позиция временно недоступна",
             slug: null,
