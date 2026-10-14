@@ -7,6 +7,7 @@ import {
   optionSchema,
   promotionSchema,
   type PriceSnapshot,
+  type Promotion,
   type PricingResult,
 } from "../domain/pricing.js";
 import {
@@ -32,21 +33,106 @@ export async function selectPrice(
     where: { id: optionId },
     include: { offer: true },
   });
-  if (
-    !row ||
-    row.archived ||
-    row.offer.archived ||
-    (options.allowUnpublished !== true && !row.offer.published)
-  )
+  if (row === null || !priceOptionAvailable(row, options))
     return failure("not_found");
-  // Строка, записанная в обход каталога, не продаёт пустой тариф, запрещённый состав и продукт без сопровождения на названный срок.
-  if (
-    options.allowUnpublished !== true &&
-    (tierLacksComposition(row.offer) ||
-      productOfferUnsellable(row.offer) ||
-      offerGrantsWithheld(row.offer))
-  )
-    return failure("not_found");
+  const prices = await selectPricesForOptions(
+    tx,
+    [row],
+    now,
+    promoCode,
+    options,
+  );
+  return prices.get(optionId) ?? failure("not_found");
+}
+
+type PriceOptionRow = Awaited<
+  ReturnType<BillingPrisma["billingPaymentOption"]["findMany"]>
+>[number] & {
+  offer: Awaited<ReturnType<BillingPrisma["billingOffer"]["findMany"]>>[number];
+};
+
+/** Shared owner pricing projection; authoritative purchase callers retain their transaction. */
+export async function selectPricesForOptions(
+  tx: BillingPrisma,
+  rows: readonly PriceOptionRow[],
+  now: Date,
+  promoCode?: string,
+  options: SelectPriceOptions = {},
+) {
+  if (rows.length === 0)
+    return new Map<
+      string,
+      PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">
+    >();
+  const promotionRows = await tx.billingPromotion.findMany({
+    where: {
+      archived: false,
+      startsAt: { lte: now },
+      endsAt: { gt: now },
+      AND: [
+        {
+          OR: [
+            { code: null },
+            ...(hasText(promoCode) ? [{ code: promoCode }] : []),
+          ],
+        },
+        {
+          OR: [
+            { offerIds: { isEmpty: true } },
+            {
+              offerIds: {
+                hasSome: [...new Set(rows.map((row) => row.offerId))],
+              },
+            },
+          ],
+        },
+        {
+          OR: [
+            { paymentOptionIds: { isEmpty: true } },
+            { paymentOptionIds: { hasSome: rows.map((row) => row.id) } },
+          ],
+        },
+      ],
+    },
+  });
+  const promotions = promotionRows.map((row) =>
+    promotionSchema.parse({
+      ...row,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+    }),
+  );
+  const limitedIds = promotions
+    .filter((promotion) => promotion.usageLimit !== null)
+    .map((promotion) => promotion.id);
+  const counts =
+    limitedIds.length === 0
+      ? []
+      : await tx.billingPromoReservation.groupBy({
+          by: ["promotionId"],
+          where: { promotionId: { in: limitedIds }, state: { not: "failed" } },
+          _count: { _all: true },
+        });
+  const usage = new Map(
+    counts.map((row) => [row.promotionId, row._count._all]),
+  );
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      projectPrice(row, now, promoCode, options, promotions, usage),
+    ]),
+  );
+}
+
+function projectPrice(
+  row: PriceOptionRow,
+  now: Date,
+  promoCode: string | undefined,
+  options: SelectPriceOptions,
+  promotions: readonly Promotion[],
+  usage: ReadonlyMap<string | null, number>,
+): PricingResult<PriceSnapshot, "not_found" | "unsupported_amount"> {
+  if (!priceOptionAvailable(row, options)) return failure("not_found");
   const offer = offerSchema.parse({
     id: row.offer.id,
     name: row.offer.name,
@@ -71,31 +157,10 @@ export async function selectPrice(
     priceKopecks: Number(row.priceKopecks),
     archived: row.archived,
   });
-  const rows = await tx.billingPromotion.findMany({
-    where: {
-      archived: false,
-      startsAt: { lte: now },
-      endsAt: { gt: now },
-      OR: [
-        { code: null },
-        ...(hasText(promoCode) ? [{ code: promoCode }] : []),
-      ],
-    },
-  });
   const available = [];
-  for (const row of rows) {
-    const promotion = promotionSchema.parse({
-      ...row,
-      startsAt: row.startsAt.toISOString(),
-      endsAt: row.endsAt.toISOString(),
-    });
+  for (const promotion of promotions) {
     if (!applicablePromotion(promotion, option, now, promoCode)) continue;
-    const used =
-      promotion.usageLimit === null
-        ? 0
-        : await tx.billingPromoReservation.count({
-            where: { promotionId: promotion.id, state: { not: "failed" } },
-          });
+    const used = usage.get(promotion.id) ?? 0;
     if (promotion.usageLimit === null || used < promotion.usageLimit)
       available.push(promotion);
   }
@@ -127,4 +192,25 @@ export async function selectPrice(
       renewalPriceKopecks: option.priceKopecks,
     },
   };
+}
+
+function priceOptionAvailable(
+  row: PriceOptionRow,
+  options: SelectPriceOptions,
+): boolean {
+  if (
+    row.archived ||
+    row.offer.archived ||
+    (options.allowUnpublished !== true && !row.offer.published)
+  )
+    return false;
+  // Catalog rows cannot sell an empty composition or withheld benefits through another read path.
+  return (
+    options.allowUnpublished === true ||
+    !(
+      tierLacksComposition(row.offer) ||
+      productOfferUnsellable(row.offer) ||
+      offerGrantsWithheld(row.offer)
+    )
+  );
 }

@@ -19,6 +19,8 @@ import {
 import type { PricingResult } from "../../src/modules/billing/domain/pricing.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
 
+import { createQueryEventClient } from "./setup/query-events.js";
+
 function value<T>(result: PricingResult<T>): T {
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
@@ -155,6 +157,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     return command;
   }
 
+  test("quotes a valid uppercase payment-option UUID with canonical snapshot identity", async () => {
+    now = new Date("2026-09-08T12:00:00.000Z");
+    const { optionId } = await catalog();
+    const read = await quote(randomUUID(), optionId.toUpperCase());
+    expect(read.snapshot.paymentOption.id).toBe(optionId);
+    expect(read.snapshot.firstPriceKopecks).toBe(200_000);
+  });
   test("owner authorization is current on replay; strict schema and optimistic revisions protect catalog", async () => {
     const cmd = {
       operation: "offers.save",
@@ -960,3 +969,136 @@ function required<T>(input: T | undefined): T {
   if (input === undefined) throw new Error("Missing test fixture");
   return input;
 }
+
+describe.each([
+  [1, false],
+  [50, false],
+  [100, false],
+  [100, true],
+] as const)(
+  "set-based Offer storefront workload: %i options, exhausted=%s",
+  (size, exhausted) => {
+    let db: TestDatabase | undefined;
+    let measured: ReturnType<typeof createQueryEventClient> | undefined;
+    let pricing: BillingPricing;
+    let bestId: string;
+    beforeAll(async () => {
+      db = await createMigratedTestDatabase();
+      measured = createQueryEventClient(db.url);
+      const fixed = new Date("2030-01-01T00:00:00.000Z");
+      const offerId = randomUUID();
+      await db.prisma.billingOffer.create({
+        data: {
+          id: offerId,
+          revision: 1,
+          name: "Shared offer",
+          benefits: ["community"],
+          published: true,
+        },
+      });
+      const ids = Array.from({ length: size }, () => randomUUID());
+      await db.prisma.billingPaymentOption.createMany({
+        data: ids.map((id) => ({
+          id,
+          revision: 1,
+          offerId,
+          months: 1,
+          priceKopecks: 10000n,
+        })),
+      });
+      const limitedId = randomUUID();
+      const ordinaryIds = [
+        "10000000-0000-4000-8000-000000000001",
+        "10000000-0000-4000-8000-000000000002",
+      ] as const;
+      bestId = exhausted ? ordinaryIds[0] : limitedId;
+      await db.prisma.billingPromotion.createMany({
+        data: [
+          ...ordinaryIds.map((id) => ({
+            id,
+            revision: 1,
+            name: "Shared 10",
+            percent: 10,
+            startsAt: fixed,
+            endsAt: new Date("2030-02-01T00:00:00.000Z"),
+            offerIds: [offerId],
+            paymentOptionIds: [],
+            usageLimit: null,
+          })),
+          {
+            id: limitedId,
+            revision: 1,
+            name: "Shared 20",
+            percent: 20,
+            startsAt: fixed,
+            endsAt: new Date("2030-02-01T00:00:00.000Z"),
+            offerIds: [offerId],
+            paymentOptionIds: [],
+            usageLimit: 1,
+          },
+        ],
+      });
+      const accounts = assembleAccounts({
+        prisma: measured.prisma,
+        emailFingerprintKey: "set-pricing-fixture-fingerprint-key-0000",
+      });
+      pricing = assembleTestBillingPricing({
+        prisma: measured.prisma,
+        accounts,
+        clock: () => fixed,
+        sale: { payments: true, subscriptions: true },
+      });
+      const [snapshot] = value(
+        await pricing.ownerCatalog({ limit: 100 }),
+      ).items;
+      if (snapshot === undefined)
+        throw new Error("Missing valid snapshot fixture");
+      const accountId = randomUUID();
+      const quoteRef = randomUUID();
+      await db.prisma.billingPriceQuote.create({
+        data: {
+          id: quoteRef,
+          accountId,
+          operationId: randomUUID(),
+          fingerprint: "fixture",
+          snapshot,
+          createdAt: fixed,
+          expiresAt: new Date("2030-01-01T00:15:00.000Z"),
+        },
+      });
+      await db.prisma.billingPromoReservation.create({
+        data: {
+          purchaseRef: randomUUID(),
+          accountId,
+          quoteRef,
+          promotionId: limitedId,
+          state: exhausted ? "confirmed" : "failed",
+          snapshot,
+          createdAt: fixed,
+        },
+      });
+    }, 30_000);
+    afterAll(async () => {
+      await measured?.prisma.$disconnect();
+      await db?.dispose();
+    });
+    test("projects exact prices, usage and deterministic precedence with bounded SQL", async () => {
+      if (measured === undefined)
+        throw new Error("Missing measured fixture client");
+      const read = await measured.measure(() =>
+        pricing.ownerCatalog({ limit: 100 }),
+      );
+      const page = value(read.result);
+      expect(page.items.length).toBe(size);
+      expect(page.items.map((item) => item.firstPriceKopecks)).toEqual(
+        Array.from({ length: size }, () => (exhausted ? 9000 : 8000)),
+      );
+      expect(page.items.map((item) => item.promotion?.id)).toEqual(
+        Array.from({ length: size }, () => bestId),
+      );
+      expect(
+        read.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(4);
+    });
+  },
+);

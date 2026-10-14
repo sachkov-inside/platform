@@ -10,6 +10,7 @@ type CoverageEntry = z.infer<typeof coverageEntrySchema>;
 export interface CoverageCatalog {
   list(): Promise<CoverageEntry[]>;
   resolve(scope: unknown): Promise<CoverageEntry[]>;
+  resolveMany(scopes: readonly unknown[]): Promise<CoverageEntry[][]>;
 }
 
 export const COVERAGE_CATALOG = Symbol("COVERAGE_CATALOG");
