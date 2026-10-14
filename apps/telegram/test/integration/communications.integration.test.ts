@@ -19,6 +19,7 @@ import { parseAuthorState } from "../../src/modules/communications/author-dialog
 import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
 import { translateAuthorInput } from "../../src/adapters/telegram/grammy-author-admin.adapter.js";
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   FastifyAdapter,
   type NestFastifyApplication,
@@ -28,6 +29,7 @@ import { sql } from "kysely";
 import {
   afterAll,
   afterEach,
+  aroundEach,
   beforeAll,
   beforeEach,
   describe,
@@ -37,7 +39,9 @@ import {
 } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
-import { createDatabase } from "../../src/database/create-database.js";
+import { createFixtureDatabase } from "../support/fixture-database.js";
+import { DATABASE } from "../../src/database/database.js";
+import type { AuthorInput } from "../../src/modules/communications/author-input.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import {
   AUTHOR_AUTHORIZATION,
@@ -62,7 +66,96 @@ registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) throw new Error("DATABASE_URL is required");
-const database = createDatabase(databaseUrl);
+const fixtureName = `communications_${randomUUID().replaceAll("-", "")}`;
+interface CaseWork {
+  readonly abort: AbortController;
+  readonly pending: Set<Promise<unknown>>;
+  cancellation?: Promise<unknown>;
+  step: string;
+  stepStarted: number;
+  resetFinished?: number;
+}
+const caseScope = new AsyncLocalStorage<CaseWork>();
+let activeCase: CaseWork | undefined;
+const database = createFixtureDatabase(
+  databaseUrl,
+  fixtureName,
+  () => activeCase?.abort.signal.aborted === true,
+);
+const applicationDatabase = createFixtureDatabase(
+  databaseUrl,
+  fixtureName,
+  () => activeCase?.abort.signal.aborted === true,
+);
+const fixtureOwner = createFixtureDatabase(
+  databaseUrl,
+  `${fixtureName}_cleanup`,
+);
+function currentCase(): CaseWork {
+  return required(caseScope.getStore());
+}
+function setAuthorStep(step: string) {
+  const owned = currentCase();
+  owned.step = step;
+  owned.stepStarted = performance.now();
+}
+function trackCaseWork<Result>(work: () => Promise<Result>): Promise<Result> {
+  const owned = currentCase();
+  owned.abort.signal.throwIfAborted();
+  const promise = (async () => {
+    const result = await work();
+    owned.abort.signal.throwIfAborted();
+    return result;
+  })();
+  owned.pending.add(promise);
+  void promise
+    .finally(() => owned.pending.delete(promise))
+    .catch(() => undefined);
+  return promise;
+}
+function cancelCaseWork(owned: CaseWork, reason: unknown) {
+  const observedAt = performance.now();
+  const progress = {
+    authorStep: owned.step,
+    stepElapsedMilliseconds: observedAt - owned.stepStarted,
+    elapsedSinceFixtureResetMilliseconds:
+      owned.resetFinished === undefined
+        ? undefined
+        : observedAt - owned.resetFinished,
+  };
+  owned.abort.abort(reason);
+  owned.cancellation ??= (async () => {
+    const activity = await fixtureActivity();
+    console.error("communications fixture post-cancel activity", {
+      ...progress,
+      activity,
+    });
+    await sql`select pg_terminate_backend(pid) from pg_stat_activity
+      where application_name = ${fixtureName} and state <> 'idle'
+        and pid <> pg_backend_pid()`.execute(fixtureOwner);
+  })();
+  void owned.cancellation.catch(() => undefined);
+}
+aroundEach(async (runTest, { signal }) => {
+  const owned: CaseWork = {
+    abort: new AbortController(),
+    pending: new Set(),
+    step: "setup",
+    stepStarted: performance.now(),
+  };
+  activeCase = owned;
+  await caseScope.run(owned, async () => {
+    const cancel = () => cancelCaseWork(owned, signal.reason);
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      await runTest();
+    } finally {
+      signal.removeEventListener("abort", cancel);
+      await owned.cancellation;
+      await Promise.allSettled([...owned.pending]);
+    }
+  });
+});
 const config = {
   ...loadApplicationConfig({
     DATABASE_URL: databaseUrl,
@@ -121,12 +214,13 @@ const contentValidation = {
 const sent: unknown[] = [];
 let app: NestFastifyApplication;
 let communications: Communications;
-let authorStep = "setup";
 beforeAll(async () => {
   await migrateToLatest(database);
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(DATABASE)
+    .useValue(applicationDatabase)
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue(authorization)
     .overrideProvider(AUTHOR_CONTENT_VALIDATION)
@@ -148,6 +242,7 @@ beforeAll(async () => {
   communications = app.get(Communications);
 });
 beforeEach(async () => {
+  setAuthorStep("reset fixture");
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_funnels, communication_intro, communication_sources, communication_author_sessions, communication_author_receipts, communication_author_outbox, communication_broadcasts, telegram_transport_slots, communication_intake_receipts, communication_operations, communication_templates, communication_author_modes,
     link_transactions, platform_links, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries restart identity cascade`.execute(
     database,
@@ -160,14 +255,22 @@ beforeEach(async () => {
   authorization.observeTransactions = false;
   authorization.slow = undefined;
   sent.length = 0;
-  authorStep = "setup";
+  setAuthorStep("setup");
+  currentCase().resetFinished = currentCase().stepStarted;
 });
 afterAll(async () => {
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_broadcasts cascade`.execute(
     database,
   );
-  await closeIfStarted(app);
-  await database.destroy();
+  try {
+    await closeIfStarted(app);
+  } finally {
+    await Promise.all([
+      database.destroy(),
+      applicationDatabase.destroy(),
+      fixtureOwner.destroy(),
+    ]);
+  }
 });
 const content = {
   type: "text" as const,
@@ -189,15 +292,17 @@ function http(
   body: unknown,
   secret: string | undefined = config.communicationsSecret,
 ) {
-  return app.inject({
-    method: "POST",
-    url: "/integrations/platform/v1/communications",
-    payload: JSON.stringify(body),
-    headers: {
-      "content-type": "application/json",
-      ...(hasText(secret) ? { authorization: `Bearer ${secret}` } : {}),
-    },
-  });
+  return trackCaseWork(() =>
+    app.inject({
+      method: "POST",
+      url: "/integrations/platform/v1/communications",
+      payload: JSON.stringify(body),
+      headers: {
+        "content-type": "application/json",
+        ...(hasText(secret) ? { authorization: `Bearer ${secret}` } : {}),
+      },
+    }),
+  );
 }
 async function seedLink() {
   // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
@@ -246,13 +351,25 @@ function update(id: number, body: Record<string, unknown>) {
   };
 }
 async function intake(id: number, body: Record<string, unknown>) {
-  await communications.intake(
-    required(translateTemplateIntake("inside", String(id), update(id, body))),
+  await trackCaseWork(() =>
+    communications.intake(
+      required(translateTemplateIntake("inside", String(id), update(id, body))),
+    ),
   );
 }
 function slowPlatform() {
   let answer!: () => void;
-  authorization.slow = new Promise((resolve) => (answer = resolve));
+  const signal = currentCase().abort.signal;
+  authorization.slow = new Promise<void>((resolve, reject) => {
+    const abort = () =>
+      reject(new Error("Author fixture canceled", { cause: signal.reason }));
+    signal.addEventListener("abort", abort, { once: true });
+    answer = () => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    };
+  });
+  void authorization.slow.catch(() => undefined);
   return { answer };
 }
 async function updateState(updateId: string) {
@@ -454,7 +571,9 @@ describe("durable author intake", () => {
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
       );
-      await app.get(TelegramUpdateProcessor).processAvailable();
+      await trackCaseWork(() =>
+        app.get(TelegramUpdateProcessor).processAvailable(),
+      );
       expect(await rows()).toEqual(saved);
       const read = await http({
         ...request(),
@@ -514,10 +633,14 @@ describe("durable author intake", () => {
             })
           ).statusCode,
         ).toBe(202);
-      await app.get(TelegramUpdateProcessor).processAvailable();
+      await trackCaseWork(() =>
+        app.get(TelegramUpdateProcessor).processAvailable(),
+      );
     }
     expect(await rows()).toHaveLength(1);
-    await app.get(StartResponseDeliveryProcessor).processAvailable();
+    await trackCaseWork(() =>
+      app.get(StartResponseDeliveryProcessor).processAvailable(),
+    );
     expect(sent).toHaveLength(2);
     expect(JSON.stringify(sent)).toContain(
       required((await rows())[0]).template_id,
@@ -550,11 +673,11 @@ describe("durable author intake", () => {
       new Date(),
     );
 
-    const first = processor.processAvailable();
+    const first = trackCaseWork(() => processor.processAvailable());
     await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
       timeout: 5000,
     });
-    await processor.processAvailable();
+    await trackCaseWork(() => processor.processAvailable());
     expect(await updateState("2")).toBe("pending");
 
     platform.answer();
@@ -575,7 +698,7 @@ describe("durable author intake", () => {
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       new Date(),
     );
-    const slow = processor.processAvailable();
+    const slow = trackCaseWork(() => processor.processAvailable());
     await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
       timeout: 5000,
     });
@@ -596,7 +719,9 @@ describe("durable author intake", () => {
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       new Date(),
     );
-    await expect(processor.processAvailable()).resolves.toBe(1);
+    await expect(
+      trackCaseWork(() => processor.processAvailable()),
+    ).resolves.toBe(1);
     expect(await updateState("2")).toBe("processed");
     expect(await updateState("1")).toBe("processing");
 
@@ -621,44 +746,53 @@ describe("durable author intake", () => {
   });
 });
 
+async function fixtureActivity() {
+  const activity = await sql<{
+    pid: number;
+    blocking_pids: number[];
+    state: string;
+    wait_event_type: string | null;
+    wait_event: string | null;
+    query: string;
+  }>`select pid, pg_blocking_pids(pid) as blocking_pids, state, wait_event_type, wait_event, left(query, 240) as query
+    from pg_stat_activity where application_name = ${fixtureName}
+      and state <> 'idle'`.execute(fixtureOwner);
+  return activity.rows;
+}
 afterEach(async ({ task }) => {
-  if (task.result?.state === "fail") {
-    // Failure-only facts locate the stalled seam; PostgreSQL statements contain no parameters.
-    try {
-      const activity = await sql<{
-        state: string;
-        wait_event_type: string | null;
-        wait_event: string | null;
-        query: string;
-      }>`select state, wait_event_type, wait_event, left(query, 240) as query
-        from pg_stat_activity
-        where datname = current_database() and pid <> pg_backend_pid()
-          and state <> 'idle'`.execute(database);
-      console.error("communications fixture failure", {
-        authorStep,
-        activity: activity.rows,
-      });
-    } catch (error) {
-      console.error("communications fixture diagnostics failed", error);
-    }
-  }
+  const owned = currentCase();
+  if (task.result?.state === "fail")
+    cancelCaseWork(owned, new Error("Author fixture failed"));
+  await owned.cancellation;
+  await Promise.allSettled([...owned.pending]);
   await sql`truncate communication_author_sessions, communication_author_receipts, communication_author_outbox`.execute(
     database,
   );
 });
-async function authorMessage(
+function authorMessage(
   id: number,
   text: string,
   extra: Record<string, unknown> = {},
 ) {
-  authorStep = `message ${id}`;
+  return trackCaseWork(() => performAuthorMessage(id, text, extra));
+}
+async function performAuthorMessage(
+  id: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+) {
+  setAuthorStep(`message ${id}`);
   id = Math.round(id * 10);
   const payload = update(id, { text, ...extra });
   await app
     .get(TelegramUpdateInbox)
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     .accept("inside", String(id), payload, new Date());
-  await app.get(TelegramUpdateProcessor).processAvailable();
+  currentCase().abort.signal.throwIfAborted();
+  await trackCaseWork(() =>
+    app.get(TelegramUpdateProcessor).processAvailable(),
+  );
+  currentCase().abort.signal.throwIfAborted();
   expect(
     (
       await database
@@ -674,8 +808,19 @@ let navigationId = 1000000;
  * Clicks a button of the latest menu. A button that is not on screen is reached through «Ещё →» or
  * «Настройки», so paging never fails a test: assert on-screen labels in the unit tests instead.
  */
-async function authorClick(id: number, label: string, depth = 0) {
-  authorStep = `click ${id}: ${label}`;
+function authorClick(
+  id: number,
+  label: string,
+  depth = 0,
+): Promise<AuthorInput> {
+  return trackCaseWork(() => performAuthorClick(id, label, depth));
+}
+async function performAuthorClick(
+  id: number,
+  label: string,
+  depth = 0,
+): Promise<AuthorInput> {
+  setAuthorStep(`click ${id}: ${label}`);
   id = Math.round(id * 10);
   const messages = await database
     .selectFrom("communication_author_outbox")
@@ -717,10 +862,13 @@ async function authorClick(id: number, label: string, depth = 0) {
     },
   };
   const input = required(translateAuthorInput("inside", String(id), payload));
-  await Promise.all([
+  currentCase().abort.signal.throwIfAborted();
+  const outcomes = await Promise.allSettled([
     app.get(AuthorAdmin).handle(input),
     app.get(AuthorAdmin).handle(input),
   ]);
+  for (const outcome of outcomes)
+    if (outcome.status === "rejected") throw outcome.reason;
   return input;
 }
 async function lastAuthorText() {
@@ -817,7 +965,7 @@ describe("author transport and API", () => {
         },
       },
     );
-    expect(await worker.processAvailable(time)).toBe(1);
+    expect(await trackCaseWork(() => worker.processAvailable(time))).toBe(1);
     expect(
       await database
         .selectFrom("bot_contacts")
@@ -842,9 +990,11 @@ describe("author transport and API", () => {
         .where("telegram_user_id", "=", "42")
         .executeTakeFirstOrThrow(),
     ).toEqual({ contactability: "reachable" });
-    expect(await worker.processAvailable(new Date(time.getTime() + 2000))).toBe(
-      0,
-    );
+    expect(
+      await trackCaseWork(() =>
+        worker.processAvailable(new Date(time.getTime() + 2000)),
+      ),
+    ).toBe(0);
     expect(calls).toBe(1);
   });
   it("does not resend unknown author samples after worker restart and rejects revoked recipients", async () => {
@@ -871,9 +1021,11 @@ describe("author transport and API", () => {
           },
         },
       );
-    await worker().processAvailable();
+    await trackCaseWork(() => worker().processAvailable());
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    await worker().processAvailable(new Date(Date.now() + 120_000));
+    await trackCaseWork(() =>
+      worker().processAvailable(new Date(Date.now() + 120_000)),
+    );
     expect(calls).toBe(1);
     expect(
       (
@@ -886,7 +1038,9 @@ describe("author transport and API", () => {
     await http({ ...sample, operationId: randomUUID() });
     authorization.result = "denied";
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    await worker().processAvailable(new Date(Date.now() + 240_000));
+    await trackCaseWork(() =>
+      worker().processAvailable(new Date(Date.now() + 240_000)),
+    );
     expect(calls).toBe(1);
     expect(
       await database
@@ -931,15 +1085,21 @@ describe("author transport and API", () => {
       },
     );
     await Promise.all([
-      worker.processAvailable(time),
-      worker.processAvailable(time),
+      trackCaseWork(() => worker.processAvailable(time)),
+      trackCaseWork(() => worker.processAvailable(time)),
     ]);
     expect(calls).toBe(1);
-    await worker.processAvailable(new Date(time.getTime() + 19_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 19_000)),
+    );
     expect(calls).toBe(1);
-    await worker.processAvailable(new Date(time.getTime() + 20_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 20_000)),
+    );
     expect(calls).toBe(2);
-    await worker.processAvailable(new Date(time.getTime() + 21_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 21_000)),
+    );
     expect(calls).toBe(3);
     const states = await database
       .selectFrom("communication_author_outbox")
@@ -972,13 +1132,13 @@ describe("author transport and API", () => {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const time = Date.now() + 1000;
     await authorMessage(100, "/admin");
-    await worker.processAvailable(new Date(time));
+    await trackCaseWork(() => worker.processAvailable(new Date(time)));
     const stale = await authorClick(101, "Рассылки");
-    await worker.processAvailable(new Date(time + 2000));
+    await trackCaseWork(() => worker.processAvailable(new Date(time + 2000)));
     expect(required(sent[1]).editMessageId).toBe("1");
     // The author retries an old visible button after the edit response was lost.
     await app.get(AuthorAdmin).handle({ ...stale, updateId: "1020" });
-    await worker.processAvailable(new Date(time + 4000));
+    await trackCaseWork(() => worker.processAvailable(new Date(time + 4000)));
     expect(required(sent[2]).editMessageId).toBeUndefined();
     // A late edit of message 1 cannot modify the newly sent message 3.
     expect(required(sent[2]).authorMenu).toBe(true);
@@ -1260,13 +1420,13 @@ it("restores the author menu below the delivered broadcast messages and never ex
     signInReplyEligibility,
   );
   for (let i = 0; i < 20; i++)
-    await author.processAvailable(new Date((now += 2000)));
+    await trackCaseWork(() => author.processAvailable(new Date((now += 2000))));
   for (let i = 0; i < 4; i++) {
     now += 2000;
-    await marketing.processAvailable(1);
+    await trackCaseWork(() => marketing.processAvailable(1));
   }
   for (let i = 0; i < 5; i++)
-    await author.processAvailable(new Date((now += 2000)));
+    await trackCaseWork(() => author.processAvailable(new Date((now += 2000))));
   const own = observed.filter((m) => m.chatId === "42");
   expect(
     own.filter((m) => !isTruthy(m.authorMenu)).map((m) => m.content.text),

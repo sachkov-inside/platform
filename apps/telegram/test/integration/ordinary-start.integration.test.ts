@@ -89,11 +89,10 @@ const config: ApplicationConfig = {
 };
 
 let application: NestFastifyApplication;
-let database: Database;
+const database: Database = createDatabase(databaseUrl);
 let fastify: FastifyInstance;
 
 beforeAll(async () => {
-  database = createDatabase(databaseUrl);
   await migrateToLatest(database);
   application = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(config),
@@ -126,7 +125,7 @@ afterAll(async () => {
   try {
     await closeIfStarted(application);
   } finally {
-    await database?.destroy();
+    await database.destroy();
   }
 });
 
