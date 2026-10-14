@@ -112,10 +112,10 @@ describe.each([1, 25, 100])("resource-aware rights for %i Accounts", (size) => {
       expect([...after.result.values()]).toEqual(baseline.result);
       expect(
         baseline.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(2 * size);
+      ).toBe(3 * size);
       expect(
         after.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(2);
+      ).toBe(3);
       const unrelated = await readSet(
         accounts,
         [],
@@ -357,10 +357,10 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
       );
       expect(
         after.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(8);
+      ).toBe(9);
       expect(
         baseline.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(176);
+      ).toBe(200);
       const first = ids[0];
       if (first === undefined) throw new Error("Missing seeded Account");
       const aliases = await authorizeSet({
@@ -1216,6 +1216,218 @@ describe("resource-aware set coherent snapshot", () => {
       new Map([
         [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
       ]),
+    );
+  });
+  test("a concurrent Product exclusion cannot tear the Account snapshot", async () => {
+    const product = "dd000000-0000-4000-8000-000000000002";
+    const grant = "dd000000-0000-4000-8000-000000000003";
+    await owned.prisma.accessGrant.create({
+      data: {
+        id: grant,
+        accountId: recipient,
+        source: "paid",
+        sourceRef: "exclusion-snapshot",
+        capabilities: ["materials"],
+        coverage: { productIds: [product], materialIds: [] },
+        startsAt: new Date("2029-01-01T00:00:00Z"),
+        validUntil: new Date("2031-01-01T00:00:00Z"),
+        revision: 1,
+        reason: "Initial scoped grant",
+      },
+    });
+    const rights = assembleAccountRights({
+      prisma: owned.prisma,
+      clock: () => instant,
+    });
+    const read = rights.resolveForAccessAccounts?.bind(rights);
+    if (read === undefined) throw new Error("Missing scoped Account set");
+    expect(await read([recipient], [product])).toEqual(
+      new Map([
+        [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
+      ]),
+    );
+    function signal() {
+      let resolve: () => void = () => undefined;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve: () => resolve() };
+    }
+    const locked = signal();
+    const release = signal();
+    const blocker = owned.run(() =>
+      owned.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw(
+          Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
+        );
+        locked.resolve();
+        await release.promise;
+      }),
+    );
+    let reading: ReturnType<typeof read> | undefined;
+    try {
+      await locked.promise;
+      reading = owned.run(() => read([recipient], [product]));
+      await expect
+        .poll(
+          async () =>
+            z.array(z.object({ waiting: z.boolean() })).parse(
+              await owned.prisma.$queryRaw(Prisma.sql`
+        select exists(select 1 from pg_locks where relation='account_rights.legacy_classifications'::regclass
+          and database=(select oid from pg_database where datname=current_database()) and not granted) as waiting
+      `),
+            )[0]?.waiting,
+        )
+        .toBe(true);
+      await owned.prisma.productAccessExclusion.create({
+        data: {
+          accountId: recipient,
+          productId: product,
+          grantIds: [grant],
+          actorId: recipient,
+          reason: "Concurrent exclusion",
+          revokedAt: instant,
+        },
+      });
+    } finally {
+      release.resolve();
+      await blocker;
+    }
+    expect(await reading).toEqual(
+      new Map([
+        [recipient, { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" }],
+      ]),
+    );
+    expect(await read([recipient], [product])).toEqual(
+      new Map([[recipient, { kind: "expired" }]]),
+    );
+  });
+});
+
+describe("many-Account Product exclusion parity", () => {
+  let owned: TestDatabase;
+  const ids = [1, 2, 3, 4].map((index) =>
+    accountId(`de000000-0000-4000-8000-${String(index).padStart(12, "0")}`),
+  );
+  const product = "df000000-0000-4000-8000-000000000001";
+  const other = "df000000-0000-4000-8000-000000000002";
+  const grantIds = ids.map(
+    (_, index) =>
+      `da000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  );
+  beforeEach(async () => {
+    owned = await createMigratedTestDatabase();
+    await owned.prisma.account.createMany({
+      data: ids.map((id) => ({
+        id,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: id,
+        createdAt: instant,
+      })),
+    });
+    await owned.prisma.accessGrant.createMany({
+      data: [0, 2, 3].map((index) => ({
+        id: grantIds[index] ?? "",
+        accountId: ids[index] ?? "",
+        source: "paid",
+        sourceRef: `exclusion-${index}`,
+        capabilities: ["materials", `product:${product}`, `product:${other}`],
+        coverage: { productIds: [product, other], materialIds: [] },
+        startsAt: new Date("2029-01-01T00:00:00Z"),
+        validUntil: new Date("2031-01-01T00:00:00Z"),
+        revision: 1,
+        reason: "Synthetic two-Product grant",
+      })),
+    });
+    await owned.prisma.accessGrant.create({
+      data: {
+        id: "da000000-0000-4000-8000-000000000005",
+        accountId: ids[2] ?? "",
+        source: "paid",
+        sourceRef: "later-independent",
+        capabilities: [`product:${product}`],
+        coverage: { productIds: [product], materialIds: [] },
+        startsAt: new Date("2029-01-01T00:00:00Z"),
+        validUntil: new Date("2032-01-01T00:00:00Z"),
+        revision: 1,
+        reason: "Later independent purchase",
+      },
+    });
+    await owned.prisma.legacyClassification.create({
+      data: {
+        accountId: ids[1] ?? "",
+        classification: "confirmed_legacy",
+        sourceRef: "exclusion-bridge",
+        reason: "Synthetic bridge",
+        verifiedAt: instant,
+        revision: 1,
+        bridgeEnabled: true,
+        bridgeCoverage: { productIds: [product, other], materialIds: [] },
+      },
+    });
+    await owned.prisma.membershipBinding.create({
+      data: {
+        accountId: ids[1] ?? "",
+        principalRef: "exclusion-bridge",
+        linkedAt: instant,
+      },
+    });
+    await owned.prisma.membershipProjection.create({
+      data: {
+        accountId: ids[1] ?? "",
+        principalRef: "exclusion-bridge",
+        decision: "member",
+        evidenceRef: "exclusion-evidence",
+        evidenceVersion: 1n,
+        evidenceFingerprint: "a".repeat(64),
+        checkedAt: instant,
+        validUntil: new Date("2031-01-01T00:00:00Z"),
+        updatedAt: instant,
+      },
+    });
+    await owned.prisma.productAccessExclusion.createMany({
+      data: [0, 1, 2].map((index) => ({
+        accountId: ids[index] ?? "",
+        productId: product,
+        grantIds: index === 1 ? [] : [grantIds[index] ?? ""],
+        bridge: index === 1,
+        actorId: ids[0] ?? "",
+        reason: "Synthetic Product revocation",
+        revokedAt: instant,
+      })),
+    });
+  });
+  afterEach(async () => {
+    await owned.dispose();
+  });
+  test("honours excluded grants and bridge scope without denying another Product, Account or later purchase", async () => {
+    const rights = assembleAccountRights({
+      prisma: owned.prisma,
+      clock: () => instant,
+    });
+    if (rights.resolveForAccessAccounts === undefined)
+      throw new Error("Missing scoped owner set");
+    const requested = [accountId((ids[0] ?? "").toUpperCase()), ...ids];
+    const excluded = await rights.resolveForAccessAccounts(requested, [
+      product,
+    ]);
+    expect([...excluded.values()]).toEqual([
+      { kind: "expired" },
+      { kind: "expired" },
+      { kind: "stale" },
+      { kind: "active", validUntil: "2032-01-01T00:00:00.000Z" },
+      { kind: "active", validUntil: "2031-01-01T00:00:00.000Z" },
+    ]);
+    const expected = [];
+    for (const id of requested)
+      expected.push(await rights.resolveForAccess(id, [product]));
+    expect([...excluded.values()]).toEqual(expected);
+    const allowed = await rights.resolveForAccessAccounts(ids, [other]);
+    expect([...allowed.values()]).toEqual(
+      ids.map(() => ({
+        kind: "active",
+        validUntil: "2031-01-01T00:00:00.000Z",
+      })),
     );
   });
 });

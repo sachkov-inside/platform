@@ -35,6 +35,9 @@ export async function resolveMembershipForAccessAccounts(
           OR: [{ validUntil: null }, { validUntil: { gt: now } }],
         },
       });
+      const exclusions = await tx.productAccessExclusion.findMany({
+        where: { accountId: { in: chunk } },
+      });
       const classifications = await tx.legacyClassification.findMany({
         where: { accountId: { in: chunk } },
       });
@@ -53,6 +56,12 @@ export async function resolveMembershipForAccessAccounts(
         group.push(grant);
         grantsByAccount.set(grant.accountId, group);
       }
+      const exclusionsByAccount = new Map<string, typeof exclusions>();
+      for (const exclusion of exclusions) {
+        const group = exclusionsByAccount.get(exclusion.accountId) ?? [];
+        group.push(exclusion);
+        exclusionsByAccount.set(exclusion.accountId, group);
+      }
       const classificationByAccount = new Map(
         classifications.map((row) => [row.accountId, row]),
       );
@@ -61,6 +70,7 @@ export async function resolveMembershipForAccessAccounts(
       );
       const factsFor = (id: string) => ({
         grants: grantsByAccount.get(id) ?? [],
+        exclusions: exclusionsByAccount.get(id) ?? [],
         classification: classificationByAccount.get(id) ?? null,
         projection: projectionByAccount.get(id) ?? null,
         revision: null,
