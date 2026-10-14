@@ -27,10 +27,13 @@ export function activationMenu(
   result?: ActivationResult<ActivationResponse>,
   code?: string,
 ): readonly TelegramButton[] {
-  if (result?.ok && ["active", "already_active"].includes(result.value.state)) {
+  if (
+    result?.ok === true &&
+    ["active", "already_active"].includes(result.value.state)
+  ) {
     return [
       { text: "Открыть платформу", url: accountUrl },
-      ...(result.value.enrollment?.tier.benefits.includes("community")
+      ...(result.value.enrollment?.tier.benefits.includes("community") === true
         ? [{ text: "Чат курса", callbackData: "access:community" }]
         : []),
     ];

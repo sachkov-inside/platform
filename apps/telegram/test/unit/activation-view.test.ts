@@ -85,8 +85,7 @@ describe("learner activation messages", () => {
 
   it("does not advertise a chat for a product-only activation", () => {
     const result = structuredClone(active);
-    if (!result.ok || !result.value.enrollment)
-      throw new Error("Invalid fixture");
+    if (!result.value.enrollment) throw new Error("Invalid fixture");
     const productOnly: ActivationResult<ActivationResponse> = {
       ok: true,
       value: {
