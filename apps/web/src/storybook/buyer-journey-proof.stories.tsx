@@ -256,3 +256,48 @@ export const AlreadyJoined: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+export const ReopenOnboarding: Story = {
+  args: { initialState: "invitation", includesCommunity: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Мои покупки" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть продукт" }),
+    );
+    await expect(
+      canvas.getByRole("region", { name: "Сообщество продукта" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Вступить в группу продукта" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Привязать Telegram" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const ReturnToFirstProduct: Story = {
+  args: { initialState: "purchases", includesCommunity: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Продолжить оформление" }),
+    );
+    await expect(canvas.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Инженерная практика",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Все мои покупки" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть продукт" }),
+    );
+    await expect(canvas.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Создание Platform Inside",
+    );
+    await expect(
+      canvas.getByRole("region", { name: "Сообщество продукта" }),
+    ).toBeVisible();
+  },
+};

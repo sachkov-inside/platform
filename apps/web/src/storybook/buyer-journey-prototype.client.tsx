@@ -60,6 +60,10 @@ export function BuyerJourneyPrototype({
   const [productName, setProductName] = useState(defaultProductName);
   const [purchaseRef, setPurchaseRef] = useState("DEMO-1442");
   const [community, setCommunity] = useState(includesCommunity);
+  const [primaryCommunity, setPrimaryCommunity] = useState(includesCommunity);
+  const [telegramStep, setTelegramStep] = useState<BuyerState>(
+    communityStates.includes(initialState) ? initialState : "telegram",
+  );
   const [email, setEmail] = useState("");
   const [opened, setOpened] = useState(
     initialProductOpen || communityStates.includes(initialState),
@@ -100,8 +104,15 @@ export function BuyerJourneyPrototype({
               setOpened(communityStates.includes(next));
               setProductName(defaultProductName);
               setPurchaseRef("DEMO-1442");
-              if (communityStates.includes(next)) setCommunity(true);
-              if (next === "ready") setCommunity(false);
+              if (communityStates.includes(next)) {
+                setCommunity(true);
+                setPrimaryCommunity(true);
+                setTelegramStep(next);
+              }
+              if (next === "ready") {
+                setCommunity(false);
+                setPrimaryCommunity(false);
+              }
             }
           }}
         >
@@ -117,6 +128,7 @@ export function BuyerJourneyPrototype({
             checked={community}
             onChange={(event) => {
               setCommunity(event.target.checked);
+              setPrimaryCommunity(event.target.checked);
               setOpened(false);
               setState("checkout");
             }}
@@ -144,11 +156,14 @@ export function BuyerJourneyPrototype({
       )}
       {opened ? (
         <>
-          {community && onboarding && state !== "member" ? (
+          {community && telegramStep !== "member" ? (
             <CommunityStep
               productName={productName}
-              state={state}
-              onState={setState}
+              state={telegramStep}
+              onState={(next) => {
+                setTelegramStep(next);
+                setState(next);
+              }}
             />
           ) : null}
           <section aria-label="Программа продукта" className="mt-6">
@@ -169,6 +184,9 @@ export function BuyerJourneyPrototype({
         <PurchaseHistory
           state={state}
           onOpen={() => {
+            setProductName(defaultProductName);
+            setPurchaseRef("DEMO-1442");
+            setCommunity(primaryCommunity);
             setOpened(true);
           }}
           onContinue={(name) => {
