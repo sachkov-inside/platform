@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import {
   BackendConnectionError,
-  requestPublishedMaterialCatalog,
+  requestPublicSiteIndex,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
@@ -25,12 +25,9 @@ export type PublicSiteIndex =
     }
   | { readonly kind: "unavailable" };
 
-const collectionFacetSchema = z.object({ slug: z.string().min(1) });
-const catalogPageSchema = z.object({
-  facets: z.object({
-    series: z.array(collectionFacetSchema),
-    topics: z.array(collectionFacetSchema),
-  }),
+const siteIndexPageSchema = z.object({
+  productSlugs: z.array(z.string().min(1)),
+  topicSlugs: z.array(z.string().min(1)),
   items: z.array(
     z.object({
       publishedAt: z.iso.datetime({ offset: true }),
@@ -45,12 +42,12 @@ const catalogPageSchema = z.object({
 });
 
 /**
- * Карта сайта перечисляет только опубликованное, поэтому каталог запрашивается без подтверждения
+ * Карта сайта перечисляет только опубликованное, поэтому указатель запрашивается без подтверждения
  * доступа: гостевая выдача и есть публичный указатель.
  *
- * Руководства и темы приходят фасетами каталога материалов, то есть указатель видит только те,
+ * Руководства и темы приходят на первой странице указателя, который видит только те,
  * у которых есть хотя бы один опубликованный материал. Пустое руководство остаётся доступным по
- * своему адресу, но в карту сайта не попадает: отдельного перечисления коллекций в контракте нет.
+ * своему адресу, но в карту сайта не попадает: пустые коллекции в контракте указателя не перечисляются.
  */
 export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   const materials: PublicSiteIndexMaterial[] = [];
@@ -60,26 +57,26 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
 
   const continuations = new Set<string>();
   for (;;) {
-    const catalogPage = await readCatalogPage(after);
-    if (catalogPage === undefined) {
+    const siteIndexPage = await readSiteIndexPage(after);
+    if (siteIndexPage === undefined) {
       return { kind: "unavailable" };
     }
     if (after === undefined) {
-      productSlugs = catalogPage.facets.series.map(({ slug }) => slug);
-      topicSlugs = catalogPage.facets.topics.map(({ slug }) => slug);
+      productSlugs = siteIndexPage.productSlugs;
+      topicSlugs = siteIndexPage.topicSlugs;
     }
-    materials.push(...catalogPage.items);
-    if (catalogPage.nextCursor === null) {
+    materials.push(...siteIndexPage.items);
+    if (siteIndexPage.nextCursor === null) {
       break;
     }
-    if (continuations.has(catalogPage.nextCursor)) {
+    if (continuations.has(siteIndexPage.nextCursor)) {
       throw new BackendConnectionError(
         "invalid-response",
         "Content Library repeated a continuation",
       );
     }
-    continuations.add(catalogPage.nextCursor);
-    after = catalogPage.nextCursor;
+    continuations.add(siteIndexPage.nextCursor);
+    after = siteIndexPage.nextCursor;
   }
 
   return {
@@ -90,13 +87,12 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   };
 }
 
-async function readCatalogPage(
+async function readSiteIndexPage(
   after: string | undefined,
-): Promise<z.infer<typeof catalogPageSchema> | undefined> {
-  let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
+): Promise<z.infer<typeof siteIndexPageSchema> | undefined> {
+  let result: Awaited<ReturnType<typeof requestPublicSiteIndex>>;
   try {
-    result = await requestPublishedMaterialCatalog({
-      sort: "newest",
+    result = await requestPublicSiteIndex({
       ...(after === undefined ? {} : { after }),
     });
   } catch (error) {
@@ -119,7 +115,7 @@ async function readCatalogPage(
     );
   }
 
-  const parsed = catalogPageSchema.safeParse(result.body);
+  const parsed = siteIndexPageSchema.safeParse(result.body);
   if (!parsed.success) {
     throw new BackendConnectionError(
       "invalid-response",

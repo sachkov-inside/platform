@@ -1302,6 +1302,37 @@ export class ContentLibraryService {
     });
   }
   /**
+   * Enumerate public addresses; collection slugs occur on the initial page only
+   * @returns any Bounded published addresses, with initial collection slugs and an opaque continuation
+   * @throws ApiError
+   */
+  public listPublicSiteIndex({
+    after,
+  }: {
+    after?: string,
+  }): CancelablePromise<{
+    items: Array<{
+      publishedAt: string;
+      slug: string;
+    }>;
+    nextCursor: string | null;
+    productSlugs: Array<string>;
+    topicSlugs: Array<string>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/site-index',
+      query: {
+        'after': after,
+      },
+      errors: {
+        400: `Invalid continuation`,
+        500: `Index failed internally`,
+        503: `Index dependency unavailable`,
+      },
+    });
+  }
+  /**
    * Read a generated Topic view
    * @returns any Published Materials in the Topic
    * @throws ApiError

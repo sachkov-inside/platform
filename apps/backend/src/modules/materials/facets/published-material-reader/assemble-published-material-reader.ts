@@ -1,3 +1,4 @@
+import { assembleListPublishedSiteMaterials } from "../../features/list-published-site-materials/list-published-site-materials.js";
 import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
 import {
   assembleReadPublishedPractice,
@@ -29,6 +30,7 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {
   return Object.freeze({
+    listSiteMaterials: assembleListPublishedSiteMaterials(dependencies.prisma),
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
     readHomeProjections: () => readHomeProjections(dependencies.prisma),
