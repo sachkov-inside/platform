@@ -64,8 +64,8 @@ export class BillingPricing {
     });
   }
   /** Текущие потоки продуктов: публичный факт, одинаковый для гостя, покупателя и владельца. */
-  cohorts() {
-    return listProductCohorts(this.dependencies.prisma);
+  cohorts(productId?: string, cursor?: string) {
+    return listProductCohorts(this.dependencies.prisma, productId, cursor);
   }
   /** Владельческий каталог: весь неархивный каталог вместе с выключенными из продажи предложениями. */
   ownerCatalog(input: unknown) {

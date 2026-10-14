@@ -92,6 +92,13 @@ not dependency wiring.
   transaction does not await, such as a contender for the same lock, starts that operation through
   `outsideTransaction`. Work that the transaction awaits never goes through it: that work is the
   violation the check refuses.
+- A set read that authorizes one owning resource still revalidates every selected item's
+  lifecycle, binding, source and checked version after authorization. Replacing per-item reads
+  with a set does not grant permission to return an item that changed during the owner decision.
+- A public address enumerator returns only the fields its consumer uses and reads collection
+  metadata on the initial page only. Interactive catalog pages keep their complete, filter-specific
+  metadata contract. Do not share viewer state or silently omit metadata from an interactive list
+  to reduce traversal cost; measure owner calls, SQL statements and response bytes separately.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
@@ -110,6 +117,17 @@ not dependency wiring.
   whose checksums differ. Never edit generated Prisma client files or commit them.
 
 ## REST and authentication
+
+- A bounded list makes exhaustion and continuation explicit. A consumer that promises complete
+  choices follows the owning cursor rather than treating the first page as the whole catalog.
+  Cursor schemas admit every continuation produced from accepted sort keys, including serialized
+  UTF-8/JSON expansion; the cursor retains its filter/sort scope and stable tuple order.
+- Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
+  A batch facet exposes only facts its caller needs; request-specific facts stay request-scoped.
+- Preserve per-item versions, grouped limits and access expiry when replacing scalar reads with a set.
+  Share a transaction only where the existing consistency contract requires the same snapshot.
+- Verify representative batch sizes at the database boundary. Compatible Prisma `findUnique` calls
+  may coalesce; a count of JavaScript calls alone does not establish SQL N+1.
 
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.

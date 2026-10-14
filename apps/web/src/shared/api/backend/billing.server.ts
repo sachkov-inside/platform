@@ -27,9 +27,13 @@ export function requestBillingOffers(
   );
 }
 /** Потоки продуктов публичны: запрос идёт без токена и одинаков для всех. */
-export function requestProductCohorts() {
+export function requestProductCohorts(productId?: string, cursor?: string) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).billingProductCohorts(),
+    (request) =>
+      new BillingService(request).billingProductCohorts({
+        ...(productId === undefined ? {} : { productId }),
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
     200,
     {},
   );

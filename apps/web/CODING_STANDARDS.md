@@ -73,6 +73,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   `<Suspense>` whose fallback is the same page on shared data. The page reads `params` and
   `searchParams` below the skeleton, never at the top of the route file. The personal part starts
   with `await connection()` before it touches the session, so link prefetch stops in front of it.
+- Optional private Practice reads resolve behind their own Suspense boundary. The authorized
+  lesson body awaits its required mode, body variant and navigation context, then streams without
+  waiting for Practice or its connection setup. Practice failure remains local to that boundary.
 - A loading state is built from the frame of its own page — the same column, return row and
   header — and is at least a screen tall, so the footer waits below the fold instead of jumping
   when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
@@ -127,6 +130,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 ## Server state and mutations
 
+- Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
+  List consumers retain continuation through filtered empty pages and offer retry after a failed page.
+- Keep optional data behind its own completion boundary when it does not determine the primary view.
+  A permitted Material body can render while auxiliary Practice data is pending or unavailable.
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
   infinite lists use one page-owned TanStack Query factory and feature BFF; RSC renders metadata and
   a hydration-safe shell without reading `searchParams`, prefetching, or dehydrating that query.
@@ -166,6 +173,19 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   Give each product operation its own named mutation and browser adapter with exact input/result
   types. Do not multiplex unrelated writes through `operation` or `mode`.
 - Put `QueryProvider` in the lowest layout shared by its consumers.
+
+## Effects and asynchronous synchronization
+
+- Compute render-derived values during render. Update event-owned state in its event handler.
+  Use effects for external synchronization, with dependencies and cleanup matching that resource's lifetime.
+- Give callbacks and mirrored refs a current consumer and a named synchronization purpose.
+  Remove redundant synchronization only after checking retained routes, editor revisions and external consumers.
+- Keep at most one in-flight request per polling resource. Schedule the next poll after settlement;
+  cancellation or a resource change prevents stale responses from updating current state.
+- Distinguish browser query freshness, route retention, render-local deduplication and shared HTTP/server caches
+  when measuring requests. Review effective keys and invalidation at each owner; count physical requests separately.
+
+These rules require review. An effect count or a passing dependency linter cannot prove that an effect is necessary.
 
 ## Interaction and enforcement
 

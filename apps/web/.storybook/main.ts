@@ -41,6 +41,9 @@ const config: StorybookConfig = {
   features: { componentsManifest: true },
   viteFinal: (viteConfig) =>
     mergeConfig(viteConfig, {
+      // Storybook copies ../public via staticDirs while the Vite build runs.
+      // Keep one writer for those destinations, including public/images.
+      build: { copyPublicDir: false },
       optimizeDeps: {
         include: [
           "@tiptap/core",
