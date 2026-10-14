@@ -76954,6 +76954,25 @@
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "auditCursor": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "afterSequence": {
+                            "pattern": "^[1-9][0-9]{0,18}$",
+                            "type": "string"
+                          },
+                          "purchaseRef": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "purchaseRef",
+                          "afterSequence"
+                        ],
+                        "type": "object"
+                      },
                       "operation": {
                         "enum": [
                           "payments.read"
@@ -82213,6 +82232,26 @@
                               },
                               "type": "array"
                             },
+                            "nextAuditCursor": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "afterSequence": {
+                                  "pattern": "^[1-9][0-9]{0,18}$",
+                                  "type": "string"
+                                },
+                                "purchaseRef": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "purchaseRef",
+                                "afterSequence"
+                              ],
+                              "type": "object"
+                            },
                             "outcome": {
                               "enum": [
                                 "payment"
@@ -82636,7 +82675,8 @@
                             "value",
                             "events",
                             "decisions",
-                            "audit"
+                            "audit",
+                            "nextAuditCursor"
                           ],
                           "type": "object"
                         },

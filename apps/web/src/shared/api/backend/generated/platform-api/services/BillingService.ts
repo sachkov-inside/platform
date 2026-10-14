@@ -1651,6 +1651,10 @@ export class BillingService {
       operationId: string;
       state?: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | {
+      auditCursor?: {
+        afterSequence: string;
+        purchaseRef: string;
+      };
       operation: 'payments.read';
       operationId: string;
       purchaseRef: string;
@@ -2437,6 +2441,10 @@ export class BillingService {
         occurredAt: string;
         recordedAt: string;
       }>;
+      nextAuditCursor: {
+        afterSequence: string;
+        purchaseRef: string;
+      } | null;
       outcome: 'payment';
       value: {
         access: 'awaiting_payment' | 'preparing' | 'ready';
