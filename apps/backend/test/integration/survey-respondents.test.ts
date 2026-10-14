@@ -104,7 +104,7 @@ describe("скидка респондентам анкеты: список ни�
             },
           ]),
         resolve: () => Promise.resolve([]),
-        resolveMany: () => Promise.resolve([]),
+        resolveMany: (scopes) => Promise.resolve(scopes.map(() => [])),
       },
     });
     pricing = assembleTestBillingPricing({

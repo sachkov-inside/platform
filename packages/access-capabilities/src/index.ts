@@ -46,16 +46,11 @@ export function productIdFromCapability(
     : null;
 }
 
-/**
- * Что открывает одно право. Общая группа одна на всех (#648, решение владельца): её открывает и
- * купленный Product, и сопровождение, поэтому участие живёт сроком самого долгого из них.
- */
+/** New rights open only their named capability. Existing implicit grants are preserved by migration. */
 export function capabilitiesOpenedBy(
   capability: AccessCapability,
 ): readonly AccessCapability[] {
-  return isProductCapability(capability) || capability === "support"
-    ? [capability, "community"]
-    : [capability];
+  return [capability];
 }
 
 /**

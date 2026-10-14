@@ -70,6 +70,8 @@ const initSchema = z
     Description: z.string().optional(),
     CustomerKey: z.string().optional(),
     NotificationURL: z.string().optional(),
+    SuccessURL: z.url().optional(),
+    FailURL: z.url().optional(),
     Recurrent: z.string().optional(),
     Receipt: z.object({ Email: z.string().optional() }).loose().optional(),
   })
@@ -209,6 +211,10 @@ export function createLocalBankDouble(
         email: input.Receipt?.Email ?? "",
         recurrent: input.Recurrent === "Y",
         notificationUrl: input.NotificationURL ?? config.notificationUrl,
+        ...(input.SuccessURL === undefined
+          ? {}
+          : { successUrl: input.SuccessURL }),
+        ...(input.FailURL === undefined ? {} : { failUrl: input.FailURL }),
         refunds: new Map(),
         status: "NEW",
         success: true,
@@ -421,7 +427,10 @@ export function createLocalBankDouble(
       else if (isKnownOutcome(paymentOutcomes, outcome))
         await settle(known, outcome);
       else return html(missingPage("Неизвестный исход"), 400);
-      return redirect(config.returnUrl);
+      return redirect(
+        (known.status === "CONFIRMED" ? known.successUrl : known.failUrl) ??
+          config.returnUrl,
+      );
     }
     if (path.startsWith("/card/")) {
       const session = bindings.get(path.slice("/card/".length));

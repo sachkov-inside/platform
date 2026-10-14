@@ -7,6 +7,7 @@ export {
 } from "./adapters/nest/account-endpoint.js";
 export {
   CurrentAccount,
+  CurrentReceiptEmail,
   OptionalCurrentAccount,
 } from "./adapters/nest/current-account.js";
 export { AccountProblemDetailsFilter } from "./adapters/nest/account-problem-details.filter.js";

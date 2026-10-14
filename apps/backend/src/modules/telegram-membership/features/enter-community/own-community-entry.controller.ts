@@ -1,15 +1,18 @@
-import { Controller, Get, Inject, UseFilters } from "@nestjs/common";
+import { Controller, Get, Inject, UseFilters, Query } from "@nestjs/common";
 import {
   ApiTags,
+  ApiQuery,
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
   ApiResponse,
 } from "@nestjs/swagger";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import {
   problemDetailsContent,
   toOpenApiSchema,
+  problemDetailsSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AcceptedTermsEndpoint,
@@ -29,6 +32,12 @@ import { ownCommunityEntrySchema } from "../../domain/community-entitlement.js";
   status: 401,
   content: problemDetailsContent(accountProblemSchema),
 })
+@ApiResponse({
+  status: 503,
+  content: problemDetailsContent(
+    problemDetailsSchema(503, ["dependency_unavailable"]),
+  ),
+})
 @Controller("accounts/current/community-entry")
 export class OwnCommunityEntryController {
   constructor(
@@ -40,8 +49,28 @@ export class OwnCommunityEntryController {
     operationId: "currentCommunityEntry",
     summary: "Read which community entry to offer the current Account",
   })
+  @ApiQuery({
+    name: "productId",
+    required: false,
+    schema: { type: "string", format: "uuid" },
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(ownCommunityEntrySchema) })
-  read(@CurrentAccount() current: AuthenticatedAccount) {
-    return this.community.readOwnCommunityEntry(current.accountId);
+  async read(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Query("productId") productId?: string,
+  ) {
+    if (productId === undefined)
+      return this.community.readOwnCommunityEntry(current.accountId);
+    const result = await this.community.readOwnProductCommunityEntry(
+      current.accountId,
+      productId,
+    );
+    if (result.kind === "unavailable")
+      throw problemException(
+        503,
+        "dependency_unavailable",
+        "Product community is unavailable",
+      );
+    return result;
   }
 }

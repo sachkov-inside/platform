@@ -1,6 +1,12 @@
 import { z } from "zod";
+import { coverageEntrySchema } from "@inside/access-capabilities";
 import { ownAccessGroundSchema } from "../../../account-rights/index.js";
-import { idSchema, moneySchema, revisionSchema } from "../../domain/pricing.js";
+import {
+  idSchema,
+  moneySchema,
+  revisionSchema,
+  priceSnapshotSchema,
+} from "../../domain/pricing.js";
 import {
   attemptKindSchema,
   attemptStateSchema,
@@ -33,6 +39,17 @@ export const cancelChangeSchema = z.strictObject(command);
  */
 export const ownPaymentSchema = z.strictObject({
   purchaseRef: idSchema,
+  content: z.array(coverageEntrySchema).optional(),
+  productAccess: z
+    .array(
+      z.strictObject({
+        productId: idSchema,
+        access: purchaseStatusSchema.shape.access,
+      }),
+    )
+    .optional(),
+  snapshot: priceSnapshotSchema.optional(),
+  access: purchaseStatusSchema.shape.access.optional(),
   kind: attemptKindSchema,
   state: attemptStateSchema,
   amountKopecks: moneySchema,

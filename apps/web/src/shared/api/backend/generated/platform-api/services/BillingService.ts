@@ -15,6 +15,13 @@ export class BillingService {
     grounds: Array<{
       active: boolean;
       capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+      content?: Array<{
+        available: boolean;
+        id: string;
+        kind: 'product' | 'material';
+        slug: string | null;
+        title: string;
+      }>;
       source: 'paid' | 'manual' | 'legacy';
       startsAt: string;
       validUntil: string | null;
@@ -28,17 +35,70 @@ export class BillingService {
       state: 'current' | 'superseded';
     }>;
     payments: Array<{
+      access?: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
       amountKopecks: number;
       confirmedAt: string | null;
+      content?: Array<{
+        available: boolean;
+        id: string;
+        kind: 'product' | 'material';
+        slug: string | null;
+        title: string;
+      }>;
       createdAt: string;
       fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
       kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       months: number;
       offerName: string;
       periodEndsAt: string | null;
+      productAccess?: Array<{
+        access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+        productId: string;
+      }>;
       purchaseRef: string;
       refundedAt: string | null;
       refundedKopecks: number;
+      snapshot?: {
+        communityPolicy?: 'explicit';
+        currency: 'RUB';
+        firstPriceKopecks: number;
+        offer: {
+          archived: boolean;
+          availableForAssignment?: boolean;
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          coverage?: {
+            materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
+          } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+          id: string;
+          name: string;
+          published?: boolean;
+          revision: number;
+        };
+        paymentOption: {
+          archived: boolean;
+          id: string;
+          mode?: 'subscription' | 'one_time';
+          months: number;
+          offerId: string;
+          priceKopecks: number;
+          revision: number;
+        };
+        promotion: {
+          id: string;
+          name: string;
+          percent: number;
+          revision: number;
+        } | null;
+        renewalPriceKopecks: number;
+        timezone: 'Europe/Moscow';
+      };
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     }>;
     subscription: {
@@ -56,6 +116,7 @@ export class BillingService {
         acceptedAt: string;
         changeQuoteRef: string;
         snapshot: {
+          communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
           offer: {
@@ -268,6 +329,7 @@ export class BillingService {
       acceptedAt: string;
       changeQuoteRef: string;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -364,6 +426,83 @@ export class BillingService {
     });
   }
   /**
+   * Restore the latest own Product purchase
+   * @returns any
+   * @throws ApiError
+   */
+  public restoreProductPurchase({
+    productId,
+    purchaseRef,
+  }: {
+    productId: string,
+    purchaseRef?: string,
+  }): CancelablePromise<{
+    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    confirmedAt: string | null;
+    fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+    paymentUrl: string | null;
+    periodEndsAt: string | null;
+    purchaseRef: string;
+    refundedKopecks?: number;
+    snapshot: {
+      communityPolicy?: 'explicit';
+      currency: 'RUB';
+      firstPriceKopecks: number;
+      offer: {
+        archived: boolean;
+        availableForAssignment?: boolean;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        coverage?: {
+          materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
+        } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+        id: string;
+        name: string;
+        published?: boolean;
+        revision: number;
+      };
+      paymentOption: {
+        archived: boolean;
+        id: string;
+        mode?: 'subscription' | 'one_time';
+        months: number;
+        offerId: string;
+        priceKopecks: number;
+        revision: number;
+      };
+      promotion: {
+        id: string;
+        name: string;
+        percent: number;
+        revision: number;
+      } | null;
+      renewalPriceKopecks: number;
+      timezone: 'Europe/Moscow';
+    };
+    state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+  } | null> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/billing/products/{productId}/purchase',
+      path: {
+        'productId': productId,
+      },
+      query: {
+        'purchaseRef': purchaseRef,
+      },
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
+    });
+  }
+  /**
    * Start or recover one subscription or one-time purchase
    * @returns any
    * @throws ApiError
@@ -380,13 +519,15 @@ export class BillingService {
       quoteRef: string;
     },
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready';
+    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
+    refundedKopecks?: number;
     snapshot: {
+      communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
       offer: {
@@ -449,13 +590,15 @@ export class BillingService {
   }: {
     purchaseRef: string,
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready';
+    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
+    refundedKopecks?: number;
     snapshot: {
+      communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
       offer: {
@@ -528,6 +671,7 @@ export class BillingService {
     expiresAt: string;
     quoteRef: string;
     snapshot: {
+      communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
       offer: {
@@ -606,6 +750,7 @@ export class BillingService {
       acceptedAt: string;
       changeQuoteRef: string;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -716,13 +861,15 @@ export class BillingService {
     },
   }): CancelablePromise<{
     payment: {
-      access: 'awaiting_payment' | 'preparing' | 'ready';
+      access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
       confirmedAt: string | null;
       fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
       paymentUrl: string | null;
       periodEndsAt: string | null;
       purchaseRef: string;
+      refundedKopecks?: number;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -779,6 +926,7 @@ export class BillingService {
         acceptedAt: string;
         changeQuoteRef: string;
         snapshot: {
+          communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
           offer: {
@@ -902,6 +1050,7 @@ export class BillingService {
       acceptedAt: string;
       changeQuoteRef: string;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -1018,6 +1167,7 @@ export class BillingService {
       effectiveAt: string;
       kind: 'upgrade';
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -1063,6 +1213,7 @@ export class BillingService {
       kind: 'scheduled';
       nextPriceKopecks: number;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -1143,6 +1294,7 @@ export class BillingService {
       acceptedAt: string;
       changeQuoteRef: string;
       snapshot: {
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -2147,6 +2299,7 @@ export class BillingService {
       };
     } | {
       items: Array<{
+        communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
         offer: {
@@ -2205,6 +2358,7 @@ export class BillingService {
         refundableKopecks: number;
         refundedKopecks: number;
         snapshot: {
+          communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
           offer: {
@@ -2308,6 +2462,7 @@ export class BillingService {
         refundableKopecks: number;
         refundedKopecks: number;
         snapshot: {
+          communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
           offer: {
@@ -2370,6 +2525,7 @@ export class BillingService {
         refundableKopecks: number;
         refundedKopecks: number;
         snapshot: {
+          communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
           offer: {
@@ -2431,6 +2587,7 @@ export class BillingService {
           acceptedAt: string;
           changeQuoteRef: string;
           snapshot: {
+            communityPolicy?: 'explicit';
             currency: 'RUB';
             firstPriceKopecks: number;
             offer: {
@@ -2833,6 +2990,7 @@ export class BillingService {
     cursor?: string,
   }): CancelablePromise<{
     items: Array<{
+      communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
       offer: {

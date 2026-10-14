@@ -14,6 +14,7 @@ import {
 // the one owner of the shape, so this proof takes it from there instead of restating a schema.
 describe("declared response contract", () => {
   const continuation = {
+    started: true,
     collection: {
       cover: null,
       count: 3,

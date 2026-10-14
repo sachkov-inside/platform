@@ -1,9 +1,7 @@
 name: Nightly full-stack smoke
 
-# Not a pull-request check: the smoke runs nightly on main and on demand, and CI Gate ignores it.
+# Manual investigation entry point; Application CI owns required queue full-stack coverage.
 on:
-  schedule:
-    - cron: "17 1 * * *"
   workflow_dispatch:
 
 permissions:

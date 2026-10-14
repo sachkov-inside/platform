@@ -3,6 +3,8 @@ export { ACCESS_GRANTS, ACCOUNT_RIGHTS } from "./account-rights.tokens.js";
 export { AccountRightsModule } from "./account-rights.module.js";
 export {
   COVERAGE_CATALOG,
+  COVERAGE_CATALOG_ENTRY_LIMIT,
+  COVERAGE_CATALOG_SCOPE_LIMIT,
   type CoverageCatalog,
 } from "./ports/coverage-catalog.js";
 export {

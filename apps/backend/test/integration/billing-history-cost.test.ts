@@ -207,6 +207,7 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
       readLegacyClassification: unused,
       readPurchaseGrounds: unused,
       resolveCapabilities: unused,
+      resolveCapabilitiesMany: unused,
       applyPaidPeriod: unused,
     },
     clock: () => now,
@@ -231,7 +232,12 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
   expect(messages.result.map((entry) => entry.noticeRef)).toEqual(
     Array.from({ length: 20 }, (_, index) => id(612, 21 - index)),
   );
-  expect(money.statements).toHaveLength(2);
+  expect(money.statements).toHaveLength(3);
+  expect(
+    money.statements.filter((sql) =>
+      sql.includes('"billing"."fulfillment_outbox"'),
+    ),
+  ).toHaveLength(1);
   expect(messages.statements).toHaveLength(1);
   process.stdout.write(
     `${JSON.stringify({ record: "PC-6", scope: "recent cabinet", inputRows: [51, 21], returnedRows: [50, 20], statements: [money.statements.length, messages.statements.length], ownerCalls: 2, providerRequests: 0 })}\n`,

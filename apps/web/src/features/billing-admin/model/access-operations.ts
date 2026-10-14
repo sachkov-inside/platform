@@ -1,3 +1,4 @@
+import { isProductCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 
 import {
@@ -222,7 +223,15 @@ export function groundActions(ground: PersonGround): GroundActions {
       revoke: live,
       restore: ground.state === "revoked",
     };
-  return { extend: ground.state !== "revoked", revoke: live, restore: false };
+  return {
+    extend: ground.state !== "revoked",
+    revoke:
+      live &&
+      !ground.capabilities.some((capability) =>
+        isProductCapability(capability),
+      ),
+    restore: false,
+  };
 }
 
 /** Назначение Tribute держит конечный срок: продлить его «бессрочно» сервер не даёт. */

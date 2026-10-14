@@ -343,6 +343,20 @@ const owner = await bootstrapOwnerAccount(
   { issuer: issuer(), subject: "buyer-journey-owner" },
   "platform:admin",
 );
+await prisma.productCommunity.upsert({
+  where: { productId },
+  create: {
+    productId,
+    groupRef: "primary",
+    updatedBy: owner.accountId,
+    updatedAt: new Date(),
+  },
+  update: {
+    groupRef: "primary",
+    updatedBy: owner.accountId,
+    updatedAt: new Date(),
+  },
+});
 // Предложение продукта получает сроки предложения курса: материалы и общий чат без срока,
 // сопровождение — шесть месяцев с оплаты.
 const pricing = app.get(BillingPricing);

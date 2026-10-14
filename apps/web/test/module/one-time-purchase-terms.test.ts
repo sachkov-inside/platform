@@ -36,7 +36,7 @@ function withPeriods(
   };
 }
 
-/** Предложение курса: материалы и чат без срока, сопровождение 6 месяцев. */
+/** Предложение курса: материалы и материалы без срока, сопровождение 6 месяцев. */
 const course = withPeriods(
   [product, "support"],
   [
@@ -54,6 +54,15 @@ const fixedTerm = withPeriods(
 );
 
 describe("условия разовой покупки до оплаты", () => {
+  it("does not promise community in terms of a Product-only purchase", () => {
+    expect(oneTimeOfferTerms(productOnlyOffer).chatMonths).toBeUndefined();
+    expect(
+      oneTimePurchaseInclusions(productOnlyOffer).some((item) =>
+        /сообщество|чат/u.test(item.caption),
+      ),
+    ).toBe(false);
+  });
+
   it("склоняет годы и называет целые годы годами", () => {
     expect(formatYears(1)).toBe("1 год");
     expect(formatYears(5)).toBe("5 лет");
@@ -65,30 +74,28 @@ describe("условия разовой покупки до оплаты", () =>
   it("показывает доли цены поровну под ценой", () => {
     expect(
       plain(oneTimePriceSharesLine(250_000, oneTimeOfferTerms(course))),
-    ).toBe(
-      "Из них поровну: материалы и чат — 1 250 ₽, сопровождение — 1 250 ₽",
-    );
+    ).toBe("Из них поровну: материалы — 1 250 ₽, сопровождение — 1 250 ₽");
     // Без сопровождения вся цена — материалы и чат: делить нечего.
     expect(
       oneTimePriceSharesLine(250_000, oneTimeOfferTerms(productOnlyOffer)),
-    ).toBe("Вся цена относится к материалам и чату");
+    ).toBe("Вся цена относится к материалам");
   });
 
   it("берёт сроки составляющих из снимка предложения", () => {
     expect(oneTimeOfferTerms(course)).toEqual({
       materialsMonths: null,
-      chatMonths: null,
+      chatMonths: undefined,
       supportMonths: 6,
     });
     expect(oneTimeOfferTerms(fixedTerm)).toEqual({
       materialsMonths: 24,
-      chatMonths: 24,
+      chatMonths: undefined,
       supportMonths: 12,
     });
     // Предложение без сопровождения срок сопровождения не называет вовсе.
     expect(oneTimeOfferTerms(productOnlyOffer)).toEqual({
       materialsMonths: null,
-      chatMonths: null,
+      chatMonths: undefined,
     });
   });
 
@@ -111,14 +118,14 @@ describe("условия разовой покупки до оплаты", () =>
           [{ capability: product, months: 24 }],
         ),
       ),
-    ).toEqual({ materialsMonths: 24, chatMonths: 24 });
+    ).toEqual({ materialsMonths: 24, chatMonths: null });
   });
 
-  it("сводит условия предложения курса: материалы и чат без срока", () => {
+  it("сводит условия предложения курса: материалы и материалы без срока", () => {
     expect(oneTimeTermsSummary(oneTimeOfferTerms(course))).toEqual([
-      "Материалы и чат — без ограничения срока.",
-      "Сопровождение — 6 месяцев: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
-      "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени: сопровождение — из его срока, материалы и чат — из расчётного срока 12 месяцев, но не меньше положенного по закону.",
+      "Материалы — без ограничения срока.",
+      "Сопровождение — 6 месяцев: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
+      "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени: сопровождение — из его срока, материалы — из расчётного срока 12 месяцев, но не меньше положенного по закону.",
       "После отказа доступ по этой покупке закрывается.",
       "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
     ]);
@@ -129,7 +136,7 @@ describe("условия разовой покупки до оплаты", () =>
       oneTimeOfferTerms(fixedTerm),
     );
     expect(materials).toBe(
-      "Материалы и чат — 2 года гарантированно, дальше без гарантии срока.",
+      "Материалы — 2 года гарантированно, дальше без гарантии срока.",
     );
     expect(support).toContain("Сопровождение — 1 год:");
     expect(refund).toBe(
@@ -142,12 +149,12 @@ describe("условия разовой покупки до оплаты", () =>
       {
         kind: "composition",
         caption: "Состав",
-        title: "Продукт с сопровождением и общим чатом",
+        title: "Продукт с сопровождением",
         detail: course.offer.name,
       },
       {
         kind: "materials",
-        caption: "Материалы и общий чат",
+        caption: "Материалы",
         title: "Без ограничения срока",
       },
       { kind: "support", caption: "Сопровождение автора", title: "6 месяцев" },
@@ -155,7 +162,7 @@ describe("условия разовой покупки до оплаты", () =>
     expect(oneTimePurchaseInclusions(fixedTerm).slice(1)).toEqual([
       {
         kind: "materials",
-        caption: "Материалы и общий чат",
+        caption: "Материалы",
         title: "2 года гарантированно",
         detail: "дальше без гарантии срока",
       },
@@ -183,14 +190,14 @@ describe("условия разовой покупки до оплаты", () =>
       },
       {
         kind: "chat",
-        caption: "Общий чат",
+        caption: "Сообщество продукта",
         title: "1 год гарантированно",
         detail: "дальше без гарантии срока",
       },
     ]);
     expect(oneTimeTermsSummary(oneTimeOfferTerms(split)).slice(0, 2)).toEqual([
       "Материалы — без ограничения срока.",
-      "Общий чат — 1 год гарантированно, дальше без гарантии срока.",
+      "Сообщество продукта — 1 год гарантированно, дальше без гарантии срока.",
     ]);
     // Расчётный срок не короче срока другой составляющей, названного в месяцах.
     const longChat = oneTimeOfferTerms(

@@ -289,6 +289,35 @@ test("sign-in screen links the policy and defers terms to the Platform first sig
   assert.doesNotMatch(agreement, /соглаша/u);
 });
 
+test("machine token claims need no user context or receipt contact", async () => {
+  const claims = loadCustomJwtClaims(
+    await readFile(new URL("custom-access-token.js", proofRoot), "utf8"),
+  );
+  assert.deepEqual(await claims({ token: { gty: "client_credentials" } }), {});
+});
+
+test("receipt email survives refresh without becoming a sign-in proof", async () => {
+  const claims = loadCustomJwtClaims(
+    await readFile(new URL("custom-access-token.js", proofRoot), "utf8"),
+  );
+  assert.deepEqual(
+    await claims({
+      token: { gty: "refresh_token" },
+      context: { user: { primaryEmail: "Member@Example.Test" } },
+    }),
+    { inside_receipt_email: "member@example.test" },
+  );
+  assert.deepEqual(
+    await claims({
+      token: { gty: "refresh_token" },
+      context: {
+        user: { identities: { "inside-telegram": { userId: "telegram" } } },
+      },
+    }),
+    {},
+  );
+});
+
 test("custom access-token claims expose only a matching fresh email-code interaction", async () => {
   const source = await readFile(
     new URL("custom-access-token.js", proofRoot),
@@ -328,7 +357,7 @@ test("custom access-token claims expose only a matching fresh email-code interac
         user: { primaryEmail: "another@example.test" },
       },
     }),
-    {},
+    { inside_receipt_email: "another@example.test" },
   );
 });
 

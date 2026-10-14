@@ -349,11 +349,11 @@ export const accessScenarioTable = {
       },
     },
     "support-kept-by-other-ground": {
-      rule: "Сопровождение — одно общее право: отказ от одной покупки не прекращает сопровождение другого действующего основания, и общая группа остаётся открытой на его срок.",
+      rule: "Отзыв покупки сохраняет сопровождение другого основания. Без отдельного права на сообщество вход закрывается.",
       after: {
         "product-material": locked,
         support: open("ground-term"),
-        "community-chat": open("ground-term"),
+        "community-chat": closed,
       },
     },
     "material-added-to-product": {
