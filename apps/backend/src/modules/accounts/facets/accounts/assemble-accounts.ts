@@ -3,6 +3,7 @@ import { checkPermissionsMany } from "../../features/check-permission/check-perm
 import { checkPermission } from "../../features/check-permission/check-permission.js";
 import { establishAccount } from "../../features/establish-account/establish-account.js";
 import { resolveAccount } from "../../features/resolve-account/resolve-account.js";
+import { accountId as checkedAccountId } from "../../domain/account-identifiers.js";
 import type { Accounts } from "./accounts.interface.js";
 
 interface Dependencies {
@@ -31,6 +32,36 @@ export function assembleAccounts({
             subject: row.logtoSubject,
             telegramSubjectRef: row.telegramSubjectRef,
           };
+    },
+    async readIdentitiesForLink(accountIds, transaction = prisma) {
+      const requested = [...new Set(accountIds)];
+      const canonical = [
+        ...new Set(requested.map((id) => checkedAccountId(id).toLowerCase())),
+      ];
+      const identities = new Map<
+        string,
+        Awaited<ReturnType<Accounts["readIdentityForLink"]>>
+      >();
+      for (let offset = 0; offset < canonical.length; offset += 500) {
+        const rows = await transaction.account.findMany({
+          where: { id: { in: canonical.slice(offset, offset + 500) } },
+          select: {
+            id: true,
+            logtoIssuer: true,
+            logtoSubject: true,
+            telegramSubjectRef: true,
+          },
+        });
+        for (const row of rows)
+          identities.set(row.id, {
+            issuer: row.logtoIssuer,
+            subject: row.logtoSubject,
+            telegramSubjectRef: row.telegramSubjectRef,
+          });
+      }
+      return new Map(
+        requested.map((id) => [id, identities.get(id.toLowerCase())]),
+      );
     },
     establishAccount: (command) =>
       establishAccount(prisma, emailFingerprintKey, command),

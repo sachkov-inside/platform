@@ -673,6 +673,15 @@ describe("independent Account access", () => {
       prisma: db.prisma,
       accounts: {
         checkPermission: (query) => accounts.checkPermission(query),
+        readIdentitiesForLink: (ids) =>
+          Promise.resolve(
+            new Map(
+              ids.map((id) => [
+                id,
+                { issuer, subject: "changed", telegramSubjectRef: null },
+              ]),
+            ),
+          ),
         readIdentityForLink: () =>
           Promise.resolve({
             issuer,

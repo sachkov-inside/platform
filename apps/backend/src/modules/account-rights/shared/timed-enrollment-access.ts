@@ -22,7 +22,25 @@ export async function readTimedEnrollmentAccess(
     where: { enrollmentId: { in: timed.map((row) => row.id) } },
     select: { enrollmentId: true, validUntil: true },
   });
-  const byEnrollment = new Map<string, typeof grants>();
+  return projectTimedEnrollmentAccess(rows, grants, now);
+}
+
+export function projectTimedEnrollmentAccess(
+  rows: readonly Awaited<
+    ReturnType<AccountRightsPrismaClient["tariffAssignment"]["findMany"]>
+  >[number][],
+  grants: readonly { enrollmentId: string | null; validUntil: Date | null }[],
+  now: Date,
+) {
+  const timed = rows.filter((row) => {
+    if (row.origin !== "manual" && row.origin !== "course") return false;
+    const snapshot = tierSnapshotSchema.safeParse(row.snapshot);
+    return snapshot.success && snapshot.data.benefitPeriods !== undefined;
+  });
+  const byEnrollment = new Map<
+    string,
+    { enrollmentId: string | null; validUntil: Date | null }[]
+  >();
   for (const grant of grants) {
     if (grant.enrollmentId === null) continue;
     const terms = byEnrollment.get(grant.enrollmentId) ?? [];

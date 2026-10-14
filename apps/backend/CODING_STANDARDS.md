@@ -105,6 +105,9 @@ not dependency wiring.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
+- An eligibility prefilter must preserve the complete codec's transforms, refinements and legacy
+  fallback. Facts it cannot prove remain candidates for full validation and retryable traversal;
+  guard operations on malformed JSON with `CASE`, not SQL predicate evaluation order.
 - A set read keeps paired ownership predicates together: separate `IN` lists for Material IDs and
   asset IDs would accept their unintended cross product. Deduplicate keys inside the owning
   capability and chunk its statements without losing per-item association. Associate UUID keys by

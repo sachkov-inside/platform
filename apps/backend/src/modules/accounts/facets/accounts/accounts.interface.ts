@@ -60,6 +60,14 @@ export interface Accounts {
     | undefined
   >;
 
+  /** Same identity facts for a bounded set, retaining each requested UUID spelling. */
+  readIdentitiesForLink(
+    accountIds: readonly string[],
+    transaction?: Pick<AccountsPrisma, "account">,
+  ): Promise<
+    ReadonlyMap<string, Awaited<ReturnType<Accounts["readIdentityForLink"]>>>
+  >;
+
   establishAccount(command: {
     readonly identity: VerifiedAccountSignIn;
   }): Promise<EstablishAccountResult>;

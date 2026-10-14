@@ -1,4 +1,7 @@
-import { telegramContactsResponseSchema } from "@inside/contracts/telegram-contact";
+import {
+  telegramContactsResponseSchema,
+  type TelegramContact,
+} from "@inside/contracts/telegram-contact";
 import type { TelegramContactsProvider } from "../../ports/telegram-contacts-provider.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
@@ -76,6 +79,20 @@ export class TelegramAccountLinks {
           contacts: response.contacts,
         })
       : null;
+    const profiles = new Map<string, Map<string, TelegramContact | null>>();
+    if (parsed?.success === true) {
+      for (const contact of parsed.data.contacts) {
+        const identities =
+          profiles.get(contact.accountRef) ??
+          new Map<string, TelegramContact | null>();
+        // Duplicate pairs stay ambiguous; opaque keys never share an encoded separator.
+        identities.set(
+          contact.telegramIdentityRef,
+          identities.has(contact.telegramIdentityRef) ? null : contact,
+        );
+        profiles.set(contact.accountRef, identities);
+      }
+    }
     const current = await Promise.all(
       accounts.map((accountId) => this.readBinding({ accountId })),
     );
@@ -89,18 +106,11 @@ export class TelegramAccountLinks {
         previous.binding?.linkRevision === binding.binding?.linkRevision &&
         previous.binding?.accountRef === binding.binding?.accountRef &&
         previous.binding?.telegramIdentityRef === identityRef;
-      const matching =
-        stable && parsed?.success === true
-          ? parsed.data.contacts.filter(
-              (contact) =>
-                contact.telegramIdentityRef === identityRef &&
-                contact.accountRef === binding.binding?.accountRef,
-            )
-          : [];
-      const contact =
-        matching.length === 1 && matching[0]?.status === "available"
-          ? matching[0]
+      const matched =
+        stable && binding.binding?.accountRef != null && identityRef !== null
+          ? profiles.get(binding.binding.accountRef)?.get(identityRef)
           : undefined;
+      const contact = matched?.status === "available" ? matched : undefined;
       contacts.set(accountId, {
         telegramIdentityRef: identityRef,
         displayName: contact?.displayName ?? null,
