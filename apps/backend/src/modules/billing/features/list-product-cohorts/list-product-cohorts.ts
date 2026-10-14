@@ -4,11 +4,19 @@ import type { BillingPrismaClient } from "../../../../infrastructure/prisma/inde
 import { productCohortSchema } from "../../domain/product-cohort.js";
 import { failure, type PricingResult } from "../../domain/pricing.js";
 
-/** Сколько продуктов с потоком читается за раз: у каталога их единицы, граница только от сбоя. */
+/** Сколько продуктов с потоком читается за раз: публичный legacy список ограничен; Web читает нужный Product явно. */
 export const cohortListLimit = 100;
+
+export const productCohortsQuerySchema = z
+  .strictObject({ productId: z.uuid().optional(), cursor: z.uuid().optional() })
+  .refine(
+    (query) => query.productId === undefined || query.cursor === undefined,
+    "Scoped Product reads do not take a list cursor",
+  );
 
 export const productCohortsSchema = z.strictObject({
   items: z.array(productCohortSchema).max(cohortListLimit),
+  nextCursor: z.uuid().nullable(),
 });
 
 /**
@@ -18,18 +26,30 @@ export const productCohortsSchema = z.strictObject({
  */
 export async function listProductCohorts(
   prisma: BillingPrismaClient,
+  productId?: string,
+  cursor?: string,
 ): Promise<
-  PricingResult<z.infer<typeof productCohortsSchema>, "dependency_unavailable">
+  PricingResult<
+    z.infer<typeof productCohortsSchema>,
+    "invalid_request" | "dependency_unavailable"
+  >
 > {
+  const parsed = productCohortsQuerySchema.safeParse({ productId, cursor });
+  if (!parsed.success) return failure("invalid_request");
   try {
     const rows = await prisma.billingProductCohort.findMany({
+      ...(parsed.data.productId === undefined
+        ? parsed.data.cursor === undefined
+          ? {}
+          : { where: { productId: { gt: parsed.data.cursor } } }
+        : { where: { productId: parsed.data.productId } }),
       orderBy: { productId: "asc" },
-      take: cohortListLimit,
+      take: cohortListLimit + 1,
     });
     return {
       ok: true,
       value: productCohortsSchema.parse({
-        items: rows.map((row) => ({
+        items: rows.slice(0, cohortListLimit).map((row) => ({
           productId: row.productId,
           revision: row.revision,
           name: row.name,
@@ -41,6 +61,10 @@ export async function listProductCohorts(
               ? null
               : Number(row.priceAfterStartKopecks),
         })),
+        nextCursor:
+          rows.length > cohortListLimit
+            ? (rows[cohortListLimit - 1]?.productId ?? null)
+            : null,
       }),
     };
   } catch (error) {

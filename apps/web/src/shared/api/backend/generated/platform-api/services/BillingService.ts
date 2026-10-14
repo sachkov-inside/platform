@@ -2767,11 +2767,17 @@ export class BillingService {
     });
   }
   /**
-   * Read the current cohort of every product: name, sales stage, start date and next event
+   * Read current Product cohorts, optionally scoped to one Product
    * @returns any
    * @throws ApiError
    */
-  public billingProductCohorts(): CancelablePromise<({
+  public billingProductCohorts({
+    cursor,
+    productId,
+  }: {
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<({
     items: Array<{
       name: string;
       nextEvent: string;
@@ -2791,10 +2797,15 @@ export class BillingService {
       stage: 'announcement' | 'preorder' | 'running' | 'between';
       startsOn: string | null;
     }>;
+    nextCursor: string | null;
   })> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/billing/cohorts',
+      query: {
+        'cursor': cursor,
+        'productId': productId,
+      },
     });
   }
   /**
