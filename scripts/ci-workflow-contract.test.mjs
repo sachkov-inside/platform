@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
+import { ciJobNames } from "./ci-coverage-plan.mjs";
 import { readPackageManifest } from "./package-manifest.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -433,6 +434,39 @@ describe("application CI workflow contract", () => {
     assert.match(
       jobBlock("fullstack"),
       /if: \$\{\{ always\(\) \}\}\n {8}run: docker compose down --volumes --remove-orphans/u,
+    );
+  });
+
+  it("isolates source evidence by attempt and keeps provider identities synchronized", () => {
+    assert.match(
+      jobBlock("ci-gate"),
+      /name: ci-source-evidence-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    for (const [id, name] of Object.entries(ciJobNames)) {
+      assert.match(
+        jobBlock(id),
+        new RegExp(`^ {4}name: ${escapeRegExp(name)}$`, "mu"),
+      );
+    }
+    const recovery = readFileSync(
+      resolve(repositoryRoot, ".github/workflows/ci-gate-recovery.yml"),
+      "utf8",
+    );
+    const names =
+      recovery.split("const requiredNames = [")[1]?.split("];")[0] ?? "";
+    const recoveryNames = [...names.matchAll(/'([^']+)'/gu)]
+      .map(([, name]) => name)
+      .sort();
+    assert.deepEqual(
+      recoveryNames,
+      Object.entries(ciJobNames)
+        .filter(([id]) => id !== "ci-gate")
+        .map(([, name]) => name)
+        .sort(),
+    );
+    assert.equal(
+      [...workflow.matchAll(/^ {4}name: /gmu)].length,
+      Object.keys(ciJobNames).length,
     );
   });
 

@@ -495,7 +495,7 @@ jobs:
       - name: Record trusted source coverage
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ci-source-evidence
+          name: ci-source-evidence-${{ github.run_attempt }}
           path: ci-source-evidence/source-evidence.json
           if-no-files-found: error
           retention-days: 7

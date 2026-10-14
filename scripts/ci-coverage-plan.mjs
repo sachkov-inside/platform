@@ -13,18 +13,38 @@ export const coverageIds = [
   "telegram",
   "fullstack",
 ];
-const platformFull = [
-  "contracts",
-  "static",
-  "unit",
-  "ui",
-  "web-e2e",
-  "integration",
-  "integration-serial",
-  "compose-development",
-  "compose-production",
-  "fullstack",
-];
+export const applicationCoverage = {
+  platform: [
+    "contracts",
+    "static",
+    "unit",
+    "ui",
+    "web-e2e",
+    "integration",
+    "integration-serial",
+    "compose-development",
+    "compose-production",
+    "fullstack",
+  ],
+  telegram: ["contracts", "static", "unit", "telegram"],
+};
+/** @type {Record<string, string>} */
+export const ciJobNames = {
+  plan: "Coverage plan (isolated reruns)",
+  docs: "Documentation contracts",
+  contracts: "Tooling contracts",
+  static: "Static checks (isolated reruns)",
+  unit: "Unit tests",
+  ui: "UI components",
+  "web-e2e": "Web E2E",
+  integration: "Integration",
+  "integration-serial": "Integration serial",
+  "compose-development": "Development Compose",
+  "compose-production": "Production Compose",
+  telegram: "Telegram full checks",
+  fullstack: "Full-stack smoke",
+  "ci-gate": "CI Gate",
+};
 /** @param {string} path */
 export function classifyPath(path) {
   // Runtime/legal Markdown and assets are deliberately checked before prose.
@@ -79,15 +99,14 @@ export function selectCoverage(paths, event) {
     if (["web", "backend", "shared", "unknown"].includes(category)) {
       const selected =
         event === "merge_group" || ["shared", "unknown"].includes(category)
-          ? platformFull
+          ? applicationCoverage.platform
           : category === "web"
             ? ["static", "unit", "ui", "web-e2e"]
             : ["static", "unit", "integration", "integration-serial"];
       for (const id of selected) required.add(id);
     }
     if (["telegram", "shared", "unknown"].includes(category)) {
-      for (const id of ["contracts", "static", "unit", "telegram"])
-        required.add(id);
+      for (const id of applicationCoverage.telegram) required.add(id);
     }
   }
   return {

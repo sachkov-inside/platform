@@ -15,7 +15,7 @@ merge queue with a successful `CI Gate`.
 
 ## Coverage selection
 
-`scripts/ci-coverage-plan.mjs` owns path categories and command IDs. The planner checks the complete
+`scripts/ci-coverage-plan.mjs` owns path categories, application coverage, command IDs and provider job names. CI, recovery contract checks and release evidence use that authority. The planner checks the complete
 Git diff with full history: PR merge-base to head, queue base to candidate. `--no-renames -z` includes
 both sides of a rename and does not truncate the file list. Missing source comparisons fail;
 an empty change set conservatively selects both applications. Agent labels never select coverage.
@@ -46,7 +46,7 @@ checks fail the gate. Documentation-only success claims no application test succ
 `workflow_call` accepts `source_sha` and optional `coverage_json`, a JSON array of missing check IDs.
 The planner verifies the checkout equals the captured 40-character source SHA. Absent coverage means all checks; an empty array means all release checks were already proved.
 Unknown or duplicate IDs fail. The gate records `ci-source-evidence/source-evidence.json` in
-`ci-source-evidence`: actual checkout SHA/tree, repository, run/attempt/event, selected successful
+`ci-source-evidence-<run_attempt>`: actual checkout SHA/tree, repository, run/attempt/event, selected successful
 coverage and explicit exclusions. Whole-tree identity is the conservative significant-input boundary;
 release evidence selection also verifies provider provenance. An artifact or green summary alone
 cannot establish trust or correspondence between different SHAs.
