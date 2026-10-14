@@ -38,6 +38,7 @@ describe("independent Account access", () => {
   let accounts: Accounts;
   let grants: AccessGrants;
   let owner: string;
+  const workloadFixtures = new Map<number, string[]>();
   let now = new Date(start);
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
@@ -57,6 +58,13 @@ describe("independent Account access", () => {
       accounts,
       clock: () => now,
     });
+    for (const size of [1, 100, 1000]) {
+      const ids = Array.from({ length: size }, () => randomUUID());
+      await db.prisma.account.createMany({
+        data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
+      });
+      workloadFixtures.set(size, ids);
+    }
   });
   afterAll(async () => db.dispose());
   async function member() {
@@ -259,10 +267,8 @@ describe("independent Account access", () => {
   test.each([1, 100, 1000])(
     "Account-set fact reads stay bounded for %i Accounts",
     async (size) => {
-      const ids = Array.from({ length: size }, () => randomUUID());
-      await db.prisma.account.createMany({
-        data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
-      });
+      const ids = workloadFixtures.get(size);
+      if (ids === undefined) throw new Error("Missing owned workload fixture");
       const measured = createQueryEventClient(db.url);
       try {
         const observed = assembleAccessGrants({
@@ -316,6 +322,127 @@ describe("independent Account access", () => {
       await measured.prisma.$disconnect();
     }
   });
+  test.each([
+    "overlapping",
+    "foreign",
+    "future",
+    "expired",
+    "revoked",
+    "active_bridge",
+    "expired_bridge",
+  ])(
+    "resource decisions preserve %s grounds and match complete owner facts",
+    async (scenario) => {
+      now = new Date(start);
+      const target = await member();
+      const materialId = randomUUID();
+      const otherMaterial = randomUUID();
+      const later = "2030-03-01T00:00:00.000Z";
+      if (scenario.endsWith("bridge")) {
+        await db.prisma.legacyClassification.create({
+          data: {
+            accountId: target,
+            classification: "confirmed_legacy",
+            sourceRef: randomUUID(),
+            reason: "Bridge fixture",
+            verifiedAt: now,
+            revision: 1,
+            bridgeEnabled: true,
+            bridgeCoverage: { productIds: [], materialIds: [materialId] },
+            bridgeBenefits: ["materials", "community"],
+          },
+        });
+        const principalRef = randomUUID();
+        await db.prisma.membershipBinding.create({
+          data: { accountId: target, principalRef, linkedAt: now },
+        });
+        await db.prisma.membershipProjection.create({
+          data: {
+            accountId: target,
+            principalRef,
+            decision: "member",
+            evidenceRef: randomUUID(),
+            evidenceVersion: 1n,
+            evidenceFingerprint: "a".repeat(64),
+            checkedAt: new Date("2029-12-31T00:00:00.000Z"),
+            validUntil: new Date(scenario === "active_bridge" ? end : start),
+            updatedAt: now,
+          },
+        });
+      } else {
+        const row = {
+          id: randomUUID(),
+          accountId: target,
+          source: "paid",
+          sourceRef: randomUUID(),
+          capabilities: ["materials"],
+          coverage: {
+            productIds: [],
+            materialIds: [scenario === "foreign" ? otherMaterial : materialId],
+          },
+          startsAt: new Date(start),
+          validUntil: new Date(scenario === "expired" ? start : end),
+          revokedAt: scenario === "revoked" ? now : null,
+          revision: 1,
+          reason: "Resource fixture",
+        };
+        await db.prisma.accessGrant.create({
+          data: {
+            ...row,
+            startsAt:
+              scenario === "expired"
+                ? new Date("2029-12-01T00:00:00.000Z")
+                : row.startsAt,
+          },
+        });
+        if (scenario === "overlapping" || scenario === "future")
+          await db.prisma.accessGrant.create({
+            data: {
+              ...row,
+              id: randomUUID(),
+              sourceRef: randomUUID(),
+              validUntil: new Date(later),
+              startsAt:
+                scenario === "future"
+                  ? new Date("2030-01-02T00:00:00.000Z")
+                  : now,
+            },
+          });
+      }
+      const expected =
+        scenario === "expired_bridge"
+          ? { kind: "stale" }
+          : scenario === "foreign"
+            ? { kind: "required" }
+            : scenario === "expired" || scenario === "revoked"
+              ? { kind: "expired" }
+              : {
+                  kind: "active",
+                  validUntil: scenario === "overlapping" ? later : end,
+                };
+      expect(
+        await membership().resolveForAccess(accountId(target), [], materialId),
+      ).toEqual(expected);
+      expect(
+        await membership().resolveManyForAccess(accountId(target), [
+          { productIds: [], materialId },
+        ]),
+      ).toEqual([expected]);
+      if (scenario.endsWith("bridge")) {
+        const set = await grants.resolveCapabilitiesForAccounts([target]);
+        const single = await grants.resolveCapabilities(target);
+        expect(set.ok && single.ok && set.accounts.get(target)).toEqual(
+          single.ok
+            ? {
+                capabilities: single.capabilities,
+                revision: single.revision,
+                nextBoundary: single.nextBoundary,
+              }
+            : null,
+        );
+      }
+    },
+  );
   test("projects an Account set with the same finite, absent and future rights", async () => {
     now = new Date(start);
     const active = await member();
