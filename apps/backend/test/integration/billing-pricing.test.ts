@@ -162,6 +162,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     const { optionId } = await catalog();
     const read = await quote(randomUUID(), optionId.toUpperCase());
     expect(read.snapshot.paymentOption.id).toBe(optionId);
+    expect(read.snapshot.communityPolicy).toBe("explicit");
     expect(read.snapshot.firstPriceKopecks).toBe(200_000);
   });
   test("owner authorization is current on replay; strict schema and optimistic revisions protect catalog", async () => {

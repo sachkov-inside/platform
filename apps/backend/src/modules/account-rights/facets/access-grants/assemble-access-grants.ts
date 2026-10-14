@@ -777,6 +777,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               accountId(targetAccountId),
               clock(),
               resource,
+              { includeRevision: true },
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
         });

@@ -1807,6 +1807,33 @@ describe.each([1, 100, 1000, 1001])(
       await isolated.prisma.account.createMany({
         data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
       });
+      if (size === 1) {
+        const groupProduct = randomUUID();
+        const foreignProduct = randomUUID();
+        await isolated.prisma.productCommunity.create({
+          data: {
+            productId: groupProduct,
+            groupRef: "primary",
+            updatedBy: owner,
+            updatedAt: fixed,
+          },
+        });
+        await isolated.prisma.accessGrant.createMany({
+          data: ids.map((id) => ({
+            id: randomUUID(),
+            accountId: id,
+            source: "paid",
+            sourceRef: randomUUID(),
+            capabilities: ["community"],
+            coverage: { productIds: [foreignProduct], materialIds: [] },
+            startsAt: fixed,
+            validUntil: null,
+            revision: 1,
+            reason:
+              "A foreign Product community right must not authorize the configured group",
+          })),
+        });
+      }
       await isolated.prisma.telegramCommunityOperation.createMany({
         data: ids.map((id) => ({
           operationId: randomUUID(),

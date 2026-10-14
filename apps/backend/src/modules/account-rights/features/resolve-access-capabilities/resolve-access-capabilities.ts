@@ -28,11 +28,13 @@ export async function resolveAccessCapabilities(
   accountId: AccountId,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
+  // Public capability callers use the revision to reject stale projection snapshots.
+  options: { readonly includeRevision: boolean } = { includeRevision: false },
 ): Promise<
   AccessCapabilities & { readonly membership: MembershipAccessState }
 > {
   return projectAccessCapabilities(
-    await readAccessCapabilityFacts(prisma, accountId, now, resource),
+    await readAccessCapabilityFacts(prisma, accountId, now, resource, options),
     now,
     resource,
   );
@@ -64,6 +66,7 @@ export async function readAccessCapabilityFacts(
   accountId: AccountId,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
+  options: { readonly includeRevision: boolean } = { includeRevision: false },
 ): Promise<CapabilityFacts> {
   const grants = await prisma.accessGrant.findMany({
     where: {
@@ -83,7 +86,7 @@ export async function readAccessCapabilityFacts(
       ? await prisma.membershipProjection.findUnique({ where: { accountId } })
       : null;
   const revision =
-    resource !== undefined
+    resource !== undefined && !options.includeRevision
       ? null
       : await prisma.accessChange.findFirst({
           where: { accountId },

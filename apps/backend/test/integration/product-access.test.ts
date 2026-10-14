@@ -165,6 +165,101 @@ describe("independent product, library, support and shared chat rights", () => {
     }
     return materialId(created.value.materialId);
   }
+  test("scoped Account sets preserve bridge Product exclusions and an independent active ground", async () => {
+    const target = randomUUID();
+    const principalRef = randomUUID();
+    const boundary = new Date("2030-04-01T00:00:00.000Z");
+    await db.prisma.account.create({
+      data: {
+        id: target,
+        logtoIssuer: "https://identity.test",
+        logtoSubject: target,
+      },
+    });
+    await db.prisma.legacyClassification.create({
+      data: {
+        accountId: target,
+        classification: "confirmed_legacy",
+        sourceRef: randomUUID(),
+        reason: "Bridge reconciliation fixture",
+        verifiedAt: now,
+        revision: 1,
+        bridgeEnabled: true,
+        bridgeBenefits: ["materials", "community"],
+        bridgeCoverage: { productIds: [productA, productB], materialIds: [] },
+      },
+    });
+    await db.prisma.membershipBinding.create({
+      data: { accountId: target, principalRef, linkedAt: now },
+    });
+    await db.prisma.membershipProjection.create({
+      data: {
+        accountId: target,
+        principalRef,
+        decision: "member",
+        evidenceRef: randomUUID(),
+        evidenceVersion: 1n,
+        evidenceFingerprint: "a".repeat(64),
+        checkedAt: now,
+        validUntil: boundary,
+        updatedAt: now,
+      },
+    });
+    await db.prisma.accessGrant.create({
+      data: {
+        id: randomUUID(),
+        accountId: target,
+        source: "paid",
+        sourceRef: randomUUID(),
+        capabilities: ["materials", "community"],
+        coverage: { productIds: [productB], materialIds: [] },
+        startsAt: now,
+        validUntil: null,
+        revision: 1,
+        reason: "Independent Product B fixture",
+      },
+    });
+    const preview = await grants.previewProductRevocation(owner, {
+      accountId: target,
+      productId: productA,
+    });
+    if (!preview.ok) throw new Error(preview.error.code);
+    expect(
+      await grants.revokeProductAccess(owner, {
+        operationId: randomUUID(),
+        accountId: target,
+        productId: productA,
+        expectedRevision: preview.value.revision,
+        reason: "Exclude Product A bridge",
+      }),
+    ).toMatchObject({ ok: true });
+    for (const [productId, expected] of [
+      [productA, []],
+      [
+        productB,
+        [
+          { capability: "community", validUntil: null },
+          { capability: "materials", validUntil: null },
+        ],
+      ],
+    ] as const) {
+      const resource = { productIds: [productId] };
+      const single = await grants.resolveCapabilities(target, resource);
+      const set = await grants.resolveCapabilitiesForAccounts(
+        [target.toUpperCase()],
+        resource,
+      );
+      const many = await grants.resolveCapabilitiesMany(target, [resource]);
+      expect(single.ok && single.capabilities).toEqual(expected);
+      expect(set.ok && set.accounts.get(target.toUpperCase())?.revision).toBe(
+        single.ok ? single.revision : null,
+      );
+      expect(
+        set.ok && set.accounts.get(target.toUpperCase())?.capabilities,
+      ).toEqual(expected);
+      expect(many.ok && many.values[0]?.capabilities).toEqual(expected);
+    }
+  });
   test.each([false, true])(
     "an operator revokes a whole Product across grants and preserves another Product (wholePlatform=%s)",
     async (wholePlatform) => {
