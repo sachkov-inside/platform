@@ -4,11 +4,9 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { isProductCapability } from "@/entities/subscription";
-import { useCurrentBilling } from "@/features/billing-subscription";
 import {
   ApplicationShell,
-  mobileNavigationItemsFor,
+  publicMobileNavigationItems,
   navigationItemsFor,
 } from "@/widgets/application-shell";
 import {
@@ -48,17 +46,7 @@ export function PublicApplicationFrame({
   onMobileNavigate,
   children,
 }: PublicApplicationFrameProps) {
-  const signedIn = authResolved && authState === "authenticated";
-  // «Курс» в навигации видит тот, кому открыт продукт: основания доступа читает браузер вошедшего.
-  const billing = useCurrentBilling({ enabled: signedIn });
-  const hasCourse =
-    signedIn &&
-    billing.data?.ok === true &&
-    billing.data.value.grounds.some(
-      (ground) =>
-        ground.active && ground.capabilities.some(isProductCapability),
-    );
-  const navigationItems = navigationItemsFor({ canManageMaterials, hasCourse });
+  const navigationItems = navigationItemsFor({ canManageMaterials });
   const presentation = useQuery({
     ...accountPresentationBrowserQueryOptions(),
     enabled: authResolved && authState === "authenticated",
@@ -80,13 +68,12 @@ export function PublicApplicationFrame({
         </div>
       }
       navigationItems={navigationItems}
-      mobileNavigationItems={mobileNavigationItemsFor({ hasCourse }).map(
-        (item) =>
-          item.href === "/"
-            ? { ...item, href: homeHref }
-            : item.href === "/account" && telegramPending
-              ? { ...item, badge: true }
-              : item,
+      mobileNavigationItems={publicMobileNavigationItems.map((item) =>
+        item.href === "/"
+          ? { ...item, href: homeHref }
+          : item.href === "/account" && telegramPending
+            ? { ...item, badge: true }
+            : item,
       )}
       {...(onMobileNavigate === undefined ? {} : { onMobileNavigate })}
     >

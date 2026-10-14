@@ -348,10 +348,7 @@ export const CourseParticipantContinuing: Story = {
   play: async ({ canvas }) => {
     await expect(
       canvas.getByRole("link", { name: "Продолжить обучение" }),
-    ).toHaveAttribute(
-      "href",
-      "/products/ai-engineering/programme",
-    );
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
   },
 };
 export const CourseParticipantContinuingMobile: Story = {
