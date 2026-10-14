@@ -147,7 +147,7 @@ export class ProductDirectory {
       return { ok: true, value: ids.filter((id) => visible.has(id)) };
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "readerVisibleProductIds" },
+        { module: "materials", operation: "readerVisibleIds" },
         error,
         { ok: false, error: { code: "dependency_unavailable" } } as const,
       );
