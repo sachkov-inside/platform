@@ -14,6 +14,7 @@ import { z } from "zod";
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
+import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -832,6 +833,11 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const ownHistory = await productTaskHistoryRoute(request, url, readBody);
+  if (ownHistory !== null) {
+    send(ownHistory.status, ownHistory.value);
+    return;
+  }
   const submissions = await taskSubmissionsRoute(request, url, readBody);
   if (submissions !== null) {
     send(submissions.status, submissions.value);

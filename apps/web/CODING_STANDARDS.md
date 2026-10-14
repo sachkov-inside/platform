@@ -143,6 +143,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   outcome instead of an exhausted page.
 - When initial data must be server-rendered and continue in the browser, use one complete path:
   request-isolated `QueryClient`, prefetch, dehydration, and `HydrationBoundary`.
+- A server-rendered private history keeps its bounded-page cursor in the address and preserves
+  that address for retries. Paging history does not replace the independent current/latest fact.
+  A filter-choice continuation stays independent from the row cursor and preserves the selection.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache
   policy; HTTP cache policy belongs to the BFF/backend boundary.
 - A browser-owned fact shown by several surfaces is reset on every open surface at the moment a

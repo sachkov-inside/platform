@@ -166,6 +166,7 @@ export const authorSubmissionsHttpSchema = z
         .strict(),
     ),
     nextCursor: z.string().nullable(),
+    nextProductCursor: submissionsCursorSchema.nullable(),
   })
   .strict();
 
@@ -208,6 +209,11 @@ export class ListAuthorSubmissionsController {
     name: "taskCode",
     required: false,
     schema: toOpenApiSchema(query.taskCode),
+  })
+  @ApiQuery({
+    name: "productCursor",
+    required: false,
+    schema: toOpenApiSchema(submissionsCursorSchema),
   })
   @ApiQuery({
     name: "cursor",
@@ -360,6 +366,7 @@ export class ListAuthorSubmissionsController {
         },
       })),
       nextCursor: value.nextCursor,
+      nextProductCursor: value.nextProductCursor,
     };
   }
 }
