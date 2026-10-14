@@ -40,11 +40,36 @@ const definition = {
 
 describe("published learning practice", () => {
   let database: TestDatabase;
+  const costCorpora: {
+    count: number;
+    materialId: string;
+    materialSlug: string;
+  }[] = [];
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     await database.prisma.topic.create({
       data: { id: topicId, slug: "practice", name: "Practice" },
     });
+    // Each cost case owns a distinct Material; the global hook budget bounds all authoring setup.
+    for (const count of [1, 10, 100]) {
+      const { materials, command } = await fixture();
+      for (let index = 0; index < count; index++) {
+        const imported = await materials.authoring.applySourcePractice({
+          ...command,
+          practiceId: `${command.practiceId}-${String(index).padStart(3, "0")}`,
+          idempotencyKey: randomUUID(),
+        });
+        if (!imported.ok) throw new Error(imported.error.code);
+      }
+      const material = await database.prisma.material.findUniqueOrThrow({
+        where: { id: command.materialId },
+      });
+      costCorpora.push({
+        count,
+        materialId: command.materialId,
+        materialSlug: material.slug ?? "",
+      });
+    }
   });
   afterAll(async () => database.dispose());
 
@@ -111,27 +136,14 @@ describe("published learning practice", () => {
     return { materials, command, source };
   }
 
-  test("listing 1, 10 and 100 Practices reads owner snapshots as sets and authorizes the Material once", async () => {
-    const measured = createQueryEventClient(database.url);
-    const observations: {
-      count: number;
-      sql: number;
-      authorizeCalls: number;
-    }[] = [];
-    try {
-      for (const count of [1, 10, 100]) {
-        const { materials, command } = await fixture();
-        for (let index = 0; index < count; index++) {
-          const imported = await materials.authoring.applySourcePractice({
-            ...command,
-            practiceId: `${command.practiceId}-${String(index).padStart(3, "0")}`,
-            idempotencyKey: randomUUID(),
-          });
-          if (!imported.ok) throw new Error(imported.error.code);
-        }
-        const material = await database.prisma.material.findUniqueOrThrow({
-          where: { id: command.materialId },
-        });
+  test.each([1, 10, 100])(
+    "listing %i Practices reads owner snapshots as sets and authorizes the Material once",
+    async (count) => {
+      const corpus = costCorpora.find((fixture) => fixture.count === count);
+      if (corpus === undefined)
+        throw new Error("Practice cost corpus was not prepared");
+      const measured = createQueryEventClient(database.url);
+      try {
         const owners = assembleMaterials({
           prisma: measured.prisma,
           authorPolicy: { canManage: () => false },
@@ -148,31 +160,25 @@ describe("published learning practice", () => {
           },
         });
         const result = await measured.measure(() =>
-          list({ subject: learner, materialSlug: material.slug ?? "" }),
+          list({ subject: learner, materialSlug: corpus.materialSlug }),
         );
         if (!result.result.ok) throw new Error(result.result.error.code);
         expect(result.result.value).toHaveLength(count);
-        observations.push({
-          count,
-          sql: result.statements.length,
-          authorizeCalls,
-        });
+        expect(
+          result.result.value.every(
+            ({ materialId }) => materialId === corpus.materialId,
+          ),
+        ).toBe(true);
+        process.stdout.write(
+          `N3 PostgreSQL seed excluded ${JSON.stringify({ count, sql: result.statements.length, authorizeCalls })}\n`,
+        );
+        expect(authorizeCalls).toBe(1);
+        expect(result.statements).toHaveLength(5);
+      } finally {
+        await measured.prisma.$disconnect();
       }
-      process.stdout.write(
-        `N3 PostgreSQL seed excluded ${JSON.stringify(observations)}\n`,
-      );
-      expect(observations.map(({ authorizeCalls }) => authorizeCalls)).toEqual([
-        1, 1, 1,
-      ]);
-      expect(observations.map(({ sql }) => sql)).toEqual([
-        observations[0]?.sql,
-        observations[0]?.sql,
-        observations[0]?.sql,
-      ]);
-    } finally {
-      await measured.prisma.$disconnect();
-    }
-  });
+    },
+  );
 
   test.each([
     "withdraw-practice",
