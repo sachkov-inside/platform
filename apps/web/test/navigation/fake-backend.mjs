@@ -436,6 +436,40 @@ function route(method, url, entitled) {
       totalCount: lessonsOf(products[0]).length,
     });
   }
+  if (path === "/library/products/sale-availability") {
+    const parsed = z
+      .array(z.uuid().toLowerCase())
+      .min(1)
+      .max(100)
+      .safeParse(url.searchParams.getAll("productId"));
+    if (!parsed.success) return json({ code: "invalid_request" }, 400);
+    return json({
+      items: [...new Set(parsed.data)].map((id) => {
+        const product = [...products, performanceProduct].find(
+          (candidate) => candidate.id === id,
+        );
+        if (
+          product === undefined ||
+          (product.slug === archivedProductSlug && !entitled)
+        )
+          return { productId: id, sold: false };
+        // The thin fixture uses the same offered-price admission as the existing full sale.
+        const offersUrl = new URL("/billing/offers", url);
+        offersUrl.searchParams.set("capability", "product:" + id);
+        const offers = route("GET", offersUrl, entitled);
+        if (
+          offers === undefined ||
+          offers.contentType !== undefined ||
+          offers.status !== 200
+        )
+          throw new Error("Invalid shared navigation offer fixture");
+        const offered = z
+          .object({ items: z.array(z.unknown()) })
+          .parse(offers.value);
+        return { productId: id, sold: offered.items.length > 0 };
+      }),
+    });
+  }
   const discovery = /^\/library\/(products|series|topics)\/([^/]+)$/u.exec(
     path,
   );
@@ -654,40 +688,6 @@ function route(method, url, entitled) {
     return json({ subscription: null, notices: [], grounds: [], payments: [] });
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
-  if (path === "/library/products/sale-availability") {
-    const parsed = z
-      .array(z.uuid().toLowerCase())
-      .min(1)
-      .max(100)
-      .safeParse(url.searchParams.getAll("productId"));
-    if (!parsed.success) return json({ code: "invalid_request" }, 400);
-    return json({
-      items: [...new Set(parsed.data)].map((id) => {
-        const product = [...products, performanceProduct].find(
-          (candidate) => candidate.id === id,
-        );
-        if (
-          product === undefined ||
-          (product.slug === archivedProductSlug && !entitled)
-        )
-          return { productId: id, sold: false };
-        // The thin fixture uses the same offered-price admission as the existing full sale.
-        const offersUrl = new URL("/billing/offers", url);
-        offersUrl.searchParams.set("capability", "product:" + id);
-        const offers = route("GET", offersUrl, entitled);
-        if (
-          offers === undefined ||
-          offers.contentType !== undefined ||
-          offers.status !== 200
-        )
-          throw new Error("Invalid shared navigation offer fixture");
-        const offered = z
-          .object({ items: z.array(z.unknown()) })
-          .parse(offers.value);
-        return { productId: id, sold: offered.items.length > 0 };
-      }),
-    });
-  }
   if (path === "/billing/offers") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {
