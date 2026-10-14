@@ -8,10 +8,11 @@ import {
   type ApplicationConfig,
 } from "../../config/application-config.js";
 import { DATABASE, type Database } from "../../database/database.js";
-import { findPlatformLink } from "./platform-links.js";
+import { findPlatformContactLinks } from "./platform-links.js";
 import {
   TELEGRAM_CONTACT_PROFILE,
   type TelegramContactProfile,
+  type ContactProfileResult,
 } from "./telegram-contact-profile.js";
 
 @Injectable()
@@ -26,43 +27,52 @@ export class TelegramContacts {
     queries: readonly TelegramContactQuery[],
   ): Promise<readonly TelegramContact[]> {
     const signal = AbortSignal.timeout(3_500);
-    const contacts: TelegramContact[] = [];
+    const links = await findPlatformContactLinks(
+      this.database,
+      this.config.botIdentity,
+      queries,
+    );
+    const profiles: (ContactProfileResult | undefined)[] = [];
     // Limit concurrent Telegram requests; the whole batch shares the upstream request budget.
     for (let index = 0; index < queries.length; index += 4) {
-      contacts.push(
+      profiles.push(
         ...(await Promise.all(
-          queries
+          links
             .slice(index, index + 4)
-            .map((query) => this.readContact(query, signal)),
+            .map((link) =>
+              link === undefined || signal.aborted
+                ? Promise.resolve(undefined)
+                : this.profile.read(link.telegramUserId, signal),
+            ),
         )),
       );
     }
-    return contacts;
-  }
-  private async readContact(
-    query: TelegramContactQuery,
-    signal: AbortSignal,
-  ): Promise<TelegramContact> {
-    const empty = { ...query, displayName: null, username: null };
-    const match = { ...query, botIdentity: this.config.botIdentity };
-    const link = await findPlatformLink(this.database, match);
-    if (link === undefined) return { ...empty, status: "not_found" };
-    if (signal.aborted) return { ...empty, status: "unavailable" };
-    const profile = await this.profile.read(link.telegramUserId, signal);
-    const current = await findPlatformLink(this.database, match);
-    if (
-      current === undefined ||
-      current.telegramUserId !== link.telegramUserId ||
-      current.linkTransactionRef !== link.linkTransactionRef
-    )
-      return { ...empty, status: "not_found" };
-    return profile.kind === "available"
-      ? {
-          ...query,
-          status: "available",
-          displayName: profile.displayName,
-          username: profile.username,
-        }
-      : { ...empty, status: "unavailable" };
+    // Revalidate after all provider reads, so a transfer/unlink never exposes an old profile.
+    const current = await findPlatformContactLinks(
+      this.database,
+      this.config.botIdentity,
+      queries,
+    );
+    return queries.map((query, index) => {
+      const empty = { ...query, displayName: null, username: null };
+      const link = links[index];
+      const binding = current[index];
+      if (
+        link === undefined ||
+        binding === undefined ||
+        binding.telegramUserId !== link.telegramUserId ||
+        binding.linkTransactionRef !== link.linkTransactionRef
+      )
+        return { ...empty, status: "not_found" };
+      const profile = profiles[index];
+      return profile?.kind === "available"
+        ? {
+            ...query,
+            status: "available",
+            displayName: profile.displayName,
+            username: profile.username,
+          }
+        : { ...empty, status: "unavailable" };
+    });
   }
 }
