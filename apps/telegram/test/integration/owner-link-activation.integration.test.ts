@@ -6,7 +6,15 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
@@ -89,6 +97,7 @@ const begins: string[] = [];
 const proofs: ActivationEvidence[] = [];
 const memberLookups: string[] = [];
 const grants = new Map<string, number>();
+const attemptResults = new Map<string, ActivationResult<ActivationResponse>>();
 const platform: ActivationPlatform = {
   redeem: () => Promise.resolve(undefined),
   binding(identityRef) {
@@ -113,6 +122,8 @@ const platform: ActivationPlatform = {
       return Promise.resolve({ ok: false, error: { code: "not_found" } });
     if (paused.has(code))
       return Promise.resolve({ ok: false, error: { code: "policy_paused" } });
+    const prior = attemptResults.get(input.attemptId);
+    if (prior) return Promise.resolve(structuredClone(prior));
     return Promise.resolve({
       ok: true,
       value: {
@@ -126,6 +137,9 @@ const platform: ActivationPlatform = {
   },
   evidence(input) {
     proofs.push(structuredClone(input));
+    // Platform returns the saved result for an already completed attempt.
+    const replay = attemptResults.get(input.attemptId);
+    if (replay) return Promise.resolve(structuredClone(replay));
     const confirmed = input.decision === "member";
     const key = `${input.sourceRef}:${input.identityRef}`;
     const prior = grants.get(key) ?? 0;
@@ -156,6 +170,7 @@ const platform: ActivationPlatform = {
           : null,
       },
     };
+    attemptResults.set(input.attemptId, structuredClone(result));
     return Promise.resolve(result);
   },
   own() {
@@ -268,6 +283,13 @@ async function linkedPerson() {
 }
 async function drain() {
   for (let round = 0; round < 3; round++) await worker.processAvailable();
+}
+function deferred() {
+  let signal: (() => void) | undefined;
+  const promise = new Promise<void>((resolve) => {
+    signal = resolve;
+  });
+  return { promise, resolve: () => required(signal)() };
 }
 function activationMessages(user: number) {
   return db
@@ -504,6 +526,78 @@ describe("the owner's button in the course group", () => {
       { code: "course", state: "completed" },
     ]);
     expect(await openReviews(person.user)).toEqual([]);
+    expect(await activationMessages(person.user)).toHaveLength(2);
+    await app.inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
+      payload: privateStartUpdate(updateId, person.user, { text: start }),
+    });
+    await app.get(TelegramUpdateProcessor).processAvailable();
+    await drain();
+    expect(await activationMessages(person.user)).toHaveLength(2);
+    expect(grants.get(`course:${person.identityRef}`)).toBe(1);
+  });
+
+  it("answers the latest request when another worker already holds the activation lease", async () => {
+    const person = await linkedPerson();
+    members.add(`${courseChatId}:${person.user}`);
+    const start = await pressButton("course");
+    unavailable.add("course");
+    await send(person.user, start);
+    unavailable.delete("course");
+    clock.value = new Date(clock.now().getTime() + 61_000);
+    const entered = deferred();
+    const release = deferred();
+    const begin = platform.begin.bind(platform);
+    const spy = vi
+      .spyOn(platform, "begin")
+      .mockImplementationOnce(async (input) => {
+        entered.resolve();
+        await release.promise;
+        return begin(input);
+      });
+    const first = worker.processAvailable(1, {
+      telegramUserId: String(person.user),
+      code: "course",
+    });
+    try {
+      await entered.promise;
+      const leased = required(
+        await db
+          .selectFrom("activation_attempts")
+          .select(["lease_token", "attempts"])
+          .where("bot_identity", "=", bot)
+          .where("telegram_user_id", "=", String(person.user))
+          .executeTakeFirst(),
+      );
+      await send(person.user, start);
+      const latestUpdate = String(updateId);
+      expect(
+        await db
+          .selectFrom("activation_attempts")
+          .select(["lease_token", "attempts"])
+          .where("bot_identity", "=", bot)
+          .where("telegram_user_id", "=", String(person.user))
+          .executeTakeFirst(),
+      ).toEqual(leased);
+      expect(await activationMessages(person.user)).toEqual([]);
+      release.resolve();
+      await first;
+      const replies = await db
+        .selectFrom("start_response_deliveries")
+        .select("trigger_update_id")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(person.user))
+        .where("source_key", "like", "activation:%")
+        .execute();
+      expect(replies).toEqual([{ trigger_update_id: latestUpdate }]);
+      expect(grants.get(`course:${person.identityRef}`)).toBe(1);
+    } finally {
+      release.resolve();
+      await first;
+      spy.mockRestore();
+    }
   });
 
   it("answers a non-member and queues one owner review however often they press", async () => {

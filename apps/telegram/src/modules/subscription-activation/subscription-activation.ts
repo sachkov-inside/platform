@@ -188,7 +188,8 @@ export class SubscriptionActivation {
         if (onlyCode !== undefined) query = query.where("code", "=", onlyCode);
         const rows = await query.forUpdate().execute();
         const now = this.clock.now();
-        for (const row of rows) await reschedule(tx, row, now);
+        for (const row of rows)
+          await reschedule(tx, row, now, contact.updateId);
       });
       await this.processAvailable(10, {
         telegramUserId: contact.telegramUserId,
@@ -555,7 +556,7 @@ export class SubscriptionActivation {
         })
         .where("attempt_id", "=", attempt.attempt_id)
         .where("lease_token", "=", attempt.lease_token)
-        .returning(["attempt_id", "evidence"])
+        .returning(["attempt_id", "evidence", "trigger_update_id"])
         .executeTakeFirst();
       if (!stored) return;
       if (confirmed)
@@ -585,7 +586,10 @@ export class SubscriptionActivation {
       await this.replies.enqueue(
         {
           ...this.delivery(
-            this.contact(attempt),
+            this.contact({
+              ...attempt,
+              trigger_update_id: stored.trigger_update_id,
+            }),
             review && !asksToWriteAuthor(result)
               ? `${activationMessage(result)}\n\n${OWNER_REVIEW}`
               : activationMessage(result),
@@ -596,6 +600,7 @@ export class SubscriptionActivation {
                 attempt.identity_ref,
                 attempt.code,
                 attempt.created_at.toISOString(),
+                stored.trigger_update_id,
               ]),
             )
             .digest(
@@ -802,8 +807,17 @@ async function reschedule(
   tx: Transaction<DatabaseSchema>,
   row: Attempt,
   now: Date,
+  updateId: string,
 ): Promise<void> {
-  if (row.lease_until !== null && row.lease_until > now) return;
+  // A running worker answers the latest request without losing its lease or evidence.
+  if (row.lease_until !== null && row.lease_until > now) {
+    await tx
+      .updateTable("activation_attempts")
+      .set({ trigger_update_id: updateId })
+      .where("attempt_id", "=", row.attempt_id)
+      .execute();
+    return;
+  }
   const fresh =
     row.result !== null &&
     ["rejected", "pending_review", "retry"].includes(row.state);
@@ -813,6 +827,7 @@ async function reschedule(
       state: "pending",
       expires_at: new Date(now.getTime() + RETENTION),
       due_at: now,
+      trigger_update_id: updateId,
       ...(fresh
         ? { attempt_id: randomUUID(), evidence: null, result: null }
         : {}),
