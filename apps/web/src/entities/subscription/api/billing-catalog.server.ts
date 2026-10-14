@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 
 import {
   requestBillingOffers,
@@ -111,7 +112,7 @@ export async function loadProductCohorts(): Promise<
 }
 
 /** Поток одного продукта. Продукт без потока — обычное состояние: страница зовёт в программу. */
-export async function loadProductCohort(
+export const loadProductCohort = cache(async function loadProductCohort(
   productId: string,
 ): Promise<
   | { readonly kind: "ready"; readonly cohort: ProductCohort | null }
@@ -132,4 +133,4 @@ export async function loadProductCohort(
   } catch {
     return { kind: "unavailable" };
   }
-}
+});

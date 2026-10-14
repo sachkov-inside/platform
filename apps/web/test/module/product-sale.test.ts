@@ -37,7 +37,7 @@ beforeEach(() => {
   boundary.offers.mockResolvedValue(
     ok({ items: [productWithSupportOffer], nextCursor: null }),
   );
-  boundary.cohorts.mockResolvedValue(ok({ items: [] }));
+  boundary.cohorts.mockResolvedValue(ok({ items: [], nextCursor: null }));
   boundary.access.mockResolvedValue(ok({ access: "open" }));
   boundary.session.mockRejectedValue(new Error("Session must not be read"));
 });
@@ -174,7 +174,9 @@ it.each(["announcement", "preorder", "running", "between"] as const)(
       startsOn: null,
       nextEvent: "Next lesson",
     };
-    boundary.cohorts.mockResolvedValue(ok({ items: [cohort] }));
+    boundary.cohorts.mockResolvedValue(
+      ok({ items: [cohort], nextCursor: null }),
+    );
     expect(await readGuestProductSale(productId)).toMatchObject({
       kind: "ready",
       cohort,

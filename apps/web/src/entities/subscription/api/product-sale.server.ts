@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { z } from "zod";
 import { requestProductAccess } from "@/shared/api/backend/index.server";
 import { loadProductCohort, loadProductOffers } from "./billing-catalog.server";
@@ -35,7 +36,8 @@ export function readViewerProductSale(
   return readProductSale(productId, accessToken);
 }
 
-async function readProductSale(
+// One RSC request owns each Product/token projection; prices never enter a shared cache.
+const readProductSale = cache(async function readProductSale(
   productId: string,
   accessToken?: string,
 ): Promise<ProductSale> {
@@ -63,9 +65,9 @@ async function readProductSale(
     signedIn: accessToken !== undefined,
     terms: offers[0] === undefined ? null : oneTimeOfferTerms(offers[0]),
   };
-}
+});
 /** Доступ участника не зависит от того, открыта ли сейчас продажа продукта. */
-export async function readProductAccess(
+export const readProductAccess = cache(async function readProductAccess(
   productId: string,
   accessToken: string,
 ): Promise<"open" | "closed" | "unknown"> {
@@ -77,4 +79,4 @@ export async function readProductAccess(
   } catch {
     return "unknown";
   }
-}
+});

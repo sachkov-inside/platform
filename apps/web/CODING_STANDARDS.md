@@ -82,10 +82,13 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   one. Every such page has `LoadsInPlace` stories for 1440 and 390 that compare the geometry of
   the skeleton, the shared part and the ready page; `src/storybook/loads-in-place.ts` owns their
   shared helpers.
-- Review cached reads for closed Material bodies, per-viewer availability, progress, guide mode
+- Review shared or persistent cached reads for closed Material bodies, per-viewer availability, progress, guide mode
   and offers: they never enter the cache or link prefetch. Only guest offer month counts for
   description placeholders may be cached (ADR 0027), never prices. The cache guardrail rejects
   direct session access; a renamed token or session reached through an intermediary needs review.
+- Request-local `React.cache` may consolidate identical RSC reads within one render request. Pass
+  Product/resource identity and the explicit viewer token as keys; each new request rechecks rights,
+  eligibility and prices. Do not promote that result into shared or persistent caches.
 - A cached read returns a dependency failure as a value, and its entry expires at once: it stays
   out of the cache, of prefetch and of the shell that the image build prerenders without a backend.
 - A page or layout that reads the session on the server before it renders is not split into
