@@ -1,6 +1,6 @@
 import "server-only";
 
-import { readGuestProductSale } from "@/entities/subscription.sale.server";
+import { readGuestProductOfferTerms } from "@/entities/subscription.sale.server";
 import type { OneTimeOfferTerms } from "@/entities/subscription.terms";
 import { applyCatalogCachePolicy } from "@/shared/api/catalog-cache.server";
 
@@ -25,8 +25,5 @@ export async function readPublicProductOfferTerms(
 async function readGuestOfferTerms(
   productId: string,
 ): Promise<PublicProductOfferTerms> {
-  const sale = await readGuestProductSale(productId);
-  return sale.kind === "unavailable"
-    ? sale
-    : { kind: "ready", terms: sale.terms };
+  return readGuestProductOfferTerms(productId);
 }
