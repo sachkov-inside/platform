@@ -663,14 +663,12 @@ MCP `content_collection_update` принимают необязательный 
 показывает только написанные поля, поэтому частично заполненное руководство не выглядит
 завершённым.
 
-Раздел артефактов страница читает отдельным `GET /products/:productId/artifacts`, который уже отдаёт
-`availability` по общему `ContentAccess`. Закрытый артефакт сохраняет название, назначение, версию
-и дату обновления, но не байты и не внешний адрес. Недоступность этого раздела не ломает страницу:
-маршрут и введение остаются, а читателю сказано, что раздел сейчас не открывается. Так же ведёт себя
-и рассогласование, когда каталог руководство нашёл, а раздел артефактов отвечает `404`: страница
-остаётся целой, потому что читателю нечего выиграть от потери всей страницы из-за одного раздела. Файл выдаётся
-через same-origin `/api/products/:productId/artifacts/:artifactId/file`; решение о доступе, protected
-redirect и cache policy остаются за backend.
+Owner correction 2026-10-14: the learner programme no longer displays an artifacts section.
+Artifact data, authoring and file access remain available through their existing contracts.
+`GET /products/:productId/artifacts` reports `availability` through `ContentAccess`.
+Locked artifacts retain metadata without bytes or external addresses. The same-origin
+`/api/products/:productId/artifacts/:artifactId/file` route retains backend access, protected
+redirect and cache policy. Removing learner navigation does not delete these files or contracts.
 
 Шапка программы содержит обложку 3:2, название, приглашение к оплате и прогресс вошедшего
 читателя. Приглашение стоит в одном ряду с названием, а на узком экране — отдельной строкой во
@@ -683,10 +681,11 @@ platform#808). Результаты обучения и сложность чи�
 изученного и действие «Продолжить» относятся к конкретному уроку. Количества и доступ
 берутся из текущих Materials, а не из демонстрационного набора оформления.
 
-Части состава — «Программа», «Дополнительные материалы» и «Артефакты» — следуют решению владельца
-10.09.2026 о переключаемых частях. В принятом виде программы, восстановленном 15.09.2026, все три вкладки видны постоянно;
-пустая часть показывает короткое объяснение. Артефакты не входят в маршрут, поэтому их часть не нумеруется и
-не постранична. Условия доступа и цены на странице не показываются: они приходят из #401/#411.
+Owner correction 2026-10-14 supersedes the former three-part programme layout. The learner
+programme has two parts: «Программа» and «Материалы». Empty parts retain their explanations.
+The mobile bar uses compact inactive icons; its active item expands and shows its label.
+Artifact navigation and its learner panel are removed. Stored artifacts, the editor and
+landing-page promises retain their current owners. Prices and access contracts remain with #401/#411.
 
 ### Режимы прохождения и факты урока
 

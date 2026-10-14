@@ -160,11 +160,7 @@
   }
 }
 
-/*
- * Нижняя панель продукта в духе Instagram (решение владельца 09.10.2026): компактная, по центру,
- * пункты поровну, только значки; подложка выбранного раздела плавно переезжает. Раздел
- * меняется без перехода между страницами, поэтому панель не перерисовывается и не мигает.
- */
+/* Floating programme navigation: the active item expands with its label; the other stays compact. */
 .product-bottom-bar {
   position: fixed;
   bottom: max(1rem, env(safe-area-inset-bottom));
@@ -199,7 +195,7 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    flex-grow 240ms var(--motion-ease-out),
+    flex-grow var(--motion-duration-shell) var(--motion-ease-out),
     background-color 200ms ease,
     color 200ms ease;
   -webkit-tap-highlight-color: transparent;
@@ -226,9 +222,9 @@
   font-size: 0.8125rem;
   font-weight: 500;
   transition:
-    max-width 240ms var(--motion-ease-out),
+    max-width var(--motion-duration-shell) var(--motion-ease-out),
     opacity 200ms ease,
-    margin 240ms var(--motion-ease-out);
+    margin var(--motion-duration-shell) var(--motion-ease-out);
 }
 .product-bottom-bar-item[data-current="true"] .product-bottom-bar-label {
   max-width: 8rem;

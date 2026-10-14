@@ -396,7 +396,7 @@ export const Chapters: Story = {
       name: "Разделы продукта",
     });
     await expect(sections).toBeVisible();
-    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
+    await expect(within(sections).getAllByRole("button")).toHaveLength(2);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -758,7 +758,7 @@ export const OnlyPlannedChapters: Story = {
       name: "Разделы продукта",
     });
     await expect(sections).toBeVisible();
-    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
+    await expect(within(sections).getAllByRole("button")).toHaveLength(2);
   },
 };
 
