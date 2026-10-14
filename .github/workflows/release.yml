@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      missing_coverage: ${{ steps.evidence.outputs.missing_coverage }}
       image_matrix: ${{ steps.plan.outputs.image_matrix }}
       manifest_asset_name: ${{ steps.plan.outputs.manifest_asset_name }}
       previous_version: ${{ steps.plan.outputs.previous_version }}
@@ -26,6 +27,7 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Check out captured source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -41,7 +43,7 @@ jobs:
           cache: pnpm
       - name: Install release contract dependencies
         run: pnpm install --frozen-lockfile --filter . --prod
-      - name: Require immutable ordinal history and current main
+      - name: Require immutable ordinal history and captured main
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,6 +59,23 @@ jobs:
           echo "source_sha=$(jq --raw-output .sourceSha release-plan.json)" >>"$GITHUB_OUTPUT"
           echo "version=$(jq --raw-output .version release-plan.json)" >>"$GITHUB_OUTPUT"
 
+      - name: Select trusted source evidence and missing coverage
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          RELEASE_APPLICATION: platform
+        run: |
+          bash scripts/collect-release-source-evidence.sh >release-source-receipt.json
+          echo "missing_coverage=$(jq --compact-output .missingCoverage release-source-receipt.json)" >>"$GITHUB_OUTPUT"
+      - name: Retain selected source and evidence receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-source-receipt
+          path: release-source-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
   ci:
     needs: plan
     permissions:
@@ -64,6 +83,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       source_sha: ${{ needs.plan.outputs.source_sha }}
+      coverage_json: ${{ needs.plan.outputs.missing_coverage }}
 
   build-images:
     needs:
@@ -174,6 +194,25 @@ jobs:
           pattern: release-image-*
           path: release-assets
           merge-multiple: true
+      - name: Download selected source receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-source-receipt
+          path: source-receipt
+      - name: Validate complete reused and executed coverage
+        env:
+          RELEASE_APPLICATION: platform
+          CI_RESULT: ${{ needs.ci.result }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+        run: |
+          node scripts/release-source-evidence.mjs source-receipt/release-source-receipt.json complete >release-source-complete.json
+      - name: Retain complete source coverage outcome
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-source-complete
+          path: release-source-complete.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Recheck release state
         env:
           GH_TOKEN: ${{ github.token }}

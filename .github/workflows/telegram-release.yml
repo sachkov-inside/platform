@@ -20,7 +20,9 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      actions: read
     outputs:
+      missing_coverage: ${{ steps.evidence.outputs.missing_coverage }}
       source_sha: ${{ steps.plan.outputs.source_sha }}
       version: ${{ steps.plan.outputs.version }}
       tag: ${{ steps.plan.outputs.tag }}
@@ -32,7 +34,7 @@ jobs:
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
-      - name: Require the next ordinal on the current main
+      - name: Require the next ordinal on captured main
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,6 +53,23 @@ jobs:
           echo "source_sha=$source_sha" >>"$GITHUB_OUTPUT"
           echo "version=$version" >>"$GITHUB_OUTPUT"
 
+      - name: Select trusted source evidence and missing coverage
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.plan.outputs.source_sha }}
+          RELEASE_APPLICATION: telegram
+        run: |
+          bash scripts/collect-release-source-evidence.sh >release-source-receipt.json
+          echo "missing_coverage=$(jq --compact-output .missingCoverage release-source-receipt.json)" >>"$GITHUB_OUTPUT"
+      - name: Retain selected source and evidence receipt
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-source-receipt
+          path: release-source-receipt.json
+          if-no-files-found: error
+          retention-days: 90
+
   ci:
     needs: plan
     permissions:
@@ -58,6 +77,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     with:
       source_sha: ${{ needs.plan.outputs.source_sha }}
+      coverage_json: ${{ needs.plan.outputs.missing_coverage }}
 
   image:
     needs: [plan, ci]
@@ -119,6 +139,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Check out captured source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -127,6 +148,25 @@ jobs:
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
+      - name: Download selected source receipt
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-source-receipt
+          path: source-receipt
+      - name: Validate complete reused and executed coverage
+        env:
+          RELEASE_APPLICATION: telegram
+          CI_RESULT: ${{ needs.ci.result }}
+          SOURCE_SHA: ${{ needs.plan.outputs.source_sha }}
+        run: |
+          node scripts/release-source-evidence.mjs source-receipt/release-source-receipt.json complete >release-source-complete.json
+      - name: Retain complete source coverage outcome
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-source-complete
+          path: release-source-complete.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Recheck release state
         env:
           GH_TOKEN: ${{ github.token }}
