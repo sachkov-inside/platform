@@ -86,6 +86,12 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     window.scrollTo(0, 700);
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+  // Шапка скрывается вниз; пользователь показывает её прокруткой вверх перед нажатием.
+  await expect
+    .poll(async () => (await header(page).boundingBox())?.y)
+    .toBeLessThan(0);
+  await page.evaluate(() => window.scrollTo(0, 680));
+  await expect.poll(async () => (await header(page).boundingBox())?.y).toBe(0);
   await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
@@ -98,7 +104,7 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     "aria-pressed",
     "true",
   );
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(680);
   // Лента не показывает второй экран загрузки: материалы приходят из памяти браузера.
   await expect(page.locator('section.home-feed[aria-busy="true"]')).toHaveCount(
     0,
