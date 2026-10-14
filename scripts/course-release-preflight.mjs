@@ -197,7 +197,7 @@ export function assessCourseRelease(value, now) {
         const actualJob = executedReceipt.data.execution.job;
         const applicableJobs =
           name === "ci"
-            ? ["CI Gate"]
+            ? [ciJobNames["ci-gate"]]
             : requiredCoverage.map((id) => ciJobNames[id]);
         sourceMatches =
           applicableJobs.includes(actualJob) &&
