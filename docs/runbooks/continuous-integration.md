@@ -24,11 +24,11 @@ Every PR push, including a draft, receives its affected plan.
 | Input category | Explicit paths | PR | Merge queue |
 |---|---|---|---|
 | Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
-| Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, `.github`; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
+| Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
 | Web | everything under `apps/web`, including runtime Markdown | `docs`, `static`, `unit`, `ui`, `web-e2e` | full Platform |
 | Backend | everything under `apps/backend`, including runtime Markdown | `docs`, `static`, `unit`, `integration`, `integration-serial` | full Platform |
 | Telegram | everything under `apps/telegram`, including runtime Markdown | `docs`, `contracts`, `static`, `unit`, `telegram` | same complete Telegram coverage |
-| Shared | `packages`, `docs/legal`, `docs/product`, `infra`, `tools` | both applications | both applications |
+| Shared | `packages`, `docs/legal`, `docs/product`, `docs/contracts`, `infra`, `tools`, `.github/actions`, `.github/workflows`, executable `scripts/ci-coverage-plan.mjs` and `ci-coverage-run.mjs` | both applications | both applications |
 | Unknown | every unclassified path, including root dependencies/configuration and other scripts | both applications | both applications |
 
 A mixed change takes the union and deduplicates IDs. Shared and unknown changes conservatively
@@ -44,7 +44,7 @@ checks fail the gate. Documentation-only success claims no application test succ
 **CI Gate** check remains the ruleset boundary.
 
 `workflow_call` accepts `source_sha` and optional `coverage_json`, a JSON array of missing check IDs.
-Absent coverage means all checks; an empty array means all release checks were already proved.
+The planner verifies the checkout equals the captured 40-character source SHA. Absent coverage means all checks; an empty array means all release checks were already proved.
 Unknown or duplicate IDs fail. The gate records `ci-source-evidence/source-evidence.json` in
 `ci-source-evidence`: actual checkout SHA/tree, repository, run/attempt/event, selected successful
 coverage and explicit exclusions. Whole-tree identity is the conservative significant-input boundary;
@@ -59,7 +59,7 @@ names its seam and the stages run in parallel:
 | Job | Repository command or proof |
 |---|---|
 | `docs` | `pnpm docs:check` |
-| `contracts` | `pnpm test:tooling`: repository-owned tooling/workflow contracts |
+| `contracts` | `pnpm test:tooling && pnpm test:contracts`: repository-owned tooling/workflow and root release/deploy process contracts |
 | `fullstack` | `pnpm smoke:fullstack` after isolated infrastructure startup, with unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
@@ -403,10 +403,10 @@ level runs:
 
 | When | Checks | Job or command |
 |---|---|---|
-| Pull request, required | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name; every production cell that cites the production pass has a pass cell `<row>@<transport>` in `apps/web/test/production/pass-config.ts` (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
-| Pull request, required | Production pass logic without network: request allowlist, cell verdict with deferred cells, report and secret redaction (`apps/web/test/module/production-access-*.test.ts`) | `unit` |
-| Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
-| Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
+| Affected PR and Platform queue | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name; every production cell that cites the production pass has a pass cell `<row>@<transport>` in `apps/web/test/production/pass-config.ts` (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
+| Affected PR and Platform queue | Production pass logic without network: request allowlist, cell verdict with deferred cells, report and secret redaction (`apps/web/test/module/production-access-*.test.ts`) | `unit` |
+| Affected PR and Platform queue | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
+| Affected PR and Platform queue | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
 | Platform merge queue and missing release coverage | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | `fullstack` |
 | Before a release | Exact-source coverage receipts; reuse trusted successful CI or manual evidence | [verification evidence policy](../agents/release-evidence.md) |
 
@@ -461,7 +461,7 @@ including any recorded script work between readiness and that snapshot.
 `ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
 in script execution. Separate compilation, layout and paint budgets are outside this check.
 The existing representative-Material test still checks INP after readiness (#933). The startup
-budget runs with the full-stack smoke, queue, release gaps and locally; it is outside the required PR CI gate.
+budget runs with the full-stack smoke, queue, release gaps and locally; it runs in required CI when the selected plan includes `fullstack`.
 
 `.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` only on demand through `workflow_dispatch`; #1430 removed its schedule. It is not a required check and never blocks a
 merge. The job mirrors the documented host fallback on a clean `ubuntu-24.04` runner: frozen
@@ -511,7 +511,7 @@ the matrix job red even when the next four pass. This is detection, not recovery
 The matrix covers Web E2E and navigation on one production build, Storybook, browser-engines,
 both backend integration projects, and the unit and local contract commands from `check:unit`: backend, Web module,
 Telegram, legal, access-capabilities, Node tooling, authoring, practice-review, backend/Web contracts and release/deploy shell contracts. It does not repeat
-build/static checks, live production probes, or the separate nightly full-stack smoke.
+build/static checks, live production probes, or the separate manual full-stack smoke.
 
 Each matrix job uploads `flake-<suite>-<run_attempt>` for seven days, including successful samples.
 Each command and iteration has its own JSON reporter output, normalized observations, exit status

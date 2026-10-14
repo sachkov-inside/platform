@@ -107,3 +107,17 @@ it("PR checks follow application consumers and all selected IDs have explicit ex
     ],
   );
 });
+
+it("shared CI execution inputs cover both consumers instead of only tooling contracts", () => {
+  for (const path of [
+    ".github/actions/setup-platform/action.yml",
+    ".github/workflows/ci.yml",
+    "scripts/ci-coverage-plan.mjs",
+    "docs/contracts/notifications-v1/schema.json",
+  ]) {
+    const plan = selectCoverage([path], "pull_request");
+    assert.ok(plan.categories.includes("shared"), path);
+    assert.ok(plan.required.includes("fullstack"), path);
+    assert.ok(plan.required.includes("telegram"), path);
+  }
+});

@@ -32,6 +32,10 @@ export function classifyPath(path) {
   if (path.startsWith("apps/backend/")) return "backend";
   if (path.startsWith("apps/telegram/")) return "telegram";
   if (
+    path.startsWith(".github/actions/") ||
+    path.startsWith(".github/workflows/") ||
+    path.startsWith("docs/contracts/") ||
+    /^scripts\/ci-coverage-(plan|run)\.mjs$/u.test(path) ||
     path.startsWith("packages/") ||
     path.startsWith("docs/legal/") ||
     path.startsWith("docs/product/") ||

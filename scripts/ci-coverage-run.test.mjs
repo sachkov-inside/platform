@@ -127,3 +127,58 @@ it("git/Actions adapter plans the complete rename set and records actual checkou
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+it("release adapter validates immutable checkout and executes only allowlisted missing coverage", () => {
+  const cwd = mkdtempSync(resolve(tmpdir(), "ci-release-plan-"));
+  try {
+    for (const args of [
+      ["init", "-q"],
+      ["config", "user.email", "fixture@example.invalid"],
+      ["config", "user.name", "Fixture"],
+      ["commit", "--allow-empty", "-qm", "source"],
+    ]) {
+      const result = spawnSync("git", args, {
+        cwd,
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(result.status, 0, result.stderr);
+    }
+    const sha = spawnSync("git", ["rev-parse", "HEAD"], {
+      cwd,
+      encoding: "utf8",
+      timeout: 10_000,
+    }).stdout.trim();
+    const output = resolve(cwd, "output");
+    const env = {
+      ...process.env,
+      CI_EVENT: "release",
+      SOURCE_SHA: sha,
+      COVERAGE_JSON: '["fullstack"]',
+      GITHUB_OUTPUT: output,
+    };
+    const run = spawnSync(process.execPath, [runner, "plan"], {
+      cwd,
+      env,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(run.status, 0, run.stderr);
+    assert.match(readFileSync(output, "utf8"), /required=\["fullstack"\]/u);
+    for (const changed of [
+      { SOURCE_SHA: "main" },
+      { SOURCE_SHA: "a".repeat(40) },
+      { COVERAGE_JSON: '["invented"]' },
+      { COVERAGE_JSON: '["unit","unit"]' },
+    ]) {
+      const rejected = spawnSync(process.execPath, [runner, "plan"], {
+        cwd,
+        env: { ...env, ...changed },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.notEqual(rejected.status, 0);
+    }
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});

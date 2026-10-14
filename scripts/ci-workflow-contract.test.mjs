@@ -425,6 +425,17 @@ describe("application CI workflow contract", () => {
     );
   });
 
+  it("checks migrated release and deployment contracts with tooling mechanisms", () => {
+    assert.match(
+      jobBlock("contracts"),
+      /run: pnpm test:tooling && pnpm test:contracts$/mu,
+    );
+    assert.match(
+      jobBlock("fullstack"),
+      /if: \$\{\{ always\(\) \}\}\n {8}run: docker compose down --volumes --remove-orphans/u,
+    );
+  });
+
   it("removes automated resource measurements without removing functional suites", () => {
     assert.doesNotMatch(
       workflow,

@@ -13,6 +13,12 @@ function git(args) {
 }
 function computePlan() {
   if (process.env["CI_EVENT"] === "release") {
+    const source = process.env["SOURCE_SHA"] ?? "";
+    if (
+      !/^[a-f0-9]{40}$/u.test(source) ||
+      git(["rev-parse", "HEAD"]) !== source
+    )
+      throw new Error("Release checkout is not the captured immutable source");
     const raw = process.env["COVERAGE_JSON"];
     /** @type {unknown} */
     const parsed =

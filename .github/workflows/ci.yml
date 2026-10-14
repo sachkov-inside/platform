@@ -54,6 +54,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           COVERAGE_JSON: ${{ inputs.coverage_json }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
         run: node scripts/ci-coverage-run.mjs plan
 
   docs:
@@ -90,7 +91,7 @@ jobs:
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
       - name: Verify selected contracts
-        run: pnpm test:tooling
+        run: pnpm test:tooling && pnpm test:contracts
 
   static:
     needs: plan
@@ -487,6 +488,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           COVERAGE_JSON: ${{ inputs.coverage_json }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
           SELECTED_PLAN: ${{ needs.plan.outputs.plan }}
           JOB_RESULTS: ${{ toJSON(needs) }}
         run: node scripts/ci-coverage-run.mjs gate
