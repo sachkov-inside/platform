@@ -15,6 +15,7 @@ import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
+import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -839,6 +840,32 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
+    baseRoute: route,
+    reader: () => {
+      const template = performanceLessons[0];
+      if (template === undefined)
+        throw new Error("Missing metrics Reader template");
+      return {
+        projection: readerProjection(template),
+        body: body(template, true),
+      };
+    },
+    image,
+  });
+  if (metrics !== null) {
+    if (metrics.contentType === undefined) send(metrics.status, metrics.value);
+    else {
+      if (!Buffer.isBuffer(metrics.value))
+        throw new Error("Expected image bytes");
+      response.writeHead(metrics.status, {
+        "cache-control": "private, no-store",
+        "content-type": metrics.contentType,
+      });
+      response.end(metrics.value);
+    }
+    return;
+  }
   const ownHistory = await productTaskHistoryRoute(request, url, readBody);
   if (ownHistory !== null) {
     send(ownHistory.status, ownHistory.value);
