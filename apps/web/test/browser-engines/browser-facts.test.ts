@@ -653,3 +653,46 @@ test("a write supersedes an initial bookmark read that captured the old answer",
     await context.close();
   }
 }, 30_000);
+
+test("two reading surfaces share one fact channel while both receive a write", async () => {
+  const context = await runningBrowser().newContext();
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      const NativeChannel = BroadcastChannel;
+      let opened = 0;
+      let closed = 0;
+      Reflect.set(window, "factChannelCounts", () => ({ opened, closed }));
+      window.BroadcastChannel = class extends NativeChannel {
+        constructor(name: string) {
+          super(name);
+          opened += 1;
+        }
+        override close() {
+          closed += 1;
+          super.close();
+        }
+      };
+    });
+    const { attach } = readingFixture();
+    const write = await attach(page, true);
+    const other = page
+      .getByRole("region", { name: "Secondary reading action", exact: true })
+      .getByRole("button", { name: "Изучено", exact: true });
+    await browserExpect(other).toHaveAttribute("aria-disabled", "false");
+    const counts = () =>
+      page.evaluate(() => {
+        const read: unknown = Reflect.get(window, "factChannelCounts");
+        if (typeof read !== "function")
+          throw new Error("Fact transport probe is required");
+        return Reflect.apply(read, undefined, []) as unknown;
+      });
+    browserExpect(await counts()).toEqual({ opened: 1, closed: 0 });
+    await write.click();
+    await browserExpect(write).toHaveAttribute("aria-pressed", "true");
+    await browserExpect(other).toHaveAttribute("aria-pressed", "true");
+    browserExpect(await counts()).toEqual({ opened: 2, closed: 1 });
+  } finally {
+    await context.close();
+  }
+});
