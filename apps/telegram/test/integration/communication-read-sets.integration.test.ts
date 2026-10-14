@@ -1,6 +1,14 @@
 import { Kysely, PostgresDialect, sql } from "kysely";
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  expect,
+  it,
+  vi,
+  describe,
+} from "vitest";
 import type { Database, DatabaseSchema } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import {
@@ -64,67 +72,71 @@ afterAll(async () => {
   await database.destroy();
 });
 
-it.each([0, 1, 100, 101])(
-  "keeps independent histories for 100 contacts with %i equal-time entries in one set read",
-  async (entries) => {
-    await sql`insert into bot_contacts(bot_identity,telegram_user_id,private_chat_id,contactability,first_started_at,last_started_at,updated_at)
+describe.each([0, 1, 100, 101])(
+  "statistics with %i equal-time entries per contact",
+  (entries) => {
+    beforeEach(async () => {
+      await sql`insert into bot_contacts(bot_identity,telegram_user_id,private_chat_id,contactability,first_started_at,last_started_at,updated_at)
     select 'inside', n, n, 'reachable', ${instant}, ${instant}, ${instant} from generate_series(1,100) n`.execute(
-      database,
-    );
-    await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id,marketing_enabled)
+        database,
+      );
+      await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id,marketing_enabled)
     select ('00000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, 'inside', n, true from generate_series(1,100) n`.execute(
-      database,
-    );
-    await sql`insert into communication_entries(bot_identity,update_id,contact_id,funnel_id,source_id,source_code,entered_at,outcome)
+        database,
+      );
+      await sql`insert into communication_entries(bot_identity,update_id,contact_id,funnel_id,source_id,source_code,entered_at,outcome)
     select 'inside', c.telegram_user_id*1000+e, c.contact_id, null,
       ('10000000-0000-4000-8000-' || lpad(e::text,12,'0'))::uuid, 'source-'||e, ${instant}, 'enrolled'
     from communication_contacts c cross join generate_series(1,${entries}::int) e`.execute(
-      database,
-    );
-    entryStatements = [];
-    const result = await database
-      .transaction()
-      .execute((tx) => readStatistics(tx, request, "inside", "author"));
-    expect(entryStatements).toHaveLength(1);
-    expect(result.statistics.contacts).toHaveLength(100);
-    for (const contact of result.statistics.contacts) {
-      expect(contact.entries).toHaveLength(Math.min(entries, 100));
-      expect(contact.firstSourceId).toBe(
-        entries === 0 ? null : "10000000-0000-4000-8000-000000000001",
+        database,
       );
-      expect(contact.latestSourceId).toBe(
-        entries === 0
-          ? null
-          : `10000000-0000-4000-8000-${String(entries).padStart(12, "0")}`,
-      );
-      if (entries === 101) {
-        expect(contact.nextEntryCursor).not.toBeNull();
-        const continuation = await database.transaction().execute((tx) =>
-          readEntries(
-            tx,
-            {
-              ...request,
-              payload: {
-                contactId: contact.contactId,
-                cursor: required(contact.nextEntryCursor),
-              },
-            },
-            "inside",
-            "author",
-          ),
+    });
+    it("keeps independent 100-contact histories and cursors in one set read", async () => {
+      entryStatements = [];
+      const result = await database
+        .transaction()
+        .execute((tx) => readStatistics(tx, request, "inside", "author"));
+      expect(entryStatements).toHaveLength(1);
+      expect(result.statistics.contacts).toHaveLength(100);
+      for (const contact of result.statistics.contacts) {
+        expect(contact.entries).toHaveLength(Math.min(entries, 100));
+        expect(contact.firstSourceId).toBe(
+          entries === 0 ? null : "10000000-0000-4000-8000-000000000001",
         );
-        expect(continuation.entries).toEqual([
-          {
-            sourceId: "10000000-0000-4000-8000-000000000101",
-            sourceCode: "source-101",
-            funnelId: null,
-            enteredAt: "2030-01-01T00:00:00.000Z",
-            outcome: "enrolled",
-          },
-        ]);
-        expect(continuation.nextCursor).toBeNull();
-      } else expect(contact.nextEntryCursor).toBeNull();
-    }
+        expect(contact.latestSourceId).toBe(
+          entries === 0
+            ? null
+            : `10000000-0000-4000-8000-${String(entries).padStart(12, "0")}`,
+        );
+        if (entries === 101) {
+          expect(contact.nextEntryCursor).not.toBeNull();
+          const continuation = await database.transaction().execute((tx) =>
+            readEntries(
+              tx,
+              {
+                ...request,
+                payload: {
+                  contactId: contact.contactId,
+                  cursor: required(contact.nextEntryCursor),
+                },
+              },
+              "inside",
+              "author",
+            ),
+          );
+          expect(continuation.entries).toEqual([
+            {
+              sourceId: "10000000-0000-4000-8000-000000000101",
+              sourceCode: "source-101",
+              funnelId: null,
+              enteredAt: "2030-01-01T00:00:00.000Z",
+              outcome: "enrolled",
+            },
+          ]);
+          expect(continuation.nextCursor).toBeNull();
+        } else expect(contact.nextEntryCursor).toBeNull();
+      }
+    });
   },
 );
 
