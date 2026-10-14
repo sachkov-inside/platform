@@ -30,7 +30,7 @@ it("requests the scoped cohort even when its Product is after the global hundred
   fakes.cohorts.mockImplementation((scope?: string) =>
     Promise.resolve({
       ok: true,
-      body: { items: scope === productId ? [cohort] : [] },
+      body: { items: scope === productId ? [cohort] : [], nextCursor: null },
       response: new Response(),
     }),
   );
@@ -70,4 +70,20 @@ it("completes the owner cohort list through the bounded continuation", async () 
   expect(result.cohorts).toHaveLength(101);
   expect(result.cohorts.at(-1)?.productId).toBe(id(101));
   expect(fakes.cohorts).toHaveBeenLastCalledWith(undefined, id(100));
+});
+
+it("rejects a global page missing its exhaustion or continuation field", async () => {
+  fakes.cohorts.mockResolvedValue({ ok: true, body: { items: [] } });
+  await expect(loadProductCohorts()).resolves.toEqual({ kind: "unavailable" });
+});
+
+it("accepts explicit null as exhausted global cohort history", async () => {
+  fakes.cohorts.mockResolvedValue({
+    ok: true,
+    body: { items: [], nextCursor: null },
+  });
+  await expect(loadProductCohorts()).resolves.toEqual({
+    kind: "ready",
+    cohorts: [],
+  });
 });

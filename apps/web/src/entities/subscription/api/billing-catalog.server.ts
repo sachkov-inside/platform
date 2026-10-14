@@ -99,7 +99,7 @@ export async function loadProductCohorts(): Promise<
       const parsed = productCohortsSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };
       cohorts.push(...parsed.data.items);
-      const nextCursor = parsed.data.nextCursor ?? null;
+      const nextCursor = parsed.data.nextCursor;
       if (nextCursor === null) return { kind: "ready", cohorts };
       if (seen.has(nextCursor)) return { kind: "unavailable" };
       seen.add(nextCursor);
