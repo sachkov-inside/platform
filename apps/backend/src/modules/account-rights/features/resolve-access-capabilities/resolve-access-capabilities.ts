@@ -1,5 +1,6 @@
 import {
   coverageSchema,
+  productCapability,
   scopeOpensResource,
 } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/account-rights/account-rights.interface.js";
@@ -29,16 +30,36 @@ export async function resolveAccessCapabilities(
   AccessCapabilities & { readonly membership: MembershipAccessState }
 > {
   return projectAccessCapabilities(
-    await readAccessCapabilityFacts(prisma, accountId, now),
+    await readAccessCapabilityFacts(prisma, accountId, now, resource),
     now,
     resource,
   );
 }
+type CapabilityFacts = {
+  grants: Awaited<
+    ReturnType<MembershipAccessPrisma["accessGrant"]["findMany"]>
+  >;
+  classification: Awaited<
+    ReturnType<MembershipAccessPrisma["legacyClassification"]["findUnique"]>
+  >;
+  projection: Awaited<
+    ReturnType<MembershipAccessPrisma["membershipProjection"]["findUnique"]>
+  >;
+  revision: { revision: number } | null;
+  historicalMaterials: {
+    coverage: Awaited<
+      ReturnType<MembershipAccessPrisma["accessGrant"]["findMany"]>
+    >[number]["coverage"];
+  }[];
+  binding: { accountId: string } | null;
+  last: { decision: string | null } | null;
+};
 export async function readAccessCapabilityFacts(
   prisma: MembershipAccessPrisma,
   accountId: AccountId,
   now: Date,
-) {
+  resource?: { productIds: readonly string[]; materialId?: string | undefined },
+): Promise<CapabilityFacts> {
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,
@@ -53,28 +74,57 @@ export async function readAccessCapabilityFacts(
     classification?.bridgeEnabled === true
       ? await prisma.membershipProjection.findUnique({ where: { accountId } })
       : null;
-  const revision = await prisma.accessChange.findFirst({
-    where: { accountId },
-    orderBy: { revision: "desc" },
-    select: { revision: true },
-  });
-  const historicalMaterials = await prisma.accessGrant.findMany({
-    where: {
-      accountId,
-      capabilities: { has: "materials" },
-      startsAt: { lte: now },
-    },
-    select: { coverage: true },
-  });
-  const binding = await prisma.membershipBinding.findUnique({
-    where: { accountId },
-    select: { accountId: true },
-  });
-  const last = await prisma.membershipEvidenceReceipt.findFirst({
-    where: { accountId, outcome: "accepted_without_entitlement" },
-    orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
-    select: { decision: true },
-  });
+  const revision =
+    resource !== undefined
+      ? null
+      : await prisma.accessChange.findFirst({
+          where: { accountId },
+          orderBy: { revision: "desc" },
+          select: { revision: true },
+        });
+  // A positive resource decision needs no expired-ground or provider-failure history.
+  const positiveResource: boolean =
+    resource !== undefined &&
+    projectAccessCapabilities(
+      {
+        grants,
+        classification,
+        projection,
+        revision,
+        historicalMaterials: [],
+        binding: null,
+        last: null,
+      },
+      now,
+      resource,
+    ).capabilities.some(
+      ({ capability }) =>
+        capability === "materials" ||
+        resource.productIds.some((id) => capability === productCapability(id)),
+    );
+  const historicalMaterials = positiveResource
+    ? []
+    : await prisma.accessGrant.findMany({
+        where: {
+          accountId,
+          capabilities: { has: "materials" },
+          startsAt: { lte: now },
+        },
+        select: { coverage: true },
+      });
+  const binding = positiveResource
+    ? null
+    : await prisma.membershipBinding.findUnique({
+        where: { accountId },
+        select: { accountId: true },
+      });
+  const last = positiveResource
+    ? null
+    : await prisma.membershipEvidenceReceipt.findFirst({
+        where: { accountId, outcome: "accepted_without_entitlement" },
+        orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
+        select: { decision: true },
+      });
   return {
     grants,
     classification,
@@ -94,7 +144,7 @@ export function projectAccessCapabilities(
     historicalMaterials,
     binding,
     last,
-  }: Awaited<ReturnType<typeof readAccessCapabilityFacts>>,
+  }: CapabilityFacts,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
 ): AccessCapabilities & { readonly membership: MembershipAccessState } {
@@ -191,4 +241,75 @@ export function projectAccessCapabilities(
         ? null
         : new Date(Math.min(...futureBoundaries)).toISOString(),
   };
+}
+
+/** Account-set projection: one caller-owned snapshot, no per-Account history reads. */
+export async function resolveAccessCapabilitiesForAccounts(
+  prisma: MembershipAccessPrisma,
+  accountIds: readonly string[],
+  now: Date,
+): Promise<Map<string, AccessCapabilities>> {
+  const result = new Map<string, AccessCapabilities>();
+  for (let offset = 0; offset < accountIds.length; offset += 500) {
+    const chunk = accountIds.slice(offset, offset + 500);
+    const grants = await prisma.accessGrant.findMany({
+      where: {
+        accountId: { in: chunk },
+        revokedAt: null,
+        OR: [{ validUntil: null }, { validUntil: { gt: now } }],
+      },
+    });
+    const classifications = await prisma.legacyClassification.findMany({
+      where: { accountId: { in: chunk } },
+    });
+    const bridgeIds = classifications
+      .filter((row) => row.bridgeEnabled)
+      .map((row) => row.accountId);
+    const projections =
+      bridgeIds.length === 0
+        ? []
+        : await prisma.membershipProjection.findMany({
+            where: { accountId: { in: bridgeIds } },
+          });
+    const revisions = await prisma.accessChange.groupBy({
+      by: ["accountId"],
+      where: { accountId: { in: chunk } },
+      _max: { revision: true },
+    });
+    const grantsByAccount = new Map<string, typeof grants>();
+    for (const grant of grants) {
+      const grouped = grantsByAccount.get(grant.accountId) ?? [];
+      grouped.push(grant);
+      grantsByAccount.set(grant.accountId, grouped);
+    }
+    const classificationByAccount = new Map(
+      classifications.map((row) => [row.accountId, row]),
+    );
+    const projectionByAccount = new Map(
+      projections.map((row) => [row.accountId, row]),
+    );
+    const revisionByAccount = new Map(
+      revisions.map((row) => [
+        row.accountId,
+        { revision: row._max.revision ?? 0 },
+      ]),
+    );
+    for (const id of chunk) {
+      const { capabilities, revision, nextBoundary } =
+        projectAccessCapabilities(
+          {
+            grants: grantsByAccount.get(id) ?? [],
+            classification: classificationByAccount.get(id) ?? null,
+            projection: projectionByAccount.get(id) ?? null,
+            revision: revisionByAccount.get(id) ?? null,
+            historicalMaterials: [],
+            binding: null,
+            last: null,
+          },
+          now,
+        );
+      result.set(id, { capabilities, revision, nextBoundary });
+    }
+  }
+  return result;
 }

@@ -75,7 +75,10 @@ import {
   classifyLegacyAccount,
   type ClassifyLegacyAccountCommand,
 } from "../../features/classify-legacy-account/classify-legacy-account.js";
-import { resolveAccessCapabilities } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
+import {
+  resolveAccessCapabilities,
+  resolveAccessCapabilitiesForAccounts,
+} from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
 import {
   listAccessGrants,
   type ListAccessGrantsCommand,
@@ -719,6 +722,32 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       } catch (error) {
         return dependencyFailure(
           { module: "account-rights", operation: "readOwnAccess" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    async resolveCapabilitiesForAccounts(targetAccountIds: readonly string[]) {
+      if (!targetAccountIds.every((id) => z.uuid().safeParse(id).success))
+        return accessFailure("invalid_input");
+      try {
+        const now = clock();
+        const uniqueIds = [...new Set(targetAccountIds)];
+        const accounts = await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          return resolveAccessCapabilitiesForAccounts(
+            transaction,
+            uniqueIds,
+            now,
+          );
+        });
+        return { ok: true as const, accounts };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "account-rights",
+            operation: "resolveCapabilitiesForAccounts",
+          },
           error,
           accessFailure("unavailable"),
         );
