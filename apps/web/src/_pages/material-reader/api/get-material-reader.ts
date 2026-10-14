@@ -216,7 +216,7 @@ function toMaterialMetadata(
     seriesMemberships: projection.seriesMemberships.map(
       ({ ordinal, series }) => ({
         ordinal,
-        series: { name: series.name, slug: series.slug },
+        series: { id: series.id, name: series.name, slug: series.slug },
       }),
     ),
   };

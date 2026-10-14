@@ -1,3 +1,5 @@
+import type { ContentAccess, Subject } from "../../../content-access/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { z } from "zod";
 import {
   loadProductCompositions,
@@ -59,6 +61,98 @@ export interface DirectoryMaterial {
  */
 export class ProductDirectory {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
+
+  /** Reader visibility without chapter/material payloads; uses the programme's archive and bound policy. */
+  async readerVisibleIds(
+    productIds: readonly string[],
+    reader: {
+      readonly subject: Subject;
+      readonly contentAccess: Pick<ContentAccess, "checkProductAccessMany">;
+    },
+  ): Promise<
+    | { readonly ok: true; readonly value: readonly string[] }
+    | {
+        readonly ok: false;
+        readonly error: {
+          readonly code: "invalid_request" | "dependency_unavailable";
+        };
+      }
+  > {
+    const parsed = z
+      .array(z.uuid().toLowerCase())
+      .min(1)
+      .max(MAX_LOOKUP)
+      .safeParse(productIds);
+    if (!parsed.success)
+      return { ok: false, error: { code: "invalid_request" } };
+    const ids = [...new Set(parsed.data)];
+    try {
+      // Product state and composition size share the same SQL snapshot, as the full programme does.
+      const products = z
+        .array(
+          z.object({
+            id: z.uuid(),
+            archivedAt: z.date().nullable(),
+            placementCount: z.number().int().nonnegative(),
+          }),
+        )
+        .parse(
+          await this.prisma.$queryRaw(Prisma.sql`
+        select product.id, product.archived_at as "archivedAt", (
+          select count(*)::int from (
+            select 1 from materials.series_memberships membership
+            where membership.series_id = product.id limit ${MAX_PRODUCT_MATERIALS + 1}
+          ) placement
+        ) as "placementCount"
+        from materials.series product where product.id = any(${ids}::uuid[])
+      `),
+        );
+      const sizes = new Map(
+        products.map((row) => [row.id, row.placementCount]),
+      );
+      const archived = products.filter(
+        (product) =>
+          product.archivedAt !== null &&
+          (sizes.get(product.id) ?? 0) <= MAX_PRODUCT_MATERIALS,
+      );
+      const archivedAccess =
+        reader.subject.kind === "anonymous"
+          ? archived.map(() => ({ kind: "closed" as const }))
+          : await reader.contentAccess.checkProductAccessMany({
+              subject: reader.subject,
+              productIds: archived.map(({ id }) => id),
+            });
+      const archivedById = new Map(
+        archived.map((product, index) => [
+          product.id,
+          archivedAccess[index]?.kind ?? "unavailable",
+        ]),
+      );
+      const admitted = products.map((product) => ({
+        id: product.id,
+        access:
+          (sizes.get(product.id) ?? 0) > MAX_PRODUCT_MATERIALS
+            ? "closed"
+            : product.archivedAt === null
+              ? "open"
+              : (archivedById.get(product.id) ?? "unavailable"),
+      }));
+      if (admitted.some((product) => product.access === "unavailable"))
+        return { ok: false, error: { code: "dependency_unavailable" } };
+      const visible = new Set(
+        admitted
+          .filter((product) => product.access === "open")
+          .map((product) => product.id),
+      );
+      return { ok: true, value: ids.filter((id) => visible.has(id)) };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "materials", operation: "readerVisibleProductIds" },
+        error,
+        { ok: false, error: { code: "dependency_unavailable" } } as const,
+      );
+    }
+  }
 
   /** Products by ID or slug, archived ones included, with chapters in author order. */
   async products(

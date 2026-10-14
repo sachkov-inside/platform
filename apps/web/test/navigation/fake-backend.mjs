@@ -15,6 +15,7 @@ import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
+import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -839,6 +840,18 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const readerFixture = lessons[0];
+  if (readerFixture === undefined) throw new Error("Missing reader fixture");
+  const readerSale = await readerSaleAvailabilityRoute(
+    request,
+    url,
+    readBody,
+    readerProjection(readerFixture),
+  );
+  if (readerSale !== null) {
+    send(readerSale.status, readerSale.value);
+    return;
+  }
   const ownHistory = await productTaskHistoryRoute(request, url, readBody);
   if (ownHistory !== null) {
     send(ownHistory.status, ownHistory.value);

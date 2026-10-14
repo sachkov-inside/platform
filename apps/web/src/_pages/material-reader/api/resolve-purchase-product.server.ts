@@ -1,8 +1,12 @@
 import "server-only";
-import { loadProductSaleAvailability } from "@/entities/subscription.sale.server";
+import { loadProductSaleAvailability } from "@/entities/subscription.availability.server";
 import type { MaterialReaderMetadata } from "../model/material-reader-view";
 import { soleSoldProduct } from "../model/purchase-product";
 import { readReaderSeries } from "./read-reader-series.server";
+
+export type PurchaseProductResult =
+  | { readonly kind: "ready"; readonly product: PurchaseProduct | undefined }
+  | { readonly kind: "unavailable" };
 
 export interface PurchaseProduct {
   readonly slug: string;
@@ -14,20 +18,54 @@ export async function resolvePurchaseProduct(
   material: Pick<MaterialReaderMetadata, "seriesMemberships">,
   returnProductSlug: string | undefined,
   accessToken?: string,
-): Promise<PurchaseProduct | undefined> {
+): Promise<PurchaseProductResult> {
   const memberships = material.seriesMemberships;
   if (returnProductSlug !== undefined) {
-    let productId = memberships.find(({ series }) => series.slug === returnProductSlug)?.series.id;
-    if (productId === undefined) {
+    const membership = memberships.find(
+      ({ series }) => series.slug === returnProductSlug,
+    );
+    let productId = membership?.series.id;
+    if (membership !== undefined && productId === undefined)
+      return { kind: "unavailable" };
+    if (membership === undefined) {
       const product = await readReaderSeries(returnProductSlug, accessToken);
-      productId = product.kind === "ready" || product.kind === "empty" ? product.reference.id : undefined;
+      if (product.kind === "unavailable") return { kind: "unavailable" };
+      productId =
+        product.kind === "ready" || product.kind === "empty"
+          ? product.reference.id
+          : undefined;
     }
-    if (productId === undefined) return { slug: returnProductSlug, sold: false };
-    const availability = await loadProductSaleAvailability([productId], accessToken);
-    return { slug: returnProductSlug, sold: availability.kind === "ready" && availability.soldProductIds.has(productId) };
+    if (productId === undefined)
+      return {
+        kind: "ready",
+        product: { slug: returnProductSlug, sold: false },
+      };
+    const availability = await loadProductSaleAvailability(
+      [productId],
+      accessToken,
+    );
+    if (availability.kind !== "ready") return { kind: "unavailable" };
+    return {
+      kind: "ready",
+      product: {
+        slug: returnProductSlug,
+        sold: availability.soldProductIds.has(productId.toLowerCase()),
+      },
+    };
   }
-  const availability = await loadProductSaleAvailability(memberships.map(({ series }) => series.id), accessToken);
-  if (availability.kind !== "ready") return undefined;
-  const slug = soleSoldProduct(memberships.map(({ series }) => ({ slug: series.slug, sold: availability.soldProductIds.has(series.id) })));
-  return slug === undefined ? undefined : { slug, sold: true };
+  const availability = await loadProductSaleAvailability(
+    memberships.map(({ series }) => series.id),
+    accessToken,
+  );
+  if (availability.kind !== "ready") return { kind: "unavailable" };
+  const slug = soleSoldProduct(
+    memberships.map(({ series }) => ({
+      slug: series.slug,
+      sold: availability.soldProductIds.has(series.id.toLowerCase()),
+    })),
+  );
+  return {
+    kind: "ready",
+    product: slug === undefined ? undefined : { slug, sold: true },
+  };
 }

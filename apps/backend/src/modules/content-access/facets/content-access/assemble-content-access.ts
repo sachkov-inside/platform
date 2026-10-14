@@ -229,6 +229,58 @@ export function assembleContentAccess(
       return decision(reason);
     },
 
+    async checkProductAccessMany({
+      subject,
+      productIds,
+    }: {
+      readonly subject: Subject;
+      readonly productIds: readonly string[];
+    }): Promise<readonly ProductAccess[]> {
+      if (productIds.length > CONTENT_ACCESS_BATCH_SIZE)
+        throw new RangeError("Product access batch exceeds its bound");
+      if (productIds.length === 0) return [];
+      if (subject.kind === "anonymous")
+        return productIds.map(() => ({ kind: "closed" as const }));
+      try {
+        const resources = productIds.map((productId) => ({
+          productIds: [productId],
+        }));
+        const states =
+          dependencies.accountRights.resolveManyForAccess === undefined
+            ? await Promise.all(
+                productIds.map((productId) =>
+                  dependencies.accountRights.resolveForAccess(
+                    subject.accountId,
+                    [productId],
+                  ),
+                ),
+              )
+            : await dependencies.accountRights.resolveManyForAccess(
+                subject.accountId,
+                resources,
+              );
+        return productIds.map((_id, index) => {
+          switch (states[index]?.kind) {
+            case "active":
+              return { kind: "open" as const };
+            case "required":
+            case "expired":
+              return { kind: "closed" as const };
+            case "stale":
+            case "unavailable":
+            case undefined:
+              return { kind: "unavailable" as const };
+          }
+        });
+      } catch (error) {
+        reportDependencyFailure(
+          { module: "content-access", operation: "checkProductAccessMany" },
+          error,
+        );
+        return productIds.map(() => ({ kind: "unavailable" as const }));
+      }
+    },
+
     // Разрешение автора здесь не читается: оно открывает материалы для работы, а не продукт
     // читателю, и не должно прятать от автора покупку.
     async checkProductAccess({

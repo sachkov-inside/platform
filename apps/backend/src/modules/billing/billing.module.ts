@@ -1,4 +1,3 @@
-import { ReadProductSaleAvailabilityController } from "./features/read-product-sale-availability/read-product-sale-availability.controller.js";
 import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
@@ -47,7 +46,6 @@ const BILLING_BANK = Symbol("BillingBank");
 @Module({
   imports: [PrismaModule, AccountsModule, AccountRightsModule],
   controllers: [
-    ReadProductSaleAvailabilityController,
     ReceiveTributeController,
     PurchaseSubscriptionController,
     ManageSubscriptionController,

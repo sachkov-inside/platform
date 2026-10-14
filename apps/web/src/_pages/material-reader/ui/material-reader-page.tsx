@@ -12,8 +12,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
-import { resolvePurchaseProduct, type PurchaseProduct } from "../api/resolve-purchase-product.server";
+import {
+  resolvePurchaseProduct,
+  type PurchaseProductResult,
+} from "../api/resolve-purchase-product.server";
 import { readReaderSeries } from "../api/read-reader-series.server";
+import { readPublicSeries } from "@/features/library-discovery.server";
 import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   loadReaderProductMode,
@@ -190,7 +194,11 @@ async function PersonalMaterialReader({
   // личного чтения. Вошедшему урок может быть открыт, и лишний запрос каталога ему не нужен.
   const guestPurchaseProduct =
     accessToken === undefined && sharedMaterial?.kind === "teaser"
-      ? resolvePurchaseProduct(sharedMaterial.material, productSlugOf(returnTarget), undefined)
+      ? resolvePurchaseProduct(
+          sharedMaterial.material,
+          productSlugOf(returnTarget),
+          undefined,
+        )
       : undefined;
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
@@ -273,7 +281,7 @@ async function ResolvedMaterialReader({
 }: {
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
-  readonly purchaseProduct?: Promise<PurchaseProduct | undefined>;
+  readonly purchaseProduct?: Promise<PurchaseProductResult>;
   readonly practiceActions?: ReactNode;
   readonly deferredPracticeActions?: ReactNode;
   readonly productMode: ProductMode;
@@ -285,9 +293,17 @@ async function ResolvedMaterialReader({
 }) {
   if (result.kind === "access") {
     const purchaseProduct = await (startedPurchaseProduct ??
-      resolvePurchaseProduct(result.material, productSlugOf(returnTarget), accessToken));
+      resolvePurchaseProduct(
+        result.material,
+        productSlugOf(returnTarget),
+        accessToken,
+      ));
+    if (purchaseProduct.kind === "unavailable")
+      return <ReaderUnavailable returnTarget={returnTarget} />;
     const invitation = purchaseInvitation({
-      ...(purchaseProduct === undefined ? {} : { product: purchaseProduct }),
+      ...(purchaseProduct.product === undefined
+        ? {}
+        : { product: purchaseProduct.product }),
       from: materialReaderHref(slug, returnTarget.href),
       subscriptionOffered: result.subscriptionOffered,
     });
@@ -414,3 +430,13 @@ function effectiveReturnTargetOf(
     : returnTarget;
 }
 
+/** Absolute setup URL stays request-owned with the runtime learner connection. */
+async function readerLearnerMcp(): Promise<ReaderLearnerMcp> {
+  return {
+    ...readWebRuntimeConfig().learnerMcp,
+    setupUrl: publicPageUrl(
+      await readPublicSiteOrigin(),
+      "/practice-review-setup.txt",
+    ),
+  };
+}

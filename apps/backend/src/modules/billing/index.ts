@@ -21,3 +21,8 @@ export { TributeConvergence } from "./facets/tribute-convergence/tribute-converg
 
 export { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 export { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
+
+export {
+  productSaleAvailabilityQuerySchema,
+  productSaleAvailabilitySchema,
+} from "./features/read-product-sale-availability/read-product-sale-availability.js";

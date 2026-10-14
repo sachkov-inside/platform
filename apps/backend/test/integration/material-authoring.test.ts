@@ -107,6 +107,10 @@ describe("MaterialAuthoring", () => {
           ownerMaterials.contentAccess.checkAvailabilityMany.bind(
             ownerMaterials.contentAccess,
           ),
+        checkProductAccessMany:
+          ownerMaterials.contentAccess.checkProductAccessMany.bind(
+            ownerMaterials.contentAccess,
+          ),
         checkProductAccess:
           ownerMaterials.contentAccess.checkProductAccess.bind(
             ownerMaterials.contentAccess,
