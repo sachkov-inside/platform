@@ -21,6 +21,25 @@
 [#239](https://github.com/sachkov-inside/workspace/issues/239): срок прав задаёт предложение, допуск
 к предложению и подтверждение основания прежнего участника через бота.
 
+## Product community and revocation — owner decision 2026-10-14
+
+For new purchases, community participation is an explicit benefit of the Product's Offer.
+A Product or Support alone does not grant it. Existing accepted purchases and grants keep their
+original benefits and periods. The prospective legal edition is tracked in [#1464](https://github.com/sachkov-inside/platform/issues/1464).
+This decision supersedes older statements that every Product or Support automatically opens the common chat.
+
+Each Product can associate with the current Telegram group. Association is separate from entitlement.
+Several Products may share the group; their valid community rights combine. A refund, expiry or
+Product revocation preserves other valid Product and historical rights to that group.
+
+An authorized operator revokes one selected Product for one Account without choosing grant sources.
+The operator previews the affected grounds and records a reason. The action withdraws access from
+current grounds, including broad grants, while retaining their access to other Products. It does not
+refund money or erase learning progress. A later independent grant can give the Product back.
+A bank refund instead revokes only the rights produced by the refunded purchase.
+
+[ADR 0034](../adr/0034-product-community-and-product-revocation.md) records the preservation and ownership trade-offs.
+
 ## Правило
 
 Доступ открывает только **действующее основание**: Access Grant, который не отозван, не

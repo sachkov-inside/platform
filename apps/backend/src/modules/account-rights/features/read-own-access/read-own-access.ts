@@ -1,5 +1,12 @@
-import { isWithheldCapability } from "@inside/access-capabilities";
+import { productIdFromCapability } from "@inside/access-capabilities";
+import {
+  isWithheldCapability,
+  coverageEntrySchema,
+  coverageSchema,
+  isProductCapability,
+} from "@inside/access-capabilities";
 import { z } from "zod";
+import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
@@ -13,6 +20,7 @@ import {
  */
 export const ownAccessGroundSchema = z.object({
   source: z.enum(["paid", "manual", "legacy"]),
+  content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
   startsAt: z.iso.datetime(),
   validUntil: z.iso.datetime().nullable(),
@@ -35,6 +43,7 @@ export async function readOwnAccess(
   prisma: AccountRightsPrismaClient,
   accountId: string,
   now: Date,
+  catalog?: CoverageCatalog,
 ): Promise<ReadOwnAccessResult> {
   if (!z.uuid().safeParse(accountId).success)
     return accessFailure("invalid_input");
@@ -48,19 +57,62 @@ export async function readOwnAccess(
     take: 1001,
   });
   if (grants.length > 1000) return accessFailure("unavailable");
+  const exclusions = await prisma.productAccessExclusion.findMany({
+    where: { accountId },
+  });
+  const scopes = grants.map(
+    (grant) =>
+      grant.coverage ?? {
+        productIds: grant.capabilities
+          .filter(isProductCapability)
+          .map(
+            (value) =>
+              productIdFromCapability(accessCapabilitySchema.parse(value)) ??
+              "",
+          ),
+        materialIds: [],
+      },
+  );
+  const contents =
+    catalog === undefined ? [] : await catalog.resolveMany(scopes);
   return {
     ok: true,
     value: ownAccessSchema.parse({
       // Право, которое не выдаёт ни одно основание, кабинет не показывает и в прежних записях.
-      grounds: grants.flatMap((grant) => {
+      grounds: grants.flatMap((grant, index) => {
+        const excluded = exclusions
+          .filter((entry) => entry.grantIds.includes(grant.id))
+          .map((entry) => entry.productId);
+        const scope =
+          grant.coverage === null ? null : coverageSchema.parse(grant.coverage);
         const capabilities = grant.capabilities.filter(
-          (capability) => !isWithheldCapability(capability),
+          (capability) =>
+            !isWithheldCapability(capability) &&
+            (!isProductCapability(capability) ||
+              !excluded.includes(
+                productIdFromCapability(
+                  accessCapabilitySchema.parse(capability),
+                ) ?? "",
+              )) &&
+            (isProductCapability(capability) ||
+              scope === null ||
+              scope.wholePlatform === true ||
+              scope.materialIds.length > 0 ||
+              scope.productIds.length === 0 ||
+              !scope.productIds.every((id) => excluded.includes(id))),
         );
         return capabilities.length === 0
           ? []
           : [
               {
                 source: grant.source,
+                ...(contents[index] === undefined
+                  ? {}
+                  : {
+                      content: contents[index].filter(
+                        (entry) => !excluded.includes(entry.id),
+                      ),
+                    }),
                 capabilities,
                 startsAt: grant.startsAt.toISOString(),
                 validUntil: grant.validUntil?.toISOString() ?? null,

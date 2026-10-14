@@ -80,6 +80,10 @@ beforeAll(async () => {
       "0087_web_telemetry",
       "0088_web_telemetry_percentile_index",
       "0089_bank_refund_history",
+      "0090_explicit_community_rights",
+      "0091_product_communities",
+      "0092_product_access_exclusions",
+      "0093_product_learning_started",
     ],
   });
   await database.prisma.topic.create({

@@ -645,6 +645,12 @@ function route(method, url, entitled) {
   if (/^\/products\/[^/]+\/artifacts$/u.test(path))
     return json({ artifacts: [] });
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
+  if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
+    return json(null);
+  if (path === "/accounts/current/billing")
+    return json({ subscription: null, notices: [], grounds: [], payments: [] });
+  if (path === "/accounts/current/billing/contact")
+    return json({ ok: true, contact: null, documents: [] });
   if (path === "/billing/offers") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {

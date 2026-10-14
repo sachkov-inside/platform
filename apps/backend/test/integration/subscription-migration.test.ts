@@ -85,7 +85,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
       await db.prisma.accessGrant.findUnique({ where: { id: grant } }),
     ).toMatchObject({
       id: grant,
-      capabilities: ["materials", "support", "reviews"],
+      capabilities: ["materials", "support", "reviews", "community"],
       startsAt: new Date("2030-01-01Z"),
       validUntil: null,
       revision: 1,

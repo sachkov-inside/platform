@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { ciJobNames, selectCoverage } from "./ci-coverage-plan.mjs";
 
 const ci = readFileSync(
   new URL("../.github/workflows/ci.yml", import.meta.url),
@@ -98,14 +99,14 @@ function replay(scenario = {}, shouldRerun = false) {
 }
 
 describe("missing CI Gate recovery", () => {
-  it("replays the nine-success, absent-gate failure for PRs and the merge queue", () => {
+  it("replays the successful-plan, absent-gate failure for PRs and the merge queue", () => {
     replay({}, true);
     replay({ run: { event: "merge_group" } }, true);
   });
 
   it("does not retry failed, cancelled, skipped, unfinished or missing prerequisites", () => {
     for (const index of jobs.keys()) {
-      for (const conclusion of ["failure", "cancelled", "skipped", ""]) {
+      for (const conclusion of ["failure", "cancelled", ""]) {
         replay({
           jobs: jobs.map((job, i) =>
             i === index ? { ...job, conclusion } : job,
@@ -128,6 +129,51 @@ describe("missing CI Gate recovery", () => {
     replay({ jobs: jobs.map((job, i) => (i === 0 ? (jobs[1] ?? job) : job)) });
   });
 
+  it("requests real checks for dynamic exclusions but never retries a skipped planner", () => {
+    replay(
+      {
+        jobs: jobs.map((job) =>
+          job.name === "Coverage plan (isolated reruns)"
+            ? job
+            : { ...job, conclusion: "skipped" },
+        ),
+      },
+      true,
+    );
+    replay({
+      jobs: jobs.map((job) =>
+        job.name === "Coverage plan (isolated reruns)"
+          ? { ...job, conclusion: "skipped" }
+          : job,
+      ),
+    });
+  });
+
+  it("requests real gate recovery when superseded focused jobs are intentionally skipped", () => {
+    const plan = selectCoverage(
+      ["apps/web/page.tsx", "AGENTS.md"],
+      "merge_group",
+    );
+    const selectedNames = plan.required.map((id) => ciJobNames[id]);
+    const providerJobs = jobs.map((job) => ({
+      ...job,
+      conclusion:
+        job.name === ciJobNames["plan"] || selectedNames.includes(job.name)
+          ? "success"
+          : "skipped",
+    }));
+    assert.equal(
+      providerJobs.find((job) => job.name === ciJobNames["docs"])?.conclusion,
+      "skipped",
+    );
+    assert.equal(
+      providerJobs.find((job) => job.name === ciJobNames["contracts"])
+        ?.conclusion,
+      "skipped",
+    );
+    replay({ jobs: providerJobs, run: { event: "merge_group" } }, true);
+  });
+
   it("does not retry any created gate, even a failing gate", () => {
     for (const conclusion of ["success", "failure", "cancelled", "skipped"]) {
       replay({
@@ -139,8 +185,8 @@ describe("missing CI Gate recovery", () => {
   it("leaves old workflow revisions without isolated reruns to manual recovery", () => {
     replay({
       jobs: jobs.map((job) =>
-        job.name === "Static checks (isolated reruns)"
-          ? { ...job, name: "Static checks" }
+        job.name === "Coverage plan (isolated reruns)"
+          ? { ...job, name: "Coverage plan" }
           : job,
       ),
     });

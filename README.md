@@ -123,9 +123,11 @@ is an explicit destructive reset.
 
 ## Production delivery baseline
 
-The versioned release pipeline builds the exact current `main`, reruns CI, publishes public backend
-and web GHCR images, and records the next ordinal `vN` in an immutable manifest plus versioned
-runtime bundle. Release consumers identify images and deployment files by digest, never by a moving
+The versioned release pipeline freezes the main commit captured by the owner release command,
+reuses trusted CI evidence and executes missing source checks under the
+[release evidence policy](docs/agents/release-evidence.md). It builds that captured source even
+after main advances, publishes public backend and web GHCR images, and records the next ordinal
+`vN` in an immutable manifest plus versioned runtime bundle. Release consumers identify images and deployment files by digest, never by a moving
 tag or a server checkout.
 
 The manual production workflow queues deploy/rollback commands, rechecks the immutable release and

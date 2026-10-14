@@ -8,6 +8,7 @@ export type AccountRightsPrisma = Pick<
   | "$executeRaw"
   | "$queryRaw"
   | "accessGrant"
+  | "productAccessExclusion"
   | "tariffAssignment"
   | "activationRule"
   | "activationAttempt"
@@ -35,6 +36,7 @@ export type MembershipAccessPrisma = Pick<
   AccountRightsPrisma,
   | "accessChange"
   | "accessGrant"
+  | "productAccessExclusion"
   | "legacyClassification"
   | "membershipBinding"
   | "membershipEvidenceReceipt"
@@ -60,6 +62,7 @@ export type MembershipEnrollmentPrisma = Pick<
   | "tariffAssignment"
   | "sourceEntitlement"
   | "accessGrant"
+  | "productAccessExclusion"
   | "accessChange"
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"

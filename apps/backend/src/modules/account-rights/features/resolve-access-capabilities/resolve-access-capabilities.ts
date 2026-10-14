@@ -1,6 +1,8 @@
+import { productIdFromCapability } from "@inside/access-capabilities";
 import {
   coverageSchema,
   productCapability,
+  isProductCapability,
   scopeOpensResource,
 } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/account-rights/account-rights.interface.js";
@@ -39,6 +41,9 @@ type CapabilityFacts = {
   grants: Awaited<
     ReturnType<MembershipAccessPrisma["accessGrant"]["findMany"]>
   >;
+  exclusions: Awaited<
+    ReturnType<MembershipAccessPrisma["productAccessExclusion"]["findMany"]>
+  >;
   classification: Awaited<
     ReturnType<MembershipAccessPrisma["legacyClassification"]["findUnique"]>
   >;
@@ -67,6 +72,9 @@ export async function readAccessCapabilityFacts(
       OR: [{ validUntil: null }, { validUntil: { gt: now } }],
     },
   });
+  const exclusions = await prisma.productAccessExclusion.findMany({
+    where: { accountId },
+  });
   const classification = await prisma.legacyClassification.findUnique({
     where: { accountId },
   });
@@ -88,6 +96,7 @@ export async function readAccessCapabilityFacts(
     projectAccessCapabilities(
       {
         grants,
+        exclusions,
         classification,
         projection,
         revision,
@@ -127,6 +136,7 @@ export async function readAccessCapabilityFacts(
       });
   return {
     grants,
+    exclusions,
     classification,
     projection,
     revision,
@@ -138,6 +148,7 @@ export async function readAccessCapabilityFacts(
 export function projectAccessCapabilities(
   {
     grants,
+    exclusions,
     classification,
     projection,
     revision,
@@ -167,15 +178,48 @@ export function projectAccessCapabilities(
     if (grant.validUntil !== null)
       futureBoundaries.push(grant.validUntil.getTime());
     const validUntil = grant.validUntil?.toISOString() ?? null;
+    const excluded = exclusions
+      .filter((entry) => entry.grantIds.includes(grant.id))
+      .map((entry) => entry.productId);
     for (const value of grant.capabilities) {
       const granted = accessCapabilitySchema.parse(value);
+      if (
+        isProductCapability(granted) &&
+        excluded.includes(
+          productIdFromCapability(accessCapabilitySchema.parse(granted)) ?? "",
+        )
+      )
+        continue;
+      const scope =
+        grant.coverage === null ? null : coverageSchema.parse(grant.coverage);
+      if (
+        !isProductCapability(granted) &&
+        scope !== null &&
+        scope.wholePlatform !== true &&
+        scope.productIds.length > 0 &&
+        scope.materialIds.length === 0 &&
+        scope.productIds.every((id) => excluded.includes(id))
+      )
+        continue;
       // Прежняя запись может называть право, которое не выдаёт ни одно основание (#648).
       if (withheldAccessCapabilities.includes(granted)) continue;
-      if (granted === "materials" && resource !== undefined) {
+      if (
+        resource !== undefined &&
+        (granted === "materials" ||
+          (granted === "community" && grant.coverage !== null))
+      ) {
         const scope = coverageSchema.parse(
           grant.coverage ?? { productIds: [], materialIds: [] },
         );
-        if (!scopeOpensResource(scope, resource)) continue;
+        if (
+          !scopeOpensResource(scope, {
+            ...resource,
+            productIds: resource.productIds.filter(
+              (id) => !excluded.includes(id),
+            ),
+          })
+        )
+          continue;
       }
       for (const capability of capabilitiesOpenedBy(granted))
         include(capability, validUntil);
@@ -186,16 +230,38 @@ export function projectAccessCapabilities(
       classification?.bridgeBenefits ?? ["materials", "community"]
     ).map((value) => accessCapabilitySchema.parse(value))) {
       if (withheldAccessCapabilities.includes(capability)) continue;
-      if (capability === "materials" && resource !== undefined) {
+      if (
+        resource !== undefined &&
+        resource.productIds.length > 0 &&
+        resource.productIds.every((id) =>
+          exclusions.some((entry) => entry.productId === id && entry.bridge),
+        )
+      )
+        continue;
+      if (
+        resource !== undefined &&
+        (capability === "materials" || classification?.bridgeCoverage != null)
+      ) {
         const scope = coverageSchema.parse(
           classification?.bridgeCoverage ?? {
             productIds: [],
             materialIds: [],
           },
         );
-        if (!scopeOpensResource(scope, resource)) continue;
+        if (
+          !scopeOpensResource(scope, {
+            ...resource,
+            productIds: resource.productIds.filter(
+              (id) =>
+                !exclusions.some(
+                  (entry) => entry.productId === id && entry.bridge,
+                ),
+            ),
+          })
+        )
+          continue;
       }
-      // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
+      // The bridge exposes only its explicit capabilities.
       for (const opened of capabilitiesOpenedBy(capability))
         include(opened, projection.validUntil.toISOString());
     }
@@ -248,6 +314,7 @@ export async function resolveAccessCapabilitiesForAccounts(
   prisma: MembershipAccessPrisma,
   accountIds: readonly string[],
   now: Date,
+  resource?: { productIds: readonly string[]; materialId?: string },
 ): Promise<Map<string, AccessCapabilities>> {
   const result = new Map<string, AccessCapabilities>();
   for (let offset = 0; offset < accountIds.length; offset += 500) {
@@ -258,6 +325,9 @@ export async function resolveAccessCapabilitiesForAccounts(
         revokedAt: null,
         OR: [{ validUntil: null }, { validUntil: { gt: now } }],
       },
+    });
+    const exclusions = await prisma.productAccessExclusion.findMany({
+      where: { accountId: { in: chunk } },
     });
     const classifications = await prisma.legacyClassification.findMany({
       where: { accountId: { in: chunk } },
@@ -282,6 +352,12 @@ export async function resolveAccessCapabilitiesForAccounts(
       grouped.push(grant);
       grantsByAccount.set(grant.accountId, grouped);
     }
+    const exclusionsByAccount = new Map<string, typeof exclusions>();
+    for (const exclusion of exclusions) {
+      const grouped = exclusionsByAccount.get(exclusion.accountId) ?? [];
+      grouped.push(exclusion);
+      exclusionsByAccount.set(exclusion.accountId, grouped);
+    }
     const classificationByAccount = new Map(
       classifications.map((row) => [row.accountId, row]),
     );
@@ -300,6 +376,7 @@ export async function resolveAccessCapabilitiesForAccounts(
         projectAccessCapabilities(
           {
             grants: grantsByAccount.get(canonicalId) ?? [],
+            exclusions: exclusionsByAccount.get(canonicalId) ?? [],
             classification: classificationByAccount.get(canonicalId) ?? null,
             projection: projectionByAccount.get(canonicalId) ?? null,
             revision: revisionByAccount.get(canonicalId) ?? null,
@@ -308,6 +385,7 @@ export async function resolveAccessCapabilitiesForAccounts(
             last: null,
           },
           now,
+          resource,
         );
       result.set(id, { capabilities, revision, nextBoundary });
     }

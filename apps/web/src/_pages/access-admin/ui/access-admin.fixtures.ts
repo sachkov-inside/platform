@@ -301,6 +301,7 @@ export function summaryReply(value: AccessSummary) {
 
 /** Чтения всех четырёх вкладок: панели смонтированы сразу, даже скрытые. */
 export const accessReads: BillingRoutes = {
+  "content/list": billingOk({ outcome: "content", items: [] }),
   "invitations/list": invitationsReply(everyStateInvitations),
   "people/list": peopleReply(accessPeople),
   "tiers/list": billingOk({

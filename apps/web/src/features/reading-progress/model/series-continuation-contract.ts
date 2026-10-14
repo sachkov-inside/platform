@@ -26,6 +26,7 @@ export const seriesContinuationProjectionSchema = z
         previewItems: z.array(publishedMaterialProjectionSchema).max(3),
       })
       .strict(),
+    started: z.boolean().optional(),
     read: z.number().int().nonnegative(),
     total: z.number().int().nonnegative(),
     continuation: z
@@ -44,6 +45,7 @@ export const seriesContinuationResultSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("ready"),
+      started: z.boolean().optional(),
       read: z.number().int().nonnegative(),
       total: z.number().int().nonnegative(),
       continuation: z

@@ -18,6 +18,7 @@ export type SeriesLearningView =
   | {
       readonly kind: "ready";
       readonly read: number;
+      readonly started?: boolean | undefined;
       readonly total: number;
       readonly continuation: {
         readonly materialSlug: string;
