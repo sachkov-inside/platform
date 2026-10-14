@@ -90,11 +90,13 @@ class FakeAuthorization implements AuthorAuthorization {
   result: "allowed" | "denied" | "unavailable" = "allowed";
   subjects: AuthorSubject[] = [];
   openTransactions: number[] = [];
+  observeTransactions = false;
   /** While set, every answer waits for it: a slow Platform. */
   slow?: Promise<void> | undefined;
   async authorize(subject: AuthorSubject) {
     this.subjects.push(subject);
-    this.openTransactions.push(await openTransactions());
+    if (this.observeTransactions)
+      this.openTransactions.push(await openTransactions());
     await this.slow;
     return this.result;
   }
@@ -119,6 +121,7 @@ const contentValidation = {
 const sent: unknown[] = [];
 let app: NestFastifyApplication;
 let communications: Communications;
+let authorStep = "setup";
 beforeAll(async () => {
   await migrateToLatest(database);
   const module = await Test.createTestingModule({
@@ -153,8 +156,11 @@ beforeEach(async () => {
   contentValidation.snapshots = [];
   authorization.result = "allowed";
   authorization.subjects = [];
+  authorization.openTransactions = [];
+  authorization.observeTransactions = false;
   authorization.slow = undefined;
   sent.length = 0;
+  authorStep = "setup";
 });
 afterAll(async () => {
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_broadcasts cascade`.execute(
@@ -369,7 +375,7 @@ describe("versioned HTTP scenarios shared with consumer", () => {
 describe("durable author intake", () => {
   it("asks Platform for permission with no transaction open", async () => {
     await seedLink();
-    authorization.openTransactions = [];
+    authorization.observeTransactions = true;
     await intake(1, { text: "/template" });
     await authorMessage(2, "/admin");
 
@@ -615,7 +621,27 @@ describe("durable author intake", () => {
   });
 });
 
-afterEach(async () => {
+afterEach(async ({ task }) => {
+  if (task.result?.state === "fail") {
+    // Failure-only facts locate the stalled seam; PostgreSQL statements contain no parameters.
+    try {
+      const activity = await sql<{
+        state: string;
+        wait_event_type: string | null;
+        wait_event: string | null;
+        query: string;
+      }>`select state, wait_event_type, wait_event, left(query, 240) as query
+        from pg_stat_activity
+        where datname = current_database() and pid <> pg_backend_pid()
+          and state <> 'idle'`.execute(database);
+      console.error("communications fixture failure", {
+        authorStep,
+        activity: activity.rows,
+      });
+    } catch (error) {
+      console.error("communications fixture diagnostics failed", error);
+    }
+  }
   await sql`truncate communication_author_sessions, communication_author_receipts, communication_author_outbox`.execute(
     database,
   );
@@ -625,6 +651,7 @@ async function authorMessage(
   text: string,
   extra: Record<string, unknown> = {},
 ) {
+  authorStep = `message ${id}`;
   id = Math.round(id * 10);
   const payload = update(id, { text, ...extra });
   await app
@@ -648,6 +675,7 @@ let navigationId = 1000000;
  * «Настройки», so paging never fails a test: assert on-screen labels in the unit tests instead.
  */
 async function authorClick(id: number, label: string, depth = 0) {
+  authorStep = `click ${id}: ${label}`;
   id = Math.round(id * 10);
   const messages = await database
     .selectFrom("communication_author_outbox")

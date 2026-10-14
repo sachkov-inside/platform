@@ -271,6 +271,10 @@ pnpm --filter @inside/telegram check:full
 pnpm check
 ```
 
+Identity-linking rollback checks create and drop disposable PostgreSQL databases. The test role
+needs `CREATEDB`; the owned Compose and CI PostgreSQL user already has it. These checks never roll
+back the shared runtime fixture's tables, and cleanup joins in-flight preparation after a hook timeout.
+
 Build the Telegram production image from the **root** context:
 
 ```bash
