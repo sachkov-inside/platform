@@ -207,6 +207,14 @@ test("free tasks open for a guest and unknown or unpublished task codes remain u
   await expect(
     page.getByText("Открытое условие задания", { exact: true }),
   ).toBeVisible();
+  await page.goto(taskPath);
+  await expect(
+    page.locator('[data-product-task-state="closed"]:visible'),
+  ).toBeVisible();
+  await expect(
+    page.getByText(protectedTaskMarker, { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-product-task-form]")).toHaveCount(0);
   for (const missing of ["unknown-task", "unpublished-task"]) {
     await page.goto(`/products/${taskNavigationSlug}/tasks/${missing}`);
     await expect(
