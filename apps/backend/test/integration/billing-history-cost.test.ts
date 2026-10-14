@@ -207,6 +207,7 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
       readLegacyClassification: unused,
       readPurchaseGrounds: unused,
       resolveCapabilities: unused,
+      resolveCapabilitiesMany: unused,
       applyPaidPeriod: unused,
     },
     clock: () => now,
