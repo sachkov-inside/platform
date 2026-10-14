@@ -10,6 +10,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { createQueryEventClient } from "./setup/query-events.js";
+import { assembleListPublishedPractices } from "../../src/modules/materials/features/read-published-practice/read-published-practice.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
 
 registerFixedClock();
@@ -106,8 +108,164 @@ describe("published learning practice", () => {
         path: `practices/${id}.json`,
       },
     };
-    return { materials, command };
+    return { materials, command, source };
   }
+
+  test("listing 1, 10 and 100 Practices reads owner snapshots as sets and authorizes the Material once", async () => {
+    const measured = createQueryEventClient(database.url);
+    const observations: {
+      count: number;
+      sql: number;
+      authorizeCalls: number;
+    }[] = [];
+    try {
+      for (const count of [1, 10, 100]) {
+        const { materials, command } = await fixture();
+        for (let index = 0; index < count; index++) {
+          const imported = await materials.authoring.applySourcePractice({
+            ...command,
+            practiceId: `${command.practiceId}-${String(index).padStart(3, "0")}`,
+            idempotencyKey: randomUUID(),
+          });
+          if (!imported.ok) throw new Error(imported.error.code);
+        }
+        const material = await database.prisma.material.findUniqueOrThrow({
+          where: { id: command.materialId },
+        });
+        const owners = assembleMaterials({
+          prisma: measured.prisma,
+          authorPolicy: { canManage: () => false },
+        });
+        let authorizeCalls = 0;
+        const list = assembleListPublishedPractices({
+          prisma: measured.prisma,
+          contentAccess: {
+            ...owners.contentAccess,
+            authorize: (query) => {
+              authorizeCalls++;
+              return owners.contentAccess.authorize(query);
+            },
+          },
+        });
+        const result = await measured.measure(() =>
+          list({ subject: learner, materialSlug: material.slug ?? "" }),
+        );
+        if (!result.result.ok) throw new Error(result.result.error.code);
+        expect(result.result.value).toHaveLength(count);
+        observations.push({
+          count,
+          sql: result.statements.length,
+          authorizeCalls,
+        });
+      }
+      process.stdout.write(
+        `N3 PostgreSQL seed excluded ${JSON.stringify(observations)}\n`,
+      );
+      expect(observations.map(({ authorizeCalls }) => authorizeCalls)).toEqual([
+        1, 1, 1,
+      ]);
+      expect(observations.map(({ sql }) => sql)).toEqual([
+        observations[0]?.sql,
+        observations[0]?.sql,
+        observations[0]?.sql,
+      ]);
+    } finally {
+      await measured.prisma.$disconnect();
+    }
+  });
+
+  test.each([
+    "withdraw-practice",
+    "withdraw-material",
+    "practice-version",
+    "material-version",
+    "source-revision",
+    "rebind",
+  ] as const)(
+    "list revalidates %s after authorizing the owning Material",
+    async (change) => {
+      const { materials, command, source } = await fixture();
+      await materials.authoring.applySourcePractice(command);
+      const affectedPracticeId = `${command.practiceId}-second`;
+      await materials.authoring.applySourcePractice({
+        ...command,
+        practiceId: affectedPracticeId,
+        idempotencyKey: randomUUID(),
+      });
+      const material = await database.prisma.material.findUniqueOrThrow({
+        where: { id: command.materialId },
+      });
+      const other = change === "rebind" ? await fixture() : undefined;
+      const list = assembleListPublishedPractices({
+        prisma: database.prisma,
+        contentAccess: {
+          ...materials.contentAccess,
+          authorize: async (query) => {
+            const allowed = await materials.contentAccess.authorize(query);
+            if (change === "withdraw-practice")
+              await database.prisma.practiceDefinition.update({
+                where: { practiceId: affectedPracticeId },
+                data: { publicationState: "unpublished" },
+              });
+            if (change === "withdraw-material")
+              await database.prisma.material.update({
+                where: { id: command.materialId },
+                data: { publicationState: "unpublished" },
+              });
+            if (change === "practice-version")
+              await database.prisma.practiceDefinition.update({
+                where: { practiceId: affectedPracticeId },
+                data: { practiceVersion: { increment: 1 } },
+              });
+            if (change === "material-version") {
+              const changed = await materials.authoring.applySourceMaterial({
+                actor: owner,
+                idempotencyKey: randomUUID(),
+                source,
+                materialId: command.materialId,
+                expectedContentVersion: command.expectedContentVersion,
+                publicationState: "published",
+                primaryVideoId: null,
+                metadata: {
+                  title: material.title,
+                  summary: "Updated reference lesson",
+                  access: "free",
+                  topicId,
+                  formatId: "guide",
+                  tagIds: [],
+                  seriesIds: [],
+                  difficulty: null,
+                  outcomes: [],
+                },
+                body: representativeDocument("Updated reference lesson"),
+              });
+              if (!changed.ok) throw new Error(changed.error.code);
+            }
+            if (change === "source-revision")
+              await database.prisma.material.update({
+                where: { id: command.materialId },
+                data: { sourceRevision: "e".repeat(64) },
+              });
+            if (other !== undefined)
+              await database.prisma.practiceDefinition.update({
+                where: { practiceId: affectedPracticeId },
+                data: { materialId: other.command.materialId },
+              });
+            return allowed;
+          },
+        },
+      });
+      expect(
+        await list({ subject: learner, materialSlug: material.slug ?? "" }),
+      ).toMatchObject({
+        ok: false,
+        error:
+          change === "source-revision"
+            ? { code: "practice_context_unavailable", reason: "source_changed" }
+            : { code: "practice_context_changed" },
+      });
+    },
+  );
 
   test("authorizes import, preserves an idempotent receipt, and rejects reused keys", async () => {
     const { materials, command } = await fixture();
@@ -242,6 +400,21 @@ describe("published learning practice", () => {
       await denied.publishedMaterialReader.readPractice({
         subject: learner,
         practiceId: command.practiceId,
+      }),
+    ).toEqual(anonymous);
+    const lesson = await database.prisma.material.findUniqueOrThrow({
+      where: { id: command.materialId },
+    });
+    expect(
+      await denied.publishedMaterialReader.listPractices({
+        subject: learner,
+        materialSlug: lesson.slug ?? "",
+      }),
+    ).toEqual(anonymous);
+    expect(
+      await materials.publishedMaterialReader.listPractices({
+        subject: { kind: "anonymous" },
+        materialSlug: lesson.slug ?? "",
       }),
     ).toEqual(anonymous);
   });

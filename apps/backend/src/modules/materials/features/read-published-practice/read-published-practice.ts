@@ -9,12 +9,18 @@ import {
   practiceIdSchema,
 } from "../../domain/practice-definition.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { listPracticeIds, loadPracticeSnapshot } from "./practice-snapshot.js";
+import {
+  listPracticeSnapshots,
+  loadPracticeSnapshots,
+  loadPracticeSnapshot,
+  type PracticeSnapshot,
+} from "./practice-snapshot.js";
 import type {
   ReadPublishedPracticeOperation,
   ListPublishedPracticesOperation,
   ReadPublishedPracticeQuery,
   PublishedPracticeError,
+  PublishedPractice,
 } from "./read-published-practice.contract.js";
 
 const querySchema = z
@@ -71,58 +77,12 @@ export function assembleReadPublishedPractice(dependencies: {
         dependencies.prisma,
         query.practiceId,
       );
-      if (
-        current?.publication_state !== "published" ||
-        current.material_state !== "published" ||
-        current.practice_version !== first.practice_version ||
-        current.material_id !== first.material_id ||
-        current.material_version !== access.checkedContentVersion ||
-        current.material_slug === null ||
-        (query.expectedPracticeVersion !== undefined &&
-          current.practice_version !== query.expectedPracticeVersion) ||
-        (query.expectedContentVersion !== undefined &&
-          current.material_version !== query.expectedContentVersion)
-      )
-        return { ok: false, error: { code: "practice_context_changed" } };
-      if (
-        current.bound_content_version !== current.material_version ||
-        current.bound_source_id !== current.material_source_id ||
-        current.bound_source_revision !== current.material_source_revision
-      )
-        return {
-          ok: false,
-          error: {
-            code: "practice_context_unavailable",
-            reason: "source_changed",
-          },
-        };
-      const sourceReference = {
-        materialSourceId: current.bound_source_id,
-        materialSourceRevision: current.bound_source_revision,
-      };
-      if (
-        practiceDefinitionDigest(current.definition, sourceReference) !==
-        current.definition_digest
-      )
-        throw new Error("Stored practice definition digest mismatch");
-      return {
-        ok: true,
-        value: {
-          practiceId: current.practice_id,
-          practiceVersion: current.practice_version,
-          definitionDigest: current.definition_digest,
-          definition: current.definition,
-          materialId: current.material_id,
-          materialSlug: current.material_slug,
-          materialContentVersion: current.material_version,
-          sourceReference,
-          provenance: {
-            repository: current.source_repository,
-            commit: current.source_commit,
-            path: current.source_path,
-          },
-        },
-      };
+      return validatedPractice(
+        first,
+        current,
+        access.checkedContentVersion,
+        query,
+      );
     } catch (error) {
       return {
         ok: false,
@@ -140,10 +100,10 @@ export function assembleListPublishedPractices(dependencies: {
   readonly prisma: MaterialsPrismaClient;
   readonly contentAccess: ContentAccess;
 }): ListPublishedPracticesOperation {
-  const read = assembleReadPublishedPractice(dependencies);
   return async (query) => {
     if (query.subject.kind === "anonymous") return unavailable();
     if (
+      !querySchema.shape.subject.safeParse(query.subject).success ||
       !z
         .string()
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
@@ -152,13 +112,41 @@ export function assembleListPublishedPractices(dependencies: {
     )
       return { ok: false, error: { code: "invalid_request_shape" } };
     try {
-      const ids = await listPracticeIds(
+      const first = await listPracticeSnapshots(
         dependencies.prisma,
         query.materialSlug,
       );
-      const values = [];
-      for (const { practice_id: practiceId } of ids) {
-        const result = await read({ subject: query.subject, practiceId });
+      const owningMaterial = first[0];
+      if (owningMaterial === undefined) return { ok: true, value: [] };
+      const access = await dependencies.contentAccess.authorize({
+        subject: query.subject,
+        action: "read",
+        resource: {
+          kind: "material",
+          materialId: materialId(owningMaterial.material_id),
+        },
+        enforcementPoint: "published_material_read",
+        correlationId: randomUUID(),
+      });
+      if (access.effect !== "allow") return unavailable();
+      const current = new Map(
+        (
+          await loadPracticeSnapshots(
+            dependencies.prisma,
+            first.map(({ practice_id }) => practice_id),
+          )
+        ).map((snapshot) => [snapshot.practice_id, snapshot]),
+      );
+      const values: PublishedPractice[] = [];
+      for (const snapshot of first) {
+        if (snapshot.material_id !== owningMaterial.material_id)
+          return { ok: false, error: { code: "practice_context_changed" } };
+        const result = validatedPractice(
+          snapshot,
+          current.get(snapshot.practice_id),
+          access.checkedContentVersion,
+          {},
+        );
         if (!result.ok) return result;
         if (result.value.materialSlug !== query.materialSlug)
           return { ok: false, error: { code: "practice_context_changed" } };
@@ -183,4 +171,70 @@ function unavailable(): {
   readonly error: PublishedPracticeError;
 } {
   return { ok: false, error: { code: "practice_not_available" } };
+}
+
+/** Single and list reads enforce the same post-authorization binding and version validation. */
+function validatedPractice(
+  first: PracticeSnapshot,
+  current: PracticeSnapshot | undefined,
+  checkedContentVersion: number | undefined,
+  query: {
+    readonly expectedPracticeVersion?: number;
+    readonly expectedContentVersion?: number;
+  },
+):
+  | { readonly ok: true; readonly value: PublishedPractice }
+  | { readonly ok: false; readonly error: PublishedPracticeError } {
+  if (
+    current?.publication_state !== "published" ||
+    current.material_state !== "published" ||
+    current.practice_version !== first.practice_version ||
+    current.material_id !== first.material_id ||
+    current.material_version !== checkedContentVersion ||
+    current.material_slug === null ||
+    (query.expectedPracticeVersion !== undefined &&
+      current.practice_version !== query.expectedPracticeVersion) ||
+    (query.expectedContentVersion !== undefined &&
+      current.material_version !== query.expectedContentVersion)
+  )
+    return { ok: false, error: { code: "practice_context_changed" } };
+  if (
+    current.bound_content_version !== current.material_version ||
+    current.bound_source_id !== current.material_source_id ||
+    current.bound_source_revision !== current.material_source_revision
+  )
+    return {
+      ok: false,
+      error: {
+        code: "practice_context_unavailable",
+        reason: "source_changed",
+      },
+    };
+  const sourceReference = {
+    materialSourceId: current.bound_source_id,
+    materialSourceRevision: current.bound_source_revision,
+  };
+  if (
+    practiceDefinitionDigest(current.definition, sourceReference) !==
+    current.definition_digest
+  )
+    throw new Error("Stored practice definition digest mismatch");
+  return {
+    ok: true,
+    value: {
+      practiceId: current.practice_id,
+      practiceVersion: current.practice_version,
+      definitionDigest: current.definition_digest,
+      definition: current.definition,
+      materialId: current.material_id,
+      materialSlug: current.material_slug,
+      materialContentVersion: current.material_version,
+      sourceReference,
+      provenance: {
+        repository: current.source_repository,
+        commit: current.source_commit,
+        path: current.source_path,
+      },
+    },
+  };
 }

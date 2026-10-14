@@ -202,24 +202,20 @@ async function PersonalMaterialReader({
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
   guestPurchaseProduct?.catch(() => undefined);
-  const [result, seriesResult, productMode, hintSeen, practices] =
-    await Promise.all([
-      sharedMaterial?.kind === "available"
-        ? Promise.resolve(sharedMaterial)
-        : loadMaterialReader(slug, accessToken),
-      productSlug === undefined
-        ? Promise.resolve(null)
-        : readSeriesAs(productSlug, accessToken),
-      productSlug === undefined
-        ? Promise.resolve(defaultProductMode)
-        : loadReaderProductMode(accessToken),
-      productSlug === undefined
-        ? Promise.resolve(true)
-        : readerHasSeenProductModeHint(),
-      accessToken === undefined
-        ? Promise.resolve({ kind: "available" as const, practices: [] })
-        : loadLearningPractices(slug, accessToken),
-    ]);
+  const [result, seriesResult, productMode, hintSeen] = await Promise.all([
+    sharedMaterial?.kind === "available"
+      ? Promise.resolve(sharedMaterial)
+      : loadMaterialReader(slug, accessToken),
+    productSlug === undefined
+      ? Promise.resolve(null)
+      : readSeriesAs(productSlug, accessToken),
+    productSlug === undefined
+      ? Promise.resolve(defaultProductMode)
+      : loadReaderProductMode(accessToken),
+    productSlug === undefined
+      ? Promise.resolve(true)
+      : readerHasSeenProductModeHint(),
+  ]);
   if (result.kind === "not-found") {
     notFound();
   }
@@ -239,10 +235,11 @@ async function PersonalMaterialReader({
         : { purchaseProduct: guestPurchaseProduct })}
       productMode={productMode}
       practiceActions={
-        <LearningPracticePrompts
-          connection={await readerLearnerMcp()}
-          result={practices}
-        />
+        accessToken === undefined ? undefined : (
+          <Suspense fallback={null}>
+            <PrivateMaterialPractice slug={slug} accessToken={accessToken} />
+          </Suspense>
+        )
       }
       hintSeen={hintSeen}
       result={result}
@@ -251,6 +248,21 @@ async function PersonalMaterialReader({
       slug={slug}
     />
   );
+}
+
+/** Optional Practice never delays the authorized body or its required mode/navigation context. */
+async function PrivateMaterialPractice({
+  slug,
+  accessToken,
+}: {
+  readonly slug: string;
+  readonly accessToken: string;
+}) {
+  const [result, connection] = await Promise.all([
+    loadLearningPractices(slug, accessToken),
+    readerLearnerMcp(),
+  ]);
+  return <LearningPracticePrompts connection={connection} result={result} />;
 }
 
 async function ResolvedMaterialReader({
