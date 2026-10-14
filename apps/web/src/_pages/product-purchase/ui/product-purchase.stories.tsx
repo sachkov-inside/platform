@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
-import { expect, waitFor, within } from "storybook/test";
+import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import { expect, mocked, waitFor, within } from "storybook/test";
 
 import { buyerProductId } from "@/storybook/buyer-journey.fixtures";
 import {
@@ -71,6 +72,7 @@ function purchaseRoute(
   viewer: Viewer,
   restored: PurchaseStatus | null = null,
   needsEmail = false,
+  purchaseRef?: string,
 ): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
     "/products/platform-inside/buy",
@@ -79,6 +81,10 @@ function purchaseRoute(
   return {
     beforeEach: () => {
       beforeEach();
+      if (purchaseRef !== undefined)
+        mocked(useSearchParams).mockReturnValue(
+          new ReadonlyURLSearchParams(new URLSearchParams({ purchaseRef })),
+        );
       getQueryClient().removeQueries({ queryKey: ["account"] });
       return fetchBeforeRender((input) => {
         const path = requestPath(input);
@@ -92,8 +98,22 @@ function purchaseRoute(
                   ? billingFailureResponse("unavailable")
                   : currentBillingResponse(null),
               );
-        if (path === "/api/account/billing/product-purchase")
+        if (path === "/api/account/billing/product-purchase") {
+          const url = new URL(
+            typeof input === "string"
+              ? input
+              : input instanceof URL
+                ? input.href
+                : input.url,
+            window.location.origin,
+          );
+          if (
+            purchaseRef !== undefined &&
+            url.searchParams.get("purchaseRef") !== purchaseRef
+          )
+            return Promise.resolve(billingFailureResponse("not_found"));
           return Promise.resolve(Response.json({ ok: true, value: restored }));
+        }
         if (path === "/api/account/billing/contact")
           return Promise.resolve(
             needsEmail
@@ -413,4 +433,14 @@ export const PurchasedAfterSaleClosed: Story = {
       }),
     ).toHaveAttribute("href", "/products/platform-inside/programme");
   },
+};
+
+export const BankReturnKeepsPurchaseReference: Story = {
+  ...RestoredPayment,
+  ...purchaseRoute(
+    "member",
+    { ...pendingPurchase, snapshot: productOnlyOffer },
+    false,
+    pendingPurchase.purchaseRef,
+  ),
 };

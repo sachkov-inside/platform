@@ -582,14 +582,25 @@ describe("оплата, выдача прав и доступ к материа�
     );
     return { offerId, optionId };
   }
-  function productOffer() {
+  async function productOffer() {
+    await db.prisma.productCommunity.upsert({
+      where: { productId: productA },
+      create: {
+        productId: productA,
+        groupRef: "primary",
+        updatedBy: owner,
+        updatedAt: now,
+      },
+      update: { groupRef: "primary", updatedAt: now },
+    });
     return offer({
       name: "Руководство «Синтетика»",
-      benefits: [`product:${productA}`, "support"],
+      benefits: [`product:${productA}`, "community", "support"],
       mode: "one_time",
       priceKopecks: productPriceKopecks,
       benefitPeriods: [
         { capability: `product:${productA}`, months: null },
+        { capability: "community", months: null },
         { capability: "support", months: 6 },
       ],
     });
@@ -731,7 +742,10 @@ describe("оплата, выдача прав и доступ к материа�
     async function pay(
       account: string,
       optionId: string,
-      options: { readonly recurring?: boolean } = {},
+      options: {
+        readonly recurring?: boolean;
+        readonly acknowledgeExistingAccess?: boolean;
+      } = {},
     ) {
       const bought = value(
         await purchase(payments, account, optionId, options),
@@ -758,7 +772,10 @@ describe("оплата, выдача прав и доступ к материа�
   async function command(
     account: string,
     optionId: string,
-    options: { readonly recurring?: boolean } = {},
+    options: {
+      readonly recurring?: boolean;
+      readonly acknowledgeExistingAccess?: boolean;
+    } = {},
   ) {
     const quote = value(
       await pricing.quote(
@@ -798,7 +815,7 @@ describe("оплата, выдача прав и доступ к материа�
       quoteRef: quote.quoteRef,
       contactRevision: 1,
       consentEvidenceRefs: accepted.evidenceRefs,
-      acknowledgeExistingAccess: false,
+      acknowledgeExistingAccess: options.acknowledgeExistingAccess === true,
     };
   }
   /** Путь покупки целиком: расчёт, согласия, команда и ответ банка без выдачи прав. */
@@ -806,7 +823,10 @@ describe("оплата, выдача прав и доступ к материа�
     payments: BillingPayments,
     account: string,
     optionId: string,
-    options: { readonly recurring?: boolean } = {},
+    options: {
+      readonly recurring?: boolean;
+      readonly acknowledgeExistingAccess?: boolean;
+    } = {},
   ) {
     return payments.purchase(
       account,
@@ -1021,7 +1041,10 @@ describe("оплата, выдача прав и доступ к материа�
     async function paid(
       account: string,
       optionId: string,
-      options: { readonly recurring?: boolean } = {},
+      options: {
+        readonly recurring?: boolean;
+        readonly acknowledgeExistingAccess?: boolean;
+      } = {},
     ) {
       const bought = value(
         await purchase(payments, account, optionId, options),
@@ -1532,7 +1555,7 @@ describe("оплата, выдача прав и доступ к материа�
     // Кабинет показывает ровно одно оплаченное основание: чат выводится из него, а не из тарифа.
     const cabinet = value(await subscriptions.read(onlyProduct));
     expect(cabinet.subscription).toBeNull();
-    expect(cabinet.grounds).toHaveLength(2);
+    expect(cabinet.grounds).toHaveLength(3);
     expect(cabinet.grounds).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1587,7 +1610,7 @@ describe("оплата, выдача прав и доступ к материа�
     ]);
 
     await pay(withBoth, senior.optionId, { recurring: true });
-    await pay(withBoth, bought.optionId);
+    await pay(withBoth, bought.optionId, { acknowledgeExistingAccess: true });
     // Два основания сразу: бессрочное право на руководство перекрывает срок подписки.
     expect(await capabilities(withBoth)).toEqual([
       { capability: "community", validUntil: null },
@@ -1623,7 +1646,9 @@ describe("оплата, выдача прав и доступ к материа�
     const subscribed = await pay(withBoth, senior.optionId, {
       recurring: true,
     });
-    const productPurchase = await pay(withBoth, bought.optionId);
+    const productPurchase = await pay(withBoth, bought.optionId, {
+      acknowledgeExistingAccess: true,
+    });
     // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
     await refundWithRevoke(payments, bank, productPurchase);
     value(await payments.recover());
@@ -1646,13 +1671,12 @@ describe("оплата, выдача прав и доступ к материа�
     value(await payments.recover());
     expect(await capabilities(refunded)).toEqual([]);
 
-    // Тот же возврат при независимом бессрочном праве оставляет чат открытым.
+    // A separate Product grant preserves that Product; it does not replace refunded community rights.
     const keptPurchase = await pay(kept, bought.optionId);
     await manualProductGrant(operations, kept, productB);
     await refundWithRevoke(payments, bank, keptPurchase);
     value(await payments.recover());
     expect(await capabilities(kept)).toEqual([
-      { capability: "community", validUntil: null },
       { capability: `product:${productB}`, validUntil: null },
     ]);
     // Ручное основание снимает владелец, и с последним основанием чат закрывается.

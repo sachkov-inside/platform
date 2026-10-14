@@ -77,6 +77,10 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
       appliedMigrations: [
         "0088_web_telemetry_percentile_index",
         "0089_bank_refund_history",
+        "0090_explicit_community_rights",
+        "0091_product_communities",
+        "0092_product_access_exclusions",
+        "0093_product_learning_started",
       ],
     });
     expect(await existing.summary("owner", 30)).toMatchObject({
