@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
+import { selectReleaseEvidence } from "./release-source-evidence.mjs";
+import { applicationCoverage, ciJobNames } from "./ci-coverage-plan.mjs";
 import {
   releaseManifestSchema,
   sourceShaSchema,
@@ -76,36 +78,46 @@ const legacyEvidenceSchema = z.strictObject({
     databasesPassed: z.array(z.enum(["inside", "logto", "inside_telegram"])),
   }),
 });
+const coverageReceiptSchema = z.strictObject({
+  name: z.enum(coverageNames),
+  sourceSha: sourceShaSchema,
+  exitCode: z.int(),
+  evidenceRef: z.string().min(1),
+  execution: z.discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("ci"),
+      workflowRunId: z.int().positive(),
+      job: z.string().min(1),
+      conclusion: z.literal("success"),
+    }),
+    z.strictObject({ kind: z.literal("local") }),
+    z.strictObject({ kind: z.literal("review") }),
+  ]),
+});
+const coverageEvidenceSchema = legacyEvidenceSchema.extend({
+  schemaVersion: z.literal("inside.course-release-preflight.v2"),
+  selectedSourceSha: sourceShaSchema,
+  checks: z.array(z.union([coverageReceiptSchema, excludedTelemetrySchema])),
+});
+const activeCoverageNames = coverageNames.filter(
+  (name) => name !== "telemetry-resource-budget",
+);
 const evidenceSchema = z.union([
   legacyEvidenceSchema,
-  legacyEvidenceSchema.extend({
-    schemaVersion: z.literal("inside.course-release-preflight.v2"),
-    selectedSourceSha: sourceShaSchema,
+  coverageEvidenceSchema,
+  coverageEvidenceSchema.extend({
+    schemaVersion: z.literal("inside.course-release-preflight.v3"),
+    sourceCorrespondence: z
+      .strictObject({ candidates: z.array(z.unknown()) })
+      .optional(),
     checks: z.array(
-      z.union([
-        z.strictObject({
-          name: z.enum(coverageNames),
-          sourceSha: sourceShaSchema,
-          exitCode: z.int(),
-          evidenceRef: z.string().min(1),
-          execution: z.discriminatedUnion("kind", [
-            z.strictObject({
-              kind: z.literal("ci"),
-              workflowRunId: z.int().positive(),
-              job: z.string().min(1),
-              conclusion: z.literal("success"),
-            }),
-            z.strictObject({ kind: z.literal("local") }),
-            z.strictObject({ kind: z.literal("review") }),
-          ]),
-        }),
-        excludedTelemetrySchema,
-      ]),
+      coverageReceiptSchema.extend({ name: z.enum(activeCoverageNames) }),
     ),
   }),
 ]);
 const inputSchema = z.strictObject({
   currentMainSha: sourceShaSchema,
+  selectedSourceTreeSha: sourceShaSchema.optional(),
   manifest: releaseManifestSchema,
   previousManifest: releaseManifestSchema.nullable(),
   previousManifestDigest: sha256DigestSchema.nullable(),
@@ -120,6 +132,19 @@ const backupMaxAgeMilliseconds = 8 * 60 * 60 * 1_000;
 /** @type {readonly ["backend", "web"]} */
 const imageKinds = ["backend", "web"];
 
+/** CI jobs proving each operator coverage receipt. Reviews always bind the selected commit.
+ * @type {Record<string, string[]>}
+ */
+const receiptCoverage = {
+  check: ["static", "unit", "ui", "web-e2e"],
+  integration: ["integration", "integration-serial"],
+  enrollment: ["integration"],
+  "buyer-journey": ["integration"],
+  "compose-smoke-shutdown": ["compose-development", "compose-production"],
+  ci: applicationCoverage.platform,
+  fullstack: ["fullstack"],
+};
+
 /** Release evidence gate; host deploy preflight remains authoritative for live state.
  * @param {unknown} value
  * @param {Date} now
@@ -130,16 +155,18 @@ export function assessCourseRelease(value, now) {
   const input = parsed.data;
   const { manifest, evidence } = input;
   const selectedSourceSha =
-    evidence.schemaVersion === "inside.course-release-preflight.v2"
+    evidence.schemaVersion !== "inside.course-release-preflight.v1"
       ? evidence.selectedSourceSha
       : input.currentMainSha;
   if (manifest.source.sha !== selectedSourceSha)
     throw new Error("release source does not match selected source");
   let telemetryExcluded = false;
   const requiredChecks =
-    evidence.schemaVersion === "inside.course-release-preflight.v2"
-      ? coverageNames
-      : checkNames;
+    evidence.schemaVersion === "inside.course-release-preflight.v3"
+      ? activeCoverageNames
+      : evidence.schemaVersion === "inside.course-release-preflight.v2"
+        ? coverageNames
+        : checkNames;
   for (const name of requiredChecks) {
     const receipts = evidence.checks.filter((check) => check.name === name);
     const receipt = receipts[0];
@@ -147,10 +174,46 @@ export function assessCourseRelease(value, now) {
       name === "telemetry-resource-budget" &&
       manifest.version === "v36" &&
       receipt?.exitCode === null;
+    let sourceMatches = receipt?.sourceSha === manifest.source.sha;
+    const executedReceipt = coverageReceiptSchema.safeParse(receipt);
+    if (
+      !sourceMatches &&
+      executedReceipt.success &&
+      executedReceipt.data.execution.kind === "ci" &&
+      evidence.schemaVersion === "inside.course-release-preflight.v3" &&
+      evidence.sourceCorrespondence !== undefined &&
+      input.selectedSourceTreeSha !== undefined
+    ) {
+      const requiredCoverage = receiptCoverage[name];
+      if (requiredCoverage !== undefined) {
+        const proof = selectReleaseEvidence({
+          repository: manifest.source.repository,
+          sourceSha: manifest.source.sha,
+          treeSha: input.selectedSourceTreeSha,
+          requiredCoverage,
+          candidates: evidence.sourceCorrespondence.candidates,
+        });
+        const workflowRunId = executedReceipt.data.execution.workflowRunId;
+        const actualJob = executedReceipt.data.execution.job;
+        const applicableJobs =
+          name === "ci"
+            ? [ciJobNames["ci-gate"]]
+            : requiredCoverage.map((id) => ciJobNames[id]);
+        sourceMatches =
+          applicableJobs.includes(actualJob) &&
+          proof.evidenceRuns.some(
+            (run) =>
+              run.runId === workflowRunId &&
+              run.sourceSha === executedReceipt.data.sourceSha &&
+              run.providerJobs.some((job) => job.name === actualJob) &&
+              requiredCoverage.every((job) => run.coverage.includes(job)),
+          );
+      }
+    }
     if (
       receipts.length !== 1 ||
-      receipt?.sourceSha !== manifest.source.sha ||
-      (receipt.exitCode !== 0 && !ownerExcluded)
+      !sourceMatches ||
+      (receipt?.exitCode !== 0 && !ownerExcluded)
     )
       throw new Error("missing, failed or stale check evidence");
     if (ownerExcluded) telemetryExcluded = true;
@@ -249,6 +312,11 @@ function main() {
   const result = assessCourseRelease(
     {
       manifest,
+      selectedSourceTreeSha: execFileSync(
+        "git",
+        ["rev-parse", `${manifest.source.sha}^{tree}`],
+        { encoding: "utf8" },
+      ).trim(),
       evidence: jsonFile(evidenceFile),
       currentMainSha: execFileSync("git", ["rev-parse", "origin/main"], {
         encoding: "utf8",

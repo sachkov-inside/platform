@@ -261,8 +261,11 @@ Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `v
 - проверяет следующий номер без пропусков из legacy `v1`–`v5` и platform `telegram-v6` и далее;
   каждый tag имеет неизменяемый Release с точным target SHA и тремя assets;
   обычные platform `vN` не входят в историю Telegram; новый legacy номер останавливает выпуск;
-- принимает только текущий `main`, сохраняет его точный SHA и повторно проверяет план перед публикацией;
-- прогоняет Application CI на этом SHA;
+- фиксирует SHA `main` через GitHub `workflow_dispatch` при команде владельца и проверяет эту
+  привязку при планировании и перед публикацией; последующее продвижение `main` не заменяет source;
+- переиспользует trusted CI evidence с проверенными provider jobs и совпадением полного Git tree,
+  исполняет только missing checks на фиксированном SHA по
+  [release evidence policy](../../../../docs/agents/release-evidence.md);
 - собирает `apps/telegram/infra/production/Dockerfile` с `SOURCE_COMMIT`, публикует
   `ghcr.io/sachkov-inside/inside-telegram:vN` и проверяет анонимный pull по digest;
 - создаёт неизменяемый GitHub Release `telegram-vN` с `--latest=false` с target = SHA и тремя ассетами: `compose.yaml` (копия
@@ -841,3 +844,26 @@ boundary и доступ к мигрированным таблицам собс
 дождитесь нового reconciliation и подтвердите Platform flow. Старые positive observations не
 продлеваются только из-за restore. В #184 запишите время восстановления и актуальность данных;
 RPO/RTO относятся к реальной проверке, а не наличию этого runbook.
+
+## Зафиксированный source и итог выпуска (#1430)
+
+Команда владельца на выпуск фиксирует один commit `main`; release workflow проверяет GitHub
+`workflow_dispatch` binding и сохраняет source при последующих изменениях main. Публикация
+использует только trusted source evidence с доказанным совпадением полного дерева и исполняет
+missing checks. Receipt `release-source-receipt-<producing attempt>` содержит source/tree, provider runs и gaps;
+source checks не заменяют проверку image revision/digest и immutable ordinal manifest.
+
+Разрешение на выпуск охватывает публикацию, выкладку и проверку production как один результат.
+Перед downtime сообщите ожидаемый перерыв. Сохраняйте обязательные fresh backup и isolated
+restore; успешная restore proof не разрешает восстановление production. После выкладки проверьте
+выбранную версию, доступность и применимые критические сценарии (login, права, ключевые страницы)
+на безопасных тестовых данных. Реальные платежи, outbound messages, продажи и публикация
+контента/юридических документов требуют прежних отдельных разрешений.
+
+Итоговый receipt отдельно фиксирует publication, deployment, version/availability и каждый
+production scenario: passed, failed или deferred с причиной и evidence. Недоступная тестовая
+учётная запись оставляет явный gap. Required verification failure исключает успешный итог,
+даже если серверная выкладка завершилась. При отказе запишите фактический deployed state и
+подготовьте проверенный recovery plan с совместимостью и допустимым rollback window.
+Rollback или repair-forward выполняется только по новой команде владельца; автоматические
+down-migrations и restore production database не разрешены.

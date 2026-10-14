@@ -162,8 +162,8 @@ function planRelease(value) {
     }
   }
 
-  if (input.sourceSha !== input.currentMainSha) {
-    throw new Error("captured source SHA is not current main");
+  if (input.sourceSha !== input.capturedMainSha) {
+    throw new Error("captured source SHA is not captured main");
   }
   if (ordinal !== nextOrdinal) {
     throw new Error(
