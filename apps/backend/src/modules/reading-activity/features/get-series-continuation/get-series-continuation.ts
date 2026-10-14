@@ -15,6 +15,10 @@ import type {
 import type { Videos } from "../../../videos/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
+import {
+  readLearningStarted,
+  type LearningStartedRead,
+} from "../../shared/learning-started.js";
 
 export interface SeriesContinuation {
   readonly collection: PublishedMaterialCatalogFacetDto;
@@ -54,6 +58,8 @@ export async function getSeriesContinuation(
   dependencies: SeriesContinuationDependencies,
   account: string,
   slug: string,
+  readStarted: LearningStartedRead = (account, productId) =>
+    readLearningStarted(dependencies.prisma, account, productId),
 ): Promise<SeriesContinuationResult> {
   if (!querySchema.safeParse({ account, slug }).success)
     return { ok: false, error: { code: "invalid_request" } };
@@ -112,16 +118,7 @@ export async function getSeriesContinuation(
         select: { materialId: true },
       }),
     ]);
-    const started = await dependencies.prisma.productLearningStarted.findUnique(
-      {
-        where: {
-          accountId_productId: {
-            accountId: account,
-            productId: series.value.reference.id,
-          },
-        },
-      },
-    );
+    const started = await readStarted(account, series.value.reference.id);
     const read = new Set(states.map((item) => item.materialId));
     const lastIndex = items.findIndex(
       (item) => item.materialId === visited?.materialId,
@@ -187,7 +184,7 @@ export async function getSeriesContinuation(
           slug: collectionSlug,
           summary,
         },
-        started: started !== null,
+        started,
         read: read.size,
         total: items.length,
         continuation:
