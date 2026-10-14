@@ -723,7 +723,11 @@ export class BillingOperations {
       case "payments.list":
         return await listPayments(prisma, command);
       case "payments.read": {
-        const result = await readPayment(prisma, command.purchaseRef);
+        const result = await readPayment(
+          prisma,
+          command.purchaseRef,
+          command.auditCursor,
+        );
         return "result" in result
           ? { ok: true, operationRef, result: result.result }
           : result;
