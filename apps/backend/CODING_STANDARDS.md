@@ -102,6 +102,11 @@ not dependency wiring.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
+- A set read keeps paired ownership predicates together: separate `IN` lists for Material IDs and
+  asset IDs would accept their unintended cross product. Deduplicate keys inside the owning
+  capability and chunk its statements without losing per-item association. Associate UUID keys by
+  their validated canonical value; slugs, provider IDs and opaque cursors retain their text semantics. Measure owner calls,
+  physical SQL events and external provider requests separately; one owner call does not prove one SQL statement.
 - Prefer Prisma model operations. For PostgreSQL behaviour it cannot express clearly, use
   parameterized `Prisma.sql` with `$queryRaw`/`$executeRaw`; the architecture check rejects unsafe
   variants, interpolated identifiers and unqualified tables.
