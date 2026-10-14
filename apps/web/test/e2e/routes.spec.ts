@@ -23,7 +23,7 @@ test("keeps a scrolled page visible when viewport changes the scroll owner", asy
     const previousScrollTop = desktop
       ? await main.evaluate((element) => element.scrollTop)
       : await page.evaluate(() => window.scrollY);
-    const changesScrollOwner = desktop !== (width >= 1_024);
+    const changesScrollOwner = desktop !== width >= 1_024;
     await page.setViewportSize({ width, height: 900 });
     await expect
       .poll(() =>
