@@ -31,9 +31,9 @@ export const buyerStates = {
 
 export type BuyerState = keyof typeof buyerStates;
 
-const productName = "Создание Platform Inside";
+const defaultProductName = "Создание Platform Inside";
 const inputClass =
-  "mt-2 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring";
+  "mt-2 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus-visible:outline-2 focus-visible:outline-ring";
 const actionClass = "min-h-12 w-full whitespace-normal px-4 text-base";
 const communityStates: readonly BuyerState[] = [
   "telegram",
@@ -45,15 +45,19 @@ const communityStates: readonly BuyerState[] = [
 
 export function BuyerJourneyPrototype({
   initialState = "checkout",
+  includesCommunity = false,
 }: {
   readonly initialState?: BuyerState;
+  readonly includesCommunity?: boolean;
 }) {
   const [state, setState] = useState(initialState);
+  const [productName, setProductName] = useState(defaultProductName);
+  const [community, setCommunity] = useState(includesCommunity);
   const [email, setEmail] = useState("");
   const [opened, setOpened] = useState(false);
-  const community = communityStates.includes(state);
-  const paid = state === "preparing" || state === "ready" || community;
-  const completion = state === "ready" || community;
+  const onboarding = communityStates.includes(state);
+  const paid = state === "preparing" || state === "ready" || onboarding;
+  const completion = state === "ready" || onboarding;
   const current =
     state === "guest" ? 0 : completion ? 3 : state === "preparing" ? 2 : 1;
   const needsEmail = state === "email" || state === "invalid";
@@ -83,6 +87,9 @@ export function BuyerJourneyPrototype({
             if (next !== undefined) {
               setState(next);
               setOpened(false);
+              setProductName(defaultProductName);
+              if (communityStates.includes(next)) setCommunity(true);
+              if (next === "ready") setCommunity(false);
             }
           }}
         >
@@ -92,6 +99,18 @@ export function BuyerJourneyPrototype({
             </option>
           ))}
         </select>
+        <label className="mt-3 flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            checked={community}
+            onChange={(event) => {
+              setCommunity(event.target.checked);
+              setState("checkout");
+            }}
+            className="size-5 accent-primary"
+          />
+          Демонстрационная покупка включает сообщество
+        </label>
       </div>
       <a
         className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
@@ -109,8 +128,14 @@ export function BuyerJourneyPrototype({
       {history ? (
         <PurchaseHistory
           state={state}
-          onContinue={() => {
-            setState("ready");
+          onOpen={() => {
+            setOpened(true);
+          }}
+          onContinue={(name) => {
+            setProductName(name);
+            setCommunity(false);
+            setOpened(false);
+            setState("preparing");
           }}
         />
       ) : (
@@ -384,7 +409,7 @@ export function BuyerJourneyPrototype({
                   </p>
                   <DemoEvent
                     onClick={() => {
-                      setState("ready");
+                      setState(community ? "telegram" : "ready");
                     }}
                   >
                     Доступ подготовлен
@@ -397,8 +422,12 @@ export function BuyerJourneyPrototype({
                     title="Продукт доступен"
                     text="Оплата подтверждена. Можно начать обучение."
                   />
-                  {community ? (
-                    <CommunityStep state={state} onState={setState} />
+                  {onboarding && community ? (
+                    <CommunityStep
+                      productName={productName}
+                      state={state}
+                      onState={setState}
+                    />
                   ) : null}
                   <Button
                     className={`${actionClass} mt-5`}
@@ -438,6 +467,12 @@ export function BuyerJourneyPrototype({
           </Button>
         </>
       )}
+      {history && opened ? (
+        <p className="mt-4 text-sm" role="status">
+          В приложении откроется программа «{defaultProductName}». Основание
+          доступа и история покупки сохраняются.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -482,9 +517,11 @@ function DemoEvent({
 }
 
 function CommunityStep({
+  productName,
   state,
   onState,
 }: {
+  readonly productName: string;
   readonly state: BuyerState;
   readonly onState: (state: BuyerState) => void;
 }) {
@@ -578,10 +615,12 @@ function CommunityStep({
 
 function PurchaseHistory({
   state,
+  onOpen,
   onContinue,
 }: {
   readonly state: BuyerState;
-  readonly onContinue: () => void;
+  readonly onOpen: () => void;
+  readonly onContinue: (productName: string) => void;
 }) {
   const refunded = state === "refunded" || state === "otherGrant";
   return (
@@ -589,7 +628,7 @@ function PurchaseHistory({
       <section aria-label="Текущий доступ">
         <h2 className="text-lg font-semibold">Доступ к продуктам</h2>
         <div className="mt-4 border-b border-border pb-5">
-          <h3 className="font-semibold">{productName}</h3>
+          <h3 className="font-semibold">{defaultProductName}</h3>
           <p className="mt-2 text-sm leading-6">
             {state === "refunded"
               ? "Доступ по покупке прекращён. История обучения сохранена."
@@ -598,7 +637,7 @@ function PurchaseHistory({
                 : "Доступ открыт без даты окончания. Сопровождение до 14 апреля 2027."}
           </p>
           {state === "refunded" ? null : (
-            <Button className="mt-4 min-h-11" onClick={onContinue}>
+            <Button className="mt-4 min-h-11" onClick={onOpen}>
               Открыть продукт
             </Button>
           )}
@@ -612,7 +651,9 @@ function PurchaseHistory({
             <Button
               className="mt-3 min-h-11"
               variant="outline"
-              onClick={onContinue}
+              onClick={() => {
+                onContinue("Инженерная практика");
+              }}
             >
               Продолжить оформление
             </Button>
@@ -622,7 +663,7 @@ function PurchaseHistory({
       <section aria-label="История покупок">
         <h2 className="text-lg font-semibold">История покупок</h2>
         <div className="mt-4 border-t border-border pt-4">
-          <h3 className="font-semibold">{productName}</h3>
+          <h3 className="font-semibold">{defaultProductName}</h3>
           <p className="mt-2 text-sm">
             14 октября 2026 · 100 ₽ ·{" "}
             {refunded ? "Возвращено полностью" : "Оплачено"}

@@ -49,7 +49,9 @@ export const InvalidEmail: Story = { args: { initialState: "invalid" } };
 export const PaymentReturn: Story = { args: { initialState: "waiting" } };
 export const AccessPreparing: Story = { args: { initialState: "preparing" } };
 export const ReadyWithoutCommunity: Story = { args: { initialState: "ready" } };
-export const Community: Story = { args: { initialState: "telegram" } };
+export const Community: Story = {
+  args: { initialState: "telegram", includesCommunity: true },
+};
 export const Purchases: Story = { args: { initialState: "purchases" } };
 export const RefundWithOtherGrant: Story = {
   args: { initialState: "otherGrant" },
@@ -119,5 +121,68 @@ export const EmailValidation: Story = {
       canvas.getByRole("button", { name: "Оплатить 100 ₽" }),
     );
     await expect(canvas.getByText("Готовим страницу банка")).toBeVisible();
+  },
+};
+
+export const CommunityJourney: Story = {
+  args: { includesCommunity: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const benefit = canvas.getByText(
+      "Сообщество «Создание Platform Inside» в Telegram",
+    );
+    await expect(benefit).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Оплатить 100 ₽" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Демо: Платёж сформирован" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть страницу оплаты" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Демо: Банк подтвердил оплату" }),
+    );
+    await expect(benefit).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Демо: Доступ подготовлен" }),
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Привязать Telegram" }),
+    ).toBeVisible();
+  },
+};
+
+export const PurchaseIdentity: Story = {
+  args: { initialState: "purchases" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Продолжить оформление" }),
+    );
+    await expect(canvas.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Инженерная практика",
+    );
+    await expect(
+      canvas.getByText("Оплата подтверждена. Открываем доступ"),
+    ).toBeVisible();
+  },
+};
+
+export const RefundAccess: Story = {
+  args: { initialState: "otherGrant" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть продукт" }),
+    );
+    await expect(canvas.getByText(/Возвращено полностью/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Доступ открыт по ручному назначению/u),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Оплата подтверждена. Можно начать обучение."),
+    ).not.toBeInTheDocument();
   },
 };
