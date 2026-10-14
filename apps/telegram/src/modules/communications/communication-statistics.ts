@@ -81,13 +81,18 @@ async function assertScope(
     if (!row) throw new CommunicationsError("not_found");
   }
 }
-function entryQuery(tx: Tx, bot: string, actor: string, contactId: string) {
+function entryQuery(
+  tx: Tx,
+  bot: string,
+  actor: string,
+  contactId: string | readonly string[],
+) {
   return tx
     .selectFrom("communication_entries as e")
     .leftJoin("communication_funnels as f", "f.funnel_id", "e.funnel_id")
     .selectAll("e")
     .where("e.bot_identity", "=", bot)
-    .where("e.contact_id", "=", contactId)
+    .where("e.contact_id", Array.isArray(contactId) ? "in" : "=", contactId)
     .where((eb) =>
       eb.or([
         eb("f.owner_account_ref", "=", actor),
@@ -158,6 +163,19 @@ export async function readEntries(
     .orderBy("e.update_id")
     .limit(101)
     .execute();
+  return entriesView(rows);
+}
+
+function entriesView(
+  rows: readonly {
+    source_id: string | null;
+    source_code: string | null;
+    funnel_id: string | null;
+    entered_at: Date;
+    update_id: string;
+    outcome: string;
+  }[],
+): EntriesResult {
   const last = rows[99];
   return {
     entries: rows.slice(0, 100).map(entryView),
@@ -262,34 +280,62 @@ export async function readStatistics(
       uuidCursor(request.payload.cursor),
     );
   const rows = await contacts.orderBy("c.contact_id").limit(101).execute();
-  const page: StatisticsResult["statistics"]["contacts"] = [];
-  for (const row of rows.slice(0, 100)) {
-    const history = await readEntries(
-      tx,
-      { ...request, payload: { contactId: row.contact_id } },
-      bot,
-      actor,
-    );
-    const first = await entryQuery(tx, bot, actor, row.contact_id)
-      .orderBy("e.entered_at")
-      .orderBy("e.update_id")
-      .limit(1)
-      .executeTakeFirst();
-    const latest = await entryQuery(tx, bot, actor, row.contact_id)
-      .orderBy("e.entered_at", "desc")
-      .orderBy("e.update_id", "desc")
-      .limit(1)
-      .executeTakeFirst();
-    page.push({
-      contactId: row.contact_id,
-      reachable: row.contactability === "reachable",
-      marketingEnabled: row.marketing_enabled,
-      firstSourceId: first?.source_id ?? null,
-      latestSourceId: latest?.source_id ?? null,
-      entries: history.entries,
-      nextEntryCursor: history.nextCursor,
-    });
+  const contactRows = rows.slice(0, 100);
+  const histories =
+    contactRows.length === 0
+      ? []
+      : await tx
+          .selectFrom(
+            entryQuery(
+              tx,
+              bot,
+              actor,
+              contactRows.map((row) => row.contact_id),
+            )
+              .select([
+                sql<number>`row_number() over (partition by e.contact_id order by e.entered_at, e.update_id)`.as(
+                  "entry_number",
+                ),
+                sql<
+                  string | null
+                >`first_value(e.source_id) over (partition by e.contact_id order by e.entered_at, e.update_id)`.as(
+                  "first_source_id",
+                ),
+                sql<
+                  string | null
+                >`first_value(e.source_id) over (partition by e.contact_id order by e.entered_at desc, e.update_id desc)`.as(
+                  "latest_source_id",
+                ),
+              ])
+              .as("history"),
+          )
+          .selectAll()
+          .where("entry_number", "<=", 101)
+          .orderBy("contact_id")
+          .orderBy("entered_at")
+          .orderBy("update_id")
+          .execute();
+  const byContact = new Map<string, typeof histories>();
+  for (const entry of histories) {
+    const entries = byContact.get(entry.contact_id);
+    if (entries) entries.push(entry);
+    else byContact.set(entry.contact_id, [entry]);
   }
+  const page: StatisticsResult["statistics"]["contacts"] = contactRows.map(
+    (row) => {
+      const entries = byContact.get(row.contact_id) ?? [];
+      const history = entriesView(entries);
+      return {
+        contactId: row.contact_id,
+        reachable: row.contactability === "reachable",
+        marketingEnabled: row.marketing_enabled,
+        firstSourceId: entries[0]?.first_source_id ?? null,
+        latestSourceId: entries[0]?.latest_source_id ?? null,
+        entries: history.entries,
+        nextEntryCursor: history.nextCursor,
+      };
+    },
+  );
   const total = aggregateRow(totals);
   const hit = aggregateRow(hits);
   return {
