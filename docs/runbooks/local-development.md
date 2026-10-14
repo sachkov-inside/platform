@@ -428,6 +428,13 @@ refuses to start while a stack is already running: stop the running one with
 a bare `docker compose --profile identity up` starts Logto without the bootstrap that configures
 it, and sign-in then fails at the token exchange.
 
+For `Inside Web`, bootstrap always registers the configured web callback and logout return
+(defaults: `http://127.0.0.1:3000/callback` and `http://127.0.0.1:3000/`). It also retains
+already registered owner preview returns at `http://127.0.0.1:4300/callback` and
+`http://127.0.0.1:4300/`, including their `localhost` equivalents, on repeated runs.
+It does not register these preview returns for a new application or retain other extra origins,
+paths or wildcards. The authoring stand application keeps its separate bootstrap policy.
+
 Sign-in ports are fixed at 3301 and 3302 on purpose. OIDC compares the issuer as an exact string,
 so the address must be the same for the browser and for the application inside the Compose network.
 
