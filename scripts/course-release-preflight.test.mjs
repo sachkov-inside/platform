@@ -96,7 +96,7 @@ test("preflight refuses checks from another SHA and a failed Compose shutdown", 
   assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
 });
 
-test("preflight requires the telemetry resource budget before a release", () => {
+test("legacy v1 preflight preserves the historical telemetry resource requirement", () => {
   const missing = fixture();
   missing.evidence.checks = missing.evidence.checks.filter(
     (receipt) => receipt.name !== "telemetry-resource-budget",
@@ -361,4 +361,63 @@ test("v2 freezes selected source while main advances and refuses mismatching pro
   const legacy = fixture();
   legacy.currentMainSha = "c".repeat(40);
   assert.throws(() => assessCourseRelease(legacy, now), /selected source/u);
+});
+
+function activeFixture() {
+  const input = ciFixture();
+  input.evidence.schemaVersion = "inside.course-release-preflight.v3";
+  input.evidence.checks = input.evidence.checks.filter(
+    (receipt) => receipt.name !== "telemetry-resource-budget",
+  );
+  return input;
+}
+
+test("v3 admits complete functional coverage without a telemetry resource measurement", () => {
+  const input = activeFixture();
+  input.currentMainSha = "c".repeat(40);
+  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+});
+
+test("v3 still requires functional coverage, successful cleanup and bound assets", () => {
+  for (const name of [
+    "integration",
+    "enrollment",
+    "buyer-journey",
+    "fullstack",
+  ]) {
+    const input = activeFixture();
+    input.evidence.checks = input.evidence.checks.filter(
+      (check) => check.name !== name,
+    );
+    assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  }
+  const cleanup = activeFixture();
+  const receipt = cleanup.evidence.checks.find(
+    (check) => check.name === "compose-smoke-shutdown",
+  );
+  assert.ok(receipt);
+  receipt.exitCode = 1;
+  assert.throws(() => assessCourseRelease(cleanup, now), /check evidence/u);
+  const image = activeFixture();
+  image.imageDigests.web = [];
+  assert.throws(() => assessCourseRelease(image, now), /image digest/u);
+  const backup = activeFixture();
+  backup.evidence.restore.backupLabel = "another-backup";
+  assert.throws(() => assessCourseRelease(backup, now), /restore evidence/u);
+});
+
+test("v3 cannot reintroduce a resource budget receipt or disguise a stale source", () => {
+  const resource = activeFixture();
+  const historic = ciFixture().evidence.checks.find(
+    (check) => check.name === "telemetry-resource-budget",
+  );
+  assert.ok(historic);
+  resource.evidence.checks.push(historic);
+  assert.throws(
+    () => assessCourseRelease(resource, now),
+    /invalid preflight evidence/u,
+  );
+  const stale = activeFixture();
+  stale.evidence.selectedSourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(stale, now), /selected source/u);
 });
