@@ -1304,6 +1304,9 @@ The former volume stays until the owner decides to delete it; the transfer does 
 
 ### Local Obsidian authoring preview (#468)
 
+For content-only updates that must preserve existing stand access/publication and prove affected images,
+use [the preservation and image-evidence procedure](authoring-preservation.md).
+
 Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
