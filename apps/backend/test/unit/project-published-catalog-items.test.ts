@@ -1,14 +1,87 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ContentAccess } from "../../src/modules/content-access/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import {
   projectPublishedCatalogAvailability,
   addPublishedCatalogDurations,
 } from "../../src/modules/content-library/index.js";
 import { projectPublishedCatalogItems } from "../../src/modules/content-library/shared/project-published-catalog-items.js";
+import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
+import { publishedCatalogPageHttpSchema } from "../../src/modules/content-library/shared/published-catalog-http.js";
 import type { PublishedMaterialProjectionDto } from "../../src/modules/materials/index.js";
 
 describe("Published catalog item projection", () => {
+  it("accepts its title continuation for a maximum multilingual title", async () => {
+    const title = "界".repeat(160);
+    const material = {
+      ...projection(1),
+      title,
+      format: { id: "guide", name: "Гайд", slug: "guide" },
+    };
+    const listProjections = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          continuation: {
+            kind: "title" as const,
+            materialId: material.materialId,
+            title,
+          },
+          facets: { formats: [], series: [], topics: [] },
+          hasNext: true,
+          items: [material],
+          totalCount: 2,
+        },
+      }),
+    );
+    const contentAccess = {
+      checkAvailabilityMany: ({
+        operations,
+      }: Parameters<ContentAccess["checkAvailabilityMany"]>[0]) =>
+        Promise.resolve({
+          ok: true as const,
+          items: operations.map(({ itemId }) => ({
+            itemId,
+            availability: "available" as const,
+          })),
+        }),
+    };
+    const videos = {
+      loadReadyDurations: () =>
+        Promise.resolve({ ok: true as const, value: [] }),
+    };
+    const query = {
+      subject: anonymousSubject,
+      first: 1,
+      sort: "title" as const,
+    };
+    const first = await listPublishedMaterials(
+      { listProjections },
+      contentAccess,
+      videos,
+      query,
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error(first.error.code);
+    const parsedPage = publishedCatalogPageHttpSchema.safeParse(first.value);
+    expect(parsedPage.error?.issues).toBeUndefined();
+    const after = first.value.nextCursor;
+    if (after === null) throw new Error("Expected continuation");
+    const next = await listPublishedMaterials(
+      { listProjections },
+      contentAccess,
+      videos,
+      { ...query, after },
+    );
+    expect(next.ok).toBe(true);
+    expect(listProjections).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        after: { kind: "title", materialId: material.materialId, title },
+      }),
+    );
+  });
+
   it("adds the ready primary Video duration through the Videos interface", async () => {
     const videoId = "75000000-0000-4000-8000-000000000001";
     const source = { ...projection(1), primaryVideoId: videoId };

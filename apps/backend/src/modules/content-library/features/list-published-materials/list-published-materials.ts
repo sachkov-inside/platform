@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -26,7 +27,11 @@ const querySchema = z
       z.object({ kind: z.literal("anonymous") }).strict(),
       z.object({ kind: z.literal("account"), accountId: z.uuid() }).strict(),
     ]),
-    after: z.string().min(1).max(512).optional(),
+    after: z
+      .string()
+      .min(1)
+      .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+      .optional(),
     canonicalTopicSlug: facetSlugSchema.optional(),
     feedOnly: z.boolean().optional(),
     formatSlugs: facetSlugsSchema.optional(),

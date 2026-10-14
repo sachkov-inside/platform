@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import { Controller, Get, Inject, Query } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -91,7 +92,9 @@ export class ListPublishedMaterialsController {
   @ApiQuery({
     name: "after",
     required: false,
-    schema: toOpenApiSchema(z.string().min(1).max(512)),
+    schema: toOpenApiSchema(
+      z.string().min(1).max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH),
+    ),
   })
   @ApiQuery({
     name: "canonicalTopic",
