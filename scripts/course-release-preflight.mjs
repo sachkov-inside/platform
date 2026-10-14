@@ -136,7 +136,7 @@ const imageKinds = ["backend", "web"];
  * @type {Record<string, string[]>}
  */
 const receiptCoverage = {
-  check: ["static", "unit", "contracts", "ui", "web-e2e"],
+  check: ["static", "unit", "ui", "web-e2e"],
   integration: ["integration", "integration-serial"],
   enrollment: ["integration"],
   "buyer-journey": ["integration"],

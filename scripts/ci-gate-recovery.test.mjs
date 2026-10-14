@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { ciJobNames, selectCoverage } from "./ci-coverage-plan.mjs";
 
 const ci = readFileSync(
   new URL("../.github/workflows/ci.yml", import.meta.url),
@@ -146,6 +147,31 @@ describe("missing CI Gate recovery", () => {
           : job,
       ),
     });
+  });
+
+  it("requests real gate recovery when superseded focused jobs are intentionally skipped", () => {
+    const plan = selectCoverage(
+      ["apps/web/page.tsx", "AGENTS.md"],
+      "merge_group",
+    );
+    const selectedNames = plan.required.map((id) => ciJobNames[id]);
+    const providerJobs = jobs.map((job) => ({
+      ...job,
+      conclusion:
+        job.name === ciJobNames["plan"] || selectedNames.includes(job.name)
+          ? "success"
+          : "skipped",
+    }));
+    assert.equal(
+      providerJobs.find((job) => job.name === ciJobNames["docs"])?.conclusion,
+      "skipped",
+    );
+    assert.equal(
+      providerJobs.find((job) => job.name === ciJobNames["contracts"])
+        ?.conclusion,
+      "skipped",
+    );
+    replay({ jobs: providerJobs, run: { event: "merge_group" } }, true);
   });
 
   it("does not retry any created gate, even a failing gate", () => {

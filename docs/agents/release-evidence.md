@@ -39,7 +39,9 @@ head. These completion checks do not prove a different application's release sou
    workflow result and executed IDs; reused and executed IDs must partition the required plan.
    The source receipt names selected source/tree, required coverage, reused provider runs and
    their source/attempt, covered checks and missing checks. The reusable Application CI receives
-   exactly those missing job IDs on the frozen SHA. Its CI Gate validates the selected gap plan;
+   the missing application stage IDs on the frozen SHA. `static` supplies documentation contracts
+   and `unit` supplies tooling/root contracts, so their focused jobs do not run again. The central
+   `applicationCoverage` and `coverageSupersets` mappings own this normalization. Its CI Gate validates the selected gap plan;
    a failed or cancelled gap prevents publication. Platform includes full-stack access scenarios,
    parallel/serial integration and both Compose modes; Telegram includes its complete suite.
    Source evidence does not replace the images' digest/revision/schema verification.

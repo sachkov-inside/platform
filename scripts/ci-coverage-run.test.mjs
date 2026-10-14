@@ -164,6 +164,39 @@ it("release adapter validates immutable checkout and executes only allowlisted m
     });
     assert.equal(run.status, 0, run.stderr);
     assert.match(readFileSync(output, "utf8"), /required=\["fullstack"\]/u);
+    for (const selection of [
+      undefined,
+      '["docs","contracts","static","unit"]',
+    ]) {
+      const normalized = spawnSync(process.execPath, [runner, "plan"], {
+        cwd,
+        env: { ...env, COVERAGE_JSON: selection },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(normalized.status, 0, normalized.stderr);
+      const serializedPlan =
+        readFileSync(output, "utf8")
+          .trim()
+          .split("\n")
+          .filter((line) => line.startsWith("plan="))
+          .at(-1)
+          ?.slice(5) ?? "";
+      const plan = z
+        .object({
+          required: z.array(z.string()),
+          excluded: z.array(z.string()),
+        })
+        .parse(JSON.parse(serializedPlan));
+      assert.deepEqual(
+        plan.required,
+        selection === undefined
+          ? coverageIds.filter((id) => id !== "docs" && id !== "contracts")
+          : ["static", "unit"],
+      );
+      assert.ok(plan.excluded.includes("docs"));
+      assert.ok(plan.excluded.includes("contracts"));
+    }
     for (const changed of [
       { SOURCE_SHA: "main" },
       { SOURCE_SHA: "a".repeat(40) },
