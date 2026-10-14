@@ -147,6 +147,9 @@ test("покупки не требуют подтверждать email", async 
   await expect(
     page.getByRole("button", { name: "Получить код", exact: true }),
   ).toHaveCount(0);
+  await expect(
+    page.getByText("Действующих оснований доступа нет."),
+  ).toBeVisible();
   expect(contactReads).toBe(0);
 });
 
@@ -218,6 +221,7 @@ for (const entry of [
     await expect(
       page.getByRole("link", { name: "Открыть группу" }),
     ).toHaveCount(0);
+    await expect(page.getByText("Оплаченный доступ")).toBeVisible();
     expect(communityReads).toBe(0);
   });
 }
@@ -494,8 +498,8 @@ test("кабинет не имеет серьёзных нарушений до�
   ).toEqual([]);
 });
 
-// Email verification no longer belongs to Purchases. Its feature-level command and
-// announcement contracts remain covered by billing-contact module/Storybook tests.
+// Email verification no longer belongs to Purchases. Module tests cover its BFF commands;
+// Storybook covers form presentation. The retired panel announcement scenarios were removed.
 // Product onboarding and order-email validation run against real Next/Nest/PostgreSQL
 // in test/fullstack/buyer-journey.spec.ts and the Product onboarding Storybook states.
 
