@@ -406,7 +406,7 @@ function SeriesSelector({
         aria-label="Поиск продуктов"
         type="search"
         placeholder="Найти продукт"
-        className="mb-2 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm"
+        className="mb-2 min-h-11 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-base md:min-h-0 md:text-sm"
         value={search}
         onChange={(event) => {
           setSearch(event.currentTarget.value);
@@ -490,7 +490,7 @@ function TagSelector({
         aria-label="Поиск тегов"
         type="search"
         placeholder="Найти тег"
-        className="mb-2 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm"
+        className="mb-2 min-h-11 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-base md:min-h-0 md:text-sm"
         value={search}
         onChange={(event) => {
           setSearch(event.currentTarget.value);

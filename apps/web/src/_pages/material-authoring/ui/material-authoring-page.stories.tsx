@@ -1461,3 +1461,23 @@ function referenceSelectorWorkload(size: number): Story {
 export const ReferenceSelectorOne: Story = referenceSelectorWorkload(1);
 export const ReferenceSelectorHundred: Story = referenceSelectorWorkload(100);
 export const ReferenceSelectorThousand: Story = referenceSelectorWorkload(1000);
+
+export const ReferenceSelectorMobileControls: Story = {
+  ...referenceSelectorWorkload(100),
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const search = page.getByRole("searchbox", { name: "Поиск тегов" });
+    await expect(search).toBeVisible();
+    await expect(Number.parseFloat(getComputedStyle(search).fontSize)).toBe(16);
+    await expect(search.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      44,
+    );
+    await userEvent.type(search, "Тег 0100");
+    const tags = within(page.getByRole("group", { name: "Теги" }));
+    await expect(tags.getAllByRole("checkbox")).toHaveLength(1);
+    await expect(
+      tags.getByRole("checkbox", { name: "Тег 0100" }),
+    ).toBeVisible();
+  },
+};
