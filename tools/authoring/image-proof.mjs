@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import sharp from "sharp";
 import { z } from "zod";
 import { canonical, checksum, fileChecksum, loadPackage } from "./package.mjs";
-import { convertMarkdown } from "./markdown.mjs";
+import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { parseJournal, assetReceiptSchema } from "./local-boundaries.mjs";
 import { writeImmutable } from "./preservation.mjs";
@@ -180,8 +180,9 @@ export async function prepareImageProof(packagePath, stateDirectory, input) {
       link: (href) => href,
       image: (href) => {
         const key = imageSourceKey(page.images, href);
-        if (key === undefined) throw new Error("Undeclared image");
-        return page.images[key] ?? "";
+        const assetId = key === undefined ? undefined : page.images[key];
+        if (assetId === undefined) throw new Error("Undeclared image");
+        return sourceUuid(assetId);
       },
       imageVariants: (href) =>
         resolveImageVariants(
@@ -190,7 +191,7 @@ export async function prepareImageProof(packagePath, stateDirectory, input) {
           new Map(
             pkg.manifest.assets.map((asset) => [
               asset.sourceId,
-              asset.sourceId,
+              sourceUuid(asset.sourceId),
             ]),
           ),
         ),

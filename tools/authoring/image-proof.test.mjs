@@ -12,8 +12,8 @@ import {
   validateImageProof,
 } from "./image-proof.mjs";
 
-/** @param {import('node:test').TestContext} t */
-async function fixture(t) {
+/** @param {import('node:test').TestContext} t @param {boolean} [readerBlocks] */
+async function fixture(t, readerBlocks = false) {
   const directory = await mkdtemp(join(tmpdir(), "image-proof-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = join(directory, "state");
@@ -57,7 +57,10 @@ async function fixture(t) {
     packagePath,
     canonical({
       schemaVersion: 2,
-      requiredFeatures: ["image-variants-v1"],
+      requiredFeatures: [
+        "image-variants-v1",
+        ...(readerBlocks ? ["quiz-v1", "github-anchors-v1"] : []),
+      ],
       sourceNamespace: "synthetic",
       selection: {
         productId: null,
@@ -86,6 +89,16 @@ async function fixture(t) {
           difficulty: null,
           outcomes: [],
           markdown: "![Explain the mechanism](scene.png)",
+          ...(readerBlocks
+            ? {
+                readerBlocks: [
+                  {
+                    kind: "markdown",
+                    markdown: "![Explain the mechanism](scene.png)",
+                  },
+                ],
+              }
+            : {}),
           links: {},
           images: { "scene.png": "wideLight" },
           imageVariants: { "scene.png": variants },
@@ -292,5 +305,17 @@ test("proof check binds actual screenshot files and refuses changed bytes", asyn
   await assert.rejects(
     checkImageProof(f.path, f.observationsPath),
     /screenshot changed/u,
+  );
+});
+
+test("image proof derives UUID-backed variants from package v2 readerBlocks", async (t) => {
+  const f = await fixture(t, true);
+  assert.equal(f.manifest.cases.length, 4);
+  assert.ok(
+    f.manifest.cases.every((row) => row.alt === "Explain the mechanism"),
+  );
+  assert.equal(
+    validateImageProof(f.manifest, f.observations).checkedVariants,
+    4,
   );
 });
