@@ -34,9 +34,11 @@ for (const size of [1, 10, 100]) {
       request,
     }, info) => {
       await request.post(`${backend}/__reader-sale`, { data: { reset: true } });
-      const slug = `reader-sale-${String(size)}-${scenario}`;
+      // Each viewport owns a distinct shared-cache key; cold navigation is measured on both.
+      const variant = info.project.name === "mobile-chromium" ? "mobile-" : "";
+      const slug = `reader-sale-${variant}${String(size)}-${scenario}`;
       const selected = scenario === "explicit" ? Math.min(2, size) : size;
-      const productSlug = `reader-sale-product-${String(size)}-${scenario}-${String(selected)}`;
+      const productSlug = `reader-sale-product-${variant}${String(size)}-${scenario}-${String(selected)}`;
       const from = `/products/${productSlug}/programme`;
       await page.goto(
         `/materials/${slug}${scenario === "explicit" ? `?from=${encodeURIComponent(from)}` : ""}`,
@@ -57,7 +59,7 @@ for (const size of [1, 10, 100]) {
         await expect(invitation).toBeVisible();
         await expect(invitation).toHaveAttribute(
           "href",
-          `/products/${scenario === "multiple" ? `reader-sale-product-${String(size)}-${scenario}-1` : productSlug}/buy`,
+          `/products/${scenario === "multiple" ? `reader-sale-product-${variant}${String(size)}-${scenario}-1` : productSlug}/buy`,
         );
       } else {
         await expect(invitation).toHaveCount(0);
@@ -124,7 +126,8 @@ for (const scenario of ["unavailable", "malformed", "missing"] as const) {
     request,
   }, info) => {
     await request.post(`${backend}/__reader-sale`, { data: { reset: true } });
-    await page.goto(`/materials/reader-sale-10-${scenario}`, {
+    const variant = info.project.name === "mobile-chromium" ? "mobile-" : "";
+    await page.goto(`/materials/reader-sale-${variant}10-${scenario}`, {
       waitUntil: "commit",
     });
     await expect(

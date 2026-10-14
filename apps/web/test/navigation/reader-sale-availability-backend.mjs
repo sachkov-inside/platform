@@ -21,32 +21,38 @@ let reads = [];
 /** @param {string} slug */
 function fixture(slug) {
   const parts =
-    /^reader-sale-(1|10|100)-(none|sole|multiple|explicit|unavailable|malformed|missing)$/u.exec(
+    /^reader-sale-(mobile-)?(1|10|100)-(none|sole|multiple|explicit|unavailable|malformed|missing)$/u.exec(
       slug,
     );
   if (parts === null) return undefined;
-  const size = Number(parts[1]);
-  const scenario = parts[2] ?? "none";
+  const mobile = parts[1] !== undefined;
+  const size = Number(parts[2]);
+  const scenario = parts[3] ?? "none";
   const caseNumber = cases.indexOf(scenario) + 1;
   return {
+    mobile,
     slug,
     size,
     scenario,
     memberships: Array.from({ length: size }, (_, index) => ({
       ordinal: index + 1,
       series: {
-        id: `50001466-0000-4000-8000-${String(caseNumber * 100000 + size * 100 + index).padStart(12, "0")}`,
+        id: `50001466-0000-4000-8000-${String((mobile ? 10000000 : 0) + caseNumber * 100000 + size * 100 + index).padStart(12, "0")}`,
         name: `Reader sale Product ${String(index + 1)}`,
-        slug: `reader-sale-product-${size}-${scenario}-${String(index + 1)}`,
+        slug: `reader-sale-product-${mobile ? "mobile-" : ""}${String(size)}-${scenario}-${String(index + 1)}`,
       },
     })),
   };
 }
-const fixtures = [1, 10, 100].flatMap((size) =>
-  cases.flatMap((scenario) => {
-    const value = fixture(`reader-sale-${String(size)}-${scenario}`);
-    return value === undefined ? [] : [value];
-  }),
+const fixtures = ["", "mobile-"].flatMap((variant) =>
+  [1, 10, 100].flatMap((size) =>
+    cases.flatMap((scenario) => {
+      const value = fixture(
+        `reader-sale-${variant}${String(size)}-${scenario}`,
+      );
+      return value === undefined ? [] : [value];
+    }),
+  ),
 );
 /** @param {string} id */
 function productOf(id) {
