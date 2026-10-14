@@ -105,6 +105,9 @@ not dependency wiring.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
+- An eligibility prefilter must preserve the complete codec's transforms, refinements and legacy
+  fallback. Facts it cannot prove remain candidates for full validation and retryable traversal;
+  guard operations on malformed JSON with `CASE`, not SQL predicate evaluation order.
 - A set read keeps paired ownership predicates together: separate `IN` lists for Material IDs and
   asset IDs would accept their unintended cross product. Deduplicate keys inside the owning
   capability and chunk its statements without losing per-item association. Associate UUID keys by
@@ -132,6 +135,10 @@ not dependency wiring.
   UTF-8/JSON expansion; the cursor retains its filter/sort scope and stable tuple order.
 - Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
   A batch facet exposes only facts its caller needs; request-specific facts stay request-scoped.
+  Name the dimension: many resources for one subject differs from many subjects for one resource.
+  Preserve owner failures independently: an unused channel must not poison a required channel.
+- UUID-keyed sets normalize lookup spelling at the owner and project back to the declared keys;
+  PostgreSQL canonical spelling must not turn a requested UUID into a missing or denied fact.
 - Preserve per-item versions, grouped limits and access expiry when replacing scalar reads with a set.
   Share a transaction only where the existing consistency contract requires the same snapshot.
 - Verify representative batch sizes at the database boundary. Compatible Prisma `findUnique` calls

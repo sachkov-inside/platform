@@ -23,7 +23,10 @@ export async function lockAccountEntitlementChanges(
   transaction: AdvisoryLockTransaction,
   accountId: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `account-entitlement:${accountId}`);
+  await lockTransactionKey(
+    transaction,
+    `account-entitlement:${accountId.toLowerCase()}`,
+  );
 }
 
 /**

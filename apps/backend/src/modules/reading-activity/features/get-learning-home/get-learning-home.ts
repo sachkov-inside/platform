@@ -10,10 +10,14 @@ import {
   type SeriesContinuationDependencies,
 } from "../get-series-continuation/get-series-continuation.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
+import {
+  createLearningStartedRead,
+  MAX_RECENT_SERIES,
+} from "../../shared/learning-started.js";
 
 const MAX_RECENT_VISITS = 500;
 const MATERIAL_BATCH_SIZE = 100;
-const MAX_RECENT_SERIES = 10;
+
 export interface LearningHome {
   readonly video: ContinueMaterial | null;
   readonly series: SeriesContinuation | null;
@@ -42,7 +46,7 @@ export async function getLearningHome(
       orderBy: [{ lastOpenedAt: "desc" }, { materialId: "asc" }],
       take: MAX_RECENT_VISITS,
     });
-    const seriesSlugs = new Set<string>();
+    const seriesBySlug = new Map<string, string>();
     let video: ContinueMaterial | null = null;
     for (
       let offset = 0;
@@ -62,8 +66,8 @@ export async function getLearningHome(
       for (const visit of batch) {
         for (const membership of byId.get(visit.materialId)
           ?.seriesMemberships ?? []) {
-          if (seriesSlugs.size < MAX_RECENT_SERIES)
-            seriesSlugs.add(membership.series.slug);
+          if (seriesBySlug.size < MAX_RECENT_SERIES)
+            seriesBySlug.set(membership.series.slug, membership.series.id);
         }
       }
       if (video !== null) continue;
@@ -97,8 +101,18 @@ export async function getLearningHome(
         }
       }
     }
-    for (const slug of seriesSlugs) {
-      const series = await getSeriesContinuation(dependencies, account, slug);
+    const readStarted = createLearningStartedRead(
+      dependencies.prisma,
+      account,
+      [...seriesBySlug.values()],
+    );
+    for (const slug of seriesBySlug.keys()) {
+      const series = await getSeriesContinuation(
+        dependencies,
+        account,
+        slug,
+        readStarted,
+      );
       if (!series.ok) {
         if (series.error.code === "series_not_found") continue;
         return { ok: false, error: { code: "dependency_unavailable" } };

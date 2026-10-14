@@ -42,6 +42,11 @@ export type PermissionDecision =
   | { readonly ok: false; readonly error: PermissionError };
 
 export interface Accounts {
+  /** Current Account-set decisions; result keys retain requested UUID spelling. */
+  checkPermissionsMany?(query: {
+    readonly accountIds: readonly string[];
+    readonly permission: PlatformPermission;
+  }): Promise<ReadonlyMap<string, PermissionDecision>>;
   /** A caller with an open transaction passes it to keep this read on the same connection. */
   readIdentityForLink(
     accountId: string,
@@ -53,6 +58,14 @@ export interface Accounts {
         readonly telegramSubjectRef: string | null;
       }
     | undefined
+  >;
+
+  /** Same identity facts for a bounded set, retaining each requested UUID spelling. */
+  readIdentitiesForLink(
+    accountIds: readonly string[],
+    transaction?: Pick<AccountsPrisma, "account">,
+  ): Promise<
+    ReadonlyMap<string, Awaited<ReturnType<Accounts["readIdentityForLink"]>>>
   >;
 
   establishAccount(command: {

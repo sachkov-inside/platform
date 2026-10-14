@@ -113,7 +113,10 @@ import {
 
 export interface AccessGrantsDependencies {
   readonly prisma: AccountRightsPrismaClient;
-  readonly accounts: Pick<Accounts, "checkPermission" | "readIdentityForLink">;
+  readonly accounts: Pick<
+    Accounts,
+    "checkPermission" | "readIdentityForLink" | "readIdentitiesForLink"
+  >;
   readonly recipientLinks?: RecipientLinks;
   readonly contentCatalog?: CoverageCatalog;
   readonly clock?: () => Date;

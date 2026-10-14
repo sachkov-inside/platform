@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Kysely, PostgresDialect, sql } from "kysely";
 import { Pool } from "pg";
 import {
@@ -30,6 +31,9 @@ import { loadApplicationConfig } from "../../src/config/application-config.js";
 let entryStatements: string[] = [];
 let communicationStatements: string[] = [];
 let database: Database;
+let databaseCreated = false;
+let owner: Pool | undefined;
+let ownedDatabaseName: string | undefined;
 const instant = new Date("2030-01-01T00:00:00Z");
 const request: CommunicationsRequest = {
   contractVersion: COMMUNICATIONS_VERSION,
@@ -40,10 +44,17 @@ const request: CommunicationsRequest = {
   payload: {},
 };
 beforeAll(async () => {
+  const databaseUrl = new URL(required(process.env["DATABASE_URL"]));
+  owner = new Pool({ connectionString: databaseUrl.toString(), max: 1 });
+  const name = `communication_read_sets_${randomUUID().replaceAll("-", "")}`;
+  await owner.query(`CREATE DATABASE ${name}`);
+  // Ownership begins only after CREATE succeeds; a failed acquisition cannot remove another database.
+  ownedDatabaseName = name;
+  databaseUrl.pathname = `/${name}`;
   database = new Kysely<DatabaseSchema>({
     dialect: new PostgresDialect({
       pool: new Pool({
-        connectionString: required(process.env["DATABASE_URL"]),
+        connectionString: databaseUrl.toString(),
       }),
     }),
     log(event) {
@@ -59,6 +70,7 @@ beforeAll(async () => {
         entryStatements.push(event.query.sql);
     },
   });
+  databaseCreated = true;
   await migrateToLatest(database);
 });
 beforeEach(async () => {
@@ -69,7 +81,16 @@ beforeEach(async () => {
   );
 });
 afterAll(async () => {
-  await database.destroy();
+  try {
+    if (databaseCreated) await database.destroy();
+  } finally {
+    try {
+      if (ownedDatabaseName !== undefined)
+        await owner?.query(`DROP DATABASE ${ownedDatabaseName} WITH (FORCE)`);
+    } finally {
+      await owner?.end();
+    }
+  }
 });
 
 describe.each([0, 1, 100, 101])(

@@ -73,7 +73,11 @@ export const previewCommandSchema = z
   )
   // Один Account классифицируется в наборе один раз: иначе порядок строк решал бы исход.
   .refine((value) =>
-    unique(value.rows.filter(isClassificationRow).map((row) => row.accountId)),
+    unique(
+      value.rows
+        .filter(isClassificationRow)
+        .map((row) => row.accountId.toLowerCase()),
+    ),
   )
   .refine((value) =>
     value.rows.every((row) => isGrantRow(row) || classificationTermsAgree(row)),
@@ -106,7 +110,7 @@ const previewLifetimeMilliseconds = 30 * 60 * 1000;
 
 export async function previewGrantBatch(
   prisma: AccountRightsPrismaClient,
-  accounts: Pick<Accounts, "readIdentityForLink">,
+  accounts: Pick<Accounts, "readIdentitiesForLink">,
   actorId: string,
   command: PreviewGrantBatchCommand,
   now: Date,
@@ -127,21 +131,18 @@ export async function previewGrantBatch(
     if (preview !== null && !fingerprint.recognizes(preview.fingerprint))
       return accessFailure("operation_conflict");
     if (preview === null) {
-      const rows = await Promise.all(
-        parsed.data.rows.map(async (row) => {
-          const identity = await accounts.readIdentityForLink(
-            row.accountId,
-            transaction,
-          );
-          return {
-            ...row,
-            identityFingerprint:
-              identity === undefined
-                ? null
-                : accessFingerprint(identity).digest,
-          };
-        }),
+      const identities = await accounts.readIdentitiesForLink(
+        parsed.data.rows.map((row) => row.accountId),
+        transaction,
       );
+      const rows = parsed.data.rows.map((row) => {
+        const identity = identities.get(row.accountId);
+        return {
+          ...row,
+          identityFingerprint:
+            identity === undefined ? null : accessFingerprint(identity).digest,
+        };
+      });
       preview = await transaction.accessBatchPreview.create({
         data: {
           id: randomUUID(),
