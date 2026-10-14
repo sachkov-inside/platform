@@ -124,6 +124,10 @@ not dependency wiring.
   UTF-8/JSON expansion; the cursor retains its filter/sort scope and stable tuple order.
 - Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
   A batch facet exposes only facts its caller needs; request-specific facts stay request-scoped.
+  Name the dimension: many resources for one subject differs from many subjects for one resource.
+  Preserve owner failures independently: an unused channel must not poison a required channel.
+- UUID-keyed sets normalize lookup spelling at the owner and project back to the declared keys;
+  PostgreSQL canonical spelling must not turn a requested UUID into a missing or denied fact.
 - Preserve per-item versions, grouped limits and access expiry when replacing scalar reads with a set.
   Share a transaction only where the existing consistency contract requires the same snapshot.
 - Verify representative batch sizes at the database boundary. Compatible Prisma `findUnique` calls
