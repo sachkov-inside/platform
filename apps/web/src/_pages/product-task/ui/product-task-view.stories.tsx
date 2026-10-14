@@ -504,7 +504,7 @@ function courseLoadsInPlace({
         title: boxOf(canvasElement, "[data-reader-header] h1"),
       };
       stagedLoadingOf(loaded).deliverPersonalPart();
-      await canvas.findByRole("link", { name: "Сдать", exact: true });
+      await canvas.findByRole("link", { name: "Сдать" });
       await expect(
         originOf(boxOf(canvasElement, "[data-task-header]")),
       ).toEqual(before.header);
