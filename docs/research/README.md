@@ -6,3 +6,6 @@
 [Общий brief](../product/README.md), [brief Platform](../product/platform-mvp-brief.md),
 [словарь](../../GLOSSARY.md) и [локальные ADR](../adr/) задают текущие правила.
 Источники перенесённых исследований перечислены в [карте переноса](../migrations/958-shared-documents.md).
+
+- [Практики интерфейса для Inside](issue-1455-frontend-design-practices.md), 14.10.2026, #1455.
+  Сравнение ресурсов владельца, текущих компонентов и ограниченных направлений для прототипов.
