@@ -247,14 +247,12 @@ test("completed intent response renders the guest Reader before navigation respo
       exact: true,
     });
     const mobile = await programmeButton.isVisible();
-    if (mobile) await programmeButton.click();
     await expect(
       reader.getByRole("link", {
-        name: mobile ? "Страница программы" : "Вся программа",
+        name: mobile ? "К курсу" : "Вся программа",
         exact: true,
       }),
     ).toHaveAttribute("href", `${programme}?page=1&at=navigation-lesson-2`);
-    if (mobile) await page.keyboard.press("Escape");
     expect(
       await page.evaluate((): unknown => {
         const observation = window.__intentCacheAdmission;

@@ -450,7 +450,7 @@ async function boxesOf(
   );
 }
 
-/** Course B exposes the real programme link through its mobile tree. */
+/** Course B returns through its action panel on mobile and chapter rail on desktop. */
 async function readerProgrammeLink(page: Page) {
   const course = page.locator(
     "[data-application-content] [data-course-reading]:visible",
@@ -460,10 +460,7 @@ async function readerProgrammeLink(page: Page) {
     name: "Вся программа",
   });
   if (await button.isVisible()) {
-    await button.click();
-    return course
-      .getByRole("dialog")
-      .getByRole("link", { name: "Страница программы" });
+    return course.getByRole("link", { name: "К курсу", exact: true });
   } else
     return course.getByRole("link", { exact: true, name: "Вся программа" });
 }
