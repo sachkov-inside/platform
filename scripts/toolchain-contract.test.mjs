@@ -869,7 +869,10 @@ describe("supported toolchain contract", () => {
     const terminal = (path) =>
       read(path).match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
     const apiTerminal = terminal("config/compose/production/api.env.example");
-    assert.ok(apiTerminal, "the API template must declare its payment terminal");
+    assert.ok(
+      apiTerminal,
+      "the API template must declare its payment terminal",
+    );
     assert.equal(
       terminal("config/compose/production/notifications-worker.env.example"),
       apiTerminal,
