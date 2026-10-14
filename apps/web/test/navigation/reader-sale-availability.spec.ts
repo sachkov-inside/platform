@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT required");
@@ -14,6 +17,15 @@ const journalSchema = z.object({
     }),
   ),
 });
+
+async function save(label: string, value: unknown) {
+  const directory = evidenceDirectory("issue-1466");
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, `${label}.json`),
+    JSON.stringify(value, null, 2),
+  );
+}
 
 for (const size of [1, 10, 100]) {
   for (const scenario of ["none", "sole", "multiple", "explicit"] as const) {
@@ -63,6 +75,18 @@ for (const size of [1, 10, 100]) {
       );
       const programme = reads.filter(({ path }) =>
         path.startsWith("/library/products/reader-sale-product-"),
+      );
+      await save(
+        `reader-sale-${info.project.name}-${String(size)}-${scenario}`,
+        {
+          reads,
+          admissionRequests: admission.length,
+          programmeNavigationRequests: programme.length,
+          selectedRequestBytes: reads.reduce(
+            (sum, read) => sum + read.bytes,
+            0,
+          ),
+        },
       );
       await info.attach(
         `reader-sale-${String(size)}-${scenario}-physical-http`,
@@ -122,6 +146,7 @@ for (const scenario of ["unavailable", "malformed", "missing"] as const) {
         path.startsWith("/library/products/sale-availability?"),
       ),
     ).toHaveLength(scenario === "unavailable" ? 1 : 0);
+    await save(`reader-sale-${info.project.name}-10-${scenario}`, { reads });
     await info.attach(`reader-sale-${scenario}-physical-http`, {
       body: JSON.stringify({ reads }),
       contentType: "application/json",
