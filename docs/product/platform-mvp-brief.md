@@ -791,3 +791,16 @@ Reader сохраняет место; любой доступный матери
 раскрыт. Без знака врезка остаётся обычной. Читатель раскрывает врезку мышью, Enter или Space;
 заголовок и вложенное содержимое сохраняются. Визуальное принятие нового состояния ведёт
 [#1278](https://github.com/sachkov-inside/platform/issues/1278).
+
+### Course task reader correction, 14 October 2026 (#1427)
+
+Course tasks use the same chapter/step header and course navigation as lessons. Task type, product
+name and requirement version do not appear in that header. Submission status and controls remain
+in the submission section near the end. Requirement versions remain mutation data and submission
+history; this change does not alter acceptance rules or grant access.
+
+Related materials appear before the task instructions. Their progress uses the existing Account
+reading state: an explicit studied mark, not inferred page views. The task-page response includes
+canonical Material IDs for that existing batch/cache. The learner MCP response remains unchanged.
+Authored related sections move without changing their text, heading anchors, attachments or order
+inside the section. The attachment viewer tracked in #1378 remains deferred.

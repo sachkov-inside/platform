@@ -124,7 +124,7 @@ export function ProductTaskPending({
           <CourseReadingHeader
             context={programme}
             title={programme.current.title}
-            metadata={<span>Задание</span>}
+            metadata={null}
           />
         </div>
         <div

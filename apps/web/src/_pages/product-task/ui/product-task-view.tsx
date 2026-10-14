@@ -7,7 +7,6 @@ import {
   CircleCheck,
   Eye,
   FileText,
-  Flag,
   LockKeyhole,
   MessageSquareText,
 } from "lucide-react";
@@ -28,11 +27,12 @@ import {
 } from "@/features/library-discovery";
 import styles from "./product-task-view.module.css";
 import { TaskPageBody } from "./task-page-body";
+import { TaskRelatedMaterials } from "./task-related-materials.client";
+import { taskRelatedSectionOrder } from "../model/task-related-section";
 
 import { ProductTaskForm } from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { materialPath } from "@/shared/routing/public-page-path";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 import type {
@@ -72,21 +72,6 @@ export function ProductTaskView({
   const pageId = (id: string) => (sourceIds.has(id) ? `${id}:page` : id);
   const criteria = task.definition.criteria;
   const additional = criteria.some(({ level }) => level === "additional");
-  const parts =
-    "format" in task.definition
-      ? ([
-          ["submit", "Сдать"],
-          ["mine", "Мои сдачи"],
-        ] as const)
-      : ([
-          ["situation", "Ситуация"],
-          ["result", "Результат"],
-          ["required", "Обязательно"],
-          ...(additional ? [["additional", "Дополнительно"] as const] : []),
-          ["freedom", "Свобода"],
-          ["submit", "Сдача"],
-          ["mine", "Мои сдачи"],
-        ] as const);
   const latest =
     submissions.kind === "ready" ? submissions.submissions[0] : undefined;
   const submissionBlock = (
@@ -105,6 +90,21 @@ export function ProductTaskView({
         >
           Сдача
         </h2>
+      )}
+      {submissions.kind !== "ready" ? null : (
+        <p
+          className="mt-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+          data-task-submitted={latest === undefined ? undefined : "true"}
+        >
+          {latest === undefined ? (
+            "Ещё не сдано"
+          ) : (
+            <>
+              <CircleCheck aria-hidden="true" className="size-4" />
+              Сдано {formatSubmissionDay(latest.submittedAt)}
+            </>
+          )}
+        </p>
       )}
       <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">
         Сдаёт твой агент: он проверит проект по критериям и отправит отчёт с
@@ -214,75 +214,28 @@ export function ProductTaskView({
             <h1 className="mt-4 break-words text-balance text-2xl font-semibold leading-[1.18] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.2]">
               {task.page?.title ?? task.title}
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-              {submissions.kind !== "ready" ? null : latest === undefined ? (
-                <span className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 font-medium">
-                  Ещё не сдано
-                </span>
-              ) : (
-                <span
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--callout-good)_14%,transparent)] px-3 font-semibold text-[color:var(--callout-good)]"
-                  data-task-submitted
-                >
-                  <CircleCheck aria-hidden="true" className="size-4" />
-                  Сдано {formatSubmissionDay(latest.submittedAt)}
-                </span>
-              )}
-              <span>Требования: версия {task.version}</span>
-            </div>
-            <nav
-              aria-label="Части задания"
-              className="mt-5 flex flex-wrap gap-2"
-            >
-              {parts.map(([id, label]) => (
-                <a
-                  className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                  href={`#${pageId(`task-${id}`)}`}
-                  key={id}
-                >
-                  {label}
-                </a>
-              ))}
-            </nav>
           </header>
         ) : (
           <div data-task-header>
             <CourseReadingHeader
               context={programme}
               title={task.page?.title ?? task.title}
-              metadata={
-                <>
-                  <span>Задание</span>
-                  <span>{task.product.name}</span>
-                  <span>Требования: версия {task.version}</span>
-                </>
-              }
-              actions={
-                <>
-                  {submissions.kind !== "ready" ? null : (
-                    <span
-                      data-task-submitted={
-                        latest === undefined ? undefined : "true"
-                      }
-                    >
-                      {latest === undefined
-                        ? "Ещё не сдано"
-                        : `Сдано ${formatSubmissionDay(latest.submittedAt)}`}
-                    </span>
-                  )}
-                  <a
-                    href={`#${pageId("task-submit")}`}
-                    className={styles["submitLink"]}
-                  >
-                    Сдать
-                  </a>
-                </>
-              }
+              metadata={null}
             />
           </div>
         )}
 
         <div className={styles["body"]}>
+          {taskRelatedSectionOrder(task.page?.body.blocks ?? []) ===
+          undefined ? (
+            <TaskRelatedMaterials
+              headingId={pageId("task-related-heading")}
+              materials={page.relatedMaterials}
+              returnTo={
+                programme?.href ?? productProgrammeHref(task.product.slug)
+              }
+            />
+          ) : null}
           {task.page === undefined ? (
             <>
               <TaskSection id="situation" title="Ситуация">
@@ -337,6 +290,10 @@ export function ProductTaskView({
               page={task.page}
               code={task.code}
               productSlug={task.product.slug}
+              relatedMaterials={page.relatedMaterials}
+              returnTo={
+                programme?.href ?? productProgrammeHref(task.product.slug)
+              }
             >
               {submissionBlock}
               {mineBlock}
@@ -349,46 +306,6 @@ export function ProductTaskView({
               {mineBlock}
             </>
           ) : null}
-
-          {task.page !== undefined ||
-          page.relatedMaterials.length === 0 ? null : (
-            <section aria-labelledby={pageId("task-related-heading")}>
-              <h2
-                className="text-xl font-semibold tracking-[-0.015em]"
-                id={pageId("task-related-heading")}
-              >
-                Материалы к заданию
-              </h2>
-              <ul className="mt-3 grid gap-2">
-                {page.relatedMaterials.map((material) => (
-                  <li key={material.slug}>
-                    <IntentPrefetchLink
-                      className="flex min-h-11 items-center gap-3 sm:min-h-14 rounded-xl bg-muted/65 px-4 py-2 text-base no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                      href={materialPath(material.slug)}
-                    >
-                      <span className="min-w-0 flex-1 text-sm font-medium leading-6 [overflow-wrap:anywhere]">
-                        {material.title}
-                      </span>
-                      {material.availability === "available" ? (
-                        <ArrowRight
-                          aria-hidden="true"
-                          className="size-4 shrink-0 text-muted-foreground"
-                        />
-                      ) : (
-                        <>
-                          <LockKeyhole
-                            aria-hidden="true"
-                            className="size-4 shrink-0 text-muted-foreground"
-                          />
-                          <span className="sr-only">Нужен доступ</span>
-                        </>
-                      )}
-                    </IntentPrefetchLink>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
         {programme === null ? null : (
           <CourseReadingFooter context={programme} />
@@ -429,13 +346,7 @@ export function ProductTaskClosed({
             <CourseReadingHeader
               context={programme}
               title={task.title}
-              metadata={
-                <>
-                  <span>Задание</span>
-                  <span>{task.product.name}</span>
-                  <span>Доступ закрыт</span>
-                </>
-              }
+              metadata={null}
             />
           </div>
         )}
@@ -508,11 +419,6 @@ function TaskBackLink({ task }: { readonly task: ProductTaskPlace }) {
 function TaskEyebrow({ task }: { readonly task: ProductTaskPlace }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5 font-semibold text-[color:var(--callout-task)]">
-        <Flag aria-hidden="true" className="size-4" />
-        Задание
-      </span>
-      <span aria-hidden="true">·</span>
       <span>
         Глава {task.chapter.ordinal}. {task.chapter.name}
       </span>

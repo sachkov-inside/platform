@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Route } from "next";
 
 import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
 import { projectHarnessIllustrations } from "@/features/project-harness";
@@ -6,6 +7,13 @@ import {
   MaterialResponsiveImage,
   type MaterialImageSource,
 } from "@/features/material-assets";
+
+import { materialPath } from "@/shared/routing/public-page-path";
+import {
+  taskRelatedSectionOrder,
+  taskRelatedSectionRange,
+} from "../model/task-related-section";
+import { TaskRelatedMaterialLink } from "./task-related-materials.client";
 
 import type { OpenProductTask } from "../model/product-task-page";
 
@@ -16,8 +24,12 @@ export function TaskPageBody({
   code,
   version,
   children,
+  relatedMaterials,
+  returnTo,
 }: {
   readonly children?: ReactNode;
+  readonly relatedMaterials: OpenProductTask["relatedMaterials"];
+  readonly returnTo: Route;
   readonly page: NonNullable<OpenProductTask["task"]["page"]>;
   readonly productSlug: string;
   readonly code: string;
@@ -25,12 +37,8 @@ export function TaskPageBody({
 }) {
   const assetHref = (assetId: string) =>
     `/api/products/${encodeURIComponent(productSlug)}/tasks/${encodeURIComponent(code)}/assets/${encodeURIComponent(assetId)}`;
-  const materialsIndex = page.body.blocks.findIndex(
-    (block) =>
-      block.kind === "heading" &&
-      block.content.map((part) => part.text).join("") === "Материалы к заданию",
-  );
-  const hintAt = materialsIndex === -1 ? undefined : materialsIndex;
+  const blockOrder = taskRelatedSectionOrder(page.body.blocks);
+  const relatedSection = taskRelatedSectionRange(page.body.blocks);
   const body = (
     <MaterialBodyView
       blocks={page.body.blocks}
@@ -39,9 +47,27 @@ export function TaskPageBody({
           ?.illustrations
       }
       path={[]}
-      hint={children}
-      hintAt={hintAt}
+      blockOrder={blockOrder}
       rendering={{
+        link: (href, label, path) => {
+          const index = path[0];
+          if (
+            relatedSection === undefined ||
+            index === undefined ||
+            index < relatedSection.start ||
+            index >= relatedSection.end
+          )
+            return undefined;
+          const targetPath = href.split(/[?#]/u)[0];
+          const material = relatedMaterials.find(
+            (item) => materialPath(item.slug) === targetPath,
+          );
+          return material === undefined ? undefined : (
+            <TaskRelatedMaterialLink material={material} returnTo={returnTo}>
+              {label}
+            </TaskRelatedMaterialLink>
+          );
+        },
         headingId: (path) => `task-section-${path.join("-")}`,
         image: (block) => <TaskImage block={block} assetHref={assetHref} />,
         file: (block) => (
@@ -87,7 +113,7 @@ export function TaskPageBody({
           </ul>
         </section>
       )}
-      {materialsIndex === -1 ? children : null}
+      {children}
     </>
   );
 }

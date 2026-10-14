@@ -57,6 +57,7 @@ export type TaskPage =
       };
       readonly reviewProtocol: typeof taskReviewProtocol;
       readonly relatedMaterials: readonly {
+        readonly materialId: string;
         readonly slug: string;
         readonly title: string;
         readonly availability: "available" | "locked" | "unavailable";

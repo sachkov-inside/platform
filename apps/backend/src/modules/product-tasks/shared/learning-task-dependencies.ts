@@ -106,6 +106,7 @@ export async function readRelatedMaterials(
   sourceIds: readonly string[],
 ): Promise<
   readonly {
+    readonly materialId: string;
     readonly slug: string;
     readonly title: string;
     readonly availability: "available" | "locked" | "unavailable";
@@ -142,6 +143,7 @@ export async function readRelatedMaterials(
     availability.items.map((item) => [item.itemId, item.availability]),
   );
   return published.map((material) => ({
+    materialId: material.materialId,
     slug: material.slug,
     title: material.title,
     availability: byId.get(material.materialId) ?? "unavailable",

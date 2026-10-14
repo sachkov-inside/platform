@@ -275,4 +275,4 @@ Multiline actions grow instead of clipping. Desktop sizing remains owned by each
 Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
 avatars and illustrations do not follow action-icon dimensions.
 
-Course Material headers omit publication dates (owner decision 2026-10-14). Keep persisted publication dates and ProductTask metadata unchanged.
+Course Material headers omit publication dates (owner decision 2026-10-14). Keep persisted dates unchanged. Course Task headers show chapter and step without task, product or requirement-version labels. Submission status belongs to the submission section, not the header. Keep requirement versions in submission validation and history.
