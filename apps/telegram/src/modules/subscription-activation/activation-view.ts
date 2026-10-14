@@ -1,4 +1,5 @@
 import { isProductCapability } from "@inside/access-capabilities";
+import { hasText } from "../../shared/text.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import type {
   OwnAccess,
@@ -18,29 +19,41 @@ const enrollmentStates = {
 };
 /** A course student outside the course group gets access through the author's personal invitation. */
 const OUTSIDE_COURSE_GROUP =
-  "Если вы купили курс, но вас нет в его группе, напишите автору: он пришлёт личное приглашение.";
+  "Если вы учились на курсе, но вас нет в его группе, напишите автору.";
 /** Tells the person that an unconfirmed ground is now in the owner's review queue. */
-export const OWNER_REVIEW =
-  "Запрос передан владельцу: он проверит его вручную.";
-export function activationMenu(accountUrl: string): readonly TelegramButton[] {
-  return [
-    { text: "Открыть платформу", url: accountUrl },
-    { text: "Мои доступы", callbackData: "access:own" },
-    { text: "Вступить в сообщество", callbackData: "access:community" },
-    { text: "Повторить проверку", callbackData: "access:retry" },
-    { text: "Нужна помощь", callbackData: "access:help" },
-  ];
+export const OWNER_REVIEW = "Запрос передан автору курса.";
+export function activationMenu(
+  accountUrl: string,
+  result?: ActivationResult<ActivationResponse>,
+): readonly TelegramButton[] {
+  if (result?.ok && ["active", "already_active"].includes(result.value.state)) {
+    return [
+      { text: "Открыть платформу", url: accountUrl },
+      ...(result.value.enrollment?.tier.benefits.includes("community")
+        ? [{ text: "Чат курса", callbackData: "access:community" }]
+        : []),
+    ];
+  }
+  const help: TelegramButton = { text: "Помощь", callbackData: "access:help" };
+  if (
+    result &&
+    !result.ok &&
+    ["policy_paused", "not_found", "identity_conflict"].includes(
+      result.error.code,
+    )
+  )
+    return [help];
+  return [{ text: "Проверить ещё раз", callbackData: "access:retry" }, help];
 }
 export function accountPrompt(accountUrl: string): {
   text: string;
   buttons: readonly TelegramButton[];
 } {
   return {
-    text: "Для активации войдите в Inside или создайте аккаунт на платформе, затем свяжите Telegram в кабинете. После подтверждения мы продолжим проверку. Истёкший вход можно начать заново. Действующие права сохраняются на своих условиях.",
+    text: "Чтобы открыть курс, войдите на платформу и привяжите Telegram в аккаунте.",
     buttons: [
-      { text: "Создать аккаунт / войти через Telegram", url: accountUrl },
-      { text: "У меня уже есть аккаунт", url: accountUrl },
-      { text: "Я связал Telegram — проверить", callbackData: "access:retry" },
+      { text: "Войти на платформу", url: accountUrl },
+      { text: "Проверить доступ", callbackData: "access:retry" },
     ],
   };
 }
@@ -58,38 +71,42 @@ export function activationMessage(
   if (!result.ok) {
     const messages: Partial<Record<string, string>> = {
       policy_paused:
-        "Новые активации по этой ссылке приостановлены. Уже выданные права сохраняются.",
+        "Активация по этой ссылке приостановлена. Напишите автору курса.",
       identity_conflict:
-        "Связь Telegram требует проверки владельца. Мы не переносим и не объединяем аккаунты автоматически.",
-      source_not_confirmed: `Покупка пока не подтверждена. ${OUTSIDE_COURSE_GROUP}`,
-      not_found: "Правило активации не найдено. Проверьте ссылку у владельца.",
+        "Не удалось связать Telegram с аккаунтом. Напишите автору курса.",
+      source_not_confirmed: `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`,
+      not_found:
+        "Ссылка активации не найдена. Попросите новую ссылку у автора курса.",
       revision_conflict:
-        "Условия проверки изменились. Повторите проверку по исходной ссылке.",
+        "Условия доступа обновились. Нажмите «Проверить ещё раз».",
     };
     return (
       messages[result.error.code] ??
-      "Проверка пока недоступна. Повторите её позже; независимые покупки и права сохраняются."
+      "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже."
     );
   }
   switch (result.value.state) {
     case "active":
-    case "already_active":
-      return "Назначение тарифа подтверждено. Чтобы вступить в общий чат Inside, нажмите «Вступить в сообщество» — бот пришлёт личную ссылку. Текущий состав, источник и срок — в «Мои доступы».";
+    case "already_active": {
+      const heading =
+        result.value.state === "active"
+          ? "Доступ к курсу открыт"
+          : "Доступ к курсу уже открыт";
+      const name = result.value.enrollment?.tier.name;
+      return `${heading}\n\n${hasText(name) ? `${name}\n` : ""}Материалы доступны на платформе.`;
+    }
     case "pending_review":
-      if (
-        result.value.enrollment &&
-        result.value.enrollment.state !== "active"
-      ) {
-        const enrollment = result.value.enrollment;
-        return `Активация не подтверждена. ${enrollment.tier.name}: ${enrollmentStates[enrollment.state]}. Независимые права и сроки назначения — в «Мои доступы».`;
-      }
-      return "Автоматическая проверка не подтвердила покупку. Обратитесь к владельцу; это не отменяет уже выданные права.";
+      if (result.value.enrollment && result.value.enrollment.state !== "active")
+        return `Доступ пока не подтверждён.\n\n${result.value.enrollment.tier.name}: ${enrollmentStates[result.value.enrollment.state]}.`;
+      return "Доступ пока не подтверждён.";
     case "rejected":
-      return `Автоматическая проверка не подтвердила покупку. ${OUTSIDE_COURSE_GROUP} Это не отменяет уже выданные права.`;
+      return `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
     case "checking":
+      return "Проверяем доступ к курсу…";
     case "needs_account":
+      return "Войдите на платформу и привяжите Telegram в аккаунте.";
     case "unavailable":
-      return "Проверка продолжается. Если аккаунт ещё не связан, завершите вход и связывание на платформе.";
+      return "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.";
   }
 }
 export function ownAccessText(access: OwnAccess): string {

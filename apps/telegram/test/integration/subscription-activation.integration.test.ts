@@ -342,7 +342,8 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(
       prompt.some(
         (row) =>
-          row.buttons?.some((button) => button.text === "Мои доступы") === true,
+          row.buttons?.some((button) => button.text === "Открыть платформу") ===
+          true,
       ),
     ).toBe(true);
     expect(
