@@ -1668,18 +1668,16 @@ it.each(["Воронки", "Рассылки"])(
     const callback = required(
       menu.message.authorButtons?.find((button) => button.text === label),
     );
-    await app
-      .get(AuthorAdmin)
-      .handle({
-        botIdentity: "inside",
-        updateId: "1010",
-        telegramUserId: "42",
-        privateChatId: "42",
-        text: "",
-        content: null,
-        callbackData: callback.callbackData,
-        callbackQueryId: "1010",
-      });
+    await app.get(AuthorAdmin).handle({
+      botIdentity: "inside",
+      updateId: "1010",
+      telegramUserId: "42",
+      privateChatId: "42",
+      text: "",
+      content: null,
+      callbackData: callback.callbackData,
+      callbackQueryId: "1010",
+    });
     expect(authorization.subjects).toHaveLength(1);
     expect(authorization.subjects[0]).toMatchObject({ kind: "telegram" });
   },
