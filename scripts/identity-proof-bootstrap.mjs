@@ -81,6 +81,15 @@ const applicationSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
 });
+const localApplicationSchema = applicationSchema.extend({
+  oidcClientMetadata: z
+    .object({
+      redirectUris: z.array(z.string()).optional(),
+      postLogoutRedirectUris: z.array(z.string()).optional(),
+    })
+    .passthrough()
+    .optional(),
+});
 const connectorSchema = z.object({
   id: z.string().min(1),
   connectorId: z.string(),
@@ -265,7 +274,7 @@ export async function ensureResource(
 /** @param {ManagementApi} api */
 export async function ensureApplication(api) {
   const applications = parseManagementPayload(
-    z.array(applicationSchema),
+    z.array(localApplicationSchema),
     await api("/applications"),
     "Logto applications response",
   );
@@ -274,8 +283,17 @@ export async function ensureApplication(api) {
     ({ name }) => name === applicationName,
   );
   const oidcClientMetadata = {
-    redirectUris: [`${webBaseUrl}/callback`],
-    postLogoutRedirectUris: [`${webBaseUrl}/`],
+    ...current?.oidcClientMetadata,
+    redirectUris: retainRegisteredOwnerReturns(
+      `${webBaseUrl}/callback`,
+      current?.oidcClientMetadata?.redirectUris,
+      "/callback",
+    ),
+    postLogoutRedirectUris: retainRegisteredOwnerReturns(
+      `${webBaseUrl}/`,
+      current?.oidcClientMetadata?.postLogoutRedirectUris,
+      "/",
+    ),
   };
   if (current === undefined) {
     return parseManagementPayload(
@@ -299,6 +317,24 @@ export async function ensureApplication(api) {
     }),
     "Logto application update response",
   );
+}
+
+/**
+ * @param {string} defaultUri
+ * @param {string[] | undefined} registeredUris
+ * @param {"/callback" | "/"} path
+ */
+function retainRegisteredOwnerReturns(defaultUri, registeredUris, path) {
+  const allowed = [
+    `http://127.0.0.1:4300${path}`,
+    `http://localhost:4300${path}`,
+  ];
+  return [
+    ...new Set([
+      defaultUri,
+      ...(registeredUris ?? []).filter((uri) => allowed.includes(uri)),
+    ]),
+  ];
 }
 
 /** @param {ManagementApi} api */

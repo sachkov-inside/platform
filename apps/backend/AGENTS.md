@@ -8,7 +8,7 @@ behaviour behind capability interfaces.
 
 ## Required context
 
-Before changing or reviewing backend code, apply [`CODING_STANDARDS.md`](CODING_STANDARDS.md).
+Before review, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for backend changes.
 
 Run `pnpm --filter @inside/backend guardrails` after changing imports, public interfaces, result
 unions, TypeScript projects, or lint configuration.

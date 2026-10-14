@@ -18,6 +18,9 @@ import { spawnOwned, stopOwned } from "./owned-process.mjs";
 const script = fileURLToPath(
   new URL("./local-build-context-smoke.sh", import.meta.url),
 );
+const deadlineFixture = fileURLToPath(
+  new URL("./fixtures/context-deadline.py", import.meta.url),
+);
 
 test("context smoke removes its temporary context after a successful adapter command", () => {
   const root = mkdtempSync(join(tmpdir(), "context-success-contract-"));
@@ -139,12 +142,28 @@ test("context smoke's own deadline stops a blocked Docker plugin and its child",
   try {
     mkdirSync(join(root, "bin"));
     writeFileSync(
+      join(root, "bin/python3"),
+      `#!/bin/sh
+fixture_python="$(PATH="$CONTEXT_FIXTURE_PATH" command -v python3)"
+case "$1" in
+  */local-build-context-smoke.py) exec "$fixture_python" "$CONTEXT_DEADLINE_FIXTURE" "$@" ;;
+  *) exec "$fixture_python" "$@" ;;
+esac
+`,
+      { mode: 0o755 },
+    );
+    writeFileSync(
       join(root, "bin/docker"),
       `#!/usr/bin/env node
 import {spawn} from "node:child_process"; import {writeFileSync} from "node:fs";
-const plugin = spawn(process.execPath, ["-e", "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], {stdio:"ignore"});
-writeFileSync(${JSON.stringify(join(root, "pid"))}, String(plugin.pid));
-process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);
+process.on("SIGTERM", () => {});
+const plugin = spawn(process.execPath, ["-e", "process.on('SIGTERM', () => {}); process.stdout.write('PLUGIN_READY'); setInterval(() => {}, 1000)"], {stdio:["ignore", "pipe", "ignore"]});
+plugin.stdout.once("data", () => {
+  writeFileSync(${JSON.stringify(join(root, "pid"))}, String(plugin.pid));
+  writeFileSync(${JSON.stringify(join(root, "docker-pid"))}, String(process.pid));
+  process.stdout.write("CONTEXT_READY\\n");
+});
+setInterval(() => {}, 1000);
 `,
       { mode: 0o755 },
     );
@@ -154,8 +173,14 @@ process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);
         ...process.env,
         TMPDIR: root,
         LOCAL_CONTEXT_BUILD_TIMEOUT_SECONDS: "1",
+        CONTEXT_FIXTURE_PATH: process.env["PATH"] ?? "",
+        CONTEXT_DEADLINE_FIXTURE: deadlineFixture,
         PATH: `${join(root, "bin")}:${process.env["PATH"] ?? ""}`,
       },
+    });
+    let stderr = "";
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
+      stderr += chunk.toString();
     });
     const status = await new Promise(
       /** @param {(status: number | null) => void} resolve */ (
@@ -166,10 +191,12 @@ process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);
         child?.once("exit", resolve);
       },
     );
-    assert.equal(status, 124);
+    assert.equal(status, 124, stderr);
     const pid = Number(readFileSync(join(root, "pid"), "utf8"));
     assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
-    assert.deepEqual(readdirSync(root).sort(), ["bin", "pid"]);
+    const dockerPid = Number(readFileSync(join(root, "docker-pid"), "utf8"));
+    assert.throws(() => process.kill(dockerPid, 0), { code: "ESRCH" });
+    assert.deepEqual(readdirSync(root).sort(), ["bin", "docker-pid", "pid"]);
   } finally {
     if (child !== undefined) await stopOwned(child);
     rmSync(root, { force: true, recursive: true });

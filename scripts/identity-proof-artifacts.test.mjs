@@ -701,6 +701,103 @@ test("Management API bootstrap converges after partial state and a repeated run"
   );
 });
 
+test("Management API bootstrap retains registered owner callbacks and application identity across runs", async () => {
+  const application = {
+    id: "web-existing",
+    name: "Inside Web",
+    type: "Traditional",
+    secret: "existing-test-secret",
+    customClientMetadata: { customClaim: "unchanged" },
+    oidcClientMetadata: {
+      redirectUris: ["http://127.0.0.1:4300/callback"],
+      postLogoutRedirectUris: ["http://127.0.0.1:4300/"],
+      tokenEndpointAuthMethod: "client_secret_basic",
+    },
+  };
+  const authoring = {
+    id: "authoring-existing",
+    name: "Inside Authoring Stand",
+    oidcClientMetadata: {
+      redirectUris: ["http://127.0.0.1:4300/authoring-stand/callback"],
+    },
+  };
+  /** @type {FakeManagementState} */
+  const state = {
+    resources: [],
+    applications: structuredClone([application, authoring]),
+    connectors: [],
+  };
+  const api = managementApiFake(state);
+
+  for (let run = 0; run < 2; run += 1) {
+    const result = await ensureApplication(api);
+    assert.equal(result.id, "web-existing");
+    assert.deepEqual(state.applications, [
+      {
+        ...application,
+        oidcClientMetadata: {
+          redirectUris: [
+            "http://127.0.0.1:3000/callback",
+            "http://127.0.0.1:4300/callback",
+          ],
+          postLogoutRedirectUris: [
+            "http://127.0.0.1:3000/",
+            "http://127.0.0.1:4300/",
+          ],
+          tokenEndpointAuthMethod: "client_secret_basic",
+        },
+      },
+      authoring,
+    ]);
+  }
+});
+
+test("Management API bootstrap retains only exact registered loopback owner returns", async () => {
+  /** @type {FakeManagementState} */
+  const state = {
+    resources: [],
+    applications: [
+      {
+        id: "web-existing",
+        name: "Inside Web",
+        oidcClientMetadata: {
+          redirectUris: [
+            "http://localhost:4300/callback",
+            "http://localhost:4300/callback",
+            "https://public.example/callback",
+            "http://*.localhost:4300/callback",
+            "http://localhost:4301/callback",
+            "http://localhost:4300/callback?return=public",
+            "http://localhost:4300/",
+            "http://localhost:4300/other",
+          ],
+          postLogoutRedirectUris: [
+            "http://localhost:4300/",
+            "https://public.example/",
+            "http://localhost:4300/*",
+            "http://localhost:4300/callback",
+          ],
+        },
+      },
+    ],
+    connectors: [],
+  };
+  const api = managementApiFake(state);
+
+  await ensureApplication(api);
+
+  assert.deepEqual(at(state.applications[0], "oidcClientMetadata"), {
+    redirectUris: [
+      "http://127.0.0.1:3000/callback",
+      "http://localhost:4300/callback",
+    ],
+    postLogoutRedirectUris: [
+      "http://127.0.0.1:3000/",
+      "http://localhost:4300/",
+    ],
+  });
+});
+
 test("Management API bootstrap rejects malformed resource and application payloads", async () => {
   await assert.rejects(
     ensureResource(async () => [
