@@ -59,17 +59,18 @@ export async function getProductTaskPage(
 export async function loadOwnSubmissions(
   code: string,
   accessToken: string | undefined,
+  after?: string,
 ): Promise<OwnSubmissionsView> {
   if (accessToken === undefined) return { kind: "guest" };
   try {
-    const result = await requestOwnTaskSubmissions(code, accessToken);
+    const result = await requestOwnTaskSubmissions(code, accessToken, after);
     if (!result.ok)
       return result.response.status === 401
         ? { kind: "guest" }
         : { kind: "unavailable" };
     const parsed = ownTaskSubmissionsSchema.safeParse(result.body);
     return parsed.success
-      ? { kind: "ready", ...parsed.data }
+      ? { kind: "ready", ...parsed.data, continued: after !== undefined }
       : { kind: "unavailable" };
   } catch (error) {
     if (error instanceof BackendConnectionError) return { kind: "unavailable" };

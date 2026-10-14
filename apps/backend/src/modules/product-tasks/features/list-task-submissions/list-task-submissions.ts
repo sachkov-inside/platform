@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import {
@@ -25,10 +26,22 @@ import {
   type SystemError,
 } from "../../shared/result.js";
 
-const MAX_SUBMISSIONS = 50;
+const SUBMISSIONS_PAGE_SIZE = 50;
+const cursorSchema = z
+  .object({
+    v: z.literal(1),
+    scope: z.string().length(43),
+    at: z.iso.datetime(),
+    id: z.uuid(),
+  })
+  .strict();
+export const ownSubmissionsCursorSchema = z.string().min(1).max(512);
 
 export const taskSubmissionsQuerySchema = z
-  .object({ code: z.string().trim().min(1).max(120) })
+  .object({
+    code: z.string().trim().min(1).max(120),
+    after: ownSubmissionsCursorSchema.optional(),
+  })
   .strict();
 
 export interface OwnTaskSubmission {
@@ -78,6 +91,8 @@ export async function listTaskSubmissions(
       readonly currentVersion: number;
       readonly versions: readonly SubmittedVersion[];
       readonly submissions: readonly OwnTaskSubmission[];
+      readonly nextCursor: string | null;
+      readonly latestSubmittedAt: string | null;
     },
     ListTaskSubmissionsError
   >
@@ -90,6 +105,15 @@ export async function listTaskSubmissions(
     const task = await findCurrentTask(dependencies.prisma, parsed.data.code);
     if (task === null)
       return { ok: false, error: { code: "task_not_available" } };
+    const cursorScope = createHash("sha256")
+      .update(JSON.stringify([subject.accountId.toLowerCase(), task.id]))
+      .digest("base64url");
+    const cursor =
+      parsed.data.after === undefined
+        ? undefined
+        : decodeCursor(parsed.data.after, cursorScope);
+    if (parsed.data.after !== undefined && cursor === undefined)
+      return { ok: false, error: { code: "invalid_request_shape" } };
     const access = await decideTaskAccess(
       dependencies.contentAccess,
       subject,
@@ -103,12 +127,33 @@ export async function listTaskSubmissions(
       };
     if (access === "closed")
       return { ok: false, error: { code: "task_not_available" } };
-    const rows = await dependencies.prisma.productTaskSubmission.findMany({
-      where: { accountId: subject.accountId, taskId: task.id },
+    const window = await dependencies.prisma.productTaskSubmission.findMany({
+      where: {
+        accountId: subject.accountId,
+        taskId: task.id,
+        ...(cursor === undefined
+          ? {}
+          : {
+              OR: [
+                { submittedAt: { lt: new Date(cursor.at) } },
+                { submittedAt: new Date(cursor.at), id: { lt: cursor.id } },
+              ],
+            }),
+      },
       orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-      take: MAX_SUBMISSIONS,
+      take: SUBMISSIONS_PAGE_SIZE + 1,
       include: { feedback: true },
     });
+    const rows = window.slice(0, SUBMISSIONS_PAGE_SIZE);
+    const last = rows.at(-1);
+    const latest =
+      cursor === undefined
+        ? rows[0]
+        : await dependencies.prisma.productTaskSubmission.findFirst({
+            where: { accountId: subject.accountId, taskId: task.id },
+            orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+            select: { submittedAt: true },
+          });
     const versionNumbers = [...new Set(rows.map((row) => row.taskVersion))];
     const versions =
       versionNumbers.length === 0
@@ -122,6 +167,19 @@ export async function listTaskSubmissions(
       value: {
         code: task.code,
         currentVersion: task.version,
+        latestSubmittedAt: latest?.submittedAt.toISOString() ?? null,
+        nextCursor:
+          window.length > SUBMISSIONS_PAGE_SIZE && last !== undefined
+            ? Buffer.from(
+                JSON.stringify({
+                  v: 1,
+                  scope: cursorScope,
+                  at: last.submittedAt.toISOString(),
+                  id: last.id,
+                }),
+                "utf8",
+              ).toString("base64url")
+            : null,
         versions: versions.map((version) => ({
           version: version.version,
           criteria: taskDefinitionSchema.parse(version.definition).criteria,
@@ -159,5 +217,20 @@ export async function listTaskSubmissions(
       error,
       systemFailure(error),
     );
+  }
+}
+
+function decodeCursor(value: string, scope: string) {
+  try {
+    const decoded: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    );
+    const parsed = cursorSchema.safeParse(decoded);
+    return parsed.success && parsed.data.scope === scope
+      ? parsed.data
+      : undefined;
+  } catch {
+    // Not a dependency failure: client cursor is malformed foreign input.
+    return undefined;
   }
 }

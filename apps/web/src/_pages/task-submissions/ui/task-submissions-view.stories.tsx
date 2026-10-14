@@ -506,3 +506,33 @@ export const FreshFeedbackSurvivesStaleRead: Story = {
     console.info("EC-2 committed draft snapshots: initial=2, newer=3, stale=3");
   },
 };
+
+export const PagedProductChoices: Story = {
+  args: {
+    presentation: presentTaskSubmissions({
+      continued: false,
+      cursor: "same-submissions",
+      productCursor: "current-products",
+      selection: {},
+      submissions: {
+        ...reviewedSubmissions,
+        nextProductCursor: "next-products",
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      page.getByText("Продукт, глава и задание", { exact: true }),
+    );
+    await expect(
+      page.getByRole("link", { name: "Другие продукты" }),
+    ).toHaveAttribute(
+      "href",
+      "/authoring/submissions?cursor=same-submissions&productCursor=next-products",
+    );
+    await expect(
+      page.getByRole("link", { name: "Первые продукты" }),
+    ).toHaveAttribute("href", "/authoring/submissions?cursor=same-submissions");
+  },
+};

@@ -8,6 +8,7 @@ const schema = z
     versions: z.array(z.unknown()),
     history: z.array(z.unknown()),
     nextCursor: z.string().nullable(),
+    nextProductCursor: z.string().nullable(),
     submissions: z.array(
       z
         .object({

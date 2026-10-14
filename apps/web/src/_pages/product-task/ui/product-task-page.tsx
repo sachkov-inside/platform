@@ -22,15 +22,24 @@ import { ProductTaskClosed, ProductTaskView } from "./product-task-view";
  */
 export async function ProductTaskPage({
   params,
+  searchParams,
 }: {
+  readonly searchParams?: Promise<{
+    readonly attemptsAfter?: string | readonly string[];
+  }>;
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }) {
-  const { slug, code } = await params;
+  const [{ slug, code }, query] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve({ attemptsAfter: undefined }),
+  ]);
+  const after =
+    typeof query.attemptsAfter === "string" ? query.attemptsAfter : undefined;
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
   const [result, submissions, series] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
-    loadOwnSubmissions(code, accessToken),
+    loadOwnSubmissions(code, accessToken, after),
     loadTaskProgramme(slug, accessToken),
   ]);
   if (result.kind === "not-found") notFound();

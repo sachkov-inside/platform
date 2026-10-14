@@ -99,6 +99,9 @@ not dependency wiring.
   metadata on the initial page only. Interactive catalog pages keep their complete, filter-specific
   metadata contract. Do not share viewer state or silently omit metadata from an interactive list
   to reduce traversal cost; measure owner calls, SQL statements and response bytes separately.
+- Complete composition reads over bounded persistence pages keep one source snapshot and finish
+  that transaction before calling another owner. Paginated filter metadata declares its own
+  continuation and keeps selected/page enrichment complete; it never widens a directory's ID bound.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.

@@ -23,19 +23,25 @@ export async function TaskSubmissionsPage({
   const taskCode = single(params["task"]);
   const cursor = single(params["cursor"]);
   const submissionId = single(params["submission"]);
+  const productCursor = single(params["productCursor"]);
   const selection = {
     ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
     ...(taskCode === undefined ? {} : { taskCode }),
   };
-  const outcome = await loadTaskSubmissions(selection, cursor, submissionId);
+  const outcome = await loadTaskSubmissions(
+    selection,
+    cursor,
+    submissionId,
+    productCursor,
+  );
   return outcome.kind === "ready" ? (
     <TaskSubmissionsView presentation={presentTaskSubmissions(outcome)} />
   ) : (
     <TaskSubmissionsState
       kind={outcome.kind}
-      returnTo={selectionHref(selection, cursor, submissionId)}
-      listHref={selectionHref(selection, cursor)}
+      returnTo={selectionHref(selection, cursor, submissionId, productCursor)}
+      listHref={selectionHref(selection, cursor, undefined, productCursor)}
     />
   );
 }
