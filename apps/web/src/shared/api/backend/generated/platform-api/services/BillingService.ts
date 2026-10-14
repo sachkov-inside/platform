@@ -3064,4 +3064,31 @@ export class BillingService {
       mediaType: 'application/json',
     });
   }
+  /**
+   * Read sale admission for a bounded set of Products without programme, cohort or price presentation
+   * @returns any
+   * @throws ApiError
+   */
+  public billingProductSaleAvailability({
+    productId,
+  }: {
+    productId: Array<string>,
+  }): CancelablePromise<{
+    items: Array<{
+      productId: string;
+      sold: boolean;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/sale-availability',
+      query: {
+        'productId': productId,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+      },
+    });
+  }
 }

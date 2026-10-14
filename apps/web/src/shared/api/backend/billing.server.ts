@@ -295,3 +295,18 @@ export function requestConfigureProductCommunity(
     { accessToken },
   );
 }
+
+/** Fresh optional-auth admission only: no programme/cohort assembly or cross-request cache. */
+export function requestProductSaleAvailability(
+  productIds: readonly string[],
+  accessToken?: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new BillingService(request).billingProductSaleAvailability({
+        productId: [...productIds],
+      }),
+    200,
+    accessToken === undefined ? {} : { accessToken },
+  );
+}

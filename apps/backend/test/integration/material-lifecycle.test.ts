@@ -421,6 +421,9 @@ describe("Material lifecycle", () => {
       checkAvailabilityMany: base.contentAccess.checkAvailabilityMany.bind(
         base.contentAccess,
       ),
+      checkProductAccessMany: base.contentAccess.checkProductAccessMany.bind(
+        base.contentAccess,
+      ),
       checkProductAccess: base.contentAccess.checkProductAccess.bind(
         base.contentAccess,
       ),

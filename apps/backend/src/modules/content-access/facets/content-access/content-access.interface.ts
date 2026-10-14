@@ -158,4 +158,9 @@ export interface ContentAccess {
   ): Promise<AvailabilityBatchResult>;
   authorize(input: AccessRequest): Promise<AccessDecision>;
   checkProductAccess(input: ProductAccessRequest): Promise<ProductAccess>;
+  /** Complete input-order Product decisions, at most CONTENT_ACCESS_BATCH_SIZE IDs; never author permission. */
+  checkProductAccessMany(input: {
+    readonly subject: Subject;
+    readonly productIds: readonly string[];
+  }): Promise<readonly ProductAccess[]>;
 }

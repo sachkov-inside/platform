@@ -22,7 +22,11 @@ export interface MaterialReaderMetadata {
   readonly publishedAt: string;
   readonly seriesMemberships: readonly {
     readonly ordinal: number;
-    readonly series: { readonly name: string; readonly slug: string };
+    readonly series: {
+      readonly id: string;
+      readonly name: string;
+      readonly slug: string;
+    };
   }[];
   readonly slug: string;
   readonly summary: string;
