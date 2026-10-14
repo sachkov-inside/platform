@@ -37,7 +37,7 @@ function intentSettled(page: Page): Promise<Request> {
       const headers = request.headers();
       if (
         new URL(request.url()).pathname !== taskPath ||
-        headers["next-router-prefetch"] === undefined ||
+        headers["next-router-prefetch"] !== "3" ||
         headers["next-router-segment-prefetch"] !== undefined
       )
         return;
