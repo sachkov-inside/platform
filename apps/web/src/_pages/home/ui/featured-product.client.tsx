@@ -14,10 +14,7 @@ import {
   loadSeriesContinuation,
   seriesContinuationQueryKey,
 } from "@/features/reading-progress";
-import {
-  collectionDiscoveryHref,
-  materialReaderHref,
-} from "@/shared/routing/material-reader";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { HomePinnedCollection } from "../model/home-view";
@@ -279,10 +276,7 @@ function AccountProductContinuation({
       : null;
   return continuation === null ? null : (
     <IntentPrefetchLink
-      href={materialReaderHref(
-        continuation.materialSlug,
-        productProgrammeHref(slug),
-      )}
+      href={productProgrammeHref(slug)}
     >
       Продолжить обучение <ArrowRight aria-hidden="true" />
     </IntentPrefetchLink>

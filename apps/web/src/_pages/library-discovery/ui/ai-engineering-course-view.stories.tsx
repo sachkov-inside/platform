@@ -361,7 +361,7 @@ export const CourseParticipantContinuing: Story = {
       within(hero).getByRole("link", { name: "Продолжить обучение" }),
     ).toHaveAttribute(
       "href",
-      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+      "/products/ai-engineering/programme",
     );
   },
 };
