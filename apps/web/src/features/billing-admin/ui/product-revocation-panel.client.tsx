@@ -66,7 +66,7 @@ export function ProductRevocationPanel({
   return (
     <section
       className="grid gap-3 rounded-xl border border-border p-4"
-      aria-label="Отзыв доступа к продукту"
+      aria-label={`Отзыв доступа к продукту для Account ${accountId}`}
     >
       <h3 className="font-semibold">Отозвать доступ к продукту</h3>
       <label className="grid gap-2 text-sm">

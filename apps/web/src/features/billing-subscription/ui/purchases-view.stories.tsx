@@ -90,8 +90,8 @@ export const NoSubscription: Story = {
     ).not.toBeInTheDocument();
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     await expect(
-      canvas.getByText("Карта сохраняется при оформлении подписки."),
-    ).toBeInTheDocument();
+      canvas.queryByText("Карта сохраняется при оформлении подписки."),
+    ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "Привязать другую карту" }),
     ).not.toBeInTheDocument();

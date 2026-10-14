@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { SubscriptionReturnPage } from "@/_pages/subscription";
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function SubscriptionReturnRoute() {
-  return <SubscriptionReturnPage />;
+  return (
+    <Suspense fallback={<p role="status">Проверяем оплату…</p>}>
+      <SubscriptionReturnPage />
+    </Suspense>
+  );
 }

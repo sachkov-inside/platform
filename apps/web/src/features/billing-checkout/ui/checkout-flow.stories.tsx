@@ -224,17 +224,15 @@ export const AccountEmailPrefilled: Story = {
   beforeEach: emailCheckout,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const email = canvas.getByRole("textbox", { name: "Email" });
-    await expect(email).toHaveValue("login@example.test");
-    await waitFor(() => expect(email).toBeEnabled());
-    await userEvent.clear(email);
-    await userEvent.type(email, "changed@example.test");
+    await expect(
+      canvas.queryByRole("textbox", { name: "Email" }),
+    ).not.toBeInTheDocument();
     const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
     await waitFor(() => expect(pay).toBeEnabled());
     await userEvent.click(pay);
     await waitFor(() =>
       expect(purchaseCommand).toHaveBeenLastCalledWith(
-        expect.objectContaining({ email: "changed@example.test" }),
+        expect.objectContaining({ email: "login@example.test" }),
       ),
     );
   },
