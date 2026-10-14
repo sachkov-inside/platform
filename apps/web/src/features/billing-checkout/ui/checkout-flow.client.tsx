@@ -129,7 +129,7 @@ export function CheckoutFlow({
   const [editedEmail, setEditedEmail] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string>();
   const emailInputRef = useRef<HTMLInputElement>(null);
-  const email = editedEmail ?? contact?.email ?? initialEmail ?? "";
+  const email = initialEmail ?? editedEmail ?? contact?.email ?? "";
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
   const { operationId, completeOperation } = useRepeatableOperations();
 
@@ -316,6 +316,7 @@ export function CheckoutFlow({
     email,
     emailError,
     emailInputRef,
+    accountEmailPresent: initialEmail !== undefined,
     onEmailChange: (value: string) => {
       setEditedEmail(value);
       setEmailError(undefined);

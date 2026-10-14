@@ -48,6 +48,10 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0087_web_telemetry",
         "0088_web_telemetry_percentile_index",
         "0089_bank_refund_history",
+        "0090_explicit_community_rights",
+        "0091_product_communities",
+        "0092_product_access_exclusions",
+        "0093_product_learning_started",
       ],
     });
     expect(

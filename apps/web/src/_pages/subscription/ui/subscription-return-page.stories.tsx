@@ -1,13 +1,11 @@
+import { Suspense, use } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
-
-import type { PurchaseStatus } from "@/entities/subscription";
+import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import { expect, mocked, waitFor } from "storybook/test";
 import { forgetPurchase } from "@/features/billing-checkout";
 import { rememberPurchase } from "@/features/billing-checkout/model/checkout";
-import type { CommunityEntry } from "@/features/community-entry";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
-  communityEntryResponse,
   confirmedProductPurchase,
   failedPurchase,
 } from "@/storybook/billing.fixtures";
@@ -16,108 +14,130 @@ import {
   publicPageEnvironment,
   routeContent,
 } from "@/storybook/story-environment";
-
-import { SubscriptionReturnPage } from "./subscription-return-page.client";
-
-/** Путь запроса к собственному BFF, без адреса страницы и параметров. */
-function requestPath(input: RequestInfo | URL): string {
-  const target =
-    input instanceof Request
-      ? input.url
-      : input instanceof URL
-        ? input.href
-        : input;
-  return new URL(target, window.location.origin).pathname;
-}
-
+import {
+  boxOf,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  desktop,
+  mobile,
+  type StoryViewport,
+  type StagedLoading,
+} from "@/storybook/loads-in-place";
+import {
+  SubscriptionReturnPage,
+  SubscriptionReturnLoading,
+} from "./subscription-return-page.client";
 const environment = publicPageEnvironment("/payment/return", {
   account: "authenticated",
 });
-const botUrl = "https://t.me/inside_storybook_bot";
-
-/**
- * Возврат из банка: страница читает покупку, которую эта вкладка запомнила перед оплатой, и
- * состояние входа в сообщество. Оба ответа BFF ставятся до первого рендера.
- */
-function returnFrom(
-  purchase: PurchaseStatus,
-  entry: CommunityEntry,
-): () => () => void {
-  return () => {
-    environment.beforeEach();
-    // Кеш запросов общий на все истории: прежний ответ о покупке и сообществе не переносится.
-    getQueryClient().removeQueries({ queryKey: ["account"] });
-    rememberPurchase(purchase.purchaseRef);
-    const restoreFetch = fetchBeforeRender((input) => {
-      const path = requestPath(input);
-      return Promise.resolve(
-        path === "/api/account/community-entry"
-          ? communityEntryResponse(entry)
-          : Response.json({ ok: true, value: purchase }),
-      );
-    })();
-    return () => {
-      restoreFetch();
-      forgetPurchase();
-    };
-  };
-}
-
 const meta = {
   ...environment,
   title: "Pages/Subscription/Return",
   component: SubscriptionReturnPage,
   tags: ["autodocs"],
-  beforeEach: returnFrom(confirmedProductPurchase, { kind: "join", botUrl }),
-  parameters: {
-    ...environment.parameters,
-    docs: {
-      description: {
-        component:
-          "Возврат после оплаты. Подтверждённая покупка с открытым доступом сразу показывает, как попасть в группу Inside; пока доступ не открыт, перехода нет. Состояния до подтверждения — в «Components/Billing/Purchase return».",
-      },
-    },
-  },
 } satisfies Meta<typeof SubscriptionReturnPage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const ConfirmedJoinDesktop: Story = {
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+function returned(
+  purchase = confirmedProductPurchase,
+  referenceInUrl = false,
+  preparing = false,
+) {
+  return () => {
+    environment.beforeEach();
+    getQueryClient().removeQueries({ queryKey: ["account"] });
+    forgetPurchase();
+    if (referenceInUrl)
+      mocked(useSearchParams).mockReturnValue(
+        new ReadonlyURLSearchParams(
+          new URLSearchParams({ purchaseRef: purchase.purchaseRef }),
+        ),
+      );
+    else rememberPurchase(purchase.purchaseRef);
+    let reads = 0;
+    return fetchBeforeRender(() =>
+      Promise.resolve(
+        Response.json({
+          ok: true,
+          value:
+            preparing && reads++ === 0
+              ? { ...purchase, access: "preparing" }
+              : purchase,
+        }),
+      ),
+    )();
+  };
+}
+export const ConfirmedDesktop: Story = {
+  beforeEach: returned(),
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByRole("link", { name: "Вступить в сообщество" }),
-    ).toHaveAttribute("href", botUrl);
+      await page.findByText("Открыт", { exact: true }),
+    ).toBeInTheDocument();
+    await expect(page.queryByText("Сообщество Inside")).not.toBeInTheDocument();
   },
 };
-
-export const ConfirmedJoinMobile: Story = {
-  ...ConfirmedJoinDesktop,
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
+export const ConfirmedMobile: Story = {
+  ...ConfirmedDesktop,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
-
-export const ConfirmedMember: Story = {
-  beforeEach: returnFrom(confirmedProductPurchase, { kind: "member" }),
+export const ReferenceWithoutStorage: Story = {
+  ...ConfirmedDesktop,
+  beforeEach: returned(confirmedProductPurchase, true),
+};
+export const FulfillmentPollsAfterConfirmation: Story = {
+  beforeEach: returned(confirmedProductPurchase, true, true),
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByText(/Вы уже в сообществе Inside/u),
+      await page.findByText("Открываем", { exact: true }),
     ).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(page.getByText("Открыт", { exact: true })).toBeInTheDocument(),
+      { timeout: 7000 },
+    );
+  },
+};
+export const Failed: Story = {
+  beforeEach: returned(failedPurchase),
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
     await expect(
-      page.queryByRole("link", { name: "Вступить в сообщество" }),
-    ).toBeNull();
+      await page.findByText("Оплата не прошла", { exact: false }),
+    ).toBeInTheDocument();
   },
 };
 
-/** Банк отказал: доступ не открыт, поэтому блока сообщества нет. */
-export const FailedHidesCommunity: Story = {
-  beforeEach: returnFrom(failedPurchase, { kind: "join", botUrl }),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      await canvas.findByText("Оплата не прошла", { exact: false }),
-    ).toBeInTheDocument();
-    await expect(canvas.queryByText("Сообщество Inside")).toBeNull();
-  },
-};
+function ArrivedReturn({ sequence }: { readonly sequence: StagedLoading }) {
+  use(sequence.sharedPart);
+  return <SubscriptionReturnPage />;
+}
+function loadsInPlace({ globals, width }: StoryViewport): Story {
+  return {
+    beforeEach: returned(confirmedProductPurchase, true),
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<SubscriptionReturnLoading />}>
+        <ArrivedReturn sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const canvas = routeContent(canvasElement);
+      await expect(canvas.getByRole("status")).toHaveTextContent(
+        "Проверяем состояние оплаты",
+      );
+      const heading = originOf(boxOf(canvasElement, "h1"));
+      stagedLoadingOf(loaded).deliverSharedPart();
+      await canvas.findByText("Открыт", { exact: true });
+      await expect(originOf(boxOf(canvasElement, "h1"))).toEqual(heading);
+    },
+  };
+}
+export const LoadsInPlace: Story = loadsInPlace(desktop);
+export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);

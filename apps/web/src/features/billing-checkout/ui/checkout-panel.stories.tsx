@@ -92,7 +92,7 @@ export const EmailRequired: Story = {
   args: { email: "", quote: savedQuote },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    const email = canvas.getByRole("textbox", { name: "Email" });
     await expect(email).toHaveValue("");
     await expect(
       canvas.queryByRole("link", { name: /Подтвердить/u }),

@@ -8,6 +8,7 @@ import {
 import { purchaseStatusSchema, quoteSchema } from "@/entities/subscription";
 import {
   requestBillingPurchase,
+  requestRestoreProductPurchase,
   requestBillingPurchaseStatus,
   requestBillingQuote,
 } from "@/shared/api/backend/index.server";
@@ -74,5 +75,25 @@ export function handleBillingPurchaseStatus(
     (accessToken) =>
       requestBillingPurchaseStatus(purchaseRef.data, accessToken),
     purchaseStatusSchema,
+  );
+}
+
+export function handleRestoreProductPurchase(
+  request: Request,
+): Promise<Response> {
+  const productId = purchaseRefSchema.safeParse(
+    new URL(request.url).searchParams.get("productId"),
+  );
+  if (!productId.success)
+    return Promise.resolve(billingFailureResponse("not_found", 404));
+  const reference = new URL(request.url).searchParams.get("purchaseRef");
+  const purchaseRef =
+    reference === null ? undefined : purchaseRefSchema.safeParse(reference);
+  if (purchaseRef !== undefined && !purchaseRef.success)
+    return Promise.resolve(billingFailureResponse("not_found", 404));
+  return readAuthenticatedBilling(
+    (token) =>
+      requestRestoreProductPurchase(productId.data, token, purchaseRef?.data),
+    purchaseStatusSchema.nullable(),
   );
 }

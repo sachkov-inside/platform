@@ -6,8 +6,11 @@ import type { AuthenticatedAccount } from "../../facets/accounts/accounts.interf
 
 export const currentAccountRequestProperty = Symbol("current-account");
 
+export const currentReceiptEmailProperty = Symbol("current-receipt-email");
+
 type AuthenticatedRequest = FastifyRequest & {
   [currentAccountRequestProperty]?: AuthenticatedAccount;
+  [currentReceiptEmailProperty]?: string;
 };
 
 export const CurrentAccount = createParamDecorator(
@@ -33,4 +36,12 @@ export const OptionalCurrentAccount = createParamDecorator(
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     return request[currentAccountRequestProperty];
   },
+);
+
+/** Receipt contact only; never an Account identity or authorization input. */
+export const CurrentReceiptEmail = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): string | undefined =>
+    context.switchToHttp().getRequest<AuthenticatedRequest>()[
+      currentReceiptEmailProperty
+    ],
 );

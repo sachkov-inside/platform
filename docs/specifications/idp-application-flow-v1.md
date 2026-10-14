@@ -168,3 +168,17 @@ Billing contact verification is a separate authenticated product operation descr
 [billing #406](subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406). Statements above
 about Platform not receiving email/code concern sign-in only; the billing operation neither
 changes Logto identity nor establishes a session.
+
+## Checkout receipt email — #1442
+
+The custom access-token script exposes `inside_receipt_email` from the authenticated user's
+current primary email on authorization-code and refresh-token grants. Backend verifies the token
+before using this contact. A valid Account receipt email takes precedence over browser input;
+an Account with no email can enter an order contact. Receipt contact does not establish or link an
+Account. `inside_verified_email` and the Telegram establishment proof remain restricted to their
+fresh authorization-code verification records.
+
+The Account interface still contains only `accountId`. Receipt email travels as request metadata
+between the authentication adapter and checkout. Published hook configuration must be synchronized
+with `infra/identity/logto/custom-access-token.js` during delivery. Logto documents the user context
+and signed custom claims in its [custom-token script contract](https://docs.logto.io/developers/custom-token-claims/create-script).

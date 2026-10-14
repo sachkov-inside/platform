@@ -36,7 +36,7 @@ export function telegramLinkPresentation(
         action: { context: "initial", kind: "begin" },
         onboarding: {
           description:
-            "Бот Inside присылает сообщения о новых материалах и открывает общий чат тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
+            "Бот Inside присылает сообщения о новых материалах и открывает сообщество продукта тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
           title: "Подключите Telegram",
           tone: "pending",
         },

@@ -1,12 +1,10 @@
 export {
-  CommunityEntryPanel,
-  type CommunityEntryPanelProps,
-} from "./ui/community-entry-panel.client";
-export {
-  CommunityEntryView,
-  type CommunityEntryViewProps,
-} from "./ui/community-entry-view";
-export {
   communityEntrySchema,
   type CommunityEntry,
 } from "./model/community-entry";
+
+export {
+  useProductCommunityEntry,
+  announceProductCommunityChange,
+} from "./model/product-community.client";
+export { ProductOnboarding } from "./ui/product-onboarding";

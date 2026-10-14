@@ -50,6 +50,7 @@ export interface LogtoAccessTokenVerifier {
         readonly identity: VerifiedAccountIdentity;
         readonly expiresAt: number;
         readonly scopes: readonly string[];
+        readonly receiptEmail?: string;
       }
     | ProofFailure
   >;
@@ -123,8 +124,18 @@ export function createLogtoAccessTokenVerifier(
           isDynamicClientToken(verified.payload))
       )
         return invalidProof();
+      const receiptEmail = z
+        .email()
+        .max(254)
+        .safeParse(
+          verified.payload["inside_receipt_email"] ??
+            verified.payload["inside_verified_email"],
+        );
       return {
         ok: true,
+        ...(receiptEmail.success
+          ? { receiptEmail: receiptEmail.data.toLowerCase() }
+          : {}),
         identity: verifiedAccountIdentity({
           issuer: verified.payload.iss,
           subject: verified.payload.sub,

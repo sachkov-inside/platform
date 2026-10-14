@@ -99,11 +99,13 @@ export function productPurchaseHref(
   slug: string,
   promoCode?: string,
   offerId?: string,
+  purchaseRef?: string,
 ): Route {
   const path = `/products/${encodeURIComponent(slug)}/buy`;
   const query = new URLSearchParams();
   if (promoCode !== undefined) query.set("promo", promoCode);
   if (offerId !== undefined) query.set("offer", offerId);
+  if (purchaseRef !== undefined) query.set("purchaseRef", purchaseRef);
   const search = query.toString();
   return internalRoute(search === "" ? path : `${path}?${search}`);
 }

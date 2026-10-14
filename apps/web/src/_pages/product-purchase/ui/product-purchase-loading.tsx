@@ -1,5 +1,7 @@
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
 
+import { JourneyProgress } from "@/shared/ui/journey-progress";
+
 const pulse = "animate-pulse motion-reduce:animate-none";
 
 /**
@@ -20,6 +22,13 @@ export function ProductPurchaseLoading() {
       <HideMobileNavigation />
       <div className="pt-4" data-purchase-part="back">
         <div className={`h-11 w-36 rounded-full bg-muted ${pulse}`} />
+      </div>
+      <div aria-hidden="true" className={`mt-6 ${pulse}`}>
+        <JourneyProgress
+          labels={["Вход", "Оплата", "Доступ"]}
+          current={0}
+          label="Шаги покупки"
+        />
       </div>
       <div className={`mt-6 ${pulse}`} data-purchase-part="title">
         <div className="h-7 w-4/5 rounded-lg bg-muted md:h-[2.15rem]" />

@@ -29,7 +29,11 @@ export class TelegramCommunityService {
    * @returns any
    * @throws ApiError
    */
-  public currentCommunityEntry(): CancelablePromise<({
+  public currentCommunityEntry({
+    productId,
+  }: {
+    productId?: string,
+  }): CancelablePromise<({
     kind: 'none';
   } | {
     kind: 'link_telegram';
@@ -47,10 +51,60 @@ export class TelegramCommunityService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/community-entry',
+      query: {
+        'productId': productId,
+      },
       errors: {
         403: `The terms of use in force are not accepted yet`,
         500: `Terms acceptance could not be checked`,
       },
+    });
+  }
+  /**
+   * Read the Product association with the existing Telegram group
+   * @returns any
+   * @throws ApiError
+   */
+  public readProductCommunityConfiguration({
+    productId,
+  }: {
+    productId: string,
+  }): CancelablePromise<{
+    groupRef: 'primary' | null;
+    productId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/admin/products/{productId}/community',
+      path: {
+        'productId': productId,
+      },
+    });
+  }
+  /**
+   * Associate a Product with the existing Telegram group
+   * @returns any
+   * @throws ApiError
+   */
+  public configureProductCommunity({
+    productId,
+    requestBody,
+  }: {
+    productId: string,
+    requestBody: {
+      groupRef: 'primary' | null;
+    },
+  }): CancelablePromise<{
+    ok: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/admin/products/{productId}/community',
+      path: {
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
     });
   }
   /**

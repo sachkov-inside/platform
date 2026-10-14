@@ -44,14 +44,16 @@ export async function handleReadBillingContact(): Promise<Response> {
       });
     const parsed = readContactSchema.safeParse(result.body);
     if (!parsed.success) return new Response(null, { status: 502 });
-    // Backend authenticated this token. The claim only prefills an editable field;
-    // it neither creates a billing contact nor decides Account ownership here.
+    // Backend authenticated this token. Receipt contact never establishes Account identity.
     let initialEmail: string | undefined;
     try {
+      const claims = decodeJwt(token);
       const email = z
         .email()
         .max(254)
-        .safeParse(decodeJwt(token)["inside_verified_email"]);
+        .safeParse(
+          claims["inside_receipt_email"] ?? claims["inside_verified_email"],
+        );
       if (email.success) initialEmail = email.data;
     } catch {
       // Telegram sessions and opaque tokens can have no email presentation.
