@@ -62,6 +62,11 @@ Source chat identifiers, id ботов и списки identity находятс
 переход ко входу и кнопка проверки после привязки. Сбои сохраняются для фонового восстановления;
 ученик получает краткое сообщение о недоступной проверке, а не ложное подтверждение доступа.
 
+Each new activation or retry command receives a result even when Platform repeats a saved
+confirmation. Reply deduplication includes the command's Telegram update ID; replaying that same
+update or recovering a worker does not duplicate the reply. A retry during a leased background
+check preserves the lease and evidence; the running worker answers the latest processed request.
+
 Ссылка перезапускает только своё правило, остальные проверки человека не трогает. Человек с уже
 подтверждённым основанием не попадает в очередь из-за другого, неподтверждённого кода. Время
 подтверждения хранится у попытки отдельно (`confirmed_at`): повторная проверка или сбой Platform его не
