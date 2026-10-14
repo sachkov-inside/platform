@@ -1,13 +1,12 @@
 // @ts-check
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Isolated process: fs.cp captures fs.promises.stat on its first call. Hold the
 // missing images observation so Vite's real public copy runs before cp's mkdir.
-const root = await fs.mkdtemp(join(tmpdir(), "storybook-copy-"));
+const root = process.argv[3];
 const output = join(root, "output");
 const images = join(output, "images");
 const originalStat = fs.stat;
@@ -113,5 +112,4 @@ try {
 } finally {
   resumeStat();
   fs.stat = originalStat;
-  await fs.rm(root, { recursive: true, force: true });
 }
