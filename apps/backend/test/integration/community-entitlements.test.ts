@@ -52,6 +52,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { createQueryEventClient } from "./setup/query-events.js";
+
 const ajv = new Ajv({ strict: true, allErrors: true });
 addFormats.default(ajv);
 ajv.addSchema(schema);
@@ -353,6 +355,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         botStartUrl: "https://t.me/inside_test_bot",
         clock: () => now,
         grants: {
+          resolveCapabilitiesForAccounts: (ids) =>
+            localGrants.resolveCapabilitiesForAccounts(ids),
           readChangedAccounts: (query) =>
             localGrants.readChangedAccounts(query),
           resolveCapabilities: (accountId) =>
@@ -478,6 +482,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           botStartUrl: "https://t.me/inside_test_bot",
           clock: () => now,
           grants: {
+            resolveCapabilitiesForAccounts: (ids) =>
+              localGrants.resolveCapabilitiesForAccounts(ids),
             readChangedAccounts: (query) =>
               localGrants.readChangedAccounts(query),
             resolveCapabilities: (accountId) =>
@@ -1380,6 +1386,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       accounts,
       clock: () => now,
       grants: {
+        resolveCapabilitiesForAccounts: (ids) =>
+          grants.resolveCapabilitiesForAccounts(ids),
         readChangedAccounts: (query) => grants.readChangedAccounts(query),
         resolveCapabilities: () =>
           Promise.resolve({
@@ -1704,4 +1712,84 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     const [, denial] = await operations(account);
     expect(denial?.access).toEqual({ kind: "denied" });
   });
+});
+
+describe("operator Account-set rights workload", () => {
+  test.each([1, 100, 1000])(
+    "reports %i observed members with bounded owner facts",
+    async (size) => {
+      const isolated = await createMigratedTestDatabase();
+      const measured = createQueryEventClient(isolated.url);
+      try {
+        const fixed = new Date(start);
+        const ids = Array.from({ length: size }, () => randomUUID());
+        const owner = (
+          await bootstrapOwnerAccount(
+            isolated.prisma,
+            { issuer, subject: "bounded-operator" },
+            "platform:admin",
+          )
+        ).accountId;
+        await isolated.prisma.account.createMany({
+          data: ids.map((id) => ({
+            id,
+            logtoIssuer: issuer,
+            logtoSubject: id,
+          })),
+        });
+        await isolated.prisma.telegramCommunityOperation.createMany({
+          data: ids.map((id) => ({
+            operationId: randomUUID(),
+            accountId: id,
+            entitlementRevision: 1,
+            purpose: "apply",
+            linkRef: randomUUID(),
+            linkRevision: 1,
+            accountRef: id,
+            identityRef: `identity-${id}`,
+            access: { kind: "denied" },
+            command: {},
+            payloadDigest: "a".repeat(64),
+            issuedAt: fixed,
+            delivery: "accepted",
+            nextAttemptAt: fixed,
+            observedMembership: "member",
+            resultAt: fixed,
+            createdAt: fixed,
+            updatedAt: fixed,
+          })),
+        });
+        const accounts = assembleAccounts({
+          prisma: measured.prisma,
+          emailFingerprintKey: "bounded-members-query-fixture-fingerprint-key",
+        });
+        const grants = assembleAccessGrants({
+          prisma: measured.prisma,
+          accounts,
+          clock: () => fixed,
+        });
+        const app = new CommunityEntitlements({
+          accounts,
+          grants,
+          prisma: measured.prisma,
+          links: new TelegramAccountLinks(measured.prisma),
+          provider: new ProviderDouble(),
+          botStartUrl: "https://t.me/inside_test_bot",
+          clock: () => fixed,
+        });
+        const read = await measured.measure(() =>
+          app.listMembersWithoutRight(owner),
+        );
+        expect(read.result.ok && read.result.value.items.length).toBe(size);
+        expect(read.result.ok && read.result.value.truncated).toBe(false);
+        const rightsReads = read.statements.filter(
+          (sql) => sql.startsWith("SELECT") && sql.includes('"account_rights"'),
+        );
+        expect(rightsReads.length).toBe(3 * Math.ceil(size / 500));
+      } finally {
+        await measured.prisma.$disconnect();
+        await isolated.dispose();
+      }
+    },
+  );
 });

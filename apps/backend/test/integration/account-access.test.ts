@@ -21,6 +21,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { createQueryEventClient } from "./setup/query-events.js";
+
 const start = "2030-01-01T00:00:00.000Z";
 const end = "2030-02-01T00:00:00.000Z";
 const issuer = "https://identity.example.test/oidc";
@@ -253,6 +255,116 @@ describe("independent Account access", () => {
     expect(
       legacy.ok && legacy.capabilities.map((entry) => entry.capability),
     ).toEqual(["community", "materials"]);
+  });
+  test.each([1, 100, 1000])(
+    "Account-set fact reads stay bounded for %i Accounts",
+    async (size) => {
+      const ids = Array.from({ length: size }, () => randomUUID());
+      await db.prisma.account.createMany({
+        data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
+      });
+      const measured = createQueryEventClient(db.url);
+      try {
+        const observed = assembleAccessGrants({
+          prisma: measured.prisma,
+          accounts,
+          clock: () => new Date(start),
+        });
+        const reading = await measured.measure(() =>
+          observed.resolveCapabilitiesForAccounts(ids),
+        );
+        expect(reading.result.ok && reading.result.accounts.size).toBe(size);
+        expect(
+          reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
+        ).toBe(3 * Math.ceil(size / 500));
+        if (reading.result.ok)
+          for (const access of reading.result.accounts.values()) {
+            expect(access).toEqual({
+              capabilities: [],
+              revision: 0,
+              nextBoundary: null,
+            });
+          }
+      } finally {
+        await measured.prisma.$disconnect();
+      }
+    },
+  );
+  test("a permitted resource reads no expired-ground or provider-failure history", async () => {
+    now = new Date(start);
+    const target = await member();
+    await paidMaterials(target, end);
+    const materialId = randomUUID();
+    await db.prisma.accessGrant.updateMany({
+      where: { accountId: target },
+      data: { coverage: { productIds: [], materialIds: [materialId] } },
+    });
+    const measured = createQueryEventClient(db.url);
+    try {
+      const rights = assembleAccountRights({
+        prisma: measured.prisma,
+        clock: () => now,
+      });
+      const reading = await measured.measure(() =>
+        rights.resolveForAccess(accountId(target), [], materialId),
+      );
+      expect(reading.result).toEqual({ kind: "active", validUntil: end });
+      expect(
+        reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(2);
+    } finally {
+      await measured.prisma.$disconnect();
+    }
+  });
+  test("projects an Account set with the same finite, absent and future rights", async () => {
+    now = new Date(start);
+    const active = await member();
+    const absent = await member();
+    const future = await member();
+    await paidMaterials(active, end);
+    await paidMaterials(future, end);
+    await db.prisma.accessGrant.updateMany({
+      where: { accountId: future },
+      data: { startsAt: new Date("2030-01-02T00:00:00.000Z") },
+    });
+    const measured = createQueryEventClient(db.url);
+    let result;
+    try {
+      const observed = assembleAccessGrants({
+        prisma: measured.prisma,
+        accounts,
+        clock: () => now,
+      });
+      const reading = await measured.measure(() =>
+        observed.resolveCapabilitiesForAccounts([
+          active,
+          absent,
+          future,
+          active,
+        ]),
+      );
+      result = reading.result;
+      expect(
+        reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(3);
+    } finally {
+      await measured.prisma.$disconnect();
+    }
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.accounts.size).toBe(3);
+    for (const id of [active, absent, future]) {
+      const single = await grants.resolveCapabilities(id);
+      expect(single.ok).toBe(true);
+      if (single.ok)
+        expect(result.accounts.get(id)).toEqual({
+          capabilities: single.capabilities,
+          revision: single.revision,
+          nextBoundary: single.nextBoundary,
+        });
+    }
+    expect(result.accounts.get(absent)?.capabilities).toEqual([]);
+    expect(result.accounts.get(future)?.capabilities).toEqual([]);
   });
   test("half-open intervals, future starts and finite bounds are exact", async () => {
     now = new Date(start);
@@ -559,55 +671,66 @@ describe("independent Account access", () => {
       kind: "stale",
     });
   });
-  test("reads capability and revision from one snapshot while revoke commits", async () => {
-    now = new Date(start);
-    const target = await member();
-    const grant = await manual(target);
-    const before = await grants.resolveCapabilities(target);
-    const locked = signal();
-    const release = signal();
-    const blocker = db.prisma.$transaction(async (transaction) => {
-      await transaction.$executeRaw(
-        Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
-      );
-      locked.resolve();
-      await release.promise;
-    });
-    await locked.promise;
-    let reading: ReturnType<AccessGrants["resolveCapabilities"]> | undefined;
-    try {
-      reading = grants.resolveCapabilities(target);
-      await expect
-        .poll(
-          async () =>
-            z.array(z.object({ waiting: z.boolean() })).parse(
-              await db.prisma.$queryRaw(Prisma.sql`
+  test.each(["single", "set"])(
+    "%s reads capability and revision from one snapshot while revoke commits",
+    async (mode) => {
+      now = new Date(start);
+      const target = await member();
+      const grant = await manual(target);
+      async function read() {
+        if (mode === "single") return grants.resolveCapabilities(target);
+        const result = await grants.resolveCapabilitiesForAccounts([target]);
+        if (!result.ok) return result;
+        const access = result.accounts.get(target);
+        if (access === undefined) throw new Error("Missing Account projection");
+        return { ok: true as const, ...access };
+      }
+      const before = await read();
+      const locked = signal();
+      const release = signal();
+      const blocker = db.prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw(
+          Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
+        );
+        locked.resolve();
+        await release.promise;
+      });
+      await locked.promise;
+      let reading: ReturnType<typeof read> | undefined;
+      try {
+        reading = read();
+        await expect
+          .poll(
+            async () =>
+              z.array(z.object({ waiting: z.boolean() })).parse(
+                await db.prisma.$queryRaw(Prisma.sql`
         select exists(select 1 from pg_locks where relation = 'account_rights.legacy_classifications'::regclass and not granted) as waiting
       `),
-            )[0]?.waiting,
-        )
-        .toBe(true);
-      expect(
-        (
-          await grants.changeGrant(owner, {
-            operationId: randomUUID(),
-            grantRef: grant.grantRef,
-            expectedRevision: 1,
-            action: "revoke",
-            reason: "Concurrent revoke",
-          })
-        ).ok,
-      ).toBe(true);
-    } finally {
-      release.resolve();
-      await blocker;
-    }
-    expect(await reading).toEqual(before);
-    const after = await grants.resolveCapabilities(target);
-    expect(after).toMatchObject({ ok: true, capabilities: [] });
-    if (!before.ok || !after.ok) throw new Error("Missing snapshot");
-    expect(after.revision).toBeGreaterThan(before.revision);
-  });
+              )[0]?.waiting,
+          )
+          .toBe(true);
+        expect(
+          (
+            await grants.changeGrant(owner, {
+              operationId: randomUUID(),
+              grantRef: grant.grantRef,
+              expectedRevision: 1,
+              action: "revoke",
+              reason: "Concurrent revoke",
+            })
+          ).ok,
+        ).toBe(true);
+      } finally {
+        release.resolve();
+        await blocker;
+      }
+      expect(await reading).toEqual(before);
+      const after = await read();
+      expect(after).toMatchObject({ ok: true, capabilities: [] });
+      if (!before.ok || !after.ok) throw new Error("Missing snapshot");
+      expect(after.revision).toBeGreaterThan(before.revision);
+    },
+  );
 
   test("serializes changes to different grants of one Account before allocating audit revisions", async () => {
     now = new Date(start);
