@@ -139,7 +139,7 @@ describe.each([1, 10, 100])(
         clock: () => now,
         contentCatalog: new CoverageCatalog(measured.prisma),
       });
-    }, 30_000);
+    });
     afterAll(async () => {
       await measured?.prisma.$disconnect();
       await db?.dispose();

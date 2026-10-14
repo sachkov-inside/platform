@@ -1776,7 +1776,7 @@ describe.each([1, 100, 1000, 1001])(
         botStartUrl: "https://t.me/inside_test_bot",
         clock: () => fixed,
       });
-    }, 30_000);
+    });
     afterAll(async () => {
       await measured?.prisma.$disconnect();
       await isolated?.dispose();

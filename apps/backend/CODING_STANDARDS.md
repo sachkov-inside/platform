@@ -187,6 +187,11 @@ not dependency wiring.
   setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name
   their real boundary and own its cleanup. Poll committed rows with the helper below.
 
+- Inherit configured integration test and hook budgets. An explicit override names its real boundary
+  and cannot be below the suite default; retries or a larger budget do not repair a failed test.
+  [`scripts/integration-test-budgets.test.mjs`](../../scripts/integration-test-budgets.test.mjs)
+  checks overrides against the owning integration configuration.
+
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
 - Run `rabbitmqctl` and read queue depth through `setup/broker.ts`; a one-off column of its own may
