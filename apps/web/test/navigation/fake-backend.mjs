@@ -219,6 +219,7 @@ let practiceGate;
 /** @type {(() => void) | undefined} */
 let releasePractice;
 let practiceHeld = false;
+let practiceUnavailable = false;
 
 /**
  * @param {Lesson} lesson
@@ -843,11 +844,12 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/__practice-hold") {
     if (request.method === "POST") {
-      const { hold } = z
-        .object({ hold: z.boolean() })
+      const { hold, unavailable = false } = z
+        .object({ hold: z.boolean(), unavailable: z.boolean().optional() })
         .strict()
         .parse(JSON.parse(await readBody(request)));
       releasePractice?.();
+      practiceUnavailable = unavailable;
       practiceHeld = false;
       practiceGate = hold
         ? new Promise((resolve) => {
@@ -893,7 +895,12 @@ const server = createServer(async (request, response) => {
       await practiceGate;
       practiceHeld = false;
     }
-    send(200, { practices: [] });
+    send(
+      practiceUnavailable ? 503 : 200,
+      practiceUnavailable
+        ? { code: "dependency_unavailable" }
+        : { practices: [] },
+    );
     return;
   }
   const result = state.unavailable

@@ -73,6 +73,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   `<Suspense>` whose fallback is the same page on shared data. The page reads `params` and
   `searchParams` below the skeleton, never at the top of the route file. The personal part starts
   with `await connection()` before it touches the session, so link prefetch stops in front of it.
+- Optional private Practice reads resolve behind their own Suspense boundary. The authorized
+  lesson body awaits its required mode, body variant and navigation context, then streams without
+  waiting for Practice or its connection setup. Practice failure remains local to that boundary.
 - A loading state is built from the frame of its own page — the same column, return row and
   header — and is at least a screen tall, so the footer waits below the fold instead of jumping
   when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
