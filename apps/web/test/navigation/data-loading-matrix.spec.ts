@@ -197,7 +197,10 @@ async function instrument(page: Page) {
           "body-ready",
           '[data-product-landing="performance-course"], [data-reader-body], [data-material-reader-state="access-required"], [data-product-programme="performance-course"], .home-feed-post',
         ],
-        ["skeleton", "[data-reader-body-skeleton]"],
+        [
+          "skeleton",
+          '[data-reader-body-skeleton], [data-route-skeleton="product-landing"]',
+        ],
         ["optional-ready", ".aie-cohort-status, [data-practice-view]"],
       ]) {
         if (selector === undefined || kind === undefined) continue;
@@ -307,7 +310,22 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
               )
               .toBe(true);
           }
-          courseStart = await page.evaluate(() => performance.now());
+          courseStart = await page.evaluate(() => {
+            const events: unknown = Reflect.get(window, "__dataLoadingEvents");
+            if (Array.isArray(events)) {
+              for (let index = events.length - 1; index >= 0; index--) {
+                const event: unknown = events[index];
+                if (
+                  typeof event === "object" &&
+                  event !== null &&
+                  Reflect.get(event, "kind") === "skeleton" &&
+                  Reflect.get(event, "path") === "/products/performance-course"
+                )
+                  events.splice(index, 1);
+              }
+            }
+            return performance.now();
+          });
           await link.click();
         }
         await expect(
@@ -343,9 +361,35 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           optionalReady,
           totalOwnerPageComplete,
           millisecondsToBody: bodyReady - courseStart,
+          skeletonReady: await page.evaluate((startedAt) => {
+            const events: unknown = Reflect.get(window, "__dataLoadingEvents");
+            if (!Array.isArray(events)) return null;
+            for (const value of events) {
+              const event: unknown = value;
+              if (
+                typeof event !== "object" ||
+                event === null ||
+                Reflect.get(event, "kind") !== "skeleton" ||
+                Reflect.get(event, "path") !== "/products/performance-course"
+              )
+                continue;
+              const time: unknown = Reflect.get(event, "time");
+              if (typeof time === "number" && time >= startedAt) return time;
+            }
+            return null;
+          }, courseStart),
         };
         const courseTrace = await backendRecords(request);
         const courseBrowser = await observations(page);
+        // Save current-visit milestones before the cost assertion: a measured RED is evidence, not a passed regression.
+        await save(`course-timing-${info.project.name}-${role}-${path}`, {
+          role,
+          path,
+          viewport: page.viewportSize(),
+          timings,
+          courseTrace,
+          courseBrowser,
+        });
         const courseReads = courseTrace.filter(
           (record) =>
             record.path.startsWith("/billing/offers?") ||
