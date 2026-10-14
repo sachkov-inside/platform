@@ -8,18 +8,59 @@ cancel a newer first attempt. A new commit also leaves an already running rerun 
 The same workflow runs for the `main` merge queue (`merge_group`).
 
 The workflow is also callable through `workflow_call`. Both ordinal release workflows (`release.yml` and `telegram-release.yml`) invoke this
-same contract with its captured, exact source SHA before it publishes images. Every checkout in the
+same contract with its captured, exact source SHA and only missing coverage IDs before publishing images. Trusted source/tree-bound evidence supplies reused coverage. Every checkout in the
 reusable path uses that SHA, so a moving branch cannot change the candidate during CI. Direct
 pushes do not start application CI; the protected `main` branch accepts changes only through the
 merge queue with a successful `CI Gate`.
 
-## Required checks
+## Coverage selection
+
+`scripts/ci-coverage-plan.mjs` owns path categories and command IDs. The planner checks the complete
+Git diff with full history: PR merge-base to head, queue base to candidate. `--no-renames -z` includes
+both sides of a rename and does not truncate the file list. Missing source comparisons fail;
+an empty change set conservatively selects both applications. Agent labels never select coverage.
+Every PR push, including a draft, receives its affected plan.
+
+| Input category | Explicit paths | PR | Merge queue |
+|---|---|---|---|
+| Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
+| Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, `.github`; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
+| Web | everything under `apps/web`, including runtime Markdown | `docs`, `static`, `unit`, `ui`, `web-e2e` | full Platform |
+| Backend | everything under `apps/backend`, including runtime Markdown | `docs`, `static`, `unit`, `integration`, `integration-serial` | full Platform |
+| Telegram | everything under `apps/telegram`, including runtime Markdown | `docs`, `contracts`, `static`, `unit`, `telegram` | same complete Telegram coverage |
+| Shared | `packages`, `docs/legal`, `docs/product`, `infra`, `tools` | both applications | both applications |
+| Unknown | every unclassified path, including root dependencies/configuration and other scripts | both applications | both applications |
+
+A mixed change takes the union and deduplicates IDs. Shared and unknown changes conservatively
+receive full coverage even on PRs. Full Platform means `contracts`, `static`, `unit`, `ui`, `web-e2e`,
+`integration`, `integration-serial`, `compose-development`, `compose-production`, `fullstack`.
+The shared aggregate static/unit commands also examine other applications; they remain unchanged.
+Ordinary prose still requires agent review: `docs` validates documentation contracts, not every prose claim.
+
+The plan explicitly partitions all IDs into required and excluded coverage. `CI Gate` always runs,
+recomputes the plan from the checkout/change set, requires a successful planner, and validates each
+required result as successful and each excluded job as skipped. Missing, failed or cancelled required
+checks fail the gate. Documentation-only success claims no application test success. The stable
+**CI Gate** check remains the ruleset boundary.
+
+`workflow_call` accepts `source_sha` and optional `coverage_json`, a JSON array of missing check IDs.
+Absent coverage means all checks; an empty array means all release checks were already proved.
+Unknown or duplicate IDs fail. The gate records `ci-source-evidence/source-evidence.json` in
+`ci-source-evidence`: actual checkout SHA/tree, repository, run/attempt/event, selected successful
+coverage and explicit exclusions. Whole-tree identity is the conservative significant-input boundary;
+release evidence selection also verifies provider provenance. An artifact or green summary alone
+cannot establish trust or correspondence between different SHAs.
+
+## Available checks
 
 `pnpm check` is the aggregate of four stages, and each stage runs as its own job, so a failure
 names its seam and the stages run in parallel:
 
 | Job | Repository command or proof |
 |---|---|
+| `docs` | `pnpm docs:check` |
+| `contracts` | `pnpm test:tooling`: repository-owned tooling/workflow contracts |
+| `fullstack` | `pnpm smoke:fullstack` after isolated infrastructure startup, with unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
@@ -48,23 +89,12 @@ the previous fallback preserved HTTP on the highest-priority mirror despite an e
 entry on the runner. In #1107 that HTTP source waited until the deadline; the log does not
 establish the provider's internal network failure cause. A failed second attempt fails the job before browser
 downloads. The replacement covers `.list`, deb822 `.sources` and the GitHub runner's
-`/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the nightly full-stack
+`/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the manual full-stack
 smoke; production deployment commands and access-pass requests keep their existing contracts.
 
-`CI Gate` depends on every job and succeeds only when every result is `success`. The repository
-ruleset requires this exact check name; individual job names may evolve without changing the
-branch-protection interface.
-
-### Bounded payment-launch telemetry exception
-
-The owner's decision of 2026-10-13 excludes the resource measurement only for PR #1408, its
-`main/pr-1408-*` merge group, and the `Publish ordinal release` caller requesting v36. The
-measurement step is skipped. A separate `owner-excluded.json` records the actual checkout SHA,
-null exit code and authorization `owner-2026-10-13-1408-v36` in the existing telemetry artifact.
-This records exclusion, not a passing measurement. Failed run38366592429 remains failed; #1397
-retains the first-query diagnosis. Every functional CI job, exact-source check and CI Gate remains
-required. Other PRs, merge groups, Telegram releases and v37 onward still run the unchanged
-measurement. No monitoring process or production telemetry collection is stopped by this exception.
+Automated telemetry resource-budget measurements and their CI/release gates were removed by #1430.
+Functional telemetry checks remain in application suites. Historical failures, including #1386 and
+the bounded #1408/v36 exclusion, remain evidence; removal does not repair their causes or stop production telemetry.
 
 The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
 runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
@@ -291,10 +321,11 @@ request only when all of these conditions hold:
 
 - The original workflow path is `.github/workflows/ci.yml`, the event is `pull_request` or
   `merge_group`, and the latest attempt is the first attempt, completed with `failure`.
-- Its attempt-specific job list contains exactly the nine expected successful, completed jobs.
-  `CI Gate` is absent. A failed, cancelled, skipped, unfinished or missing prerequisite prevents
-  recovery; any created gate also prevents recovery.
-- The Static job is named **Static checks (isolated reruns)**. This marks the workflow revision
+- Its attempt-specific list contains exactly the known plan/check jobs and no `CI Gate`. The
+  planner succeeded; every sibling completed successfully or was skipped. Failed, cancelled,
+  unfinished or missing jobs prevent recovery. Skips may be exclusions: the real rerun gate
+  validates them against the recomputed plan; recovery itself never declares success.
+- The planner is named **Coverage plan (isolated reruns)**. This marks the workflow revision
   with separate rerun concurrency. Legacy workflows retain their original configuration on rerun
   and require manual recovery.
 - No newer run was returned for the same workflow, event and branch, and a final read confirms
@@ -376,8 +407,8 @@ level runs:
 | Pull request, required | Production pass logic without network: request allowlist, cell verdict with deferred cells, report and secret redaction (`apps/web/test/module/production-access-*.test.ts`) | `unit` |
 | Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
 | Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
-| Nightly | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | Nightly full-stack smoke |
-| Before a release | Exact-source coverage receipts; reuse successful CI and nightly evidence | [verification evidence policy](../agents/release-evidence.md) |
+| Platform merge queue and missing release coverage | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | `fullstack` |
+| Before a release | Exact-source coverage receipts; reuse trusted successful CI or manual evidence | [verification evidence policy](../agents/release-evidence.md) |
 
 | After a deploy or rollback | Production pass with test identities against production: the job `Production access pass` in `deploy.yml`, also run by hand through `workflow_dispatch` | [production release](production-release.md#проход-доступа-после-выпуска) |
 
@@ -400,10 +431,10 @@ a configuration. The identity specs require their settings in `beforeAll`, at ex
 same tooling test checks that an absent or empty required setting fails with its name.
 
 The host-process `pnpm smoke:fullstack` is intentionally not a per-pull-request job and not part of
-`CI Gate`; it runs nightly instead (see below). For release coverage or local diagnosis, use the
+`CI Gate` on ordinary Web/Backend PRs; it runs in full Platform queue coverage and release gaps. For release coverage or local diagnosis, use the
 [verification evidence policy](../agents/release-evidence.md).
 
-## Nightly full-stack smoke
+## Manual full-stack smoke
 
 ### Reader startup JavaScript budget
 
@@ -421,7 +452,7 @@ action is hydrated. The test separately checks that the captured `/auth/status` 
 The test sends no input before measuring. Waiting for
 HTTP responses and time when the renderer thread is not scheduled do not consume this budget.
 The measured value and profile are logged and attached as `reader-startup-cpu` JSON in the
-Playwright report, so successful nightly runs keep the measurement in their job log too.
+Playwright report, so successful full-stack runs keep the measurement in their job log too.
 A missing counter, unsupported thread clock or zero execution fails the test.
 
 This is an initial JavaScript work budget, not an elapsed hydration deadline or an INP guarantee
@@ -430,10 +461,9 @@ including any recorded script work between readiness and that snapshot.
 `ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
 in script execution. Separate compilation, layout and paint budgets are outside this check.
 The existing representative-Material test still checks INP after readiness (#933). The startup
-budget runs with the full-stack smoke, nightly and locally; it is outside the required PR CI gate.
+budget runs with the full-stack smoke, queue, release gaps and locally; it is outside the required PR CI gate.
 
-`.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` on `main` every night at
-01:17 UTC and on demand through `workflow_dispatch`. It is not a required check and never blocks a
+`.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` only on demand through `workflow_dispatch`; #1430 removed its schedule. It is not a required check and never blocks a
 merge. The job mirrors the documented host fallback on a clean `ubuntu-24.04` runner: frozen
 install, Chromium, `cp .env.example .env`, `pnpm infra:up` for Compose PostgreSQL and Object
 Storage, then the smoke with its own `inside_checks` database. The smoke job is read-only and reads
@@ -442,9 +472,8 @@ only `github.token`. A new run waits for the previous one on the same ref instea
 
 The smoke includes `apps/web/test/fullstack/access-identities.spec.ts` (#904). It signs in separate
 identities through the real Web/BFF: a Materials-only Account, a Billing-only Account, a learner
-whose only access is a tier scoped to one Product, and two ordinary Accounts. No pull-request job
-runs these browser-path checks, so a release needs a green run of this workflow on the release
-commit ([release](release.md#1-что-выпускаем)).
+whose only access is a tier scoped to one Product, and two ordinary Accounts. The `fullstack` CI job covers these browser paths for queue and conservative PR plans. A release
+needs trusted matching coverage or execution of this gap on the captured release commit ([release](release.md#1-что-выпускаем)).
 
 Where to look:
 
@@ -462,7 +491,7 @@ Where to look:
   contains the retained output of the API, MCP and web processes.
 - Run it by hand for a branch: `gh workflow run nightly-fullstack.yml --ref <branch>`.
 
-A red nightly run requires diagnosis. An MCP validation error names the rejected tool and nested
+A red full-stack run requires diagnosis. An MCP validation error names the rejected tool and nested
 field; check the probe against that tool's contract. An unavailable page alone does not prove a
 contract mismatch: inspect the Playwright trace, API/Web output and load samples. Locate the
 source of a `TimeoutError` in its stack: server-side fetch and Playwright actions have different
@@ -473,10 +502,9 @@ Platform issue when diagnosis finds a defect.
 The [#589 evidence](../evidence/issue-589/README.md) records measured CI cost, the mechanism choice
 and the inventory of probes outside the pull-request gate.
 
-## Nightly flake hunt
+## Manual flake investigation
 
-`.github/workflows/nightly-flake-hunt.yml` samples `main` daily at 02:43 UTC and supports
-`workflow_dispatch`. It is outside `CI Gate`. Each suite runs five times independently, including
+`.github/workflows/nightly-flake-hunt.yml` supports only `workflow_dispatch`; #1430 removed its daily schedule. It is outside `CI Gate`. Each suite runs five times independently, including
 after a failed sample; Playwright and Vitest retries are explicitly zero. A failed sample keeps
 the matrix job red even when the next four pass. This is detection, not recovery of a failed gate.
 
@@ -503,7 +531,7 @@ The unit-job inventory comes from the workspace package manifests, root Node tes
 the `check:contracts` aggregate,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.
 
-Only the reporting job has `issues: write`. It runs exclusively for schedule/manual runs on `main`,
+Only the reporting job has `issues: write`. It runs exclusively for manual runs on `main`,
 checks out that run's trusted main SHA and downloads data artifacts from the same run. Branch
 experiments execute with read-only permissions and do not create Issues. A test that fails at least
 once creates a `needs-triage` Issue with its failure fraction, SHA, attempt and artifact link.
@@ -513,7 +541,7 @@ green run on `main` and close the Issue; a 100% failure fraction may indicate a 
 
 Cost and duration are bounded by the matrix timeouts, not measured production baselines yet:
 
-| Suite | Runner-minute ceiling per scheduled run, including setup |
+| Suite | Runner-minute ceiling per manual run, including setup |
 |---|---:|
 | Web E2E and navigation | 90 |
 | Storybook | 60 |
@@ -524,11 +552,8 @@ Cost and duration are bounded by the matrix timeouts, not measured production ba
 | Total | 425 |
 
 At most two test jobs run together. The sum above is also a conservative wall-time ceiling after
-runner allocation, excluding GitHub queue time. For 30 scheduled days the ceiling is 12,750 Linux
-runner-minutes; manual runs and reruns add to it. Actual billed cost depends on the repository's
-GitHub Actions allowance and Linux runner rate; multiply billable minutes by that rate. Artifacts
-also consume storage for seven days. Record actual job durations from the first green scheduled
-run before budgeting against an average; the timeout ceilings are not expected consumption.
+runner allocation, excluding GitHub queue time. Manual runs and reruns consume the repository's GitHub Actions allowance and artifact storage.
+These timeout ceilings are not measured average consumption; no recurring monthly usage is scheduled.
 
 For a quick reporting exercise, dispatch with `fixture=true`. Only the deliberately alternating
 fixture runs, with three failures out of five and no retries. Its test job is intentionally red.
@@ -547,7 +572,7 @@ by an Actions run; these local tests do not claim that all browser/container sui
 
 ## Diagnostics and cleanup
 
-PR CI and the nightly full-stack smoke upload Playwright traces, screenshots and HTML reports
+PR/queue CI and the manual full-stack smoke upload Playwright traces, screenshots and HTML reports
 only after a failure. The flake hunt retains every sample as described above. Compose jobs
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful PR CI and full-stack smoke runs store none of them.
@@ -587,7 +612,7 @@ a fix; #1110 remains open until a captured failure establishes the cause.
 The full-stack scenario `Billing-only opens billing tools and is denied a Materials mutation
 without a durable effect` (#1136) retains video of the Billing-only context, including the
 first-sign-in helper's page that closes before the scenario continues. The full-stack configuration
-also writes an HTML report with the error's call log. The nightly job uploads it and `test-results`
+also writes an HTML report with the error's call log. The manual full-stack job uploads it and `test-results`
 as `nightly-fullstack-diagnostics-<run_attempt>` for seven days. Copy local `test-results` and
 `playwright-report` before another invocation replaces them. At a first-sign-in timeout, inspect
 the WelcomeDialog contents in the trace and video: the original #1135 trace showed the terms
@@ -604,16 +629,15 @@ Compose, and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, release/sche
 worker drain/no-overlap, TLS and positive/negative routes without application or provider writes.
 Pull-request CI does not publish packages, use GHCR permissions, deploy to a server or read
 production configuration. `.github/workflows/release.yml` calls CI with read-only contents access,
-then publishes packages in a separately permissioned matrix job. The reusable release call skips
+for missing coverage, then publishes packages in a separately permissioned matrix job. The reusable release call skips
 the release-image smoke already proved by pull-request CI, so its publish job builds each candidate
 image only once. Release finalization receives only non-secret image identity artifacts from the
 current run.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
 `pnpm test:tooling` and therefore `pnpm check`. It protects triggers (including `merge_group`),
-permissions, action pinning in the workflow and the setup action, the one-job-per-`check:*`-stage
-mapping, job dependencies and artifact retention from configuration drift, for both the pull-request
-workflow and the nightly full-stack workflow.
+permissions, action pinning in the workflow and the setup action, the available `check:*` command mapping, selected-plan job dependencies and artifact retention from configuration drift, for both the pull-request
+workflow and the manual full-stack workflow.
 
 The release, deployment and manifest policies have executable contracts in
 `scripts/release-workflow-contract.test.mjs`, `scripts/contracts/deployment-workflow-contract.test.mjs`,

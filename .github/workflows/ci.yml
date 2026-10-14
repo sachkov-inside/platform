@@ -11,6 +11,10 @@ on:
         description: Exact commit to verify
         required: true
         type: string
+      coverage_json:
+        description: JSON array of missing release coverage IDs; absent means complete coverage
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -23,17 +27,74 @@ concurrency:
 
 env:
   CI: "true"
-  # Owner decision 2026-10-13: exclude only this payment-fix delivery (#1397/#1407).
-  TELEMETRY_RESOURCE_OWNER_EXCLUSION: >-
-    ${{ github.repository == 'sachkov-inside/platform' &&
-      ((github.event_name == 'pull_request' && github.event.pull_request.number == 1408) ||
-       (github.event_name == 'merge_group' &&
-        startsWith(github.event.merge_group.head_ref, 'refs/heads/gh-readonly-queue/main/pr-1408-')) ||
-       (github.event_name == 'workflow_dispatch' && github.workflow == 'Publish ordinal release' &&
-        github.event.inputs.version == 'v36')) }}
 
 jobs:
+  plan:
+    name: Coverage plan (isolated reruns)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.select.outputs.plan }}
+      required: ${{ steps.select.outputs.required }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Select complete changed-set coverage
+        id: select
+        env:
+          CI_EVENT: ${{ inputs.source_sha != '' && 'release' || github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          COVERAGE_JSON: ${{ inputs.coverage_json }}
+        run: node scripts/ci-coverage-run.mjs plan
+
+  docs:
+    name: Documentation contracts
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'docs') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Verify selected contracts
+        run: pnpm docs:check
+
+  contracts:
+    name: Tooling contracts
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'contracts') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Verify selected contracts
+        run: pnpm test:tooling
+
   static:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'static') }}
     # Recovery requires this name so pre-#1085 workflows without rerun isolation
     # cannot be retried after recovery is enabled on the default branch.
     name: Static checks (isolated reruns)
@@ -51,6 +112,8 @@ jobs:
         run: pnpm check:static
 
   unit:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'unit') }}
     name: Unit tests
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -66,6 +129,8 @@ jobs:
         run: pnpm check:unit
 
   ui:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'ui') }}
     name: UI components
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -91,6 +156,8 @@ jobs:
           retention-days: 7
 
   web-e2e:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'web-e2e') }}
     name: Web E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -118,6 +185,8 @@ jobs:
           retention-days: 7
 
   integration:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'integration') }}
     name: Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -145,30 +214,6 @@ jobs:
         run: pnpm smoke:enrollments
       - name: Run buyer journey from product page to access
         run: pnpm smoke:buyer-journey
-      - name: Record owner-excluded telemetry resource measurement
-        if: ${{ env.TELEMETRY_RESOURCE_OWNER_EXCLUSION == 'true' }}
-        run: |
-          mkdir -p ci-artifacts/telemetry-resource
-          git rev-parse HEAD >ci-artifacts/telemetry-resource/source-sha.txt
-          jq --null-input \
-            --arg sourceSha "$(git rev-parse HEAD)" \
-            --arg evidenceRef "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            '{name: "telemetry-resource-budget", sourceSha: $sourceSha,
-              exitCode: null, outcome: "owner-excluded",
-              authorizationRef: "owner-2026-10-13-1408-v36", evidenceRef: $evidenceRef}' \
-            >ci-artifacts/telemetry-resource/owner-excluded.json
-          echo 'Telemetry resource measurement is owner-excluded; no passing measurement is claimed.' >>"$GITHUB_STEP_SUMMARY"
-      - name: Measure the canonical telemetry resource budget
-        if: ${{ env.TELEMETRY_RESOURCE_OWNER_EXCLUSION != 'true' }}
-        run: bash scripts/measure-telemetry-ci.sh ci-artifacts/telemetry-resource
-      - name: Upload telemetry resource evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: telemetry-resource-${{ github.run_attempt }}
-          path: ci-artifacts/telemetry-resource
-          if-no-files-found: ignore
-          retention-days: 7
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -183,6 +228,8 @@ jobs:
           retention-days: 7
 
   integration-serial:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'integration-serial') }}
     name: Integration serial
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -200,6 +247,8 @@ jobs:
         run: pnpm test:integration:serial
 
   compose-development:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'compose-development') }}
     name: Development Compose
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -266,6 +315,8 @@ jobs:
         run: docker compose down --volumes --remove-orphans
 
   compose-production:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
     name: Production Compose
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -304,6 +355,8 @@ jobs:
           retention-days: 7
 
   telegram:
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'telegram') }}
     name: Telegram full checks
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -354,14 +407,59 @@ jobs:
             node --input-type=module -e "await import(\"./dist/app.module.js\")"
           '
 
+  fullstack:
+    name: Full-stack smoke
+    needs: plan
+    if: ${{ contains(fromJSON(needs.plan.outputs.required), 'fullstack') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      COMPOSE_PROJECT_NAME: inside-platform-fullstack-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+        with:
+          browsers: chromium
+      - name: Use local development configuration
+        run: cp .env.example .env
+      - name: Start PostgreSQL and Object Storage
+        run: pnpm infra:up
+      - name: Run full-stack smoke
+        run: pnpm smoke:fullstack
+      - name: Capture infrastructure diagnostics
+        if: ${{ failure() }}
+        run: bash scripts/compose-failure-diagnostics.sh ci-artifacts/fullstack docker compose
+      - name: Upload failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fullstack-diagnostics-${{ github.run_attempt }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            ci-artifacts/fullstack
+            ci-artifacts/evidence
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove infrastructure
+        if: ${{ always() }}
+        run: docker compose down --volumes --remove-orphans
+
   ci-gate:
-    # Keep this fail-closed gate. ci-gate-recovery.yml handles GitHub finishing
-    # a run before creating it despite nine successful prerequisites (#1085).
     name: CI Gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: ${{ always() }}
     needs:
+      - plan
+      - docs
+      - contracts
       - static
       - unit
       - ui
@@ -371,32 +469,31 @@ jobs:
       - compose-development
       - compose-production
       - telegram
+      - fullstack
     steps:
-      - name: Require every CI job
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Validate selected coverage and actual results
         env:
-          STATIC_RESULT: ${{ needs.static.result }}
-          UNIT_RESULT: ${{ needs.unit.result }}
-          UI_RESULT: ${{ needs.ui.result }}
-          WEB_E2E_RESULT: ${{ needs.web-e2e.result }}
-          INTEGRATION_RESULT: ${{ needs.integration.result }}
-          INTEGRATION_SERIAL_RESULT: ${{ needs.integration-serial.result }}
-          COMPOSE_DEVELOPMENT_RESULT: ${{ needs.compose-development.result }}
-          COMPOSE_PRODUCTION_RESULT: ${{ needs.compose-production.result }}
-          TELEGRAM_RESULT: ${{ needs.telegram.result }}
-        run: |
-          for result in \
-            "$STATIC_RESULT" \
-            "$UNIT_RESULT" \
-            "$UI_RESULT" \
-            "$WEB_E2E_RESULT" \
-            "$INTEGRATION_RESULT" \
-            "$INTEGRATION_SERIAL_RESULT" \
-            "$COMPOSE_DEVELOPMENT_RESULT" \
-            "$COMPOSE_PRODUCTION_RESULT" \
-            "$TELEGRAM_RESULT"
-          do
-            if [[ "$result" != "success" ]]; then
-              echo "A required CI job finished with result: $result" >&2
-              exit 1
-            fi
-          done
+          CI_EVENT: ${{ inputs.source_sha != '' && 'release' || github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          COVERAGE_JSON: ${{ inputs.coverage_json }}
+          SELECTED_PLAN: ${{ needs.plan.outputs.plan }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/ci-coverage-run.mjs gate
+      - name: Record trusted source coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-source-evidence
+          path: ci-source-evidence/source-evidence.json
+          if-no-files-found: error
+          retention-days: 7

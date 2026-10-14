@@ -169,32 +169,6 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(telegram, /environment:|secrets\.|docker compose/u);
   });
 
-  it("rejects unsuccessful or missing Telegram results through the executable CI Gate", () => {
-    const gate = jobBlock("ci-gate");
-    const command = gate.split("        run: |\n")[1];
-    assert.ok(command);
-    const shell = command.replace(/^ {10}/gmu, "");
-    const resultNames = [...gate.matchAll(/^ {10}([A-Z0-9_]+_RESULT):/gmu)].map(
-      ([, name = ""]) => name,
-    );
-    for (const result of ["success", "failure", "cancelled", "skipped", ""]) {
-      const env = Object.fromEntries(
-        resultNames.map((name) => [name, "success"]),
-      );
-      env["TELEGRAM_RESULT"] = result;
-      const run = spawnSync(
-        "/bin/bash",
-        ["--noprofile", "--norc", "-eu", "-c", shell],
-        { env, encoding: "utf8" },
-      );
-      assert.equal(
-        run.status,
-        result === "success" ? 0 : 1,
-        `Telegram result ${JSON.stringify(result)}: ${run.stderr}`,
-      );
-    }
-  });
-
   it("runs for main pull requests, the merge queue and reusable workflow calls", () => {
     const triggers = topLevelBlock("on");
 
@@ -363,8 +337,7 @@ describe("application CI workflow contract", () => {
       assert.doesNotMatch(jobBlock(job), /services:/u);
     }
 
-    assert.doesNotMatch(workflow, /^ {2}full-stack:/mu);
-    assert.doesNotMatch(workflow, /pnpm smoke:fullstack/u);
+    assert.match(jobBlock("fullstack"), /pnpm smoke:fullstack/u);
 
     assert.match(
       jobBlock("compose-development"),
@@ -421,15 +394,15 @@ describe("application CI workflow contract", () => {
     );
   });
 
-  it("retains bounded failure diagnostics and resource evidence for seven days", () => {
+  it("retains bounded failure diagnostics and source evidence for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      6,
+      7,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 6);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 7);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      6,
+      8,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
@@ -452,52 +425,12 @@ describe("application CI workflow contract", () => {
     );
   });
 
-  it("bounds the owner telemetry exclusion to PR1408, its queue and ordinal v36", () => {
-    assert.match(workflow, /github\.repository == 'sachkov-inside\/platform'/u);
-    assert.match(
+  it("removes automated resource measurements without removing functional suites", () => {
+    assert.doesNotMatch(
       workflow,
-      /github\.event_name == 'pull_request' && github\.event\.pull_request\.number == 1408/u,
+      /telemetry-resource|measure-telemetry|TELEMETRY_RESOURCE/u,
     );
-    assert.match(workflow, /github\.event_name == 'merge_group'/u);
-    assert.match(workflow, /refs\/heads\/gh-readonly-queue\/main\/pr-1408-/u);
-    assert.match(workflow, /github\.workflow == 'Publish ordinal release'/u);
-    assert.match(workflow, /github\.event\.inputs\.version == 'v36'/u);
-    const integration = jobBlock("integration");
-    assert.match(
-      integration,
-      /name: Measure the canonical telemetry resource budget\n {8}if: \$\{\{ env\.TELEMETRY_RESOURCE_OWNER_EXCLUSION != 'true' \}\}/u,
-    );
-    assert.match(integration, /outcome: "owner-excluded"/u);
-    assert.match(integration, /exitCode: null/u);
-    assert.match(integration, /authorizationRef: "owner-2026-10-13-1408-v36"/u);
-    assert.doesNotMatch(integration, /continue-on-error:/u);
-  });
-
-  it("requires canonical resource measurement and retains evidence after success or failure", () => {
-    const integration = jobBlock("integration");
-    const measurement = integration.indexOf(
-      "run: bash scripts/measure-telemetry-ci.sh ci-artifacts/telemetry-resource",
-    );
-    const uploadIndex = integration.indexOf(
-      "      - name: Upload telemetry resource evidence\n",
-    );
-    assert.ok(
-      measurement > integration.indexOf("run: pnpm smoke:buyer-journey"),
-    );
-    assert.ok(uploadIndex > measurement);
-    assert.doesNotMatch(integration, /continue-on-error:/u);
-    const upload = integration.slice(
-      uploadIndex,
-      integration.indexOf("      - name: Upload Playwright diagnostics\n"),
-    );
-    assert.match(upload, /if: \$\{\{ always\(\) \}\}/u);
-    assert.match(upload, /uses: actions\/upload-artifact@/u);
-    assert.match(
-      upload,
-      /name: telemetry-resource-\$\{\{ github\.run_attempt \}\}/u,
-    );
-    assert.match(upload, /path: ci-artifacts\/telemetry-resource/u);
-    assert.match(upload, /retention-days: 7/u);
+    assert.match(jobBlock("integration"), /pnpm test:integration:parallel/u);
   });
 
   it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
@@ -536,20 +469,17 @@ describe("application CI workflow contract", () => {
     assert.match(gate, /^ {4}if: \$\{\{ always\(\) \}\}$/mu);
     for (const job of requiredJobs) {
       assert.match(gate, new RegExp(`^      - ${escapeRegExp(job)}$`, "mu"));
-      assert.match(
-        gate,
-        new RegExp(`needs\\.${escapeRegExp(job)}\\.result`, "u"),
-      );
     }
-    assert.match(gate, /if \[\[ "\$result" != "success" \]\]/u);
+    assert.match(gate, /JOB_RESULTS: \$\{\{ toJSON\(needs\) \}\}/u);
+    assert.match(gate, /run: node scripts\/ci-coverage-run\.mjs gate/u);
   });
 });
 
 describe("nightly full-stack workflow contract", () => {
-  it("runs on a nightly schedule and on demand, never for pull requests or pushes", () => {
+  it("runs only on demand, never for pull requests or pushes", () => {
     const triggers = topLevelBlock("on", nightlyWorkflow);
 
-    assert.match(triggers, /^ {2}schedule:\n {4}- cron: "[^"]+"$/mu);
+    assert.doesNotMatch(triggers, /schedule:|cron:/u);
     assert.match(triggers, /^ {2}workflow_dispatch:$/mu);
     assert.doesNotMatch(triggers, /pull_request/u);
     assert.doesNotMatch(triggers, /^ {2}push:/mu);
@@ -642,7 +572,7 @@ describe("nightly full-stack workflow contract", () => {
 
   it("is not part of the pull-request gate", () => {
     assert.doesNotMatch(workflow, /nightly/u);
-    assert.doesNotMatch(jobBlock("ci-gate"), /full-stack/u);
+    assert.match(jobBlock("ci-gate"), /fullstack/u);
   });
 });
 

@@ -70,6 +70,15 @@ class WaitContracts(unittest.TestCase):
             {'name': 'Unit tests', 'status': 'completed', 'conclusion': 'failure'}]}
         self.assertEqual(self.observe(jobs=jobs)['outcome'], 'failure')
 
+    def test_successful_real_gate_allows_excluded_skips_but_no_failed_gate(self):
+        jobs = {'total_count': 2, 'jobs': [
+            {'name': 'CI Gate', 'status': 'completed', 'conclusion': 'success'},
+            {'name': 'Web E2E', 'status': 'completed', 'conclusion': 'skipped'}]}
+        self.assertEqual(self.observe(jobs=jobs)['outcome'], 'success')
+        for conclusion in ['failure', 'cancelled', 'skipped', None]:
+            jobs['jobs'][0]['conclusion'] = conclusion
+            self.assertEqual(self.observe(jobs=jobs)['outcome'], 'failure')
+
     def test_real_api_request_bounds_native_timeout_and_recognizes_404(self):
         with patch.object(ci_wait.subprocess, 'run', return_value=type('Result', (), {
                 'returncode': 1, 'stderr': 'gh: Not Found (HTTP 404)', 'stdout': ''})()) as run:
