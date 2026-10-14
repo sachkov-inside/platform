@@ -167,6 +167,11 @@ export const PurchaseIdentity: Story = {
     await expect(
       canvas.getByText("Оплата подтверждена. Открываем доступ"),
     ).toBeVisible();
+    await userEvent.click(
+      canvas.getByText("Покупка и чек", { selector: "summary" }),
+    );
+    await expect(canvas.getByText(/Покупка № DEMO-1444/u)).toBeVisible();
+    await expect(canvas.queryByText(/DEMO-1442/u)).not.toBeInTheDocument();
   },
 };
 

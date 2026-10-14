@@ -52,6 +52,7 @@ export function BuyerJourneyPrototype({
 }) {
   const [state, setState] = useState(initialState);
   const [productName, setProductName] = useState(defaultProductName);
+  const [purchaseRef, setPurchaseRef] = useState("DEMO-1442");
   const [community, setCommunity] = useState(includesCommunity);
   const [email, setEmail] = useState("");
   const [opened, setOpened] = useState(false);
@@ -88,6 +89,7 @@ export function BuyerJourneyPrototype({
               setState(next);
               setOpened(false);
               setProductName(defaultProductName);
+              setPurchaseRef("DEMO-1442");
               if (communityStates.includes(next)) setCommunity(true);
               if (next === "ready") setCommunity(false);
             }
@@ -107,7 +109,7 @@ export function BuyerJourneyPrototype({
               setCommunity(event.target.checked);
               setState("checkout");
             }}
-            className="size-5 accent-primary"
+            className="size-4 accent-primary sm:size-5"
           />
           Демонстрационная покупка включает сообщество
         </label>
@@ -133,6 +135,7 @@ export function BuyerJourneyPrototype({
           }}
           onContinue={(name) => {
             setProductName(name);
+            setPurchaseRef("DEMO-1444");
             setCommunity(false);
             setOpened(false);
             setState("preparing");
@@ -448,7 +451,9 @@ export function BuyerJourneyPrototype({
             {paid ? (
               <details className="mt-5 border-t border-border pt-4 text-sm leading-6">
                 <summary className="cursor-pointer">Покупка и чек</summary>
-                <p className="mt-2">Покупка № DEMO-1442 · 14 октября 2026</p>
+                <p className="mt-2">
+                  Покупка № {purchaseRef} · 14 октября 2026
+                </p>
                 <p>
                   Оплачено 100 ₽. Чек:{" "}
                   {state === "preparing" ? "формируется" : "отправлен"}.
