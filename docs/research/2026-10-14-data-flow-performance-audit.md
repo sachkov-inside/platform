@@ -310,7 +310,8 @@ been fixed, measured in production, or accepted after implementation.
   `6f6556ef` against baseline `2b650e946af93d409a8d1518a2eda12b65247fed`.
   Both identified the same ambiguous sitemap-exhaustion wording. The follow-up
   distinguishes source exhaustion from budget exhaustion and aligns the 1,201-item
-  criterion with #1466. Changed wording receives a follow-up review before handoff.
+  criterion with #1466. Both reviewers rechecked `28aacd47`, confirmed resolution,
+  and reported no new findings in the correction.
 - Updated #1466 to require explicit applicable-standards inputs for the Standards
   reviewer and all 43 dispositions for the Spec reviewer. Verified the published
   body matches the prepared specification.
