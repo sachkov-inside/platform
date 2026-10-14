@@ -66,6 +66,13 @@ export async function enrollmentSourceState(
   const source = await prisma.sourceEntitlement.findFirst({
     where: { enrollmentId, origin: "tribute" },
   });
+  return projectEnrollmentSourceState(source, now);
+}
+
+export function projectEnrollmentSourceState(
+  source: { tributeState: unknown; revokedAt: Date | null } | undefined | null,
+  now: Date,
+) {
   const state = tributeStateSchema.safeParse(source?.tributeState);
   if (
     !state.success ||
