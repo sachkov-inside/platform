@@ -185,10 +185,6 @@ export const ReturnAfterDisconnect: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Скрыть Activity" }),
     );
-    await act(async () => {
-      clock.respond(0, "deleted");
-      await Promise.resolve();
-    });
     await userEvent.click(
       canvas.getByRole("button", { name: "Вернуть Activity" }),
     );
@@ -198,6 +194,12 @@ export const ReturnAfterDisconnect: Story = {
       clock.advance();
       await Promise.resolve();
     });
+    await expect(clock.request).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      clock.respond(0, "deleted");
+      await Promise.resolve();
+    });
+    // The pre-disconnect response is discarded; continuation makes a fresh sequential read.
     await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(2));
     clock.respond(1, "deleted");
     await expect(
@@ -255,3 +257,52 @@ export const ReplacedDeletionTarget: Story = {
 function isTimerCallback(handler: TimerHandler): handler is () => void {
   return typeof handler === "function";
 }
+
+function RefreshDeletionTarget(
+  args: Parameters<typeof MaterialVideoAuthoring>[0],
+) {
+  const [target, setTarget] = useState(args.latestVideoDeletion);
+  return (
+    <>
+      <button
+        onClick={() => {
+          setTarget({ ...deletingVideo });
+        }}
+      >
+        Обновить тот же объект
+      </button>
+      <MaterialVideoAuthoring {...args} latestVideoDeletion={target} />
+    </>
+  );
+}
+export const RefreshSameDeletionWhileReading: Story = {
+  render: (args) => <RefreshDeletionTarget {...args} />,
+  play: async ({ canvasElement }) => {
+    if (polling === undefined) throw new Error("Polling clock is required");
+    const clock = polling;
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(clock.timers.size).toBe(1));
+    await act(async () => {
+      clock.advance();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(1));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Обновить тот же объект" }),
+    );
+    await waitFor(() => expect(clock.timers.size).toBe(1));
+    await act(async () => {
+      clock.advance();
+      await Promise.resolve();
+    });
+    await expect(clock.request).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      clock.respond(0, "deleted");
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(2));
+    clock.respond(1, "deleting");
+    await expect(canvas.queryByText(/удалено из Kinescope/u)).toBeNull();
+    await waitFor(() => expect(clock.timers.size).toBe(1));
+  },
+};
