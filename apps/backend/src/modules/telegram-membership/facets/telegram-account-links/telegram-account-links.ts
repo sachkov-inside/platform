@@ -202,6 +202,55 @@ export class TelegramAccountLinks {
     }
   }
 
+  /** Current binding set only: historical revisions retain the single-binding contract. */
+  async readBindings(
+    accountIds: readonly string[],
+    transaction?: Pick<TelegramMembershipPrisma, "telegramAccountLinkState">,
+  ) {
+    const parsed = z.array(z.uuid()).safeParse(accountIds);
+    if (!parsed.success) return { ok: false as const };
+    try {
+      const ids = [...new Set(parsed.data.map((id) => id.toLowerCase()))];
+      const bindings = new Map<
+        string,
+        {
+          linkRef: string;
+          linkRevision: number;
+          accountRef: string | null;
+          telegramIdentityRef: string | null;
+        } | null
+      >();
+      for (const id of ids) bindings.set(id, null);
+      for (let offset = 0; offset < ids.length; offset += 500) {
+        const rows = await (
+          transaction ?? this.prisma
+        ).telegramAccountLinkState.findMany({
+          where: { accountId: { in: ids.slice(offset, offset + 500) } },
+        });
+        for (const row of rows)
+          bindings.set(row.accountId, {
+            linkRef: row.linkRef,
+            linkRevision: row.revision,
+            accountRef: row.principalRef,
+            telegramIdentityRef: row.identityRef,
+          });
+      }
+      // Requested keys retain their spelling; opaque provider/principal references are not UUID codecs.
+      return {
+        ok: true as const,
+        bindings: new Map(
+          parsed.data.map((id) => [id, bindings.get(id.toLowerCase()) ?? null]),
+        ),
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "readBindings" },
+        error,
+        { ok: false as const },
+      );
+    }
+  }
+
   /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
   async readBinding(
     query: {

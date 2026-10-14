@@ -51,6 +51,47 @@ export class NotificationAccounts {
         }
       : null;
   }
+  /** Current verified bindings, including null for each missing or unverified Account contact. */
+  async bindings(accountIds: readonly string[]) {
+    const requested = z.array(z.uuid()).parse(accountIds);
+    const ids = [...new Set(requested.map((id) => id.toLowerCase()))];
+    const result = new Map<
+      string,
+      Awaited<ReturnType<NotificationAccounts["binding"]>>
+    >();
+    for (const id of ids) result.set(id, null);
+    for (let offset = 0; offset < ids.length; offset += 500) {
+      const rows = await this.prisma.billingContact.findMany({
+        where: { accountId: { in: ids.slice(offset, offset + 500) } },
+        select: {
+          accountId: true,
+          revision: true,
+          verifiedAt: true,
+          emailCiphertext: true,
+        },
+      });
+      for (const row of rows)
+        if (row.verifiedAt && hasText(row.emailCiphertext))
+          result.set(row.accountId, {
+            channel: "email",
+            accountRef: row.accountId,
+            contactRef: row.accountId,
+            contactRevision: row.revision,
+          });
+    }
+    // Result keys and Account contact references keep the caller's accepted UUID spelling.
+    return new Map(
+      requested.map((id) => {
+        const binding = result.get(id.toLowerCase()) ?? null;
+        return [
+          id,
+          binding === null
+            ? null
+            : { ...binding, accountRef: id, contactRef: id },
+        ];
+      }),
+    );
+  }
   async email(binding: {
     accountRef: string;
     contactRef: string;
