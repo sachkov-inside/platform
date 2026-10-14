@@ -224,27 +224,30 @@ export const EmptyProjectedPage: Story = {
 };
 
 export const FailedContinuation: Story = {
-  ...bookmarksRoute(
-    "authenticated",
-    (() => {
-      let continuation = 0;
-      return (input) => {
-        const url = input instanceof Request ? input.url : input.toString();
-        if (!url.includes("after=cursor-2"))
-          return bookmarksResponse(200, {
-            items: savedMaterials.slice(0, 1),
-            nextCursor: "cursor-2",
+  ...bookmarksRoute("authenticated", readyList),
+  beforeEach: () => {
+    const environment = publicPageEnvironment("/bookmarks", {
+      account: "authenticated",
+    });
+    environment.beforeEach();
+    getQueryClient().removeQueries({ queryKey: ["bookmarks"] });
+    let continuation = 0;
+    return fetchBeforeRender((input) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (!url.includes("after=cursor-2"))
+        return bookmarksResponse(200, {
+          items: savedMaterials.slice(0, 1),
+          nextCursor: "cursor-2",
+        });
+      continuation += 1;
+      return continuation === 1
+        ? bookmarksResponse(503)
+        : bookmarksResponse(200, {
+            items: savedMaterials.slice(1),
+            nextCursor: null,
           });
-        continuation += 1;
-        return continuation === 1
-          ? bookmarksResponse(503)
-          : bookmarksResponse(200, {
-              items: savedMaterials.slice(1),
-              nextCursor: null,
-            });
-      };
-    })(),
-  ),
+    })();
+  },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await userEvent.click(
