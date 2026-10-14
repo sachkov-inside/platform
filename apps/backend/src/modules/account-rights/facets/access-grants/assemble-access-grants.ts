@@ -726,6 +726,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
+    /** One Account snapshot, at most 1000 resources, values aligned with input order. */
     async resolveCapabilitiesMany(
       targetAccountId: string,
       resources: readonly {
