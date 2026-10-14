@@ -6,10 +6,7 @@ import {
   type ProductChapterTask,
 } from "@/entities/product-task";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
-import {
-  ReaderProductArtifacts,
-  type ReaderProductArtifactsResult,
-} from "@/features/product-artifacts.reader";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
   type ProductChapter,
@@ -34,13 +31,12 @@ type SeriesResult = Extract<
 >;
 
 /**
- * Состав программы: главы, уроки и артефакты. Строки рисует сервер, поэтому браузер не
+ * Состав программы: главы и уроки. Строки рисует сервер, поэтому браузер не
  * пересобирает список при гидрации; выбор части, порционный показ и продолжение держит
  * `SeriesJourneyControls`.
  */
 export function SeriesJourney({
   accessPending = false,
-  artifacts = { kind: "ready", artifacts: [] },
   result,
   currentHref,
 }: {
@@ -54,13 +50,6 @@ export function SeriesJourney({
   const chapterOf = chapterLookup(result.chapters);
   // A chapter split into several runs shows its opening tasks once, before its first run.
   const ledChapters = new Set<string>();
-  // An artifact part exists only for a Product the catalog resolved by id, so the
-  // download address it builds is never a guess.
-  const productId = result.reference.id;
-  const productArtifacts =
-    artifacts.kind === "ready" && productId !== undefined
-      ? artifacts.artifacts
-      : [];
   // Chapters are the Product programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
@@ -106,38 +95,9 @@ export function SeriesJourney({
       kind: "catalog",
       label: "Материалы",
     },
-    {
-      count: productArtifacts.length,
-      id: "artifacts",
-      kind: "artifacts",
-      label: "Артефакты",
-      panel: (
-        <div className="mt-5">
-          {artifacts.kind === "unavailable" ? (
-            <p
-              className="py-5 text-sm leading-6 text-muted-foreground"
-              role="status"
-            >
-              Артефакты сейчас не загрузились. Попробуй открыть этот раздел
-              позже.
-            </p>
-          ) : productArtifacts.length === 0 || productId === undefined ? (
-            <p className="py-5 text-sm leading-6 text-muted-foreground">
-              Здесь появятся файлы, шаблоны и инструменты для работы над
-              проектом.
-            </p>
-          ) : (
-            <ReaderProductArtifacts
-              artifacts={productArtifacts}
-              productId={productId}
-            />
-          )}
-        </div>
-      ),
-    },
   ];
 
-  // Часть артефактов есть всегда, поэтому разделы программы видны и у пустого продукта.
+  // Программа и каталог доступны также у пустого продукта.
   return (
     <SeriesJourneyControls
       currentHref={currentHref}

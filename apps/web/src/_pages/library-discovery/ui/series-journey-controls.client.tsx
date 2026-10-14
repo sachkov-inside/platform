@@ -3,20 +3,13 @@
 import {
   LayoutGrid,
   ListOrdered,
-  Package,
   RefreshCw,
   Search,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   MaterialCard,
@@ -81,13 +74,6 @@ export type JourneyPart =
       readonly id: "supplementary";
       readonly kind: "catalog";
       readonly label: string;
-    }
-  | {
-      readonly count: number;
-      readonly id: "artifacts";
-      readonly kind: "artifacts";
-      readonly label: string;
-      readonly panel: ReactNode;
     };
 
 /**
@@ -247,10 +233,7 @@ export function SeriesJourneyControls({
       </h2>
       {parts.length > 1 ? (
         <p aria-live="polite" className="sr-only">
-          {part?.label}:{" "}
-          {part?.kind === "artifacts"
-            ? artifactsInWords(part.count)
-            : formatMaterialCount(visible.length)}
+          {part?.label}: {formatMaterialCount(visible.length)}
         </p>
       ) : null}
       <div
@@ -258,12 +241,7 @@ export function SeriesJourneyControls({
         id={`series-part-panel-${part?.id ?? "programme"}`}
         className="focus-visible:outline-2 focus-visible:outline-ring"
       >
-        {part?.kind === "artifacts" ? (
-          <>
-            <PartHeading title={part.label} />
-            {part.panel}
-          </>
-        ) : part?.kind === "catalog" ? (
+        {part?.kind === "catalog" ? (
           <MaterialCatalog
             accessPending={part.accessPending}
             currentHref={currentHref}
@@ -439,7 +417,7 @@ function visibleRuns(
   });
 }
 
-/** Only a material part is progressively revealed and numbered; artifacts have no route. */
+/** Only programme rows are progressively revealed and numbered. */
 function partRows(part: JourneyPart): readonly JourneyRow[] {
   return part.kind === "materials" ? part.runs.flatMap((run) => run.rows) : [];
 }
@@ -447,12 +425,10 @@ function partRows(part: JourneyPart): readonly JourneyRow[] {
 function partCount(part: JourneyPart): number {
   return part.kind === "materials"
     ? partRows(part).length
-    : part.kind === "catalog"
-      ? part.entries.length
-      : part.count;
+    : part.entries.length;
 }
 
-/** Заголовок раздела: на странице видно, что открыты «Материалы» или «Артефакты». */
+/** Заголовок раздела: на странице видно, что открыты «Материалы». */
 function PartHeading({ title }: { readonly title: string }) {
   return (
     <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
@@ -655,40 +631,17 @@ function MaterialCatalog({
   );
 }
 
-/** «1 артефакт» / «2 артефакта» / «5 артефактов» for the live part announcement. */
-function artifactsInWords(count: number): string {
-  const lastTwo = count % 100;
-  const lastOne = count % 10;
-  const form =
-    lastTwo >= 11 && lastTwo <= 14
-      ? "артефактов"
-      : lastOne === 1
-        ? "артефакт"
-        : lastOne >= 2 && lastOne <= 4
-          ? "артефакта"
-          : "артефактов";
-  return `${String(count)} ${form}`;
-}
-
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   programme: ListOrdered,
   supplementary: LayoutGrid,
-  artifacts: Package,
 };
-/** Имена пунктов нижней панели для скринридера: на экране у пунктов только значки. */
+/** Labels identify both parts; only the selected mobile label is visible. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
   programme: "Программа",
   supplementary: "Материалы",
-  artifacts: "Артефакты",
 };
 
-/**
- * Нижняя панель продукта на телефоне (решение владельца 09.10.2026), только значки, как
- * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
- * панель: разделы продукта — те же, что вкладки на широком экране. Главной здесь нет: на неё
- * ведут логотип в шапке и ссылка вверху, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
- * Шапка телефона с профилем и закладками остаётся сверху.
- */
+/** Programme and Materials share a floating mobile bar; the active item expands with its label. */
 function ProductBottomBar({
   activeId,
   onOpen,
@@ -706,16 +659,7 @@ function ProductBottomBar({
       <nav
         aria-label="Разделы продукта"
         className="product-bottom-bar md:hidden"
-        style={barVariables({
-          "--bar-count": parts.length,
-          "--bar-index": Math.max(
-            0,
-            parts.findIndex((entry) => entry.id === activeId),
-          ),
-        })}
       >
-        {/* Подложка выбранного раздела переезжает к новому пункту, как в приложении. */}
-        <span aria-hidden="true" className="product-bottom-bar-indicator" />
         <HidePublicFooter />
         {parts.map((entry) => {
           const Icon = partIcons[entry.id];
@@ -733,6 +677,9 @@ function ProductBottomBar({
               type="button"
             >
               <Icon aria-hidden="true" />
+              <span className="product-bottom-bar-label" aria-hidden="true">
+                {partBarLabels[entry.id]}
+              </span>
             </button>
           );
         })}
@@ -742,7 +689,7 @@ function ProductBottomBar({
 }
 
 /**
- * Колонка разделов (решение владельца 09.10.2026): программа, материалы, артефакты со счётчиками.
+ * Колонка разделов (решение владельца 09.10.2026): программа и материалы со счётчиками.
  * Сама программа остаётся в основной колонке справа; колонка прилипает к верху. На компьютере у
  * пунктов подписи, на планшете колонка сужается до значков и несёт профиль, на телефоне её роль
  * играет нижняя панель.
@@ -786,10 +733,4 @@ function ProgrammeSidebar({
       </nav>
     </aside>
   );
-}
-
-type BarVariables = CSSProperties & Record<`--${string}`, number>;
-/** CSS-переменные панели: число пунктов и выбранный — по ним стили ставят подложку. */
-function barVariables(values: Record<`--${string}`, number>): BarVariables {
-  return values;
 }
