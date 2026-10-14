@@ -1,4 +1,20 @@
 import {
+  name as productExclusionsName,
+  statement as productExclusionsStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0092-product-access-exclusions.js";
+import {
+  name as learningStartedName,
+  statement as learningStartedStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0093-product-learning-started.js";
+import {
+  name as productCommunitiesName,
+  statement as productCommunitiesStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0091-product-communities.js";
+import {
+  name as explicitCommunityName,
+  statement as explicitCommunityStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0090-explicit-community-rights.js";
+import {
   name as bankRefundHistoryName,
   statement as bankRefundHistoryStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0089-bank-refund-history.js";
@@ -587,6 +603,10 @@ export const platformMigrations = [
     statement: webTelemetryPercentileIndexStatement,
   },
   { name: bankRefundHistoryName, statement: bankRefundHistoryStatement },
+  { name: explicitCommunityName, statement: explicitCommunityStatement },
+  { name: productCommunitiesName, statement: productCommunitiesStatement },
+  { name: productExclusionsName, statement: productExclusionsStatement },
+  { name: learningStartedName, statement: learningStartedStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -111,6 +111,16 @@ Product and does not sell it by itself; only a Product with a Cohort names the s
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**ProductOnboarding**:
+The Product's initial learner path through Telegram linking, community joining and starting learning.
+It applies only when the Product's community is part of the learner's actual access.
+_Avoid_: Global community setup, payment confirmation
+
+**ProductAccessRevocation**:
+An operator's withdrawal of one Account's access to a selected Product across its existing grounds.
+It preserves other Products, financial history and learning progress.
+_Avoid_: Refund, selecting one grant source, Account ban
+
 **Product Page Description**:
 The author-written description of a Product, kept in its Inside Content original and transferred to
 Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
@@ -464,9 +474,8 @@ Payment, an owner's manual decision and a confirmed prior entitlement are distin
 _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
-An Account's effective right to participate in the single shared community chat, distinct from
-actual presence in Telegram. Live AccessGrants covering Support, the chat or any Product establish
-the right; its term follows the accepted grants independently of the payment period.
+An Account's effective right to participate in a Product's configured community, distinct from
+actual Telegram membership. Several Products can share one group; their valid community rights combine.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:

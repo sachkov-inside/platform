@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../account-rights/index.js";
@@ -85,6 +86,162 @@ export class CommunityEntitlements {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
+  private get groupDependencies(): CommunityEntitlementsDependencies {
+    return {
+      ...this.dependencies,
+      grants: {
+        ...this.dependencies.grants,
+        resolveCapabilities: async (accountId: string) => {
+          const products =
+            await this.dependencies.prisma.productCommunity.findMany({
+              where: { groupRef: "primary" },
+              select: { productId: true },
+            });
+          return this.dependencies.grants.resolveCapabilities(accountId, {
+            productIds: products.map((entry) => entry.productId),
+          });
+        },
+      },
+    };
+  }
+
+  /** Initial group catalogue deliberately contains the existing provider group only. */
+  async configureProductCommunity(
+    actorId: string,
+    input: unknown,
+  ): Promise<
+    | { ok: true }
+    | {
+        ok: false;
+        code: "invalid_input" | "forbidden" | "dependency_unavailable";
+      }
+  > {
+    const parsed = z
+      .strictObject({
+        productId: z.uuid(),
+        groupRef: z.literal("primary").nullable(),
+      })
+      .safeParse(input);
+    if (!parsed.success) return { ok: false, code: "invalid_input" };
+    const permission = await this.dependencies.accounts.checkPermission({
+      accountId: actorId,
+      permission: "platform:admin",
+    });
+    if (!permission.ok || !permission.allowed)
+      return { ok: false, code: "forbidden" };
+    try {
+      const now = this.clock();
+      await this.dependencies.prisma.$transaction(async (tx) => {
+        await tx.productCommunity.upsert({
+          where: { productId: parsed.data.productId },
+          create: {
+            productId: parsed.data.productId,
+            groupRef: parsed.data.groupRef,
+            updatedBy: actorId,
+            updatedAt: now,
+          },
+          update: {
+            groupRef: parsed.data.groupRef,
+            updatedBy: actorId,
+            updatedAt: now,
+          },
+        });
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO telegram_membership.community_projection_retries
+            (account_id, attempt_id, next_attempt_at, updated_at)
+          SELECT account_id, gen_random_uuid(), ${now}, ${now}
+          FROM telegram_membership.community_desired_states
+          ON CONFLICT (account_id) DO UPDATE SET attempt_id = EXCLUDED.attempt_id,
+            next_attempt_at = EXCLUDED.next_attempt_at, updated_at = EXCLUDED.updated_at
+        `);
+      });
+      return { ok: true };
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "configureProductCommunity",
+        },
+        error,
+        { ok: false, code: "dependency_unavailable" },
+      );
+    }
+  }
+
+  async readProductCommunityConfiguration(
+    actorId: string,
+    productId: string,
+  ): Promise<
+    | { ok: true; value: { productId: string; groupRef: "primary" | null } }
+    | {
+        ok: false;
+        code: "invalid_input" | "forbidden" | "dependency_unavailable";
+      }
+  > {
+    if (!z.uuid().safeParse(productId).success)
+      return { ok: false, code: "invalid_input" };
+    const permission = await this.dependencies.accounts.checkPermission({
+      accountId: actorId,
+      permission: "platform:admin",
+    });
+    if (!permission.ok || !permission.allowed)
+      return { ok: false, code: "forbidden" };
+    try {
+      const association =
+        await this.dependencies.prisma.productCommunity.findUnique({
+          where: { productId },
+        });
+      return {
+        ok: true,
+        value: {
+          productId,
+          groupRef: association?.groupRef === "primary" ? "primary" : null,
+        },
+      };
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "readProductCommunityConfiguration",
+        },
+        error,
+        { ok: false, code: "dependency_unavailable" },
+      );
+    }
+  }
+
+  async readOwnProductCommunityEntry(
+    accountId: string,
+    productId: string,
+  ): Promise<OwnCommunityEntry | { kind: "unavailable" }> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(productId).success
+    )
+      return { kind: "none" };
+    const association =
+      await this.dependencies.prisma.productCommunity.findUnique({
+        where: { productId },
+      });
+    if (association?.groupRef !== "primary") return { kind: "none" };
+    const access = await this.dependencies.grants.resolveCapabilities(
+      accountId,
+      { productIds: [productId] },
+    );
+    if (!access.ok) return { kind: "unavailable" };
+    if (
+      !access.capabilities.some(
+        (entry) =>
+          entry.capability === "materials" ||
+          entry.capability === `product:${productId}`,
+      )
+    )
+      return { kind: "none" };
+    if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
+      return { kind: "none" };
+    return this.readOwnCommunityEntry(accountId);
+  }
+
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
     return (await this.resolveOwnAdmission(accountId)).admission;
   }
@@ -122,7 +279,7 @@ export class CommunityEntitlements {
     };
     if (!z.uuid().safeParse(accountId).success) return unresolved;
     const [access, binding, desired] = await Promise.all([
-      this.dependencies.grants.resolveCapabilities(accountId),
+      this.groupDependencies.grants.resolveCapabilities(accountId),
       this.dependencies.links.readBinding({ accountId }),
       this.dependencies.prisma.telegramCommunityDesiredState.findUnique({
         where: { accountId },
@@ -196,7 +353,7 @@ export class CommunityEntitlements {
   /** Recomputes one Account's desired community state and queues what must be sent. */
   project(accountId: string) {
     return projectCommunityEntitlement(
-      this.dependencies,
+      this.groupDependencies,
       accountId,
       this.clock(),
     );
@@ -205,7 +362,11 @@ export class CommunityEntitlements {
   authorizeDispatch(
     input: DispatchAuthorizeRequest,
   ): Promise<CommunityAuthorizationOutcome> {
-    return authorizeCommunityDispatch(this.dependencies, input, this.clock());
+    return authorizeCommunityDispatch(
+      this.groupDependencies,
+      input,
+      this.clock(),
+    );
   }
 
   /**
@@ -253,7 +414,7 @@ export class CommunityEntitlements {
         update: { attemptId, updatedAt: now },
       });
       const projection = await projectCommunityEntitlement(
-        this.dependencies,
+        this.groupDependencies,
         accountId,
         now,
       );

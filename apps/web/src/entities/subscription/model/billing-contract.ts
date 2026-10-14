@@ -9,7 +9,10 @@ export {
   isProductCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
-import { accessCapabilitySchema } from "@inside/access-capabilities";
+import {
+  accessCapabilitySchema,
+  coverageEntrySchema,
+} from "@inside/access-capabilities";
 
 /**
  * Кому Offer продаётся: всем, прежним подписчикам Tribute или только по приглашению. В прежних
@@ -63,6 +66,7 @@ export const promotionSnapshotSchema = z.object({
   percent: z.number().int().min(1).max(100),
 });
 export const priceSnapshotSchema = z.object({
+  communityPolicy: z.literal("explicit").optional(),
   offer: offerSchema,
   paymentOption: paymentOptionSchema,
   promotion: promotionSnapshotSchema.nullable(),
@@ -188,6 +192,7 @@ export const noticeViewSchema = z.object({
 export const accessSourceSchema = z.enum(["paid", "manual", "legacy"]);
 export const accessGroundSchema = z.object({
   source: accessSourceSchema,
+  content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
   startsAt: z.iso.datetime(),
   validUntil: z.iso.datetime().nullable(),
@@ -196,6 +201,24 @@ export const accessGroundSchema = z.object({
 /** Собственная история списаний: без терминала, окружения и идентификатора платежа. */
 export const ownPaymentSchema = z.object({
   purchaseRef: z.uuid(),
+  productAccess: z
+    .array(
+      z.strictObject({
+        productId: z.uuid(),
+        access: z.enum([
+          "awaiting_payment",
+          "preparing",
+          "ready",
+          "unavailable",
+        ]),
+      }),
+    )
+    .optional(),
+  content: z.array(coverageEntrySchema).optional(),
+  snapshot: priceSnapshotSchema.optional(),
+  access: z
+    .enum(["awaiting_payment", "preparing", "ready", "unavailable"])
+    .optional(),
   kind: attemptKindSchema,
   state: attemptStateSchema,
   amountKopecks: z.number().int().positive(),
@@ -220,7 +243,8 @@ export const purchaseStatusSchema = z.object({
   state: attemptStateSchema,
   paymentUrl: z.url().nullable(),
   snapshot: priceSnapshotSchema,
-  access: z.enum(["awaiting_payment", "preparing", "ready"]),
+  access: z.enum(["awaiting_payment", "preparing", "ready", "unavailable"]),
+  refundedKopecks: z.number().int().nonnegative().optional(),
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),

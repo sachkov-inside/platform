@@ -1,5 +1,5 @@
 "use client";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import type { SubmitEvent } from "react";
 
 import { hasText } from "@/shared/lib/text";
@@ -47,6 +47,7 @@ export interface AssignRequest {
   readonly reason: string;
 }
 export interface PeopleViewProps {
+  readonly renderProductActions?: (accountId: string) => ReactNode;
   /** Offer для фильтра, в том числе архивные: у людей мог остаться доступ по ним. */
   readonly offers: readonly OfferChoice[];
   /** Offer, открытые для назначения: их назначают из карточки. */
@@ -136,6 +137,7 @@ export function PeopleView(props: PeopleViewProps) {
                 busy={props.busy}
                 key={person.accountId}
                 onAssign={props.onAssign}
+                productAction={props.renderProductActions?.(person.accountId)}
                 onChangeGround={props.onChangeGround}
                 person={person}
               />
@@ -253,8 +255,10 @@ function PersonCard({
   busy,
   onChangeGround,
   onAssign,
+  productAction,
 }: {
   readonly person: AccessHolder;
+  readonly productAction?: ReactNode;
   readonly assignable: readonly OfferChoice[];
   readonly busy: boolean;
   readonly onChangeGround: PeopleViewProps["onChangeGround"];
@@ -299,6 +303,7 @@ function PersonCard({
           </span>
         </summary>
         <div className="grid gap-5 border-t border-border p-4">
+          {productAction}
           {person.grounds.map((ground) => (
             <GroundForm
               busy={busy}

@@ -190,7 +190,7 @@ export const EmailWithoutCode: Story = {
     const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
     await waitFor(() => expect(pay).toBeEnabled());
     await userEvent.click(pay);
-    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    const email = canvas.getByRole("textbox", { name: "Email" });
     await expect(email).toHaveFocus();
     await expect(email).toHaveAttribute("aria-invalid", "true");
     await expect(canvas.getByRole("alert")).toHaveTextContent("Введите email");
@@ -224,7 +224,7 @@ export const AccountEmailPrefilled: Story = {
   beforeEach: emailCheckout,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    const email = canvas.getByRole("textbox", { name: "Email" });
     await expect(email).toHaveValue("login@example.test");
     await waitFor(() => expect(email).toBeEnabled());
     await userEvent.clear(email);

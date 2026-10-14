@@ -2,7 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, waitFor, within } from "storybook/test";
 
-import { billingErrorMessage } from "@/entities/subscription";
+import { buyerProductId } from "@/storybook/buyer-journey.fixtures";
+import {
+  billingErrorMessage,
+  type PurchaseStatus,
+} from "@/entities/subscription";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
   billingContactResponse,
@@ -11,6 +15,10 @@ import {
   productOnlyOffer,
   productQuote,
   productWithSupportOffer,
+  legalDocuments,
+  verifiedContact,
+  pendingPurchase,
+  confirmedProductPurchase,
 } from "@/storybook/billing.fixtures";
 import {
   boxOf,
@@ -47,6 +55,7 @@ function requestPath(input: RequestInfo | URL): string {
 }
 
 const product = {
+  id: buyerProductId,
   name: "Создание Platform Inside",
 };
 
@@ -60,6 +69,8 @@ type Viewer = "member" | "guest" | "loading" | "billing-unavailable";
  */
 function purchaseRoute(
   viewer: Viewer,
+  restored: PurchaseStatus | null = null,
+  needsEmail = false,
 ): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
     "/products/platform-inside/buy",
@@ -81,8 +92,19 @@ function purchaseRoute(
                   ? billingFailureResponse("unavailable")
                   : currentBillingResponse(null),
               );
+        if (path === "/api/account/billing/product-purchase")
+          return Promise.resolve(Response.json({ ok: true, value: restored }));
         if (path === "/api/account/billing/contact")
-          return Promise.resolve(billingContactResponse());
+          return Promise.resolve(
+            needsEmail
+              ? billingContactResponse(null)
+              : Response.json({
+                  ok: true,
+                  contact: null,
+                  documents: legalDocuments,
+                  initialEmail: verifiedContact.email,
+                }),
+          );
         if (path === "/api/account/billing/quote")
           return Promise.resolve(
             Response.json({ ok: true, value: productQuote }),
@@ -331,3 +353,60 @@ function loadsInPlace({
 
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+export const RestoredPayment: Story = {
+  ...purchaseRoute("member", {
+    ...pendingPurchase,
+    snapshot: productOnlyOffer,
+  }),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await routeContent(canvasElement).findByRole("link", {
+        name: "Открыть страницу оплаты",
+      }),
+    ).toHaveAttribute("href", pendingPurchase.paymentUrl);
+  },
+};
+export const PreparingAccess: Story = {
+  ...purchaseRoute("member", {
+    ...confirmedProductPurchase,
+    access: "preparing",
+  }),
+};
+export const ReadyAccess: Story = {
+  ...purchaseRoute("member", confirmedProductPurchase),
+  play: async ({ canvasElement }) => {
+    await expect(
+      await routeContent(canvasElement).findByRole("link", {
+        name: "Открыть продукт",
+      }),
+    ).toHaveAttribute("href", "/products/platform-inside/programme");
+  },
+};
+export const RefundedAccess: Story = {
+  ...purchaseRoute("member", {
+    ...confirmedProductPurchase,
+    access: "unavailable",
+    refundedKopecks: 250_000,
+  }),
+};
+export const ReadyAccessMobile: Story = {
+  ...ReadyAccess,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const TelegramAccountEmail: Story = {
+  ...purchaseRoute("member", null, true),
+};
+
+export const PurchasedAfterSaleClosed: Story = {
+  ...purchaseRoute("member", confirmedProductPurchase),
+  args: { offers: [] },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await routeContent(canvasElement).findByRole("link", {
+        name: "Открыть продукт",
+      }),
+    ).toHaveAttribute("href", "/products/platform-inside/programme");
+  },
+};

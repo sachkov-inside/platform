@@ -148,8 +148,20 @@ export class Tbank {
     name: string;
     email: string;
     initiator?: PaymentInitiator;
+    returnPath?: string;
   }): Promise<BankPayment & { PaymentURL: string }> {
     const initiator = input.initiator ?? "1";
+    const base = new URL(this.config.returnUrl);
+    const returnUrl =
+      input.returnPath === undefined ? base : new URL(input.returnPath, base);
+    if (
+      returnUrl.origin !== base.origin ||
+      returnUrl.username !== "" ||
+      returnUrl.password !== "" ||
+      returnUrl.hash !== ""
+    )
+      throw new Error("Invalid purchase return path");
+    returnUrl.searchParams.set("purchaseRef", input.orderId);
     const result = await this.call("Init", {
       Amount: input.amount,
       OrderId: input.orderId,
@@ -159,8 +171,8 @@ export class Tbank {
       // Only the parent card-on-file purchase asks the bank to save a binding.
       ...(initiator === "1" ? { Recurrent: "Y" } : {}),
       DATA: { OperationInitiatorType: initiator },
-      SuccessURL: this.config.returnUrl,
-      FailURL: this.config.returnUrl,
+      SuccessURL: returnUrl.toString(),
+      FailURL: returnUrl.toString(),
       NotificationURL: this.config.notificationUrl,
       Receipt: {
         Email: input.email,

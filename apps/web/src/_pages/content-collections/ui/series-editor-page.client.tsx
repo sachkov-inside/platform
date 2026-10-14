@@ -1,6 +1,8 @@
 "use client";
 import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
+import { ProductCommunitySettings } from "@/features/product-community-settings";
+import { announceProductCommunityChange } from "@/features/community-entry";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
@@ -188,6 +190,10 @@ function AuthoredProductEditor({
         />
       </header>
       <HomeSeriesPin seriesId={collection.id} archived={collection.archived} />
+      <ProductCommunitySettings
+        productId={collection.id}
+        onSaved={announceProductCommunityChange}
+      />
       <SeriesOrderPanel
         seriesId={collection.id}
         archived={collection.archived}

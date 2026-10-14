@@ -1,3 +1,7 @@
+import {
+  previewProductRevocation,
+  revokeProductAccess,
+} from "../../features/revoke-product-access/revoke-product-access.js";
 import { tariffCoverage } from "@inside/access-capabilities";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
@@ -75,7 +79,11 @@ import {
   classifyLegacyAccount,
   type ClassifyLegacyAccountCommand,
 } from "../../features/classify-legacy-account/classify-legacy-account.js";
-import { resolveAccessCapabilities } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
+import {
+  resolveAccessCapabilities,
+  readAccessCapabilityFacts,
+  projectAccessCapabilities,
+} from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
 import {
   listAccessGrants,
   type ListAccessGrantsCommand,
@@ -630,6 +638,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         applyGrantBatch(prisma, accounts, actorId, command, clock()),
       ),
+    previewProductRevocation: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        previewProductRevocation(prisma, accounts, input, clock()),
+      ),
+    revokeProductAccess: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        revokeProductAccess(prisma, accounts, actorId, input, clock()),
+      ),
     changeGrant: (actorId: string, command: ChangeAccessGrantCommand) =>
       manage(actorId, "billing:manage", () =>
         changeAccessGrant(prisma, actorId, command, clock()),
@@ -715,7 +731,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
       try {
-        return await readOwnAccess(prisma, targetAccountId, clock());
+        return await readOwnAccess(
+          prisma,
+          targetAccountId,
+          clock(),
+          dependencies.contentCatalog,
+        );
       } catch (error) {
         return dependencyFailure(
           { module: "account-rights", operation: "readOwnAccess" },
@@ -724,7 +745,46 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async resolveCapabilities(targetAccountId: string) {
+    async resolveCapabilitiesMany(
+      targetAccountId: string,
+      resources: readonly {
+        productIds: readonly string[];
+        materialId?: string;
+      }[],
+    ) {
+      if (
+        !z.uuid().safeParse(targetAccountId).success ||
+        resources.length > 1000
+      )
+        return accessFailure("invalid_input");
+      try {
+        return await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          const now = clock();
+          const facts = await readAccessCapabilityFacts(
+            transaction,
+            accountId(targetAccountId),
+            now,
+          );
+          return {
+            ok: true as const,
+            values: resources.map((resource) =>
+              projectAccessCapabilities(facts, now, resource),
+            ),
+          };
+        });
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "resolveCapabilitiesMany" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    async resolveCapabilities(
+      targetAccountId: string,
+      resource?: { productIds: readonly string[]; materialId?: string },
+    ) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
       try {
@@ -735,6 +795,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               transaction,
               accountId(targetAccountId),
               clock(),
+              resource,
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
         });

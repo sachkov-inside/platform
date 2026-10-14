@@ -46,3 +46,12 @@ export function readBillingPurchaseStatus(
     purchaseStatusSchema,
   );
 }
+
+export function restoreProductPurchase(
+  productId: string,
+): Promise<BillingCommandResult<PurchaseStatus | null>> {
+  return readBillingEndpoint(
+    `/api/account/billing/product-purchase?productId=${encodeURIComponent(productId)}`,
+    purchaseStatusSchema.nullable(),
+  );
+}

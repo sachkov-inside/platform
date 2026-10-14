@@ -1,3 +1,4 @@
+import { RevokeProductAccessController } from "./features/revoke-product-access/revoke-product-access.controller.js";
 import { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
 import { Module } from "@nestjs/common";
 
@@ -23,6 +24,7 @@ import {
 
 @Module({
   imports: [PrismaModule, AccountsModule],
+  controllers: [RevokeProductAccessController],
   providers: [
     {
       provide: TributeSources,

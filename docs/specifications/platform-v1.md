@@ -1557,3 +1557,26 @@ They choose light or dark from the effective column theme and react to width and
 changes. The public application shell currently fixes the light theme; this capability does not add
 a theme switch. The viewer opens the selected composition. `scene.js` and `DURATION` have no
 execution path in this feature; the importer consumes static image assets only.
+
+## Unified Product buyer journey — #1442–#1444
+
+The Product checkout, bank return, purchases and programme use the accepted buyer composition from
+proof PR #1449. The production route restores the latest own Product purchase from the server;
+server authorization checks every purchase reference. Opening a bank return proves no payment.
+Polling continues while payment, fulfillment or a receipt is unsettled. A confirmed payment does
+not present ready access until fulfillment and the current Product entitlement allow it.
+
+The purchases surface names Products, amounts and payment/access states. It links directly to the
+Product programme or its ongoing checkout. Current access remains separate from financial history.
+Only applicable subscription and card controls appear. Receipt and refund details remain available.
+
+For a Product with actual community access, incomplete onboarding is the first programme section
+and the default on a new visit. Its steps are Telegram linking, joining that Product's configured
+group and starting learning. Explicit programme return links keep their target. Programme, Materials
+and Artifacts remain available. Completed onboarding disappears from desktop and mobile navigation.
+Learning-start persistence is independent of the current lesson composition.
+
+[The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)
+owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
+owns the module boundary and historical-policy trade-offs. This implementation does not authorize
+new sales, group changes or legal-edition publication; the prospective legal decision is #1464.

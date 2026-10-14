@@ -18,15 +18,14 @@ export function CheckoutEmailField({
   onChange,
 }: CheckoutEmailFieldProps) {
   const id = useId();
-  const helpId = `${id}-help`;
   const errorId = `${id}-error`;
   return (
     <div className="mt-5">
       <label className="text-sm font-semibold" htmlFor={id}>
-        Email для чека
+        Email
       </label>
       <input
-        aria-describedby={error === undefined ? helpId : `${helpId} ${errorId}`}
+        aria-describedby={error === undefined ? undefined : errorId}
         aria-invalid={error !== undefined}
         autoCapitalize="none"
         autoComplete="email"
@@ -45,10 +44,6 @@ export function CheckoutEmailField({
         type="email"
         value={value}
       />
-      <p className="mt-2 text-sm leading-6 text-muted-foreground" id={helpId}>
-        На этот адрес отправим чек и сообщения о покупке. Подтверждать кодом
-        перед оплатой не нужно.
-      </p>
       {error === undefined ? null : (
         <p
           className="mt-2 text-sm leading-6 text-destructive"

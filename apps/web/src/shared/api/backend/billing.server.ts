@@ -3,6 +3,7 @@ import {
   BillingService,
   AccountsService,
   TelegramCommunityService,
+  AccessService,
 } from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
@@ -83,6 +84,17 @@ export function requestBillingPurchaseStatus(
   return executeGeneratedRequest(
     (request) =>
       new BillingService(request).readBillingPurchase({ purchaseRef }),
+    200,
+    { accessToken },
+  );
+}
+export function requestRestoreProductPurchase(
+  productId: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new BillingService(request).restoreProductPurchase({ productId }),
     200,
     { accessToken },
   );
@@ -202,9 +214,75 @@ export function requestCurrentCommunityAdmission(accessToken: string) {
   );
 }
 
-export function requestCurrentCommunityEntry(accessToken: string) {
+export function requestCurrentCommunityEntry(
+  accessToken: string,
+  productId?: string,
+) {
   return executeGeneratedRequest(
-    (request) => new TelegramCommunityService(request).currentCommunityEntry(),
+    (request) =>
+      new TelegramCommunityService(request).currentCommunityEntry(
+        productId === undefined ? {} : { productId },
+      ),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestPreviewProductRevocation(
+  requestBody: Parameters<
+    AccessService["previewProductAccessRevocation"]
+  >[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new AccessService(request).previewProductAccessRevocation({
+        requestBody,
+      }),
+    200,
+    { accessToken },
+  );
+}
+export function requestRevokeProductAccess(
+  requestBody: Parameters<
+    AccessService["revokeProductAccess"]
+  >[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new AccessService(request).revokeProductAccess({ requestBody }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestReadProductCommunityConfiguration(
+  productId: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramCommunityService(request).readProductCommunityConfiguration({
+        productId,
+      }),
+    200,
+    { accessToken },
+  );
+}
+export function requestConfigureProductCommunity(
+  productId: string,
+  requestBody: Parameters<
+    TelegramCommunityService["configureProductCommunity"]
+  >[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramCommunityService(request).configureProductCommunity({
+        productId,
+        requestBody,
+      }),
     200,
     { accessToken },
   );

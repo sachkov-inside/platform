@@ -91,7 +91,12 @@ interface Dependencies {
     | "readLegacyClassification"
     | "readPurchaseGrounds"
     | "resolveCapabilities"
+    | "resolveCapabilitiesMany"
     | "applyPaidPeriod"
+  >;
+  readonly contentCatalog?: Pick<
+    import("../../../account-rights/index.js").CoverageCatalog,
+    "resolve"
   >;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
@@ -107,6 +112,7 @@ export class BillingPayments {
   async purchase(
     accountId: string,
     input: unknown,
+    receiptEmail?: string,
   ): Promise<PaymentResult<PurchaseStatus>> {
     const parsed = purchaseSubscriptionSchema.safeParse(input);
     if (!z.uuid().safeParse(accountId).success || !parsed.success)
@@ -210,7 +216,7 @@ export class BillingPayments {
         recurringAllowed: legacy.recurringAllowed,
       });
       if (!admission.ok) return paymentFailure(admission.error.code);
-      const orderEmail = command.email;
+      const orderEmail = receiptEmail ?? command.email;
       if (
         orderEmail === undefined &&
         (!contact.contact ||
@@ -557,9 +563,56 @@ export class BillingPayments {
     };
   }
 
+  /** Restore the latest own Product purchase independently of a browser or an Offer revision. */
+  async restoreProductPurchase(
+    accountId: string,
+    productId: string,
+  ): Promise<PaymentResult<PurchaseStatus | null>> {
+    if (
+      !z.uuid().safeParse(accountId).success ||
+      !z.uuid().safeParse(productId).success
+    )
+      return paymentFailure("not_found");
+    try {
+      const purchase = await this.dependencies.prisma.billingPurchase.findFirst(
+        {
+          where: {
+            accountId,
+            OR: [
+              {
+                snapshot: {
+                  path: ["offer", "benefits"],
+                  array_contains: [`product:${productId}`],
+                },
+              },
+              {
+                snapshot: {
+                  path: ["offer", "coverage", "productIds"],
+                  array_contains: [productId],
+                },
+              },
+            ],
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { id: true },
+        },
+      );
+      return purchase === null
+        ? { ok: true, value: null }
+        : this.status(accountId, purchase.id, productId);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "restoreProductPurchase" },
+        error,
+        paymentFailure("dependency_unavailable"),
+      );
+    }
+  }
+
   async status(
     accountId: string,
     purchaseRef: string,
+    productId?: string,
   ): Promise<PaymentResult<PurchaseStatus>> {
     if (
       !z.uuid().safeParse(accountId).success ||
@@ -574,11 +627,44 @@ export class BillingPayments {
       const waiting = await this.dependencies.prisma.billingFulfillment.count({
         where: { purchaseRef, appliedAt: null },
       });
+      const snapshot = priceSnapshotSchema.parse(row.snapshot);
+      const productIds =
+        productId === undefined
+          ? [
+              ...new Set([
+                ...(snapshot.offer.coverage?.productIds ?? []),
+                ...snapshot.offer.benefits
+                  .filter(isProductCapability)
+                  .map((value) => value.slice("product:".length)),
+              ]),
+            ]
+          : [productId];
+      const capabilities =
+        row.state === "confirmed" && waiting === 0 && productIds.length > 0
+          ? await this.dependencies.grants.resolveCapabilities(accountId, {
+              productIds,
+            })
+          : null;
+      if (capabilities !== null && !capabilities.ok)
+        return paymentFailure("dependency_unavailable");
+      const ready =
+        capabilities === null ||
+        (capabilities.ok &&
+          capabilities.capabilities.some(
+            (entry) =>
+              entry.capability === "materials" ||
+              productIds.some((id) => entry.capability === `product:${id}`),
+          ));
+      const refunds = await this.dependencies.prisma.billingRefund.aggregate({
+        where: { purchaseRef, state: "confirmed" },
+        _sum: { amountKopecks: true },
+      });
       return {
         ok: true,
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
+          refundedKopecks: Number(refunds._sum.amountKopecks ?? 0),
           paymentUrl: row.state === "pending" ? row.paymentUrl : null,
           snapshot: row.snapshot,
           access:
@@ -586,7 +672,9 @@ export class BillingPayments {
               ? "awaiting_payment"
               : waiting > 0
                 ? "preparing"
-                : "ready",
+                : ready
+                  ? "ready"
+                  : "unavailable",
           fiscalization: row.fiscalization,
           confirmedAt: row.confirmedAt?.toISOString() ?? null,
           periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
@@ -620,38 +708,86 @@ export class BillingPayments {
       });
       return {
         ok: true,
-        value: rows.map((row) => {
-          const snapshot = priceSnapshotSchema.parse(row.snapshot);
-          const refunded = refunds.filter(
-            (refund) => refund.purchaseRef === row.id,
-          );
-          const refundedAt = refunded.reduce<Date | null>(
-            (latest, refund) =>
-              latest === null || refund.updatedAt > latest
-                ? refund.updatedAt
-                : latest,
-            null,
-          );
-          return ownPaymentSchema.parse({
-            purchaseRef: row.id,
-            kind: row.kind,
-            state: row.state,
-            amountKopecks: Number(row.amountKopecks),
-            offerName: snapshot.offer.name,
-            months: snapshot.paymentOption.months,
-            fiscalization: row.fiscalization,
-            confirmedAt: row.confirmedAt?.toISOString() ?? null,
-            periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
-            createdAt: row.createdAt.toISOString(),
-            refundedKopecks: Number(
-              refunded.reduce(
-                (total, refund) => total + refund.amountKopecks,
-                0n,
+        value: await Promise.all(
+          rows.map(async (row) => {
+            const snapshot = priceSnapshotSchema.parse(row.snapshot);
+            const refunded = refunds.filter(
+              (refund) => refund.purchaseRef === row.id,
+            );
+            const refundedAt = refunded.reduce<Date | null>(
+              (latest, refund) =>
+                latest === null || refund.updatedAt > latest
+                  ? refund.updatedAt
+                  : latest,
+              null,
+            );
+            const content = await this.dependencies.contentCatalog?.resolve(
+              snapshot.offer.coverage ?? {
+                productIds: snapshot.offer.benefits
+                  .filter(isProductCapability)
+                  .map((value) => value.slice("product:".length)),
+                materialIds: [],
+              },
+            );
+            const productEntries = content?.filter(
+              (entry) => entry.kind === "product",
+            );
+            const productRights =
+              productEntries === undefined
+                ? null
+                : await this.dependencies.grants.resolveCapabilitiesMany(
+                    accountId,
+                    productEntries.map((entry) => ({ productIds: [entry.id] })),
+                  );
+            if (productRights !== null && !productRights.ok)
+              throw new Error(productRights.error.code);
+            const status = await this.status(accountId, row.id);
+            if (!status.ok) throw new Error(status.error.code);
+            return ownPaymentSchema.parse({
+              purchaseRef: row.id,
+              snapshot,
+              access: status.value.access,
+              ...(content === undefined ? {} : { content }),
+              ...(productEntries === undefined ||
+              productRights === null ||
+              !productRights.ok
+                ? {}
+                : {
+                    productAccess: productEntries.map((entry, index) => ({
+                      productId: entry.id,
+                      access:
+                        row.state !== "confirmed"
+                          ? "awaiting_payment"
+                          : status.value.access === "preparing"
+                            ? "preparing"
+                            : productRights.values[index]?.capabilities.some(
+                                  (right) =>
+                                    right.capability === "materials" ||
+                                    right.capability === `product:${entry.id}`,
+                                )
+                              ? "ready"
+                              : "unavailable",
+                    })),
+                  }),
+              kind: row.kind,
+              state: row.state,
+              amountKopecks: Number(row.amountKopecks),
+              offerName: snapshot.offer.name,
+              months: snapshot.paymentOption.months,
+              fiscalization: row.fiscalization,
+              confirmedAt: row.confirmedAt?.toISOString() ?? null,
+              periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
+              createdAt: row.createdAt.toISOString(),
+              refundedKopecks: Number(
+                refunded.reduce(
+                  (total, refund) => total + refund.amountKopecks,
+                  0n,
+                ),
               ),
-            ),
-            refundedAt: refundedAt?.toISOString() ?? null,
-          });
-        }),
+              refundedAt: refundedAt?.toISOString() ?? null,
+            });
+          }),
+        ),
       };
     } catch (error) {
       return dependencyFailure(
@@ -948,6 +1084,19 @@ export class BillingPayments {
       const email = z
         .email()
         .parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
+      const products =
+        kind === "one_time"
+          ? await this.dependencies.contentCatalog?.resolve(
+              snapshot.offer.coverage ?? {
+                productIds: snapshot.offer.benefits
+                  .filter(isProductCapability)
+                  .map((value) => value.slice("product:".length)),
+                materialIds: [],
+              },
+            )
+          : undefined;
+      const product = products?.filter((entry) => entry.kind === "product");
+      const returnSlug = product?.length === 1 ? product[0]?.slug : null;
       const payment = await bank.init({
         orderId: row.id,
         accountId: row.accountId,
@@ -955,6 +1104,9 @@ export class BillingPayments {
         name: snapshot.offer.name,
         email,
         initiator: paymentInitiators[kind],
+        ...(returnSlug == null
+          ? {}
+          : { returnPath: `/products/${encodeURIComponent(returnSlug)}/buy` }),
       });
       const accepted = await this.accept(
         payment,
@@ -1339,6 +1491,12 @@ export class BillingPayments {
             },
             now,
           );
+          const productScope = snapshot.offer.coverage ?? {
+            productIds: snapshot.offer.benefits
+              .filter(isProductCapability)
+              .map((value) => value.slice("product:".length)),
+            materialIds: [],
+          };
           const benefitTerms = snapshot.offer.benefits.map((capability) => {
             const term = snapshot.offer.benefitPeriods?.find(
               (value) => value.capability === capability,
@@ -1355,7 +1513,15 @@ export class BillingPayments {
                       term.months,
                     ).toISOString();
             return {
-              capabilities: [capability],
+              capabilities:
+                snapshot.communityPolicy === undefined &&
+                (isProductCapability(capability) || capability === "support")
+                  ? [capability, "community"]
+                  : [capability],
+              ...(productScope.productIds.length > 0 ||
+              productScope.wholePlatform === true
+                ? { coverage: productScope }
+                : {}),
               ...(capability === "materials" && snapshot.offer.coverage != null
                 ? { coverage: snapshot.offer.coverage }
                 : {}),

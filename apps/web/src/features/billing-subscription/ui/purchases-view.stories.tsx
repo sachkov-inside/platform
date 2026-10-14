@@ -1,6 +1,6 @@
 import { legalSeller } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, within, userEvent } from "storybook/test";
 
 import {
   accessGrounds,
@@ -44,6 +44,7 @@ type Story = StoryObj<typeof meta>;
 export const OwnGroundsAndPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("История оплат, чеки и возвраты"));
     await expect(
       within(
         canvas.getByText(/Для возврата обратитесь к продавцу:/u),
@@ -55,7 +56,7 @@ export const OwnGroundsAndPayments: Story = {
     await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
     await expect(canvas.getAllByText("Отдельный продукт").length).toBe(2);
     // Общий чат открывает и старший тариф, и каждое право на руководство.
-    await expect(canvas.getAllByText("Общий чат").length).toBe(3);
+    await expect(canvas.getAllByText("Сообщество продукта").length).toBe(1);
     await expect(canvas.getAllByText(/^операция /u).length).toBe(3);
     await expect(canvas.getByText(/Оплата не прошла/u)).toBeInTheDocument();
     // Разовая покупка названа покупкой: срока варианта оплаты у неё нет.
@@ -72,6 +73,7 @@ export const RefundedPurchase: Story = {
   args: { grounds: [], notices: refundNotices, payments: refundedOwnPayments },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("История оплат, чеки и возвраты"));
     await expect(canvas.getByText(/Возвращено 2\s?500/u)).toBeInTheDocument();
     await expect(canvas.getByText("Возврат выполнен")).toBeInTheDocument();
   },

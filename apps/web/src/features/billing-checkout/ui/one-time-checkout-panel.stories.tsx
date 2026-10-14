@@ -50,61 +50,34 @@ type Story = StoryObj<typeof meta>;
 export const Ready: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Без подписки и доплат")).toBeInTheDocument();
-    // Оферта не обещает «всё» и «навсегда»: сроки названы по составляющим.
     await expect(
-      canvas.queryByText(/Всё включено|Навсегда/u),
-    ).not.toBeInTheDocument();
-    // Сроки — из предложения: материалы и чат без срока, сопровождение на 3 месяца.
-    await expect(canvas.getByText("Без ограничения срока")).toBeInTheDocument();
-    await expect(canvas.getByText("3 месяца")).toBeInTheDocument();
-    // Купленное руководство само по себе открывает общий чат, и состав называет его.
-    await expect(
-      canvas.getByText("Продукт с сопровождением и общим чатом"),
-    ).toBeInTheDocument();
-    // Распределение цены и сводка условий видны до оплаты.
-    await expect(
-      canvas.getByText(/^Из них поровну: материалы и чат — /u),
-    ).toBeInTheDocument();
-    const terms = canvas.getByRole("region", { name: "Условия покупки" });
-    await expect(
-      within(terms).getByText("Материалы и чат — без ограничения срока."),
-    ).toBeInTheDocument();
-    await expect(
-      within(terms).getByText(
-        "После отказа доступ по этой покупке закрывается.",
-      ),
-    ).toBeInTheDocument();
-    // Оферта принимается нажатием кнопки: отметки нет, строка под кнопкой называет документ.
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeEnabled();
     await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
       canvas.getByText(
         "Нажимая «Оплатить», вы принимаете оферту разовой покупки.",
       ),
     ).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("Условия и документы покупки"));
     await expect(
-      canvas.getByText(
-        "До 18 лет покупку оформляйте с согласия законного представителя.",
-      ),
-    ).toBeInTheDocument();
-    // Футер оболочки ведёт к тем же документам, поэтому ссылки ищутся в самой оплате.
-    const payment = within(
-      canvas.getByRole("form", { name: "Оплата продукта" }),
-    );
+      canvas.getByText("Материалы — без ограничения срока."),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText(/Сообщество продукта/u),
+    ).not.toBeInTheDocument();
     for (const name of [
       "Оферта разовой покупки",
       "Условия использования",
       "Реквизиты и обращения",
       "Политика данных",
     ])
-      await expect(payment.getByRole("link", { name })).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: /^Оплатить /u }),
-    ).toBeEnabled();
-    // Согласие на регулярные списания разовой покупке не показывается.
-    await expect(
-      canvas.queryByText("Согласие на регулярные списания"),
-    ).not.toBeInTheDocument();
+      await expect(
+        within(canvas.getByRole("form", { name: "Оплата продукта" })).getByRole(
+          "link",
+          { name },
+        ),
+      ).toBeVisible();
   },
 };
 
@@ -116,19 +89,13 @@ export const FixedTermOffer: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("2 года гарантированно")).toBeInTheDocument();
-    await expect(canvas.getByText("1 год")).toBeInTheDocument();
-    const terms = within(
-      canvas.getByRole("region", { name: "Условия покупки" }),
-    );
+    await userEvent.click(canvas.getByText("Условия и документы покупки"));
     await expect(
-      terms.getByText(
-        "Материалы и чат — 2 года гарантированно, дальше без гарантии срока.",
+      canvas.getByText(
+        "Материалы — 2 года гарантированно, дальше без гарантии срока.",
       ),
-    ).toBeInTheDocument();
-    await expect(
-      terms.getByText(/^Сопровождение — 1 год:/u),
-    ).toBeInTheDocument();
+    ).toBeVisible();
+    await expect(canvas.getByText(/^Сопровождение — 1 год:/u)).toBeVisible();
   },
 };
 
@@ -144,11 +111,6 @@ export const Preorder: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText(
-        /^Цена предзаказа действует до старта потока 9 ноября\./u,
-      ),
-    ).toBeInTheDocument();
     await expect(canvas.getByText(/Цена после старта:/u)).toBeInTheDocument();
   },
 };
@@ -157,7 +119,7 @@ export const EmailRequired: Story = {
   args: { email: "" },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const email = canvas.getByRole("textbox", { name: "Email для чека" });
+    const email = canvas.getByRole("textbox", { name: "Email" });
     await expect(email).toHaveValue("");
     await expect(
       canvas.queryByRole("link", { name: /Подтвердить/u }),

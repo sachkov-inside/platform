@@ -1,6 +1,11 @@
 "use client";
 import { initialPaymentOptionId } from "../model/initial-selection";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/shared/ui/button";
+import { JourneyProgress } from "@/shared/ui/journey-progress";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 import {
   billingErrorMessage,
@@ -10,14 +15,21 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
-import { CheckoutFlow } from "@/features/billing-checkout";
-import { useCurrentBilling } from "@/features/billing-subscription";
+import {
+  CheckoutFlow,
+  useProductPurchase,
+  ProductPaymentStatus,
+} from "@/features/billing-checkout";
+import {
+  useCurrentBilling,
+  announceCurrentBillingChange,
+} from "@/features/billing-subscription";
 import { cn } from "@/shared/lib/utils";
 
 import { ProductPurchaseView } from "./product-purchase-view";
 
 export interface ProductPurchaseProps {
-  readonly product: { readonly name: string } | null;
+  readonly product: { readonly id?: string; readonly name: string } | null;
   /** Варианты покупки этого руководства: обычно один, но выбор поддержан с самого начала. */
   readonly offers: readonly PriceSnapshot[];
   readonly slug: string;
@@ -58,6 +70,39 @@ export function ProductPurchase({
     !signedIn || signedOut ? "guest" : billing.isPending ? "loading" : "member";
   const failure =
     billing.data?.ok === false && !signedOut ? billing.data.code : undefined;
+  const restored = useProductPurchase(product?.id, signedIn && !signedOut);
+  const [buyAgain, setBuyAgain] = useState(false);
+  const purchase = restored.data?.ok === true ? restored.data.value : null;
+  const restoredError =
+    restored.data?.ok === false
+      ? billingErrorMessage(restored.data.code)
+      : restored.isError
+        ? "Не удалось восстановить покупку."
+        : undefined;
+  const ready = purchase?.access === "ready";
+  const router = useRouter();
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !ready ||
+      purchase === null ||
+      announced.current === purchase.purchaseRef
+    )
+      return;
+    announced.current = purchase.purchaseRef;
+    announceCurrentBillingChange();
+    router.refresh();
+  }, [ready, purchase, router]);
+  const alreadyOpen =
+    product?.id !== undefined &&
+    billing.data?.ok === true &&
+    billing.data.value.grounds.some(
+      (ground) =>
+        ground.active &&
+        (ground.capabilities.includes(`product:${product.id}`) ||
+          (ground.capabilities.includes("materials") &&
+            ground.content?.some((entry) => entry.id === product.id))),
+    );
   const selected =
     offers.find((offer) => offer.paymentOption.id === selectedId) ??
     offers[0] ??
@@ -65,6 +110,22 @@ export function ProductPurchase({
 
   return (
     <ProductPurchaseView
+      hasPurchase={
+        (!buyAgain && purchase !== null && purchase.state !== "failed") ||
+        alreadyOpen ||
+        (signedIn &&
+          !signedOut &&
+          product?.id !== undefined &&
+          restored.isPending)
+      }
+      progress={
+        <JourneyProgress
+          labels={["Вход", "Оплата", "Доступ"]}
+          current={viewer === "guest" ? 0 : ready || alreadyOpen ? 2 : 1}
+          completed={ready || alreadyOpen}
+          label="Шаги покупки"
+        />
+      }
       product={product}
       offer={selected}
       {...(offerId === undefined ? {} : { offerId })}
@@ -77,7 +138,51 @@ export function ProductPurchase({
         ? {}
         : { notice: billingErrorMessage(failure) })}
     >
-      {selected === null ? null : (
+      {signedIn && product?.id !== undefined && restored.isPending ? (
+        <p role="status">Восстанавливаем вашу покупку…</p>
+      ) : restoredError !== undefined ? (
+        <section role="alert">
+          <p>{restoredError}</p>
+          <Button
+            type="button"
+            onClick={() => {
+              void restored.refetch();
+            }}
+          >
+            Попробовать ещё раз
+          </Button>
+        </section>
+      ) : !buyAgain && purchase !== null && purchase.state !== "failed" ? (
+        <ProductPaymentStatus
+          onBuyAgain={() => {
+            setBuyAgain(true);
+          }}
+          purchase={purchase}
+          programmeHref={productProgrammeHref(slug)}
+          loading={restored.isFetching}
+          onRefresh={() => {
+            void restored.refetch();
+          }}
+        />
+      ) : alreadyOpen ? (
+        <Button asChild className="w-full">
+          <Link href={productProgrammeHref(slug)}>Открыть продукт</Link>
+        </Button>
+      ) : selected === null ? null : contact.isPending ? (
+        <p role="status">Подготавливаем оплату…</p>
+      ) : contact.isError || contact.data?.ok === false ? (
+        <section role="alert">
+          <p>Не удалось загрузить данные оплаты.</p>
+          <Button
+            type="button"
+            onClick={() => {
+              void contact.refetch();
+            }}
+          >
+            Попробовать ещё раз
+          </Button>
+        </section>
+      ) : (
         <>
           {offers.length < 2 ? null : (
             <fieldset className="mb-6">
@@ -128,7 +233,10 @@ export function ProductPurchase({
             contact={contactState?.contact ?? null}
             initialEmail={contactState?.initialEmail}
             documents={contactState?.documents ?? []}
-            showInclusions
+            onPurchase={() => {
+              setBuyAgain(false);
+              void restored.refetch();
+            }}
             onDocumentsChanged={() => {
               void contact.refetch();
             }}

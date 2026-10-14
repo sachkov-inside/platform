@@ -28,6 +28,7 @@ import {
   AcceptedTermsEndpoint,
   AccountProblemDetailsFilter,
   CurrentAccount,
+  CurrentReceiptEmail,
   accountProblemSchema,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
@@ -111,8 +112,31 @@ export class PurchaseSubscriptionController {
   async purchase(
     @CurrentAccount() account: AuthenticatedAccount,
     @Body() input: unknown,
+    @CurrentReceiptEmail() receiptEmail: string | undefined,
   ) {
-    const result = await this.payments.purchase(account.accountId, input);
+    const result = await this.payments.purchase(
+      account.accountId,
+      input,
+      receiptEmail,
+    );
+    if (!result.ok) throwPaymentError(result.error.code);
+    return result.value;
+  }
+  @Get("products/:productId/purchase")
+  @ApiOperation({
+    operationId: "restoreProductPurchase",
+    summary: "Restore the latest own Product purchase",
+  })
+  @ApiParam({ name: "productId", schema: { type: "string", format: "uuid" } })
+  @ApiOkResponse({ schema: toOpenApiSchema(purchaseStatusSchema.nullable()) })
+  async restore(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("productId") productId: string,
+  ) {
+    const result = await this.payments.restoreProductPurchase(
+      account.accountId,
+      productId,
+    );
     if (!result.ok) throwPaymentError(result.error.code);
     return result.value;
   }

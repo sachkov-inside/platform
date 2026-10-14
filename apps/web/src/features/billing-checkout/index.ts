@@ -27,3 +27,6 @@ export {
   promoCodeFromQuery,
   recallPurchase,
 } from "./model/checkout";
+
+export { useProductPurchase } from "./model/product-purchase.client";
+export { ProductPaymentStatus } from "./ui/product-payment-status";

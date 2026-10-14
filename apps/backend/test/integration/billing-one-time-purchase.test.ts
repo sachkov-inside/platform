@@ -375,6 +375,55 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     };
   }
 
+  test("a buyer restores the same Product payment on another device", async () => {
+    const s = await scenario();
+    const purchase = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(
+      value(await s.runtime.restoreProductPurchase(s.buyer, s.productId)),
+    ).toEqual(purchase);
+    const other = await scenario();
+    expect(
+      value(await s.runtime.restoreProductPurchase(other.buyer, s.productId)),
+    ).toBeNull();
+    expect(s.requests()).toHaveLength(1);
+  });
+
+  test("a confirmed bank refund shows lost Product access without a manual revoke", async () => {
+    const s = await scenario();
+    const purchase = await s.buy();
+    expect(await s.runtime.notification(s.notify("REFUNDED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(
+      value(await s.runtime.status(s.buyer, purchase.purchaseRef)),
+    ).toMatchObject({
+      state: "confirmed",
+      access: "unavailable",
+      refundedKopecks: 290_000,
+    });
+  });
+
+  test("trusted Account email takes precedence over the browser receipt contact", async () => {
+    const s = await scenario({ verifyContact: false });
+    const { contactRevision: _revision, ...input } = await s.command();
+    value(
+      await s.runtime.purchase(
+        s.buyer,
+        {
+          ...input,
+          email: "browser@example.test",
+        },
+        "account@example.test",
+      ),
+    );
+    expect(s.requests()[0]).toMatchObject({
+      Receipt: { Email: "account@example.test" },
+    });
+  });
+
   test("покупатель без подтверждённого контакта оплачивает заказ с email для чека", async () => {
     const s = await scenario({ verifyContact: false });
     const { contactRevision: _contactRevision, ...input } = await s.command();
@@ -431,7 +480,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
           ok: true,
         },
       );
-      value(await s.runtime.recover());
+      expect(await s.runtime.recover()).toMatchObject({ ok: true });
       const confirmContact = async () => {
         const started = await contact.start(s.buyer, {
           operationId: randomUUID(),
@@ -596,7 +645,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
       ok: true,
     });
-    value(await s.runtime.recover());
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
     const started = await contact.start(s.buyer, {
       operationId: randomUUID(),
       email: `${other.buyer}@example.test`,
@@ -1012,13 +1061,12 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
   });
 
   test("Offer называет сроки продукта, общей группы и сопровождения, и покупка выдаёт именно их", async () => {
-    // Группу открывает и право на продукт: без своего срока она живёт срок продукта.
+    // New Product and support rights do not imply community access.
     const derived = await scenario({ term: 12, supportMonths: 3 });
     await derived.buy();
     expect(await capabilitiesOf(derived.buyer)).toEqual(
       expect.objectContaining({
         capabilities: [
-          { capability: "community", validUntil: "2031-01-31T10:00:00.000Z" },
           {
             capability: derived.capability,
             validUntil: "2031-01-31T10:00:00.000Z",
@@ -1060,7 +1108,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       ),
     ).toEqual({
       capability: "community",
-      validUntil: "2031-01-31T10:00:00.000Z",
+      validUntil: "2030-04-30T10:00:00.000Z",
     });
   });
 
@@ -1104,9 +1152,8 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     await s.buy();
     const bought = await grants.resolveCapabilities(s.buyer);
     if (!bought.ok) throw new Error("resolve");
-    // Offer курса: продукт и чат бессрочны, сопровождение — шесть календарных месяцев с оплаты.
+    // The Product is lifetime; support is finite; community is not part of this Offer.
     expect(bought.capabilities).toEqual([
-      { capability: "community", validUntil: null },
       { capability: s.capability, validUntil: null },
       { capability: "support", validUntil: "2030-07-31T10:00:00.000Z" },
     ]);
@@ -1114,7 +1161,6 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     const later = await grants.resolveCapabilities(s.buyer);
     if (!later.ok) throw new Error("resolve");
     expect(later.capabilities.map((item) => item.capability)).toEqual([
-      "community",
       s.capability,
     ]);
     // Прежняя строка без срока сопровождения, записанная в обход каталога, не продаётся.

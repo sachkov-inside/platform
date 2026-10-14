@@ -26,6 +26,7 @@ import {
   SeriesJourneyControls,
   type JourneyPart,
   type JourneyRun,
+  type ProductOnboardingPanel,
 } from "./series-journey-controls.client";
 
 type SeriesResult = Extract<
@@ -43,12 +44,14 @@ export function SeriesJourney({
   artifacts = { kind: "ready", artifacts: [] },
   result,
   currentHref,
+  onboarding,
 }: {
   /** Личная часть ещё идёт: строки стоят на общих данных, отметки доступа уточняются. */
   readonly accessPending?: boolean;
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
+  readonly onboarding?: ProductOnboardingPanel;
 }) {
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
@@ -81,6 +84,17 @@ export function SeriesJourney({
     },
   ];
   const parts: readonly JourneyPart[] = [
+    ...(onboarding === undefined || !onboarding.incomplete
+      ? []
+      : [
+          {
+            id: "onboarding" as const,
+            kind: "onboarding" as const,
+            label: "Онбординг",
+            incomplete: onboarding.incomplete,
+            panel: onboarding.panel,
+          },
+        ]),
     ...materialParts.map(
       ({ chapters, id, items: partItems, label, shortLabel }) => ({
         chapterCount: chapters.length,

@@ -165,6 +165,101 @@ describe("independent product, library, support and shared chat rights", () => {
     }
     return materialId(created.value.materialId);
   }
+  test("an operator revokes a whole Product across grants and preserves another Product", async () => {
+    const target = randomUUID();
+    await db.prisma.account.create({
+      data: {
+        id: target,
+        logtoIssuer: "https://identity.test",
+        logtoSubject: target,
+      },
+    });
+    const preview = await grants.previewBatch(owner, {
+      operationId: randomUUID(),
+      rows: [
+        {
+          rowKey: "product",
+          accountId: target,
+          source: "manual",
+          sourceRef: randomUUID(),
+          terms: {
+            capabilities: [`product:${productA}`],
+            coverage: { productIds: [productA], materialIds: [] },
+            startsAt: now.toISOString(),
+            validUntil: null,
+            reason: "Product fixture",
+          },
+        },
+      ],
+    });
+    if (!preview.ok) throw new Error(preview.error.code);
+    expect(
+      await grants.applyBatch(owner, {
+        operationId: randomUUID(),
+        previewRef: preview.previewRef,
+        expectedRevision: preview.revision,
+        confirmedRows: ["product"],
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await grants.applyPaidPeriod({
+        eventRef: randomUUID(),
+        periodRef: randomUUID(),
+        accountId: target,
+        revision: 1,
+        revoked: false,
+        terms: {
+          capabilities: ["materials"],
+          coverage: { productIds: [productA, productB], materialIds: [] },
+          startsAt: now.toISOString(),
+          validUntil: null,
+          reason: "Broad paid fixture",
+        },
+      }),
+    ).toMatchObject({ ok: true });
+    const revoke = await grants.previewProductRevocation(owner, {
+      accountId: target,
+      productId: productA,
+    });
+    if (!revoke.ok) throw new Error(revoke.error.code);
+    expect(revoke.value.affectedCount).toBe(2);
+    const command = {
+      operationId: randomUUID(),
+      accountId: target,
+      productId: productA,
+      expectedRevision: revoke.value.revision,
+      reason: "Owner withdraws Product access",
+    };
+    expect(await grants.revokeProductAccess(owner, command)).toMatchObject({
+      ok: true,
+    });
+    const batch = await grants.resolveCapabilitiesMany(target, [
+      { productIds: [productA] },
+      { productIds: [productB] },
+    ]);
+    if (!batch.ok) throw new Error(batch.error.code);
+    expect(
+      batch.values.map((value) =>
+        value.capabilities.some((entry) => entry.capability === "materials"),
+      ),
+    ).toEqual([false, true]);
+    expect(
+      await membership.resolveForAccess(accountId(target), [productA]),
+    ).toMatchObject({ kind: "expired" });
+    expect(
+      await membership.resolveForAccess(accountId(target), [productB]),
+    ).toMatchObject({ kind: "active" });
+    expect(await grants.revokeProductAccess(owner, command)).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await grants.revokeProductAccess(target, {
+        ...command,
+        operationId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+  });
+
   test("archived Product programme, progress and continuation stay open only to its holder", async () => {
     const productId = randomUUID();
     const slug = `archived-${productId}`;

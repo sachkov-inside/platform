@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, within, userEvent } from "storybook/test";
 
+import {
+  buyerGrounds,
+  buyerPayments,
+} from "@/storybook/buyer-journey.fixtures";
 import { billingErrorMessage } from "@/entities/subscription";
 import {
   pendingResponse,
@@ -76,25 +80,16 @@ async function expectSubscribedPurchases(canvasElement: HTMLElement) {
   await expect(
     page.getByRole("heading", { level: 1, name: "Покупки" }),
   ).toBeInTheDocument();
-  // Порядок блоков тот же, что составляет страница: основания, сообщество, email, карта, история.
-  const headings = (await page.findAllByRole("heading", { level: 2 })).map(
-    (heading) => heading.textContent,
-  );
-  await expect(headings).toEqual(
-    expect.arrayContaining([
-      "Что вам доступно",
-      "Email для чеков и сообщений",
-      "Способ оплаты",
-      "История",
-    ]),
-  );
   await expect(
-    await page.findByRole("link", { name: "Вступить в сообщество" }),
-  ).toHaveAttribute("href", botUrl);
-  await expect(await page.findByText("buyer@example.test")).toBeInTheDocument();
+    await page.findByRole("heading", { name: "Что вам доступно" }),
+  ).toBeInTheDocument();
   await expect(
-    (await page.findAllByText("Оплаченный доступ")).length,
-  ).toBeGreaterThan(0);
+    page.queryByRole("heading", { name: "Email для чеков и сообщений" }),
+  ).not.toBeInTheDocument();
+  await expect(
+    page.queryByRole("link", { name: "Вступить в сообщество" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(page.getByText("История оплат, чеки и возвраты"));
   await expect(page.getByText(/Оплата не прошла/u)).toBeInTheDocument();
 }
 
@@ -139,8 +134,8 @@ export const NoGrounds: Story = {
       page.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toHaveAttribute("href", "/payment/checkout");
     await expect(
-      page.getByText("Карта сохраняется при оформлении подписки."),
-    ).toBeInTheDocument();
+      page.queryByText("Карта сохраняется при оформлении подписки."),
+    ).not.toBeInTheDocument();
     // Без подписки её раздела в кабинете нет.
     await expect(
       within(canvasElement).queryByRole("link", { name: "Подписка" }),
@@ -211,4 +206,32 @@ export const Unavailable: Story = {
       ),
     ).toBeInTheDocument();
   },
+};
+
+export const ProductPurchase: Story = {
+  ...purchasesPage({
+    "/api/account/billing": () =>
+      currentBillingResponse(null, {
+        grounds: buyerGrounds,
+        payments: buyerPayments,
+      }),
+  }),
+  globals: desktop,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      await page.findByRole("heading", { name: "Ваши продукты" }),
+    ).toBeInTheDocument();
+    await expect(
+      page.getAllByRole("link", { name: "Открыть продукт" }),
+    ).toHaveLength(2);
+    await expect(page.queryByText("Сообщество Inside")).not.toBeInTheDocument();
+    await expect(
+      page.queryByRole("heading", { name: "Способ оплаты" }),
+    ).not.toBeInTheDocument();
+  },
+};
+export const ProductPurchaseMobile: Story = {
+  ...ProductPurchase,
+  globals: mobile,
 };
