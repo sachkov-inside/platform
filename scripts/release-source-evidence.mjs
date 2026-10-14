@@ -3,42 +3,19 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 
+import {
+  applicationCoverage,
+  ciJobNames as jobNames,
+} from "./ci-coverage-plan.mjs";
+
 /** @param {string} application */
 export function releaseCoverage(application) {
-  if (application === "platform")
-    return [
-      "static",
-      "unit",
-      "ui",
-      "web-e2e",
-      "integration",
-      "integration-serial",
-      "compose-development",
-      "compose-production",
-      "fullstack",
-      "contracts",
-    ];
-  if (application === "telegram")
-    return ["static", "unit", "telegram", "contracts"];
+  if (application === "platform" || application === "telegram")
+    return [...applicationCoverage[application]];
   throw new Error("unknown release application");
 }
 const sha = z.string().regex(/^[a-f0-9]{40}$/u);
 const coverage = z.array(z.string());
-/** @type {Record<string, string>} */
-const jobNames = {
-  static: "Static checks (isolated reruns)",
-  unit: "Unit tests",
-  ui: "UI components",
-  "web-e2e": "Web E2E",
-  integration: "Integration",
-  "integration-serial": "Integration serial",
-  "compose-development": "Development Compose",
-  "compose-production": "Production Compose",
-  telegram: "Telegram full checks",
-  fullstack: "Full-stack smoke",
-  contracts: "Tooling contracts",
-  docs: "Documentation contracts",
-};
 const providerJobSchema = z.object({
   id: z.number().int().positive(),
   run_id: z.number().int().positive(),
@@ -61,6 +38,7 @@ const candidateSchema = z.object({
     conclusion: z.string().nullable(),
   }),
   providerJobs: z.array(providerJobSchema),
+  providerArtifactName: z.string(),
   providerTreeSha: sha,
   evidence: z.object({
     schemaVersion: z.literal(1),
@@ -93,6 +71,7 @@ export function selectReleaseEvidence(value) {
     const {
       provider: run,
       providerJobs,
+      providerArtifactName,
       providerTreeSha,
       evidence,
     } = parsed.data;
@@ -114,8 +93,10 @@ export function selectReleaseEvidence(value) {
       (run.event === "push" && run.head_branch === "main");
     if (
       !trustedEvent ||
-      !provedJob("CI Gate") ||
-      !provedJob("Coverage plan (isolated reruns)") ||
+      providerArtifactName !==
+        `ci-source-evidence-${String(run.run_attempt)}` ||
+      !provedJob(jobNames["ci-gate"] ?? "") ||
+      !provedJob(jobNames["plan"] ?? "") ||
       evidence.selectedCoverage.some(
         (job) => !jobNames[job] || !provedJob(jobNames[job]),
       ) ||
@@ -152,7 +133,7 @@ export function selectReleaseEvidence(value) {
       providerJobs: providerJobs
         .filter(
           (job) =>
-            job.name === "CI Gate" ||
+            job.name === jobNames["ci-gate"] ||
             reusedCoverage.some((id) => jobNames[id] === job.name),
         )
         .map((job) => ({ id: job.id, name: job.name })),

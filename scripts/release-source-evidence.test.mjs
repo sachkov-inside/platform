@@ -51,6 +51,7 @@ function candidate() {
         conclusion: "success",
       },
     ],
+    providerArtifactName: "ci-source-evidence-1",
     providerTreeSha: tree,
     evidence: {
       schemaVersion: 1,
@@ -85,6 +86,9 @@ it("reuses proven synthetic queue tree correspondence and executes uncovered che
 it("rejects wrong source, changed inputs, untrusted and incomplete runs", () => {
   /** @type {Array<(value: ReturnType<typeof candidate>) => void>} */
   const mutations = [
+    (c) => {
+      c.providerArtifactName = "ci-source-evidence-2";
+    },
     (c) => {
       c.providerJobs = [];
     },

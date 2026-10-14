@@ -19,7 +19,7 @@ head. These completion checks do not prove a different application's release sou
    nor block publication. Ordinal history and immutable manifests are revalidated independently.
 2. `scripts/collect-release-source-evidence.sh` examines at most 30 successful Application CI runs.
    Only successful, completed runs in this repository from main push or the main merge queue are
-   eligible. Their `ci-source-evidence` artifact binds source, tree, event, run and attempt, selected
+   eligible. Their `ci-source-evidence-<attempt>` artifact binds source, tree, event, run and attempt, selected
    coverage and successful coverage. Every selected job must have succeeded. Provider run identity
    and its Git commit tree are checked separately through GitHub's API. Attempt-specific provider
    jobs must independently show a successful Coverage plan, CI Gate and every artifact-selected job,
