@@ -85,8 +85,11 @@ def wait_run(repo, run_id, sha, event, attempt, timeout, *, read=read_api,
                 if (len(jobs) != data['total_count'] or len(gates) != 1 or
                         any(job['status'] != 'completed' for job in jobs)):
                     return {**identity, 'outcome': 'incomplete-jobs'}
-                success = run.get('conclusion') == 'success' and all(
-                    job.get('conclusion') == 'success' for job in jobs)
+                # The real gate validates selected coverage. An excluded sibling is
+                # skipped coverage, not a passing application check.
+                success = (run.get('conclusion') == 'success' and
+                           gates[0].get('conclusion') == 'success' and all(
+                               job.get('conclusion') in ('success', 'skipped') for job in jobs))
                 return {**identity, 'outcome': 'success' if success else 'failure',
                         'jobs': [{'name': job['name'], 'conclusion': job.get('conclusion')} for job in jobs]}
             last_error = None

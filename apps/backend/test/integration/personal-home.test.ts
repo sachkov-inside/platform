@@ -889,6 +889,31 @@ describe("Personal Home on PostgreSQL", () => {
       value: { total: 1, read: 0 },
     });
   });
+  test("Product onboarding remembers learning started after a real lesson open", async () => {
+    const accountId = randomUUID();
+    const collection = await series();
+    const first = await material("free", false, [collection.id]);
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+      ok: true,
+      value: { started: false },
+    });
+    await open(accountId, first);
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+      ok: true,
+      value: { started: true },
+    });
+    await materials.authoring.transitionPublication({
+      actor,
+      materialId: first.materialId,
+      expectedContentVersion: first.contentVersion,
+      idempotencyKey: randomUUID(),
+      publicationState: "unpublished",
+    });
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({
+      ok: true,
+      value: { started: true, total: 0 },
+    });
+  });
   test("series resumes the latest visit, advances after completion, skips locked items and wraps to unfinished entries", async () => {
     const accountId = randomUUID();
     const collection = await series();

@@ -20,6 +20,10 @@
     "./published-catalog": {
       "types": "./dist/runtime/published-catalog.d.ts",
       "default": "./dist/runtime/published-catalog.js"
+    },
+    "./payment-audit": {
+      "types": "./dist/runtime/payment-audit.d.ts",
+      "default": "./dist/runtime/payment-audit.js"
     }
   },
   "files": [

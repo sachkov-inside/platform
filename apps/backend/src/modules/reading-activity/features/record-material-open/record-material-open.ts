@@ -137,6 +137,15 @@ export async function recordMaterialOpen(
           create: { ...pair, firstOpenedAt: now, lastOpenedAt: now },
           update: { lastOpenedAt: now },
         });
+        for (const productId of facts.value.productIds ?? []) {
+          await transaction.productLearningStarted.upsert({
+            where: {
+              accountId_productId: { accountId: command.accountId, productId },
+            },
+            create: { accountId: command.accountId, productId, startedAt: now },
+            update: {},
+          });
+        }
         const outcome = { openedAt: visit.lastOpenedAt.toISOString() };
         await transaction.readingCommand.create({
           data: {

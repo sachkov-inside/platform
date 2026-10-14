@@ -50,7 +50,7 @@ it("reads a guest sale without a session or a personal access request", async ()
     cohort: null,
     access: "closed",
     signedIn: false,
-    terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
+    terms: { materialsMonths: null, chatMonths: undefined, supportMonths: 3 },
   });
   expect(boundary.offers).toHaveBeenCalledWith(
     { capability: `product:${productId}`, limit: 50 },
@@ -140,7 +140,7 @@ it("caches only the guest terms after a personal sale read", async () => {
     await import("@/features/billing-checkout.terms.server");
   expect(await readPublicProductOfferTerms(productId)).toEqual({
     kind: "ready",
-    terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
+    terms: { materialsMonths: null, chatMonths: undefined, supportMonths: 3 },
   });
   expect(boundary.offers).toHaveBeenLastCalledWith(
     { capability: `product:${productId}`, limit: 50 },

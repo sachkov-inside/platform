@@ -1,13 +1,7 @@
 "use client";
 import type { Route } from "next";
 
-import { BillingContactPanel } from "@/features/billing-contact";
-import { TelegramLinkAction } from "@/features/account-access";
-import { CommunityEntryPanel } from "@/features/community-entry";
-import {
-  PurchasesPanel,
-  useBillingSessionExpired,
-} from "@/features/billing-subscription";
+import { PurchasesPanel } from "@/features/billing-subscription";
 import {
   AccountSectionHeader,
   useSubscriptionOffered,
@@ -15,14 +9,8 @@ import {
 
 const storefrontHref: Route = "/payment/checkout";
 
-/**
- * Раздел «Покупки»: что доступно и по какому основанию, как попасть в сообщество,
- * куда придёт чек, какой картой платим и что уже списано. Подтверждение email живёт
- * здесь же — это часть одной задачи.
- */
+/** Products and their current access stay separate from financial history. */
 export function AccountPurchasesPage() {
-  // Завершённая сессия объясняется один раз: форма контакта не повторяет ту же просьбу войти.
-  const sessionExpired = useBillingSessionExpired();
   // Пока подписку не продают, кабинет не зовёт на витрину, с которой нечего купить.
   const subscriptionOffered = useSubscriptionOffered();
 
@@ -30,14 +18,6 @@ export function AccountPurchasesPage() {
     <div>
       <AccountSectionHeader section="purchases" />
       <PurchasesPanel
-        {...(sessionExpired
-          ? {}
-          : {
-              communitySlot: (
-                <CommunityEntryPanel TelegramAction={TelegramLinkAction} />
-              ),
-              contactSlot: <BillingContactPanel />,
-            })}
         storefrontHref={subscriptionOffered ? storefrontHref : undefined}
       />
     </div>

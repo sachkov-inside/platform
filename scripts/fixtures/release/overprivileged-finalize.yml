@@ -3,6 +3,7 @@ jobs:
   plan:
     permissions:
       contents: read
+      actions: read
   ci:
     permissions:
       contents: read

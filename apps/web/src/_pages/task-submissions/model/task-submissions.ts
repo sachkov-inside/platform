@@ -148,6 +148,7 @@ export const taskSubmissionsSchema = z
         .strict(),
     ),
     nextCursor: z.string().nullable(),
+    nextProductCursor: z.string().nullable(),
   })
   .strict();
 
@@ -210,6 +211,7 @@ export function selectionHref(
   selection: SubmissionSelection,
   cursor?: string,
   submissionId?: string,
+  productCursor?: string,
 ): string {
   const query = new URLSearchParams();
   if (selection.productId !== undefined)
@@ -219,6 +221,7 @@ export function selectionHref(
   if (selection.taskCode !== undefined) query.set("task", selection.taskCode);
   if (cursor !== undefined) query.set("cursor", cursor);
   if (submissionId !== undefined) query.set("submission", submissionId);
+  if (productCursor !== undefined) query.set("productCursor", productCursor);
   const text = query.toString();
   return text === "" ? submissionsHref : `${submissionsHref}?${text}`;
 }

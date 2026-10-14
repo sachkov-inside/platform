@@ -75,6 +75,43 @@ describe("Logto access token verifier", () => {
     }
   });
 
+  test("receipt-only claims are available to checkout and cannot establish an Account", async () => {
+    const verifier = localVerifier(publicJwk);
+    const token = await signToken(
+      { inside_receipt_email: "Receipt@Example.Test" },
+      { insideVerifiedEmail: undefined },
+    );
+    await expect(verifier.verifyAccount(token)).resolves.toMatchObject({
+      ok: true,
+      receiptEmail: "receipt@example.test",
+    });
+    await expect(verifier.verifyAccountSignIn(token)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_proof" },
+    });
+  });
+
+  test("exposes only a validated receipt email from the signed Account token", async () => {
+    const verifier = localVerifier(publicJwk);
+    await expect(
+      verifier.verifyAccount(
+        await signToken({
+          inside_verified_email: "Buyer@Example.Test",
+        }),
+      ),
+    ).resolves.toMatchObject({ ok: true, receiptEmail: "buyer@example.test" });
+    const telegram = await verifier.verifyAccount(
+      await signToken(
+        {},
+        {
+          insideVerifiedEmail: undefined,
+        },
+      ),
+    );
+    expect(telegram).toMatchObject({ ok: true });
+    expect(telegram).not.toHaveProperty("receiptEmail");
+  });
+
   test("normalizes a verified human sign-in and discards provider authorization", async () => {
     const token = await signToken({
       inside_verified_email: "Member@Example.Test",
@@ -110,7 +147,8 @@ describe("Logto access token verifier", () => {
       expiresAt: now + 300,
     });
     expect(JSON.stringify(accountResult)).not.toContain("admin");
-    expect(JSON.stringify(accountResult)).not.toContain("member");
+    expect(accountResult).not.toHaveProperty("roles");
+    expect(accountResult).not.toHaveProperty("permissions");
   });
 
   test.each([

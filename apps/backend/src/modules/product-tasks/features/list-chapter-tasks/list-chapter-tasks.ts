@@ -1,3 +1,4 @@
+import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
@@ -12,9 +13,19 @@ import {
   type SystemError,
 } from "../../shared/result.js";
 
-// A Product holds a few dozen tasks; the bounds only stop a runaway programme.
-const MAX_TASKS = 500;
+// Bound persistence pages without truncating the complete programme composition.
+const TASK_PAGE_SIZE = 100;
 const LOOKUP_BATCH = 100;
+
+const taskListSelect = {
+  id: true,
+  code: true,
+  title: true,
+  chapterId: true,
+  position: true,
+  access: true,
+  afterMaterialSourceId: true,
+} as const;
 
 export const chapterTasksQuerySchema = z
   .object({ productId: z.uuid() })
@@ -58,10 +69,42 @@ export async function listChapterTasks(
     return { ok: false, error: { code: "invalid_request_shape" } };
   const productId = parsed.data.productId;
   try {
-    const rows = await dependencies.prisma.productTask.findMany({
-      where: { productId, publicationState: "published" },
-      orderBy: [{ chapterId: "asc" }, { position: "asc" }, { code: "asc" }],
-      take: MAX_TASKS,
+    // Keep the same source snapshot across bounded persistence pages; authorize after it closes.
+    const rows = await dependencies.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(
+        Prisma.sql`set transaction isolation level repeatable read`,
+      );
+      let page = await transaction.productTask.findMany({
+        select: taskListSelect,
+        where: { productId, publicationState: "published" },
+        orderBy: [{ chapterId: "asc" }, { position: "asc" }, { code: "asc" }],
+        take: TASK_PAGE_SIZE,
+      });
+      const rows = [...page];
+      while (page.length === TASK_PAGE_SIZE) {
+        const last = page.at(-1);
+        if (last === undefined) break;
+        page = await transaction.productTask.findMany({
+          select: taskListSelect,
+          where: {
+            productId,
+            publicationState: "published",
+            OR: [
+              { chapterId: { gt: last.chapterId } },
+              { chapterId: last.chapterId, position: { gt: last.position } },
+              {
+                chapterId: last.chapterId,
+                position: last.position,
+                code: { gt: last.code },
+              },
+            ],
+          },
+          orderBy: [{ chapterId: "asc" }, { position: "asc" }, { code: "asc" }],
+          take: TASK_PAGE_SIZE,
+        });
+        rows.push(...page);
+      }
+      return rows;
     });
     if (rows.length === 0) return { ok: true, value: { tasks: [] } };
     const availabilityById = new Map<

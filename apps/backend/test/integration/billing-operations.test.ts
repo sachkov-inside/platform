@@ -440,7 +440,9 @@ describe("владельческие операции billing: платежи, �
         value: {
           id: offerId,
           name: "Материалы и сопровождение",
-          benefits: [...(options.benefits ?? ["materials", "support"])],
+          benefits: [
+            ...(options.benefits ?? ["materials", "community", "support"]),
+          ],
           // Продаваемый тариф открывает только явный состав; разовое предложение продукта его не несёт.
           ...(options.benefits?.some((benefit) =>
             benefit.startsWith("product:"),
@@ -539,7 +541,7 @@ describe("владельческие операции billing: платежи, �
       if (!accepted.ok) throw new Error(accepted.error.code);
       return accepted.evidenceRefs;
     }
-    async function reserve() {
+    async function reserve(acknowledgeExistingAccess = false) {
       const quote = value(
         await fixturePricing.quote(
           buyer,
@@ -558,12 +560,12 @@ describe("владельческие операции billing: платежи, �
           consentEvidenceRefs: await consentFor(quote.quoteRef, {
             snapshot: quote.snapshot,
           }),
-          acknowledgeExistingAccess: false,
+          acknowledgeExistingAccess,
         }),
       );
     }
-    async function buy() {
-      const purchase = await reserve();
+    async function buy(acknowledgeExistingAccess = false) {
+      const purchase = await reserve(acknowledgeExistingAccess);
       expect(
         await payments.notification(
           bank.notify(purchase.purchaseRef, "AUTHORIZED", {
@@ -592,7 +594,7 @@ describe("владельческие операции billing: платежи, �
               source: "manual",
               sourceRef: `product-${productId}`,
               terms: {
-                capabilities: [`product:${productId}`],
+                capabilities: [`product:${productId}`, "community"],
                 startsAt: "2030-01-01T00:00:00Z",
                 validUntil: null,
                 reason: "Курс полностью пройден",
@@ -1512,7 +1514,7 @@ describe("владельческие операции billing: платежи, �
         where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null });
-    await s.buy();
+    await s.buy(true);
     value(await s.payments.recover());
     const paid = await db.prisma.accessGrant.findFirstOrThrow({
       where: { accountId: s.buyer, source: "paid" },

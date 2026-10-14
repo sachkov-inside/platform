@@ -35,46 +35,15 @@ describe("access capabilities", () => {
     expect(isProductCapability(built)).toBe(true);
   });
 
-  test("a bought product opens the community chat, a subscription benefit opens only itself", () => {
-    expect(capabilitiesOpenedBy(product)).toEqual([product, "community"]);
-    expect(capabilitiesOpenedBy("materials")).toEqual(["materials"]);
-    expect(isProductCapability(product)).toBe(true);
-    expect(isProductCapability("community")).toBe(false);
-  });
-
-  // Витрина называет состав до покупки, сервер выдаёт его после: оба зовут этот вывод, поэтому
-  // обещанное и выданное совпадают по построению, а не по совпадению двух описаний.
-  test("the composition of a set is the same rule applied to every capability", () => {
-    expect(accessComposition([product])).toEqual([product, "community"]);
+  test("a Product and support do not imply community access", () => {
+    expect(capabilitiesOpenedBy(product)).toEqual([product]);
+    expect(capabilitiesOpenedBy("support")).toEqual(["support"]);
+    expect(accessComposition([product, "support"])).toEqual([
+      product,
+      "support",
+    ]);
     expect(accessComposition([product, "community"])).toEqual([
       product,
-      "community",
-    ]);
-    expect(accessComposition(["community", product])).toEqual([
-      "community",
-      product,
-    ]);
-    expect(accessComposition(["materials", "support"])).toEqual([
-      "materials",
-      "support",
-      "community",
-    ]);
-    expect(capabilitiesOpenedBy("support")).toEqual(["support", "community"]);
-    expect(accessComposition([])).toEqual([]);
-    // Купленное идёт первым, а то, что к нему прилагается, — следом: этот порядок человек читает
-    // на витрине, и он не должен зависеть от того, где в наборе стоит право на руководство.
-    expect(accessComposition([product, "reviews"])).toEqual([
-      product,
-      "reviews",
-      "community",
-    ]);
-  });
-
-  test("the composition never repeats a capability the set already names", () => {
-    const second = "product:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
-    expect(accessComposition([product, second])).toEqual([
-      product,
-      second,
       "community",
     ]);
   });
@@ -141,10 +110,9 @@ describe("access capabilities", () => {
     const second = "product:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
     expect(
       capabilitiesOpening("community", [product, "materials", second]),
-    ).toEqual([product, second]);
+    ).toEqual([]);
     expect(capabilitiesOpening("community", ["community", product])).toEqual([
       "community",
-      product,
     ]);
     expect(capabilitiesOpening("community", ["materials"])).toEqual([]);
     expect(capabilitiesOpening("materials", [product, "materials"])).toEqual([

@@ -90,9 +90,11 @@ the migration that creates its view.
 `pnpm telemetry:measure` owns an isolated PostgreSQL 18.4 container limited to two CPUs and 1 GiB.
 The image uses the canonical immutable ECR digest. The command verifies the effective Docker CPU
 and memory limits and includes the actual checkout SHA, image ID and Node version in its raw JSON.
-Integration CI runs it without changing the corpus or thresholds, and retains both successful and
-failed raw logs in `telemetry-resource-*`. `source-sha.txt` records the actual checkout: on a PR it
-can be a synthetic merge SHA. Only evidence matching the release SHA can satisfy release preflight.
+It remains a manual diagnostic command. Accepted CI/CD decision #1430 removes its automated
+execution and mandatory release budget gate. Functional telemetry tests remain in application
+coverage. Historical `telemetry-resource-*` artifacts and the p75 failure tracked in #1386 remain
+evidence; removing a gate does not resolve that failure. The raw JSON records the actual checkout
+SHA; it must not be relabelled as another source's measurement.
 It fills 600,000 vital samples and 150,000 errors using diverse 500-code-point, four-byte messages,
 then runs 32 daily insertion/30-day-cleanup cycles through the actual quota/coverage routines.
 Initial bulk preparation uses ordinary vacuum for sample visibility. Query adapters initialize
@@ -121,7 +123,6 @@ not allowed by the current release contract, even with compatible old queries. F
 migration requires repair forward. The production Compose smoke owns fresh, prefix-upgrade and
 frozen N-1 query proofs.
 
-API RSS relative to the previous application and production available memory belong to resource
-verification. After the orchestrator announces deployment, check available server memory remains
+Manual resource investigation can compare API RSS with the previous application. After the orchestrator announces deployment, check available server memory remains
 at least 1 GiB, telemetry ingestion, retention completion and read-only MCP output. Merge and release
 remain with the orchestrator for this task.

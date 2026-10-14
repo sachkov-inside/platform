@@ -11,6 +11,12 @@ import {
   ProductProgrammeView,
   programmePurchase,
 } from "./product-programme-view";
+import { ProductProgrammeOnboarding } from "./product-programme-onboarding.client";
+import {
+  materialReaderHref,
+  seriesReaderReturnHref,
+} from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { SeriesLearningSource } from "./series-learning.client";
 
 /** Личная часть программы: состав глазами читателя рисует сервер, прогресс продолжает браузер. */
@@ -54,13 +60,31 @@ export async function PersonalSeries({
         }
         slug={result.reference.slug}
       >
-        <ProductProgrammeView
-          artifacts={artifacts}
-          preorder={preorder}
-          productOffer={productOffer}
-          result={result}
-          subscriptionOffered={subscriptionOffered}
-        />
+        <ProductProgrammeOnboarding
+          accountId={accountId}
+          productId={result.reference.id}
+          productName={result.reference.name}
+          firstLessonHref={
+            result.kind === "ready" && result.items[0] !== undefined
+              ? materialReaderHref(
+                  result.items[0].slug,
+                  seriesReaderReturnHref(
+                    productProgrammeHref(result.reference.slug),
+                    1,
+                    result.items[0].slug,
+                  ),
+                )
+              : null
+          }
+        >
+          <ProductProgrammeView
+            artifacts={artifacts}
+            preorder={preorder}
+            productOffer={productOffer}
+            result={result}
+            subscriptionOffered={subscriptionOffered}
+          />
+        </ProductProgrammeOnboarding>
       </SeriesLearningSource>
     </HydrationBoundary>
   );

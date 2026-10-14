@@ -41,6 +41,16 @@ function billingRefreshInterval(
   if (result === undefined) return false;
   if (!result.ok)
     return result.code === "unauthorized" ? false : unavailableRetryIntervalMs;
+  if (
+    result.value.payments.some(
+      (payment) =>
+        payment.state !== "failed" &&
+        (payment.state !== "confirmed" ||
+          payment.access === "preparing" ||
+          payment.fiscalization === "pending"),
+    )
+  )
+    return unavailableRetryIntervalMs;
   const subscription = result.value.subscription;
   if (subscription === null) return false;
   return subscription.inFlightPayment !== null ||

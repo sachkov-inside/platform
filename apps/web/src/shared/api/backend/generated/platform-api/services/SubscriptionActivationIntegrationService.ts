@@ -495,6 +495,13 @@ export class SubscriptionActivationIntegrationService {
       grounds: Array<{
         active: boolean;
         capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
         source: 'paid' | 'manual' | 'legacy';
         startsAt: string;
         validUntil: string | null;

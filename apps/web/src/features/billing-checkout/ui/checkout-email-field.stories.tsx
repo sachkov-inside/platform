@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>;
 export const Editable: Story = {
   play: async ({ canvasElement, args }) => {
     const email = within(canvasElement).getByRole("textbox", {
-      name: "Email для чека",
+      name: "Email",
     });
     await userEvent.type(email, "buyer@example.test");
     await expect(email).toHaveValue("buyer@example.test");

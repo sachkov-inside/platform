@@ -330,7 +330,7 @@ describe("локальная продажа через двойника банк
           value: {
             id: productOffer,
             name: "Руководство «Стенд»",
-            benefits: [capability, "support"],
+            benefits: [capability, "community", "support"],
             benefitPeriods: [
               { capability, months: null },
               { capability: "support", months: 6 },

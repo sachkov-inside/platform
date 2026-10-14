@@ -36,7 +36,7 @@ const retainedReleaseSchema = z.object({
 const planInputSchema = z.object({
   requestedVersion: z.string(),
   sourceSha: z.string(),
-  currentMainSha: z.string(),
+  capturedMainSha: z.string(),
   legacyTags: z.array(z.string()),
   legacyReleases: z.array(retainedReleaseSchema),
   existingTags: z.array(z.string()),
@@ -76,8 +76,8 @@ export function planRelease(input) {
       );
     }
   }
-  if (input.sourceSha !== input.currentMainSha) {
-    throw new Error("captured source SHA is not the current main");
+  if (input.sourceSha !== input.capturedMainSha) {
+    throw new Error("captured source SHA is not the captured main");
   }
   if (ordinal !== nextOrdinal) {
     throw new Error(

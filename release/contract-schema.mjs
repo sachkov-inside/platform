@@ -101,7 +101,7 @@ const releasedOrdinalSchema = z.strictObject({
 export const releasePlanInputSchema = z.strictObject({
   requestedVersion: ordinalVersionSchema,
   sourceSha: sourceShaSchema,
-  currentMainSha: sourceShaSchema,
+  capturedMainSha: sourceShaSchema,
   existingTags: z.array(z.string().min(1)),
   existingReleases: z.array(releasedOrdinalSchema),
 });

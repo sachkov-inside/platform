@@ -25,6 +25,18 @@ for (const telegram of [false, true]) {
       ]);
     });
 
+    it("retains provider-captured main despite later main and rejects an unbound source", () => {
+      const accepted = runPlan(telegram, { CURRENT_MAIN_SHA: "b".repeat(40) });
+      assert.equal(accepted.status, 0, accepted.stderr);
+      for (const overrides of [
+        { CAPTURED_SHA: "b".repeat(40) },
+        { CAPTURED_BRANCH: "feature" },
+        { CAPTURED_PATH: ".github/workflows/other.yml" },
+      ]) {
+        assert.notEqual(runPlan(telegram, overrides).status, 0);
+      }
+    });
+
     it("requires settings credentials before calling GitHub", () => {
       const result = runPlan(telegram, { RELEASE_SETTINGS_READ_TOKEN: "" });
       assert.notEqual(result.status, 0);
@@ -73,7 +85,8 @@ if (settings) {
   if (credential !== "standard") process.exit(2);
   if (endpoint?.includes("inside-telegram/tags")) console.log(JSON.stringify([[1,2,3,4,5].map(n => ({name: "v" + n}))]));
   else if (endpoint?.includes("inside-telegram/releases")) console.log(JSON.stringify([[1,2,3,4,5].map(n => ({tag_name: "v" + n, draft: false, prerelease: false, immutable: true, target_commitish: "1".repeat(40), assets: ["compose.yaml", "release-manifest.json", "telegram.caddy"].map(name => ({name}))}))]));
-  else console.log(endpoint?.endsWith("/git/ref/heads/main") ? process.env.SOURCE_SHA : "[[]]");
+  else if (endpoint?.includes("/actions/runs/")) console.log(JSON.stringify({repository:{full_name:"sachkov-inside/platform"},event:"workflow_dispatch",head_branch:process.env.CAPTURED_BRANCH ?? "main",head_sha:process.env.CAPTURED_SHA ?? process.env.SOURCE_SHA,path:process.env.CAPTURED_PATH ?? ".github/workflows/release.yml"}));
+  else console.log("[[]]");
 }
 `,
     { mode: 0o755 },
@@ -94,6 +107,7 @@ if (settings) {
           PATH: `${directory}:${process.env["PATH"]}`,
           GH_TOKEN: "workflow-token",
           RELEASE_SETTINGS_READ_TOKEN: "settings-read",
+          GITHUB_RUN_ID: "123",
           GITHUB_REPOSITORY: "sachkov-inside/platform",
           REQUESTED_VERSION: telegram ? "v6" : "v1",
           SOURCE_SHA: "a".repeat(40),

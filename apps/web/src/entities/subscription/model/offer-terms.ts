@@ -9,7 +9,7 @@ import type { BillingOffer, BillingPaymentOption } from "./billing-contract";
  */
 export interface OneTimeOfferTerms {
   readonly materialsMonths: number | null;
-  readonly chatMonths: number | null;
+  readonly chatMonths: number | null | undefined;
   readonly supportMonths?: number | null;
 }
 
@@ -31,13 +31,11 @@ export function oneTimeOfferTerms(conditions: {
     materials.length === 0
       ? null
       : longestTerm(materials.map(({ months }) => months));
-  const ownChat = conditions.offer.benefitPeriods?.find(
-    ({ capability }) => capability === "community",
-  );
+  const ownChat = terms.find(({ capability }) => capability === "community");
   const support = terms.find(({ capability }) => capability === "support");
   return {
     materialsMonths,
-    chatMonths: ownChat === undefined ? materialsMonths : ownChat.months,
+    chatMonths: ownChat?.months,
     ...(support === undefined ? {} : { supportMonths: support.months }),
   };
 }

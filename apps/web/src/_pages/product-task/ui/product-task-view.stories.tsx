@@ -441,3 +441,33 @@ export const ImageVariantsMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
 };
+
+function olderHistory() {
+  if (submittedTwice.kind !== "ready")
+    throw new Error("Expected submitted fixture");
+  const oldest = submittedTwice.submissions.at(-1);
+  if (oldest === undefined) throw new Error("Expected oldest attempt");
+  return {
+    ...submittedTwice,
+    continued: true,
+    nextCursor: "opaque-older",
+    submissions: [oldest],
+  };
+}
+
+export const OlderAttempts: Story = {
+  args: { submissions: olderHistory() },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("link", { name: "Предыдущие сдачи" }),
+    ).toHaveAttribute(
+      "href",
+      `${returnTo}?attemptsAfter=opaque-older#task-mine`,
+    );
+    await expect(
+      page.getByRole("link", { name: "К новым сдачам" }),
+    ).toHaveAttribute("href", `${returnTo}#task-mine`);
+    await expect(page.getByText("Сдано 5 октября")).toBeVisible();
+  },
+};

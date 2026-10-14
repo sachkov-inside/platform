@@ -11,6 +11,8 @@ import {
 import { BillingContact } from "../accounts/index.js";
 import {
   ACCESS_GRANTS,
+  COVERAGE_CATALOG,
+  type CoverageCatalog,
   TributeSources,
   AccountRightsModule,
   type AccessGrants,
@@ -90,13 +92,16 @@ const BILLING_BANK = Symbol("BillingBank");
         BillingContact,
         ACCESS_GRANTS,
         BILLING_BANK,
+        COVERAGE_CATALOG,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         contact: BillingContact,
         grants: AccessGrants,
         bank: Tbank | undefined,
-      ) => new BillingPayments({ prisma, contact, grants, bank }),
+        contentCatalog: CoverageCatalog,
+      ) =>
+        new BillingPayments({ prisma, contact, grants, bank, contentCatalog }),
     },
     {
       provide: BillingNotices,
