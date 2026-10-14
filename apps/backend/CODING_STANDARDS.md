@@ -111,6 +111,11 @@ not dependency wiring.
 
 ## REST and authentication
 
+- A bounded list makes exhaustion and continuation explicit. A consumer that promises complete
+  choices follows the owning cursor rather than treating the first page as the whole catalog.
+  Cursor schemas admit every continuation produced from accepted sort keys, including serialized
+  UTF-8/JSON expansion; the cursor retains its filter/sort scope and stable tuple order.
+
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.
 - Name the fields of a response body one by one. A spread publishes whatever its source gains next;

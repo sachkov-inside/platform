@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import {
   listActivationRules,
-  listSubscriptionTiers,
+  listAllSubscriptionTiers,
   saveActivationRule,
 } from "../api/enrollments.browser";
 import { saveRuleInputSchema } from "../model/enrollment-operations";
@@ -30,10 +30,7 @@ export function ActivationRulesPanel() {
   const tiers = useQuery({
     queryKey: ["owner-subscription-tiers"],
     queryFn: async () => {
-      const result = await listSubscriptionTiers({
-        operationId: crypto.randomUUID(),
-        limit: 100,
-      });
+      const result = await listAllSubscriptionTiers();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
       return result.value.result.items;
     },

@@ -90,12 +90,21 @@ export async function loadProductCohorts(): Promise<
   | { readonly kind: "unavailable" }
 > {
   try {
-    const result = await requestProductCohorts();
-    if (!result.ok) return { kind: "unavailable" };
-    const parsed = productCohortsSchema.safeParse(result.body);
-    return parsed.success
-      ? { kind: "ready", cohorts: parsed.data.items }
-      : { kind: "unavailable" };
+    const cohorts: ProductCohort[] = [];
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    for (;;) {
+      const result = await requestProductCohorts(undefined, cursor);
+      if (!result.ok) return { kind: "unavailable" };
+      const parsed = productCohortsSchema.safeParse(result.body);
+      if (!parsed.success) return { kind: "unavailable" };
+      cohorts.push(...parsed.data.items);
+      const nextCursor = parsed.data.nextCursor ?? null;
+      if (nextCursor === null) return { kind: "ready", cohorts };
+      if (seen.has(nextCursor)) return { kind: "unavailable" };
+      seen.add(nextCursor);
+      cursor = nextCursor;
+    }
   } catch {
     return { kind: "unavailable" };
   }
@@ -108,12 +117,19 @@ export async function loadProductCohort(
   | { readonly kind: "ready"; readonly cohort: ProductCohort | null }
   | { readonly kind: "unavailable" }
 > {
-  const result = await loadProductCohorts();
-  return result.kind === "unavailable"
-    ? result
-    : {
-        kind: "ready",
-        cohort:
-          result.cohorts.find((item) => item.productId === productId) ?? null,
-      };
+  try {
+    const result = await requestProductCohorts(productId);
+    if (!result.ok) return { kind: "unavailable" };
+    const parsed = productCohortsSchema.safeParse(result.body);
+    return parsed.success
+      ? {
+          kind: "ready",
+          cohort:
+            parsed.data.items.find((item) => item.productId === productId) ??
+            null,
+        }
+      : { kind: "unavailable" };
+  } catch {
+    return { kind: "unavailable" };
+  }
 }
