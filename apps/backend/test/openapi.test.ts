@@ -175,7 +175,7 @@ describe("OpenAPI contract", () => {
         in: "query",
         name: "after",
         required: false,
-        schema: { maxLength: 512, minLength: 1, type: "string" },
+        schema: { maxLength: 2048, minLength: 1, type: "string" },
       },
       {
         in: "query",
