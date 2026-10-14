@@ -25,20 +25,28 @@ export async function validateTargets(
         );
     }
   }
-  const errors: z.infer<typeof targetErrorSchema>[] = [];
-  for (const value of urls) {
+  const candidates = [...urls].flatMap((value) => {
     const url = URL.parse(value.includes("://") ? value : `https://${value}`);
-    if (!url || url.origin !== origin) continue;
+    if (!url || url.origin !== origin) return [];
     const target = PublicContentTargets.parseUrl(url);
-    if (target === null) continue;
-    if (target === "invalid") {
-      errors.push({ url: url.href, reason: "not_found", targetId: null });
+    return target === null ? [] : [{ url: url.href, target }];
+  });
+  const results = await targets.checkMany(
+    candidates.flatMap(({ target }) => (target === "invalid" ? [] : [target])),
+  );
+  const errors: z.infer<typeof targetErrorSchema>[] = [];
+  let index = 0;
+  for (const candidate of candidates) {
+    if (candidate.target === "invalid") {
+      errors.push({ url: candidate.url, reason: "not_found", targetId: null });
       continue;
     }
-    const result = await targets.check(target);
+    const result = results[index++];
+    if (result === undefined)
+      throw new Error("Public target set omitted a result");
     if (result.reason !== "eligible")
       errors.push({
-        url: url.href,
+        url: candidate.url,
         reason: result.reason,
         targetId: result.targetId,
       });
