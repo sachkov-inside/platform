@@ -107,7 +107,7 @@ fail the build. This local input does not enable production providers or bypass 
 | Material/Profile workers | database and Object Storage values | per-process `PlatformConfig` validation |
 | Video deletion worker | database and Kinescope values | per-process `PlatformConfig` validation |
 | Billing worker | database, payment terminal, billing contact and community values | per-process `PlatformConfig` validation and sale configuration at startup |
-| Notifications worker | database, broker URL map and CA, reader origin, dispatch secret and billing contact | `PlatformConfig.notifications` and `PlatformConfig.notificationDelivery` |
+| Notifications worker | database, broker URL map and CA, reader origin, dispatch secret, billing contact and payment terminal for purchase email decryption | `PlatformConfig.notifications`, `PlatformConfig.notificationDelivery` and `PlatformConfig.tbank` |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
 | Database foundation | PostgreSQL, Logto database and pgBackRest values | `config/production/foundation/` |
 | Deployment transport | SSH host, restricted user/key and pinned host keys | protected GitHub Environment `Production` |

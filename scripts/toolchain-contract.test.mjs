@@ -864,6 +864,19 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("configures purchase email decryption in the production notification worker", () => {
+    /** @param {string} path */
+    const terminal = (path) =>
+      read(path).match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
+    const apiTerminal = terminal("config/compose/production/api.env.example");
+    assert.ok(apiTerminal, "the API template must declare its payment terminal");
+    assert.equal(
+      terminal("config/compose/production/notifications-worker.env.example"),
+      apiTerminal,
+      "purchase notification email must use the same terminal binding key as the API",
+    );
+  });
+
   it("keeps the local sale on the stand contour", () => {
     // Контур приложения не виден живым ответом: открытых endpoint с ним нет, а покупка требует
     // входа. Поэтому его держит конфигурация, и она проверяется здесь, а не смоуком стенда.
