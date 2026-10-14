@@ -37,7 +37,7 @@ function intentSettled(page: Page): Promise<Request> {
       const headers = request.headers();
       if (
         new URL(request.url()).pathname !== taskPath ||
-        headers["next-router-prefetch"] !== "3" ||
+        headers["next-router-prefetch"] === undefined ||
         headers["next-router-segment-prefetch"] !== undefined
       )
         return;
@@ -47,6 +47,30 @@ function intentSettled(page: Page): Promise<Request> {
     };
     page.on("requestfinished", settled);
     page.on("requestfailed", settled);
+  });
+}
+
+/** RuntimeShell must finish before intent upgrades the task to its public page projection. */
+async function installShellProbe(page: Page) {
+  await page.addInitScript(() => {
+    const shells: string[] = [];
+    Reflect.set(window, "__taskPrefetchedShells", shells);
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
+      const response = nativeFetch(input, init);
+      if (headers.get("next-router-prefetch") === "3") {
+        void response
+          .then(async (answer) => {
+            await answer.clone().arrayBuffer();
+            if (answer.ok) shells.push(new URL(answer.url).pathname);
+          })
+          .catch(() => undefined);
+      }
+      return response;
+    };
   });
 }
 
@@ -87,15 +111,29 @@ test("task intent retains the public course frame while personal requirements wa
 }, testInfo) => {
   if (baseURL === undefined) throw new Error("baseURL is required");
   await context.addCookies([await memberCookie(baseURL)]);
+  await installShellProbe(page);
   await page.goto(programme);
   const taskLink = page.getByRole("link", {
     name: "Закрытое задание",
     exact: true,
   });
   await expect(taskLink).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate((): unknown =>
+        Reflect.get(window, "__taskPrefetchedShells"),
+      ),
+    )
+    .toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^\/products\/navigation-tasks\/tasks\/[^/]+$/u),
+      ]),
+    );
   const before = (await taskRequests()).length;
   const settled = intentSettled(page);
-  await taskLink.hover();
+  if (testInfo.project.name === "mobile-chromium")
+    await taskLink.dispatchEvent("touchstart");
+  else await taskLink.hover();
   const prefetch = await settled;
   const headers = prefetch.headers();
   const replay = await context.request.get(prefetch.url(), {
