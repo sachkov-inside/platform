@@ -95,7 +95,7 @@ type SubscriptionRow = Awaited<
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
-  readonly contact: Pick<BillingContact, "read" | "readConsent">;
+  readonly contact: Pick<BillingContact, "read" | "readConsents">;
   readonly grants: Pick<
     AccessGrants,
     "readLegacyClassification" | "readOwnAccess" | "readPurchaseGrounds"

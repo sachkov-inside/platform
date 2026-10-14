@@ -107,40 +107,59 @@ export class BillingContact {
     accountId: string,
     evidenceRef: string,
   ): Promise<ReadConsentResult> {
+    const [result] = await this.readConsents(accountId, [evidenceRef]);
+    return result ?? contactFailure("not_found");
+  }
+
+  /** Account-scoped payment evidence set; results retain the requested order and omissions. */
+  async readConsents(
+    accountId: string,
+    evidenceRefs: readonly string[],
+  ): Promise<readonly ReadConsentResult[]> {
     if (!z.uuid().safeParse(accountId).success)
-      return contactFailure("forbidden");
-    if (!z.uuid().safeParse(evidenceRef).success)
-      return contactFailure("not_found");
+      return evidenceRefs.map(() => contactFailure("forbidden"));
+    const validRefs = [
+      ...new Set(evidenceRefs.filter((ref) => z.uuid().safeParse(ref).success)),
+    ];
+    if (validRefs.length === 0)
+      return evidenceRefs.map(() => contactFailure("not_found"));
     try {
-      const row = await this.dependencies.prisma.legalAcceptance.findFirst({
-        // First sign-in acceptances have no payment context and never stand in for a payment consent.
-        where: { id: evidenceRef, accountId, contextRef: { not: null } },
+      const rows = await this.dependencies.prisma.legalAcceptance.findMany({
+        // Sign-in evidence has no payment context and cannot stand in for payment consent.
+        where: { id: { in: validRefs }, accountId, contextRef: { not: null } },
       });
-      if (!hasText(row?.contextRef)) return contactFailure("not_found");
-      return {
-        ok: true,
-        evidence: {
-          evidenceRef: row.id,
-          contextRef: row.contextRef,
-          buttonLabel: row.buttonLabel,
-          shownTerms: shownRenewalTermsSchema.nullable().parse(row.shownTerms),
-          acceptedAt: row.acceptedAt.toISOString(),
-          document: acceptedLegalDocumentSchema.parse({
-            kind: row.kind,
-            documentId: row.documentId,
-            version: row.documentVersion,
-            digest: row.documentDigest,
-            text: row.documentText,
-            url: row.documentUrl,
-          }),
-        },
-      };
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return evidenceRefs.map((ref): ReadConsentResult => {
+        const row = byId.get(ref);
+        if (!hasText(row?.contextRef)) return contactFailure("not_found");
+        return {
+          ok: true,
+          evidence: {
+            evidenceRef: row.id,
+            contextRef: row.contextRef,
+            buttonLabel: row.buttonLabel,
+            shownTerms: shownRenewalTermsSchema
+              .nullable()
+              .parse(row.shownTerms),
+            acceptedAt: row.acceptedAt.toISOString(),
+            document: acceptedLegalDocumentSchema.parse({
+              kind: row.kind,
+              documentId: row.documentId,
+              version: row.documentVersion,
+              digest: row.documentDigest,
+              text: row.documentText,
+              url: row.documentUrl,
+            }),
+          },
+        };
+      });
     } catch (error) {
-      return dependencyFailure(
-        { module: "accounts", operation: "readConsent" },
+      const failure = dependencyFailure(
+        { module: "accounts", operation: "readConsents" },
         error,
         contactFailure("internal_error"),
       );
+      return evidenceRefs.map(() => failure);
     }
   }
 

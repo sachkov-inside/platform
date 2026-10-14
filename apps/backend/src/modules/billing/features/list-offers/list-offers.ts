@@ -10,7 +10,7 @@ import {
   priceSnapshotSchema,
   type PricingResult,
 } from "../../domain/pricing.js";
-import { selectPrice } from "../../shared/select-price.js";
+import { selectPricesForOptions } from "../../shared/select-price.js";
 import { type PurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
@@ -89,14 +89,17 @@ export async function listOffers(
       },
       orderBy: { id: "asc" },
       take: limit + 1,
+      include: { offer: true },
     });
     const page = rows.slice(0, limit);
     const items = [];
     const now = clock();
+    const prices = await selectPricesForOptions(prisma, page, now, undefined, {
+      allowUnpublished: options.publishedOnly !== true,
+    });
     for (const row of page) {
-      const price = await selectPrice(prisma, row.id, now, undefined, {
-        allowUnpublished: options.publishedOnly !== true,
-      });
+      const price = prices.get(row.id);
+      if (price === undefined) continue;
       if (
         price.ok &&
         (options.grounds === undefined ||

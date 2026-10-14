@@ -84,7 +84,7 @@ const paymentInitiators: Record<AttemptKind, PaymentInitiator> = {
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
-  readonly contact: Pick<BillingContact, "read" | "readConsent">;
+  readonly contact: Pick<BillingContact, "read" | "readConsents">;
   readonly grants: Pick<
     AccessGrants,
     | "readCompatibilityCoverage"
@@ -220,10 +220,9 @@ export class BillingPayments {
       const email = orderEmail ?? contact.contact?.email;
       if (email === undefined) return paymentFailure("contact_required");
       const { email: _email, ...storedCommand } = command;
-      const consents = await Promise.all(
-        command.consentEvidenceRefs.map((ref) =>
-          this.dependencies.contact.readConsent(accountId, ref),
-        ),
+      const consents = await this.dependencies.contact.readConsents(
+        accountId,
+        command.consentEvidenceRefs,
       );
       if (
         consents.some(
