@@ -462,3 +462,59 @@ export const PersonalTaskPending: Story = {
     expect(canvasElement.querySelector("[data-product-task-form]")).toBeNull();
   },
 };
+
+function ReadyCourseTask({ sequence }: { readonly sequence: StagedLoading }) {
+  use(sequence.personalPart);
+  return (
+    <ProductTaskView
+      learnerMcpUrl={learnerMcpUrl}
+      page={openProductTask}
+      programme={courseTask}
+      returnTo={returnTo}
+      submissions={submittedTwice}
+    />
+  );
+}
+
+function courseLoadsInPlace({
+  globals,
+  width,
+}: StoryViewport): Pick<Story, "globals" | "loaders" | "render" | "play"> {
+  return {
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => (
+      <Suspense fallback={<ProductTaskPending programme={courseTask} />}>
+        <ReadyCourseTask sequence={stagedLoadingOf(loaded)} />
+      </Suspense>
+    ),
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const canvas = within(canvasElement);
+      await canvas.findByRole("status", { name: "Задание загружается" });
+      const navigation =
+        width === mobile.width
+          ? '[aria-label="Навигация по урокам"]'
+          : '[aria-label="Текущая глава"]';
+      const before = {
+        header: originOf(boxOf(canvasElement, "[data-task-header]")),
+        navigation: boxOf(canvasElement, navigation),
+        title: boxOf(canvasElement, "[data-reader-header] h1"),
+      };
+      stagedLoadingOf(loaded).deliverPersonalPart();
+      await canvas.findByRole("link", { name: "Сдать", exact: true });
+      expect(originOf(boxOf(canvasElement, "[data-task-header]"))).toEqual(
+        before.header,
+      );
+      expect(boxOf(canvasElement, navigation)).toEqual(before.navigation);
+      expect(boxOf(canvasElement, "[data-reader-header] h1")).toEqual(
+        before.title,
+      );
+    },
+  };
+}
+
+export const CourseLoadsInPlace: Story = { ...courseLoadsInPlace(desktop) };
+export const CourseLoadsInPlaceMobile: Story = {
+  ...courseLoadsInPlace(mobile),
+};

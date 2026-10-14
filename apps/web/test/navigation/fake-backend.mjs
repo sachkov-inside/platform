@@ -14,6 +14,11 @@ import { z } from "zod";
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
+import {
+  holdNavigationTasks,
+  navigationTaskRoute,
+  waitNavigationTask,
+} from "./task-navigation.fixtures.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -374,6 +379,8 @@ function collection(entitled) {
  * @returns {JsonResult | ImageResult | undefined}
  */
 function route(method, url, entitled) {
+  const taskNavigation = navigationTaskRoute(url, entitled);
+  if (taskNavigation !== undefined) return taskNavigation;
   const path = url.pathname;
   if (method !== "GET") return undefined;
   if (path === "/library/home") {
@@ -831,6 +838,15 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  if (url.pathname === "/__task-navigation-hold" && request.method === "POST") {
+    const { hold } = z
+      .object({ hold: z.boolean() })
+      .strict()
+      .parse(JSON.parse(await readBody(request)));
+    holdNavigationTasks(hold);
+    send(200, { hold });
+    return;
+  }
   const submissions = await taskSubmissionsRoute(request, url, readBody);
   if (submissions !== null) {
     send(submissions.status, submissions.value);
@@ -872,6 +888,7 @@ const server = createServer(async (request, response) => {
     method: request.method,
     path: `${url.pathname}${url.search}`,
   });
+  await waitNavigationTask(url.pathname);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, seriesId } = homePinSchema.parse(
