@@ -1,5 +1,7 @@
 import "server-only";
 
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
+
 import { z } from "zod";
 
 import {
@@ -23,12 +25,6 @@ export type PublicSiteIndex =
     }
   | { readonly kind: "unavailable" };
 
-/** Сто страниц каталога: испорченный курсор не должен превратиться в бесконечный обход. */
-const MAX_CATALOG_PAGES = 100;
-
-/** Предел формата карты сайта. Сторожит случай, когда страница каталога станет крупнее. */
-const MAX_MATERIALS = 50_000;
-
 const collectionFacetSchema = z.object({ slug: z.string().min(1) });
 const catalogPageSchema = z.object({
   facets: z.object({
@@ -41,7 +37,11 @@ const catalogPageSchema = z.object({
       slug: z.string().min(1),
     }),
   ),
-  nextCursor: z.string().min(1).max(512).nullable(),
+  nextCursor: z
+    .string()
+    .min(1)
+    .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+    .nullable(),
 });
 
 /**
@@ -58,26 +58,34 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   let topicSlugs: readonly string[] = [];
   let after: string | undefined;
 
-  for (let page = 0; page < MAX_CATALOG_PAGES; page += 1) {
+  const continuations = new Set<string>();
+  for (;;) {
     const catalogPage = await readCatalogPage(after);
     if (catalogPage === undefined) {
       return { kind: "unavailable" };
     }
-    if (page === 0) {
+    if (after === undefined) {
       productSlugs = catalogPage.facets.series.map(({ slug }) => slug);
       topicSlugs = catalogPage.facets.topics.map(({ slug }) => slug);
     }
     materials.push(...catalogPage.items);
-    if (catalogPage.nextCursor === null || materials.length >= MAX_MATERIALS) {
+    if (catalogPage.nextCursor === null) {
       break;
     }
+    if (continuations.has(catalogPage.nextCursor)) {
+      throw new BackendConnectionError(
+        "invalid-response",
+        "Content Library repeated a continuation",
+      );
+    }
+    continuations.add(catalogPage.nextCursor);
     after = catalogPage.nextCursor;
   }
 
   return {
     productSlugs,
     kind: "ready",
-    materials: materials.slice(0, MAX_MATERIALS),
+    materials,
     topicSlugs,
   };
 }

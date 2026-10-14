@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { getPublicSiteIndex } from "@/features/public-site-index.server";
+import {
+  getPublicSiteIndex,
+  partitionPublicSitemap,
+} from "@/features/public-site-index.server";
 
 function catalogPage(input: {
   readonly nextCursor: string | null;
@@ -56,6 +59,57 @@ describe("Указатель опубликованных страниц", () =>
       .instanceof(Request)
       .parse(fetchMock.mock.calls[1]?.[0]);
     expect(secondRequest.url).toContain("after=cursor-2");
+  });
+
+  it("reaches Material 1201 beyond the former hundred-page limit", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    let page = 0;
+    const fetchMock = vi.fn(() => {
+      const offset = page++ * 12;
+      const count = Math.min(12, 1201 - offset);
+      return Promise.resolve(
+        catalogPage({
+          nextCursor: offset + count === 1201 ? null : `cursor-${String(page)}`,
+          slugs: Array.from(
+            { length: count },
+            (_, index) => `material-${String(offset + index + 1)}`,
+          ),
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await getPublicSiteIndex();
+    expect(result.kind).toBe("ready");
+    if (result.kind !== "ready") throw new Error("Expected complete index");
+    expect(result.materials).toHaveLength(1201);
+    expect(result.materials.at(-1)?.slug).toBe("material-1201");
+    expect(fetchMock).toHaveBeenCalledTimes(101);
+  });
+
+  it("rejects a repeated continuation instead of reporting partial success", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(catalogPage({ nextCursor: "cycle", slugs: ["first"] })),
+      ),
+    );
+    await expect(getPublicSiteIndex()).rejects.toThrow("continuation");
+  });
+
+  it("splits all emitted URL kinds without dropping overflow", () => {
+    const entries = [
+      "/",
+      "/products/product",
+      "/topics/topic",
+      ...Array.from(
+        { length: 50_000 },
+        (_, index) => `/materials/${String(index)}`,
+      ),
+    ];
+    const chunks = partitionPublicSitemap(entries);
+    expect(chunks.map((chunk) => chunk.length)).toEqual([50_000, 3]);
+    expect(chunks.flat()).toEqual(entries);
   });
 
   it("не запрашивает каталог от имени участника: указатель перечисляет только опубликованное", async () => {
