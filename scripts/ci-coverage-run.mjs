@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import {
   coverageIds,
-  parseCoverage,
+  normalizeCoverage,
   selectCoverage,
   validateGate,
 } from "./ci-coverage-plan.mjs";
@@ -23,7 +23,7 @@ function computePlan() {
     /** @type {unknown} */
     const parsed =
       raw === undefined || raw === "" ? coverageIds : JSON.parse(raw);
-    const required = parseCoverage(parsed);
+    const required = normalizeCoverage(parsed);
     return {
       event: "release",
       paths: [],

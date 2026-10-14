@@ -25,14 +25,19 @@ Every PR push, including a draft, receives its affected plan.
 |---|---|---|---|
 | Ordinary prose | Markdown under `docs/research`, `evidence`, `adr`, `runbooks`, `verification`, `specifications`; root `README.md` | `docs` | `docs` |
 | Instructions/tooling | root `AGENTS`, `WORKFLOW`, `CODING_STANDARDS`, `REPOSITORIES`, `GLOSSARY`; `docs/agents`, `.agents`, `.claude`, other `.github` paths; named `scripts/ci-coverage-*`, `ci-workflow-contract`, `ci-gate-recovery` modules/tests | `docs`, `contracts` | same |
-| Web | everything under `apps/web`, including runtime Markdown | `docs`, `static`, `unit`, `ui`, `web-e2e` | full Platform |
-| Backend | everything under `apps/backend`, including runtime Markdown | `docs`, `static`, `unit`, `integration`, `integration-serial` | full Platform |
-| Telegram | everything under `apps/telegram`, including runtime Markdown | `docs`, `contracts`, `static`, `unit`, `telegram` | same complete Telegram coverage |
+| Web | everything under `apps/web`, including runtime Markdown | `static`, `unit`, `ui`, `web-e2e` | full Platform |
+| Backend | everything under `apps/backend`, including runtime Markdown | `static`, `unit`, `integration`, `integration-serial` | full Platform |
+| Telegram | everything under `apps/telegram`, including runtime Markdown | `static`, `unit`, `telegram` | same complete Telegram coverage |
 | Shared | `packages`, `docs/legal`, `docs/product`, `docs/contracts`, `infra`, `tools`, `.github/actions`, `.github/workflows`, executable `scripts/ci-coverage-plan.mjs` and `ci-coverage-run.mjs` | both applications | both applications |
 | Unknown | every unclassified path, including root dependencies/configuration and other scripts | both applications | both applications |
 
-A mixed change takes the union and deduplicates IDs. Shared and unknown changes conservatively
-receive full coverage even on PRs. Full Platform means `contracts`, `static`, `unit`, `ui`, `web-e2e`,
+A mixed change takes the union and normalizes its execution plan through the planner's
+`coverageSupersets` authority: `static` includes `pnpm docs:check`, so the focused `docs` job is
+excluded when Static runs; `unit` includes `pnpm test:tooling` and the root `pnpm test:contracts`
+through `pnpm check:contracts`, so focused `contracts` is excluded when Unit runs. Standalone prose
+and instruction plans keep their focused jobs. Contract tests bind these exclusions to the actual
+package commands; changing that command coverage requires updating the exclusion rule. Shared and unknown changes conservatively
+receive full coverage even on PRs. Full Platform means `static`, `unit`, `ui`, `web-e2e`,
 `integration`, `integration-serial`, `compose-development`, `compose-production`, `fullstack`.
 The shared aggregate static/unit commands also examine other applications; they remain unchanged.
 Ordinary prose still requires agent review: `docs` validates documentation contracts, not every prose claim.
@@ -44,7 +49,8 @@ checks fail the gate. Documentation-only success claims no application test succ
 **CI Gate** check remains the ruleset boundary.
 
 `workflow_call` accepts `source_sha` and optional `coverage_json`, a JSON array of missing check IDs.
-The planner verifies the checkout equals the captured 40-character source SHA. Absent coverage means all checks; an empty array means all release checks were already proved.
+The planner verifies the checkout equals the captured 40-character source SHA. Absent coverage means complete coverage with superseded focused jobs excluded; explicit missing
+IDs receive the same normalization. An empty array means all release checks were already proved.
 Unknown or duplicate IDs fail. The gate records `ci-source-evidence/source-evidence.json` in
 `ci-source-evidence-<run_attempt>`: actual checkout SHA/tree, repository, run/attempt/event, selected successful
 coverage and explicit exclusions. Whole-tree identity is the conservative significant-input boundary;

@@ -15,7 +15,6 @@ export const coverageIds = [
 ];
 export const applicationCoverage = {
   platform: [
-    "contracts",
     "static",
     "unit",
     "ui",
@@ -26,7 +25,7 @@ export const applicationCoverage = {
     "compose-production",
     "fullstack",
   ],
-  telegram: ["contracts", "static", "unit", "telegram"],
+  telegram: ["static", "unit", "telegram"],
 };
 /** @type {Record<string, string>} */
 export const ciJobNames = {
@@ -45,6 +44,16 @@ export const ciJobNames = {
   fullstack: "Full-stack smoke",
   "ci-gate": "CI Gate",
 };
+// Existing package commands own these focused checks as part of their larger stage.
+export const coverageSupersets = { docs: "static", contracts: "unit" };
+/** @param {unknown} value */
+export function normalizeCoverage(value) {
+  const selected = parseCoverage(value);
+  const redundant = Object.entries(coverageSupersets)
+    .filter(([, superset]) => selected.includes(superset))
+    .map(([focused]) => focused);
+  return selected.filter((id) => !redundant.includes(id));
+}
 /** @param {string} path */
 export function classifyPath(path) {
   // Runtime/legal Markdown and assets are deliberately checked before prose.
@@ -109,12 +118,13 @@ export function selectCoverage(paths, event) {
       for (const id of applicationCoverage.telegram) required.add(id);
     }
   }
+  const execution = normalizeCoverage([...required]);
   return {
     event,
     paths: uniquePaths,
     categories,
-    required: coverageIds.filter((id) => required.has(id)),
-    excluded: coverageIds.filter((id) => !required.has(id)),
+    required: execution,
+    excluded: coverageIds.filter((id) => !execution.includes(id)),
   };
 }
 /** @param {unknown} value @returns {string[]} */
@@ -138,6 +148,10 @@ export function validatePlan(value) {
     throw new Error("Missing coverage plan");
   const required = parseCoverage(value.required);
   const excluded = parseCoverage(value.excluded);
+  if (normalizeCoverage(required).length !== required.length)
+    throw new Error(
+      "Plan contains checks already supplied by a selected superset",
+    );
   if (coverageIds.some((id) => required.includes(id) === excluded.includes(id)))
     throw new Error("Plan must explicitly partition all coverage");
   return { required, excluded };

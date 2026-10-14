@@ -1,7 +1,11 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { it } from "node:test";
-import { selectCoverage, validateGate } from "./ci-coverage-plan.mjs";
+import {
+  normalizeCoverage,
+  selectCoverage,
+  validateGate,
+} from "./ci-coverage-plan.mjs";
 it("ordinary prose excludes application coverage explicitly", () => {
   assert.deepEqual(
     selectCoverage(["docs/research/idea.md"], "pull_request").required,
@@ -11,7 +15,7 @@ it("ordinary prose excludes application coverage explicitly", () => {
 it("queue selects the complete affected application and mixed changes union their consumers", () => {
   assert.deepEqual(
     selectCoverage(["apps/telegram/src/main.ts"], "merge_group").required,
-    ["docs", "contracts", "static", "unit", "telegram"],
+    ["static", "unit", "telegram"],
   );
   const web = selectCoverage(["apps/web/src/app/page.tsx"], "merge_group");
   assert.ok(web.required.includes("fullstack"));
@@ -80,11 +84,11 @@ it("gate rejects every required failure, cancellation, missing result and invali
 it("PR checks follow application consumers and all selected IDs have explicit exclusions", () => {
   assert.deepEqual(
     selectCoverage(["apps/web/page.tsx"], "pull_request").required,
-    ["docs", "static", "unit", "ui", "web-e2e"],
+    ["static", "unit", "ui", "web-e2e"],
   );
   assert.deepEqual(
     selectCoverage(["apps/backend/main.ts"], "pull_request").required,
-    ["docs", "static", "unit", "integration", "integration-serial"],
+    ["static", "unit", "integration", "integration-serial"],
   );
   assert.deepEqual(selectCoverage(["AGENTS.md"], "merge_group").required, [
     "docs",
@@ -93,8 +97,6 @@ it("PR checks follow application consumers and all selected IDs have explicit ex
   assert.deepEqual(
     selectCoverage(["apps/backend/main.ts"], "merge_group").required,
     [
-      "docs",
-      "contracts",
       "static",
       "unit",
       "ui",
@@ -120,4 +122,62 @@ it("shared CI execution inputs cover both consumers instead of only tooling cont
     assert.ok(plan.required.includes("fullstack"), path);
     assert.ok(plan.required.includes("telegram"), path);
   }
+});
+
+it("mixed application plans execute focused documentation and contract coverage once through their supersets", () => {
+  for (const event of ["pull_request", "merge_group"]) {
+    for (const runtime of [
+      "apps/web/main.ts",
+      "apps/backend/main.ts",
+      "apps/telegram/main.ts",
+      "pnpm-lock.yaml",
+    ]) {
+      const plan = selectCoverage(
+        [runtime, "AGENTS.md", "docs/research/idea.md"],
+        event,
+      );
+      assert.ok(plan.required.includes("static"));
+      assert.ok(plan.required.includes("unit"));
+      assert.ok(!plan.required.includes("docs"));
+      assert.ok(!plan.required.includes("contracts"));
+      assert.ok(plan.excluded.includes("docs"));
+      assert.ok(plan.excluded.includes("contracts"));
+    }
+    assert.deepEqual(
+      selectCoverage(["AGENTS.md", "docs/research/idea.md"], event).required,
+      ["docs", "contracts"],
+    );
+  }
+});
+
+it("the gate rejects a redundant execution plan rather than silently accepting duplicate jobs", () => {
+  const plan = selectCoverage(["apps/web/main.ts"], "pull_request");
+  assert.throws(
+    () =>
+      validateGate(
+        {
+          ...plan,
+          required: [...plan.required, "docs"],
+          excluded: plan.excluded.filter((id) => id !== "docs"),
+        },
+        {},
+      ),
+    /superset/,
+  );
+});
+
+it("missing coverage excludes only a focused check whose own superset will execute", () => {
+  assert.deepEqual(normalizeCoverage(["docs", "unit"]), ["docs", "unit"]);
+  assert.deepEqual(normalizeCoverage(["contracts", "static"]), [
+    "contracts",
+    "static",
+  ]);
+  assert.deepEqual(normalizeCoverage(["docs", "contracts"]), [
+    "docs",
+    "contracts",
+  ]);
+  assert.deepEqual(normalizeCoverage(["docs", "contracts", "static", "unit"]), [
+    "static",
+    "unit",
+  ]);
 });

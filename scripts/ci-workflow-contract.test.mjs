@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import { ciJobNames } from "./ci-coverage-plan.mjs";
+import { ciJobNames, coverageSupersets } from "./ci-coverage-plan.mjs";
 import { readPackageManifest } from "./package-manifest.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,6 +59,24 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
+    assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
+    assertFocusedSupersets(rootScripts);
+    /** @type {Array<[string, string]>} */
+    const missingCommands = [
+      ["check:static", "pnpm docs:check && "],
+      ["check:unit", "pnpm test:tooling && "],
+      ["check:unit", " && pnpm check:contracts"],
+      ["check:contracts", "pnpm test:contracts && "],
+    ];
+    for (const [script, removed] of missingCommands) {
+      const changed = {
+        ...rootScripts,
+        [script]: rootScripts[script]?.replace(removed, "") ?? "",
+      };
+      assert.throws(() => assertFocusedSupersets(changed));
+    }
+  });
   it("acquires development runtime images serially before startup and preserves pull failures", () => {
     const step = jobBlock("compose-development").split(
       "      - name: Run clean stack smoke and write persistence probes\n        run: |\n",
@@ -718,3 +736,20 @@ describe("production access pass workflow", () => {
     );
   });
 });
+
+/** @param {Record<string, string>} scripts */
+function assertFocusedSupersets(scripts) {
+  const invokes = (
+    /** @type {string} */ owner,
+    /** @type {string} */ command,
+  ) => {
+    assert.match(
+      scripts[owner] ?? "",
+      new RegExp(`(?:^|&&)\\s*pnpm ${command}(?:\\s*&&|$)`, "u"),
+    );
+  };
+  invokes("check:static", "docs:check");
+  invokes("check:unit", "test:tooling");
+  invokes("check:unit", "check:contracts");
+  invokes("check:contracts", "test:contracts");
+}

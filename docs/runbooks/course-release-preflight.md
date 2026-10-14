@@ -211,3 +211,9 @@ Binding key сохраняется между выпусками, иначе р�
 
 RKN #856 и оферта #780 закрыты; повторного согласования цены/юридических решений здесь нет.
 Отчёт отличает подготовленный код, merge, actual deploy, публикацию content и public-sale GO.
+
+Полный CI receipt и receipt `check` используют нормализованные application stage IDs из
+`scripts/ci-coverage-plan.mjs`: Static включает `docs:check`, Unit включает `test:tooling` и
+root `test:contracts` через `check:contracts`. Отдельные focused jobs `docs`/`contracts` не нужны
+вместе с этими stage IDs. Их команды остаются самостоятельными для документационных и
+instruction-only планов; package-command contract проверяет сохранение покрывающих команд.
