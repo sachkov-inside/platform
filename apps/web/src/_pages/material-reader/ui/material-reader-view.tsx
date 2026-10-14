@@ -273,11 +273,7 @@ export function MaterialReaderHeader({
         context={programme}
         title={material.title}
         actions={actions}
-        metadata={
-          <>
-            <time dateTime={material.publishedAt}>{publicationDate}</time>
-          </>
-        }
+        metadata={null}
       />
     );
   return (

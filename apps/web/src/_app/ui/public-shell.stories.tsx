@@ -225,7 +225,7 @@ function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
       />
     ),
     play: async ({ canvasElement }) => {
-      const footer = canvasElement.querySelector("footer");
+      const footer = canvasElement.querySelector(".public-footer-slot footer");
       if (footer === null) throw new Error("В оболочке нет подвала");
       const view = canvasElement.ownerDocument.defaultView;
       if (view === null) throw new Error("У story нет окна");

@@ -80,9 +80,11 @@ export function CourseReadingHeader({
         </span>
       </p>
       <h1>{title}</h1>
-      <div className={styles["metadataRow"]}>
-        <div className={styles["metadata"]}>{metadata}</div>
-      </div>
+      {metadata == null ? null : (
+        <div className={styles["metadataRow"]}>
+          <div className={styles["metadata"]}>{metadata}</div>
+        </div>
+      )}
     </header>
   );
 }
