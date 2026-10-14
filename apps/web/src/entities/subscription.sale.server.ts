@@ -1,5 +1,6 @@
 export {
   readGuestProductSale,
+  readGuestProductOfferTerms,
   readProductAccess,
   readViewerProductSale,
   type ProductSale,

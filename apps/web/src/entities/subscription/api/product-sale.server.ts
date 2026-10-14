@@ -1,5 +1,4 @@
 import "server-only";
-import { cache } from "react";
 import { z } from "zod";
 import { requestProductAccess } from "@/shared/api/backend/index.server";
 import { loadProductCohort, loadProductOffers } from "./billing-catalog.server";
@@ -36,8 +35,7 @@ export function readViewerProductSale(
   return readProductSale(productId, accessToken);
 }
 
-// One RSC request owns each Product/token projection; prices never enter a shared cache.
-const readProductSale = cache(async function readProductSale(
+async function readProductSale(
   productId: string,
   accessToken?: string,
 ): Promise<ProductSale> {
@@ -50,11 +48,7 @@ const readProductSale = cache(async function readProductSale(
   ]);
   if (catalog.kind === "unavailable") return catalog;
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.
-  const offers = [...catalog.offers].sort((left, right) =>
-    left.firstPriceKopecks !== right.firstPriceKopecks
-      ? left.firstPriceKopecks - right.firstPriceKopecks
-      : left.paymentOption.id.localeCompare(right.paymentOption.id),
-  );
+  const offers = orderedProductOffers(catalog.offers);
   return {
     kind: "ready",
     sold: offers.length > 0,
@@ -65,9 +59,9 @@ const readProductSale = cache(async function readProductSale(
     signedIn: accessToken !== undefined,
     terms: offers[0] === undefined ? null : oneTimeOfferTerms(offers[0]),
   };
-});
+}
 /** Доступ участника не зависит от того, открыта ли сейчас продажа продукта. */
-export const readProductAccess = cache(async function readProductAccess(
+export async function readProductAccess(
   productId: string,
   accessToken: string,
 ): Promise<"open" | "closed" | "unknown"> {
@@ -79,4 +73,25 @@ export const readProductAccess = cache(async function readProductAccess(
   } catch {
     return "unknown";
   }
-});
+}
+
+/** Public description placeholders need only the guest's offered periods, not cohort or access. */
+export async function readGuestProductOfferTerms(productId: string) {
+  const catalog = await loadProductOffers(productId);
+  if (catalog.kind === "unavailable") return catalog;
+  const offer = orderedProductOffers(catalog.offers)[0];
+  return {
+    kind: "ready" as const,
+    terms: offer === undefined ? null : oneTimeOfferTerms(offer),
+  };
+}
+
+function orderedProductOffers(
+  values: readonly PriceSnapshot[],
+): readonly PriceSnapshot[] {
+  return [...values].sort((left, right) =>
+    left.firstPriceKopecks !== right.firstPriceKopecks
+      ? left.firstPriceKopecks - right.firstPriceKopecks
+      : left.paymentOption.id.localeCompare(right.paymentOption.id),
+  );
+}
