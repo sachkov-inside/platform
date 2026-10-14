@@ -61,7 +61,9 @@ describe("local bank double", () => {
 
     const redirect = await outcome(started.PaymentURL, "confirmed");
     expect(redirect.status).toBe(303);
-    expect(redirect.headers.get("location")).toBe(config.returnUrl);
+    const returned = new URL(config.returnUrl);
+    returned.searchParams.set("purchaseRef", purchase.orderId);
+    expect(redirect.headers.get("location")).toBe(returned.href);
     // Нотификация принимается обычным путём приложения: подпись двойника совпадает с банковской.
     const accepted = bank.notification(notifications[0]);
     expect(accepted).toMatchObject({
@@ -81,6 +83,18 @@ describe("local bank double", () => {
     await outcome(started.PaymentURL, "repeat");
     expect(notifications).toHaveLength(2);
     expect(notifications[1]).toEqual(notifications[0]);
+  });
+
+  test("returns to the purchase-specific bank URL", async () => {
+    const { bank, outcome } = stand();
+    const started = await bank.init({
+      ...purchase,
+      returnPath: "/products/stand/buy",
+    });
+    const answer = await outcome(started.PaymentURL, "confirmed");
+    const expected = new URL("/products/stand/buy", config.returnUrl);
+    expected.searchParams.set("purchaseRef", purchase.orderId);
+    expect(answer.headers.get("location")).toBe(expected.href);
   });
 
   test("повторять нечего, пока исход не выбран", async () => {

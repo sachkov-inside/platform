@@ -149,6 +149,10 @@ test("покупатель курса проходит путь от стран�
   await screenshotWholePage(page, {
     path: evidencePath("issue-1401", `${info.project.name}-checkout.png`),
   });
+  await prepareEvidenceDirectory("issue-1442");
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-checkout.png`),
+  });
   await pay.click();
   await page.getByRole("button", { name: "Оплата прошла" }).click();
 
@@ -210,6 +214,19 @@ test("покупатель курса проходит путь от стран�
   expect(
     z.object({ contact: z.null() }).parse(await contactResponse.json()).contact,
   ).toBeNull();
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-purchases.png`),
+  });
+  await page.goto(`/products/${slug}/programme`);
+  await expect(
+    page.getByRole("button", { name: "Онбординг", exact: true }).first(),
+  ).toBeVisible();
+  await screenshotWholePage(page, {
+    path: evidencePath(
+      "issue-1442",
+      `${info.project.name}-live-onboarding.png`,
+    ),
+  });
   expect(contactMutations).toEqual([]);
   expect(browserErrors).toEqual([]);
 });
