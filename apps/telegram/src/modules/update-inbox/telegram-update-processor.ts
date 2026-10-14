@@ -179,9 +179,13 @@ export class TelegramUpdateProcessor {
       case "access-action":
         await this.botContacts.observeStart(command.value, "none");
         // "I linked Telegram" also continues invitations that wait for an Account.
-        if (command.action === "retry")
+        if (command.action === "retry" && command.activationCode === undefined)
           await this.invitations.retry(command.value);
-        await this.activation.action(command.value, command.action);
+        await this.activation.action(
+          command.value,
+          command.action,
+          command.activationCode,
+        );
         if (hasText(command.callbackQueryId))
           await this.callbackAnswers.answer(command.callbackQueryId);
         return;

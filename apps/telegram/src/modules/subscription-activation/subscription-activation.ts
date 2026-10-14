@@ -139,7 +139,7 @@ export class SubscriptionActivation {
       return;
     }
     if (action === "platform") {
-      const prompt = accountPrompt(config.accountUrl);
+      const prompt = accountPrompt(config.accountUrl, onlyCode);
       await this.replies.enqueue({
         ...this.delivery(contact, prompt.text),
         buttons: prompt.buttons,
@@ -162,11 +162,12 @@ export class SubscriptionActivation {
         lookup?.error.code === "identity_conflict"
           ? "Связь аккаунта требует помощи владельца. Проверка остановлена; аккаунты не объединяются."
           : "Платформа временно не отвечает. Повторите проверку позже.",
+        onlyCode,
       );
       return;
     }
     if (lookup.value.state === "unlinked") {
-      const prompt = accountPrompt(config.accountUrl);
+      const prompt = accountPrompt(config.accountUrl, onlyCode);
       await this.replies.enqueue({
         ...this.delivery(contact, prompt.text),
         buttons: prompt.buttons,
@@ -200,12 +201,13 @@ export class SubscriptionActivation {
         .where("telegram_user_id", "=", contact.telegramUserId)
         .where("state", "in", ["retry", "needs_account"])
         .where("lease_token", "is", null)
-        .where("diagnostic_code", "is not", null);
+        .where("diagnostic_code", "is not", null)
+        .where("result", "is", null);
       if (onlyCode !== undefined)
         failures = failures.where("code", "=", onlyCode);
       const failure = await failures.executeTakeFirst();
       if (failure?.state === "needs_account") {
-        const prompt = accountPrompt(config.accountUrl);
+        const prompt = accountPrompt(config.accountUrl, onlyCode);
         await this.replies.enqueue({
           ...this.delivery(contact, prompt.text),
           buttons: prompt.buttons,
@@ -214,6 +216,7 @@ export class SubscriptionActivation {
         await this.reply(
           contact,
           "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.",
+          onlyCode,
         );
       }
       return;
@@ -598,7 +601,7 @@ export class SubscriptionActivation {
             .digest(
               "hex",
             )}:${result.ok ? (result.value.state === "pending_review" ? `pending_review:${result.value.enrollment?.state ?? "none"}` : result.value.state) : result.error.code}`,
-          ...this.menu(result),
+          ...this.menu(result, attempt.code),
         },
         tx,
       );
@@ -652,11 +655,20 @@ export class SubscriptionActivation {
       )
       .execute();
   }
-  private menu(result?: ActivationResult<ActivationResponse>): {
+  private menu(
+    result?: ActivationResult<ActivationResponse>,
+    code?: string,
+  ): {
     buttons?: readonly TelegramButton[];
   } {
     return this.config.activation
-      ? { buttons: activationMenu(this.config.activation.accountUrl, result) }
+      ? {
+          buttons: activationMenu(
+            this.config.activation.accountUrl,
+            result,
+            code,
+          ),
+        }
       : {};
   }
   private async defer(
@@ -700,10 +712,11 @@ export class SubscriptionActivation {
   private async reply(
     contact: VerifiedPrivateStart,
     text: string,
+    code?: string,
   ): Promise<void> {
     await this.replies.enqueue({
       ...this.delivery(contact, text),
-      ...this.menu(),
+      ...this.menu(undefined, code),
     });
   }
   async snapshot(): Promise<{ pending: number; oldestSeconds: number }> {

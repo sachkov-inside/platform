@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import {
   activationMenu,
   activationMessage,
@@ -36,6 +37,42 @@ const active: ActivationResult<ActivationResponse> = {
 };
 
 describe("learner activation messages", () => {
+  it("preserves the course on recheck while accepting legacy buttons", () => {
+    expect(accountPrompt(accountUrl, "course").buttons[1]).toEqual({
+      text: "Проверить доступ",
+      callbackData: "access:retry:course",
+    });
+    const adapter = new GrammyUpdateAdapter();
+    const translate = (data: string) =>
+      adapter.translate(
+        "inside",
+        "1",
+        {
+          update_id: 1,
+          callback_query: {
+            id: "callback",
+            data,
+            from: { id: 42, is_bot: false },
+            message: { message_id: 1, chat: { id: 42, type: "private" } },
+          },
+        },
+        new Date("2026-10-14T10:00:00.000Z"),
+      );
+    expect(translate("access:retry:course")).toMatchObject({
+      kind: "access-action",
+      action: "retry",
+      activationCode: "course",
+    });
+    expect(translate("access:retry")).toMatchObject({
+      kind: "access-action",
+      action: "retry",
+    });
+    expect(translate("access:retry")).not.toHaveProperty("activationCode");
+    expect(translate("access:retry:invalid!")).toMatchObject({
+      kind: "ignored",
+    });
+  });
+
   it("confirms the course with only the platform and entitled chat actions", () => {
     expect(activationMessage(active)).toBe(
       "Доступ к курсу открыт\n\nAI Engineering\nМатериалы доступны на платформе.",

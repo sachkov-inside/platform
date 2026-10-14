@@ -64,6 +64,12 @@ const config = loadApplicationConfig({
   ]),
 });
 const rules = {
+  second: {
+    id: randomUUID(),
+    revision: 1,
+    sourceRef: "course",
+    verificationMode: "course_membership" as const,
+  },
   course: {
     id: randomUUID(),
     revision: 1,
@@ -78,6 +84,7 @@ const members = new Set<string>();
 /** Rules the owner paused on Platform. */
 const paused = new Set<string>();
 const unavailable = new Set<string>();
+const explicitUnavailable = new Set<string>();
 const begins: string[] = [];
 const proofs: ActivationEvidence[] = [];
 const memberLookups: string[] = [];
@@ -97,6 +104,8 @@ const platform: ActivationPlatform = {
   begin(input) {
     begins.push(input.code);
     if (unavailable.has(input.code)) return Promise.resolve(undefined);
+    if (explicitUnavailable.has(input.code))
+      return Promise.resolve({ ok: false, error: { code: "unavailable" } });
     const code = Object.keys(rules).find(
       (key): key is Code => key === input.code,
     );
@@ -212,6 +221,7 @@ beforeEach(() => {
   proofs.length = 0;
   memberLookups.length = 0;
   unavailable.clear();
+  explicitUnavailable.clear();
   clock.value = new Date(clock.now().getTime() + 61_000);
 });
 afterAll(async () => {
@@ -326,6 +336,76 @@ describe("ordinary /start", () => {
 });
 
 describe("the owner's button in the course group", () => {
+  it("does not duplicate the unavailable reply that Platform explicitly returned", async () => {
+    const person = await linkedPerson();
+    explicitUnavailable.add("course");
+    try {
+      await send(person.user, "/start a_course");
+      const messages = await db
+        .selectFrom("start_response_deliveries")
+        .select("message_text")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(person.user))
+        .where((eb) =>
+          eb.or([
+            eb("source_key", "like", "access:%"),
+            eb("source_key", "like", "activation:%"),
+          ]),
+        )
+        .execute();
+      expect(messages).toHaveLength(1);
+      expect(required(messages[0]).message_text).toContain(
+        "Не удалось проверить доступ",
+      );
+    } finally {
+      explicitUnavailable.clear();
+      await db
+        .deleteFrom("activation_attempts")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(person.user))
+        .execute();
+    }
+  });
+
+  it("keeps the chosen rule when the learner presses its retry button", async () => {
+    const person = await linkedPerson();
+    await send(person.user, "/start a_course");
+    await send(person.user, "/start a_second");
+    const messages = await activationMessages(person.user);
+    const retry = required(messages[0]).buttons?.find(
+      (button) => button.text === "Проверить ещё раз",
+    );
+    expect(retry?.callbackData).toBe("access:retry:course");
+    begins.length = 0;
+    members.add(`${courseChatId}:${person.user}`);
+    const id = ++updateId;
+    const response = await app.inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
+      payload: {
+        update_id: id,
+        callback_query: {
+          id: String(id),
+          data: retry?.callbackData,
+          from: { id: person.user, is_bot: false },
+          message: {
+            message_id: id,
+            chat: { id: person.user, type: "private" },
+          },
+        },
+      },
+    });
+    expect(response.statusCode).toBe(202);
+    await app.get(TelegramUpdateProcessor).processAvailable();
+    expect(begins).toEqual(["course"]);
+    expect(await attempts(person.user)).toEqual([
+      { code: "course", state: "completed" },
+      { code: "second", state: "rejected" },
+    ]);
+    expect(grants.get(`course:${person.identityRef}`)).toBe(1);
+  });
+
   it("returns a truthful failure when the immediate provider check is unavailable", async () => {
     const person = await linkedPerson();
     members.add(`${courseChatId}:${person.user}`);

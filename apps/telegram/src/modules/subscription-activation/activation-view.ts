@@ -13,7 +13,7 @@ const enrollmentStates = {
   expired: "Срок завершён",
   revoked: "Отозвано",
   pending_verification:
-    "Ожидает подтверждения Tribute. Временный доступ по этому основанию не подтверждён. Повторите проверку позже или нажмите «Нужна помощь»",
+    "Ожидает подтверждения Tribute. Временный доступ по этому основанию не подтверждён. Повторите проверку позже или нажмите «Помощь»",
   suspended_source:
     "Источник Tribute завершён, доступ по нему приостановлен. Обратитесь к владельцу для подтверждения нового периода. Повторная проверка и вступление в группу не восстанавливают это основание",
 };
@@ -25,6 +25,7 @@ export const OWNER_REVIEW = "Запрос передан автору курса
 export function activationMenu(
   accountUrl: string,
   result?: ActivationResult<ActivationResponse>,
+  code?: string,
 ): readonly TelegramButton[] {
   if (result?.ok && ["active", "already_active"].includes(result.value.state)) {
     return [
@@ -43,9 +44,19 @@ export function activationMenu(
     )
   )
     return [help];
-  return [{ text: "Проверить ещё раз", callbackData: "access:retry" }, help];
+  return [
+    {
+      text: "Проверить ещё раз",
+      callbackData:
+        code === undefined ? "access:retry" : `access:retry:${code}`,
+    },
+    help,
+  ];
 }
-export function accountPrompt(accountUrl: string): {
+export function accountPrompt(
+  accountUrl: string,
+  code?: string,
+): {
   text: string;
   buttons: readonly TelegramButton[];
 } {
@@ -53,7 +64,11 @@ export function accountPrompt(accountUrl: string): {
     text: "Чтобы открыть курс, войдите на платформу и привяжите Telegram в аккаунте.",
     buttons: [
       { text: "Войти на платформу", url: accountUrl },
-      { text: "Проверить доступ", callbackData: "access:retry" },
+      {
+        text: "Проверить доступ",
+        callbackData:
+          code === undefined ? "access:retry" : `access:retry:${code}`,
+      },
     ],
   };
 }
