@@ -265,10 +265,46 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   return failures;
 }
 
+/** @param {string} repositoryRoot */
+export function checkStandardsReviewRouting(
+  repositoryRoot = defaultRepositoryRoot,
+) {
+  /** @type {string[]} */
+  const failures = [];
+  for (const path of [
+    "AGENTS.md",
+    "apps/backend/AGENTS.md",
+    "apps/web/AGENTS.md",
+    "apps/telegram/AGENTS.md",
+  ]) {
+    if (!existsSync(resolve(repositoryRoot, path))) {
+      failures.push(`${path}: standards review routing is missing`);
+      continue;
+    }
+    const content = read(repositoryRoot, path);
+    if (
+      !/Before review,[^\n]*(?:\n[^\n]+)?CODING_STANDARDS\.md/u.test(content)
+    ) {
+      failures.push(`${path}: route coding standards explicitly to review`);
+    }
+    if (
+      /Before (?:changing|writing|implementing)[^\n]*reviewing[^\n]*(?:\n[^\n]*)?CODING_STANDARDS\.md|For coding and review rules/u.test(
+        content,
+      )
+    ) {
+      failures.push(
+        `${path}: replace implementation-wide standards loading with review routing`,
+      );
+    }
+  }
+  return failures;
+}
+
 export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
   failures.push(...checkHarnessRouting(repositoryRoot));
+  failures.push(...checkStandardsReviewRouting(repositoryRoot));
   const agentFiles = collectAgentDocumentation(repositoryRoot);
 
   for (const path of agentFiles) {
