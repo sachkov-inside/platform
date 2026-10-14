@@ -295,13 +295,14 @@ export async function resolveAccessCapabilitiesForAccounts(
       ]),
     );
     for (const id of chunk) {
+      const canonicalId = id.toLowerCase();
       const { capabilities, revision, nextBoundary } =
         projectAccessCapabilities(
           {
-            grants: grantsByAccount.get(id) ?? [],
-            classification: classificationByAccount.get(id) ?? null,
-            projection: projectionByAccount.get(id) ?? null,
-            revision: revisionByAccount.get(id) ?? null,
+            grants: grantsByAccount.get(canonicalId) ?? [],
+            classification: classificationByAccount.get(canonicalId) ?? null,
+            projection: projectionByAccount.get(canonicalId) ?? null,
+            revision: revisionByAccount.get(canonicalId) ?? null,
             historicalMaterials: [],
             binding: null,
             last: null,

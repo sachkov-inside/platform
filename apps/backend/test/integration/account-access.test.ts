@@ -446,6 +446,28 @@ describe("independent Account access", () => {
       }
     },
   );
+  test("Account sets preserve rights for valid uppercase UUIDs and requested map keys", async () => {
+    now = new Date(start);
+    const target = await member();
+    await paidMaterials(target, end);
+    const upper = target.toUpperCase();
+    const single = await grants.resolveCapabilities(upper);
+    const set = await grants.resolveCapabilitiesForAccounts([
+      upper,
+      target,
+      upper,
+    ]);
+    expect(single.ok).toBe(true);
+    expect(set.ok).toBe(true);
+    if (!single.ok || !set.ok) return;
+    const expected = {
+      capabilities: single.capabilities,
+      revision: single.revision,
+      nextBoundary: single.nextBoundary,
+    };
+    expect(set.accounts.get(upper)).toEqual(expected);
+    expect(set.accounts.get(target)).toEqual(expected);
+  });
   test("projects an Account set with the same finite, absent and future rights", async () => {
     now = new Date(start);
     const active = await member();
