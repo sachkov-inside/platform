@@ -788,9 +788,8 @@ PostgreSQL. Do not export the owner's database URL. The host smoke rejects a run
 a production release identity instead of treating another stand as its own.
 For release candidates, use the [verification evidence policy](../agents/release-evidence.md).
 This host-process smoke fills missing release coverage or diagnoses failures. PR pushes, including
-drafts, run automatically selected affected checks. The merge queue runs complete coverage,
-including full-stack, for every affected application; shared or unknown inputs cover both
-applications. See [Continuous integration](continuous-integration.md) for the selected plan,
+drafts, run automatically selected affected checks. The merge queue runs complete coverage for every affected application, including full-stack
+for Platform; shared or unknown inputs cover both applications. See [Continuous integration](continuous-integration.md) for the selected plan,
 CI Gate and failure diagnostics. Scheduled full-stack runs are removed; the manual full-stack
 workflow remains available for investigation.
 
