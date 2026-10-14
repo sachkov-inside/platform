@@ -888,6 +888,8 @@ describe("supported toolchain contract", () => {
     const generated = spawnSync("grep", ["-E", smokeFilter], {
       input: read("config/compose/production/api.env.example"),
       encoding: "utf8",
+      timeout: 5_000,
+      killSignal: "SIGKILL",
     });
     assert.equal(generated.status, 0);
     assert.equal(
