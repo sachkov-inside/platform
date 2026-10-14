@@ -423,8 +423,11 @@ describe("independent Account access", () => {
       expect(
         await membership().resolveForAccess(accountId(target), [], materialId),
       ).toEqual(expected);
+      const complete = membership();
+      if (complete.resolveManyForAccess === undefined)
+        throw new Error("Missing complete owner read");
       expect(
-        await membership().resolveManyForAccess(accountId(target), [
+        await complete.resolveManyForAccess(accountId(target), [
           { productIds: [], materialId },
         ]),
       ).toEqual([expected]);
