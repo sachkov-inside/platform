@@ -1,6 +1,8 @@
 export { BookmarkAction } from "./ui/bookmark-action.client";
 export { SavedBookmarkAction } from "./ui/saved-bookmark-action.client";
 export {
+  BookmarkListReadError,
+  bookmarkListQueryOptions,
   getBookmarkStates,
   listBookmarkPage,
   setBookmark,

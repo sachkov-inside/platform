@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { MaterialCard, useMaterialReading } from "@/entities/material";
-import { listBookmarkPage, useBookmarkChanges } from "@/features/bookmarks";
+import {
+  BookmarkListReadError,
+  bookmarkListQueryOptions,
+  useBookmarkChanges,
+} from "@/features/bookmarks";
 import { Button } from "@/shared/ui/button";
 import {
   BookmarksEmpty,
@@ -16,12 +20,7 @@ export function BookmarksPageQuery() {
   const { accountId, resolved } = useMaterialReading();
   useBookmarkChanges(resolved ? accountId : null);
   const query = useInfiniteQuery({
-    queryKey: ["bookmarks", accountId, "list"],
-    queryFn: ({ pageParam }) => listBookmarkPage(pageParam),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) =>
-      last.kind === "ready" ? (last.nextCursor ?? undefined) : undefined,
-    retry: false,
+    ...bookmarkListQueryOptions(accountId),
     enabled: resolved && accountId !== null,
   });
   const pages = useMemo(() => query.data?.pages ?? [], [query.data]);
@@ -29,17 +28,20 @@ export function BookmarksPageQuery() {
   if (!resolved) return <BookmarksLoading />;
   if (accountId === null) return <BookmarksSignInRequired />;
   if (query.isPending) return <BookmarksLoading />;
+
+  if (
+    query.error instanceof BookmarkListReadError &&
+    query.error.kind === "unauthorized"
+  )
+    return <BookmarksSignInRequired />;
+
   if (query.data === undefined) return <BookmarksUnavailable />;
 
   const first = pages[0];
-  if (first === undefined || first.kind === "unavailable")
-    return <BookmarksUnavailable />;
-  if (first.kind === "unauthorized") return <BookmarksSignInRequired />;
+  if (first === undefined) return <BookmarksUnavailable />;
 
-  const items = pages.flatMap((page) =>
-    page.kind === "ready" ? page.items : [],
-  );
-  if (items.length === 0) return <BookmarksEmpty />;
+  const items = pages.flatMap((page) => page.items);
+  if (items.length === 0 && !query.hasNextPage) return <BookmarksEmpty />;
 
   return (
     <>
@@ -53,17 +55,27 @@ export function BookmarksPageQuery() {
           </li>
         ))}
       </ul>
+      {query.isFetchNextPageError ? (
+        <p className="mt-6 text-muted-foreground" role="alert">
+          Не удалось загрузить следующие закладки. Повторите попытку.
+        </p>
+      ) : null}
       {query.hasNextPage ? (
         <div className="mt-6 flex justify-center">
           <Button
             aria-disabled={query.isFetchingNextPage}
             onClick={() => {
+              if (query.isFetchingNextPage) return;
               void query.fetchNextPage();
             }}
             type="button"
             variant="outline"
           >
-            {query.isFetchingNextPage ? "Загружаем…" : "Показать ещё"}
+            {query.isFetchingNextPage
+              ? "Загружаем…"
+              : query.isFetchNextPageError
+                ? "Повторить попытку"
+                : "Показать ещё"}
           </Button>
         </div>
       ) : null}

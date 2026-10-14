@@ -130,6 +130,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
   infinite lists use one page-owned TanStack Query factory and feature BFF; RSC renders metadata and
   a hydration-safe shell without reading `searchParams`, prefetching, or dehydrating that query.
+- An infinite list advances its raw cursor even when projection produces no visible rows. An empty
+  state requires exhausted continuation. Failed continuation reads remain query errors, preserve
+  earlier pages and retry the same cursor; an authentication failure remains an authentication
+  outcome instead of an exhausted page.
 - When initial data must be server-rendered and continue in the browser, use one complete path:
   request-isolated `QueryClient`, prefetch, dehydration, and `HydrationBoundary`.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache

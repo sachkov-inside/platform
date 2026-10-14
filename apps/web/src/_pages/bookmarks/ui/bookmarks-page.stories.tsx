@@ -1,6 +1,6 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense } from "react";
-import { expect, waitFor } from "storybook/test";
+import { expect, userEvent, waitFor } from "storybook/test";
 
 import {
   MaterialReadingScope,
@@ -195,6 +195,95 @@ export const MorePages: Story = {
     const page = routeContent(canvasElement);
     await expect(
       await page.findByRole("button", { name: "Показать ещё" }),
+    ).toBeVisible();
+  },
+};
+
+/** A projected empty page is not exhaustion while its raw cursor can advance. */
+export const EmptyProjectedPage: Story = {
+  ...bookmarksRoute("authenticated", (input) =>
+    (input instanceof Request ? input.url : input.toString()).includes(
+      "after=cursor-2",
+    )
+      ? bookmarksResponse(200, { items: savedMaterials, nextCursor: null })
+      : bookmarksResponse(200, { items: [], nextCursor: "cursor-2" }),
+  ),
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      await page.findByRole("button", { name: "Показать ещё" }),
+    );
+    await expect(
+      await page.findByRole("link", { name: /Глубокие модули на практике/u }),
+    ).toBeVisible();
+    await expect(savedItems(canvasElement)).toHaveLength(savedMaterials.length);
+    await expect(
+      page.queryByRole("heading", { name: "Пока пусто" }),
+    ).toBeNull();
+  },
+};
+
+export const FailedContinuation: Story = {
+  ...bookmarksRoute("authenticated", readyList),
+  beforeEach: () => {
+    const environment = publicPageEnvironment("/bookmarks", {
+      account: "authenticated",
+    });
+    environment.beforeEach();
+    getQueryClient().removeQueries({ queryKey: ["bookmarks"] });
+    let continuation = 0;
+    return fetchBeforeRender((input) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      if (!url.includes("after=cursor-2"))
+        return bookmarksResponse(200, {
+          items: savedMaterials.slice(0, 1),
+          nextCursor: "cursor-2",
+        });
+      continuation += 1;
+      return continuation === 1
+        ? bookmarksResponse(503)
+        : bookmarksResponse(200, {
+            items: savedMaterials.slice(1),
+            nextCursor: null,
+          });
+    })();
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      await page.findByRole("button", { name: "Показать ещё" }),
+    );
+    await expect(await page.findByRole("alert")).toHaveTextContent(
+      "Не удалось загрузить следующие закладки",
+    );
+    await expect(savedItems(canvasElement)).toHaveLength(1);
+    await userEvent.click(
+      page.getByRole("button", { name: "Повторить попытку" }),
+    );
+    await expect(
+      await page.findByRole("link", { name: /Глубокие модули на практике/u }),
+    ).toBeVisible();
+    await expect(savedItems(canvasElement)).toHaveLength(3);
+    await expect(page.queryByRole("alert")).toBeNull();
+  },
+};
+
+export const ContinuationRequiresSignIn: Story = {
+  ...bookmarksRoute("authenticated", (input) =>
+    (input instanceof Request ? input.url : input.toString()).includes("after=")
+      ? bookmarksResponse(401)
+      : bookmarksResponse(200, {
+          items: savedMaterials,
+          nextCursor: "cursor-2",
+        }),
+  ),
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      await page.findByRole("button", { name: "Показать ещё" }),
+    );
+    await expect(
+      await page.findByRole("heading", { name: "Войдите в аккаунт" }),
     ).toBeVisible();
   },
 };
