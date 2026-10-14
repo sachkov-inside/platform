@@ -70,7 +70,7 @@ export function MaterialVideoAuthoring({
   readonly unselectedUpload: MaterialAuthoringVideo | null;
 }) {
   const operation = useRef(0);
-  const pendingReconciliations = useRef(new Map<string, Promise<void>>());
+  const pendingReconciliations = useRef(new Map<string, Promise<undefined>>());
   const uploadAttempt = useRef<BrowserVideoUploadAttempt | null>(null);
   const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(
     null,
@@ -169,7 +169,7 @@ export function MaterialVideoAuthoring({
         previous = pendingReconciliations.current.get(videoId);
       }
       if (revision !== operation.current || !isCurrent()) return;
-      const completed = Promise.withResolvers<void>();
+      const completed = Promise.withResolvers<undefined>();
       pendingReconciliations.current.set(videoId, completed.promise);
       try {
         const targetIsDeletion = deletionVideo?.videoId === videoId;
@@ -185,7 +185,7 @@ export function MaterialVideoAuthoring({
         applyVideoResult(result);
       } finally {
         pendingReconciliations.current.delete(videoId);
-        completed.resolve();
+        completed.resolve(undefined);
       }
     },
     [applyVideoResult, deletionVideo?.videoId, reconcileVideo],
