@@ -71,11 +71,7 @@
   }
 }
 
-/*
- * Главы программы стоят на одной линии пути: у открытой главы точка залита, у главы, которая ещё
- * готовится, — пустая, а её описание лежит в пунктирной карточке. Так главы отделены друг от друга
- * и видно, до какого места программа уже доступна.
- */
+/* Главы отмечены точками: открытая глава залита, готовящаяся — пустая. */
 .programme-chapter {
   --chapter-rail: 1.75rem;
   position: relative;
@@ -96,21 +92,6 @@
 .programme-chapter[data-chapter-state="preparing"]::before {
   border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
   background: var(--background);
-}
-.programme-chapter::after {
-  content: "";
-  position: absolute;
-  top: 1.6rem;
-  bottom: -1.25rem;
-  left: calc(0.4rem - 1px);
-  border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
-}
-.programme-chapter[data-chapter-state="preparing"]::after {
-  border-left-style: dashed;
-  border-left-color: color-mix(in srgb, var(--foreground) 16%, transparent);
-}
-.programme-chapter:last-child::after {
-  content: none;
 }
 /* Метка будущей главы сразу за её заголовком, в строке текста. */
 .programme-chapter-soon {
@@ -133,8 +114,7 @@
   background: color-mix(in srgb, var(--foreground) 35%, transparent);
 }
 /*
- * Телефон: линии пути нет, строки уроков встают ровно под заголовком главы и получают всю
- * ширину; главу отмечает точка у её заголовка (решение владельца 09.10.2026).
+ * Телефон: строки уроков получают всю ширину; точка стоит возле заголовка главы.
  */
 @media (max-width: 39.999rem) {
   .programme-chapter {
@@ -143,9 +123,6 @@
   .programme-chapter::before {
     width: 0.65rem;
     height: 0.65rem;
-  }
-  .programme-chapter::after {
-    content: none;
   }
   .programme-chapter-head {
     padding-left: 1.1rem;
