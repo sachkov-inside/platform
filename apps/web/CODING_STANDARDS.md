@@ -130,6 +130,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 ## Server state and mutations
 
+- Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
+  List consumers retain continuation through filtered empty pages and offer retry after a failed page.
+- Keep optional data behind its own completion boundary when it does not determine the primary view.
+  A permitted Material body can render while auxiliary Practice data is pending or unavailable.
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
   infinite lists use one page-owned TanStack Query factory and feature BFF; RSC renders metadata and
   a hydration-safe shell without reading `searchParams`, prefetching, or dehydrating that query.
@@ -169,6 +173,19 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   Give each product operation its own named mutation and browser adapter with exact input/result
   types. Do not multiplex unrelated writes through `operation` or `mode`.
 - Put `QueryProvider` in the lowest layout shared by its consumers.
+
+## Effects and asynchronous synchronization
+
+- Compute render-derived values during render. Update event-owned state in its event handler.
+  Use effects for external synchronization, with dependencies and cleanup matching that resource's lifetime.
+- Give callbacks and mirrored refs a current consumer and a named synchronization purpose.
+  Remove redundant synchronization only after checking retained routes, editor revisions and external consumers.
+- Keep at most one in-flight request per polling resource. Schedule the next poll after settlement;
+  cancellation or a resource change prevents stale responses from updating current state.
+- Distinguish browser query freshness, route retention, render-local deduplication and shared HTTP/server caches
+  when measuring requests. Review effective keys and invalidation at each owner; count physical requests separately.
+
+These rules require review. An effect count or a passing dependency linter cannot prove that an effect is necessary.
 
 ## Interaction and enforcement
 

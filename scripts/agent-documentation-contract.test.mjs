@@ -17,6 +17,7 @@ import { describe, it } from "node:test";
 import {
   checkDocumentation,
   checkHarnessRouting,
+  checkStandardsReviewRouting,
   codingStandardsLineLimit,
   documentationWarnings,
   extractLocalMarkdownTargets,
@@ -105,6 +106,67 @@ describe("agent documentation contract", () => {
 });
 
 describe("harness routing contract", () => {
+  it("requires review-stage standards routing and rejects the former implementation gate", () => {
+    const root = mkdtempSync(join(tmpdir(), "standards-routing-"));
+    try {
+      const paths = [
+        "AGENTS.md",
+        "apps/backend/AGENTS.md",
+        "apps/web/AGENTS.md",
+        "apps/telegram/AGENTS.md",
+      ];
+      for (const path of paths) {
+        mkdirSync(dirname(join(root, path)), { recursive: true });
+        writeFileSync(
+          join(root, path),
+          "Before review, read [standards](CODING_STANDARDS.md).\n",
+        );
+      }
+      assert.deepEqual(checkStandardsReviewRouting(root), []);
+      for (const path of paths) {
+        writeFileSync(
+          join(root, path),
+          "Before changing or reviewing code, apply CODING_STANDARDS.md.\n",
+        );
+        const failures = checkStandardsReviewRouting(root);
+        assert.ok(
+          failures.some((failure) =>
+            failure.startsWith(`${path}: route coding standards`),
+          ),
+        );
+        assert.ok(
+          failures.some((failure) =>
+            failure.startsWith(`${path}: replace implementation-wide`),
+          ),
+        );
+        writeFileSync(
+          join(root, path),
+          "Before review, read CODING_STANDARDS.md.\n",
+        );
+      }
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Before review, read CODING_STANDARDS.md.\nFor coding and review rules, read CODING_STANDARDS.md.\n",
+      );
+      assert.ok(
+        checkStandardsReviewRouting(root).some((failure) =>
+          failure.includes("replace implementation-wide"),
+        ),
+      );
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Before review, read CODING_STANDARDS.md.\nConsult a specific standard when an implementation question needs it.\n",
+      );
+      assert.deepEqual(checkStandardsReviewRouting(root), []);
+      rmSync(join(root, "apps/web/AGENTS.md"));
+      assert.deepEqual(checkStandardsReviewRouting(root), [
+        "apps/web/AGENTS.md: standards review routing is missing",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("accepts original specification discovery and native manual-skill policy", () => {
     assert.deepEqual(checkHarnessRouting(repositoryRoot), []);
   });
