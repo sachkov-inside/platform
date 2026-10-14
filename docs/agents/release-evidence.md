@@ -31,9 +31,13 @@ head. These completion checks do not prove a different application's release sou
    through this verified whole-tree correspondence. Ancestry, a green summary or an edited source
    label cannot prove correspondence. Older, expired, unavailable or incomplete evidence leaves
    uncovered checks; it never grants an exception.
-4. Both release workflows retain `release-source-receipt.json` as the `release-source-receipt`
-   artifact for 90 days. Finalization retains `release-source-complete` with the successful gap
-   workflow result and executed IDs; reused and executed IDs must partition the required plan. It names selected source/tree, required coverage, reused provider runs and
+4. Both release workflows retain `release-source-receipt.json` in the
+   `release-source-receipt-<producing attempt>` artifact for 90 days. The plan publishes the upload
+   artifact ID as a job output; finalization downloads that ID, including the original successful
+   plan artifact during a partial rerun. A full rerun uploads a distinct receipt for its new attempt.
+   Finalization retains `release-source-complete-<current attempt>` with the successful gap
+   workflow result and executed IDs; reused and executed IDs must partition the required plan.
+   The source receipt names selected source/tree, required coverage, reused provider runs and
    their source/attempt, covered checks and missing checks. The reusable Application CI receives
    exactly those missing job IDs on the frozen SHA. Its CI Gate validates the selected gap plan;
    a failed or cancelled gap prevents publication. Platform includes full-stack access scenarios,

@@ -261,8 +261,11 @@ Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `v
 - проверяет следующий номер без пропусков из legacy `v1`–`v5` и platform `telegram-v6` и далее;
   каждый tag имеет неизменяемый Release с точным target SHA и тремя assets;
   обычные platform `vN` не входят в историю Telegram; новый legacy номер останавливает выпуск;
-- принимает только текущий `main`, сохраняет его точный SHA и повторно проверяет план перед публикацией;
-- прогоняет Application CI на этом SHA;
+- фиксирует SHA `main` через GitHub `workflow_dispatch` при команде владельца и проверяет эту
+  привязку при планировании и перед публикацией; последующее продвижение `main` не заменяет source;
+- переиспользует trusted CI evidence с проверенными provider jobs и совпадением полного Git tree,
+  исполняет только missing checks на фиксированном SHA по
+  [release evidence policy](../../../../docs/agents/release-evidence.md);
 - собирает `apps/telegram/infra/production/Dockerfile` с `SOURCE_COMMIT`, публикует
   `ghcr.io/sachkov-inside/inside-telegram:vN` и проверяет анонимный pull по digest;
 - создаёт неизменяемый GitHub Release `telegram-vN` с `--latest=false` с target = SHA и тремя ассетами: `compose.yaml` (копия
@@ -847,7 +850,7 @@ RPO/RTO относятся к реальной проверке, а не нал�
 Команда владельца на выпуск фиксирует один commit `main`; release workflow проверяет GitHub
 `workflow_dispatch` binding и сохраняет source при последующих изменениях main. Публикация
 использует только trusted source evidence с доказанным совпадением полного дерева и исполняет
-missing checks. Receipt `release-source-receipt` содержит source/tree, provider runs и gaps;
+missing checks. Receipt `release-source-receipt-<producing attempt>` содержит source/tree, provider runs и gaps;
 source checks не заменяют проверку image revision/digest и immutable ordinal manifest.
 
 Разрешение на выпуск охватывает публикацию, выкладку и проверку production как один результат.

@@ -787,17 +787,19 @@ Keep the disposable project's `COMPOSE_PROJECT_NAME` and port variables exported
 PostgreSQL. Do not export the owner's database URL. The host smoke rejects a running API with
 a production release identity instead of treating another stand as its own.
 For release candidates, use the [verification evidence policy](../agents/release-evidence.md).
-This host-process smoke fills missing coverage or diagnoses failures; CI runs it nightly on `main`. Pull requests into `main` run
-the four-job application and Docker Compose gate on clean GitHub-hosted runners; see
-[Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
-failure-diagnostics contract.
+This host-process smoke fills missing release coverage or diagnoses failures. PR pushes, including
+drafts, run automatically selected affected checks. The merge queue runs complete coverage,
+including full-stack, for every affected application; shared or unknown inputs cover both
+applications. See [Continuous integration](continuous-integration.md) for the selected plan,
+CI Gate and failure diagnostics. Scheduled full-stack runs are removed; the manual full-stack
+workflow remains available for investigation.
 
 `FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. After
 `@playwright/test` changes version, install its browsers on the host before a run with
 `pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`; `pnpm check`
 also runs the WebKit browser-engine checks, which fail with `Executable doesn't exist` until `webkit`
-is installed the same way. The nightly
-full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
+is installed the same way. A manual full-stack investigation on the baseline source can show
+whether a failing test also fails without your change. On macOS a
 sleeping Mac stalls a long host suite for minutes and fails it with `net::ERR_NETWORK_IO_SUSPENDED`,
 which is not a product defect; the #745 run passed under `caffeinate -i`.
 

@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      source_receipt_artifact_id: ${{ steps.source_receipt.outputs.artifact-id }}
       missing_coverage: ${{ steps.evidence.outputs.missing_coverage }}
       image_matrix: ${{ steps.plan.outputs.image_matrix }}
       manifest_asset_name: ${{ steps.plan.outputs.manifest_asset_name }}
@@ -69,9 +70,10 @@ jobs:
           bash scripts/collect-release-source-evidence.sh >release-source-receipt.json
           echo "missing_coverage=$(jq --compact-output .missingCoverage release-source-receipt.json)" >>"$GITHUB_OUTPUT"
       - name: Retain selected source and evidence receipt
+        id: source_receipt
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-source-receipt
+          name: release-source-receipt-${{ github.run_attempt }}
           path: release-source-receipt.json
           if-no-files-found: error
           retention-days: 90
@@ -197,8 +199,9 @@ jobs:
       - name: Download selected source receipt
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-source-receipt
+          artifact-ids: ${{ needs.plan.outputs.source_receipt_artifact_id }}
           path: source-receipt
+          merge-multiple: true
       - name: Validate complete reused and executed coverage
         env:
           RELEASE_APPLICATION: platform
@@ -209,7 +212,7 @@ jobs:
       - name: Retain complete source coverage outcome
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-source-complete
+          name: release-source-complete-${{ github.run_attempt }}
           path: release-source-complete.json
           if-no-files-found: error
           retention-days: 90
