@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
 
@@ -57,10 +56,12 @@ async function returnFromBank(
   page: Page,
   access: "awaiting_payment" | "ready",
   entry: unknown,
+  remember = true,
 ) {
-  await page.addInitScript((purchaseRef) => {
-    window.sessionStorage.setItem("inside.billing.purchase", purchaseRef);
-  }, returnedPurchaseRef);
+  if (remember)
+    await page.addInitScript((purchaseRef) => {
+      window.sessionStorage.setItem("inside.billing.purchase", purchaseRef);
+    }, returnedPurchaseRef);
   await page.route("**/api/account/billing/purchase-status**", (route) =>
     route.fulfill({
       json: {
@@ -91,7 +92,7 @@ async function returnFromBank(
   );
 }
 
-test("после оплаты курса с сообществом виден переход в бота", async ({
+test("возврат показывает покупку и кабинет без глобального сообщества", async ({
   page,
 }) => {
   await returnFromBank(page, "ready", {
@@ -99,98 +100,34 @@ test("после оплаты курса с сообществом виден п
     botUrl: "https://t.me/inside_e2e_bot",
   });
   await page.goto("/payment/return");
-
   await expect(page.getByText("Оплата подтверждена")).toBeVisible();
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  // Бот понимает обычный /start: ссылка не вводит новых параметров.
+  await expect(page.getByText("AI Engineering", { exact: true })).toBeVisible();
   await expect(
-    community.getByRole("link", { name: "Вступить в сообщество" }),
-  ).toHaveAttribute("href", "https://t.me/inside_e2e_bot");
-
-  const results = await new AxeBuilder({ page })
-    .include("section[aria-labelledby='community-entry-title']")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  expect(results.violations).toEqual([]);
-});
-
-test("покупатель без Telegram одной кнопкой открывает бота с кодом привязки", async ({
-  page,
-}) => {
-  await returnFromBank(page, "ready", { kind: "link_telegram" });
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "open", {
-      configurable: true,
-      value: () => ({
-        close: () => undefined,
-        location: {
-          replace: (url: string) => {
-            sessionStorage.setItem("test.telegram-opened", url);
-          },
-        },
-        opener: null,
-      }),
-    });
-  });
-  await page.route("**/api/account/telegram-link/begin", (route) =>
-    route.fulfill({
-      json: {
-        kind: "received",
-        state: {
-          deepLink: "https://t.me/inside_e2e_bot?start=opaque",
-          expiresAt: "2030-01-01T00:05:00.000Z",
-          linkRef: "62000000-0000-4000-8000-000000000001",
-          status: "pending",
-        },
-      },
-    }),
-  );
-  await page.goto("/payment/return");
-
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  await community.getByRole("button", { name: "Подключить Telegram" }).click();
-  // Кнопка ведёт прямо в бота с кодом, а не в раздел кабинета.
-  await expect
-    .poll(() =>
-      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
-    )
-    .toBe("https://t.me/inside_e2e_bot?start=opaque");
-  await expect(community.getByRole("status").first()).toContainText(
-    "сам пришлёт личную ссылку в группу",
-  );
+    page.getByRole("link", { name: "Платёжный кабинет" }),
+  ).toHaveAttribute("href", "/account/purchases");
   await expect(
-    community.getByRole("link", { name: "Открыть Telegram" }),
-  ).toHaveAttribute("href", "https://t.me/inside_e2e_bot?start=opaque");
-});
-
-test("участник сообщества после оплаты не зовётся вступать повторно", async ({
-  page,
-}) => {
-  await returnFromBank(page, "ready", { kind: "member" });
-  await page.goto("/payment/return");
-
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  await expect(community).toContainText("Вы уже в сообществе Inside");
-  await expect(community.getByRole("link")).toHaveCount(0);
-});
-
-test("участник после оплаты открывает группу по адресу бота", async ({
-  page,
-}) => {
-  await returnFromBank(page, "ready", {
-    kind: "member",
-    groupUrl: "https://t.me/c/1234567890/1",
-  });
-  await page.goto("/payment/return");
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  const link = community.getByRole("link", { name: "Открыть группу" });
-  await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
-  await expect(link).toHaveAttribute("target", "_blank");
-  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  await expect(
-    community.getByRole("link", { name: "Вступить в сообщество" }),
+    page.getByRole("region", { name: "Сообщество Inside" }),
   ).toHaveCount(0);
+});
+
+test("возврат восстанавливает точную оплату без browser storage", async ({
+  page,
+}) => {
+  await returnFromBank(page, "ready", { kind: "none" }, false);
+  const references: (string | null)[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/account/billing/purchase-status")
+      references.push(url.searchParams.get("purchaseRef"));
+  });
+  await page.goto(`/payment/return?purchaseRef=${returnedPurchaseRef}`);
+  await expect(page.getByText("Оплата подтверждена")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("Оплата подтверждена")).toBeVisible();
+  expect(references.length).toBeGreaterThanOrEqual(2);
+  expect(
+    references.every((reference) => reference === returnedPurchaseRef),
+  ).toBe(true);
 });
 
 test("до подтверждения оплаты переход в сообщество не показывается", async ({
@@ -309,7 +246,7 @@ test("подтверждённая покупка перечитывает ст�
   await expect(purchase.getByText("Оплата подтверждена")).toBeVisible();
   await expect(
     purchase.getByRole("region", { name: "Сообщество Inside" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   // Метка уходит после перезагрузки: когда она дошла, повторное объявление дошло бы раньше.
   await postMarker(purchase, "after-reload");
   await expect.poll(announcements.marker).toBe("after-reload");

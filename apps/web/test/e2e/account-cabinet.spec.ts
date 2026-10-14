@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { contactErrorMessage } from "@/features/billing-contact";
 import { notificationErrorMessage } from "@/features/notification-preferences";
 
 const activeSubscription = {
@@ -127,26 +126,28 @@ test("прежний адрес формы email открывает раздел
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
   await expect(
     page.getByRole("heading", { name: "Email для чеков и сообщений" }),
-  ).toBeVisible();
+  ).toHaveCount(0);
 });
 
-test("отказ по расхождению редакции показывает текст из источника отказов", async ({
-  page,
-}) => {
-  await stubAccount(page);
-  // Покупатель прочитал контакт, адрес подтвердили на другом устройстве, а нажали здесь.
-  await page.route("**/api/account/billing/contact/start", (route) =>
-    route.fulfill({ json: { ok: false, code: "revision_conflict" } }),
-  );
-
+test("покупки не требуют подтверждать email", async ({ page }) => {
+  let contactReads = 0;
+  await stubAccount(page, {
+    contact: () => {
+      contactReads += 1;
+      return null;
+    },
+  });
   await page.goto("/account/purchases");
-  await page.getByLabel("Email", { exact: true }).fill("buyer@example.test");
-  await page.getByRole("button", { name: "Получить код", exact: true }).click();
-
-  // Ожидание берётся у того же источника, что и экран: копия строки здесь пережила бы смену текста.
   await expect(
-    page.getByText(contactErrorMessage("revision_conflict"), { exact: true }),
+    page.getByRole("heading", { level: 1, name: "Покупки" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Email", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Получить код", exact: true }),
+  ).toHaveCount(0);
+  expect(contactReads).toBe(0);
 });
 
 test("каждый раздел решает одну задачу", async ({ page }) => {
@@ -193,97 +194,63 @@ test("каждый раздел решает одну задачу", async ({ pa
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 });
 
-test("«Покупки» ведут в сообщество Inside", async ({ page }) => {
-  await stubAccount(page, { grounds: [paidGround] });
-  await page.route("**/api/account/community-entry", (route) =>
-    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
-  );
-
-  await page.goto("/account/purchases");
-
-  // Без подключённого Telegram бот не узнает покупателя: сначала подключение, прямо из блока.
-  await expect(
-    page
-      .getByRole("region", { name: "Сообщество Inside" })
-      .getByRole("button", { name: "Подключить Telegram" }),
-  ).toBeEnabled();
-});
-
-test("участник открывает группу из «Покупок»", async ({ page }) => {
-  await stubAccount(page, { grounds: [paidGround] });
-  await page.route("**/api/account/community-entry", (route) =>
-    route.fulfill({
-      json: {
-        ok: true,
-        value: { kind: "member", groupUrl: "https://t.me/c/1234567890/1" },
-      },
-    }),
-  );
-  await page.goto("/account/purchases");
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  const link = community.getByRole("link", { name: "Открыть группу" });
-  await expect(link).toBeVisible();
-  await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
-  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-});
-
-test("повторное подключение Telegram после reload открывает прежний бот", async ({
-  page,
-}) => {
-  await stubAccount(page, { grounds: [paidGround] });
-  await page.route("**/api/account/community-entry", (route) =>
-    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
-  );
-  const deepLink = "https://t.me/inside_test_bot?start=opaque";
-  let begins = 0;
-  await page.route("**/api/account/telegram-link/begin", (route) => {
-    begins += 1;
-    return route.fulfill({
-      json: {
-        kind: "received",
-        state: {
-          ...(begins === 1 ? { deepLink } : {}),
-          expiresAt: "2030-01-01T00:05:00.000Z",
-          linkRef: "62000000-0000-4000-8000-000000000001",
-          status: "pending",
-        },
-      },
+for (const entry of [
+  { kind: "link_telegram" },
+  { kind: "join", botUrl: "https://t.me/inside_test_bot" },
+  { kind: "member", groupUrl: "https://t.me/c/1234567890/1" },
+]) {
+  test(`покупки не показывают глобальную группу (${entry.kind})`, async ({
+    page,
+  }) => {
+    await stubAccount(page, { grounds: [paidGround] });
+    let communityReads = 0;
+    await page.route("**/api/account/community-entry**", (route) => {
+      communityReads += 1;
+      return route.fulfill({ json: { ok: true, value: entry } });
     });
+    await page.goto("/account/purchases");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Покупки" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Сообщество Inside" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Открыть группу" }),
+    ).toHaveCount(0);
+    expect(communityReads).toBe(0);
   });
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "open", {
-      configurable: true,
-      value: () => ({
-        close: () => undefined,
-        location: {
-          replace: (url: string) => {
-            sessionStorage.setItem("test.telegram-opened", url);
+}
+
+test("покупки называют продукт и ведут в его программу", async ({ page }) => {
+  await stubAccount(page, {
+    grounds: [
+      {
+        ...paidGround,
+        capabilities: ["product:00000000-0000-4000-8000-000000000801"],
+        validUntil: null,
+        content: [
+          {
+            kind: "product",
+            id: "00000000-0000-4000-8000-000000000801",
+            title: "Создание Platform Inside",
+            slug: "platform-inside",
+            available: true,
           },
-        },
-        opener: null,
-      }),
-    });
+        ],
+      },
+    ],
   });
   await page.goto("/account/purchases");
-  const community = page.getByRole("region", { name: "Сообщество Inside" });
-  await community.getByRole("button", { name: "Подключить Telegram" }).click();
   await expect(
-    community.getByRole("link", { name: "Открыть Telegram" }),
-  ).toHaveAttribute("href", deepLink);
-  await page.evaluate(() => {
-    sessionStorage.removeItem("test.telegram-opened");
-  });
-  await page.reload();
-  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+    page.getByRole("heading", { name: "Создание Platform Inside" }),
+  ).toBeVisible();
   await expect(
-    community.getByRole("link", { name: "Открыть Telegram" }),
-  ).toHaveAttribute("href", deepLink);
-  await expect
-    .poll(() =>
-      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
-    )
-    .toBe(deepLink);
-  expect(begins).toBe(2);
+    page.getByRole("link", { name: "Открыть продукт", exact: true }),
+  ).toHaveAttribute("href", "/products/platform-inside/programme");
+  await expect(
+    page.getByRole("heading", { name: "Способ оплаты" }),
+  ).toHaveCount(0);
 });
 
 test("кабинет полезен без подписки и не предлагает её раздел", async ({
@@ -527,202 +494,10 @@ test("кабинет не имеет серьёзных нарушений до�
   ).toEqual([]);
 });
 
-const verifiedContact = {
-  email: "buyer@example.test",
-  revision: 1,
-  verifiedAt: "2026-09-12T10:00:00.000Z",
-};
-
-/** Состояние контакта на весь сценарий: подтверждение меняет ответ для всех поверхностей. */
-function contactState() {
-  const state = { verified: false };
-  return {
-    read: () => (state.verified ? verifiedContact : null),
-    confirmed: () => state.verified,
-    confirm: () => {
-      state.verified = true;
-    },
-  };
-}
-
-/** Поверхность, где подтверждают адрес: письмо и код заменены закрытыми ответами BFF. */
-async function confirmContactOn(
-  page: Page,
-  state: ReturnType<typeof contactState>,
-  {
-    stallOwnReread = false,
-    checkNativeScroll = false,
-  }: { stallOwnReread?: boolean; checkNativeScroll?: boolean } = {},
-) {
-  if (stallOwnReread)
-    // Своё перечитывание не отвечает: соседние поверхности не должны его дожидаться.
-    await page.route("**/api/account/billing/contact", async (route) => {
-      if (state.confirmed()) return;
-      await route.fallback();
-    });
-  await page.route("**/api/account/billing/contact/start", (route) =>
-    route.fulfill({
-      json: {
-        ok: true,
-        challengeRef: "00000000-0000-4000-8000-000000000901",
-        expiresAt: "2026-09-12T11:00:00.000Z",
-        delivery: "sent",
-      },
-    }),
-  );
-  await page.route("**/api/account/billing/contact/confirm", (route) => {
-    state.confirm();
-    void route.fulfill({
-      json: { ok: true, revision: verifiedContact.revision },
-    });
-  });
-  await page.goto("/account/purchases");
-  await page.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
-  await page.getByRole("button", { name: "Получить код", exact: true }).click();
-  await page.getByLabel("Код из письма").fill("123456");
-  const confirm = page.getByRole("button", {
-    name: "Подтвердить email",
-    exact: true,
-  });
-  if (checkNativeScroll) {
-    const notice = page.getByRole("region", { name: "Хранение в браузере" });
-    await expect(notice).toBeVisible();
-    // Нативная прокрутка учитывает плашки оболочки, прежде чем Playwright поправит положение кнопки.
-    await confirm.evaluate((button) => {
-      button.scrollIntoView({ block: "nearest" });
-    });
-    await expect
-      .poll(() =>
-        confirm.evaluate((button) => {
-          const rect = button.getBoundingClientRect();
-          const notice = document.querySelector(
-            'section[aria-label="Хранение в браузере"]',
-          );
-          return (
-            notice !== null &&
-            rect.top >= 0 &&
-            rect.bottom <= notice.getBoundingClientRect().top &&
-            button.contains(
-              document.elementFromPoint(
-                rect.x + rect.width / 2,
-                rect.y + rect.height / 2,
-              ),
-            )
-          );
-        }),
-      )
-      .toBe(true);
-  }
-  await confirm.click();
-  await expect(
-    page.getByText("Email подтверждён.", { exact: true }),
-  ).toBeVisible();
-}
-
-test("прокрутка к подтверждению оставляет кнопку выше баннера хранения", async ({
-  page,
-}) => {
-  const state = contactState();
-  await stubAccount(page, { contact: state.read });
-  await confirmContactOn(page, state, { checkNativeScroll: true });
-});
-
-test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
-  page,
-  context,
-}) => {
-  const state = contactState();
-  await stubAccount(page, { contact: state.read });
-
-  // Кабинет открыт заранее и остаётся открытым: подтверждение произойдёт не в нём.
-  await page.goto("/account/purchases");
-  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
-
-  const other = await context.newPage();
-  await stubAccount(other, { contact: state.read });
-  await confirmContactOn(other, state);
-
-  // Первый экран после письма не должен спорить с только что подтверждённым адресом.
-  await expect(
-    page.getByText(verifiedContact.email, { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
-});
-
-test("подтверждение перечитывает контакт на витрине и в разделе подписки", async ({
-  context,
-}) => {
-  const state = contactState();
-  const reads = { buy: 0, subscription: 0 };
-  const listening = async (route: "buy" | "subscription", path: string) => {
-    const page = await context.newPage();
-    await stubAccount(page, {
-      contact: () => {
-        reads[route] += 1;
-        return state.read();
-      },
-    });
-    await page.goto(path);
-    // Первое чтение состоялось: дальше считаем только перечитывание.
-    await expect.poll(() => reads[route]).toBe(1);
-    return page;
-  };
-
-  // Кабинет открывается первым: тогда между опорным замером и проверкой не происходит ничего,
-  // кроме подтверждения, и перечитывание нельзя объяснить появлением новой страницы.
-  const cabinet = await context.newPage();
-  await stubAccount(cabinet, { contact: state.read });
-
-  // Витрина руководства читает контакт для оформления, раздел подписки — редакции документов.
-  await listening("buy", "/products/platform-inside/buy");
-  await listening("subscription", "/account/subscription");
-
-  await confirmContactOn(cabinet, state);
-
-  // Утверждение — «перечитала», а не точное число: лишнее чтение должно отчитаться, а не подвесить.
-  await expect.poll(() => reads.buy).toBeGreaterThanOrEqual(2);
-  await expect.poll(() => reads.subscription).toBeGreaterThanOrEqual(2);
-});
-
-test("объявление уходит раньше собственного перечитывания", async ({
-  page,
-  context,
-}) => {
-  const state = contactState();
-  await stubAccount(page, { contact: state.read });
-  await page.goto("/account/purchases");
-  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
-
-  // Подтверждающая поверхность не получает ответа на своё перечитывание. Соседняя обязана
-  // показать адрес всё равно: она узнаёт о подтверждении, а не о его последствиях здесь.
-  const other = await context.newPage();
-  await stubAccount(other, { contact: state.read });
-  await confirmContactOn(other, state, { stallOwnReread: true });
-
-  await expect(
-    page.getByText(verifiedContact.email, { exact: true }),
-  ).toBeVisible();
-});
-
-test("без объявлений подтвердившая поверхность обновляется сама", async ({
-  page,
-}) => {
-  const state = contactState();
-  await stubAccount(page, { contact: state.read });
-  // Отключены межвкладочный канал и запасные события window: подтвердившая поверхность
-  // обязана показать адрес благодаря собственному перечитыванию.
-  await page.addInitScript(() => {
-    Reflect.deleteProperty(globalThis, "BroadcastChannel");
-    window.dispatchEvent = () => true;
-  });
-
-  await confirmContactOn(page, state);
-
-  await expect(
-    page.getByText(verifiedContact.email, { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
-});
+// Email verification no longer belongs to Purchases. Its feature-level command and
+// announcement contracts remain covered by billing-contact module/Storybook tests.
+// Product onboarding and order-email validation run against real Next/Nest/PostgreSQL
+// in test/fullstack/buyer-journey.spec.ts and the Product onboarding Storybook states.
 
 /**
  * Состояние покупателя на весь сценарий: отмена продления меняет ответ для всех поверхностей.
