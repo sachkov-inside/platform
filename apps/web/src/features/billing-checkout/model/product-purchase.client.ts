@@ -1,14 +1,23 @@
 "use client";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { restoreProductPurchase } from "../api/billing-checkout.browser";
 
 export function useProductPurchase(
   productId: string | undefined,
   enabled: boolean,
+  accountId: string | null,
 ) {
+  const purchaseRef = useSearchParams().get("purchaseRef") ?? undefined;
   return useQuery({
-    queryKey: ["account", "product-purchase", productId],
-    queryFn: () => restoreProductPurchase(productId ?? ""),
+    queryKey: [
+      "account",
+      "product-purchase",
+      accountId,
+      productId,
+      purchaseRef,
+    ],
+    queryFn: () => restoreProductPurchase(productId ?? "", purchaseRef),
     enabled: enabled && productId !== undefined,
     retry: false,
     staleTime: 0,

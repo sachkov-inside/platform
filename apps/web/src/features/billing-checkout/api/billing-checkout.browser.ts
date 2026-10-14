@@ -49,9 +49,10 @@ export function readBillingPurchaseStatus(
 
 export function restoreProductPurchase(
   productId: string,
+  purchaseRef?: string,
 ): Promise<BillingCommandResult<PurchaseStatus | null>> {
   return readBillingEndpoint(
-    `/api/account/billing/product-purchase?productId=${encodeURIComponent(productId)}`,
+    `/api/account/billing/product-purchase?productId=${encodeURIComponent(productId)}${purchaseRef === undefined ? "" : `&purchaseRef=${encodeURIComponent(purchaseRef)}`}`,
     purchaseStatusSchema.nullable(),
   );
 }

@@ -5,6 +5,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  Query,
   Post,
   UseFilters,
 } from "@nestjs/common";
@@ -14,6 +15,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -129,13 +131,20 @@ export class PurchaseSubscriptionController {
   })
   @ApiParam({ name: "productId", schema: { type: "string", format: "uuid" } })
   @ApiOkResponse({ schema: toOpenApiSchema(purchaseStatusSchema.nullable()) })
+  @ApiQuery({
+    name: "purchaseRef",
+    required: false,
+    schema: { type: "string", format: "uuid" },
+  })
   async restore(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("productId") productId: string,
+    @Query("purchaseRef") purchaseRef?: string,
   ) {
     const result = await this.payments.restoreProductPurchase(
       account.accountId,
       productId,
+      purchaseRef,
     );
     if (!result.ok) throwPaymentError(result.error.code);
     return result.value;

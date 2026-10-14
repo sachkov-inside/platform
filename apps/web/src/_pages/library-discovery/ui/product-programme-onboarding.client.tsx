@@ -6,6 +6,7 @@ import {
   useProductCommunityEntry,
 } from "@/features/community-entry";
 import { TelegramLinkAction } from "@/features/account-access";
+import { useMaterialReading } from "@/entities/material";
 import { useSeriesLearning } from "./series-learning.client";
 
 interface OnboardingPresentation {
@@ -33,9 +34,12 @@ export function ProductProgrammeOnboarding({
   readonly firstLessonHref: Route | null;
   readonly children: ReactNode;
 }) {
+  const reading = useMaterialReading();
+  const currentAccountId = reading.resolved ? reading.accountId : accountId;
   const query = useProductCommunityEntry(
     productId ?? "",
-    accountId !== null && productId !== undefined,
+    currentAccountId,
+    currentAccountId !== null && productId !== undefined,
   );
   const learning = useSeriesLearning();
   const result = query.data;
@@ -46,7 +50,10 @@ export function ProductProgrammeOnboarding({
     learning.started === true;
   const error = query.isError || result?.ok === false;
   const presentation =
-    accountId === null || entry?.kind === "none" || complete || entry === null
+    currentAccountId === null ||
+    entry?.kind === "none" ||
+    complete ||
+    entry === null
       ? null
       : {
           incomplete: true,

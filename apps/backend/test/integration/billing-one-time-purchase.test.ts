@@ -390,6 +390,37 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     expect(s.requests()).toHaveLength(1);
   });
 
+  test("an explicit bank reference never guesses another Product purchase", async () => {
+    const s = await scenario();
+    const purchase = value(
+      await s.runtime.purchase(s.buyer, await s.command()),
+    );
+    expect(
+      await s.runtime.restoreProductPurchase(
+        s.buyer,
+        s.productId,
+        randomUUID(),
+      ),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(
+      value(
+        await s.runtime.restoreProductPurchase(
+          s.buyer,
+          s.productId,
+          purchase.purchaseRef,
+        ),
+      ),
+    ).toEqual(purchase);
+    const other = await scenario();
+    expect(
+      await s.runtime.restoreProductPurchase(
+        other.buyer,
+        s.productId,
+        purchase.purchaseRef,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  });
+
   test("a confirmed bank refund shows lost Product access without a manual revoke", async () => {
     const s = await scenario();
     const purchase = await s.buy();

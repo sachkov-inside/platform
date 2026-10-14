@@ -1,3 +1,4 @@
+import { productIdFromCapability } from "@inside/access-capabilities";
 import {
   coverageSchema,
   isProductCapability,
@@ -130,7 +131,9 @@ export function projectAccessCapabilities(
       const granted = accessCapabilitySchema.parse(value);
       if (
         isProductCapability(granted) &&
-        excluded.includes(granted.slice("product:".length))
+        excluded.includes(
+          productIdFromCapability(accessCapabilitySchema.parse(granted)) ?? "",
+        )
       )
         continue;
       const scope =

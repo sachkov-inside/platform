@@ -1,3 +1,6 @@
+import { accessCapabilitySchema } from "@inside/access-capabilities";
+import { productIdFromCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 import { acceptBankRefund } from "../../features/accept-bank-refund/accept-bank-refund.js";
 import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
@@ -14,7 +17,10 @@ import {
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../account-rights/index.js";
+import type {
+  CoverageCatalog,
+  AccessGrants,
+} from "../../../account-rights/index.js";
 import { saleCapability } from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
@@ -94,10 +100,7 @@ interface Dependencies {
     | "resolveCapabilitiesMany"
     | "applyPaidPeriod"
   >;
-  readonly contentCatalog?: Pick<
-    import("../../../account-rights/index.js").CoverageCatalog,
-    "resolve"
-  >;
+  readonly contentCatalog?: Pick<CoverageCatalog, "resolve">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -567,10 +570,12 @@ export class BillingPayments {
   async restoreProductPurchase(
     accountId: string,
     productId: string,
+    purchaseRef?: string,
   ): Promise<PaymentResult<PurchaseStatus | null>> {
     if (
       !z.uuid().safeParse(accountId).success ||
-      !z.uuid().safeParse(productId).success
+      !z.uuid().safeParse(productId).success ||
+      (purchaseRef !== undefined && !z.uuid().safeParse(purchaseRef).success)
     )
       return paymentFailure("not_found");
     try {
@@ -578,11 +583,12 @@ export class BillingPayments {
         {
           where: {
             accountId,
+            ...(purchaseRef === undefined ? {} : { id: purchaseRef }),
             OR: [
               {
                 snapshot: {
                   path: ["offer", "benefits"],
-                  array_contains: [`product:${productId}`],
+                  array_contains: [productCapability(productId)],
                 },
               },
               {
@@ -591,15 +597,23 @@ export class BillingPayments {
                   array_contains: [productId],
                 },
               },
+              {
+                snapshot: {
+                  path: ["offer", "coverage", "wholePlatform"],
+                  equals: true,
+                },
+              },
             ],
           },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: { id: true },
         },
       );
+      if (purchase === null && purchaseRef !== undefined)
+        return paymentFailure("not_found");
       return purchase === null
         ? { ok: true, value: null }
-        : this.status(accountId, purchase.id, productId);
+        : await this.status(accountId, purchase.id, productId);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "restoreProductPurchase" },
@@ -635,7 +649,12 @@ export class BillingPayments {
                 ...(snapshot.offer.coverage?.productIds ?? []),
                 ...snapshot.offer.benefits
                   .filter(isProductCapability)
-                  .map((value) => value.slice("product:".length)),
+                  .map(
+                    (value) =>
+                      productIdFromCapability(
+                        accessCapabilitySchema.parse(value),
+                      ) ?? "",
+                  ),
               ]),
             ]
           : [productId];
@@ -649,12 +668,11 @@ export class BillingPayments {
         return paymentFailure("dependency_unavailable");
       const ready =
         capabilities === null ||
-        (capabilities.ok &&
-          capabilities.capabilities.some(
-            (entry) =>
-              entry.capability === "materials" ||
-              productIds.some((id) => entry.capability === `product:${id}`),
-          ));
+        capabilities.capabilities.some(
+          (entry) =>
+            entry.capability === "materials" ||
+            productIds.some((id) => entry.capability === productCapability(id)),
+        );
       const refunds = await this.dependencies.prisma.billingRefund.aggregate({
         where: { purchaseRef, state: "confirmed" },
         _sum: { amountKopecks: true },
@@ -725,7 +743,12 @@ export class BillingPayments {
               snapshot.offer.coverage ?? {
                 productIds: snapshot.offer.benefits
                   .filter(isProductCapability)
-                  .map((value) => value.slice("product:".length)),
+                  .map(
+                    (value) =>
+                      productIdFromCapability(
+                        accessCapabilitySchema.parse(value),
+                      ) ?? "",
+                  ),
                 materialIds: [],
               },
             );
@@ -748,9 +771,7 @@ export class BillingPayments {
               snapshot,
               access: status.value.access,
               ...(content === undefined ? {} : { content }),
-              ...(productEntries === undefined ||
-              productRights === null ||
-              !productRights.ok
+              ...(productEntries === undefined || productRights === null
                 ? {}
                 : {
                     productAccess: productEntries.map((entry, index) => ({
@@ -763,8 +784,9 @@ export class BillingPayments {
                             : productRights.values[index]?.capabilities.some(
                                   (right) =>
                                     right.capability === "materials" ||
-                                    right.capability === `product:${entry.id}`,
-                                )
+                                    right.capability ===
+                                      productCapability(entry.id),
+                                ) === true
                               ? "ready"
                               : "unavailable",
                     })),
@@ -1090,7 +1112,12 @@ export class BillingPayments {
               snapshot.offer.coverage ?? {
                 productIds: snapshot.offer.benefits
                   .filter(isProductCapability)
-                  .map((value) => value.slice("product:".length)),
+                  .map(
+                    (value) =>
+                      productIdFromCapability(
+                        accessCapabilitySchema.parse(value),
+                      ) ?? "",
+                  ),
                 materialIds: [],
               },
             )
@@ -1494,7 +1521,12 @@ export class BillingPayments {
           const productScope = snapshot.offer.coverage ?? {
             productIds: snapshot.offer.benefits
               .filter(isProductCapability)
-              .map((value) => value.slice("product:".length)),
+              .map(
+                (value) =>
+                  productIdFromCapability(
+                    accessCapabilitySchema.parse(value),
+                  ) ?? "",
+              ),
             materialIds: [],
           };
           const benefitTerms = snapshot.offer.benefits.map((capability) => {

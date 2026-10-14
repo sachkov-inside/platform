@@ -1,3 +1,4 @@
+import { resolveAccount } from "@/shared/api/backend/index.server";
 import { notFound } from "next/navigation";
 
 import { preorderTerms } from "@/entities/subscription";
@@ -41,6 +42,10 @@ export async function ProductPurchasePage({
       />
     );
   }
+  const accountId =
+    accessToken === undefined
+      ? null
+      : (await resolveAccount(accessToken)).accountId;
   const catalog = await (accessToken === undefined
     ? readGuestProductSale(product.reference.id)
     : readViewerProductSale(product.reference.id, accessToken));
@@ -51,6 +56,7 @@ export async function ProductPurchasePage({
       offers={catalog.kind === "ready" ? catalog.offers : []}
       preorder={catalog.kind === "ready" ? preorderTerms(catalog.cohort) : null}
       signedIn={accessToken !== undefined}
+      accountId={accountId}
       {...(offerId === undefined ? {} : { offerId })}
       slug={slug}
       {...(promoCode === undefined ? {} : { promoCode })}

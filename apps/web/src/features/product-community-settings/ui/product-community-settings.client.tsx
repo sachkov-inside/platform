@@ -16,7 +16,6 @@ export function ProductCommunitySettings({
   const query = useQuery({
     queryKey: ["authoring", "product-community", productId],
     queryFn: () => readProductCommunityConfiguration(productId),
-    staleTime: 0,
     retry: false,
   });
   const mutation = useMutation({

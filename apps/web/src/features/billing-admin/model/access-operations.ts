@@ -1,3 +1,4 @@
+import { isProductCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 
 import {
@@ -227,7 +228,7 @@ export function groundActions(ground: PersonGround): GroundActions {
     revoke:
       live &&
       !ground.capabilities.some((capability) =>
-        capability.startsWith("product:"),
+        isProductCapability(capability),
       ),
     restore: false,
   };

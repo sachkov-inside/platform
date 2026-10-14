@@ -82,7 +82,12 @@ export function ProductPurchases({
                             href={
                               access === "ready"
                                 ? productProgrammeHref(item.slug)
-                                : productPurchaseHref(item.slug)
+                                : productPurchaseHref(
+                                    item.slug,
+                                    undefined,
+                                    undefined,
+                                    payment.purchaseRef,
+                                  )
                             }
                             aria-label={
                               products.length > 1

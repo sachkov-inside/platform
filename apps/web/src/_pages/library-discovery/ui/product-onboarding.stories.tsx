@@ -31,7 +31,7 @@ function Programme({ started = false }: { readonly started?: boolean }) {
         resolved: true,
         states: new Map(),
         register: () => () => undefined,
-        refresh: async () => undefined,
+        refresh: () => Promise.resolve(undefined),
         failed: false,
       }}
     >

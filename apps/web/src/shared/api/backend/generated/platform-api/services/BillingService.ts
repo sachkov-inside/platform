@@ -432,8 +432,10 @@ export class BillingService {
    */
   public restoreProductPurchase({
     productId,
+    purchaseRef,
   }: {
     productId: string,
+    purchaseRef?: string,
   }): CancelablePromise<{
     access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
     confirmedAt: string | null;
@@ -490,6 +492,9 @@ export class BillingService {
       url: '/accounts/current/billing/products/{productId}/purchase',
       path: {
         'productId': productId,
+      },
+      query: {
+        'purchaseRef': purchaseRef,
       },
       errors: {
         403: `The terms of use in force are not accepted yet`,

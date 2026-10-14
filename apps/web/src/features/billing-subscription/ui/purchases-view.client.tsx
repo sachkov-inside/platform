@@ -66,8 +66,9 @@ export function PurchasesSectionView({
 
   return (
     <div className="grid gap-6">
-      {grounds.some((ground) =>
-        ground.content?.some((entry) => entry.kind === "product"),
+      {grounds.some(
+        (ground) =>
+          ground.content?.some((entry) => entry.kind === "product") === true,
       ) ? (
         <ProductAccessList grounds={grounds} />
       ) : (

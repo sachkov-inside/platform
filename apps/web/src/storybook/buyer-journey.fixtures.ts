@@ -1,8 +1,13 @@
+import {
+  productIdFromCapability,
+  productCapability,
+} from "@inside/access-capabilities";
 import type { AccessGround, OwnPayment } from "@/entities/subscription";
 import { productOnlyOffer, ownPayments } from "./billing.fixtures";
 import { seriesJourneyCorpus } from "./series-journey-corpus.fixtures";
 export const buyerProductId =
-  productOnlyOffer.offer.benefits[0]?.slice("product:".length) ?? "";
+  productIdFromCapability(productOnlyOffer.offer.benefits[0] ?? "materials") ??
+  "";
 export const buyerProductName = "Создание Platform Inside";
 export function buyerProgrammeFixture(name: string) {
   const corpus = seriesJourneyCorpus();
@@ -64,7 +69,7 @@ export const buyerGrounds: readonly AccessGround[] = [
   {
     source: "paid",
     content: [buyerProductContent],
-    capabilities: [`product:${buyerProductId}`],
+    capabilities: [productCapability(buyerProductId)],
     startsAt: "2026-10-01T10:00:00.000Z",
     validUntil: null,
     active: true,

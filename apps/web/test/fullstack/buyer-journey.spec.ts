@@ -114,7 +114,7 @@ test("покупатель курса проходит путь от стран�
   const pay = page.getByRole("button", { name: /^Оплатить/u });
   await expect(pay).toBeEnabled();
   await pay.click();
-  const emailInput = page.getByRole("textbox", { name: "Email для чека" });
+  const emailInput = page.getByRole("textbox", { name: "Email" });
   await expect(emailInput).toBeFocused();
   await expect(emailInput).toHaveAttribute("aria-invalid", "true");
   await emailInput.fill("broken");
@@ -166,7 +166,9 @@ test("покупатель курса проходит путь от стран�
 
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
-  await expect(page.getByText("Общий чат").first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ваши продукты" }),
+  ).toBeVisible();
   const billingResponse = await fullStackBrowserRequest(
     page,
     "/api/account/billing",

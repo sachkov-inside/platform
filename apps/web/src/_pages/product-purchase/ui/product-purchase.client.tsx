@@ -1,4 +1,6 @@
 "use client";
+import { productCapability } from "@inside/access-capabilities";
+import { useMaterialReading } from "@/entities/material";
 import { initialPaymentOptionId } from "../model/initial-selection";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -44,6 +46,7 @@ export interface ProductPurchaseProps {
    * читает покупки и контакт: ответ 401 был бы ошибкой в консоли и лишним запросом.
    */
   readonly signedIn?: boolean;
+  readonly accountId?: string | null;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -56,6 +59,7 @@ export function ProductPurchase({
   offerId,
   preorder = null,
   signedIn = true,
+  accountId = null,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
@@ -70,9 +74,16 @@ export function ProductPurchase({
     !signedIn || signedOut ? "guest" : billing.isPending ? "loading" : "member";
   const failure =
     billing.data?.ok === false && !signedOut ? billing.data.code : undefined;
-  const restored = useProductPurchase(product?.id, signedIn && !signedOut);
+  const reading = useMaterialReading();
+  const currentAccountId = reading.resolved ? reading.accountId : accountId;
+  const restored = useProductPurchase(
+    product?.id,
+    signedIn && !signedOut,
+    currentAccountId,
+  );
   const [buyAgain, setBuyAgain] = useState(false);
-  const purchase = restored.data?.ok === true ? restored.data.value : null;
+  const purchase =
+    restored.data?.ok === true ? (restored.data.value ?? null) : null;
   const restoredError =
     restored.data?.ok === false
       ? billingErrorMessage(restored.data.code)
@@ -83,25 +94,21 @@ export function ProductPurchase({
   const router = useRouter();
   const announced = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      !ready ||
-      purchase === null ||
-      announced.current === purchase.purchaseRef
-    )
-      return;
+    if (!ready || announced.current === purchase.purchaseRef) return;
     announced.current = purchase.purchaseRef;
     announceCurrentBillingChange();
     router.refresh();
   }, [ready, purchase, router]);
+  const productId = product?.id;
   const alreadyOpen =
-    product?.id !== undefined &&
+    productId !== undefined &&
     billing.data?.ok === true &&
     billing.data.value.grounds.some(
       (ground) =>
         ground.active &&
-        (ground.capabilities.includes(`product:${product.id}`) ||
+        (ground.capabilities.includes(productCapability(productId)) ||
           (ground.capabilities.includes("materials") &&
-            ground.content?.some((entry) => entry.id === product.id))),
+            ground.content?.some((entry) => entry.id === productId) === true)),
     );
   const selected =
     offers.find((offer) => offer.paymentOption.id === selectedId) ??
@@ -170,7 +177,7 @@ export function ProductPurchase({
         </Button>
       ) : selected === null ? null : contact.isPending ? (
         <p role="status">Подготавливаем оплату…</p>
-      ) : contact.isError || contact.data?.ok === false ? (
+      ) : contact.isError || !contact.data.ok ? (
         <section role="alert">
           <p>Не удалось загрузить данные оплаты.</p>
           <Button

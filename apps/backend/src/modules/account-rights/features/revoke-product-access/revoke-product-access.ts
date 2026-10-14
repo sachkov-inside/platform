@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import {
   coverageSchema,
   scopeIncludesProduct,
@@ -70,8 +71,8 @@ async function facts(
   });
   const affected = grants.filter(
     (grant) =>
-      !exclusion?.grantIds.includes(grant.id) &&
-      (grant.capabilities.includes(`product:${target.productId}`) ||
+      exclusion?.grantIds.includes(grant.id) !== true &&
+      (grant.capabilities.includes(productCapability(target.productId)) ||
         (grant.coverage !== null &&
           scopeIncludesProduct(
             coverageSchema.parse(grant.coverage),

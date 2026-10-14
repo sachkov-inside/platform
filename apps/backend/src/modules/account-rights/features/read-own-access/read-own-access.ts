@@ -1,3 +1,4 @@
+import { productIdFromCapability } from "@inside/access-capabilities";
 import {
   isWithheldCapability,
   coverageEntrySchema,
@@ -66,7 +67,12 @@ export async function readOwnAccess(
           grant.coverage ?? {
             productIds: grant.capabilities
               .filter(isProductCapability)
-              .map((value) => value.slice("product:".length)),
+              .map(
+                (value) =>
+                  productIdFromCapability(
+                    accessCapabilitySchema.parse(value),
+                  ) ?? "",
+              ),
             materialIds: [],
           },
         ) ?? Promise.resolve(undefined),
@@ -86,7 +92,11 @@ export async function readOwnAccess(
           (capability) =>
             !isWithheldCapability(capability) &&
             (!isProductCapability(capability) ||
-              !excluded.includes(capability.slice("product:".length))) &&
+              !excluded.includes(
+                productIdFromCapability(
+                  accessCapabilitySchema.parse(capability),
+                ) ?? "",
+              )) &&
             (isProductCapability(capability) ||
               scope === null ||
               scope.wholePlatform === true ||
@@ -102,7 +112,7 @@ export async function readOwnAccess(
                 ...(contents[index] === undefined
                   ? {}
                   : {
-                      content: contents[index]?.filter(
+                      content: contents[index].filter(
                         (entry) => !excluded.includes(entry.id),
                       ),
                     }),

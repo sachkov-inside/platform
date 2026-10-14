@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
@@ -127,8 +128,8 @@ export class CommunityEntitlements {
       accountId: actorId,
       permission: "platform:admin",
     });
-    if (!permission.ok || !permission.allowed)
-      return { ok: false, code: "forbidden" };
+    if (!permission.ok) return { ok: false, code: "dependency_unavailable" };
+    if (!permission.allowed) return { ok: false, code: "forbidden" };
     try {
       const now = this.clock();
       await this.dependencies.prisma.$transaction(async (tx) => {
@@ -184,8 +185,8 @@ export class CommunityEntitlements {
       accountId: actorId,
       permission: "platform:admin",
     });
-    if (!permission.ok || !permission.allowed)
-      return { ok: false, code: "forbidden" };
+    if (!permission.ok) return { ok: false, code: "dependency_unavailable" };
+    if (!permission.allowed) return { ok: false, code: "forbidden" };
     try {
       const association =
         await this.dependencies.prisma.productCommunity.findUnique({
@@ -219,27 +220,38 @@ export class CommunityEntitlements {
       !z.uuid().safeParse(productId).success
     )
       return { kind: "none" };
-    const association =
-      await this.dependencies.prisma.productCommunity.findUnique({
-        where: { productId },
-      });
-    if (association?.groupRef !== "primary") return { kind: "none" };
-    const access = await this.dependencies.grants.resolveCapabilities(
-      accountId,
-      { productIds: [productId] },
-    );
-    if (!access.ok) return { kind: "unavailable" };
-    if (
-      !access.capabilities.some(
-        (entry) =>
-          entry.capability === "materials" ||
-          entry.capability === `product:${productId}`,
+    try {
+      const association =
+        await this.dependencies.prisma.productCommunity.findUnique({
+          where: { productId },
+        });
+      if (association?.groupRef !== "primary") return { kind: "none" };
+      const access = await this.dependencies.grants.resolveCapabilities(
+        accountId,
+        { productIds: [productId] },
+      );
+      if (!access.ok) return { kind: "unavailable" };
+      if (
+        !access.capabilities.some(
+          (entry) =>
+            entry.capability === "materials" ||
+            entry.capability === productCapability(productId),
+        )
       )
-    )
-      return { kind: "none" };
-    if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
-      return { kind: "none" };
-    return this.readOwnCommunityEntry(accountId);
+        return { kind: "none" };
+      if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
+        return { kind: "none" };
+      return await this.readOwnCommunityEntry(accountId);
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "readOwnProductCommunityEntry",
+        },
+        error,
+        { kind: "unavailable" as const },
+      );
+    }
   }
 
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
@@ -591,7 +603,7 @@ export class CommunityEntitlements {
         MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
       )) {
         if (row.observedMembership !== "member") continue;
-        const access = await this.dependencies.grants.resolveCapabilities(
+        const access = await this.groupDependencies.grants.resolveCapabilities(
           row.accountId,
         );
         if (!access.ok) return { ok: false, error: { code: "unavailable" } };

@@ -10,7 +10,11 @@ const productCommunityChanged = factAnnouncement(
 );
 export const announceProductCommunityChange = productCommunityChanged.announce;
 
-export function useProductCommunityEntry(productId: string, enabled: boolean) {
+export function useProductCommunityEntry(
+  productId: string,
+  accountId: string | null,
+  enabled: boolean,
+) {
   const client = useQueryClient();
   useEffect(
     () =>
@@ -22,7 +26,7 @@ export function useProductCommunityEntry(productId: string, enabled: boolean) {
     [client],
   );
   return useQuery({
-    queryKey: ["account", "product-community", productId],
+    queryKey: ["account", "product-community", accountId, productId],
     queryFn: () =>
       readBillingEndpoint(
         `/api/account/community-entry?productId=${encodeURIComponent(productId)}`,

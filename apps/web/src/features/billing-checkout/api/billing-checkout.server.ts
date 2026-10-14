@@ -86,8 +86,14 @@ export function handleRestoreProductPurchase(
   );
   if (!productId.success)
     return Promise.resolve(billingFailureResponse("not_found", 404));
+  const reference = new URL(request.url).searchParams.get("purchaseRef");
+  const purchaseRef =
+    reference === null ? undefined : purchaseRefSchema.safeParse(reference);
+  if (purchaseRef !== undefined && !purchaseRef.success)
+    return Promise.resolve(billingFailureResponse("not_found", 404));
   return readAuthenticatedBilling(
-    (token) => requestRestoreProductPurchase(productId.data, token),
+    (token) =>
+      requestRestoreProductPurchase(productId.data, token, purchaseRef?.data),
     purchaseStatusSchema.nullable(),
   );
 }

@@ -91,10 +91,14 @@ export function requestBillingPurchaseStatus(
 export function requestRestoreProductPurchase(
   productId: string,
   accessToken: string,
+  purchaseRef?: string,
 ) {
   return executeGeneratedRequest(
     (request) =>
-      new BillingService(request).restoreProductPurchase({ productId }),
+      new BillingService(request).restoreProductPurchase({
+        productId,
+        ...(purchaseRef === undefined ? {} : { purchaseRef }),
+      }),
     200,
     { accessToken },
   );

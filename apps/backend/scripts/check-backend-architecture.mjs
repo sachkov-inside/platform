@@ -75,7 +75,7 @@ function moduleSpecifiers(program) {
 
 const sqlIdentifier = String.raw`(?:"[a-z_][a-z0-9_]*"|[a-z_][a-z0-9_]*)`;
 const sqlTableReference = new RegExp(
-  String.raw`(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+(?:lateral\s+)?((?!lateral\b)${sqlIdentifier}(?:\s*\.\s*${sqlIdentifier})?)`,
+  String.raw`(?:\bfrom|\bjoin|(?<!\bfor\s)(?<!\bdo\s)\bupdate|\binto)\s+(?:lateral\s+)?((?!lateral\b)${sqlIdentifier}(?:\s*\.\s*${sqlIdentifier})?)`,
   "giu",
 );
 const sqlCteDeclaration = new RegExp(
@@ -184,7 +184,7 @@ function databaseTableReferences(program) {
           .join("${}");
         references.push(...referencesFromSql(sqlText));
         if (
-          /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+(?:lateral\s+)?\$\{/iu.test(
+          /(?:\bfrom|\bjoin|(?<!\bfor\s)(?<!\bdo\s)\bupdate|\binto)\s+(?:lateral\s+)?\$\{/iu.test(
             sqlText,
           )
         ) {

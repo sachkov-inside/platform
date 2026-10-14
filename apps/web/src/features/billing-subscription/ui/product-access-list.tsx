@@ -1,3 +1,4 @@
+import { productCapability } from "@inside/access-capabilities";
 import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
@@ -29,8 +30,9 @@ export function ProductAccessList({
       </h2>
       <ul className="mt-4 grid gap-4">
         {products.map((product) => {
-          const bases = grounds.filter((ground) =>
-            ground.content?.some((entry) => entry.id === product.id),
+          const bases = grounds.filter(
+            (ground) =>
+              ground.content?.some((entry) => entry.id === product.id) === true,
           );
           const access = bases.some(
             (ground) =>
@@ -38,7 +40,7 @@ export function ProductAccessList({
               ground.capabilities.some(
                 (capability) =>
                   capability === "materials" ||
-                  capability === `product:${product.id}`,
+                  capability === productCapability(product.id),
               ),
           );
           const support = bases.filter(

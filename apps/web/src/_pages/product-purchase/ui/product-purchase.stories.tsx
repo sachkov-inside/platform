@@ -178,8 +178,10 @@ export const NotForSale: Story = {
   args: { offers: [] },
   play: async ({ canvasElement }) => {
     const canvas = routeContent(canvasElement);
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "не продаётся отдельно",
+    await waitFor(() =>
+      expect(canvas.getByRole("status")).toHaveTextContent(
+        "не продаётся отдельно",
+      ),
     );
     await expect(
       canvas.getByRole("link", { name: "Программа" }),
@@ -193,8 +195,10 @@ export const PriceUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = routeContent(canvasElement);
     // Временный сбой не выдаётся за «не продаётся».
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Цена сейчас недоступна",
+    await waitFor(() =>
+      expect(canvas.getByRole("status")).toHaveTextContent(
+        "Цена сейчас недоступна",
+      ),
     );
   },
 };
@@ -271,7 +275,7 @@ export const Loading: Story = {
   ...purchaseRoute("loading"),
   play: async ({ canvasElement }) => {
     await expect(
-      routeContent(canvasElement).getByText("Проверяем ваши покупки…"),
+      routeContent(canvasElement).getByText("Восстанавливаем вашу покупку…"),
     ).toBeVisible();
   },
 };

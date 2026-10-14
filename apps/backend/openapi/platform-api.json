@@ -12863,6 +12863,15 @@
         "operationId": "restoreProductPurchase",
         "parameters": [
           {
+            "in": "query",
+            "name": "purchaseRef",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "productId",
             "required": true,
