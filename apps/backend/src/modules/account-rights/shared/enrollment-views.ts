@@ -2,7 +2,10 @@ import { z } from "zod";
 import { tariffCoverage } from "@inside/access-capabilities";
 import { Prisma } from "../../../infrastructure/prisma/index.js";
 import type { AccountRightsPrisma } from "../infrastructure/prisma.js";
-import type { CoverageCatalog } from "../ports/coverage-catalog.js";
+import {
+  COVERAGE_CATALOG_ENTRY_LIMIT,
+  type CoverageCatalog,
+} from "../ports/coverage-catalog.js";
 import {
   enrollmentView,
   enrollmentBenefitTerms,
@@ -63,7 +66,8 @@ export async function assembleEnrollmentViews(
     const content =
       catalog === undefined
         ? undefined
-        : await catalog.resolveMany(
+        : await resolveEnrollmentContent(
+            catalog,
             views.map((view) =>
               tariffCoverage(view.tier.benefits, view.tier.coverage),
             ),
@@ -108,5 +112,48 @@ export async function assembleEnrollmentViews(
           : {}),
       });
   }
+  return result;
+}
+
+/** Pack explicit references to the port's bound; a whole-platform read owns its unknown-sized set. */
+async function resolveEnrollmentContent(
+  catalog: CoverageCatalog,
+  scopes: ReturnType<typeof tariffCoverage>[],
+) {
+  const result: Awaited<ReturnType<CoverageCatalog["resolveMany"]>> = [];
+  const whole = scopes.flatMap((scope, index) =>
+    scope.wholePlatform === true ? [index] : [],
+  );
+  if (whole.length > 0) {
+    const first = whole[0];
+    if (first === undefined) throw new Error("Missing whole-platform scope");
+    const [entries] = await catalog.resolveMany([scopes[first]]);
+    for (const index of whole) result[index] = [...(entries ?? [])];
+  }
+  let indexes: number[] = [];
+  let batch: typeof scopes = [];
+  let references = new Set<string>();
+  async function flush() {
+    if (batch.length === 0) return;
+    const contents = await catalog.resolveMany(batch);
+    for (const [position, index] of indexes.entries())
+      result[index] = contents[position] ?? [];
+    indexes = [];
+    batch = [];
+    references = new Set();
+  }
+  for (const [index, scope] of scopes.entries()) {
+    if (scope.wholePlatform === true) continue;
+    const added = [
+      ...scope.productIds.map((id) => `product/${id.toLowerCase()}`),
+      ...scope.materialIds.map((id) => `material/${id.toLowerCase()}`),
+    ];
+    const union = new Set([...references, ...added]);
+    if (union.size > COVERAGE_CATALOG_ENTRY_LIMIT) await flush();
+    for (const reference of added) references.add(reference);
+    batch.push(scope);
+    indexes.push(index);
+  }
+  await flush();
   return result;
 }
