@@ -132,3 +132,13 @@ export function requestLearningPractices(
     options,
   );
 }
+
+export function requestPublicSiteIndex(query: {
+  readonly after?: string;
+}): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new ContentLibraryService(request).listPublicSiteIndex(query),
+    200,
+    {},
+  );
+}

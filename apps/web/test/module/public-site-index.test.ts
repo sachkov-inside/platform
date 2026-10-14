@@ -6,23 +6,18 @@ import {
   partitionPublicSitemap,
 } from "@/features/public-site-index.server";
 
-function catalogPage(input: {
+function siteIndexPage(input: {
   readonly nextCursor: string | null;
   readonly slugs: readonly string[];
 }) {
   return Response.json({
-    facets: {
-      formats: [],
-      series: [{ slug: "platform-inside" }, { slug: "ci-cd" }],
-      topics: [{ slug: "platform" }],
-    },
+    productSlugs: ["platform-inside", "ci-cd"],
+    topicSlugs: ["platform"],
     items: input.slugs.map((slug) => ({
       publishedAt: "2026-08-25T05:00:00.000Z",
       slug,
-      title: "Материал",
     })),
     nextCursor: input.nextCursor,
-    totalCount: 3,
   });
 }
 
@@ -37,10 +32,10 @@ describe("Указатель опубликованных страниц", () =>
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        catalogPage({ nextCursor: "cursor-2", slugs: ["first", "second"] }),
+        siteIndexPage({ nextCursor: "cursor-2", slugs: ["first", "second"] }),
       )
       .mockResolvedValueOnce(
-        catalogPage({ nextCursor: null, slugs: ["third"] }),
+        siteIndexPage({ nextCursor: null, slugs: ["third"] }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -59,6 +54,7 @@ describe("Указатель опубликованных страниц", () =>
       .instanceof(Request)
       .parse(fetchMock.mock.calls[1]?.[0]);
     expect(secondRequest.url).toContain("after=cursor-2");
+    expect(secondRequest.url).toContain("/library/site-index");
   });
 
   it("reaches Material 1201 beyond the former hundred-page limit", async () => {
@@ -68,7 +64,7 @@ describe("Указатель опубликованных страниц", () =>
       const offset = page++ * 12;
       const count = Math.min(12, 1201 - offset);
       return Promise.resolve(
-        catalogPage({
+        siteIndexPage({
           nextCursor: offset + count === 1201 ? null : `cursor-${String(page)}`,
           slugs: Array.from(
             { length: count },
@@ -91,7 +87,9 @@ describe("Указатель опубликованных страниц", () =>
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
-        Promise.resolve(catalogPage({ nextCursor: "cycle", slugs: ["first"] })),
+        Promise.resolve(
+          siteIndexPage({ nextCursor: "cycle", slugs: ["first"] }),
+        ),
       ),
     );
     await expect(getPublicSiteIndex()).rejects.toThrow("continuation");
@@ -116,7 +114,7 @@ describe("Указатель опубликованных страниц", () =>
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(catalogPage({ nextCursor: null, slugs: ["first"] }));
+      .mockResolvedValue(siteIndexPage({ nextCursor: null, slugs: ["first"] }));
     vi.stubGlobal("fetch", fetchMock);
 
     await getPublicSiteIndex();
