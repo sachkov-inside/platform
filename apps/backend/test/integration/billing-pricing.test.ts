@@ -157,6 +157,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     return command;
   }
 
+  test("quotes a valid uppercase payment-option UUID with canonical snapshot identity", async () => {
+    now = new Date("2026-09-08T12:00:00.000Z");
+    const { optionId } = await catalog();
+    const read = await quote(randomUUID(), optionId.toUpperCase());
+    expect(read.snapshot.paymentOption.id).toBe(optionId);
+    expect(read.snapshot.firstPriceKopecks).toBe(200_000);
+  });
   test("owner authorization is current on replay; strict schema and optimistic revisions protect catalog", async () => {
     const cmd = {
       operation: "offers.save",

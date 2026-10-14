@@ -58,6 +58,16 @@ describe.each([1, 10, 100])(
       await measured?.prisma.$disconnect();
       await db?.dispose();
     });
+    test("normalizes valid uppercase Product UUIDs through the Billing identity codec", async () => {
+      const read = await pricing.saleAvailability({
+        productIds: productIds.map((id) => id.toUpperCase()),
+      });
+      expect(read.ok).toBe(true);
+      if (!read.ok) return;
+      expect(read.value.items).toEqual(
+        productIds.map((productId) => ({ productId, sold: true })),
+      );
+    });
     test("reports each sold Product and absent Product with bounded owner reads", async () => {
       if (measured === undefined)
         throw new Error("Missing measured fixture client");

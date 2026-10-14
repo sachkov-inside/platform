@@ -5,14 +5,14 @@ import {
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { failure, type PricingResult } from "../../domain/pricing.js";
+import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import type { ListOffersOptions } from "../list-offers/list-offers.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { noPurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const productSaleAvailabilityQuerySchema = z.strictObject({
-  productIds: z.array(z.uuid()).max(100),
+  productIds: z.array(idSchema).max(100),
 });
 export const productSaleAvailabilitySchema = z.strictObject({
   items: z.array(z.strictObject({ productId: z.uuid(), sold: z.boolean() })),
