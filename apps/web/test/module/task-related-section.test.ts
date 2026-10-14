@@ -2,6 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { RenderedBlock } from "@inside/material-blocks";
+import { TaskPageBody } from "@/_pages/product-task/ui/task-page-body";
+import { taskRelatedMaterialHref } from "@/_pages/product-task/ui/task-related-materials.client";
+import { internalRoute } from "@/shared/routing/internal-route";
 import { MaterialBodyView } from "@/entities/material";
 import {
   taskRelatedSectionOrder,
@@ -17,13 +20,13 @@ const paragraph = (text: string): RenderedBlock => ({
   kind: "paragraph",
   content: [{ kind: "text", text, marks: [] }],
 });
-const linked = (text: string): RenderedBlock => ({
+const linked = (text: string, href = "/materials/lesson"): RenderedBlock => ({
   kind: "paragraph",
   content: [
     {
       kind: "text",
       text,
-      marks: [{ kind: "bold" }, { kind: "link", href: "/materials/lesson" }],
+      marks: [{ kind: "bold" }, { kind: "link", href }],
     },
   ],
 });
@@ -109,5 +112,60 @@ describe("authored task related section", () => {
       'href="/assets/33333333-3333-4333-8333-333333333331"',
     );
     expect(html).toContain("Авторский файл");
+  });
+  it("retains authored query values, repeated parameters and the fragment while enriching only the related link with its real Material ID", () => {
+    const href = "/materials/lesson?view=detail&tag=one&tag=two#first-section";
+    const returnTo = internalRoute(
+      "/products/course/programme?part=materials&at=lesson",
+    );
+    const target = new URL(
+      taskRelatedMaterialHref("lesson", returnTo, internalRoute(href)),
+      "https://inside.invalid",
+    );
+    expect(target.pathname).toBe("/materials/lesson");
+    expect(target.searchParams.get("view")).toBe("detail");
+    expect(target.searchParams.getAll("tag")).toEqual(["one", "two"]);
+    expect(target.searchParams.get("from")).toBe(returnTo);
+    expect(target.hash).toBe("#first-section");
+    const materialId = "33333333-3333-4333-8333-333333333331";
+    const html = renderToStaticMarkup(
+      createElement(TaskPageBody, {
+        page: {
+          title: "Задание",
+          summary: "",
+          cover: null,
+          artifacts: [],
+          body: {
+            schemaVersion: 1,
+            blocks: [
+              heading("Условие"),
+              linked("Обычная ссылка", href),
+              heading("Материалы к заданию"),
+              linked("Связанный урок", href),
+            ],
+          },
+        },
+        productSlug: "course",
+        code: "task",
+        version: 1,
+        returnTo,
+        relatedMaterials: [
+          {
+            materialId,
+            slug: "lesson",
+            title: "Урок",
+            availability: "available",
+          },
+        ],
+      }),
+    );
+    expect(html).toContain(`data-task-related-material="${materialId}"`);
+    expect(html.match(/data-task-related-material=/gu)).toHaveLength(1);
+    expect(html).toContain(
+      "view=detail&amp;tag=one&amp;tag=two&amp;from=%2Fproducts%2Fcourse%2Fprogramme%3Fpart%3Dmaterials%26at%3Dlesson#first-section",
+    );
+    expect(html).toMatch(
+      /href="\/materials\/lesson\?view=detail&amp;tag=one&amp;tag=two#first-section">Обычная ссылка<\/a>/u,
+    );
   });
 });

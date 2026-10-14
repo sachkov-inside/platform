@@ -1439,7 +1439,8 @@ version. Task title comes from the definition's YAML; the page heading uses `pag
 
 The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
 «Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and inserts the usual
-submission controls before «Материалы к заданию». The current v2 Reader definition excludes
+related Materials before the authored instructions and keeps submission controls and history
+near the end (owner decision 14.10.2026, #1427). The current v2 Reader definition excludes
 `acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
 Markdown links through the same source map as the page without rewriting stored authored text.
 Source links may target either a Material or a Task. Asset delivery checks access to the Task and
@@ -1469,9 +1470,11 @@ Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); 
 the look by prototype on 05.10.2026: the page is variant A «Документ», the programme places tasks
 in author order (variant 2).
 
-- `/products/<product-slug>/tasks/<code>` reads the session before rendering and is never cached. An
-  open v1 task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
-  «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
+- `/products/<product-slug>/tasks/<code>` prefetches public course composition and keeps session,
+  requirements and submissions in an uncached personal boundary (ADR 0027). The browser retains
+  a visited task for the same 60-second window as lessons; submission writes refresh that route.
+  An open v1 task first shows related Materials with explicit studied progress, then «Ситуация»,
+  «Результат», «Обязательно», «Дополнительно» and «Свобода», followed by «Сдача» and «Мои сдачи». «Сдача» shows the learning MCP
   address, the phrase with the task code and procedure v3, the same text MCP returns, with the
   fallback form folded below. A task the reader cannot open shows only its title and chapter and
   leads to the programme; an unknown code, a code of another Product and a withdrawn task answer 404.

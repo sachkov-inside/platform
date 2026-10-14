@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { Route } from "next";
 
 import { useMaterialReading } from "@/entities/material";
+import { internalRoute } from "@/shared/routing/internal-route";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
@@ -12,14 +13,29 @@ import type { OpenProductTask } from "../model/product-task-page";
 
 type RelatedMaterial = OpenProductTask["relatedMaterials"][number];
 
+/** Retain authored query values and fragments while the selected course owns the return target. */
+export function taskRelatedMaterialHref(
+  slug: string,
+  returnTo: Route,
+  authoredHref?: Route,
+): Route {
+  const readerHref = materialReaderHref(slug, returnTo);
+  if (authoredHref === undefined) return readerHref;
+  const target = new URL(authoredHref, "https://inside.invalid");
+  target.searchParams.set("from", returnTo);
+  return internalRoute(`${target.pathname}${target.search}${target.hash}`);
+}
+
 /** Known Material IDs join the existing Account-scoped batch and cache; unknown state stays unknown. */
 export function TaskRelatedMaterialLink({
   material,
   returnTo,
+  authoredHref,
   children,
 }: {
   readonly material: RelatedMaterial;
   readonly returnTo: Route;
+  readonly authoredHref?: Route;
   readonly children: ReactNode;
 }) {
   const { state, accountId, resolved, failed } = useMaterialReading(
@@ -30,7 +46,7 @@ export function TaskRelatedMaterialLink({
   return (
     <IntentPrefetchLink
       className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-3 py-2 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-      href={materialReaderHref(material.slug, returnTo)}
+      href={taskRelatedMaterialHref(material.slug, returnTo, authoredHref)}
       data-task-related-material={material.materialId}
     >
       <span className="min-w-0 flex-1 leading-6 [overflow-wrap:anywhere]">

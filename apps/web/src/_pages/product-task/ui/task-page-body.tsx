@@ -8,6 +8,7 @@ import {
   type MaterialImageSource,
 } from "@/features/material-assets";
 
+import { internalRoute } from "@/shared/routing/internal-route";
 import { materialPath } from "@/shared/routing/public-page-path";
 import {
   taskRelatedSectionOrder,
@@ -63,7 +64,11 @@ export function TaskPageBody({
             (item) => materialPath(item.slug) === targetPath,
           );
           return material === undefined ? undefined : (
-            <TaskRelatedMaterialLink material={material} returnTo={returnTo}>
+            <TaskRelatedMaterialLink
+              material={material}
+              returnTo={returnTo}
+              authoredHref={internalRoute(href)}
+            >
               {label}
             </TaskRelatedMaterialLink>
           );
