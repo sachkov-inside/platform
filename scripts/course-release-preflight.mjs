@@ -76,31 +76,37 @@ const legacyEvidenceSchema = z.strictObject({
     databasesPassed: z.array(z.enum(["inside", "logto", "inside_telegram"])),
   }),
 });
+const coverageReceiptSchema = z.strictObject({
+  name: z.enum(coverageNames),
+  sourceSha: sourceShaSchema,
+  exitCode: z.int(),
+  evidenceRef: z.string().min(1),
+  execution: z.discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("ci"),
+      workflowRunId: z.int().positive(),
+      job: z.string().min(1),
+      conclusion: z.literal("success"),
+    }),
+    z.strictObject({ kind: z.literal("local") }),
+    z.strictObject({ kind: z.literal("review") }),
+  ]),
+});
+const coverageEvidenceSchema = legacyEvidenceSchema.extend({
+  schemaVersion: z.literal("inside.course-release-preflight.v2"),
+  selectedSourceSha: sourceShaSchema,
+  checks: z.array(z.union([coverageReceiptSchema, excludedTelemetrySchema])),
+});
+const activeCoverageNames = coverageNames.filter(
+  (name) => name !== "telemetry-resource-budget",
+);
 const evidenceSchema = z.union([
   legacyEvidenceSchema,
-  legacyEvidenceSchema.extend({
-    schemaVersion: z.literal("inside.course-release-preflight.v2"),
-    selectedSourceSha: sourceShaSchema,
+  coverageEvidenceSchema,
+  coverageEvidenceSchema.extend({
+    schemaVersion: z.literal("inside.course-release-preflight.v3"),
     checks: z.array(
-      z.union([
-        z.strictObject({
-          name: z.enum(coverageNames),
-          sourceSha: sourceShaSchema,
-          exitCode: z.int(),
-          evidenceRef: z.string().min(1),
-          execution: z.discriminatedUnion("kind", [
-            z.strictObject({
-              kind: z.literal("ci"),
-              workflowRunId: z.int().positive(),
-              job: z.string().min(1),
-              conclusion: z.literal("success"),
-            }),
-            z.strictObject({ kind: z.literal("local") }),
-            z.strictObject({ kind: z.literal("review") }),
-          ]),
-        }),
-        excludedTelemetrySchema,
-      ]),
+      coverageReceiptSchema.extend({ name: z.enum(activeCoverageNames) }),
     ),
   }),
 ]);
@@ -130,16 +136,18 @@ export function assessCourseRelease(value, now) {
   const input = parsed.data;
   const { manifest, evidence } = input;
   const selectedSourceSha =
-    evidence.schemaVersion === "inside.course-release-preflight.v2"
+    evidence.schemaVersion !== "inside.course-release-preflight.v1"
       ? evidence.selectedSourceSha
       : input.currentMainSha;
   if (manifest.source.sha !== selectedSourceSha)
     throw new Error("release source does not match selected source");
   let telemetryExcluded = false;
   const requiredChecks =
-    evidence.schemaVersion === "inside.course-release-preflight.v2"
-      ? coverageNames
-      : checkNames;
+    evidence.schemaVersion === "inside.course-release-preflight.v3"
+      ? activeCoverageNames
+      : evidence.schemaVersion === "inside.course-release-preflight.v2"
+        ? coverageNames
+        : checkNames;
   for (const name of requiredChecks) {
     const receipts = evidence.checks.filter((check) => check.name === name);
     const receipt = receipts[0];
