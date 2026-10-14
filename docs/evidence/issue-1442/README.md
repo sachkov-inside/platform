@@ -14,6 +14,7 @@ Status: awaiting owner visual acceptance. This branch contains a Storybook-only 
 - After access is ready, open the Product. For community-enabled Products, place Onboarding first in the Product navigation and select it by default while incomplete.
 - Show three steps: link Telegram, join the Product community, start the first lesson. Reuse verified linking and membership facts.
 - Keep Programme, Materials and Artifacts accessible during onboarding. After the first lesson is started, a new default visit selects Programme.
+- Owner follow-up recorded in #1443: remove the completed Onboarding item from desktop and mobile navigation. The current proof still keeps that item; this change is pending.
 - An operator revokes access to the selected Product as one action. The operator does not choose individual grant sources.
 - Preserve unrelated Product access and learner history.
 - Keep the broader editor redesign in #1448. This proof does not remove Topics.
