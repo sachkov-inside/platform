@@ -88,18 +88,28 @@ export class CommunityEntitlements {
   }
 
   private get groupDependencies(): CommunityEntitlementsDependencies {
+    // Share only within this operation. Each dispatch obtains a fresh authorization snapshot.
+    let productIds: Promise<string[]> | undefined;
+    const readProductIds = async () => {
+      const products = await this.dependencies.prisma.productCommunity.findMany(
+        {
+          where: { groupRef: "primary" },
+          select: { productId: true },
+          take: 1001,
+        },
+      );
+      if (products.length > 1000)
+        throw new Error("Community Product mapping exceeds supported size");
+      return products.map((entry) => entry.productId);
+    };
     return {
       ...this.dependencies,
       grants: {
         ...this.dependencies.grants,
         resolveCapabilities: async (accountId: string) => {
-          const products =
-            await this.dependencies.prisma.productCommunity.findMany({
-              where: { groupRef: "primary" },
-              select: { productId: true },
-            });
+          productIds ??= readProductIds();
           return this.dependencies.grants.resolveCapabilities(accountId, {
-            productIds: products.map((entry) => entry.productId),
+            productIds: await productIds,
           });
         },
       },
@@ -416,6 +426,7 @@ export class CommunityEntitlements {
     for (const retry of retries) accounts.add(retry.accountId);
 
     let failed = 0;
+    const groupDependencies = this.groupDependencies;
     for (const accountId of accounts) {
       // Persist the responsibility before projection. A crash may repeat work, but
       // advancing the audit cursor can never forget an unfinished Account.
@@ -426,7 +437,7 @@ export class CommunityEntitlements {
         update: { attemptId, updatedAt: now },
       });
       const projection = await projectCommunityEntitlement(
-        this.groupDependencies,
+        groupDependencies,
         accountId,
         now,
       );
@@ -598,12 +609,13 @@ export class CommunityEntitlements {
           },
         });
       const items = [];
+      const groupDependencies = this.groupDependencies;
       for (const row of observations.slice(
         0,
         MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
       )) {
         if (row.observedMembership !== "member") continue;
-        const access = await this.groupDependencies.grants.resolveCapabilities(
+        const access = await groupDependencies.grants.resolveCapabilities(
           row.accountId,
         );
         if (!access.ok) return { ok: false, error: { code: "unavailable" } };

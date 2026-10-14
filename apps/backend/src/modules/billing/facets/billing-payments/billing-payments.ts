@@ -100,7 +100,7 @@ interface Dependencies {
     | "resolveCapabilitiesMany"
     | "applyPaidPeriod"
   >;
-  readonly contentCatalog?: Pick<CoverageCatalog, "resolve">;
+  readonly contentCatalog?: Pick<CoverageCatalog, "resolve" | "resolveMany">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -685,14 +685,7 @@ export class BillingPayments {
           refundedKopecks: Number(refunds._sum.amountKopecks ?? 0),
           paymentUrl: row.state === "pending" ? row.paymentUrl : null,
           snapshot: row.snapshot,
-          access:
-            row.state !== "confirmed"
-              ? "awaiting_payment"
-              : waiting > 0
-                ? "preparing"
-                : ready
-                  ? "ready"
-                  : "unavailable",
+          access: purchaseAccess(row.state, waiting, ready),
           fiscalization: row.fiscalization,
           confirmedAt: row.confirmedAt?.toISOString() ?? null,
           periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
@@ -717,99 +710,137 @@ export class BillingPayments {
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: ownPaymentHistoryLimit,
       });
-      const refunds = await this.dependencies.prisma.billingRefund.findMany({
-        where: {
-          purchaseRef: { in: rows.map((row) => row.id) },
-          state: "confirmed",
-        },
-        select: { purchaseRef: true, amountKopecks: true, updatedAt: true },
-      });
+      const purchaseRefs = rows.map((row) => row.id);
+      const snapshots = rows.map((row) =>
+        priceSnapshotSchema.parse(row.snapshot),
+      );
+      const scopes = snapshots.map(
+        (snapshot) =>
+          snapshot.offer.coverage ?? {
+            productIds: snapshot.offer.benefits
+              .filter(isProductCapability)
+              .map(
+                (value) =>
+                  productIdFromCapability(
+                    accessCapabilitySchema.parse(value),
+                  ) ?? "",
+              ),
+            materialIds: [],
+          },
+      );
+      const [refunds, fulfillment, contents] = await Promise.all([
+        this.dependencies.prisma.billingRefund.groupBy({
+          by: ["purchaseRef"],
+          where: { purchaseRef: { in: purchaseRefs }, state: "confirmed" },
+          _sum: { amountKopecks: true },
+          _max: { updatedAt: true },
+        }),
+        this.dependencies.prisma.billingFulfillment.groupBy({
+          by: ["purchaseRef"],
+          where: { purchaseRef: { in: purchaseRefs }, appliedAt: null },
+          _count: { _all: true },
+        }),
+        this.dependencies.contentCatalog?.resolveMany(scopes),
+      ]);
+      const refundsByPurchase = new Map(
+        refunds.map((row) => [row.purchaseRef, row]),
+      );
+      const waitingByPurchase = new Map(
+        fulfillment.map((row) => [row.purchaseRef, row._count._all]),
+      );
+      const statusProductIds = snapshots.map((snapshot) => [
+        ...new Set([
+          ...(snapshot.offer.coverage?.productIds ?? []),
+          ...snapshot.offer.benefits
+            .filter(isProductCapability)
+            .map(
+              (value) =>
+                productIdFromCapability(accessCapabilitySchema.parse(value)) ??
+                "",
+            ),
+        ]),
+      ]);
+      const productIds = [
+        ...new Set([
+          ...statusProductIds.flat(),
+          ...(contents?.flatMap((entries) =>
+            entries
+              .filter((entry) => entry.kind === "product")
+              .map((entry) => entry.id),
+          ) ?? []),
+        ]),
+      ];
+      if (productIds.length > 2000)
+        throw new Error(
+          "Payment history Product composition exceeds supported size",
+        );
+      const readyByProduct = new Map<string, boolean>();
+      // The rights port accepts at most 1000 resources per snapshot read.
+      for (let offset = 0; offset < productIds.length; offset += 1000) {
+        const batch = productIds.slice(offset, offset + 1000);
+        const rights = await this.dependencies.grants.resolveCapabilitiesMany(
+          accountId,
+          batch.map((id) => ({ productIds: [id] })),
+        );
+        if (!rights.ok) throw new Error(rights.error.code);
+        batch.forEach((id, index) =>
+          readyByProduct.set(
+            id,
+            rights.values[index]?.capabilities.some(
+              (right) =>
+                right.capability === "materials" ||
+                right.capability === productCapability(id),
+            ) === true,
+          ),
+        );
+      }
       return {
         ok: true,
-        value: await Promise.all(
-          rows.map(async (row) => {
-            const snapshot = priceSnapshotSchema.parse(row.snapshot);
-            const refunded = refunds.filter(
-              (refund) => refund.purchaseRef === row.id,
-            );
-            const refundedAt = refunded.reduce<Date | null>(
-              (latest, refund) =>
-                latest === null || refund.updatedAt > latest
-                  ? refund.updatedAt
-                  : latest,
-              null,
-            );
-            const content = await this.dependencies.contentCatalog?.resolve(
-              snapshot.offer.coverage ?? {
-                productIds: snapshot.offer.benefits
-                  .filter(isProductCapability)
-                  .map(
-                    (value) =>
-                      productIdFromCapability(
-                        accessCapabilitySchema.parse(value),
-                      ) ?? "",
-                  ),
-                materialIds: [],
-              },
-            );
-            const productEntries = content?.filter(
-              (entry) => entry.kind === "product",
-            );
-            const productRights =
-              productEntries === undefined
-                ? null
-                : await this.dependencies.grants.resolveCapabilitiesMany(
-                    accountId,
-                    productEntries.map((entry) => ({ productIds: [entry.id] })),
-                  );
-            if (productRights !== null && !productRights.ok)
-              throw new Error(productRights.error.code);
-            const status = await this.status(accountId, row.id);
-            if (!status.ok) throw new Error(status.error.code);
-            return ownPaymentSchema.parse({
-              purchaseRef: row.id,
-              snapshot,
-              access: status.value.access,
-              ...(content === undefined ? {} : { content }),
-              ...(productEntries === undefined || productRights === null
-                ? {}
-                : {
-                    productAccess: productEntries.map((entry, index) => ({
-                      productId: entry.id,
-                      access:
-                        row.state !== "confirmed"
-                          ? "awaiting_payment"
-                          : status.value.access === "preparing"
-                            ? "preparing"
-                            : productRights.values[index]?.capabilities.some(
-                                  (right) =>
-                                    right.capability === "materials" ||
-                                    right.capability ===
-                                      productCapability(entry.id),
-                                ) === true
-                              ? "ready"
-                              : "unavailable",
-                    })),
-                  }),
-              kind: row.kind,
-              state: row.state,
-              amountKopecks: Number(row.amountKopecks),
-              offerName: snapshot.offer.name,
-              months: snapshot.paymentOption.months,
-              fiscalization: row.fiscalization,
-              confirmedAt: row.confirmedAt?.toISOString() ?? null,
-              periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
-              createdAt: row.createdAt.toISOString(),
-              refundedKopecks: Number(
-                refunded.reduce(
-                  (total, refund) => total + refund.amountKopecks,
-                  0n,
-                ),
-              ),
-              refundedAt: refundedAt?.toISOString() ?? null,
-            });
-          }),
-        ),
+        value: rows.map((row, index) => {
+          const snapshot = snapshots[index];
+          if (snapshot === undefined)
+            throw new Error("Missing payment snapshot");
+          const refunded = refundsByPurchase.get(row.id);
+          const waiting = waitingByPurchase.get(row.id) ?? 0;
+          const ids = statusProductIds[index] ?? [];
+          const ready =
+            ids.length === 0 ||
+            ids.some((id) => readyByProduct.get(id) === true);
+          const access = purchaseAccess(row.state, waiting, ready);
+          const content = contents?.[index];
+          const productEntries = content?.filter(
+            (entry) => entry.kind === "product",
+          );
+          return ownPaymentSchema.parse({
+            purchaseRef: row.id,
+            snapshot,
+            access,
+            ...(content === undefined ? {} : { content }),
+            ...(productEntries === undefined
+              ? {}
+              : {
+                  productAccess: productEntries.map((entry) => ({
+                    productId: entry.id,
+                    access: purchaseAccess(
+                      row.state,
+                      waiting,
+                      readyByProduct.get(entry.id) === true,
+                    ),
+                  })),
+                }),
+            kind: row.kind,
+            state: row.state,
+            amountKopecks: Number(row.amountKopecks),
+            offerName: snapshot.offer.name,
+            months: snapshot.paymentOption.months,
+            fiscalization: row.fiscalization,
+            confirmedAt: row.confirmedAt?.toISOString() ?? null,
+            periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
+            createdAt: row.createdAt.toISOString(),
+            refundedKopecks: Number(refunded?._sum.amountKopecks ?? 0),
+            refundedAt: refunded?._max.updatedAt?.toISOString() ?? null,
+          });
+        }),
       };
     } catch (error) {
       return dependencyFailure(
@@ -1697,4 +1728,18 @@ export class BillingPayments {
       );
     }
   }
+}
+
+function purchaseAccess(
+  state: string,
+  waiting: number,
+  ready: boolean,
+): PurchaseStatus["access"] {
+  return state !== "confirmed"
+    ? "awaiting_payment"
+    : waiting > 0
+      ? "preparing"
+      : ready
+        ? "ready"
+        : "unavailable";
 }

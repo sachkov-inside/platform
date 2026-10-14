@@ -60,24 +60,21 @@ export async function readOwnAccess(
   const exclusions = await prisma.productAccessExclusion.findMany({
     where: { accountId },
   });
-  const contents = await Promise.all(
-    grants.map(
-      (grant) =>
-        catalog?.resolve(
-          grant.coverage ?? {
-            productIds: grant.capabilities
-              .filter(isProductCapability)
-              .map(
-                (value) =>
-                  productIdFromCapability(
-                    accessCapabilitySchema.parse(value),
-                  ) ?? "",
-              ),
-            materialIds: [],
-          },
-        ) ?? Promise.resolve(undefined),
-    ),
+  const scopes = grants.map(
+    (grant) =>
+      grant.coverage ?? {
+        productIds: grant.capabilities
+          .filter(isProductCapability)
+          .map(
+            (value) =>
+              productIdFromCapability(accessCapabilitySchema.parse(value)) ??
+              "",
+          ),
+        materialIds: [],
+      },
   );
+  const contents =
+    catalog === undefined ? [] : await catalog.resolveMany(scopes);
   return {
     ok: true,
     value: ownAccessSchema.parse({

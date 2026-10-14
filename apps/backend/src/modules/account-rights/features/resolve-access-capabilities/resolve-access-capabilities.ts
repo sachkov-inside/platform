@@ -184,14 +184,28 @@ export function projectAccessCapabilities(
         )
       )
         continue;
-      if (capability === "materials" && resource !== undefined) {
+      if (
+        resource !== undefined &&
+        (capability === "materials" || classification?.bridgeCoverage != null)
+      ) {
         const scope = coverageSchema.parse(
           classification?.bridgeCoverage ?? {
             productIds: [],
             materialIds: [],
           },
         );
-        if (!scopeOpensResource(scope, resource)) continue;
+        if (
+          !scopeOpensResource(scope, {
+            ...resource,
+            productIds: resource.productIds.filter(
+              (id) =>
+                !exclusions.some(
+                  (entry) => entry.productId === id && entry.bridge,
+                ),
+            ),
+          })
+        )
+          continue;
       }
       // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
       for (const opened of capabilitiesOpenedBy(capability))
