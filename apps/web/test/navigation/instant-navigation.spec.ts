@@ -1205,8 +1205,9 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("example")).toBeVisible();
 
   const next = page
-    .locator("[data-application-content] [data-reader-footer]:visible")
-    .getByRole("link", { name: /^Следующий шаг/u });
+    .locator("[data-application-content] [data-course-reading]:visible")
+    .getByRole("link", { name: /^Следующий шаг/u })
+    .filter({ visible: true });
   await next.click();
   await lessonReady(page, "navigation-lesson-6")();
   await page.getByRole("button", { exact: true, name: "Свой проект" }).click();
@@ -1214,8 +1215,9 @@ test("смена режима прохождения сбрасывает стр
 
   // Первый урок открыт меньше минуты назад и лежит в памяти браузера в прежнем режиме.
   const previous = page
-    .locator("[data-application-content] [data-reader-footer]:visible")
-    .getByRole("link", { name: /^Предыдущий шаг/u });
+    .locator("[data-application-content] [data-course-reading]:visible")
+    .getByRole("link", { name: /^Предыдущий шаг/u })
+    .filter({ visible: true });
   await previous.click();
   await lessonReady(page, "navigation-lesson-5")();
   await expect(step("own")).toBeVisible();
