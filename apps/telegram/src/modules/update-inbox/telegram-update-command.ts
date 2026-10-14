@@ -17,6 +17,7 @@ export type TelegramUpdateCommand =
       readonly kind: "access-action";
       readonly value: VerifiedPrivateStart;
       readonly action: AccessAction;
+      readonly activationCode?: string;
       readonly callbackQueryId?: string;
     }
   | {

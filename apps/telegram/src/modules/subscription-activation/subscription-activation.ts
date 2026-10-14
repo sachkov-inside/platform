@@ -127,19 +127,19 @@ export class SubscriptionActivation {
     if (!isTruthy(config?.enabled)) {
       await this.reply(
         contact,
-        "Проверка доступов пока недоступна. Обратитесь к владельцу.",
+        "Не удалось проверить доступ. Напишите автору курса.",
       );
       return;
     }
     if (action === "help") {
       await this.reply(
         contact,
-        "Если вы купили курс, но больше не состоите в его группе, обратитесь к владельцу для ручного подтверждения. Для Tribute владелец проверяет подтверждённый период в реестре; вступление в группу не подтверждает оплату. При конфликте аккаунтов мы сохраняем историю и не переносим Telegram автоматически.",
+        "Не получается открыть курс?\n\nНапишите автору курса и приложите скриншот ответа бота.",
       );
       return;
     }
     if (action === "platform") {
-      const prompt = accountPrompt(config.accountUrl);
+      const prompt = accountPrompt(config.accountUrl, onlyCode);
       await this.replies.enqueue({
         ...this.delivery(contact, prompt.text),
         buttons: prompt.buttons,
@@ -162,11 +162,12 @@ export class SubscriptionActivation {
         lookup?.error.code === "identity_conflict"
           ? "Связь аккаунта требует помощи владельца. Проверка остановлена; аккаунты не объединяются."
           : "Платформа временно не отвечает. Повторите проверку позже.",
+        onlyCode,
       );
       return;
     }
     if (lookup.value.state === "unlinked") {
-      const prompt = accountPrompt(config.accountUrl);
+      const prompt = accountPrompt(config.accountUrl, onlyCode);
       await this.replies.enqueue({
         ...this.delivery(contact, prompt.text),
         buttons: prompt.buttons,
@@ -189,10 +190,35 @@ export class SubscriptionActivation {
         const now = this.clock.now();
         for (const row of rows) await reschedule(tx, row, now);
       });
-      await this.reply(
-        contact,
-        "Проверка запланирована. После связывания она продолжится автоматически; «Мои доступы» показывает уже действующие права.",
-      );
+      await this.processAvailable(10, {
+        telegramUserId: contact.telegramUserId,
+        ...(onlyCode === undefined ? {} : { code: onlyCode }),
+      });
+      let failures = this.db
+        .selectFrom("activation_attempts")
+        .select("state")
+        .where("bot_identity", "=", contact.botIdentity)
+        .where("telegram_user_id", "=", contact.telegramUserId)
+        .where("state", "in", ["retry", "needs_account"])
+        .where("lease_token", "is", null)
+        .where("diagnostic_code", "is not", null)
+        .where("result", "is", null);
+      if (onlyCode !== undefined)
+        failures = failures.where("code", "=", onlyCode);
+      const failure = await failures.executeTakeFirst();
+      if (failure?.state === "needs_account") {
+        const prompt = accountPrompt(config.accountUrl, onlyCode);
+        await this.replies.enqueue({
+          ...this.delivery(contact, prompt.text),
+          buttons: prompt.buttons,
+        });
+      } else if (failure) {
+        await this.reply(
+          contact,
+          "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.",
+          onlyCode,
+        );
+      }
       return;
     }
     const access = await this.platform.own(lookup.value.binding);
@@ -235,20 +261,23 @@ export class SubscriptionActivation {
       admission.kind === "link"
         ? `Личная ссылка на вступление (действует несколько минут):\n${admission.inviteLink}`
         : admission.kind === "member"
-          ? "Вы уже участник сообщества."
+          ? "Вы уже в чате курса."
           : admission.kind === "moderation_blocked"
             ? "Вступление требует проверки владельца."
             : "Готовим вступление. Повторите запрос через минуту.",
     );
   }
 
-  async processAvailable(limit = 10): Promise<number> {
+  async processAvailable(
+    limit = 10,
+    selected?: { readonly telegramUserId: string; readonly code?: string },
+  ): Promise<number> {
     if (!isTruthy(this.config.activation?.enabled)) return 0;
     let processed = 0;
     for (; processed < limit; processed++) {
       const now = this.clock.now();
       const attempt = await this.db.transaction().execute(async (tx) => {
-        const row = await tx
+        let query = tx
           .selectFrom("activation_attempts")
           .selectAll()
           .where("bot_identity", "=", this.config.botIdentity)
@@ -262,7 +291,12 @@ export class SubscriptionActivation {
               eb("lease_until", "is", null),
               eb("lease_until", "<=", now),
             ]),
-          )
+          );
+        if (selected !== undefined)
+          query = query.where("telegram_user_id", "=", selected.telegramUserId);
+        if (selected?.code !== undefined)
+          query = query.where("code", "=", selected.code);
+        const row = await query
           .orderBy("due_at")
           .forUpdate()
           .skipLocked()
@@ -553,7 +587,7 @@ export class SubscriptionActivation {
           ...this.delivery(
             this.contact(attempt),
             review && !asksToWriteAuthor(result)
-              ? `${activationMessage(result)} ${OWNER_REVIEW}`
+              ? `${activationMessage(result)}\n\n${OWNER_REVIEW}`
               : activationMessage(result),
           ),
           sourceKey: `activation:${createHash("sha256")
@@ -567,7 +601,7 @@ export class SubscriptionActivation {
             .digest(
               "hex",
             )}:${result.ok ? (result.value.state === "pending_review" ? `pending_review:${result.value.enrollment?.state ?? "none"}` : result.value.state) : result.error.code}`,
-          ...this.menu(),
+          ...this.menu(result, attempt.code),
         },
         tx,
       );
@@ -621,9 +655,20 @@ export class SubscriptionActivation {
       )
       .execute();
   }
-  private menu(): { buttons?: readonly TelegramButton[] } {
+  private menu(
+    result?: ActivationResult<ActivationResponse>,
+    code?: string,
+  ): {
+    buttons?: readonly TelegramButton[];
+  } {
     return this.config.activation
-      ? { buttons: activationMenu(this.config.activation.accountUrl) }
+      ? {
+          buttons: activationMenu(
+            this.config.activation.accountUrl,
+            result,
+            code,
+          ),
+        }
       : {};
   }
   private async defer(
@@ -667,10 +712,11 @@ export class SubscriptionActivation {
   private async reply(
     contact: VerifiedPrivateStart,
     text: string,
+    code?: string,
   ): Promise<void> {
     await this.replies.enqueue({
       ...this.delivery(contact, text),
-      ...this.menu(),
+      ...this.menu(undefined, code),
     });
   }
   async snapshot(): Promise<{ pending: number; oldestSeconds: number }> {

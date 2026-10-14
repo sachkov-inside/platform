@@ -159,7 +159,7 @@ describe("own-access next steps", () => {
       "Временный доступ по этому основанию не подтверждён",
     );
     expect(text).toContain("Повторите проверку позже");
-    expect(text).toContain("Нужна помощь");
+    expect(text).toContain("Помощь");
   });
 
   it("does not promise restoration through retry or fresh membership", () => {

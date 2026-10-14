@@ -185,7 +185,7 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         : undefined;
     if (
       callback &&
-      hasText(callbackAction) &&
+      callbackAction !== undefined &&
       !callback.from.is_bot &&
       callback.message?.chat.type === "private" &&
       callback.from.id === callback.message.chat.id &&
@@ -202,7 +202,10 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
             telegramUserId: user,
             privateChatId: user,
           },
-          action: callbackAction,
+          action: callbackAction.action,
+          ...(callbackAction.code === undefined
+            ? {}
+            : { activationCode: callbackAction.code }),
           callbackQueryId: callback.id,
         };
     }
@@ -650,8 +653,13 @@ const ACCESS_ACTIONS: readonly AccessAction[] = [
   "help",
   "platform",
 ];
-function accessCallbackAction(data: string): AccessAction | undefined {
-  return ACCESS_ACTIONS.find((action) => data === `access:${action}`);
+function accessCallbackAction(
+  data: string,
+): { action: AccessAction; code?: string } | undefined {
+  const scoped = /^access:retry:([A-Za-z0-9_-]{1,40})$/.exec(data);
+  if (scoped?.[1] !== undefined) return { action: "retry", code: scoped[1] };
+  const action = ACCESS_ACTIONS.find((value) => data === `access:${value}`);
+  return action === undefined ? undefined : { action };
 }
 
 function telegramId(value: unknown): string | undefined {

@@ -9,7 +9,7 @@ import type {
 
 /** The owner's announcement in a prior course group; the button opens the owner link. */
 export const ACTIVATION_ANNOUNCEMENT_TEXT =
-  "Все участники курса получают доступ к Sachkov Inside. Нажмите «Получить доступ»: бот проверит, что вы состоите в этой группе, выдаст права на платформе и пришлёт приглашение в общий чат Inside.";
+  "Участникам группы доступен курс на платформе.\n\nНажмите «Получить доступ»: бот проверит участие в группе и поможет войти.";
 export const ACTIVATION_ANNOUNCEMENT_BUTTON = "Получить доступ";
 
 /** The same code shape the bot accepts in `/start a_<code>`. */
