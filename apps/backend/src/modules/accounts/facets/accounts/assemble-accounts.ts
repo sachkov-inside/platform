@@ -1,4 +1,5 @@
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { checkPermissionsMany } from "../../features/check-permission/check-permissions-many.js";
 import { checkPermission } from "../../features/check-permission/check-permission.js";
 import { establishAccount } from "../../features/establish-account/establish-account.js";
 import { resolveAccount } from "../../features/resolve-account/resolve-account.js";
@@ -34,6 +35,7 @@ export function assembleAccounts({
     establishAccount: (command) =>
       establishAccount(prisma, emailFingerprintKey, command),
     resolveAccount: (query) => resolveAccount(prisma, query),
+    checkPermissionsMany: (query) => checkPermissionsMany(prisma, query),
     checkPermission: (query) => checkPermission(prisma, query),
   };
   return Object.freeze(accounts);
