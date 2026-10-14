@@ -111,6 +111,13 @@ not dependency wiring.
 
 ## REST and authentication
 
+- Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
+  A batch facet exposes only facts its caller needs; request-specific facts stay request-scoped.
+- Preserve per-item versions, grouped limits and access expiry when replacing scalar reads with a set.
+  Share a transaction only where the existing consistency contract requires the same snapshot.
+- Verify representative batch sizes at the database boundary. Compatible Prisma `findUnique` calls
+  may coalesce; a count of JavaScript calls alone does not establish SQL N+1.
+
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.
 - Name the fields of a response body one by one. A spread publishes whatever its source gains next;
