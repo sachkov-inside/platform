@@ -230,7 +230,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
 - In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
-  a 240 px left chapter rail, position/title/date with one truthful action row, and
+  a 240 px left chapter rail, position/title with one truthful action row, and
   a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
   access states. Owner correction 2026-10-13: mobile uses a floating rounded, blurred lesson dock
   with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
@@ -274,3 +274,5 @@ the compact phone override for ordinary actions; small editor tool variants keep
 Multiline actions grow instead of clipping. Desktop sizing remains owned by each component.
 Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
 avatars and illustrations do not follow action-icon dimensions.
+
+Course Material headers omit publication dates (owner decision 2026-10-14). Keep persisted publication dates and ProductTask metadata unchanged.
