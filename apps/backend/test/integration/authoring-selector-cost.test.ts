@@ -94,7 +94,7 @@ describe("complete authoring selector save", () => {
   let entry: Awaited<ReturnType<typeof corpus>>;
   beforeAll(async () => {
     entry = await corpus(1000);
-  }, 30_000);
+  });
   afterAll(async () => {
     await entry.dispose();
   });
