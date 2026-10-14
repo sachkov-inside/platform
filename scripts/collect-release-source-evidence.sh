@@ -16,15 +16,18 @@ if gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?status=success
   while IFS= read -r run; do
     run_id="$(jq -r .id <<<"$run")"
     run_sha="$(jq -r .head_sha <<<"$run")"
+    run_attempt="$(jq -r .run_attempt <<<"$run")"
     if ! gh api "repos/$GITHUB_REPOSITORY/git/commits/$run_sha" >"$evidence_dir/commit.json"; then continue; fi
     run_tree="$(jq -r .tree.sha "$evidence_dir/commit.json")"
     [[ "$run_tree" == "$source_tree" ]] || continue
+    if ! gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" >"$evidence_dir/jobs.json"; then continue; fi
+    if ! jq '[.[] | .jobs[]]' "$evidence_dir/jobs.json" >"$evidence_dir/provider-jobs.json"; then continue; fi
     if ! gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" >"$evidence_dir/artifacts.json"; then continue; fi
     artifact_id="$(jq -r '[.artifacts[] | select(.name == "ci-source-evidence" and .expired == false)] | if length == 1 then .[0].id else empty end' "$evidence_dir/artifacts.json")"
     [[ -n "$artifact_id" ]] || continue
     if ! gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" >"$evidence_dir/evidence.zip"; then continue; fi
     if ! unzip -p "$evidence_dir/evidence.zip" source-evidence.json >"$evidence_dir/evidence.json"; then continue; fi
-    if ! jq --argjson provider "$run" --arg tree "$run_tree" --slurpfile evidence "$evidence_dir/evidence.json" '. + [{provider: $provider, providerTreeSha: $tree, evidence: $evidence[0]}]' "$evidence_dir/candidates.json" >"$evidence_dir/next.json"; then continue; fi
+    if ! jq --argjson provider "$run" --arg tree "$run_tree" --slurpfile jobs "$evidence_dir/provider-jobs.json" --slurpfile evidence "$evidence_dir/evidence.json" '. + [{provider: $provider, providerJobs: $jobs[0], providerTreeSha: $tree, evidence: $evidence[0]}]' "$evidence_dir/candidates.json" >"$evidence_dir/next.json"; then continue; fi
     mv "$evidence_dir/next.json" "$evidence_dir/candidates.json"
   done <"$evidence_dir/runs.jsonl"
 fi

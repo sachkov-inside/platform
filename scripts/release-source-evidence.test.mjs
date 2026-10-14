@@ -22,6 +22,35 @@ function candidate() {
       status: "completed",
       conclusion: "success",
     },
+    providerJobs: [
+      {
+        id: 1,
+        run_id: 123,
+        run_attempt: 1,
+        head_sha: sha,
+        name: "Unit tests",
+        status: "completed",
+        conclusion: "success",
+      },
+      {
+        id: 2,
+        run_id: 123,
+        run_attempt: 1,
+        head_sha: sha,
+        name: "CI Gate",
+        status: "completed",
+        conclusion: "success",
+      },
+      {
+        id: 3,
+        run_id: 123,
+        run_attempt: 1,
+        head_sha: sha,
+        name: "Coverage plan (isolated reruns)",
+        status: "completed",
+        conclusion: "success",
+      },
+    ],
     providerTreeSha: tree,
     evidence: {
       schemaVersion: 1,
@@ -56,6 +85,25 @@ it("reuses proven synthetic queue tree correspondence and executes uncovered che
 it("rejects wrong source, changed inputs, untrusted and incomplete runs", () => {
   /** @type {Array<(value: ReturnType<typeof candidate>) => void>} */
   const mutations = [
+    (c) => {
+      c.providerJobs = [];
+    },
+    (c) => {
+      const job = c.providerJobs[0];
+      if (job) job.conclusion = "skipped";
+    },
+    (c) => {
+      const job = c.providerJobs[1];
+      if (job) job.conclusion = "failure";
+    },
+    (c) => {
+      const job = c.providerJobs[0];
+      if (job) job.run_attempt = 2;
+    },
+    (c) => {
+      const job = c.providerJobs[0];
+      if (job) job.head_sha = "d".repeat(40);
+    },
     (c) => {
       c.providerTreeSha = "d".repeat(40);
     },

@@ -24,6 +24,30 @@ export function releaseCoverage(application) {
 }
 const sha = z.string().regex(/^[a-f0-9]{40}$/u);
 const coverage = z.array(z.string());
+/** @type {Record<string, string>} */
+const jobNames = {
+  static: "Static checks (isolated reruns)",
+  unit: "Unit tests",
+  ui: "UI components",
+  "web-e2e": "Web E2E",
+  integration: "Integration",
+  "integration-serial": "Integration serial",
+  "compose-development": "Development Compose",
+  "compose-production": "Production Compose",
+  telegram: "Telegram full checks",
+  fullstack: "Full-stack smoke",
+  contracts: "Tooling contracts",
+  docs: "Documentation contracts",
+};
+const providerJobSchema = z.object({
+  id: z.number().int().positive(),
+  run_id: z.number().int().positive(),
+  run_attempt: z.number().int().positive(),
+  head_sha: sha,
+  name: z.string(),
+  status: z.string(),
+  conclusion: z.string().nullable(),
+});
 const candidateSchema = z.object({
   provider: z.object({
     id: z.number().int().positive(),
@@ -36,6 +60,7 @@ const candidateSchema = z.object({
     status: z.string(),
     conclusion: z.string().nullable(),
   }),
+  providerJobs: z.array(providerJobSchema),
   providerTreeSha: sha,
   evidence: z.object({
     schemaVersion: z.literal(1),
@@ -65,13 +90,35 @@ export function selectReleaseEvidence(value) {
   for (const value of input.candidates) {
     const parsed = candidateSchema.safeParse(value);
     if (!parsed.success) continue;
-    const { provider: run, providerTreeSha, evidence } = parsed.data;
+    const {
+      provider: run,
+      providerJobs,
+      providerTreeSha,
+      evidence,
+    } = parsed.data;
+    /** @param {string} name */
+    const provedJob = (name) => {
+      const matching = providerJobs.filter((job) => job.name === name);
+      return (
+        matching.length === 1 &&
+        matching[0]?.run_id === run.id &&
+        matching[0].run_attempt === run.run_attempt &&
+        matching[0].head_sha === run.head_sha &&
+        matching[0].status === "completed" &&
+        matching[0].conclusion === "success"
+      );
+    };
     const trustedEvent =
       (run.event === "merge_group" &&
         run.head_branch?.startsWith("gh-readonly-queue/main/")) ||
       (run.event === "push" && run.head_branch === "main");
     if (
       !trustedEvent ||
+      !provedJob("CI Gate") ||
+      !provedJob("Coverage plan (isolated reruns)") ||
+      evidence.selectedCoverage.some(
+        (job) => !jobNames[job] || !provedJob(jobNames[job]),
+      ) ||
       run.repository.full_name !== input.repository ||
       run.path !== ".github/workflows/ci.yml" ||
       run.status !== "completed" ||
@@ -102,6 +149,13 @@ export function selectReleaseEvidence(value) {
       sourceSha: run.head_sha,
       treeSha: providerTreeSha,
       coverage: reusedCoverage,
+      providerJobs: providerJobs
+        .filter(
+          (job) =>
+            job.name === "CI Gate" ||
+            reusedCoverage.some((id) => jobNames[id] === job.name),
+        )
+        .map((job) => ({ id: job.id, name: job.name })),
     });
   }
   return {
@@ -126,6 +180,7 @@ const receiptSchema = inputSchema.omit({ candidates: true }).extend({
       sourceSha: sha,
       treeSha: sha,
       coverage,
+      providerJobs: z.array(z.object({ id: z.number(), name: z.string() })),
     }),
   ),
 });

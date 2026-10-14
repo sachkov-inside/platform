@@ -21,7 +21,10 @@ head. These completion checks do not prove a different application's release sou
    Only successful, completed runs in this repository from main push or the main merge queue are
    eligible. Their `ci-source-evidence` artifact binds source, tree, event, run and attempt, selected
    coverage and successful coverage. Every selected job must have succeeded. Provider run identity
-   and its Git commit tree are checked separately through GitHub's API.
+   and its Git commit tree are checked separately through GitHub's API. Attempt-specific provider
+   jobs must independently show a successful Coverage plan, CI Gate and every artifact-selected job,
+   each bound to the same run, attempt and head SHA. Missing or skipped jobs reject reuse even if
+   the run summary and artifact claim success. Receipts retain the reused provider job IDs.
 3. Reuse requires the release tree, provider CI tree and artifact tree to be identical. This
    conservatively treats every tracked input as significant, including workflow, scripts, lockfile,
    runtime Markdown and configuration. A synthetic merge-queue commit can prove another SHA only
