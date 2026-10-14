@@ -1077,7 +1077,7 @@ describe.each([
           createdAt: fixed,
         },
       });
-    }, 30_000);
+    });
     afterAll(async () => {
       await measured?.prisma.$disconnect();
       await db?.dispose();

@@ -53,7 +53,7 @@ describe.each([1, 10, 100])(
         clock: () => new Date("2030-01-01T00:00:00.000Z"),
         sale: { payments: true, subscriptions: true },
       });
-    }, 30_000);
+    });
     afterAll(async () => {
       await measured?.prisma.$disconnect();
       await db?.dispose();
