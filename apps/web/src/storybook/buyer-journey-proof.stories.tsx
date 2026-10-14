@@ -301,3 +301,21 @@ export const ReturnToFirstProduct: Story = {
     ).toBeVisible();
   },
 };
+
+export const RefundOnboarding: Story = {
+  args: { initialState: "otherGrant", includesCommunity: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть продукт" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Привязать Telegram" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Мои покупки" }));
+    await expect(canvas.getByText(/Возвращено полностью/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Доступ открыт по ручному назначению/u),
+    ).toBeVisible();
+  },
+};

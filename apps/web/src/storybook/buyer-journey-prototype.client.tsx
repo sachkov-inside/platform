@@ -162,7 +162,6 @@ export function BuyerJourneyPrototype({
               state={telegramStep}
               onState={(next) => {
                 setTelegramStep(next);
-                setState(next);
               }}
             />
           ) : null}
