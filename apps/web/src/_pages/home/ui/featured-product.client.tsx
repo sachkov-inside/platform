@@ -275,9 +275,7 @@ function AccountProductContinuation({
       ? query.data.continuation
       : null;
   return continuation === null ? null : (
-    <IntentPrefetchLink
-      href={productProgrammeHref(slug)}
-    >
+    <IntentPrefetchLink href={productProgrammeHref(slug)}>
       Продолжить обучение <ArrowRight aria-hidden="true" />
     </IntentPrefetchLink>
   );
