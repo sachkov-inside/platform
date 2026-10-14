@@ -84,7 +84,7 @@ describe("Enrollment metadata preserves independent whole-platform and archived 
       clock: () => fixed,
       contentCatalog: catalog,
     });
-  }, 30_000);
+  });
   afterAll(async () => db?.dispose());
   test("single and set resolution retain explicit archived Products without neighboring scope leakage", async () => {
     const scopes = [

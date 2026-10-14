@@ -99,6 +99,9 @@ not dependency wiring.
   metadata on the initial page only. Interactive catalog pages keep their complete, filter-specific
   metadata contract. Do not share viewer state or silently omit metadata from an interactive list
   to reduce traversal cost; measure owner calls, SQL statements and response bytes separately.
+- Complete composition reads over bounded persistence pages keep one source snapshot and finish
+  that transaction before calling another owner. Paginated filter metadata declares its own
+  continuation and keeps selected/page enrichment complete; it never widens a directory's ID bound.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
@@ -186,6 +189,11 @@ not dependency wiring.
   Each case owns its rows and double state; put compilation, migrations and large seeds in bounded
   setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name
   their real boundary and own its cleanup. Poll committed rows with the helper below.
+
+- Inherit configured integration test and hook budgets. An explicit override names its real boundary
+  and cannot be below the suite default; retries or a larger budget do not repair a failed test.
+  [`scripts/integration-test-budgets.test.mjs`](../../scripts/integration-test-budgets.test.mjs)
+  checks overrides against the owning integration configuration.
 
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
