@@ -2,6 +2,7 @@ import {
   AutosaveActivity,
   autosaveWhileHidden,
 } from "@/storybook/autosave-activity";
+import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { act, Profiler } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
@@ -1376,3 +1377,87 @@ export const ImportedCollapsibleAdvice: Story = {
     await expect(saved).toContain("Тело импортированного совета");
   },
 };
+
+const referenceSelectorProfile = fn<(duration: number) => void>();
+
+function referenceSelectorWorkload(size: number): Story {
+  const choices = (label: string, prefix: string) =>
+    Array.from({ length: size }, (_, index) => ({
+      label: `${label} ${String(index + 1).padStart(4, "0")}`,
+      value: `${prefix}-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    }));
+  return {
+    args: {
+      initialPresentation: {
+        ...materialAuthoringPresentation,
+        availableSeries: choices("Продукт", "20000000"),
+        availableTags: choices("Тег", "30000000"),
+        availableTopics: choices("Тема", "40000000"),
+        draft: {
+          ...materialAuthoringPresentation.draft,
+          seriesIds: [],
+          tagIds: [],
+          topicId: "40000000-0000-4000-8000-000000000001",
+        },
+      },
+    },
+    beforeEach: [
+      environment.beforeEach,
+      materialBeforeRender(savesDraft),
+      () => {
+        referenceSelectorProfile.mockClear();
+      },
+    ],
+    render: (args) => (
+      <Profiler
+        id="reference-selector-workload"
+        onRender={(_id, _phase, duration) => {
+          referenceSelectorProfile(duration);
+        }}
+      >
+        <MaterialAuthoringPageClient {...args} />
+      </Profiler>
+    ),
+    play: async ({ canvasElement }) => {
+      const page = routeContent(canvasElement);
+      const tags = within(page.getByRole("group", { name: "Теги" }));
+      await expect(tags.getAllByRole("checkbox")).toHaveLength(
+        Math.min(size, 20),
+      );
+      const products = page.getByLabelText("Выбор продуктов");
+      await expect(within(products).getAllByRole("checkbox")).toHaveLength(
+        Math.min(size, 20),
+      );
+      if (size > 20) {
+        await userEvent.type(
+          page.getByRole("searchbox", { name: "Поиск тегов" }),
+          `Тег ${String(size).padStart(4, "0")}`,
+        );
+        await expect(tags.getAllByRole("checkbox")).toHaveLength(1);
+        await userEvent.click(
+          tags.getByRole("checkbox", {
+            name: `Тег ${String(size).padStart(4, "0")}`,
+          }),
+        );
+        await flushPendingEdits();
+        await expect(savedField("tagIds")).toContain(
+          String(size).padStart(12, "0"),
+        );
+      }
+      console.info(
+        "PC-4 selector render",
+        JSON.stringify({
+          size,
+          initialTagNodes: Math.min(size, 20),
+          initialProductNodes: Math.min(size, 20),
+          committedRenderDurationsMs: referenceSelectorProfile.mock.calls.map(
+            ([duration]) => duration,
+          ),
+        }),
+      );
+    },
+  };
+}
+export const ReferenceSelectorOne: Story = referenceSelectorWorkload(1);
+export const ReferenceSelectorHundred: Story = referenceSelectorWorkload(100);
+export const ReferenceSelectorThousand: Story = referenceSelectorWorkload(1000);

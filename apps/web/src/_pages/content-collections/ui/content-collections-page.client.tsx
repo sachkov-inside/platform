@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Activity, useState } from "react";
 
 import { useHomePin, HomeSeriesPinButton } from "@/features/series-order";
 import Link from "next/link";
@@ -39,12 +39,29 @@ export function ContentCollectionsPageClient({
 }) {
   const router = useRouter();
   const [collections, setCollections] = useState(initialCollections);
+  // Once shown, an editor remains mounted through further pages and saved-name reordering.
+  const [shownIds, setShownIds] = useState(
+    () =>
+      new Set(
+        initialCollections.slice(0, collectionPageSize).map(({ id }) => id),
+      ),
+  );
+  const [search, setSearch] = useState("");
+  const matchesSearch = (collection: ContentCollection) =>
+    collection.name
+      .toLocaleLowerCase("ru")
+      .includes(search.trim().toLocaleLowerCase("ru"));
+  const shownCollections = collections.filter(({ id }) => shownIds.has(id));
+  const remainingCollections = collections.filter(
+    (collection) => !shownIds.has(collection.id) && matchesSearch(collection),
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [summary, setSummary] = useState("");
   const applySavedCollection = (result: ContentCollectionMutationResult) => {
     if (result.kind !== "saved") return;
+    setShownIds((current) => new Set([...current, result.collection.id]));
     setCollections((current) => {
       const existing = current.some(({ id }) => id === result.collection.id);
       const next = existing
@@ -181,6 +198,28 @@ export function ContentCollectionsPageClient({
               {String(collections.length)}
             </span>
           </div>
+          <input
+            aria-label={kind === "series" ? "Поиск продуктов" : "Поиск тем"}
+            type="search"
+            placeholder="Найти по названию"
+            className={`${fieldClassName} mt-4`}
+            value={search}
+            onChange={(event) => {
+              const next = event.currentTarget.value;
+              setSearch(next);
+              const found = collections
+                .filter((collection) =>
+                  collection.name
+                    .toLocaleLowerCase("ru")
+                    .includes(next.trim().toLocaleLowerCase("ru")),
+                )
+                .slice(0, collectionPageSize);
+              setShownIds(
+                (current) =>
+                  new Set([...current, ...found.map(({ id }) => id)]),
+              );
+            }}
+          />
           {collections.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-border bg-card px-5 py-10 text-center">
               <p className="font-semibold">Пока ничего нет</p>
@@ -189,18 +228,43 @@ export function ContentCollectionsPageClient({
               </p>
             </div>
           ) : kind === "series" ? (
-            <SeriesList collections={collections} />
+            <SeriesList collections={shownCollections.filter(matchesSearch)} />
           ) : (
             <div className="mt-4 grid gap-3">
-              {collections.map((collection) => (
-                <CollectionEditor
-                  collection={collection}
+              {shownCollections.map((collection) => (
+                <Activity
                   key={collection.id}
-                  onSaved={applySavedCollection}
-                />
+                  mode={matchesSearch(collection) ? "visible" : "hidden"}
+                >
+                  <CollectionEditor
+                    collection={collection}
+                    onSaved={applySavedCollection}
+                  />
+                </Activity>
               ))}
             </div>
           )}
+          {remainingCollections.length > 0 ? (
+            <div className="mt-6 flex justify-center">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  setShownIds(
+                    (current) =>
+                      new Set([
+                        ...current,
+                        ...remainingCollections
+                          .slice(0, collectionPageSize)
+                          .map(({ id }) => id),
+                      ]),
+                  );
+                }}
+              >
+                Показать ещё
+              </Button>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
@@ -364,6 +428,8 @@ function Field({
     </label>
   );
 }
+
+const collectionPageSize = 20;
 
 const fieldClassName =
   "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-60";
