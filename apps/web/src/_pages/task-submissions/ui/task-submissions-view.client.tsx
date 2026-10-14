@@ -126,6 +126,8 @@ export function TaskSubmissionsView({
     pageHref,
     nextHref,
     newestHref,
+    nextProductsHref,
+    firstProductsHref,
     submissionId,
   } = presentation;
   const [query, setQuery] = useState("");
@@ -201,6 +203,22 @@ export function TaskSubmissionsView({
           selection={selection}
           products={products}
         />
+        {firstProductsHref === null ? null : (
+          <Link
+            href={internalRoute(firstProductsHref)}
+            className="mb-4 mr-4 inline-block text-sm underline"
+          >
+            Первые продукты
+          </Link>
+        )}
+        {nextProductsHref === null ? null : (
+          <Link
+            href={internalRoute(nextProductsHref)}
+            className="mb-4 inline-block text-sm underline"
+          >
+            Другие продукты
+          </Link>
+        )}
       </details>
       <section aria-label="Список сдач" data-submissions-part="workspace">
         {filtered.length === 0 ? (

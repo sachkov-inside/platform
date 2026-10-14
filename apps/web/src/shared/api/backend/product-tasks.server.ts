@@ -31,10 +31,14 @@ export function requestProductTaskPage(
 export function requestOwnTaskSubmissions(
   code: string,
   accessToken: string,
+  after?: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new ProductTasksService(request).listOwnTaskSubmissions({ code }),
+      new ProductTasksService(request).listOwnTaskSubmissions({
+        code,
+        ...(after === undefined ? {} : { after }),
+      }),
     200,
     { accessToken },
   );
@@ -76,6 +80,7 @@ export function requestSubmitProductTaskForm(
 /** The author's «Сдачи» section: submissions by Product, chapter and task, newest first (#948). */
 export function requestAuthorTaskSubmissions(
   query: {
+    readonly productCursor?: string;
     readonly submissionId?: string;
     readonly productId?: string;
     readonly chapterId?: string;
@@ -87,6 +92,9 @@ export function requestAuthorTaskSubmissions(
   return executeGeneratedRequest(
     (request) =>
       new ProductTaskAuthoringService(request).listAuthorTaskSubmissions({
+        ...(query.productCursor === undefined
+          ? {}
+          : { productCursor: query.productCursor }),
         ...(query.submissionId === undefined
           ? {}
           : { submissionId: query.submissionId }),

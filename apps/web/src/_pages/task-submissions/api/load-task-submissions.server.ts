@@ -24,6 +24,7 @@ export type TaskSubmissionsOutcome =
       readonly continued: boolean;
       readonly cursor: string | undefined;
       readonly submissionId: string | undefined;
+      readonly productCursor: string | undefined;
     }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "forbidden" }
@@ -43,6 +44,7 @@ export async function loadTaskSubmissions(
   selection: SubmissionSelection,
   cursor: string | undefined,
   submissionId?: string,
+  productCursor?: string,
 ): Promise<TaskSubmissionsOutcome> {
   const session = await readAuthenticatedSession("rsc");
   if (session.kind !== "ready") {
@@ -53,6 +55,7 @@ export async function loadTaskSubmissions(
   if (submissionId !== undefined && !z.uuid().safeParse(submissionId).success)
     return { kind: "not_found" };
   const accessToken = session.value;
+  let filterCursor = productCursor;
   const read = async (
     query: SubmissionSelection,
     page: string | undefined,
@@ -62,6 +65,9 @@ export async function loadTaskSubmissions(
       result = await requestAuthorTaskSubmissions(
         {
           ...query,
+          ...(filterCursor === undefined
+            ? {}
+            : { productCursor: filterCursor }),
           ...(page === undefined ? {} : { cursor: page }),
           ...(submissionId === undefined ? {} : { submissionId }),
         },
@@ -86,6 +92,7 @@ export async function loadTaskSubmissions(
   if (!attempt.ok && attempt.status === 400) {
     shown = {};
     page = undefined;
+    filterCursor = undefined;
     attempt = await read(shown, page);
   }
   if (attempt.ok) {
@@ -116,5 +123,6 @@ export async function loadTaskSubmissions(
     continued: page !== undefined,
     cursor: page,
     submissionId,
+    productCursor: filterCursor,
   };
 }

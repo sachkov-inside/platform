@@ -56,6 +56,8 @@ describe("Product Task c reader contract (#1194)", () => {
       ownTaskSubmissionsSchema.safeParse({
         code: "synthetic-task",
         currentVersion: 2,
+        nextCursor: null,
+        latestSubmittedAt: null,
         versions: [{ version: 2, criteria }],
         submissions: [],
       }).success,
@@ -64,6 +66,8 @@ describe("Product Task c reader contract (#1194)", () => {
       ownTaskSubmissionsSchema.safeParse({
         code: "synthetic-task",
         currentVersion: 2,
+        nextCursor: null,
+        latestSubmittedAt: null,
         versions: [
           {
             version: 2,

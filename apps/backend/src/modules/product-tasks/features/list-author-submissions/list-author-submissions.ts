@@ -31,6 +31,11 @@ import {
 import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
 
 const AUTHOR_SUBMISSIONS_PAGE = 25;
+const PRODUCT_FILTER_PAGE = 25;
+const DIRECTORY_BATCH_SIZE = 100;
+const productCursorValueSchema = z
+  .object({ v: z.literal(1), kind: z.literal("products"), id: z.uuid() })
+  .strict();
 
 const cursorSchema = z.object({ at: z.iso.datetime(), id: z.uuid() }).strict();
 
@@ -40,6 +45,7 @@ export const submissionsLimitSchema = z.number().int().min(1).max(100);
 
 export const authorSubmissionsQuerySchema = z
   .object({
+    productCursor: submissionsCursorSchema.optional(),
     submissionId: z.uuid().optional(),
     productId: z.uuid().optional(),
     chapterId: z.uuid().optional(),
@@ -112,6 +118,7 @@ export type ListAuthorSubmissionsError =
 
 export type AuthorSubmissionsResult = Result<
   {
+    /** Bounded Product choices plus the selected/page Products, never an implicit full catalogue. */
     readonly products: readonly SubmissionFilterProduct[];
     readonly submissions: readonly AuthorSubmission[];
     /** The criteria of every Task Version a listed submission refers to. */
@@ -121,6 +128,8 @@ export type AuthorSubmissionsResult = Result<
       readonly criteria: TaskDefinition["criteria"];
     }[];
     readonly nextCursor: string | null;
+    /** Independent continuation for the Product choices; submission cursors keep their existing scope. */
+    readonly nextProductCursor: string | null;
     readonly history: readonly SavedCheck[];
   },
   ListAuthorSubmissionsError
@@ -163,11 +172,67 @@ export async function listAuthorSubmissions(
       : undefined;
   if (!parsed.success || cursor === null)
     return { ok: false, error: { code: "invalid_request_shape" } };
+  const productCursor =
+    parsed.data.productCursor !== undefined
+      ? decodeProductCursor(parsed.data.productCursor)
+      : undefined;
+  if (parsed.data.productCursor !== undefined && productCursor === undefined)
+    return { ok: false, error: { code: "invalid_request_shape" } };
   const query = parsed.data;
   try {
     if (!(await dependencies.authorPolicy.canManage(actorId)))
       return { ok: false, error: { code: "forbidden" } };
+    const taskScope = {
+      ...(query.productId === undefined ? {} : { productId: query.productId }),
+      ...(query.chapterId === undefined ? {} : { chapterId: query.chapterId }),
+      ...(query.taskCode === undefined ? {} : { code: query.taskCode }),
+    };
+    const limit = query.limit ?? AUTHOR_SUBMISSIONS_PAGE;
+    const rows = await dependencies.prisma.productTaskSubmission.findMany({
+      where: {
+        version: { task: taskScope },
+        ...(query.submissionId === undefined ? {} : { id: query.submissionId }),
+        ...(cursor === undefined || query.submissionId !== undefined
+          ? {}
+          : {
+              OR: [
+                { submittedAt: { lt: new Date(cursor.at) } },
+                { submittedAt: new Date(cursor.at), id: { lt: cursor.id } },
+              ],
+            }),
+      },
+      orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      include: { feedback: true },
+    });
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
+    // Filter choices have their own bounded continuation; selected/page facts remain complete.
+    const productWindow = await dependencies.prisma.productTask.groupBy({
+      by: ["productId"],
+      orderBy: { productId: "asc" },
+      take: PRODUCT_FILTER_PAGE + 1,
+      ...(productCursor === undefined
+        ? {}
+        : { where: { productId: { gt: productCursor.id } } }),
+    });
+    const filterProductIds = productWindow
+      .slice(0, PRODUCT_FILTER_PAGE)
+      .map(({ productId }) => productId);
     const tasks = await dependencies.prisma.productTask.findMany({
+      where: {
+        OR: [
+          { productId: { in: filterProductIds } },
+          { id: { in: [...new Set(page.map(({ taskId }) => taskId))] } },
+          ...(query.productId === undefined
+            ? []
+            : [{ productId: query.productId }]),
+          ...(query.chapterId === undefined
+            ? []
+            : [{ chapterId: query.chapterId }]),
+          ...(query.taskCode === undefined ? [] : [{ code: query.taskCode }]),
+        ],
+      },
       orderBy: [{ position: "asc" }, { code: "asc" }],
       select: {
         id: true,
@@ -178,49 +243,25 @@ export async function listAuthorSubmissions(
         currentVersion: true,
       },
     });
-    const products = await dependencies.directory.products({
-      ids: [...new Set(tasks.map((task) => task.productId))],
-    });
+    const productIds = [...new Set(tasks.map(({ productId }) => productId))];
+    const products = [];
+    for (
+      let offset = 0;
+      offset < productIds.length;
+      offset += DIRECTORY_BATCH_SIZE
+    )
+      products.push(
+        ...(await dependencies.directory.products({
+          ids: productIds.slice(offset, offset + DIRECTORY_BATCH_SIZE),
+        })),
+      );
     const productOf = new Map(products.map((product) => [product.id, product]));
     const chapterOf = new Map(
       products.flatMap((product) =>
         product.chapters.map((chapter) => [chapter.id, chapter]),
       ),
     );
-    const selected = tasks.filter(
-      (task) =>
-        (query.productId === undefined || task.productId === query.productId) &&
-        (query.chapterId === undefined || task.chapterId === query.chapterId) &&
-        (query.taskCode === undefined || task.code === query.taskCode),
-    );
-    const limit = query.limit ?? AUTHOR_SUBMISSIONS_PAGE;
-    const rows =
-      selected.length === 0
-        ? []
-        : await dependencies.prisma.productTaskSubmission.findMany({
-            where: {
-              taskId: { in: selected.map((task) => task.id) },
-              ...(query.submissionId === undefined
-                ? {}
-                : { id: query.submissionId }),
-              ...(cursor === undefined || query.submissionId !== undefined
-                ? {}
-                : {
-                    OR: [
-                      { submittedAt: { lt: new Date(cursor.at) } },
-                      {
-                        submittedAt: new Date(cursor.at),
-                        id: { lt: cursor.id },
-                      },
-                    ],
-                  }),
-            },
-            orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-            take: limit + 1,
-            include: { feedback: true },
-          });
-    const page = rows.slice(0, limit);
-    const last = page.at(-1);
+    const lastFilterProduct = productWindow[PRODUCT_FILTER_PAGE - 1];
     const checks = await submissionSelfChecks(dependencies.prisma, page);
     const accounts = [...new Set(page.map((row) => row.accountId))];
     const [contacts, names] = await Promise.all([
@@ -252,6 +293,18 @@ export async function listAuthorSubmissions(
       ok: true,
       value: {
         products: filterProducts(products, tasks),
+        nextProductCursor:
+          productWindow.length > PRODUCT_FILTER_PAGE &&
+          lastFilterProduct !== undefined
+            ? Buffer.from(
+                JSON.stringify({
+                  v: 1,
+                  kind: "products",
+                  id: lastFilterProduct.productId,
+                }),
+                "utf8",
+              ).toString("base64url")
+            : null,
         submissions: page.map((row) => {
           const task = taskOf.get(row.taskId);
           if (task === undefined)
@@ -377,4 +430,17 @@ function filterProducts(
         .filter((chapter) => chapter.tasks.length > 0),
     }))
     .filter((product) => product.chapters.length > 0);
+}
+
+function decodeProductCursor(value: string) {
+  try {
+    const decoded: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    );
+    const parsed = productCursorValueSchema.safeParse(decoded);
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    // Not a dependency failure: filter continuation is malformed foreign input.
+    return undefined;
+  }
 }
