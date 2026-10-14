@@ -1,3 +1,4 @@
+import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import {
   dismissTributeImportSchema,
   tributeImportReviewSchema,
@@ -176,6 +177,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     ...command,
     operation: z.literal("payments.read"),
     purchaseRef: idSchema,
+    auditCursor: paymentAuditCursorSchema.optional(),
   }),
   z.strictObject({
     ...command,
@@ -514,6 +516,7 @@ export const ownerSuccessSchema = z.union([
     events: z.array(paymentEventViewSchema),
     decisions: z.array(refundDecisionViewSchema),
     audit: z.array(auditEntryViewSchema),
+    nextAuditCursor: paymentAuditCursorSchema.nullable(),
   }),
   z.strictObject({
     outcome: z.literal("reconciled"),

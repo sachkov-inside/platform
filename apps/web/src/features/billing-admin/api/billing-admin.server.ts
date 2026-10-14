@@ -33,6 +33,7 @@ import {
   paymentsOutcomeSchema,
   previewBatchInputSchema,
   purchaseInputSchema,
+  readPaymentInputSchema,
   readClassificationInputSchema,
   readGrantsInputSchema,
   reconciledOutcomeSchema,
@@ -218,9 +219,16 @@ export function handleListPayments(request: Request): Promise<Response> {
 export function handleReadPayment(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    purchaseInputSchema,
+    readPaymentInputSchema,
     paymentOutcomeSchema,
-    (input) => ({ ...input, operation: "payments.read" }),
+    (input) => ({
+      operation: "payments.read",
+      operationId: input.operationId,
+      purchaseRef: input.purchaseRef,
+      ...(input.auditCursor === undefined
+        ? {}
+        : { auditCursor: input.auditCursor }),
+    }),
   );
 }
 

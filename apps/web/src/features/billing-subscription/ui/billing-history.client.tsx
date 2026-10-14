@@ -27,6 +27,9 @@ export function BillingHistory({ notices, payments }: BillingHistoryProps) {
       <h2 className="text-xl font-semibold" id="billing-history">
         История
       </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Последние 50 попыток списания и 20 служебных сообщений.
+      </p>
       <h3 className="mt-4 text-base font-semibold">Списания и чеки</h3>
       {payments.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
