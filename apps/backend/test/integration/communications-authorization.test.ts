@@ -293,7 +293,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
     ).toMatchObject({ status: "ok", targetErrors: [] });
     const targets = app.get(PublicContentTargets);
     const unavailable = vi
-      .spyOn(targets, "check")
+      .spyOn(targets, "checkMany")
       .mockRejectedValueOnce(new Error("synthetic unavailable"));
     try {
       const response = await validate();
