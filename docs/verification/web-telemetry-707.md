@@ -1,5 +1,11 @@
 # Web telemetry resource proof — #707
 
+Historical resource proof. Accepted CI/CD decision #1430 removed automated measurement and the
+mandatory budget release gate. The measurements, limits and failures below remain unchanged;
+current verification requirements belong to [web telemetry](../runbooks/web-telemetry.md) and
+[course release preflight](../runbooks/course-release-preflight.md).
+
+
 [Issue #707](https://github.com/sachkov-inside/platform/issues/707) and
 [PR #1297](https://github.com/sachkov-inside/platform/pull/1297) own this intermediate PostgreSQL scope.
 The agreed budget is 600,000,000 bytes; the watchdog signals at 480,000,000 bytes.

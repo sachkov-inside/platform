@@ -420,12 +420,12 @@ test("Playwright JSON preserves describe names and resolves its testDir to a rep
   assert.equal(aggregate([rows]).length, 2);
 });
 
-test("scheduled reporting only grants issue writes to trusted main code and receives test data as artifacts", () => {
+test("manual reporting only grants issue writes to trusted main code and receives test data as artifacts", () => {
   const workflow = readFileSync(
     ".github/workflows/nightly-flake-hunt.yml",
     "utf8",
   );
-  assert.match(workflow, /schedule:\n\s+- cron:/u);
+  assert.doesNotMatch(workflow, /^ {2}schedule:|cron:/mu);
   assert.match(workflow, /workflow_dispatch:/u);
   assert.doesNotMatch(
     workflow,
@@ -434,10 +434,7 @@ test("scheduled reporting only grants issue writes to trusted main code and rece
   const [tests, report = ""] = workflow.split("  report-failures:");
   assert.doesNotMatch(tests ?? "", /issues: write/u);
   assert.match(report, /github\.ref == 'refs\/heads\/main'/u);
-  assert.match(
-    report,
-    /github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'/u,
-  );
+  assert.match(report, /github\.event_name == 'workflow_dispatch'/u);
   assert.match(report, /ref: \$\{\{ github\.sha \}\}/u);
   assert.match(report, /issues: write/u);
   assert.match(report, /uses: actions\/download-artifact@[a-f0-9]{40}/u);
