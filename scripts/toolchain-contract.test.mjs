@@ -878,6 +878,23 @@ describe("supported toolchain contract", () => {
       apiTerminal,
       "purchase notification email must use the same terminal binding key as the API",
     );
+    const smokeFilter = read("scripts/production-compose-smoke.sh").match(
+      /grep -E '([^']+)' "\$runtime_config_dir\/api.env"\n\s+\} >"\$runtime_config_dir\/notifications-worker.env"/u,
+    )?.[1];
+    assert.ok(
+      smokeFilter,
+      "the production smoke must derive its worker configuration",
+    );
+    const generated = spawnSync("grep", ["-E", smokeFilter], {
+      input: read("config/compose/production/api.env.example"),
+      encoding: "utf8",
+    });
+    assert.equal(generated.status, 0);
+    assert.equal(
+      generated.stdout.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1],
+      apiTerminal,
+      "the generated production smoke worker must also decrypt purchase email",
+    );
   });
 
   it("keeps the local sale on the stand contour", () => {
