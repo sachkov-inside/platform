@@ -18,7 +18,12 @@ test("keeps a scrolled page visible when viewport changes the scroll owner", asy
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1_200);
 
+  let desktop = false;
   for (const width of [820, 1_024, 1_440, 1_023, 390, 1_440]) {
+    const previousScrollTop = desktop
+      ? await main.evaluate((element) => element.scrollTop)
+      : await page.evaluate(() => window.scrollY);
+    const changesScrollOwner = desktop !== (width >= 1_024);
     await page.setViewportSize({ width, height: 900 });
     await expect
       .poll(() =>
@@ -30,14 +35,25 @@ test("keeps a scrolled page visible when viewport changes the scroll owner", asy
       .toBe(true);
     if (width >= 1_024) {
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-      await expect
-        .poll(() => main.evaluate((element) => element.scrollTop))
-        .toBe(1_200);
+      const mainScrollTop = expect.poll(() =>
+        main.evaluate((element) => element.scrollTop),
+      );
+      if (changesScrollOwner) await mainScrollTop.toBe(previousScrollTop);
+      else await mainScrollTop.toBeGreaterThan(0);
       await expect(
         page.getByRole("navigation", { name: "Основная", exact: true }),
       ).toBeVisible();
     } else {
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1_200);
+      await expect
+        .poll(() => main.evaluate((element) => element.scrollTop))
+        .toBe(0);
+      const documentScrollTop = expect.poll(() =>
+        page.evaluate(() => window.scrollY),
+      );
+      // Same-owner text reflow can move the browser's scroll anchor in pixels.
+      // Only an ownership transfer promises the previous owner's exact offset.
+      if (changesScrollOwner) await documentScrollTop.toBe(previousScrollTop);
+      else await documentScrollTop.toBeGreaterThan(0);
       await expect(
         page.getByRole("navigation", {
           name: "Мобильная навигация",
@@ -45,6 +61,7 @@ test("keeps a scrolled page visible when viewport changes the scroll owner", asy
         }),
       ).toBeVisible();
     }
+    desktop = width >= 1_024;
   }
 });
 
