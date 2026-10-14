@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   MaterialAuthoringWorkspace,
@@ -55,13 +55,10 @@ export function MaterialAuthoringPageClient({
   });
   const [draft, setDraft] = useState(initialPresentation.draft);
   const draftRef = useRef(draft);
-  useLayoutEffect(() => {
-    draftRef.current = draft;
-  }, [draft]);
   // Черновик для автосохранения живёт здесь и меняется на каждый знак, а редактор перерисовывается
   // только когда меняется то, что он показывает. Поэтому обработчик документа один на всё время
   // страницы и берёт последний черновик из draftRef, а не из рендера, в котором был создан.
-  const markDirty = useCallback(
+  const updateDraft = useCallback(
     (nextDraft: MaterialAuthoringPresentation["draft"]) => {
       setDraft(nextDraft);
       draftRef.current = nextDraft;
@@ -72,9 +69,9 @@ export function MaterialAuthoringPageClient({
     (document: JSONContent) => {
       const current = draftRef.current;
       if (JSON.stringify(document) === JSON.stringify(current.document)) return;
-      markDirty({ ...current, document });
+      updateDraft({ ...current, document });
     },
-    [markDirty],
+    [updateDraft],
   );
   const [noticeRevision, setNoticeRevision] = useState(0);
   const [materialResult, setMaterialResult] = useState<
@@ -138,8 +135,7 @@ export function MaterialAuthoringPageClient({
           canDelete: true,
           status: "draft" as const,
         };
-        draftRef.current = next;
-        setDraft(next);
+        updateDraft(next);
         // Keep the editor and in-flight uploads mounted when the draft gets its URL.
         window.history.replaceState(
           null,
@@ -208,8 +204,7 @@ export function MaterialAuthoringPageClient({
           (videoId) => !input.detachVideoIds.includes(videoId),
         ),
       };
-      draftRef.current = next;
-      setDraft(next);
+      updateDraft(next);
       return "saved";
     },
   });
@@ -313,7 +308,7 @@ export function MaterialAuthoringPageClient({
         onDocumentChange,
         onFieldChange: (field: MaterialDraftField, value: string) => {
           if (field === "access") {
-            markDirty({
+            updateDraft({
               ...draftRef.current,
               access: value === "closed" ? "closed" : "free",
               deleteVideoId: null,
@@ -328,13 +323,13 @@ export function MaterialAuthoringPageClient({
             });
             return;
           }
-          markDirty({ ...draftRef.current, [field]: value });
+          updateDraft({ ...draftRef.current, [field]: value });
         },
         onDelete: (input) => {
           deleteDraft(input);
         },
         onOutcomesChange: (outcomes) => {
-          markDirty({ ...draftRef.current, outcomes });
+          updateDraft({ ...draftRef.current, outcomes });
         },
         onOpenPreview: () => {
           void flushPendingEdits().then((ok) => {
@@ -359,7 +354,7 @@ export function MaterialAuthoringPageClient({
             detachVideoIds: draftRef.current.detachVideoIds,
             primaryVideoId,
           });
-          markDirty({
+          updateDraft({
             ...draftRef.current,
             deleteVideoId,
             detachVideoIds,
@@ -395,7 +390,7 @@ export function MaterialAuthoringPageClient({
           );
           setRemovalConfirmation(null);
           setPublicationTarget(null);
-          markDirty({
+          updateDraft({
             ...draftRef.current,
             seriesIds: [
               ...new Set([...draftRef.current.seriesIds, ...productIds]),
@@ -415,7 +410,7 @@ export function MaterialAuthoringPageClient({
           setNoticeRevision((n) => n + 1);
         },
         onTagToggle: (tagId: string, checked: boolean) => {
-          markDirty({
+          updateDraft({
             ...draftRef.current,
             tagIds: checked
               ? [...draftRef.current.tagIds, tagId]
@@ -425,7 +420,7 @@ export function MaterialAuthoringPageClient({
           });
         },
         onSeriesToggle: (seriesId: string, checked: boolean) => {
-          markDirty({
+          updateDraft({
             ...draftRef.current,
             seriesIds: checked
               ? [...draftRef.current.seriesIds, seriesId]
@@ -438,7 +433,7 @@ export function MaterialAuthoringPageClient({
     [
       router,
       returnHref,
-      markDirty,
+      updateDraft,
       onDocumentChange,
       deleteDraft,
       flushAutosave,

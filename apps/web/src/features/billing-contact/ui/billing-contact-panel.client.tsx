@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -8,10 +8,7 @@ import {
   confirmBillingContact,
   startBillingContact,
 } from "../api/billing-contact.browser";
-import {
-  contactErrorMessage,
-  type BillingContactState,
-} from "../model/billing-contact";
+import { contactErrorMessage } from "../model/billing-contact";
 import {
   billingContactVerified,
   resetBillingContact,
@@ -21,7 +18,6 @@ import { BillingContactForm } from "./billing-contact-form.client";
 
 export interface BillingContactPanelProps {
   readonly headingLevel?: "h1" | "h2";
-  readonly onStateChange?: (state: BillingContactState) => void;
 }
 
 /**
@@ -30,7 +26,6 @@ export interface BillingContactPanelProps {
  */
 export function BillingContactPanel({
   headingLevel,
-  onStateChange,
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
   const query = useBillingContact();
@@ -46,9 +41,6 @@ export function BillingContactPanel({
 
   const state = query.data?.ok === true ? query.data : undefined;
   const failure = query.data?.ok === false ? query.data.code : undefined;
-  useEffect(() => {
-    if (state !== undefined) onStateChange?.(state);
-  }, [onStateChange, state]);
 
   const start = useMutation({
     mutationFn: startBillingContact,
