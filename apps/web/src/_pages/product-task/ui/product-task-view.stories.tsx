@@ -34,6 +34,7 @@ import {
 
 import {
   ProductTaskLoading,
+  ProductTaskPending,
   ProductTaskNotFound,
   ProductTaskUnavailable,
 } from "./product-task-states";
@@ -440,4 +441,24 @@ export const ImageVariantsMobile: Story = {
   ...ImageVariants,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => expectVariantDiagram(canvasElement, true),
+};
+
+/** Personal requirements must not hide the prefetched course title and navigation. */
+export const PersonalTaskPending: Story = {
+  render: () => <ProductTaskPending programme={courseTask} />,
+  parameters: { account: "guest" },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveTextContent(
+      courseTask.current.title,
+    );
+    await expect(page.getByRole("link", { name: "К курсу" })).toBeVisible();
+    await expect(
+      page.getByRole("status", { name: "Задание загружается" }),
+    ).toBeVisible();
+    expect(
+      canvasElement.querySelector('[data-product-task-state="loading"]'),
+    ).toBeNull();
+    expect(canvasElement.querySelector("[data-product-task-form]")).toBeNull();
+  },
 };
