@@ -49,7 +49,7 @@ sudo env \
 
 | Значение | Файлы Platform | Пара на стороне Telegram |
 |---|---|---|
-| `TBANK_CONFIG_JSON` | `api.env`, `mcp.env`, `billing-worker.env` | — |
+| `TBANK_CONFIG_JSON` | `api.env`, `mcp.env`, `billing-worker.env`, `notifications-worker.env` | — |
 | `BILLING_CONTACT_*` | `api.env`, `mcp.env`, `billing-worker.env`, `notifications-worker.env` | — |
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
@@ -150,7 +150,10 @@ AMQPS на `5671`. Топологию он читает из определен�
 
 Настройки терминала приходят одним `TBANK_CONFIG_JSON`; схема — `apps/backend/src/config/tbank-config.ts`,
 проверенные факты терминала — [issue-402](../verification/issue-402-tbank-terminal-capability.md).
-Одинаковое значение задаётся в `api.env`, `mcp.env` и `billing-worker.env`.
+Одинаковое значение задаётся в `api.env`, `mcp.env`, `billing-worker.env` и `notifications-worker.env`.
+Воркер уведомлений использует `bindingEncryptionKey`, чтобы прочитать email покупки, когда отдельный
+подтверждённый контакт отсутствует. При смене терминала пересоздайте все четыре процесса с образами
+текущего выпуска. Сохраните ключ шифрования существующих покупок.
 
 | Поле | Значение для выпуска | Основание |
 |---|---|---|

@@ -324,7 +324,7 @@ EOF
     printf 'NOTIFICATIONS_BROKER_URLS={"billing":"%s","materials":"%s","notifications":"%s","email":"%s"}\n' \
       "$(broker_url platform-billing)" "$(broker_url platform-materials)" "$(broker_url platform-notifications)" "$(broker_url platform-email)"
     printf 'NOTIFICATIONS_BROKER_CA_FILE=/etc/inside/broker-ca.pem\nNOTIFICATIONS_PREFETCH=4\nNOTIFICATIONS_QUARANTINE_CAPACITY=1000\n'
-    grep -E '^(NOTIFICATIONS_PLATFORM_ORIGIN|NOTIFICATIONS_TELEGRAM_SECRET|BILLING_CONTACT_[A-Z_]+)=' "$runtime_config_dir/api.env"
+    grep -E '^(NOTIFICATIONS_PLATFORM_ORIGIN|NOTIFICATIONS_TELEGRAM_SECRET|TBANK_CONFIG_JSON|BILLING_CONTACT_[A-Z_]+)=' "$runtime_config_dir/api.env"
   } >"$runtime_config_dir/notifications-worker.env"
   cat >"$runtime_config_dir/web.env" <<EOF
 NODE_ENV=production
