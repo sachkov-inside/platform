@@ -1,8 +1,6 @@
 name: Nightly flake hunt
 
 on:
-  schedule:
-    - cron: "43 2 * * *"
   workflow_dispatch:
     inputs:
       fixture:
@@ -62,7 +60,7 @@ jobs:
     name: Report main test failures
     needs: tests
     # This job never executes branch or PR code with its write token.
-    if: ${{ always() && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
