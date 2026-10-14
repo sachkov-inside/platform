@@ -4,7 +4,7 @@
 
 ## Required context
 
-Before changing or reviewing Web code, apply [`CODING_STANDARDS.md`](CODING_STANDARDS.md). For
+Before review, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for Web changes. For
 production UI, Storybook, responsive behaviour, accessibility, or owner-review evidence, also read
 [`docs/agents/frontend-delivery.md`](../../docs/agents/frontend-delivery.md).
 

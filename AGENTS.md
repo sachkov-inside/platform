@@ -16,8 +16,8 @@ historical sources.
 - For readiness-label triage, read `docs/agents/triage-labels.md`.
 - For product context, terminology or ADR placement, read `docs/agents/domain.md`.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
-- For coding and review rules, read `CODING_STANDARDS.md`. Nested `AGENTS.md` files add
-  surface-specific context and verification.
+- Before review, read `CODING_STANDARDS.md` and the standards for each changed surface.
+  Nested `AGENTS.md` files supply implementation context and verification.
 - When a change alters durable product behaviour, domain language, architecture, public contracts,
   developer commands, delivery workflows, or agent routing, follow the
   [documentation maintenance contract](docs/agents/documentation-maintenance.md) and run
