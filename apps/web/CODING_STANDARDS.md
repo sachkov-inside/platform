@@ -201,6 +201,11 @@ These rules require review. An effect count or a passing dependency linter canno
   use an overlay; layout may change after explicit user actions such as pinning or resizing.
 - Prove layout-sensitive interaction with geometry assertions or Layout Shift API checks when
   visual snapshots cannot establish stability.
+- Authored responsive image variants follow the actual image column and current manual theme;
+  viewport width and the operating system color scheme cannot replace those inputs. Reserve the
+  selected composition geometry before delivery. Advance image discovery only when actual URL,
+  transferred-byte and layout-shift measurements prove the correct variants and preserve delivery
+  authorization and content-version checks.
 - Keep editor and explicit CLI checks on the committed TypeScript project that excludes stale
   `.next/dev` artifacts. Do not re-enable the removed JavaScript compiler API checker.
 - Compare a node with live document state inside one evaluation, `document.activeElement` above all.
