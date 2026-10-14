@@ -9,7 +9,10 @@ Status: awaiting owner visual acceptance. This branch contains a Storybook-only 
 - Show the applicable next action: pay, open the existing bank form, wait for payment/access, complete Product onboarding or open the Product.
 - Reuse Account email. Ask for email only when Account has none.
 - Associate a Telegram group with each Product. Keep the existing group; several Products can share it.
-- Show Telegram onboarding only when the purchased benefits include community access.
+- Keep checkout concise: Product name, amount, applicable discount, payment action and purchase conditions.
+- Keep purchase contents and periods inside expandable conditions; hide Account email and receipt explanations from the primary flow.
+- After access is ready, open the Product programme. Show Telegram onboarding above the programme, only when the Product includes community access.
+- Keep the programme available throughout onboarding. Hide the onboarding card after confirmed membership; reuse an existing Telegram link.
 - An operator revokes access to the selected Product as one action. The operator does not choose individual grant sources.
 - Preserve unrelated Product access and learner history.
 - Keep the broader editor redesign in #1448. This proof does not remove Topics.
@@ -46,3 +49,11 @@ On base `55f5bfa2b55500aa1e2949b936c95f68af0d892b`:
 - `acceptBankRefund` records external full bank refunds and creates revisioned fulfillment revocation commands scoped to that purchase. Its complete test coverage must be assessed before changing it.
 
 These observations are diagnostic inputs, not claims that the requested production path is complete.
+
+## Preview resource
+
+The owner requested this preview and still needs it for review.
+Storybook listens on port 6006, PID 21860, cwd `apps/web` in this worktree.
+Source: `prototype/1442-buyer-journey`, `src/storybook/buyer-journey-proof.stories.tsx`.
+Stop this owned process with `kill 21860`. Restart from this worktree with `pnpm storybook`.
+The owner's shared Chrome tab remains open; the temporary automation browser was closed.

@@ -72,7 +72,7 @@ export const ContinuousJourney: Story = {
       canvas.getByRole("button", { name: "Войти и продолжить" }),
     );
     await expect(
-      canvas.queryByRole("textbox", { name: "Email для чека" }),
+      canvas.queryByRole("textbox", { name: "Email" }),
     ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Оплатить 100 ₽" }),
@@ -114,7 +114,7 @@ export const EmailValidation: Story = {
       "Укажите корректный email",
     );
     await userEvent.type(
-      canvas.getByRole("textbox", { name: "Email для чека" }),
+      canvas.getByRole("textbox", { name: "Email" }),
       "reader@example.com",
     );
     await userEvent.click(
@@ -128,10 +128,9 @@ export const CommunityJourney: Story = {
   args: { includesCommunity: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const benefit = canvas.getByText(
-      "Сообщество «Создание Platform Inside» в Telegram",
-    );
-    await expect(benefit).toBeVisible();
+    await expect(
+      canvas.queryByRole("region", { name: "Сообщество продукта" }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Оплатить 100 ₽" }),
     );
@@ -144,12 +143,37 @@ export const CommunityJourney: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Демо: Банк подтвердил оплату" }),
     );
-    await expect(benefit).toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "Демо: Доступ подготовлен" }),
     );
     await expect(
+      canvas.queryByRole("button", { name: "Привязать Telegram" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: /Открыть «Создание Platform Inside»/u,
+      }),
+    );
+    await expect(
+      canvas.getByRole("region", { name: "Программа продукта" }),
+    ).toBeVisible();
+    await userEvent.click(
       canvas.getByRole("button", { name: "Привязать Telegram" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вступить в группу продукта" }),
+    );
+    await expect(
+      canvas.getByText("Заявка на вступление отправлена. Ждём подтверждения."),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Демо: Бот подтвердил вступление" }),
+    );
+    await expect(
+      canvas.queryByRole("region", { name: "Сообщество продукта" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Программа продукта" }),
     ).toBeVisible();
   },
 };
@@ -182,12 +206,53 @@ export const RefundAccess: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Открыть продукт" }),
     );
+    await expect(
+      canvas.getByRole("region", { name: "Программа продукта" }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Мои покупки" }));
     await expect(canvas.getByText(/Возвращено полностью/u)).toBeVisible();
     await expect(
       canvas.getByText(/Доступ открыт по ручному назначению/u),
     ).toBeVisible();
     await expect(
       canvas.queryByText("Оплата подтверждена. Можно начать обучение."),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const WithoutDiscount: Story = {
+  args: { discounted: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText("Скидка 50%")).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Оплатить 100 ₽" }),
+    ).toBeVisible();
+  },
+};
+
+export const ProgrammeWithoutCommunity: Story = {
+  args: { initialState: "ready", initialProductOpen: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("region", { name: "Программа продукта" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("region", { name: "Сообщество продукта" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const AlreadyJoined: Story = {
+  args: { initialState: "member", includesCommunity: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("region", { name: "Программа продукта" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("region", { name: "Сообщество продукта" }),
     ).not.toBeInTheDocument();
   },
 };

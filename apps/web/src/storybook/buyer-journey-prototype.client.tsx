@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
+import { ProductProgrammeView } from "@/_pages/library-discovery";
+import { seriesJourneyCorpus } from "./series-journey-corpus.fixtures";
 
 /** Throwaway proof for #1442, #1443 and #1444. No production adapter or real mutations. */
 export const buyerStates = {
@@ -46,16 +48,22 @@ const communityStates: readonly BuyerState[] = [
 export function BuyerJourneyPrototype({
   initialState = "checkout",
   includesCommunity = false,
+  initialProductOpen = false,
+  discounted = true,
 }: {
   readonly initialState?: BuyerState;
   readonly includesCommunity?: boolean;
+  readonly initialProductOpen?: boolean;
+  readonly discounted?: boolean;
 }) {
   const [state, setState] = useState(initialState);
   const [productName, setProductName] = useState(defaultProductName);
   const [purchaseRef, setPurchaseRef] = useState("DEMO-1442");
   const [community, setCommunity] = useState(includesCommunity);
   const [email, setEmail] = useState("");
-  const [opened, setOpened] = useState(false);
+  const [opened, setOpened] = useState(
+    initialProductOpen || communityStates.includes(initialState),
+  );
   const onboarding = communityStates.includes(state);
   const paid = state === "preparing" || state === "ready" || onboarding;
   const completion = state === "ready" || onboarding;
@@ -67,7 +75,9 @@ export function BuyerJourneyPrototype({
     state === "purchases" || state === "refunded" || state === "otherGrant";
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-[38rem] pb-8">
+    <div
+      className={`mx-auto w-full min-w-0 pb-8 ${opened ? "max-w-[46rem]" : "max-w-[38rem]"}`}
+    >
       <div className="mb-6 rounded-xl bg-secondary p-4 text-sm">
         <p className="font-semibold">Прототип единого пути · #1442–1444</p>
         <p className="mt-1 text-muted-foreground">
@@ -87,7 +97,7 @@ export function BuyerJourneyPrototype({
             );
             if (next !== undefined) {
               setState(next);
-              setOpened(false);
+              setOpened(communityStates.includes(next));
               setProductName(defaultProductName);
               setPurchaseRef("DEMO-1442");
               if (communityStates.includes(next)) setCommunity(true);
@@ -107,6 +117,7 @@ export function BuyerJourneyPrototype({
             checked={community}
             onChange={(event) => {
               setCommunity(event.target.checked);
+              setOpened(false);
               setState("checkout");
             }}
             className="size-4 accent-primary sm:size-5"
@@ -114,20 +125,47 @@ export function BuyerJourneyPrototype({
           Демонстрационная покупка включает сообщество
         </label>
       </div>
-      <a
-        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
-        href="#programme"
-        onClick={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <ArrowLeft aria-hidden="true" className="size-4" />
-        Программа
-      </a>
-      <h1 className="mt-4 break-words text-2xl font-bold tracking-tight md:text-3xl">
-        {history ? "Покупки" : productName}
-      </h1>
-      {history ? (
+      {opened ? null : (
+        <>
+          <a
+            className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
+            href="#programme"
+            onClick={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <ArrowLeft aria-hidden="true" className="size-4" />
+            Программа
+          </a>
+          <h1 className="mt-4 break-words text-2xl font-bold tracking-tight md:text-3xl">
+            {history ? "Покупки" : productName}
+          </h1>
+        </>
+      )}
+      {opened ? (
+        <>
+          {community && onboarding && state !== "member" ? (
+            <CommunityStep
+              productName={productName}
+              state={state}
+              onState={setState}
+            />
+          ) : null}
+          <section aria-label="Программа продукта" className="mt-6">
+            <ProductProgrammeView result={demoProgramme(productName)} />
+          </section>
+          <Button
+            variant="ghost"
+            className="mt-4 min-h-11"
+            onClick={() => {
+              setOpened(false);
+              if (!history) setState("purchases");
+            }}
+          >
+            Мои покупки
+          </Button>
+        </>
+      ) : history ? (
         <PurchaseHistory
           state={state}
           onOpen={() => {
@@ -172,20 +210,17 @@ export function BuyerJourneyPrototype({
             className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-7"
             aria-label="Ваша покупка"
           >
-            <h2 className="sr-only">Состав покупки</h2>
-            <ul className="mt-3 grid gap-1 text-sm leading-6 text-muted-foreground">
-              <li>Материалы продукта — без даты окончания</li>
-              <li>Сопровождение — 6 месяцев с подтверждения оплаты</li>
-              {community ? (
-                <li>Сообщество «{productName}» в Telegram</li>
-              ) : null}
-            </ul>
-            <div className="mt-5 flex flex-wrap items-baseline gap-3 border-t border-border pt-5">
+            <h2 className="sr-only">Оплата продукта</h2>
+            <div className="flex flex-wrap items-baseline gap-3">
               <p className="text-3xl font-bold tabular-nums">100 ₽</p>
-              <s className="text-sm text-muted-foreground">
-                <span className="sr-only">До скидки: </span>200 ₽
-              </s>
-              <span className="text-sm font-semibold">Скидка 50%</span>
+              {discounted ? (
+                <>
+                  <s className="text-sm text-muted-foreground">
+                    <span className="sr-only">До скидки: </span>200 ₽
+                  </s>
+                  <span className="text-sm font-semibold">Скидка 50%</span>
+                </>
+              ) : null}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {paid ? "Оплачено разово" : "Разовая оплата"}
@@ -231,14 +266,13 @@ export function BuyerJourneyPrototype({
                     setState("creating");
                   }}
                 >
-                  <h3 className="text-lg font-semibold">Оплата продукта</h3>
                   {needsEmail ? (
                     <div className="mt-4">
                       <label
                         htmlFor="receipt-email"
                         className="text-sm font-semibold"
                       >
-                        Email для чека
+                        Email
                       </label>
                       <input
                         className={inputClass}
@@ -252,7 +286,7 @@ export function BuyerJourneyPrototype({
                         value={email}
                         aria-invalid={state === "invalid"}
                         aria-describedby={
-                          state === "invalid" ? "email-error" : "email-help"
+                          state === "invalid" ? "email-error" : undefined
                         }
                         onChange={(event) => {
                           setEmail(event.target.value);
@@ -266,24 +300,9 @@ export function BuyerJourneyPrototype({
                         >
                           Укажите корректный email, например reader@example.com.
                         </p>
-                      ) : (
-                        <p
-                          id="email-help"
-                          className="mt-2 text-sm text-muted-foreground"
-                        >
-                          В вашем аккаунте пока нет email.
-                        </p>
-                      )}
+                      ) : null}
                     </div>
-                  ) : (
-                    <p className="mt-3 text-sm leading-6">
-                      Чек и сообщения о покупке:{" "}
-                      <strong>reader@example.com</strong>
-                      <span className="block text-muted-foreground">
-                        Используем email вашего аккаунта.
-                      </span>
-                    </p>
-                  )}
+                  ) : null}
                   <details className="mt-5 text-sm leading-6">
                     <summary className="cursor-pointer font-semibold">
                       Условия и документы покупки
@@ -292,21 +311,34 @@ export function BuyerJourneyPrototype({
                       Материалы без даты окончания. Сопровождение 6 месяцев.
                       Условия и сроки фиксируются при покупке.
                     </p>
-                    <p className="mt-2">
-                      Оферта покупки · Правила платформы · Политика
-                      конфиденциальности
-                    </p>
-                    <p className="mt-2 text-muted-foreground">
-                      Это образец блока. Production покажет ссылки на применимые
-                      редакции документов.
-                    </p>
+                    {community ? (
+                      <p className="mt-2 text-muted-foreground">
+                        Сообщество «{productName}» в Telegram.
+                      </p>
+                    ) : null}
+                    <a
+                      href="/legal/purchase"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex min-h-11 items-center underline underline-offset-4"
+                    >
+                      Оферта покупки
+                    </a>
                   </details>
                   <Button className={`${actionClass} mt-5`} type="submit">
                     Оплатить 100 ₽
                   </Button>
                   <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                    Нажимая «Оплатить», вы принимаете применимые условия
-                    покупки. Оплата откроется на странице банка.
+                    Нажимая «Оплатить», вы принимаете{" "}
+                    <a
+                      href="/legal/purchase"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-4"
+                    >
+                      оферту покупки
+                    </a>
+                    .
                   </p>
                 </form>
               ) : null}
@@ -407,12 +439,9 @@ export function BuyerJourneyPrototype({
                     text="Здесь появится следующий шаг, как только доступ будет готов."
                     busy
                   />
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Чек формируется. Он придёт на reader@example.com.
-                  </p>
                   <DemoEvent
                     onClick={() => {
-                      setState(community ? "telegram" : "ready");
+                      setState("ready");
                     }}
                   >
                     Доступ подготовлен
@@ -425,26 +454,15 @@ export function BuyerJourneyPrototype({
                     title="Продукт доступен"
                     text="Оплата подтверждена. Можно начать обучение."
                   />
-                  {onboarding && community ? (
-                    <CommunityStep
-                      productName={productName}
-                      state={state}
-                      onState={setState}
-                    />
-                  ) : null}
                   <Button
                     className={`${actionClass} mt-5`}
                     onClick={() => {
+                      if (community && !onboarding) setState("telegram");
                       setOpened(true);
                     }}
                   >
                     Открыть «{productName}»<ArrowRight aria-hidden="true" />
                   </Button>
-                  {opened ? (
-                    <p className="mt-3 text-sm" role="status">
-                      В приложении откроется программа приобретённого продукта.
-                    </p>
-                  ) : null}
                 </>
               ) : null}
             </div>
@@ -472,14 +490,52 @@ export function BuyerJourneyPrototype({
           </Button>
         </>
       )}
-      {history && opened ? (
-        <p className="mt-4 text-sm" role="status">
-          В приложении откроется программа «{defaultProductName}». Основание
-          доступа и история покупки сохраняются.
-        </p>
-      ) : null}
     </div>
   );
+}
+
+function demoProgramme(name: string) {
+  const corpus = seriesJourneyCorpus();
+  const titles = [
+    "Начало работы",
+    "Подготовка проекта",
+    "Первое приложение",
+    "Данные",
+    "Проверки",
+    "Выпуск",
+  ];
+  const items = corpus.items.slice(0, 6).map((item, index) => ({
+    ...item,
+    title: titles[index] ?? item.title,
+    availability: "available" as const,
+  }));
+  return {
+    ...corpus,
+    reference: { ...corpus.reference, name },
+    items,
+    chapters: [
+      {
+        id: "demo-start",
+        name: "Начало работы",
+        summary: "",
+        materialIds: items
+          .slice(0, 3)
+          .flatMap((item) =>
+            item.materialId === undefined ? [] : [item.materialId],
+          ),
+      },
+      {
+        id: "demo-application",
+        name: "Приложение",
+        summary: "",
+        materialIds: items
+          .slice(3)
+          .flatMap((item) =>
+            item.materialId === undefined ? [] : [item.materialId],
+          ),
+      },
+    ],
+  };
 }
 
 function Status({
@@ -532,10 +588,10 @@ function CommunityStep({
 }) {
   return (
     <section
-      className="mt-5 border-t border-border pt-5"
+      className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6"
       aria-label="Сообщество продукта"
     >
-      <h4 className="font-semibold">Сообщество «{productName}»</h4>
+      <h2 className="text-lg font-semibold">Сообщество «{productName}»</h2>
       {state === "telegram" ? (
         <>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -555,7 +611,7 @@ function CommunityStep({
       {state === "invitation" ? (
         <>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Telegram @demo_reader уже привязан.
+            Telegram привязан.
           </p>
           <Button
             className="mt-4 min-h-11 w-full"
