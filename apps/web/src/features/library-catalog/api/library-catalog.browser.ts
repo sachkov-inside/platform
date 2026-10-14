@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import { z } from "zod";
 
 import { contentCoverSchema, materialPreviewSchema } from "@/entities/material";
@@ -33,7 +34,11 @@ const libraryCatalogPageSchema: z.ZodType<LibraryCatalogPage> =
           .strict(),
         kind: z.literal("ready"),
         items: z.array(materialPreviewSchema),
-        nextCursor: z.string().min(1).max(512).nullable(),
+        nextCursor: z
+          .string()
+          .min(1)
+          .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+          .nullable(),
         totalCount: z.number().int().nonnegative(),
       })
       .strict(),

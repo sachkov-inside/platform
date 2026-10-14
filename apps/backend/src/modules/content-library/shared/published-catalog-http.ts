@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import { z } from "zod";
 
 import {
@@ -43,7 +44,11 @@ export const publishedCatalogPageHttpSchema = z
       })
       .strict(),
     items: z.array(publishedCatalogItemHttpSchema),
-    nextCursor: z.string().min(1).max(512).nullable(),
+    nextCursor: z
+      .string()
+      .min(1)
+      .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+      .nullable(),
     totalCount: z.number().int().nonnegative(),
   })
   .strict();

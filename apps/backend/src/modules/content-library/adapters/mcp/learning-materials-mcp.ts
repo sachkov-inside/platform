@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import {
   learningPracticeQuerySchema,
   readLearningPractice,
@@ -64,7 +65,11 @@ export function assembleLearnerMcpServer(
       inputSchema: z
         .object({
           first: z.number().int().min(1).max(24).default(12),
-          after: z.string().min(1).max(512).optional(),
+          after: z
+            .string()
+            .min(1)
+            .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+            .optional(),
           productSlug: z.string().min(1).max(120).optional(),
         })
         .strict(),

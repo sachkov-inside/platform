@@ -16,6 +16,10 @@
     "./telegram-contact": {
       "types": "./dist/runtime/telegram-contact.d.ts",
       "default": "./dist/runtime/telegram-contact.js"
+    },
+    "./published-catalog": {
+      "types": "./dist/runtime/published-catalog.d.ts",
+      "default": "./dist/runtime/published-catalog.js"
     }
   },
   "files": [

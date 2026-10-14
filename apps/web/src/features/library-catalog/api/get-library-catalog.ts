@@ -1,5 +1,7 @@
 import "server-only";
 
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
+
 import { z } from "zod";
 
 import {
@@ -39,7 +41,11 @@ const catalogSchema = z
       })
       .strict(),
     items: z.array(publishedMaterialProjectionSchema),
-    nextCursor: z.string().min(1).max(512).nullable(),
+    nextCursor: z
+      .string()
+      .min(1)
+      .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+      .nullable(),
     totalCount: z.number().int().nonnegative(),
   })
   .strict();
