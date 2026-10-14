@@ -63,8 +63,8 @@ NODE
 The public HTTP catalog fixes each page at **12**, not the application's maximum 24: [list-published-materials.controller.ts:41](../../../apps/backend/src/modules/content-library/features/list-published-materials/list-published-materials.controller.ts#L41), [same:187](../../../apps/backend/src/modules/content-library/features/list-published-materials/list-published-materials.controller.ts#L187). The sitemap reader stops after 100 pages and returns `kind: "ready"` even when the last response still has a cursor: [get-public-site-index.ts:27](../../../apps/web/src/features/public-site-index/api/get-public-site-index.ts#L27), [same:61](../../../apps/web/src/features/public-site-index/api/get-public-site-index.ts#L61), [same:79](../../../apps/web/src/features/public-site-index/api/get-public-site-index.ts#L79).
 
 **Trigger/consequence:** At 1,201 published materials, older materials disappear from this index without an incomplete-result signal. The separate 50,000-material guard never determines the current threshold.
-**Direction:** Give complete index traversal an explicit exhaustion/completion contract; retain a cycle/budget guard without treating exhaustion as completion.
-**Verification criterion:** A 1,201-item fixture includes item 1,201, or explicitly reports incomplete/unavailable. A repeated cursor cannot loop indefinitely.
+**Direction:** Give complete index traversal an explicit exhaustion/completion contract; retain a cycle/budget guard without treating budget exhaustion as successful traversal completion.
+**Verification criterion:** A valid available 1,201-item fixture completes successfully and includes item 1,201. Upstream failures and invalid continuations stay explicit failures. A repeated cursor cannot loop indefinitely. Follow #1466 for output partitioning and sitemap limits.
 
 ### PAG-03 — Empty projected bookmark pages hide valid later pages
 

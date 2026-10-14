@@ -298,6 +298,28 @@ been fixed, measured in production, or accepted after implementation.
 
 ## Verification and limitations
 
+### Standards follow-up
+
+- Added reusable collection/pagination rules to root standards, scoped batch rules
+  to Backend standards, and optional-read/effect-lifetime rules to Web standards.
+- Checked that the standards mapping contains exactly 43 unique expected records;
+  resolved 170 local links across the five reports, including named Markdown headings.
+- `pnpm docs:check` passed after the standards amendments. The pre-existing Web
+  standards length warning remains; it is not a verification failure.
+- Separate native Standards and Spec reviewers inspected immutable commit
+  `6f6556ef` against baseline `2b650e946af93d409a8d1518a2eda12b65247fed`.
+  Both identified the same ambiguous sitemap-exhaustion wording. The follow-up
+  distinguishes source exhaustion from budget exhaustion and aligns the 1,201-item
+  criterion with #1466. Changed wording receives a follow-up review before handoff.
+- Updated #1466 to require explicit applicable-standards inputs for the Standards
+  reviewer and all 43 dispositions for the Spec reviewer. Verified the published
+  body matches the prepared specification.
+
+These documentation changes are local commits, not an integrated PR or application
+fix. No new disposable process, container or worktree was acquired for this follow-up.
+
+### Original audit verification
+
 - `pnpm docs:check`: passed. The command also reported an existing length warning
   for `apps/web/CODING_STANDARDS.md`. The later standards follow-up changes that file;
   its verification is recorded separately from this original audit run.
