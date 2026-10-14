@@ -90,7 +90,9 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   await expect
     .poll(async () => (await header(page).boundingBox())?.y)
     .toBeLessThan(0);
-  await page.evaluate(() => window.scrollTo(0, 680));
+  await page.evaluate(() => {
+    window.scrollTo(0, 680);
+  });
   await expect.poll(async () => (await header(page).boundingBox())?.y).toBe(0);
   await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
   await expect(
