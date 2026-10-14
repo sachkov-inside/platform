@@ -11,8 +11,9 @@ Status: awaiting owner visual acceptance. This branch contains a Storybook-only 
 - Associate a Telegram group with each Product. Keep the existing group; several Products can share it.
 - Keep checkout concise: Product name, amount, applicable discount, payment action and purchase conditions.
 - Keep purchase contents and periods inside expandable conditions; hide Account email and receipt explanations from the primary flow.
-- After access is ready, open the Product programme. Show Telegram onboarding above the programme, only when the Product includes community access.
-- Keep the programme available throughout onboarding. Hide the onboarding card after confirmed membership; reuse an existing Telegram link.
+- After access is ready, open the Product. For community-enabled Products, place Onboarding first in the Product navigation and select it by default while incomplete.
+- Show three steps: link Telegram, join the Product community, start the first lesson. Reuse verified linking and membership facts.
+- Keep Programme, Materials and Artifacts accessible during onboarding. After the first lesson is started, a new default visit selects Programme.
 - An operator revokes access to the selected Product as one action. The operator does not choose individual grant sources.
 - Preserve unrelated Product access and learner history.
 - Keep the broader editor redesign in #1448. This proof does not remove Topics.
@@ -57,3 +58,9 @@ Storybook listens on port 6006, PID 21860, cwd `apps/web` in this worktree.
 Source: `prototype/1442-buyer-journey`, `src/storybook/buyer-journey-proof.stories.tsx`.
 Stop this owned process with `kill 21860`. Restart from this worktree with `pnpm storybook`.
 The owner's shared Chrome tab remains open; the temporary automation browser was closed.
+
+## Presentation integration in this proof
+
+The proof extends ProductProgrammeView with an optional onboarding panel. SeriesJourney owns its place in the existing Product navigation. Callers that omit the panel retain the original programme navigation; production routes do not supply it yet. The Storybook proof supplies the three-step panel and simulated events. This changes presentation interfaces, not bank or Telegram integrations.
+
+The wider design-system investigation is tracked in #1455. The owner will add its reference links; research runs in a separate session.

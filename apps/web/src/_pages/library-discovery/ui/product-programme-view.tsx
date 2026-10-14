@@ -1,5 +1,6 @@
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import Link from "next/link";
+import type { ProductOnboardingPanel } from "./series-journey-controls.client";
 
 import {
   billingActionClass,
@@ -53,6 +54,7 @@ export function ProductProgrammeView({
   productOffer = null,
   pending: accessPending = false,
   subscriptionOffered = false,
+  onboarding,
 }: {
   readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: ResolvedSeriesResult;
@@ -65,6 +67,7 @@ export function ProductProgrammeView({
    */
   readonly pending?: boolean;
   readonly subscriptionOffered?: boolean;
+  readonly onboarding?: ProductOnboardingPanel;
 }) {
   const slug = result.reference.slug;
   const currentHref = productProgrammeHref(slug);
@@ -161,6 +164,7 @@ export function ProductProgrammeView({
       </header>
 
       <SeriesJourney
+        {...(onboarding === undefined ? {} : { onboarding })}
         accessPending={accessPending}
         {...(artifacts === undefined ? {} : { artifacts })}
         currentHref={currentHref}

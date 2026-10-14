@@ -25,7 +25,8 @@ export const buyerStates = {
   invitation: "Telegram уже привязан",
   joining: "Заявка в группу",
   joinError: "Сбой приглашения",
-  member: "Уже в группе",
+  member: "Уже в группе: первый урок",
+  started: "Онбординг завершён",
   purchases: "Несколько покупок",
   refunded: "Полный возврат",
   otherGrant: "Возврат: другое основание",
@@ -43,6 +44,7 @@ const communityStates: readonly BuyerState[] = [
   "joining",
   "joinError",
   "member",
+  "started",
 ];
 
 export function BuyerJourneyPrototype({
@@ -156,17 +158,24 @@ export function BuyerJourneyPrototype({
       )}
       {opened ? (
         <>
-          {community && telegramStep !== "member" ? (
-            <CommunityStep
-              productName={productName}
-              state={telegramStep}
-              onState={(next) => {
-                setTelegramStep(next);
-              }}
-            />
-          ) : null}
           <section aria-label="Программа продукта" className="mt-6">
-            <ProductProgrammeView result={demoProgramme(productName)} />
+            <ProductProgrammeView
+              result={demoProgramme(productName)}
+              {...(community
+                ? {
+                    onboarding: {
+                      incomplete: telegramStep !== "started",
+                      panel: (
+                        <CommunityStep
+                          productName={productName}
+                          state={telegramStep}
+                          onState={setTelegramStep}
+                        />
+                      ),
+                    },
+                  }
+                : {})}
+            />
           </section>
           <Button
             variant="ghost"
@@ -603,90 +612,149 @@ function CommunityStep({
   readonly state: BuyerState;
   readonly onState: (state: BuyerState) => void;
 }) {
+  const current =
+    state === "telegram"
+      ? 0
+      : state === "member" || state === "started"
+        ? 2
+        : 1;
+  const finished = state === "started";
+  const title =
+    state === "telegram"
+      ? "Привяжите Telegram"
+      : state === "member"
+        ? "Начните первый урок"
+        : finished
+          ? "Онбординг завершён"
+          : "Вступите в сообщество";
   return (
     <section
-      className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6"
-      aria-label="Сообщество продукта"
+      className="rounded-2xl border border-border bg-card p-5 sm:p-7"
+      aria-label={`Онбординг продукта «${productName}»`}
     >
-      <h2 className="text-lg font-semibold">Сообщество «{productName}»</h2>
-      {state === "telegram" ? (
-        <>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Привяжите Telegram, чтобы вступить в группу этого продукта.
-          </p>
-          <Button
-            className="mt-4 min-h-11 w-full"
-            variant="outline"
-            onClick={() => {
-              onState("invitation");
-            }}
+      <ol
+        aria-label="Шаги онбординга"
+        className="grid grid-cols-3 gap-3 text-xs font-semibold"
+      >
+        {["Telegram", "Сообщество", "Первый урок"].map((label, index) => (
+          <li
+            key={label}
+            aria-current={!finished && index === current ? "step" : undefined}
+            className={
+              index > current ? "text-muted-foreground" : "text-foreground"
+            }
           >
-            Привязать Telegram
-          </Button>
-        </>
-      ) : null}
-      {state === "invitation" ? (
-        <>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Telegram привязан.
+            <span
+              aria-hidden="true"
+              className={`mb-3 block h-1 rounded-full ${finished || index < current ? "bg-foreground" : index === current ? "bg-accent" : "bg-muted"}`}
+            />
+            <span className="flex items-start gap-1.5">
+              {finished || index < current ? (
+                <Check aria-hidden="true" className="size-3 shrink-0" />
+              ) : (
+                <span>{index + 1}.</span>
+              )}
+              {label}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="mt-7 border-t border-border pt-6" aria-live="polite">
+        <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          {title}
+        </h2>
+        {state === "telegram" ? (
+          <>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Подключите аккаунт, чтобы получить приглашение в группу продукта.
+            </p>
+            <Button
+              className={`${actionClass} mt-6`}
+              onClick={() => {
+                onState("invitation");
+              }}
+            >
+              Привязать Telegram
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </>
+        ) : null}
+        {state === "invitation" ? (
+          <>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Telegram привязан. Получите приглашение в сообщество.
+            </p>
+            <Button
+              className={`${actionClass} mt-6`}
+              onClick={() => {
+                onState("joining");
+              }}
+            >
+              Вступить в сообщество
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </>
+        ) : null}
+        {state === "joining" ? (
+          <>
+            <p
+              className="mt-3 flex items-center gap-2 text-sm leading-6"
+              role="status"
+            >
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-4 shrink-0 animate-spin motion-reduce:animate-none"
+              />
+              Ждём подтверждения вступления.
+            </p>
+            <DemoEvent
+              onClick={() => {
+                onState("member");
+              }}
+            >
+              Бот подтвердил вступление
+            </DemoEvent>
+          </>
+        ) : null}
+        {state === "joinError" ? (
+          <>
+            <p className="mt-3 text-sm leading-6" role="alert">
+              Приглашение не получилось подготовить. Попробуйте ещё раз.
+            </p>
+            <Button
+              className={`${actionClass} mt-6`}
+              onClick={() => {
+                onState("invitation");
+              }}
+            >
+              Получить приглашение
+            </Button>
+          </>
+        ) : null}
+        {state === "member" ? (
+          <>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              Telegram подключён. Вступление подтверждено. Можно начать
+              обучение.
+            </p>
+            <Button
+              className={`${actionClass} mt-6`}
+              onClick={() => {
+                onState("started");
+              }}
+            >
+              Начать первый урок
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </>
+        ) : null}
+        {finished ? (
+          <p className="mt-3 text-sm leading-6" role="status">
+            Первый урок откроется в приложении. Программа доступна в меню
+            продукта.
           </p>
-          <Button
-            className="mt-4 min-h-11 w-full"
-            variant="outline"
-            onClick={() => {
-              onState("joining");
-            }}
-          >
-            Вступить в группу продукта
-          </Button>
-        </>
-      ) : null}
-      {state === "joining" ? (
-        <>
-          <p className="mt-2 text-sm leading-6" role="status">
-            Заявка на вступление отправлена. Ждём подтверждения.
-          </p>
-          <DemoEvent
-            onClick={() => {
-              onState("member");
-            }}
-          >
-            Бот подтвердил вступление
-          </DemoEvent>
-        </>
-      ) : null}
-      {state === "joinError" ? (
-        <>
-          <p className="mt-2 text-sm leading-6" role="alert">
-            Не удалось подготовить приглашение. Доступ к продукту открыт.
-          </p>
-          <Button
-            className="mt-4 min-h-11"
-            variant="outline"
-            onClick={() => {
-              onState("invitation");
-            }}
-          >
-            Повторить получение приглашения
-          </Button>
-        </>
-      ) : null}
-      {state === "member" ? (
-        <>
-          <p className="mt-2 text-sm leading-6">
-            Вы уже в группе этого продукта.
-          </p>
-          <Button
-            className="mt-4 min-h-11"
-            variant="outline"
-            onClick={() => {
-              onState("member");
-            }}
-          >
-            Открыть группу
-          </Button>
-        </>
-      ) : null}
+        ) : null}
+      </div>
     </section>
   );
 }
