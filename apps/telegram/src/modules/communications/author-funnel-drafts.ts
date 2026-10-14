@@ -36,25 +36,29 @@ export class AuthorFunnelDrafts {
       scratch = scratch.where("draft_id", ">", cursor);
     }
     const ids = await saved.union(scratch).orderBy("id").limit(11).execute();
-    const items: FunnelListItem[] = [];
-    for (const { id } of ids.slice(0, 10)) {
-      const draft = await drafts(c)
-        .where("draft_id", "=", id)
-        .executeTakeFirst();
-      if (draft) items.push({ id, name: draft.name, status: "edited" });
-      else {
-        const result = await this.funnels.execute(
-          authorRequest(c.accountRef, "funnels.read", { funnelId: id }),
-          c.tx,
-        );
-        if ("funnel" in result)
-          items.push({
-            id,
-            name: result.funnel.name,
-            status: result.funnel.lifecycle,
-          });
-      }
-    }
+    const pageIds = ids.slice(0, 10).map((row) => row.id);
+    if (pageIds.length === 0) return { items: [], nextCursor: undefined };
+    // Context already contains the linked author authorized by AuthorAdmin.
+    const savedRows = await c.tx
+      .selectFrom("communication_funnels")
+      .select(["funnel_id", "draft", "lifecycle"])
+      .where("bot_identity", "=", c.input.botIdentity)
+      .where("owner_account_ref", "=", c.accountRef)
+      .where("funnel_id", "in", pageIds)
+      .execute();
+    const draftRows = await drafts(c)
+      .where("kind", "=", "funnel")
+      .where("draft_id", "in", pageIds)
+      .execute();
+    const savedById = new Map(savedRows.map((row) => [row.funnel_id, row]));
+    const draftsById = new Map(draftRows.map((row) => [row.draft_id, row]));
+    const items: FunnelListItem[] = pageIds.map((id) => {
+      const draft = draftsById.get(id);
+      if (draft) return { id, name: draft.name, status: "edited" };
+      const row = savedById.get(id);
+      if (!row) throw new CommunicationsError("not_found");
+      return { id, name: row.draft.name, status: row.lifecycle };
+    });
     return { items, nextCursor: ids.length > 10 ? ids[9]?.id : undefined };
   }
 

@@ -15,6 +15,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       readPractice: refuse,
       listPractices: refuse,
       listProjections: refuse,
+      listSiteMaterials: refuse,
       discoverProjections: refuse,
       readHomePinnedSeries: refuse,
       readHomeProjections: refuse,

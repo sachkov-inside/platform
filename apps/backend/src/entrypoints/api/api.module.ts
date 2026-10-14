@@ -21,6 +21,7 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
+  ListPublicSiteIndexController,
   ListLearningPracticesController,
   ReadProductAccessController,
   ReadHomeContentController,
@@ -53,6 +54,7 @@ import { HealthController } from "./health.controller.js";
   controllers: [
     HealthController,
     ListPublishedMaterialsController,
+    ListPublicSiteIndexController,
     ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,

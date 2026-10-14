@@ -92,6 +92,10 @@ not dependency wiring.
   transaction does not await, such as a contender for the same lock, starts that operation through
   `outsideTransaction`. Work that the transaction awaits never goes through it: that work is the
   violation the check refuses.
+- A public address enumerator returns only the fields its consumer uses and reads collection
+  metadata on the initial page only. Interactive catalog pages keep their complete, filter-specific
+  metadata contract. Do not share viewer state or silently omit metadata from an interactive list
+  to reduce traversal cost; measure owner calls, SQL statements and response bytes separately.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
