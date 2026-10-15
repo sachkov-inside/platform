@@ -6,6 +6,7 @@ This note records source inspection and one successful baseline. It does not cla
 
 ## Baseline attribution
 
+The historical CI checkout is `670237209dc0d5f404193dc09212822d73dd66f3` (113 files, 1039 API tests).
 The baseline is [Integration job 116335645893](https://github.com/sachkov-inside/platform/actions/runs/38708780194/job/116335645893).
 Times below come from its timestamped log. Boundaries approximate phases rather than instrumenting their internals.
 
@@ -88,7 +89,8 @@ The Home baseline ran `pnpm test:integration:parallel home-bounded-read --report
 Pairing independent read-only legacy catalog preparation retained all four real catalog calls,
 both Home assertions, the 90/9000-material comparison, SQL/enrichment budgets and database disposal.
 The first paired run passed in **46.93 s total, 36.89 s test-file time**.
-It overlapped static type checking, so a separate repeat is required before a clean timing comparison.
+It overlapped static type checking. A clean paired repeat passed in **38.43 s total,
+33.75 s test-file time**; this local result does not establish GitHub runner performance.
 No production query or test population was reduced.
 
 The hosted-runner worker candidate reserves one CPU and 2 GiB, allows 1 GiB per file and caps at three.
