@@ -231,13 +231,18 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent className={styles["chapterMenu"]}>
-          {context.chapters.map((entry) => (
+          {context.chapters.map((entry, index) => (
             <SelectItem
               className={styles["chapterOption"]}
               value={entry.id}
               key={entry.id}
             >
-              {entry.name}
+              <span className={styles["chapterChoice"]}>
+                <span className={styles["chapterOrdinal"]}>
+                  Глава {entry.ordinal ?? index + 1}
+                </span>{" "}
+                <span className={styles["chapterName"]}>{entry.name}</span>
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

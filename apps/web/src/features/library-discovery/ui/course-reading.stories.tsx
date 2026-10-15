@@ -49,12 +49,14 @@ export const ChapterNavigation: Story = {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual([
-      "Подготовь проект к разработке с агентом и проверь настройку",
-      "Продолжение",
-      "Следующая глава",
+      "Глава 1 Подготовь проект к разработке с агентом и проверь настройку",
+      "Глава 2 Продолжение",
+      "Глава 3 Следующая глава",
     ]);
     await userEvent.click(
-      within(document.body).getByRole("option", { name: "Продолжение" }),
+      within(document.body).getByRole("option", {
+        name: "Глава 2 Продолжение",
+      }),
     );
     await expect(selector).toHaveTextContent("Продолжение");
     await expect(canvas.getByLabelText("Текущая глава")).toHaveTextContent(
@@ -97,7 +99,9 @@ export const ServerStepChanges: Story = {
     if (selector === null || selector.getClientRects().length === 0) return;
     await userEvent.click(selector);
     await userEvent.click(
-      within(document.body).getByRole("option", { name: "Продолжение" }),
+      within(document.body).getByRole("option", {
+        name: "Глава 2 Продолжение",
+      }),
     );
     await userEvent.click(
       await canvas.findByRole("button", { name: "Следующий урок" }),
