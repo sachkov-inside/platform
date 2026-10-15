@@ -49,7 +49,9 @@ test("first sign-in waits for the modal before accepting", async ({
     const button = document.querySelector("button");
     if (dialog === null || button === null)
       throw new Error("Missing welcome fixture");
-    button.onclick = () => location.assign("/");
+    button.onclick = () => {
+      location.assign("/");
+    };
     dialog.close();
     dialog.showModal();
   });
