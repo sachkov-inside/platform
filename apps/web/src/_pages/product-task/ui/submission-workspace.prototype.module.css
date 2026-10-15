@@ -473,3 +473,10 @@
     display: none;
   }
 }
+
+.roadmap .history {
+  margin-top: 1rem;
+}
+.roadmap .historySurface {
+  background: var(--paper);
+}

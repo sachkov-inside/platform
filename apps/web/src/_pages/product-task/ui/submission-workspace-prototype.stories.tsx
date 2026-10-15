@@ -156,9 +156,11 @@ function Confirmation({ ready }: { ready: () => void }) {
 function History({
   phase,
   setPhase,
+  embedded = false,
 }: {
   phase: Phase;
   setPhase: (phase: Phase) => void;
+  embedded?: boolean;
 }) {
   const [details, setDetails] = useState(false);
   const titles = {
@@ -169,10 +171,12 @@ function History({
   };
   return (
     <section className={styles["history"]} aria-label="Мои сдачи">
-      <div className={styles["historyHeading"]}>
-        <h3>Мои сдачи</h3>
-        <span>Обновляется автоматически</span>
-      </div>
+      {!embedded && (
+        <div className={styles["historyHeading"]}>
+          <h3>Мои сдачи</h3>
+          <span>Обновляется автоматически</span>
+        </div>
+      )}
       <div className={styles["historySurface"]} aria-live="polite">
         <div className={styles["historyTitle"]}>
           <span className={styles["statusDot"]} />
@@ -306,66 +310,75 @@ function Wizard({ setPhase }: { setPhase: (phase: Phase) => void }) {
   );
 }
 
-function Roadmap({ setPhase }: { setPhase: (phase: Phase) => void }) {
+function Roadmap({
+  phase,
+  setPhase,
+}: {
+  phase: Phase;
+  setPhase: (phase: Phase) => void;
+}) {
   const [open, setOpen] = useState(1);
+  const titles = ["Подключение MCP", "Начало проверки"];
   return (
     <section className={styles["roadmap"]} aria-label="Сдача задания">
       <header>
-        <h2>Сдай работу с агентом</h2>
-        <p>Подключи, проверь, подтверди. Всё обсуждение — у твоего агента.</p>
+        <h2>Сдача задания</h2>
+        <p>
+          Агент проверяет проект. Здесь — подключение, начало проверки и её
+          результат.
+        </p>
       </header>
       <ol className={styles["roadmapList"]}>
-        {steps.map((title, index) => (
-          <li
-            key={title}
-            className={open === index ? styles["activeRow"] : undefined}
-          >
+        {titles.map((title, index) => (
+          <li key={title}>
             <span className={styles["stepNumber"]}>{index + 1}</span>
             <div className={styles["roadmapStep"]}>
-              <button
-                className={styles["stepTitle"]}
-                aria-expanded={open === index}
-                onClick={() => {
-                  setOpen(open === index ? -1 : index);
-                }}
-              >
-                <h3>{title}</h3>
-                {open === index ? (
-                  <Minus size={20} aria-hidden />
-                ) : (
-                  <Plus size={20} aria-hidden />
-                )}
-              </button>
+              <h3>
+                <button
+                  className={styles["stepTitle"]}
+                  aria-expanded={open === index}
+                  onClick={() => {
+                    setOpen(open === index ? -1 : index);
+                  }}
+                >
+                  {title}
+                  {open === index ? (
+                    <Minus size={20} aria-hidden />
+                  ) : (
+                    <Plus size={20} aria-hidden />
+                  )}
+                </button>
+              </h3>
               {open === index ? (
                 index === 0 ? (
                   <Connection />
-                ) : index === 1 ? (
+                ) : (
                   <Request
                     start={() => {
                       setPhase("reviewing");
                     }}
                   />
-                ) : (
-                  <Confirmation
-                    ready={() => {
-                      setPhase("ready");
-                    }}
-                  />
                 )
               ) : (
                 <p className={styles["stepSummary"]}>
-                  {
-                    [
-                      "Один раз для всех заданий",
-                      "Агент получит требования и проверит проект",
-                      "Изучи отчёт и подтверди отправку у агента",
-                    ][index]
-                  }
+                  {index === 0
+                    ? "Подключи один раз для всех заданий"
+                    : "Передай запрос агенту в папке проекта"}
                 </p>
               )}
             </div>
           </li>
         ))}
+        <li>
+          <span className={styles["stepNumber"]}>3</span>
+          <div className={styles["roadmapStep"]}>
+            <h3 className={styles["stepTitle"]}>Результат и обратная связь</h3>
+            <p className={styles["stepSummary"]}>
+              Статус проверки, твои сдачи и ответ автора — в одном месте.
+            </p>
+            <History phase={phase} setPhase={setPhase} embedded />
+          </div>
+        </li>
       </ol>
     </section>
   );
@@ -507,11 +520,11 @@ function SubmissionPrototype() {
             {variant === 0 ? (
               <Wizard setPhase={setPhase} />
             ) : variant === 1 ? (
-              <Roadmap setPhase={setPhase} />
+              <Roadmap phase={phase} setPhase={setPhase} />
             ) : (
               <Workbench phase={phase} setPhase={setPhase} />
             )}
-            <History phase={phase} setPhase={setPhase} />
+            {variant !== 1 && <History phase={phase} setPhase={setPhase} />}
             <button
               className={styles["fallback"]}
               aria-expanded={fallback}
