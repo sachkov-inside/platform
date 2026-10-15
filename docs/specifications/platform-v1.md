@@ -676,6 +676,26 @@ Locked artifacts retain metadata without bytes or external addresses. The same-o
 `/api/products/:productId/artifacts/:artifactId/file` route retains backend access, protected
 redirect and cache policy. Removing learner navigation does not delete these files or contracts.
 
+A Material may place a real file action inline using the authoring Markdown reference
+`[Скачать бриф (.md)](artifact:aie-customer-brief)`. This is an import reference, not a browser
+protocol: the importer requires a declared artifact in the Material's Product, qualifies its source
+ID with the package namespace, and writes a same-origin source download route. Unknown or ambiguous
+references fail validation. Ordinary Material reading links remain separate and keep their targets.
+The Reader displays a file action, original filename and size; locked, loading and unavailable
+states never invent a downloadable address. Personal file availability streams independently of the
+Material body. `GET /products/:productId/artifacts` includes the nullable authoring `sourceId`.
+`/api/products/:productId/artifact-sources/:sourceId/file` resolves that exact source's current
+version and reuses protected artifact delivery. It neither pins an author link to an old version nor
+bypasses ContentAccess, placement, archive or file checks.
+
+Artifact package declarations accept optional `filename`; omitted values retain the previous package
+basename fallback. The filename belongs to each declaration, rather than to a content-addressed asset:
+identical bytes may have different download names. Import fingerprints include the effective filename.
+A filename-only change creates a new file version and an identical repeat remains a no-op. The
+database schema and existing artifact UUID stay unchanged. Each multipart artifact upload sets its
+complete part budget to its allowed scalar fields plus its single file.
+
+
 Шапка программы содержит обложку 3:2, название, приглашение к оплате и прогресс вошедшего
 читателя. Приглашение стоит в одном ряду с названием, а на узком экране — отдельной строкой во
 всю ширину; заготовка на время проверки доступа занимает то же место. Главы показаны без

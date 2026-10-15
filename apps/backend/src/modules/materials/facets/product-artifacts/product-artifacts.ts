@@ -115,6 +115,7 @@ export interface RemoveProductArtifactCommand {
 
 /** One current, ready artifact placed in a Product, before any access decision. */
 export interface ReaderProductArtifact {
+  readonly sourceId: string | null;
   readonly artifactId: string;
   readonly content: ProductArtifactContent;
   readonly purpose: string;

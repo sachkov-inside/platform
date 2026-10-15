@@ -114,6 +114,22 @@ export const materialSchema = z
           sourceId: identifier,
           title: z.string().min(1),
           assetId: z.string(),
+          filename: z
+            .string()
+            .min(1)
+            .max(255)
+            .regex(/^[^/\\]+$/u)
+            .refine(
+              (name) =>
+                name !== "." &&
+                name !== ".." &&
+                !Array.from(name).some(
+                  (character) =>
+                    character.charCodeAt(0) < 32 ||
+                    character.charCodeAt(0) === 127,
+                ),
+            )
+            .optional(),
         })
         .strict(),
     ),

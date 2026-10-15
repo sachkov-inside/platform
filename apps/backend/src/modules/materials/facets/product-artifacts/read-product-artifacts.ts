@@ -122,6 +122,7 @@ export async function loadReaderProductArtifacts(
           : [
               {
                 artifactId: row.id,
+                sourceId: row.sourceId,
                 content,
                 purpose: row.purpose,
                 title: row.title,

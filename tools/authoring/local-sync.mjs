@@ -484,7 +484,12 @@ export const pendingOperations = (journal) =>
  */
 export function artifactFingerprint(asset, artifact, access) {
   return checksum(
-    canonical({ sha256: asset.sha256, title: artifact.title, access }),
+    canonical({
+      sha256: asset.sha256,
+      title: artifact.title,
+      access,
+      filename: artifact.filename ?? asset.path.split("/").at(-1),
+    }),
   );
 }
 
@@ -741,8 +746,9 @@ export async function syncLocal(
      * @param {Record<string, string>} fields
      * @param {Buffer<ArrayBuffer>} bytes
      * @param {ManifestAsset} asset
+     * @param {string | undefined} [filename]
      */
-    const fileForm = (fields, bytes, asset) => {
+    const fileForm = (fields, bytes, asset, filename) => {
       const form = new FormData();
       for (const [name, value] of Object.entries(fields)) form.set(name, value);
       form.set("declaredSize", String(bytes.length));
@@ -750,7 +756,7 @@ export async function syncLocal(
       form.set(
         "file",
         new Blob([bytes], { type: asset.mimeType }),
-        asset.path.split("/").at(-1),
+        filename ?? asset.path.split("/").at(-1),
       );
       return form;
     };
@@ -950,6 +956,30 @@ export async function syncLocal(
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
         link: (href) => {
+          if (href.startsWith("artifact:")) {
+            const reference = /^artifact:([a-z0-9]+(?:-[a-z0-9]+)*)$/u.exec(
+              href,
+            )?.[1];
+            const candidates = pkg.manifest.products.filter(
+              (product) =>
+                (product.materialIds.includes(row.sourceId) ||
+                  product.supplementaryMaterialIds.includes(row.sourceId)) &&
+                reference !== undefined &&
+                artifactDeclarations(pkg.manifest, product, defaultAccess).has(
+                  reference,
+                ),
+            );
+            const product =
+              candidates.find(
+                (item) => item.sourceId === pkg.manifest.selection.productId,
+              ) ?? (candidates.length === 1 ? candidates[0] : undefined);
+            if (reference === undefined || product === undefined)
+              throw new Error(
+                `${row.sourcePath}: unresolved or ambiguous artifact reference: ${href}`,
+              );
+            const productId = valueAt(products, product.sourceId).id;
+            return `/api/products/${productId}/artifact-sources/${encodeURIComponent(sourceId(reference))}/file`;
+          }
           const linked = row.links[href] ?? row.links[decodeURI(href)];
           if (linked !== undefined) {
             if (!links.has(linked))
@@ -1549,6 +1579,7 @@ export async function syncLocal(
               },
               bytes,
               asset,
+              artifact.filename,
             ),
           );
           if (outcome.outcome === "diverged") {

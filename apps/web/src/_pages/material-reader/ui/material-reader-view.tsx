@@ -9,6 +9,7 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import {
+  type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
   materialSourceAnchors,
@@ -41,6 +42,7 @@ import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
@@ -70,6 +72,7 @@ interface OutlineItem {
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
 export function MaterialReaderView({
+  renderLink,
   body,
   material,
   primaryVideo,
@@ -139,6 +142,7 @@ export function MaterialReaderView({
             data-reader-body
           >
             <ReaderBlocks
+              renderLink={renderLink}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -363,6 +367,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 }
 
 function ReaderBlocks({
+  renderLink,
   blocks,
   contentVersion,
   hint,
@@ -371,6 +376,7 @@ function ReaderBlocks({
   materialSlug,
   path,
 }: {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly hint?: ReactNode;
@@ -393,6 +399,7 @@ function ReaderBlocks({
       hintAt={hintAt}
       path={path}
       rendering={{
+        ...(renderLink === undefined ? {} : { link: renderLink }),
         headingId,
         image: (block) =>
           harness?.replacesOverview === true ? null : (

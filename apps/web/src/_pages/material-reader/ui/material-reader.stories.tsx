@@ -1,3 +1,11 @@
+import {
+  InlineArtifactDownload,
+  readInlineArtifactReference,
+} from "@/features/product-artifacts.reader";
+import {
+  briefArtifact,
+  briefDownloadHref,
+} from "@/storybook/customer-brief.fixtures";
 import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
 import { resolveSeriesReaderContext } from "../model/series-reader-context";
@@ -1941,4 +1949,60 @@ export const CourseLocked: Story = {
       }
     />
   ),
+};
+
+export const CustomerBriefDownload: Story = {
+  args: {
+    material: { ...material, slug: "aie-project", title: "Проект курса" },
+    seriesContext: null,
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Читать бриф",
+            marks: [
+              {
+                kind: "link",
+                href: "/materials/inside-content-aie-product-brief",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Скачать бриф (.md)",
+            marks: [{ kind: "link", href: briefDownloadHref }],
+          },
+        ],
+      },
+    ],
+    renderLink: (href, label) =>
+      readInlineArtifactReference(href) === undefined ? undefined : (
+        <InlineArtifactDownload
+          href={href}
+          label={label}
+          artifact={briefArtifact}
+        />
+      ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Скачать бриф (.md)" }),
+    ).toHaveAttribute("download");
+    await expect(
+      canvas.getByRole("link", { name: "Читать бриф" }),
+    ).toHaveAttribute("href", "/materials/inside-content-aie-product-brief");
+    await expect(canvas.getByText(/customer-brief.md/)).toBeVisible();
+  },
+};
+export const CustomerBriefDownloadMobile: Story = {
+  ...CustomerBriefDownload,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };

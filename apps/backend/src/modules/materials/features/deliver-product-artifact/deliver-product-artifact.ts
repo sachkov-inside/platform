@@ -28,6 +28,7 @@ export type PublicProductArtifactContent =
   | Readonly<{ externalUrl: string | null; kind: "link" }>;
 
 export interface PublicProductArtifactDto {
+  readonly sourceId: string | null;
   readonly artifactId: string;
   readonly availability: "available" | "locked";
   readonly content: PublicProductArtifactContent;
@@ -242,6 +243,7 @@ function projectPublicArtifact(
 ): PublicProductArtifactDto {
   return {
     artifactId: artifact.artifactId,
+    sourceId: artifact.sourceId,
     availability: available ? "available" : "locked",
     content:
       artifact.content.kind === "link"

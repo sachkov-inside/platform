@@ -1,3 +1,8 @@
+import { ReaderInlineArtifact } from "@/features/product-artifacts.server";
+import {
+  InlineArtifactDownload,
+  readInlineArtifactReference,
+} from "@/features/product-artifacts.reader";
 import {
   LearningPracticeDisclosure,
   LearningPracticePrompts,
@@ -355,6 +360,22 @@ async function ResolvedMaterialReader({
     >
       <ProductModeProvider initialMode={productMode}>
         <MaterialReaderView
+          renderLink={(href, label) => {
+            const reference = readInlineArtifactReference(href);
+            return reference === undefined ? undefined : (
+              <Suspense
+                fallback={
+                  <InlineArtifactDownload href={href} label={label} loading />
+                }
+              >
+                <ReaderInlineArtifact
+                  reference={reference}
+                  href={href}
+                  label={label}
+                />
+              </Suspense>
+            );
+          }}
           topReadingAction={
             <SavedReadingAction
               compact

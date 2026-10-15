@@ -135478,6 +135478,10 @@
                           "purpose": {
                             "type": "string"
                           },
+                          "sourceId": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -135495,6 +135499,7 @@
                         },
                         "required": [
                           "artifactId",
+                          "sourceId",
                           "availability",
                           "content",
                           "purpose",

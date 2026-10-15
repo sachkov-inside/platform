@@ -493,6 +493,57 @@ describe("Product Artifacts", () => {
     });
   });
 
+  test("versions an authoring file when only its download filename changes", async () => {
+    const productId = randomUUID();
+    await db.prisma.product.create({
+      data: { id: productId, name: "Filename product", slug: productId },
+    });
+    const sourceId = `filename-${productId}`;
+    const source = {
+      access: "free" as const,
+      purpose: "",
+      sourceId,
+      title: "Бриф заказчика (.md)",
+    };
+    const content = "# Бриф заказчика\n\nТребования компании.\n";
+    const first = await artifacts.applyAuthoringImport({
+      actor: owner,
+      productId,
+      artifacts: [{ ...source, file: fileUpload("hashed.md", content) }],
+    });
+    expect(first).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "created" }] },
+    });
+    const renamed = await artifacts.applyAuthoringImport({
+      actor: owner,
+      productId,
+      artifacts: [
+        { ...source, file: fileUpload("customer-brief.md", content) },
+      ],
+    });
+    expect(renamed).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "updated" }] },
+    });
+    const list = await artifacts.listForProduct({ actor: owner, productId });
+    expect(list).toMatchObject({
+      ok: true,
+      value: [{ version: 2, content: { filename: "customer-brief.md" } }],
+    });
+    const repeated = await artifacts.applyAuthoringImport({
+      actor: owner,
+      productId,
+      artifacts: [
+        { ...source, file: fileUpload("customer-brief.md", content) },
+      ],
+    });
+    expect(repeated).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "unchanged" }] },
+    });
+  });
+
   test("keeps a Platform-authored artifact outside repeated authoring imports", async () => {
     const productId = randomUUID();
     await db.prisma.product.create({

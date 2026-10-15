@@ -232,7 +232,8 @@ function sameContent(
       ? current.contentKind === "link" &&
         current.externalUrl === source.externalUrl
       : current.contentKind === "file" &&
-        current.checksumSha256 === source.file.expectedChecksumSha256)
+        current.checksumSha256 === source.file.expectedChecksumSha256 &&
+        current.originalFilename === source.file.filename)
   );
 }
 

@@ -13,3 +13,5 @@ export {
 export { readPublicProductArtifacts } from "./product-artifacts/api/public-product-artifacts.public-cache.server";
 export { readReaderProductArtifacts } from "./product-artifacts/api/read-reader-product-artifacts.server";
 export { proxyReaderProductArtifactFile } from "./product-artifacts/api/reader-product-artifact-file-bff.server";
+export { downloadInlineArtifact } from "./product-artifacts/api/inline-artifact-file-bff.server";
+export { ReaderInlineArtifact } from "./product-artifacts/ui/reader-inline-artifact.server";
