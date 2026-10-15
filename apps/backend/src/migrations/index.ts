@@ -1,4 +1,8 @@
 import {
+  name as historicalCommunityCoverageName,
+  statement as historicalCommunityCoverageStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0094-historical-community-coverage.js";
+import {
   name as productExclusionsName,
   statement as productExclusionsStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0092-product-access-exclusions.js";
@@ -607,6 +611,10 @@ export const platformMigrations = [
   { name: productCommunitiesName, statement: productCommunitiesStatement },
   { name: productExclusionsName, statement: productExclusionsStatement },
   { name: learningStartedName, statement: learningStartedStatement },
+  {
+    name: historicalCommunityCoverageName,
+    statement: historicalCommunityCoverageStatement,
+  },
 ] as const;
 
 export function migrateToLatest(
