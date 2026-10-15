@@ -16,6 +16,7 @@ import {
   resolvePurchaseProduct,
   type PurchaseProductResult,
 } from "../api/resolve-purchase-product.server";
+import { resolveReaderReturnTarget } from "../model/reader-return-target";
 import { readReaderSeries } from "../api/read-reader-series.server";
 import { readPublicSeries } from "@/features/library-discovery.server";
 import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
@@ -47,7 +48,6 @@ import {
   type SeriesReaderContext,
 } from "../model/series-reader-context";
 import {
-  homeMaterialReaderReturnTarget,
   materialReaderHref,
   parseMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
@@ -84,6 +84,7 @@ export async function MaterialReaderPage({
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const returnTarget = parseMaterialReaderReturnTarget(query.from);
+  const inferCourseReturn = query.from === undefined;
   // Состав нужен только внутри руководства, поэтому вне его за ним никто не ходит.
   const productSlug = productSlugOf(returnTarget);
   const [material, series] = await Promise.all([
@@ -99,7 +100,11 @@ export async function MaterialReaderPage({
     // Гостю материала нет, но вошедшему он может быть открыт: это знает только личное чтение.
     return (
       <Suspense fallback={<MaterialReaderLoading />}>
-        <PersonalMaterialReader returnTarget={returnTarget} slug={slug} />
+        <PersonalMaterialReader
+          returnTarget={returnTarget}
+          inferCourseReturn={inferCourseReturn}
+          slug={slug}
+        />
       </Suspense>
     );
   }
@@ -108,10 +113,12 @@ export async function MaterialReaderPage({
     returnTarget,
     series,
   );
-  const effectiveReturnTarget = effectiveReturnTargetOf(
+  const effectiveReturnTarget = resolveReaderReturnTarget({
     returnTarget,
-    seriesContext,
-  );
+    material: material.material,
+    hasSeriesContext: seriesContext !== null,
+    inferCourseReturn,
+  });
   if (
     material.kind === "available" &&
     seriesContext?.series.hasModeVariants !== true
@@ -144,6 +151,7 @@ export async function MaterialReaderPage({
     >
       <PersonalMaterialReader
         sharedMaterial={material}
+        inferCourseReturn={inferCourseReturn}
         returnTarget={returnTarget}
         slug={slug}
       />
@@ -173,11 +181,13 @@ async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
  */
 async function PersonalMaterialReader({
   sharedMaterial,
+  inferCourseReturn,
   returnTarget,
   slug,
 }: {
   /** Бесплатный урок уже прочитан из общего кеша: личной остаётся только выбор режима. */
   readonly sharedMaterial?: PublicMaterialResult;
+  readonly inferCourseReturn: boolean;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
@@ -245,7 +255,12 @@ async function PersonalMaterialReader({
       }
       hintSeen={hintSeen}
       result={result}
-      returnTarget={effectiveReturnTargetOf(returnTarget, seriesContext)}
+      returnTarget={resolveReaderReturnTarget({
+        returnTarget,
+        material: result.material,
+        hasSeriesContext: seriesContext !== null,
+        inferCourseReturn,
+      })}
       seriesContext={seriesContext}
       slug={slug}
     />
@@ -405,7 +420,7 @@ function ReaderUnavailable({
 }) {
   return (
     <MaterialReaderUnavailable
-      returnTarget={effectiveReturnTargetOf(returnTarget, null)}
+      returnTarget={resolveReaderReturnTarget({ returnTarget })}
     />
   );
 }
@@ -418,16 +433,6 @@ function seriesContextOf(
   return series?.kind === "ready"
     ? resolveSeriesReaderContext({ currentMaterialSlug, returnTarget, series })
     : null;
-}
-
-/** Возврат в продукт, в котором урока нет, заменяется возвратом на Главную. */
-function effectiveReturnTargetOf(
-  returnTarget: MaterialReaderReturnTarget,
-  seriesContext: SeriesReaderContext | null,
-): MaterialReaderReturnTarget {
-  return returnTarget.kind === "series" && seriesContext === null
-    ? homeMaterialReaderReturnTarget
-    : returnTarget;
 }
 
 /** Absolute setup URL stays request-owned with the runtime learner connection. */

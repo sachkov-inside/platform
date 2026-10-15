@@ -44,6 +44,15 @@ export const ChapterNavigation: Story = {
       selector.getBoundingClientRect().right,
     );
     await userEvent.click(selector);
+    await expect(
+      within(document.body)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
+      "Подготовь проект к разработке с агентом и проверь настройку",
+      "Продолжение",
+      "Следующая глава",
+    ]);
     await userEvent.click(
       within(document.body).getByRole("option", { name: "Продолжение" }),
     );

@@ -1,4 +1,6 @@
-import { courseGuide } from "@/storybook/course-reading.fixtures";
+import { resolveReaderReturnTarget } from "../model/reader-return-target";
+import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
+import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
@@ -1845,6 +1847,77 @@ export const CourseGuide: Story = {
 };
 export const CourseGuideMobile: Story = {
   ...CourseGuide,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const supplementaryReturn = parseMaterialReaderReturnTarget(
+  "/products/ai-engineering/programme?at=course-intro",
+);
+const supplementaryMaterial = {
+  ...material,
+  slug: "aie-product-brief",
+  title: "Бриф заказчика",
+  seriesMemberships: [
+    {
+      ordinal: 1,
+      series: { id: "aie", name: "AI Engineering", slug: "ai-engineering" },
+    },
+  ],
+};
+export const SupplementaryMaterial: Story = {
+  args: {
+    material: supplementaryMaterial,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: supplementaryReturn,
+    }),
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    await expect(canvas.queryByLabelText("Текущая глава")).toBeNull();
+    await expect(
+      canvas.queryByRole("navigation", { name: "Навигация по урокам" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: "Назад к программе" }),
+    ).toHaveAttribute("href", supplementaryReturn.href);
+  },
+};
+export const SupplementaryMaterialDirect: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: parseMaterialReaderReturnTarget(undefined),
+      inferCourseReturn: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("link", { name: "Назад к программе" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      within(canvasElement).queryByLabelText("Текущая глава"),
+    ).toBeNull();
+  },
+};
+export const SupplementaryMaterialMobile: Story = {
+  ...SupplementaryMaterial,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const CoursePending: Story = {

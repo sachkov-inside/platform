@@ -348,7 +348,7 @@ function applyMarks(
         const custom = link?.(mark.href, child, path);
         return custom === undefined ? (
           <a
-            className="underline decoration-border underline-offset-4 hover:decoration-accent"
+            className="text-action underline decoration-current decoration-1 underline-offset-4 hover:text-action-hover hover:decoration-2"
             href={mark.href}
             key={markKey}
           >

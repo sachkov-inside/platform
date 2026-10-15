@@ -433,12 +433,18 @@ published memberships with that current label; draft-only labels and entries nev
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing return controls. Within a checked Product,
 Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
-previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count;
-the normal application legal footer remains visible. Common navigation rows make no personal access
+previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count.
+Only explicit membership in an actual Product chapter gives a Material this course frame.
+Supplementary Product membership and programme return context alone do not: these Materials use standalone Reader,
+including links from assignments. Chapter selection lists actual chapters only, without a synthetic Materials chapter.
+The supplementary Materials catalogue, its contents and resource links remain available.
+Standalone Reader keeps the normal application legal footer. Common navigation rows make no personal access
 claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,
 with missing anchors at the chapter start. Empty chapters and task-only products remain visible.
 The sequence preserves authored Material order and keeps Material ordinals, progress and counts independent.
-Reader uses explicit validated `from`; it never guesses one Product from several memberships.
+Reader preserves explicit validated `from` for confirmed Product membership independently of chapter navigation.
+Without an explicit source, a sole Product membership supplies the programme return; multiple memberships never select an arbitrary Product.
+Prose links use the semantic action color, a persistent underline, a stronger hover underline and a visible keyboard focus outline in all themes.
 Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
 Guest composition stays in public cache; personal availability/history stays request-owned.
 Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.

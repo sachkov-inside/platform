@@ -45,6 +45,46 @@ const series = {
 } as const;
 
 describe("course reading composition", () => {
+  it("lists only actual chapters and counts only their materials", () => {
+    const context = courseReadingContext({
+      series: {
+        ...series,
+        items: [
+          { materialId: "project", slug: "aie-project", title: "Проект" },
+          ...series.items,
+          { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
+        ],
+      },
+      current: { kind: "material", slug: "second" },
+    });
+    expect(context?.chapters.map(({ name }) => name)).toEqual([
+      "Первая",
+      "Вторая",
+      "Без уроков",
+    ]);
+    expect(context?.totalMaterials).toBe(2);
+    expect(context?.current.materialOrdinal).toBe(2);
+    expect(context?.next?.id).toBe("task:only");
+  });
+
+  it.each(["aie-project", "aie-product-brief", "aie-ch1-project-setup"])(
+    "keeps supplementary %s standalone despite a programme return target",
+    (slug) => {
+      expect(
+        courseReadingContext({
+          series: {
+            ...series,
+            items: [...series.items, { materialId: slug, slug, title: slug }],
+          },
+          current: { kind: "material", slug },
+          returnTarget: parseMaterialReaderReturnTarget(
+            "/products/course/programme?at=first",
+          ),
+        }),
+      ).toBeNull();
+    },
+  );
+
   it("places leading, missing-anchor and adjacent tasks across chapters without renumbering materials", () => {
     const context = courseReadingContext({
       series,

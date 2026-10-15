@@ -71,17 +71,18 @@ export function resolveSeriesReaderContext({
   if (currentIndex === -1) return null;
   const programmeHref = productProgrammeHref(series.reference.slug);
   const programme =
-    series.chapters === undefined
+    series.chapters === undefined || series.chapters.length === 0
       ? undefined
       : courseReadingContext({
           series: { ...series, chapters: series.chapters },
           current: { kind: "material", slug: currentMaterialSlug },
           returnTarget,
         });
+  if (programme === null) return null;
 
   return {
     ...(programme === undefined ? {} : { programme }),
-    currentPosition: currentIndex + 1,
+    currentPosition: programme?.current.materialOrdinal ?? currentIndex + 1,
     next:
       programme?.next ??
       (programme === undefined
@@ -100,7 +101,7 @@ export function resolveSeriesReaderContext({
           : programmeHref,
       name: series.reference.name,
     },
-    totalMaterials: series.items.length,
+    totalMaterials: programme?.totalMaterials ?? series.items.length,
   };
 }
 

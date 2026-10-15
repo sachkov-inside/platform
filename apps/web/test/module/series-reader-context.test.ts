@@ -8,6 +8,34 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
+  it("does not turn supplementary membership into course navigation", () => {
+    const series = {
+      kind: "ready" as const,
+      reference: { name: "Course", slug: "platform-inside" },
+      chapters: [
+        { id: "main", name: "Глава", summary: "", materialIds: ["lesson"] },
+      ],
+      items: [
+        { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
+        { materialId: "lesson", slug: "lesson", title: "Урок" },
+      ],
+    };
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "aie-product-brief",
+        returnTarget: selectedSeries,
+        series,
+      }),
+    ).toBeNull();
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "lesson",
+        returnTarget: selectedSeries,
+        series,
+      }),
+    ).toMatchObject({ currentPosition: 1, totalMaterials: 1 });
+  });
+
   it.each([undefined, "/", "/products/other"])(
     "does not guess a product from memberships when from is %s",
     (from) => {
@@ -124,6 +152,28 @@ describe("Series Reader context", () => {
     ).toEqual({
       href: "/materials/review-video?from=%2Fseries%2Freview-series",
       title: "Видео-разбор",
+    });
+  });
+
+  it("preserves linear navigation for an explicit empty chapter list", () => {
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "first",
+        returnTarget: selectedSeries,
+        series: {
+          kind: "ready",
+          reference: { name: "Selected", slug: "platform-inside" },
+          chapters: [],
+          items: [
+            { slug: "first", title: "First" },
+            { slug: "next", title: "Next" },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      currentPosition: 1,
+      totalMaterials: 2,
+      next: { title: "Next" },
     });
   });
 
