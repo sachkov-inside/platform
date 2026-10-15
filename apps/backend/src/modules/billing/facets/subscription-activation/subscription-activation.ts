@@ -249,7 +249,7 @@ export class SubscriptionActivation {
         configuredProducts = new Set(groups.value);
       } catch (error: unknown) {
         return dependencyFailure(
-          { module: "billing", operation: "readOwnProductCommunities" },
+          { module: "billing", operation: "readOwn" },
           error,
           { ok: false, error: { code: "unavailable" } } as const,
         );
