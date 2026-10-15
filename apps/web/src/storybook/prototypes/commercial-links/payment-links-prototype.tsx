@@ -458,7 +458,6 @@ export function PaymentLinksPrototype({
             setMessage("");
             setStep(1);
             setSignedIn(false);
-            setAccepted(false);
             setCopied(false);
           }}
         >
