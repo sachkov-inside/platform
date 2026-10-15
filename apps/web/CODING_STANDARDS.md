@@ -274,8 +274,10 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
-  Rail rows and chapter selection use 16 px and 1.6 line height. Use weight 400 normally and
-  500 only for the current step title; omit selected-row fill and visible status badges.
+  Rail rows and chapter selection use 16 px and 1.6 line height. Keep step titles at weight 400
+  in every selection state so their wrapping stays stable. Distinguish the current step with
+  foreground text and a subtle action-coloured glow at its left marker; omit selected-row fill
+  and visible status badges.
   Strike through a Task title only when its persisted submission timestamp is present, including
   the currently open Task. Keep the submitted state accessible without a visible label or date;
   an unsent review report does not count as a submission or imply acceptance by the author.
