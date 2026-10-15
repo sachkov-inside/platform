@@ -25,6 +25,8 @@ export function syntheticLearningTasks(input: {
   const definition = taskDefinitionSchema.parse(input.definition);
   const task: CurrentTask = {
     page: null,
+    programmeVisibility: "standalone",
+    embeddedMaterialId: null,
     id: "00000000-0000-4000-8000-000000000946",
     code: input.code,
     title: "Заявки на консультацию",
@@ -119,6 +121,8 @@ export function syntheticLearningTasks(input: {
     updateReview: () => Promise.resolve(unavailable),
     // The trial drives the learning MCP only; the task page and the programme are web surfaces.
     page: () =>
+      Promise.resolve({ ok: false, error: { code: "task_not_found" } }),
+    materialTask: () =>
       Promise.resolve({ ok: false, error: { code: "task_not_found" } }),
     chapterTasks: () => Promise.resolve({ ok: true, value: { tasks: [] } }),
     submissions: () =>

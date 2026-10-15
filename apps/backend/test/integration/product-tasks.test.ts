@@ -735,6 +735,84 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     ).toBe(1);
   });
 
+  test.each(["free", "closed"] as const)(
+    "a bound lesson changed to %s during Task context assembly is never published as stale context",
+    async (access) => {
+      const material = await chapterMaterial(
+        chapterId,
+        access === "free" ? 96 : 97,
+      );
+      const command = source();
+      const saved = await assembleApplySourceTask(importDependencies())(
+        {
+          ...command,
+          programmeVisibility: "embedded",
+          embeddedMaterialSourceId: material.sourceId,
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      );
+      expect(saved.ok).toBe(true);
+      const tasks = assembleLearningTasks({
+        prisma: db.prisma,
+        directory,
+        contentAccess,
+        submissionsEnabled: true,
+        materialReader: {
+          read: async (query) => {
+            const snapshot =
+              await materials.publishedMaterialReader.read(query);
+            const loaded = await materials.authoring.loadMaterial({
+              actor: owner,
+              materialId: material.materialId,
+            });
+            if (!loaded.ok) throw new Error(loaded.error.code);
+            const changed = await materials.authoring.applySourceMaterial({
+              actor: owner,
+              materialId: material.materialId,
+              source: {
+                id: material.sourceId,
+                path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
+                revision: "b".repeat(64),
+                showInFeed: false,
+              },
+              primaryVideoId: null,
+              idempotencyKey: randomUUID(),
+              expectedContentVersion: loaded.value.contentVersion,
+              publicationState: "published",
+              body: representativeDocument("Changed while reading"),
+              metadata: {
+                title: "Changed",
+                summary: "Changed",
+                access,
+                topicId,
+                formatId: "guide",
+                tagIds: [],
+                difficulty: null,
+                outcomes: [],
+                seriesIds: [productId],
+              },
+            });
+            if (!changed.ok) throw new Error(changed.error.code);
+            return snapshot;
+          },
+        },
+      });
+      expect(
+        await tasks.read({
+          subject: { kind: "anonymous" },
+          code: command.code,
+        }),
+      ).toMatchObject({
+        ok: false,
+        error: {
+          code:
+            access === "free" ? "task_content_changed" : "task_not_available",
+        },
+      });
+    },
+  );
+
   test("an import is idempotent; only a changed definition creates a new immutable Task Version", async () => {
     const apply = assembleApplySourceTask(importDependencies());
     const body = source();

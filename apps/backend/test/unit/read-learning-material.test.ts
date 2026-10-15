@@ -144,7 +144,9 @@ describe("Learning material reference batches", () => {
             .reverse(),
         }),
       );
+      let taskLookupFinished = false;
       const authorize = vi.fn<ContentAccess["authorize"]>(() => {
+        expect(taskLookupFinished).toBe(true);
         expect(
           checkAvailabilityMany.mock.calls.map(
             ([input]) => input.operations.length,
@@ -169,6 +171,12 @@ describe("Learning material reference batches", () => {
       const result = await readLearningMaterial(
         {
           reader,
+          tasks: {
+            materialTask: async () => {
+              taskLookupFinished = true;
+              return { ok: false, error: { code: "task_not_found" } };
+            },
+          },
           contentAccess: {
             checkAvailabilityMany,
             authorize,

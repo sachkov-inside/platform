@@ -1,11 +1,9 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
 import { connection as requestConnection } from "next/server";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/shared/api/query-client";
-import {
-  BackendConnectionError,
-  requestMaterialTaskPage,
-} from "@/shared/api/backend/index.server";
+import { requestMaterialTaskPage } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { productTaskPageSchema } from "../model/product-task-page";
 import { prefetchOwnTaskSubmissions } from "../api/load-product-task.server";
@@ -102,9 +100,8 @@ async function loadWorkspace(
       connection: resolvedConnection,
     };
   } catch (error) {
-    if (error instanceof BackendConnectionError)
-      return { kind: "unavailable" as const };
-    throw error;
+    unstable_rethrow(error);
+    return { kind: "unavailable" as const };
   }
 }
 function WorkspaceUnavailable() {

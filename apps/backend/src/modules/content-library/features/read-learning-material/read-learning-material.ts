@@ -116,6 +116,9 @@ export async function readLearningMaterial(
           correlationId: randomUUID(),
         })
       : undefined;
+  const task = await dependencies.tasks?.materialTask({ subject, materialId });
+  if (task !== undefined && !task.ok && task.error.code !== "task_not_found")
+    return task;
   // Asset/video presentation loading can span a Save or access revocation. Recheck the
   // same version before publishing any body, without claiming an immutable archive.
   const current = await dependencies.contentAccess.authorize({
@@ -142,9 +145,6 @@ export async function readLearningMaterial(
         currentContentVersion: current.checkedContentVersion,
       },
     };
-  const task = await dependencies.tasks?.materialTask({ subject, materialId });
-  if (task !== undefined && !task.ok && task.error.code !== "task_not_found")
-    return task;
   return {
     ok: true as const,
     value: {

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { materialId as checkedMaterialId } from "../../../../infrastructure/contracts/material-id.js";
 import type { RenderedMaterialBody } from "@inside/material-blocks";
 import {
   taskPageView,
@@ -231,6 +233,42 @@ export async function readLearningTask(
       request.expectedContentSha256 !== contentSha256(serialized)
     )
       return failure({ code: "task_content_changed" });
+    if (practice !== undefined) {
+      const current = await dependencies.prisma.productTask.findUnique({
+        where: { code: task.code },
+      });
+      if (
+        current?.embeddedMaterialId !== practice.materialId ||
+        current.currentVersion !== task.version
+      )
+        return failure({ code: "task_content_changed" });
+      const taskAccess = await decideTaskAccess(
+        dependencies.contentAccess,
+        subject,
+        task.id,
+        "product_task_read",
+      );
+      if (taskAccess === "unavailable")
+        return failure({ code: "dependency_unavailable", retryable: true });
+      if (taskAccess !== "open") return failure({ code: "task_not_available" });
+      // All dependent reads precede this final lesson access/version guard.
+      const currentLesson = await dependencies.contentAccess.authorize({
+        subject,
+        resource: {
+          kind: "material",
+          materialId: checkedMaterialId(practice.materialId),
+        },
+        action: "read",
+        enforcementPoint: "mcp_material_read",
+        correlationId: randomUUID(),
+      });
+      if (currentLesson.effect !== "allow")
+        return currentLesson.reason === "dependency_unavailable"
+          ? failure({ code: "dependency_unavailable", retryable: true })
+          : failure({ code: "task_not_available" });
+      if (currentLesson.checkedContentVersion !== practice.contentVersion)
+        return failure({ code: "task_content_changed" });
+    }
     const parts = contextPart(serialized, request.part);
     if (!parts.ok)
       return failure({
