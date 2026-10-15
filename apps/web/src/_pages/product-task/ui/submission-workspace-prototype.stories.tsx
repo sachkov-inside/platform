@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   ArrowRight,
   Check,
   Copy,
@@ -95,11 +97,11 @@ function Connection() {
         }}
       >
         {more ? (
-          <Minus size={16} aria-hidden />
+          <ChevronUp size={16} aria-hidden />
         ) : (
-          <Plus size={16} aria-hidden />
+          <ChevronDown size={16} aria-hidden />
         )}
-        Как проверить подключение
+        {more ? "Скрыть помощь" : "Как проверить подключение"}
       </button>
       {more && (
         <p className={styles["help"]}>
@@ -205,11 +207,13 @@ function History({
               }}
             >
               {details ? (
-                <Minus size={16} aria-hidden />
+                <ChevronUp size={16} aria-hidden />
               ) : (
-                <Plus size={16} aria-hidden />
+                <ChevronDown size={16} aria-hidden />
               )}
-              Отчёт по критериям
+              {details
+                ? "Скрыть отчёт по критериям"
+                : "Показать отчёт по критериям"}
             </button>
             {details && (
               <ul className={styles["criteria"]}>
@@ -318,7 +322,6 @@ function Roadmap({
   setPhase: (phase: Phase) => void;
 }) {
   const [open, setOpen] = useState(1);
-  const titles = ["Подключение MCP", "Начало проверки"];
   return (
     <section className={styles["roadmap"]} aria-label="Сдача задания">
       <header>
@@ -329,28 +332,44 @@ function Roadmap({
         </p>
       </header>
       <ol className={styles["roadmapList"]}>
-        {titles.map((title, index) => (
+        {["Подключение MCP", "Начало проверки"].map((title, index) => (
           <li key={title}>
             <span className={styles["stepNumber"]}>{index + 1}</span>
             <div className={styles["roadmapStep"]}>
-              <h3>
+              <div className={styles["roadmapHeading"]}>
+                <h3>{title}</h3>
                 <button
-                  className={styles["stepTitle"]}
+                  className={styles["disclosureButton"]}
                   aria-expanded={open === index}
+                  aria-controls={`roadmap-detail-${String(index)}`}
                   onClick={() => {
                     setOpen(open === index ? -1 : index);
                   }}
                 >
-                  {title}
+                  {index === 0
+                    ? open === index
+                      ? "Скрыть инструкцию"
+                      : "Настроить подключение"
+                    : open === index
+                      ? "Скрыть запрос"
+                      : "Открыть запрос"}
                   {open === index ? (
-                    <Minus size={20} aria-hidden />
+                    <ChevronUp size={17} aria-hidden />
                   ) : (
-                    <Plus size={20} aria-hidden />
+                    <ChevronDown size={17} aria-hidden />
                   )}
                 </button>
-              </h3>
-              {open === index ? (
-                index === 0 ? (
+              </div>
+              <p className={styles["stepSummary"]}>
+                {index === 0
+                  ? "Подключи один раз для всех заданий"
+                  : "Передай запрос агенту в папке проекта"}
+              </p>
+              <div
+                id={`roadmap-detail-${String(index)}`}
+                hidden={open !== index}
+              >
+                {index === 0 ? (
                   <Connection />
                 ) : (
                   <Request
@@ -358,14 +377,8 @@ function Roadmap({
                       setPhase("reviewing");
                     }}
                   />
-                )
-              ) : (
-                <p className={styles["stepSummary"]}>
-                  {index === 0
-                    ? "Подключи один раз для всех заданий"
-                    : "Передай запрос агенту в папке проекта"}
-                </p>
-              )}
+                )}
+              </div>
             </div>
           </li>
         ))}
@@ -533,11 +546,13 @@ function SubmissionPrototype() {
               }}
             >
               {fallback ? (
-                <Minus size={16} aria-hidden />
+                <ChevronUp size={16} aria-hidden />
               ) : (
-                <Plus size={16} aria-hidden />
+                <ChevronDown size={16} aria-hidden />
               )}
-              Нет агента с MCP? Сдать через форму
+              {fallback
+                ? "Скрыть форму сдачи"
+                : "Нет агента с MCP? Открыть форму сдачи"}
             </button>
             {fallback && (
               <p className={styles["help"]}>

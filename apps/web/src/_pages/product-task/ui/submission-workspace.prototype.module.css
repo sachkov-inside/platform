@@ -220,7 +220,8 @@
   font-size: 0.75rem;
 }
 .roadmap {
-  background: var(--surface);
+  background: var(--paper);
+  border: 1px solid var(--soft);
   border-radius: 1rem;
   padding: 1.75rem;
 }
@@ -478,5 +479,58 @@
   margin-top: 1rem;
 }
 .roadmap .historySurface {
+  background: var(--surface);
+}
+
+.roadmapHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.disclosureButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-md);
   background: var(--paper);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+.disclosureButton:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.disclosureButton[aria-expanded="true"] {
+  background: var(--surface);
+}
+.disclosureButton[aria-expanded="true"]:hover {
+  background: var(--ink);
+}
+.roadmapStep > [hidden] {
+  display: none;
+}
+.roadmap .textButton {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+@media (max-width: 39.99rem) {
+  .roadmapHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .disclosureButton {
+    transition: none;
+  }
 }
