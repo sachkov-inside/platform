@@ -19,6 +19,9 @@ vi.mock("@/shared/auth/session-adapter.server", () => ({
 }));
 
 import {
+  handleCreatePaymentLink,
+  handleListPaymentLinks,
+  handleRevokePaymentLink,
   handleApplyGrantBatch,
   handleClassifyAccount,
   handleDecideRefund,
@@ -614,6 +617,69 @@ it("загружает колонку анкеты и выдаёт личную 
       operationId,
       username: "@synthetic_one",
       templatePromotionId: offerId,
+    },
+    "owner-token",
+    {},
+  );
+});
+
+it("payment links map each owner endpoint to its fixed operation and reject extra selectors", async () => {
+  const input = {
+    operationId,
+    paymentOptionId: offerId,
+    optionRevision: 1,
+    price: { kind: "discount", percent: 10 },
+    expiresAt: null,
+  };
+  fakes.manage.mockResolvedValue(problem("reservation_conflict", 409));
+  const response = await handleCreatePaymentLink(
+    command("/api/authoring/billing/payment-links/create", input),
+  );
+  expect(await response.json()).toMatchObject({
+    ok: false,
+    code: "reservation_conflict",
+  });
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    { ...input, operation: "paymentLinks.create" },
+    "owner-token",
+    {},
+  );
+  fakes.manage.mockClear();
+  const rejected = await handleCreatePaymentLink(
+    command("/api/authoring/billing/payment-links/create", {
+      ...input,
+      operation: "offers.publish",
+    }),
+  );
+  expect(await rejected.json()).toMatchObject({
+    ok: false,
+    code: "invalid_request",
+  });
+  expect(fakes.manage).not.toHaveBeenCalled();
+  await handleListPaymentLinks(
+    command("/api/authoring/billing/payment-links/list", {
+      operationId,
+      limit: 50,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    { operation: "paymentLinks.list", operationId, limit: 50 },
+    "owner-token",
+    {},
+  );
+  await handleRevokePaymentLink(
+    command("/api/authoring/billing/payment-links/revoke", {
+      operationId,
+      id: offerId,
+      expectedRevision: 1,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    {
+      operation: "paymentLinks.revoke",
+      operationId,
+      id: offerId,
+      expectedRevision: 1,
     },
     "owner-token",
     {},

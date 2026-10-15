@@ -1583,3 +1583,13 @@ Learning-start persistence is independent of the current lesson composition.
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the prospective legal decision is #1464.
+
+## Individual one-time payment links — #1450
+
+The owner can issue a transferable link for one existing Product's one-time payment option. The owner chooses a final RUB amount or an integer percentage discount. The link fixes its amount and composition; it does not publish or reprice the public Offer. It can sell while that Offer is unpublished. Free access uses the existing manual grant path. Optional expiry uses Europe/Moscow in the owner form; no expiry means until successful purchase or revocation.
+
+The first successful buyer receives the normal Product benefits. The buyer signs in, sees actual terms and applicable legal editions, accepts by pressing the payment button, and uses the existing quote, payment, receipt and grant path. The link survives sign-in and bank return. Opening a return URL proves no payment. Private entry uses no shared cache, no indexing and no referrer.
+
+Quote creation and payment initiation recheck the link. Concurrent purchases reserve only once. A begun or uncertain payment retains its reservation until an authentic bank result. A definitive failure permits retry; a confirmed purchase consumes the link permanently, including after refund. Revocation is available before payment begins and does not revoke an existing purchase. Composition changes invalidate unused links; public publication or base-price changes do not change their saved amount.
+
+The owner can recover issued links through a paginated list, copy their URL and revoke unused links. Issuing or copying sends no message. The accepted layout A comes from #1500 at `48f2fc49320c77b3fe632868aa847ff99df3a761`; the production implementation requires its own visual acceptance. Edition 6 is prepared separately under #1464; runtime publication remains coordinated by #854.

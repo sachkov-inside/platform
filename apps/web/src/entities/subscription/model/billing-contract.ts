@@ -72,6 +72,9 @@ export const priceSnapshotSchema = z.object({
   promotion: promotionSnapshotSchema.nullable(),
   currency: z.literal("RUB"),
   timezone: z.literal("Europe/Moscow"),
+  individualPayment: z
+    .object({ linkId: z.uuid(), basePriceKopecks: z.int().positive() })
+    .optional(),
   firstPriceKopecks: z.number().int().positive(),
   renewalPriceKopecks: z.number().int().positive(),
 });

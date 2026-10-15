@@ -49,6 +49,7 @@ export const quoteInputSchema = z.strictObject({
   paymentOptionId: z.uuid(),
   optionRevision: z.number().int().positive(),
   promoCode: promoCodeSchema.optional(),
+  paymentLinkId: z.uuid().optional(),
 });
 export const checkoutEmailSchema = z
   .string()

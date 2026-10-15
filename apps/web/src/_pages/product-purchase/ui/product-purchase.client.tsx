@@ -15,6 +15,7 @@ import {
   offerCompositionLabel,
   type PreorderTerms,
   type PriceSnapshot,
+  type PaymentLinkDetail,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
 import {
@@ -47,6 +48,7 @@ export interface ProductPurchaseProps {
    */
   readonly signedIn?: boolean;
   readonly accountId?: string | null;
+  readonly individualLink?: PaymentLinkDetail;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -60,6 +62,7 @@ export function ProductPurchase({
   preorder = null,
   signedIn = true,
   accountId = null,
+  individualLink,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
@@ -117,6 +120,7 @@ export function ProductPurchase({
 
   return (
     <ProductPurchaseView
+      {...(individualLink === undefined ? {} : { individualLink })}
       hasPurchase={
         (!buyAgain && purchase !== null && purchase.state !== "failed") ||
         alreadyOpen ||

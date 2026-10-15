@@ -38,6 +38,7 @@ export const config = {
     "/auth/sign-in",
     "/callback",
     "/communications/visit",
+    "/payment/links/:path*",
     "/api/account/billing/purchase",
     "/api/account/billing/payment-method/change",
     "/api/account/billing/subscription/change",

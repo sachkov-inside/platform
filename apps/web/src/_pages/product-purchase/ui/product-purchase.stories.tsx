@@ -3,6 +3,10 @@ import { Suspense, use } from "react";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { expect, mocked, waitFor, within } from "storybook/test";
 
+import {
+  individualLink,
+  individualSnapshot,
+} from "@/storybook/payment-links.fixtures";
 import { buyerProductId } from "@/storybook/buyer-journey.fixtures";
 import {
   billingErrorMessage,
@@ -73,9 +77,12 @@ function purchaseRoute(
   restored: PurchaseStatus | null = null,
   needsEmail = false,
   purchaseRef?: string,
+  individual = false,
 ): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
-    "/products/platform-inside/buy",
+    individual
+      ? `/payment/links/${individualLink.id}`
+      : "/products/platform-inside/buy",
     { account: viewer === "guest" ? "guest" : "authenticated" },
   );
   return {
@@ -127,7 +134,12 @@ function purchaseRoute(
           );
         if (path === "/api/account/billing/quote")
           return Promise.resolve(
-            Response.json({ ok: true, value: productQuote }),
+            Response.json({
+              ok: true,
+              value: individual
+                ? { ...productQuote, snapshot: individualSnapshot }
+                : productQuote,
+            }),
           );
         return Promise.resolve(billingFailureResponse("unavailable"));
       })();
@@ -443,4 +455,87 @@ export const BankReturnKeepsPurchaseReference: Story = {
     false,
     pendingPurchase.purchaseRef,
   ),
+};
+
+/** Production private route: real client checkout with fixture-owned transport only. */
+export const IndividualGuest: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    individualLink,
+    offers: [individualSnapshot],
+    product: {
+      id: individualLink.product?.id ?? buyerProductId,
+      name: "AI Engineering",
+    },
+    slug: "ai-engineering",
+    signedIn: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Покупка по ссылке" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Войти для покупки" }),
+    ).toBeVisible();
+  },
+};
+export const IndividualMember: Story = {
+  ...purchaseRoute("member", null, false, undefined, true),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole("button", {
+        name: /Оплатить/,
+      }),
+    ).toBeVisible();
+  },
+};
+export const IndividualUnknown: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "unknown" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Уточняем результат в банке"),
+    ).toBeVisible();
+  },
+};
+export const IndividualExpired: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "expired" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Срок ссылки истёк"),
+    ).toBeVisible();
+  },
+};
+export const IndividualPaid: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "paid" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Покупка завершена"),
+    ).toBeVisible();
+  },
+};
+export const IndividualRevoked: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "revoked" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Ссылка отозвана"),
+    ).toBeVisible();
+  },
 };

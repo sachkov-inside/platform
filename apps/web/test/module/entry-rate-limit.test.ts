@@ -236,3 +236,12 @@ describe("entry rate limit", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 });
+
+it("private payment links use the public-link limit", () => {
+  expect(
+    classifyEntryRoute(
+      "GET",
+      "/payment/links/69000000-0000-4000-8000-000000001450",
+    ),
+  ).toBe("public-link");
+});

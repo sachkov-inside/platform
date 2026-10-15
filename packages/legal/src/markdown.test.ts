@@ -76,8 +76,11 @@ describe("published editions", () => {
     expect(findLegalEdition("purchase", 2)).toBeUndefined();
   });
 
-  it("puts the one-time offer v5 and contacts v2 in force and keeps earlier texts readable", () => {
-    expect(currentLegalEdition("purchase").version).toBe(5);
+  it("puts the one-time offer v6 and contacts v2 in force and keeps earlier texts readable", () => {
+    expect(currentLegalEdition("purchase").version).toBe(6);
+    expect(findLegalEdition("purchase", 5)?.digest).toBe(
+      "783f031a7904cfd2b7fef3735aa2f195ba30011a083aade2fb5398b994856490",
+    );
     expect(currentLegalEdition("purchase").text).toContain(
       "в личных сообщениях или по электронной почте",
     );
@@ -90,7 +93,7 @@ describe("published editions", () => {
     );
     expect(
       supersededLegalEditions("purchase").map((edition) => edition.version),
-    ).toEqual([4, 3, 1]);
+    ).toEqual([5, 4, 3, 1]);
     expect(currentLegalEdition("contacts").version).toBe(2);
     expect(currentLegalEdition("contacts").text).toContain(
       "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
@@ -197,8 +200,8 @@ describe("consent catalogue", () => {
 
   it("addresses the accepted edition on the public site", () => {
     const [purchase] = consentDocuments(origin);
-    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase/v5");
-    expect(purchase?.version).toBe("5");
+    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase/v6");
+    expect(purchase?.version).toBe("6");
     expect(purchase?.digest).toBe(currentLegalEdition("purchase").digest);
     expect(purchase?.text).toBe(currentLegalEdition("purchase").text);
   });

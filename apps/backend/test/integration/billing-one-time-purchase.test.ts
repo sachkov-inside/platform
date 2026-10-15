@@ -295,6 +295,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       accepted: readonly Consent[] = ["terms"],
       acknowledgeExistingAccess = false,
       paymentOptionId = optionId,
+      paymentLinkId?: string,
     ) {
       const quote = value(
         await pricing.quote(
@@ -303,6 +304,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
             operationId: randomUUID(),
             paymentOptionId,
             optionRevision: 1,
+            ...(paymentLinkId === undefined ? {} : { paymentLinkId }),
           }),
         ),
       );
@@ -419,6 +421,54 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         purchase.purchaseRef,
       ),
     ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  });
+
+  test("private link uses actual quote, consent, bank receipt and grants while public sales stay closed", async () => {
+    const s = await scenario();
+    value(
+      await pricing.manage(owner, {
+        operation: "offers.unpublish",
+        operationId: randomUUID(),
+        id: s.offerId,
+        expectedRevision: 2,
+      }),
+    );
+    const link = value(
+      await pricing.managePaymentLink(owner, {
+        operation: "paymentLinks.create",
+        operationId: randomUUID(),
+        paymentOptionId: s.optionId,
+        optionRevision: 1,
+        price: { kind: "discount", percent: 10 },
+        expiresAt: null,
+      }),
+    );
+    const command = await s.command(["terms"], false, s.optionId, link.id);
+    const purchase = value(await s.runtime.purchase(s.buyer, command));
+    expect(s.requests()).toHaveLength(1);
+    expect(s.requests()[0]).toMatchObject({
+      Amount: 261000,
+      Receipt: { Items: [{ Amount: 261000, Price: 261000 }] },
+    });
+    expect(s.requests()[0]?.["SuccessURL"]).toContain(
+      `/payment/links/${link.id}?purchaseRef=${purchase.purchaseRef}`,
+    );
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("pending");
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(
+      (await capabilitiesOf(s.buyer)).capabilities.some(
+        (entry) => entry.capability === s.capability,
+      ),
+    ).toBe(true);
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("paid");
+    expect(
+      value(await pricing.ownerCatalog({})).items.find(
+        (item) => item.paymentOption.id === s.optionId,
+      )?.firstPriceKopecks,
+    ).toBe(productPrice);
   });
 
   test("a confirmed bank refund shows lost Product access without a manual revoke", async () => {

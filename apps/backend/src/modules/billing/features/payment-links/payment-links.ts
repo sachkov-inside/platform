@@ -22,13 +22,13 @@ import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import { selectPrice } from "../../shared/select-price.js";
 import {
   offerGrantsWithheld,
-  productOfferUnsellable,
+  productSupportTermMissing,
   tierLacksComposition,
 } from "../../shared/tier-composition.js";
 import { isProductCapability } from "@inside/access-capabilities";
 import {
   paymentLinksListSchema,
-  paymentLinksPageSchema,
+  type paymentLinksPageSchema,
   paymentLinkCommandSchema,
   paymentLinkViewSchema,
   type PaymentLinkView,
@@ -105,7 +105,7 @@ export async function managePaymentLink(
               ...source.offer,
               coverage: source.offer.coverage,
             }) ||
-            productOfferUnsellable({
+            productSupportTermMissing({
               ...source.offer,
               benefitPeriods: source.offer.benefitPeriods,
             }) ||

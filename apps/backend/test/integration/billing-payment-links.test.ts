@@ -16,6 +16,11 @@ function value<T>(
   return result.value;
 }
 
+function required<T>(item: T | undefined): T {
+  if (item === undefined) throw new Error("Missing test entry");
+  return item;
+}
+
 describe("individual paid links through billing capability on PostgreSQL", () => {
   let db: TestDatabase;
   let pricing: BillingPricing;
@@ -47,9 +52,9 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
     });
   });
   afterAll(async () => {
-    await db?.dispose();
+    await db.dispose();
   });
-  async function productOption() {
+  async function productOption(support = true) {
     const productId = randomUUID(),
       offerId = randomUUID(),
       optionId = randomUUID();
@@ -60,10 +65,13 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
         value: {
           id: offerId,
           name: "AI Engineering",
-          benefits: [productCapability(productId), "support"],
+          benefits: [
+            productCapability(productId),
+            ...(support ? ["support"] : []),
+          ],
           benefitPeriods: [
             { capability: productCapability(productId), months: null },
-            { capability: "support", months: 6 },
+            ...(support ? [{ capability: "support", months: 6 }] : []),
           ],
           coverage: { productIds: [productId], materialIds: [] },
         },
@@ -152,8 +160,8 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
       accounts.map((accountId, index) =>
         pricing.reserve({
           accountId,
-          purchaseRef: refs[index]!,
-          quoteRef: quotes[index]!.quoteRef,
+          purchaseRef: required(refs[index]),
+          quoteRef: required(quotes[index]).quoteRef,
           amountLimits: { minimumKopecks: 100, maximumKopecks: 100_000_000 },
         }),
       ),
@@ -163,8 +171,8 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
       { ok: false, error: { code: "reservation_conflict" } },
     ]);
     const winner = reservations.findIndex((result) => result.ok);
-    const accountId = accounts[winner]!,
-      purchaseRef = refs[winner]!;
+    const accountId = required(accounts[winner]),
+      purchaseRef = required(refs[winner]);
     value(await pricing.settle({ accountId, purchaseRef, state: "sent" }));
     value(await pricing.settle({ accountId, purchaseRef, state: "unknown" }));
     expect(value(await pricing.paymentLink(link.id)).state).toBe("unknown");
@@ -269,6 +277,43 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
         purchaseRef: randomUUID(),
         quoteRef: quote.quoteRef,
         amountLimits: { minimumKopecks: 100, maximumKopecks: 100_000_000 },
+      }),
+    ).toEqual({ ok: false, error: { code: "not_found" } });
+  });
+  test("materials-only link keeps no invented chat or support; expiry and minimum are enforced", async () => {
+    const { optionId } = await productOption(false);
+    const input = {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      paymentOptionId: optionId,
+      optionRevision: 1,
+      price: { kind: "amount", amountKopecks: 100 },
+      expiresAt: "2026-10-15T10:01:00Z",
+    };
+    const link = value(await pricing.managePaymentLink(owner, input));
+    expect(link.snapshot.offer.benefits).toHaveLength(1);
+    expect(
+      await pricing.managePaymentLink(owner, {
+        ...input,
+        operationId: randomUUID(),
+        price: { kind: "amount", amountKopecks: 0 },
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+    expect(
+      await pricing.managePaymentLink(owner, {
+        ...input,
+        operationId: randomUUID(),
+        price: { kind: "discount", percent: 100 },
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+    now = new Date("2026-10-15T10:02:00Z");
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("expired");
+    expect(
+      await pricing.quote(buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: optionId,
+        optionRevision: 1,
+        paymentLinkId: link.id,
       }),
     ).toEqual({ ok: false, error: { code: "not_found" } });
   });

@@ -35,6 +35,7 @@ export interface BillingAdminViewProps
   readonly enrollmentControls?: ReactNode;
   /** Скидка респондентам анкеты живёт рядом с каталогом: она выдаёт личные скидки по его шаблону. */
   readonly respondentControls?: ReactNode;
+  readonly paymentLinkControls?: ReactNode;
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly notice?: string | undefined;
@@ -53,6 +54,7 @@ export function BillingAdminView({
   onSaveCohort,
   enrollmentControls,
   respondentControls,
+  paymentLinkControls,
   offers,
   payments,
   paymentsCursor,
@@ -139,6 +141,7 @@ export function BillingAdminView({
         onSaveCohort={onSaveCohort}
         pending={pending}
       />
+      {paymentLinkControls}
       {respondentControls}
       <PaymentsSection
         onCancelSubscription={onCancelSubscription}

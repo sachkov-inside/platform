@@ -59,6 +59,11 @@ const assignmentOnlyTier = {
 
 /** Чтения, которые страница делает сразу: каталог содержимого, тарифы и панели разделов. */
 const billingReads: BillingRoutes = {
+  "payment-links/list": billingOk({
+    outcome: "paymentLinks",
+    items: [],
+    nextCursor: null,
+  }),
   "content/list": billingOk({ outcome: "content", items: content }),
   "tiers/list": billingOk({
     outcome: "tiers",
