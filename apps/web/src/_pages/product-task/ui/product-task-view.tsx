@@ -76,19 +76,25 @@ export function ProductTaskView({
       id={pageId("task-submit")}
       aria-labelledby={pageId("task-submit-heading")}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="grid gap-3">
         <h2
-          className="text-xl font-semibold"
+          className="text-2xl font-semibold tracking-tight"
           id={pageId("task-submit-heading")}
         >
           Сдача задания
         </h2>
+        <p className="text-sm leading-6 text-body-muted">
+          Здесь можно начать проверку и посмотреть результат. Всю работу и
+          обсуждение веди у своего агента.
+        </p>
       </header>
-      <p className="text-sm leading-6 text-body-muted">
-        Передай запрос агенту в папке проекта. Он проверит работу и попросит
-        подтвердить отправку.
-      </p>
-      <AgentPhrase text={productTaskAgentPhrase(task.code)} />
+      <div className="grid gap-3">
+        <p className="text-sm leading-6">
+          Передай запрос агенту в папке проекта. Он проверит работу и попросит
+          подтвердить отправку. Статус и краткий отчёт появятся ниже.
+        </p>
+        <AgentPhrase text={productTaskAgentPhrase(task.code)} />
+      </div>
       {page.submission.accepting ? null : (
         <p role="status" className="text-sm leading-6">
           Приём сдач скоро откроется. Проверить работу у агента уже можно.
