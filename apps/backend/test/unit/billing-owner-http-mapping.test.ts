@@ -2,6 +2,7 @@ import { HttpException } from "@nestjs/common";
 import { describe, expect, test } from "vitest";
 import {
   ownerFailureCodes,
+  ownerResponseSchema,
   type OwnerFailureCode,
 } from "../../src/modules/billing/domain/owner-operations.js";
 import { throwOwnerError } from "../../src/modules/billing/adapters/nest/owner-http.filter.js";
@@ -25,6 +26,38 @@ const expected: Record<OwnerFailureCode, number> = {
 };
 
 describe("billing owner result mapping", () => {
+  test("grantPreview response schema preserves current classification and unchanged grant outcomes", () => {
+    const response = {
+      operationRef: "00000000-0000-4000-8000-000000000001",
+      result: {
+        outcome: "grantPreview",
+        previewRef: "00000000-0000-4000-8000-000000000002",
+        revision: 1,
+        expiresAt: "2030-01-01T00:30:00.000Z",
+        rows: [
+          {
+            rowKey: "stale-classification",
+            accountId: "00000000-0000-4000-8000-000000000003",
+            status: "confirmed",
+            current: { classification: "confirmed_legacy", revision: 2 },
+          },
+          {
+            rowKey: "missing-classification",
+            accountId: "00000000-0000-4000-8000-000000000004",
+            status: "not_found",
+            current: null,
+          },
+          {
+            rowKey: "grant",
+            accountId: "00000000-0000-4000-8000-000000000003",
+            status: "confirmed",
+          },
+        ],
+      },
+    };
+    expect(ownerResponseSchema.parse(response)).toEqual(response);
+  });
+
   test("maps every owner failure code to its status and problem body", () => {
     // Каждый код набора имеет своё отображение: новый код нельзя добавить молча.
     expect(Object.keys(expected).sort()).toEqual([...ownerFailureCodes].sort());
