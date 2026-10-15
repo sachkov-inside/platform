@@ -6,6 +6,7 @@ import {
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
+import { settleStoryFrame } from "@/storybook/loads-in-place";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 import { BillingAdminPanel } from "./billing-admin-panel.client";
@@ -158,6 +159,7 @@ export const Catalog: Story = {
       "Перенос доступа из Tribute",
       "Действующий каталог",
       "Поток продукта",
+      "Ссылки на оплату",
       "Скидка респондентам анкеты",
       "Платежи",
       "Кто этот покупатель",
@@ -185,6 +187,7 @@ export const Catalog: Story = {
       page.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
 
+    await settleStoryFrame(1440);
     const main = page.getByRole("main");
     const skipLink = page.getByRole("link", { name: "Перейти к содержанию" });
     await expect(skipLink).toHaveAttribute("href", `#${main.id}`);
@@ -199,8 +202,13 @@ export const Catalog: Story = {
     lastSection.scrollIntoView({ block: "start" });
     await expect(main.scrollTop).toBeGreaterThan(0);
     await expect(
-      lastSection.getBoundingClientRect().top,
-    ).toBeGreaterThanOrEqual(main.getBoundingClientRect().top);
+      // Scroll positioning rounds fractional layout coordinates to a physical pixel.
+      Math.round(
+        lastSection.getBoundingClientRect().top * window.devicePixelRatio,
+      ),
+    ).toBeGreaterThanOrEqual(
+      Math.round(main.getBoundingClientRect().top * window.devicePixelRatio),
+    );
     await expect(
       lastSection.getBoundingClientRect().bottom,
     ).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
