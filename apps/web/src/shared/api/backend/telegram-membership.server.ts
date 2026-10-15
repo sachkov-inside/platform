@@ -43,3 +43,29 @@ export function requestTelegramMembershipLinkConfirmation(
     { accessToken },
   );
 }
+
+export function requestTelegramActivationContinuation(
+  attemptId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramMembershipService(request).readTelegramActivationContinuation(
+        { attemptId },
+      ),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestTelegramActivationIntent(
+  attemptId: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramMembershipService(request).readTelegramActivationIntent({
+        attemptId,
+      }),
+    200,
+  );
+}

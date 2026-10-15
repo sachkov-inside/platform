@@ -1,3 +1,4 @@
+import { coverageSchema } from "@inside/access-capabilities";
 import { assertDeclaredResponse } from "../support/declared-api.js";
 import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
@@ -32,6 +33,7 @@ import {
 } from "../../src/modules/account-rights/index.js";
 import { SubscriptionActivation } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { TelegramActivationIntentController } from "../../src/modules/telegram-membership/features/activate-subscription/telegram-activation-continuation.controller.js";
 import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import {
@@ -82,11 +84,26 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       prisma: db.prisma,
       grants,
       bindings: new TelegramAccountLinks(db.prisma),
+      contentCatalog: {
+        resolve: (scope: unknown) =>
+          Promise.resolve(
+            coverageSchema.parse(scope).productIds.map((id) => ({
+              id,
+              kind: "product" as const,
+              title: "AI Engineering",
+              slug: "ai-engineering",
+              available: true,
+            })),
+          ),
+      },
       readAdmission: () =>
         Promise.resolve({ state: "checking", admissionRestriction: null }),
     });
     @Module({
-      controllers: [SubscriptionActivationController],
+      controllers: [
+        SubscriptionActivationController,
+        TelegramActivationIntentController,
+      ],
       providers: [
         { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
@@ -204,6 +221,62 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     ).toMatchObject({ ok: true });
     return { id, identityRef, policy, tier, rule };
   }
+  test("browser continuation requires the matching Telegram identity and survives until its attempt expires", async () => {
+    const context = await setup();
+    const attemptId = randomUUID();
+    await grants.beginActivation({
+      contractVersion: version,
+      attemptId,
+      code: context.rule.code,
+      identityRef: context.identityRef,
+    });
+    expect(
+      await grants.readActivationContinuation(attemptId, context.id, null),
+    ).toEqual({ state: "link_required", ruleId: context.rule.id });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        "another-telegram",
+      ),
+    ).toEqual({ state: "identity_conflict" });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "pending", ruleId: context.rule.id });
+    const intent = await http.inject({
+      method: "GET",
+      url: `/telegram-activation-intents/${attemptId}`,
+    });
+    expect(intent.statusCode).toBe(200);
+    expect(intent.json()).toEqual({
+      state: "ready",
+      product: {
+        id: context.tier.benefits[0]?.slice("product:".length),
+        slug: "ai-engineering",
+        name: "AI Engineering",
+      },
+    });
+    expect(await grants.readActivationIntent(attemptId)).toEqual({
+      state: "ready",
+      ruleId: context.rule.id,
+    });
+    now = new Date("2030-02-01T00:00:00.000Z");
+    expect(await grants.readActivationIntent(attemptId)).toEqual({
+      state: "expired",
+      ruleId: context.rule.id,
+    });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "expired" });
+  });
   test("pending source does not grant; two links and owner assignment share one durable source", async () => {
     const context = await setup();
     const attemptId = randomUUID();
@@ -314,6 +387,20 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ok: true,
       value: { state: "active" },
     });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "active", ruleId: context.rule.id });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        randomUUID(),
+        context.identityRef,
+      ),
+    ).toEqual({ state: "identity_conflict" });
     const assigned = await grants.readOwnEnrollments(context.id);
     if (!assigned.ok) throw new Error(assigned.error.code);
     expect(assigned.value[0]?.endsAt).toBeNull();

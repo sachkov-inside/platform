@@ -3,6 +3,7 @@ import {
   botDomainResponse,
 } from "../../domain/bot-domain-names.js";
 import {
+  announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
@@ -39,6 +40,7 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
+  announcementQuerySchema,
   bindingLookupQuerySchema,
   ownSubscriptionAccessQuerySchema,
   beginActivationSchema,
@@ -70,6 +72,22 @@ export class SubscriptionActivationController {
         "unauthorized",
         "Activation authority required",
       );
+  }
+  @Post("announcement")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "readActivationAnnouncement",
+    summary:
+      "Resolve the published Product and source of an owner announcement",
+  })
+  @ApiBody({ schema: toOpenApiSchema(announcementQuerySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(announcementResponseSchema) })
+  async announcement(
+    @Headers("authorization") authorization: string | undefined,
+    @Body() input: unknown,
+  ) {
+    this.authenticate(authorization);
+    return this.activation.announcement(input);
   }
   @Post("binding")
   @HttpCode(200)

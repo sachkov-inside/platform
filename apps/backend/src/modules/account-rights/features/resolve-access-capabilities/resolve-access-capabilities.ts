@@ -66,7 +66,10 @@ export async function readAccessCapabilityFacts(
   accountId: AccountId,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
-  options: { readonly includeRevision: boolean } = { includeRevision: false },
+  options: {
+    readonly includeRevision: boolean;
+    readonly maximumExclusions?: number;
+  } = { includeRevision: false },
 ): Promise<CapabilityFacts> {
   const grants = await prisma.accessGrant.findMany({
     where: {
@@ -77,7 +80,15 @@ export async function readAccessCapabilityFacts(
   });
   const exclusions = await prisma.productAccessExclusion.findMany({
     where: { accountId },
+    ...(options.maximumExclusions === undefined
+      ? {}
+      : { take: options.maximumExclusions + 1 }),
   });
+  if (
+    options.maximumExclusions !== undefined &&
+    exclusions.length > options.maximumExclusions
+  )
+    throw new Error("Product exclusion set exceeds supported size");
   const classification = await prisma.legacyClassification.findUnique({
     where: { accountId },
   });

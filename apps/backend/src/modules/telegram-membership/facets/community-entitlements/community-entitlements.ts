@@ -277,6 +277,78 @@ export class CommunityEntitlements {
     }
   }
 
+  /** Delivers only this Account's current entitlement before a synchronous bot admission. */
+  async prepareOwnAdmission(
+    accountId: string,
+    expected?: { identityRef: string; linkRef: string; linkRevision: number },
+  ): Promise<OwnAdmission> {
+    const dependencies = this.groupDependencies;
+    const projected = await projectCommunityEntitlement(
+      {
+        ...dependencies,
+        links: {
+          readBinding: async (input) => {
+            const current = await dependencies.links.readBinding(input);
+            if (
+              expected !== undefined &&
+              current.ok &&
+              (current.binding === null ||
+                current.binding.telegramIdentityRef !== expected.identityRef ||
+                current.binding.linkRef !== expected.linkRef ||
+                current.binding.linkRevision !== expected.linkRevision)
+            )
+              return { ok: false, error: { code: "unavailable" } } as const;
+            return current;
+          },
+        },
+      },
+      accountId,
+      this.clock(),
+    );
+    if (!projected.ok) return { state: "checking", admissionRestriction: null };
+    await deliverCommunityOperations(
+      this.dependencies,
+      20,
+      this.clock(),
+      accountId,
+    );
+    return this.readOwnAdmission(accountId);
+  }
+
+  /** Product-to-group association is owned here, independently of Account community rights. */
+  async readConfiguredProductIds(
+    productIds: readonly string[],
+  ): Promise<
+    | { readonly ok: true; readonly value: readonly string[] }
+    | { readonly ok: false; readonly error: { readonly code: "unavailable" } }
+  > {
+    try {
+      if (productIds.length > 1000)
+        throw new Error("Product community read exceeds supported size");
+      if (productIds.length === 0) return { ok: true, value: [] };
+      const rows = await this.dependencies.prisma.productCommunity.findMany({
+        where: {
+          productId: { in: [...new Set(productIds)] },
+          groupRef: "primary",
+        },
+        select: { productId: true },
+        take: 1001,
+      });
+      if (rows.length > 1000)
+        throw new Error("Product community mapping exceeds supported size");
+      return { ok: true, value: rows.map((row) => row.productId) };
+    } catch (error: unknown) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "readConfiguredProductIds",
+        },
+        error,
+        { ok: false, error: { code: "unavailable" } } as const,
+      );
+    }
+  }
+
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
     return (await this.resolveOwnAdmission(accountId)).admission;
   }

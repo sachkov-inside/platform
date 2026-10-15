@@ -361,8 +361,9 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 Из корня platform выполните `bash apps/telegram/scripts/production-smoke.sh`.
 Команда строит production image из root context, читает сохранённый legacy `v5` manifest и
 проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
-Проверяются 31 миграция, неизменный ledger, сохранённая synthetic строка, readiness,
-неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
+Smoke сохраняет проверку identity первых 31 миграций legacy `v5`.
+Candidate должен записать точный текущий набор миграций. После rollback этот ledger остаётся неизменным.
+Проверяются сохранённая synthetic строка, readiness, неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
 Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
 Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
 реальный Docker proof отдельно проверяет переход на production images.
@@ -706,11 +707,11 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm --interactive=false migrate` | migrations собственной базы |
 | `run --rm -T community-restriction --preview < decision.json` | hold/restore по решению владельца, см. [course-activation.md](course-activation.md#разбор-ограничений-и-неизвестного-исхода) |
 | `run --rm -T activation-review --list` | очередь разбора неподтверждённых оснований, см. [course-activation.md](course-activation.md#подтверждение-статуса-прежних-участников) |
-| `run --rm -T activation-announcement --preview <sourceRef> <code>` | сообщение владельца с кнопкой активации в группе курса, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
+| `run --rm -T activation-announcement --preview < /protected/announcement.json` | личный образец владельцу с кнопкой активации, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
 
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
-`community-restriction` и `activation-review` видят только сеть базы, `activation-announcement` и
+`community-restriction` и `activation-review` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
 
 ## Совместная выкладка с Platform
