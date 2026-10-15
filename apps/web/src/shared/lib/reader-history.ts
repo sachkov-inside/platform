@@ -38,21 +38,38 @@ function path(href: string) {
   return new URL(href, window.location.origin).pathname;
 }
 
+export function readerHistoryRoot(element: Element): Element {
+  return (
+    element.closest(
+      "[data-material-id], [data-course-reading], [data-product-task]",
+    ) ??
+    element.parentElement ??
+    element
+  );
+}
+function contentScroller(root: ParentNode): Element | null {
+  return (
+    (root instanceof Element
+      ? root.closest("[data-application-content]")
+      : null) ?? root.querySelector("[data-application-content]")
+  );
+}
+
 /** Positions belong to an individual browser history entry, never a last-course preference. */
-export function saveReaderHistoryView() {
+export function saveReaderHistoryView(root: ParentNode = document) {
   const current = entry();
   if (current === undefined) return;
-  const rail = document.querySelector<HTMLElement>("[data-course-rail-scroll]");
+  const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
     windowY: window.scrollY,
-    contentY:
-      document.querySelector("[data-application-content]")?.scrollTop ?? 0,
+    contentY: contentScroller(root)?.scrollTop ?? 0,
     railY: rail?.scrollTop ?? 0,
-    chapter: document.querySelector<HTMLElement>("[data-course-chapter]")
-      ?.dataset["courseChapter"],
+    chapter: root.querySelector<HTMLElement>("[data-course-chapter]")?.dataset[
+      "courseChapter"
+    ],
     expanded: Array.from(
-      document.querySelectorAll<HTMLDetailsElement>(
+      root.querySelectorAll<HTMLDetailsElement>(
         "details[data-course-chapter-id][open]",
       ),
       (item) => item.dataset["courseChapterId"] ?? "",
@@ -65,7 +82,10 @@ export function saveReaderHistoryView() {
   }
 }
 
-export function enterReaderHistory(originHref?: string) {
+export function enterReaderHistory(
+  originHref?: string,
+  root: ParentNode = document,
+) {
   let current = entry();
   if (current?.href !== window.location.href) current = undefined;
   const restoreFrom =
@@ -109,7 +129,7 @@ export function enterReaderHistory(originHref?: string) {
       window.dispatchEvent(
         new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
       );
-      document
+      root
         .querySelectorAll<HTMLDetailsElement>("details[data-course-chapter-id]")
         .forEach((item) => {
           item.open = view.expanded.includes(
@@ -120,10 +140,11 @@ export function enterReaderHistory(originHref?: string) {
         if (entry()?.id !== current.id || window.location.href !== current.href)
           return;
         window.scrollTo({ top: view.windowY, behavior: "instant" });
-        document
-          .querySelector("[data-application-content]")
-          ?.scrollTo({ top: view.contentY, behavior: "instant" });
-        document
+        contentScroller(root)?.scrollTo({
+          top: view.contentY,
+          behavior: "instant",
+        });
+        root
           .querySelector("[data-course-rail-scroll]")
           ?.scrollTo({ top: view.railY, behavior: "instant" });
       });
@@ -132,7 +153,11 @@ export function enterReaderHistory(originHref?: string) {
 }
 
 /** Capture only an ordinary in-tab transition carrying a validated course anchor. */
-export function prepareReaderHistory(event: MouseEvent, originHref?: string) {
+export function prepareReaderHistory(
+  event: MouseEvent,
+  originHref?: string,
+  root: ParentNode = document,
+) {
   if (
     event.defaultPrevented ||
     event.button !== 0 ||
@@ -152,7 +177,7 @@ export function prepareReaderHistory(event: MouseEvent, originHref?: string) {
     (link.target !== "" && link.target !== "_self")
   )
     return;
-  saveReaderHistoryView();
+  saveReaderHistoryView(root);
   const target = new URL(link.href);
   if (
     target.origin !== window.location.origin ||
@@ -179,10 +204,13 @@ export function readerOriginHref(href: string): string | undefined {
     : undefined;
 }
 
-export function prepareReaderOriginReturn(href: string) {
+export function prepareReaderOriginReturn(
+  href: string,
+  root: ParentNode = document,
+) {
   const origin = entry()?.origin;
   if (origin === undefined || path(origin.href) !== path(href)) return;
-  saveReaderHistoryView();
+  saveReaderHistoryView(root);
   pending = {
     target: new URL(href, window.location.origin).href,
     restoreFrom: origin.id,

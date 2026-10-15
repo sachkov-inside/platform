@@ -62,12 +62,19 @@ for (const engine of [chromium, webkit])
         "/products/course/tasks/start",
       );
       await page.waitForFunction(() => "readerHistoryReady" in window);
-      await page.locator("details").evaluate((element) => {
-        if (element instanceof HTMLDetailsElement) element.open = true;
-      });
+      await page
+        .locator("[data-reader-history-root] details")
+        .evaluate((element) => {
+          if (element instanceof HTMLDetailsElement) element.open = true;
+        });
       await page.locator("main").evaluate((element) => {
         element.scrollTop = 600;
       });
+      await page
+        .locator("[data-reader-history-root] [data-course-rail-scroll]")
+        .evaluate((element) => {
+          element.scrollTop = 100;
+        });
       // Scroll the link into view with keyboard focus without changing the saved reading position.
       await page.locator("#project").dispatchEvent("click", { button: 0 });
       await browserExpect(page.getByRole("heading")).toHaveText(
@@ -102,7 +109,19 @@ for (const engine of [chromium, webkit])
           page.locator("main").evaluate((element) => element.scrollTop),
         )
         .toBe(600);
-      await browserExpect(page.locator("details")).toHaveAttribute("open", "");
+      await browserExpect(
+        page.locator("[data-reader-history-root] details"),
+      ).toHaveAttribute("open", "");
+      await browserExpect
+        .poll(() =>
+          page
+            .locator("[data-reader-history-root] [data-course-rail-scroll]")
+            .evaluate((element) => element.scrollTop),
+        )
+        .toBe(100);
+      await browserExpect(
+        page.locator("section[hidden] details"),
+      ).not.toHaveAttribute("open");
     } finally {
       await browser?.close();
     }

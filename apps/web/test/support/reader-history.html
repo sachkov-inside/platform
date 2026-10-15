@@ -18,18 +18,26 @@
         "?from=%2Fproducts%2Fcourse%2Fprogramme&anchor=task%3Astart";
       function render() {
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<h1>${location.pathname}</h1><aside data-course-chapter="second"><details data-course-chapter-id="second"><summary>Second chapter</summary><p>Expanded chapter</p></details><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main>`;
-        enterReaderHistory(supplementary ? source : undefined);
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><details data-course-chapter-id="stale"><summary>Stale chapter</summary></details><div data-course-rail-scroll></div></aside></section><div data-reader-history-root><h1>${location.pathname}</h1><aside data-course-chapter="second"><details data-course-chapter-id="second"><summary>Second chapter</summary><p>Expanded chapter</p></details><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main></div>`;
+        enterReaderHistory(
+          supplementary ? source : undefined,
+          document.querySelector("[data-reader-history-root]"),
+        );
         document.querySelector("#return").href =
           readerOriginHref(source) ?? source;
         document
           .querySelector("main")
-          .addEventListener("scroll", saveReaderHistoryView);
+          .addEventListener("scroll", () =>
+            saveReaderHistoryView(
+              document.querySelector("[data-reader-history-root]"),
+            ),
+          );
       }
       document.addEventListener("click", (event) => {
         prepareReaderHistory(
           event,
           location.pathname.startsWith("/materials/") ? source : undefined,
+          document.querySelector("[data-reader-history-root]"),
         );
         const link = event.target.closest("a");
         if (
@@ -40,13 +48,21 @@
           event.altKey
         )
           return;
-        if (link.id === "return") prepareReaderOriginReturn(link.href);
+        if (link.id === "return")
+          prepareReaderOriginReturn(
+            link.href,
+            document.querySelector("[data-reader-history-root]"),
+          );
         event.preventDefault();
         history.pushState({ __NA: true }, "", link.href);
         render();
       });
       window.addEventListener("popstate", render);
-      window.addEventListener("pagehide", saveReaderHistoryView);
+      window.addEventListener("pagehide", () =>
+        saveReaderHistoryView(
+          document.querySelector("[data-reader-history-root]"),
+        ),
+      );
       render();
       window.readerHistoryReady = true;
     </script>

@@ -90,14 +90,6 @@ export function MaterialReaderPending({
       data-material-id={material.materialId}
       data-material-reader-state="pending"
     >
-      <ReaderHistoryTracker
-        path={materialPath(material.slug)}
-        originHref={
-          seriesContext?.supplementary === true
-            ? seriesContext.programme?.current.href
-            : undefined
-        }
-      />
       <ReaderFrame
         context={seriesContext}
         repeatAtBottom={false}

@@ -1,9 +1,10 @@
 "use client";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useRef, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import {
   readerHistoryEntryEvent,
+  readerHistoryRoot,
   resetReaderHistoryActivation,
   enterReaderHistory,
   prepareReaderHistory,
@@ -21,23 +22,25 @@ function Tracker({
   readonly originHref?: string | undefined;
   readonly path: string;
 }) {
+  const marker = useRef<HTMLSpanElement>(null);
   const pathname = usePathname();
   const query = useSearchParams().toString();
   useEffect(() => {
     const matchesDocument = () =>
       window.location.pathname === path &&
       new URLSearchParams(window.location.search).toString() === query;
-    if (!matchesDocument()) return;
+    if (!matchesDocument() || marker.current === null) return;
+    const root = readerHistoryRoot(marker.current);
     const save = () => {
-      if (matchesDocument()) saveReaderHistoryView();
+      if (matchesDocument()) saveReaderHistoryView(root);
     };
-    enterReaderHistory(originHref);
+    enterReaderHistory(originHref, root);
     const click = (event: MouseEvent) => {
-      if (matchesDocument()) prepareReaderHistory(event, originHref);
+      if (matchesDocument()) prepareReaderHistory(event, originHref, root);
     };
     const pop = () => {
       resetReaderHistoryActivation();
-      if (matchesDocument()) enterReaderHistory(originHref);
+      if (matchesDocument()) enterReaderHistory(originHref, root);
     };
     let frame: number | undefined;
     const scroll = () => {
@@ -59,7 +62,7 @@ function Tracker({
       window.removeEventListener("popstate", pop);
     };
   }, [pathname, query, originHref, path]);
-  return null;
+  return <span hidden ref={marker} data-reader-history-tracker />;
 }
 
 export function ReaderHistoryTracker(props: {
@@ -114,7 +117,10 @@ export function ReaderOriginLink({
           !event.shiftKey &&
           !event.altKey
         )
-          prepareReaderOriginReturn(target);
+          prepareReaderOriginReturn(
+            target,
+            readerHistoryRoot(event.currentTarget),
+          );
       }}
     >
       {children}
