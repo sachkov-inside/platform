@@ -126,6 +126,50 @@ Material opening/return and first-error form focus were checked in the browser.
 Focused lint, Web TypeScript, formatting, documentation checks and the isolated Storybook build pass.
 No new Axe result is claimed for this refinement; the earlier sampled results describe the initial revision.
 
+## Full-screen application study — 2026-10-15
+
+The owner requested a complete modern design informed by Notion, Linear, GitHub, X, ChatGPT and Claude.
+This supersedes treating the request as a radius-only refinement.
+The new study is a standalone authoring application inside Storybook, linked from the laboratory overview.
+The existing four comparisons remain available. Product architecture and production integration still await owner acceptance.
+
+Open `iframe.html?id=prototypes-inside-concept--app&viewMode=story` on the running review server.
+Additional direct stories are `prototypes-inside-concept--product` and `prototypes-inside-concept--materials`.
+The isolated catalog now contains eight stories in total.
+
+| Primary reference, inspected 2026-10-15 | Local interpretation |
+| --- | --- |
+| [Linear redesign](https://linear.app/now/how-we-redesigned-the-linear-ui), [Linear Mobile](https://linear.app/changelog/2026-01-22-customize-your-navigation-in-linear-mobile) | Restrained navigation density, contextual actions, consistent Product context; mobile and desktop reference images were inspected |
+| [Notion mobile workspaces](https://www.notion.com/en-us/help/workspaces-on-mobile) | Persistent bottom navigation and continuity with desktop workspace sections |
+| [GitHub Primer navigation](https://primer.style/product/ui-patterns/navigation/) | Global navigation separated from Product-local sections and parent/detail navigation |
+| [ChatGPT content navigation](https://help.openai.com/en/articles/10056348-finding-your-chats-projects-and-files-in-chatgpt) | Search over work content, separate from the primary content canvas |
+| [Claude projects](https://support.claude.com/en/articles/9519177-how-can-i-create-and-manage-projects) | Project context kept around the work; this is an interpretation, not a claim of copying Claude's exact UI |
+| [X for iOS](https://help.x.com/en/using-x/x-ios-app) | Readable content flow and adjacent actions; this is an interpretation, not a verified specification of X's current navigation geometry |
+
+No vendor component implementation, logo, or screenshot is shipped in the concept.
+The existing Inside Button, Radix Dialog/DropdownMenu, Manrope, Lucide, color and radius tokens supply the foundation.
+There are no additional dependencies. Prototype-specific typography is exploratory; production DESIGN.md was not replaced.
+The covers are byte-identical copies of existing Inside review artwork from #271; their local provenance lives beside the assets.
+They do not assign new covers to real Products.
+
+Implemented local screens: Product catalog, Product programme, participants/access context, common Materials, editor,
+saved-state Preview, search dialog, creation dialog and a profile page with the reference inventory.
+The phone uses persistent bottom navigation; desktop uses one compact workspace sidebar.
+Saving, creation and search operate only on in-memory demonstration data. Refresh resets the study.
+No payment, Telegram, permission change, publication or real account action occurs.
+
+Verification: catalog, Product, editor, Preview and search captured at 390/1440 px in headed Chromium.
+No document horizontal overflow was observed. Product tabs, chapter collapse, material opening/return, edit/save/Preview,
+material creation, search empty state, Product creation and empty programme were exercised at both widths.
+Search autofocus, Escape and return to the initiating control were verified.
+The focus assertion waits for Radix's actual restoration instead of sampling before its scheduled cleanup.
+Focused lint, Web TypeScript, Web architecture guardrails, formatting, documentation checks and the isolated Storybook build pass.
+The design detector reported type/radius ramp advice: literal radii were moved to existing tokens;
+prototype typography remains an explicit study decision. No new screen-reader speech or complete accessibility result is claimed.
+
+`concept-*` screenshots record this new application study; earlier `rounded-*` images record the earlier laboratory refinement.
+The visible browser remains on the new application entry. Owner review is pending.
+
 ## Pending owner review
 
 | Proposal | Decision | Owning work |

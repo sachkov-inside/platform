@@ -9,6 +9,7 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
   Check,
   FlaskConical,
@@ -155,6 +156,21 @@ export function DesignLab({
                   проверяйте ошибки и выбирайте направление.
                 </p>
               </div>
+              <a
+                className="lab-concept-link"
+                href={
+                  new URL(
+                    "/iframe.html?id=prototypes-inside-concept--app&viewMode=story",
+                    window.location.href,
+                  ).href
+                }
+              >
+                <span>
+                  <strong>Посмотреть цельный дизайн Inside</strong>
+                  <small>Полноценные экраны и мобильная навигация</small>
+                </span>
+                <ArrowUpRight aria-hidden="true" size={21} />
+              </a>
               <div className="lab-experiments">
                 {scenarios.map((item, index) => (
                   <button
