@@ -924,10 +924,10 @@ export const AuthoredWithoutGeneralMaterials: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.queryByRole("heading", { name: "Материалы к заданию", exact: true }),
+      page.queryByRole("heading", { name: "Материалы к заданию" }),
     ).toBeNull();
     await expect(
-      page.getByRole("heading", { name: "Что нужно сделать", exact: true }),
+      page.getByRole("heading", { name: "Что нужно сделать" }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /^урок$/u })).toHaveAttribute(
       "href",
