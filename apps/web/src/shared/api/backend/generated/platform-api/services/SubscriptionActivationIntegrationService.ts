@@ -51,6 +51,42 @@ export class SubscriptionActivationIntegrationService {
     });
   }
   /**
+   * Resolve the published Product and source of an owner announcement
+   * @returns any
+   * @throws ApiError
+   */
+  public readActivationAnnouncement({
+    requestBody,
+  }: {
+    requestBody: {
+      code: string;
+      contractVersion: 'inside.subscription-activation.v1';
+    },
+  }): CancelablePromise<({
+    ok: boolean;
+    value: {
+      contractVersion: 'inside.subscription-activation.v1';
+      rule: {
+        id: string;
+        productId: string;
+        revision: number;
+        sourceRef: string;
+      };
+    };
+  } | {
+    error: {
+      code: 'invalid_input' | 'policy_paused' | 'unavailable';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/subscription-activation/announcement',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Persist an activation attempt for a verified private bot identity
    * @returns any
    * @throws ApiError

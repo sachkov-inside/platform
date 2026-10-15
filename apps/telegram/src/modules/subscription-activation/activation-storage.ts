@@ -6,6 +6,12 @@ import type {
 } from "./activation-contract.js";
 type Timestamp = ColumnType<Date, Date, Date>;
 export interface ActivationTables {
+  activation_announcement_deliveries: {
+    operation_id: string;
+    fingerprint: string;
+    status: "pending" | "sent" | "not_sent" | "unknown";
+    created_at: ColumnType<Date, Date | undefined, Date>;
+  };
   activation_attempts: {
     attempt_id: string;
     bot_identity: string;

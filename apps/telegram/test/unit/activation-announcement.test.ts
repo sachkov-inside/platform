@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivationConfig } from "../../src/config/activation-config.js";
-import {
-  ACTIVATION_ANNOUNCEMENT_BUTTON,
-  ACTIVATION_ANNOUNCEMENT_TEXT,
-  announceActivation,
-  type ActivationAnnouncementTelegram,
-} from "../../src/modules/subscription-activation/activation-announcement.js";
-import type {
-  TelegramDeliveryResult,
-  TelegramTextMessage,
-} from "../../src/modules/outbound/telegram-messages.js";
+import { announceActivation } from "../../src/modules/subscription-activation/activation-announcement.js";
+import type { TelegramTextMessage } from "../../src/modules/outbound/telegram-messages.js";
 
 const activation: ActivationConfig = {
   enabled: true,
@@ -18,124 +10,204 @@ const activation: ActivationConfig = {
   accountUrl: "https://platform.example/account",
   sources: [
     { sourceRef: "course", chatId: "-1000000000001", policy: "whole_group" },
-    {
-      sourceRef: "listed",
-      chatId: "-1000000000002",
-      policy: "confirmed_list",
-      confirmedIdentityRefs: [],
-    },
   ],
 };
-
-function telegram(
-  delivery: TelegramDeliveryResult = {
-    kind: "delivered",
-    providerMessageId: "7",
-  },
-  /** Null stands for a bot Telegram reports without a username. */
-  username: string | null = "inside_bot",
-) {
+const input = {
+  activation,
+  sourceRef: "course",
+  productId: "product-a",
+  code: "course64",
+  text: "Точный текст владельца.\n\nБез изменений.",
+  privateChatId: "1234",
+  operationId: "send-1",
+  send: true,
+};
+function ports() {
   const sent: TelegramTextMessage[] = [];
-  const port: ActivationAnnouncementTelegram = {
-    botUsername: () => Promise.resolve(username ?? undefined),
-    sendText(message) {
-      sent.push(message);
-      return Promise.resolve(delivery);
+  return {
+    sent,
+    telegram: {
+      botUsername: () => Promise.resolve("inside_bot"),
+      privateChat: () => Promise.resolve(true),
+      sendText: (message: TelegramTextMessage) => {
+        sent.push(message);
+        return Promise.resolve({
+          kind: "delivered" as const,
+          providerMessageId: "7",
+        });
+      },
+    },
+    platform: {
+      resolve: () =>
+        Promise.resolve({ sourceRef: "course", productId: "product-a" }),
+    },
+    deliveries: {
+      claim: (_id: string, _fingerprint: string) => Promise.resolve(true),
+      complete: () => Promise.resolve(),
     },
   };
-  return { port, sent };
 }
-
-describe("the owner's activation announcement", () => {
-  const button = {
-    text: ACTIVATION_ANNOUNCEMENT_BUTTON,
-    url: "https://t.me/inside_bot?start=a_course64",
-  };
-
-  it("previews the text and the button link without sending", async () => {
-    const { port, sent } = telegram();
+describe("the owner's private activation announcement", () => {
+  it("delivers exact supplied text privately with one Product activation button", async () => {
+    const p = ports();
     expect(
-      await announceActivation(
-        { activation, sourceRef: "course", code: "course64", send: false },
-        port,
-      ),
-    ).toEqual({ status: "ready", text: ACTIVATION_ANNOUNCEMENT_TEXT, button });
-    expect(ACTIVATION_ANNOUNCEMENT_TEXT).toContain(
-      "Участникам группы доступен курс",
-    );
-    expect(sent).toEqual([]);
-  });
-
-  it("sends one message with the button to the course group", async () => {
-    const { port, sent } = telegram();
-    expect(
-      await announceActivation(
-        { activation, sourceRef: "course", code: "course64", send: true },
-        port,
-      ),
-    ).toMatchObject({ status: "sent", button });
-    expect(sent).toEqual([
+      await announceActivation(input, p.telegram, p.platform, p.deliveries),
+    ).toMatchObject({ status: "sent" });
+    expect(p.sent).toEqual([
       {
-        chatId: "-1000000000001",
-        text: ACTIVATION_ANNOUNCEMENT_TEXT,
-        buttons: [button],
+        chatId: "1234",
+        text: input.text,
+        buttons: [
+          {
+            text: "Получить доступ",
+            url: "https://t.me/inside_bot?start=a_course64",
+          },
+        ],
       },
     ]);
   });
-
   it.each([
-    ["activation_disabled", { activation: undefined }],
-    ["activation_disabled", { activation: { ...activation, enabled: false } }],
-    ["invalid_code", { code: "a_course" + "!" }],
-    ["invalid_code", { code: "x".repeat(41) }],
-    ["unknown_source", { sourceRef: "canonical" }],
-    ["not_whole_group", { sourceRef: "listed" }],
-  ])("refuses with %s and sends nothing", async (reason, change) => {
-    const { port, sent } = telegram();
+    ["invalid_text", { text: "   " }],
+    ["invalid_text", { text: "x".repeat(4097) }],
+    ["not_private", { privateChatId: "-1000000000001" }],
+    ["not_private", { privateChatId: "@owner" }],
+    ["invalid_operation", { operationId: "" }],
+  ])("refuses %s before any delivery", async (reason, change) => {
+    const p = ports();
     expect(
       await announceActivation(
-        {
-          activation,
-          sourceRef: "course",
-          code: "course64",
-          send: true,
-          ...change,
-        },
-        port,
+        { ...input, ...change },
+        p.telegram,
+        p.platform,
+        p.deliveries,
       ),
     ).toEqual({ status: "refused", reason });
-    expect(sent).toEqual([]);
+    expect(p.sent).toEqual([]);
   });
-
-  it("refuses without a bot username to build the link from", async () => {
-    const { port, sent } = telegram(undefined, null);
+  it("refuses a non-private Telegram destination even with a positive id", async () => {
+    const p = ports();
+    p.telegram.privateChat = () => Promise.resolve(false);
+    expect(
+      await announceActivation(input, p.telegram, p.platform, p.deliveries),
+    ).toEqual({ status: "refused", reason: "not_private" });
+    expect(p.sent).toEqual([]);
+  });
+  it.each([
+    undefined,
+    { sourceRef: "other", productId: "product-a" },
+    { sourceRef: "course", productId: "other" },
+  ])("refuses unavailable or mismatched trusted rules", async (rule) => {
+    const p = ports();
     expect(
       await announceActivation(
-        { activation, sourceRef: "course", code: "course64", send: true },
-        port,
+        input,
+        p.telegram,
+        { resolve: () => Promise.resolve(rule) },
+        p.deliveries,
       ),
-    ).toEqual({ status: "refused", reason: "no_bot_username" });
-    expect(sent).toEqual([]);
+    ).toEqual({ status: "refused", reason: "rule_mismatch" });
+    expect(p.sent).toEqual([]);
   });
-
-  it("reports a Telegram refusal and an unknown outcome apart", async () => {
-    const input = {
-      activation,
-      sourceRef: "course",
-      code: "course64",
-      send: true,
+  it("does not repeat a claimed operation after an unknown result", async () => {
+    const p = ports();
+    const claimed = new Set<string>();
+    p.deliveries.claim = (id: string) => {
+      if (claimed.has(id)) return Promise.resolve(false);
+      claimed.add(id);
+      return Promise.resolve(true);
+    };
+    const transport = {
+      ...p.telegram,
+      sendText: (message: TelegramTextMessage) => {
+        p.sent.push(message);
+        return Promise.resolve({ kind: "transport_unknown" as const });
+      },
     };
     expect(
+      await announceActivation(input, transport, p.platform, p.deliveries),
+    ).toEqual({ status: "unknown" });
+    expect(
+      await announceActivation(input, transport, p.platform, p.deliveries),
+    ).toEqual({ status: "refused", reason: "already_attempted" });
+    expect(p.sent).toHaveLength(1);
+  });
+  it("previews exact owner copy without reserving or sending", async () => {
+    const p = ports();
+    const result = await announceActivation(
+      { ...input, send: false },
+      p.telegram,
+      p.platform,
+      {
+        claim: () => Promise.reject(new Error("Preview must not reserve")),
+        complete: () => Promise.reject(new Error("Preview must not settle")),
+      },
+    );
+    expect(result).toEqual({
+      status: "ready",
+      text: input.text,
+      button: {
+        text: "Получить доступ",
+        url: "https://t.me/inside_bot?start=a_course64",
+      },
+    });
+    expect(p.sent).toEqual([]);
+  });
+  it.each([
+    ["activation_disabled", { activation: undefined }],
+    ["invalid_code", { code: "course!" }],
+    ["unknown_source", { sourceRef: "unknown" }],
+    [
+      "not_whole_group",
+      {
+        activation: {
+          ...activation,
+          sources: [
+            {
+              sourceRef: "course",
+              chatId: "-1000000000001",
+              policy: "confirmed_list" as const,
+            },
+          ],
+        },
+      },
+    ],
+  ])("retains the %s source safety check", async (reason, change) => {
+    const p = ports();
+    expect(
       await announceActivation(
-        input,
-        telegram({ kind: "api_rejected", providerErrorCode: 403 }).port,
+        { ...input, ...change },
+        p.telegram,
+        p.platform,
+        p.deliveries,
       ),
-    ).toEqual({ status: "not_sent", providerErrorCode: 403 });
+    ).toEqual({ status: "refused", reason });
+    expect(p.sent).toEqual([]);
+  });
+  it("refuses without a trustworthy bot username", async () => {
+    const p = ports();
     expect(
       await announceActivation(
         input,
-        telegram({ kind: "transport_unknown" }).port,
+        { ...p.telegram, botUsername: () => Promise.resolve(undefined) },
+        p.platform,
+        p.deliveries,
       ),
-    ).toEqual({ status: "unknown" });
+    ).toEqual({ status: "refused", reason: "no_bot_username" });
+    expect(p.sent).toEqual([]);
+  });
+  it("reports Telegram refusal separately from an unknown delivery", async () => {
+    const p = ports();
+    expect(
+      await announceActivation(
+        input,
+        {
+          ...p.telegram,
+          sendText: () =>
+            Promise.resolve({ kind: "api_rejected", providerErrorCode: 403 }),
+        },
+        p.platform,
+        p.deliveries,
+      ),
+    ).toEqual({ status: "not_sent", providerErrorCode: 403 });
   });
 });

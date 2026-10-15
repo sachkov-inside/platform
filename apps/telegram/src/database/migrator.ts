@@ -1,3 +1,4 @@
+import { activationAnnouncementMigration } from "./migrations/032-activation-announcement.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { invitationRedemptionsMigration } from "./migrations/030-invitation-redemptions.js";
 import { salesFunnelEventsMigration } from "./migrations/029-sales-funnel-events.js";
@@ -40,6 +41,7 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
+  "032-activation-announcement": activationAnnouncementMigration,
   "030-invitation-redemptions": invitationRedemptionsMigration,
   "029-sales-funnel-events": salesFunnelEventsMigration,
   "028-community-welcome": communityWelcomeMigration,

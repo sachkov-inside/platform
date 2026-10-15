@@ -1,3 +1,4 @@
+import { readActivationAnnouncement } from "./read-activation-announcement.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -43,6 +44,9 @@ export class SubscriptionActivation {
       siteOrigin?: string;
     },
   ) {}
+  async announcement(input: unknown) {
+    return readActivationAnnouncement(this.dependencies, input);
+  }
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
   async lookupBinding(input: unknown) {
     const parsed = bindingLookupQuerySchema.safeParse(input);

@@ -706,11 +706,11 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 | `run --rm --interactive=false migrate` | migrations собственной базы |
 | `run --rm -T community-restriction --preview < decision.json` | hold/restore по решению владельца, см. [course-activation.md](course-activation.md#разбор-ограничений-и-неизвестного-исхода) |
 | `run --rm -T activation-review --list` | очередь разбора неподтверждённых оснований, см. [course-activation.md](course-activation.md#подтверждение-статуса-прежних-участников) |
-| `run --rm -T activation-announcement --preview <sourceRef> <code>` | сообщение владельца с кнопкой активации в группе курса, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
+| `run --rm -T activation-announcement --preview < /protected/announcement.json` | личный образец владельцу с кнопкой активации, см. [course-activation.md](course-activation.md#кнопка-владельца-в-группе-курса) |
 | `run --rm -T -e TELEGRAM_WEBHOOK_URL=… webhook-registration --preview` | список обновлений webhook |
 
 Каждая команда вызывается как `"${telegram_compose[@]}" --profile operations …` и не открывает порты.
-`community-restriction` и `activation-review` видят только сеть базы, `activation-announcement` и
+`community-restriction` и `activation-review` видят только сеть базы. `activation-announcement` видит базу и egress;
 `webhook-registration` — только внешнюю сеть.
 
 ## Совместная выкладка с Platform

@@ -6,6 +6,7 @@ import activationFixtures from "../../../../docs/contracts/subscription-activati
 import communitySchema from "../../../../docs/contracts/community-v2/schema.json" with { type: "json" };
 import communityFixtures from "../../../../docs/contracts/community-v2/fixtures.json" with { type: "json" };
 import {
+  announcementQuerySchema,
   bindingLookupQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
@@ -13,6 +14,7 @@ import {
   redeemInvitationSchema,
 } from "../../src/modules/account-rights/index.js";
 import {
+  announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
@@ -29,6 +31,8 @@ import {
 } from "../../src/modules/telegram-membership/domain/community-entitlement.js";
 import { z } from "zod";
 const activationCodecs: Record<string, z.ZodType> = {
+  announcementQuery: announcementQuerySchema,
+  announcementResponse: announcementResponseSchema,
   begin: beginActivationSchema,
   evidence: activationEvidenceSchema,
   ownAccessQuery: ownSubscriptionAccessQuerySchema,

@@ -116,3 +116,5 @@ export {
   type AccessGround,
   type AccessSource,
 } from "./domain/access-roster.js";
+
+export { announcementQuerySchema } from "./domain/activation-announcement.js";

@@ -424,6 +424,26 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           ),
         };
       }),
+    /** Read-only metadata for an owner sample; never creates an activation attempt. */
+    async readAnnouncementRule(code: string) {
+      const now = clock();
+      const rule = await prisma.activationRule.findUnique({ where: { code } });
+      if (
+        rule === null ||
+        !rule.published ||
+        rule.verificationMode !== "course_membership" ||
+        rule.startsAt > now ||
+        (rule.endsAt !== null && rule.endsAt <= now)
+      )
+        return null;
+      return {
+        id: rule.id,
+        revision: rule.revision,
+        sourceRef: rule.sourceRef,
+        tierId: rule.tierId,
+        tierRevision: rule.tierRevision,
+      };
+    },
     async readActivationRule(ruleId: string) {
       if (!z.uuid().safeParse(ruleId).success) return null;
       const row = await prisma.activationRule.findUnique({

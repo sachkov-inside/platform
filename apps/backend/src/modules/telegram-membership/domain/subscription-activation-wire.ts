@@ -76,3 +76,25 @@ export const invitationRedeemResponseSchema = z.union([
     }),
   }),
 ]);
+
+/** Current trusted target of one published activation link, with no learner side effects. */
+export const announcementResponseSchema = z.union([
+  z.strictObject({
+    ok: z.literal(true),
+    value: z.strictObject({
+      contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),
+      rule: z.strictObject({
+        id: z.uuid(),
+        revision: z.int().positive(),
+        sourceRef: z.string().min(1).max(256),
+        productId: z.uuid(),
+      }),
+    }),
+  }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(["invalid_input", "policy_paused", "unavailable"]),
+    }),
+  }),
+]);

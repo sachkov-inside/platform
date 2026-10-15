@@ -76,6 +76,7 @@ function runGuardrail(root?: string) {
 }
 
 const currentTableOwners = {
+  activation_announcement_deliveries: "subscription-activation",
   activation_attempts: "subscription-activation",
   activation_review_requests: "subscription-activation",
   bot_contact_events: "bot-contacts",
