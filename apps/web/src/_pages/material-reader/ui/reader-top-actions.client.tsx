@@ -77,12 +77,15 @@ export function ReaderTopActions({
     breadcrumbs === undefined
   )
     return null;
-  const reading = readingAction ?? (
-    <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
-      <Circle aria-hidden="true" />
-      {materialReadingLabels(format).complete}
-    </Button>
-  );
+  const reading =
+    readingAction === undefined ? (
+      <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
+        <Circle aria-hidden="true" />
+        {materialReadingLabels(format).complete}
+      </Button>
+    ) : (
+      readingAction
+    );
   const bookmark = bookmarkAction ?? (
     <Button
       aria-label="Закладка недоступна"
@@ -137,7 +140,9 @@ export function ReaderTopActions({
                 </span>
               </IntentPrefetchLink>
             </div>
-            <div className={cn(styles["reading"])}>{reading}</div>
+            {reading == null ? null : (
+              <div className={cn(styles["reading"])}>{reading}</div>
+            )}
             <div className={cn(styles["bookmark"])}>{bookmark}</div>
             <div className={cn(styles["next"])}>
               <LessonArrow lesson={context.next} direction="next" />

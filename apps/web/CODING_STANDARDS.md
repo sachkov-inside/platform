@@ -252,6 +252,11 @@ At normal phone text size, keep this size contract. Enlarged text can reflow; ne
 Compact reading actions use the ghost button variant, with no visible border or filled pill.
 Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
 control and pager sizes; Reader and quiz stories enforce typography.
+For available Materials, keep the bookmark in the header and place the study action beside
+the contents disclosure. A subtle border and muted surface distinguish this study action.
+Its label uses 14 px on phones and desktop, alongside the contents label.
+Keep it outside the disclosure trigger. Repeat both actions after the Material's practice/workspace,
+before the course return or previous/next navigation. Both locations share saved state and failures.
 
 The reading button keeps its geometry and the reader's scroll position while saving. Use the
 shared fast motion token for press feedback and a crossfade between unread and saved icons;
@@ -290,9 +295,10 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
   Save, error, denial,
   unavailable, protected-body and standalone behavior remains unchanged.
-- Outside checked programme context, the upper lesson panel sits before metadata and the heading. On phones, both upper and lower
-  panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
-  text size. Allow reflow when text is enlarged. Both panels keep previous/next arrows at the left/right edges and the written reading action centred, with the same surface and controls
+- Outside checked programme context, the upper lesson panel sits before metadata and the heading.
+  Both panels retain lesson arrows, programme and bookmark. The study action sits beside the contents
+  and repeats in the lower panel. Allow reflow when text is enlarged. Both panels keep previous/next
+  arrows at the left/right edges; the lower panel keeps the written reading action centred
   on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
   its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat

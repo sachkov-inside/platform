@@ -410,13 +410,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
-  for (const panelName of [
-    "Действия материала",
-    "Действия в конце материала",
+  for (const panel of [
+    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
-    const action = page
-      .getByRole("navigation", { name: panelName, exact: true })
-      .locator("[data-reading-action-state]");
+    const action = panel.locator("[data-reading-action-state]");
     await expect(
       action,
       "действие чтения гидрировано и получило ответ /auth/status",
@@ -505,13 +506,14 @@ test("requires sign-in to save a video reading mark and does not create anonymou
     }
   });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  for (const panelName of [
-    "Действия материала",
-    "Действия в конце материала",
+  for (const panel of [
+    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
-    const action = page
-      .getByRole("navigation", { name: panelName, exact: true })
-      .locator("[data-reading-action-state]");
+    const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveAttribute(
       "data-reading-action-state",
       "anonymous",
@@ -528,7 +530,7 @@ test("requires sign-in to save a video reading mark and does not create anonymou
     ).toHaveCount(0);
   }
   const signIn = page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("group", { name: "Отметка изучения", exact: true })
     .getByRole("link", { name: "Просмотрено", exact: true });
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
@@ -615,7 +617,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
   await onboardingDismiss.click();
   const markWatched = page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("group", { name: "Отметка изучения", exact: true })
     .getByRole("button", { name: "Просмотрено", exact: true });
   const watchedAtBottom = page
     .getByRole("navigation", {

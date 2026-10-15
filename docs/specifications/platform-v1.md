@@ -431,9 +431,13 @@ units. Identical case-sensitive labels connect entries within that Series only; 
 stored order or group entity. Current membership owns the label. Published projections enrich only
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
-Reader outside checked programme context keeps its existing return controls. Within a checked Product,
-Reader and Product Task share Course B: a 272 px chapter rail, one metadata/action row and a named
-previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count.
+Reader outside checked programme context keeps its existing collection return controls. Available
+Materials keep the bookmark in the header and place the study action beside the contents disclosure.
+Both actions repeat at the end and share saved state, pending commands and failure handling.
+Within a checked Product,
+Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
+The Material's bottom actions follow any practice workspace and precede course navigation.
+Its header uses the authored chapter ordinal and per-chapter mixed position/count.
 A primary Material receives its course frame from explicit membership in an actual Product chapter.
 A supplementary Material opened from a primary lesson or Task keeps that originating step as its course anchor.
 The displayed document, primary course anchor and browser return entry remain distinct values.

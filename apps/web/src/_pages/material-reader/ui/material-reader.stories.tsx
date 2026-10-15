@@ -631,7 +631,7 @@ export const Mobile: Story = {
     docs: {
       description: {
         story:
-          "The contents row toggles its outline through the native summary, without a separate action label.",
+          "The contents disclosure and study action use separate keyboard controls.",
       },
     },
   },
@@ -671,12 +671,16 @@ export const Mobile: Story = {
     await expect(getComputedStyle(readerBody).lineHeight).toBe("24.75px");
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
-      const mark = within(panel).getByRole("link", { name: "Изучено" });
-      await expect(getComputedStyle(mark).fontSize).toBe("12px");
-      await expect(mark.getBoundingClientRect().height).toBe(36);
-      await expect(
-        parseFloat(getComputedStyle(mark, "::after").height),
-      ).toBeGreaterThanOrEqual(44);
+      const mark = within(panel).queryByRole("link", { name: "Изучено" });
+      if (name === "Действия материала") await expect(mark).toBeNull();
+      else {
+        if (mark === null) throw new Error("Bottom study action missing");
+        await expect(getComputedStyle(mark).fontSize).toBe("12px");
+        await expect(mark.getBoundingClientRect().height).toBe(36);
+        await expect(
+          parseFloat(getComputedStyle(mark, "::after").height),
+        ).toBeGreaterThanOrEqual(44);
+      }
       const bookmark = within(panel).getByRole("link", { name: "В закладки" });
       await expect(bookmark.getBoundingClientRect().width).toBe(44);
       await expect(
@@ -796,7 +800,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          "The contents row toggles its outline through the native summary, without a separate action label.",
+          "The contents disclosure and study action use separate keyboard controls.",
       },
     },
   },
@@ -804,9 +808,10 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
+    await userEvent.click(canvas.getByLabelText("Содержание: 2"));
     await expect(
       canvas.getByRole("navigation", { name: "В этом материале" }),
-    ).toBeInTheDocument();
+    ).toBeVisible();
     await expect(
       within(canvas.getByRole("main")).getAllByRole("link", {
         name: "Главная",

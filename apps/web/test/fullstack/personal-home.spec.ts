@@ -23,17 +23,21 @@ async function unmark(
   label: string,
   context: "standalone" | "course" = "standalone",
 ) {
-  for (const name of context === "course"
-    ? ["Действия материала"]
-    : ["Действия материала", "Действия в конце материала"]) {
-    const action = page
-      .getByRole("navigation", { name, exact: true })
-      .locator("[data-reading-action-state]");
+  for (const panel of [
+    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    context === "course"
+      ? page.locator("[data-reader-completion-actions]")
+      : page.getByRole("navigation", {
+          name: "Действия в конце материала",
+          exact: true,
+        }),
+  ]) {
+    const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveCount(1);
     await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   }
   const button = page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("group", { name: "Отметка изучения", exact: true })
     .getByRole("button", { name: label, exact: true });
   if ((await button.getAttribute("aria-pressed")) === "true") {
     await expectReadingMark(page, label, true, context);
@@ -49,12 +53,16 @@ async function expectReadingMark(
   pressed: boolean,
   context: "standalone" | "course" = "standalone",
 ) {
-  for (const name of context === "course"
-    ? ["Действия материала"]
-    : ["Действия материала", "Действия в конце материала"]) {
-    const action = page
-      .getByRole("navigation", { name, exact: true })
-      .locator("[data-reading-action-state]");
+  for (const panel of [
+    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    context === "course"
+      ? page.locator("[data-reader-completion-actions]")
+      : page.getByRole("navigation", {
+          name: "Действия в конце материала",
+          exact: true,
+        }),
+  ]) {
+    const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveCount(1);
     await expect(action).toHaveAttribute("data-reading-action-state", "ready");
     const button = action.getByRole("button", { name: label, exact: true });

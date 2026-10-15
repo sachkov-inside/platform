@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, List } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type {
@@ -43,6 +43,10 @@ import {
   type CourseReadingContext,
 } from "@/features/library-discovery";
 import { ReaderTopActions } from "./reader-top-actions.client";
+import {
+  ReaderOutline,
+  type ReaderOutlineItem as OutlineItem,
+} from "./reader-outline.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
@@ -69,12 +73,6 @@ export interface MaterialReaderViewProps {
   readonly modeSwitch?: ReactNode;
 }
 
-interface OutlineItem {
-  readonly id: string;
-  readonly label: string;
-  readonly level: 2 | 3 | 4;
-}
-
 /** Client-safe presentation shared by the production RSC route and Storybook. */
 export function MaterialReaderView({
   renderLink,
@@ -95,6 +93,8 @@ export function MaterialReaderView({
 }: MaterialReaderViewProps) {
   const anchors = materialSourceAnchors(body);
   const outline = collectOutline(body, [], anchors);
+  const endReadingAction = readingAction ?? topReadingAction;
+  const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
 
   return (
     <div
@@ -126,8 +126,8 @@ export function MaterialReaderView({
               ) : undefined
             }
             context={seriesContext}
-            readingAction={topReadingAction}
-            bookmarkAction={topBookmarkAction}
+            readingAction={null}
+            bookmarkAction={topBookmarkAction ?? bookmarkAction}
           />
         }
       >
@@ -136,12 +136,7 @@ export function MaterialReaderView({
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
-            actions={
-              <>
-                {topBookmarkAction ?? bookmarkAction}
-                {topReadingAction ?? readingAction}
-              </>
-            }
+            actions={topBookmarkAction ?? bookmarkAction}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -153,7 +148,10 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          <ReaderOutline items={outline} />
+          <ReaderOutline
+            items={outline}
+            readingAction={topReadingAction ?? readingAction}
+          />
           <article
             className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
             data-reader-body
@@ -185,7 +183,20 @@ export function MaterialReaderView({
                   readingAction={topReadingAction ?? readingAction}
                 />
               ) : (
-                <MaterialReaderFooter seriesContext={seriesContext} />
+                <>
+                  {endReadingAction == null &&
+                  endBookmarkAction == null ? null : (
+                    <nav
+                      aria-label="Действия в конце материала"
+                      className="mt-8 flex flex-wrap items-start justify-end gap-2 border-t border-border pt-4"
+                      data-reader-completion-actions
+                    >
+                      {endBookmarkAction}
+                      {endReadingAction}
+                    </nav>
+                  )}
+                  <MaterialReaderFooter seriesContext={seriesContext} />
+                </>
               )}
               {deferredPracticeActions === undefined ? null : (
                 <div
@@ -362,47 +373,6 @@ export function MaterialReaderFooter({
         format={format}
       />
     </footer>
-  );
-}
-
-function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  const links = items.map((item) => (
-    <li key={item.id}>
-      <a
-        className="flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
-        href={`#${item.id}`}
-      >
-        {item.label}
-      </a>
-    </li>
-  ));
-
-  return (
-    <div className="mt-6 border-y border-black/8 py-1 sm:mt-8 sm:py-2">
-      <details>
-        <summary
-          aria-label={`Содержание: ${String(items.length)}`}
-          className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
-        >
-          <span className="inline-flex items-center gap-2">
-            <List aria-hidden="true" className="size-4 text-action" />
-            Содержание · {items.length}
-          </span>
-        </summary>
-        <nav
-          aria-label="В этом материале"
-          className="border-t border-black/8 pb-2 pt-3"
-        >
-          <ul className="grid gap-2" role="list">
-            {links}
-          </ul>
-        </nav>
-      </details>
-    </div>
   );
 }
 

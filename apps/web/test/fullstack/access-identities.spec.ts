@@ -579,7 +579,7 @@ test("two separate Accounts cannot read or change each other's progress and book
     ] as const) {
       await viewer.goto(`/materials/${publishedMaterial.slug}`);
       const action = viewer
-        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .getByRole("group", { name: "Отметка изучения", exact: true })
         .locator("[data-reading-action-state]:visible");
       await expect(action).toHaveAttribute(
         "data-reading-action-state",
