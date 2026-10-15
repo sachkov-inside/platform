@@ -43,21 +43,23 @@ export async function readOwnProducts(
 > {
   if (!z.uuid().safeParse(targetAccountId).success)
     return accessFailure("invalid_input");
-  const { history, facts } = await prisma.$transaction(async (transaction) => {
+  const snapshot = await prisma.$transaction(async (transaction) => {
     await setAccessSnapshotIsolation(transaction);
     const history = await transaction.accessGrant.findMany({
-      where: { accountId: targetAccountId, startsAt: { lte: now } },
+      where: { accountId: targetAccountId },
       orderBy: [{ startsAt: "asc" }, { id: "asc" }],
       take: 1001,
     });
+    if (history.length > 1000) return null;
     const facts = await readAccessCapabilityFacts(
       transaction,
       accountId(targetAccountId),
       now,
     );
-    return { history, facts };
+    return { history: history.filter((grant) => grant.startsAt <= now), facts };
   });
-  if (history.length > 1000) return accessFailure("unavailable");
+  if (snapshot === null) return accessFailure("unavailable");
+  const { history, facts } = snapshot;
   const empty = { productIds: [], materialIds: [] };
   const scopes = history.map((grant) =>
     tariffCoverage(
@@ -106,6 +108,17 @@ export async function readOwnProducts(
           )
             return "available";
           const bridge = facts.classification;
+          if (
+            bridge?.bridgeBenefits.includes(capability) === true &&
+            scopeIncludesProduct(
+              coverageSchema.parse(bridge.bridgeCoverage ?? empty),
+              product.id,
+            ) &&
+            facts.exclusions.some(
+              (entry) => entry.productId === product.id && entry.bridge,
+            )
+          )
+            return "revoked";
           if (
             bridge?.bridgeEnabled === true &&
             bridge.bridgeBenefits.includes(capability) &&

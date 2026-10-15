@@ -32,6 +32,55 @@ beforeAll(async () => {
 });
 afterAll(async () => db.dispose());
 
+test("an excluded legacy Product reports the confirmed revocation without inventing provider expiry", async () => {
+  const accountId = randomUUID();
+  const productId = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: accountId,
+      logtoIssuer: "https://own-products.test",
+      logtoSubject: accountId,
+    },
+  });
+  await db.prisma.product.create({
+    data: { id: productId, slug: `legacy-${productId}`, name: "Legacy course" },
+  });
+  await db.prisma.legacyClassification.create({
+    data: {
+      accountId,
+      classification: "confirmed_legacy",
+      sourceRef: randomUUID(),
+      reason: "Legacy course fixture",
+      verifiedAt: now,
+      revision: 1,
+      bridgeEnabled: true,
+      bridgeBenefits: ["materials", "community"],
+      bridgeCoverage: { productIds: [productId], materialIds: [] },
+    },
+  });
+  await db.prisma.productAccessExclusion.create({
+    data: {
+      accountId,
+      productId,
+      grantIds: [],
+      bridge: true,
+      actorId: accountId,
+      reason: "Legacy course withdrawn",
+      revokedAt: now,
+    },
+  });
+  expect(await grants.readOwnProducts(accountId)).toMatchObject({
+    ok: true,
+    value: [
+      {
+        id: productId,
+        materials: { state: "revoked" },
+        community: { state: "revoked" },
+      },
+    ],
+  });
+});
+
 test("own Products retain expired and revoked rights and separate materials from community", async () => {
   const accountId = randomUUID();
   const otherAccountId = randomUUID();
