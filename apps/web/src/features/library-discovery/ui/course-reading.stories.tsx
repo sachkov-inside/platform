@@ -10,6 +10,7 @@ import {
   taskOnlyCourse,
 } from "@/storybook/course-reading.fixtures";
 import {
+  CourseTaskSubmissionStatuses,
   CourseReadingLayout,
   CourseReadingHeader,
   CourseReadingFooter,
@@ -328,5 +329,46 @@ export const SubmittedCurrentAssignment: Story = {
     await expect(getComputedStyle(link).backgroundColor).toBe(
       "rgba(0, 0, 0, 0)",
     );
+  },
+};
+
+export const StreamedTaskSubmissionStatuses: Story = {
+  render: function Streamed() {
+    const [personal, setPersonal] = useState(false);
+    return (
+      <CourseReadingLayout context={taskOnlyCourse}>
+        <button onClick={() => setPersonal(true)}>
+          Получить личные статусы
+        </button>
+        <button onClick={() => setPersonal(false)}>
+          Убрать личный контекст
+        </button>
+        {personal ? (
+          <CourseTaskSubmissionStatuses
+            courseHref={taskOnlyCourse.courseHref}
+            submittedTaskIds={[taskOnlyCourse.current.id]}
+          />
+        ) : null}
+        <p>Тело урока доступно до загрузки личных статусов.</p>
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Тело урока доступно до загрузки личных статусов."),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Получить личные статусы" }),
+    );
+    await expect(
+      canvasElement.querySelector('[data-task-submitted="true"]'),
+    ).not.toBeNull();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать личный контекст" }),
+    );
+    await expect(
+      canvasElement.querySelector('[data-task-submitted="true"]'),
+    ).toBeNull();
   },
 };

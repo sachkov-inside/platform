@@ -1588,11 +1588,15 @@ test("public course body renders while personal practice is held", async ({
       }),
       contentType: "application/json",
     });
+    // Private rail statuses may load independently; they must not hold the public body.
     expect(
-      requests.filter(
-        (item) => item.path.startsWith("/library/products/") && item.authorized,
-      ),
-    ).toEqual([]);
+      requests
+        .filter(
+          (item) =>
+            item.path.startsWith("/library/products/") && item.authorized,
+        )
+        .every((item) => item.path === "/library/products/navigation-proof"),
+    ).toBe(true);
     expect(
       requests.some(
         (item) => item.path.endsWith("/practices") && item.authorized,

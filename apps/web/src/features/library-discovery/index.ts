@@ -24,6 +24,7 @@ export {
   type CourseReadingStep,
 } from "./model/course-reading";
 export {
+  CourseTaskSubmissionStatuses,
   CourseReadingLayout,
   CourseReadingHeader,
   CourseReadingFooter,

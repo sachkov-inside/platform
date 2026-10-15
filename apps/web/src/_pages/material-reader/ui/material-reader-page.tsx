@@ -1,3 +1,5 @@
+import { CourseTaskSubmissionStatuses } from "@/features/library-discovery";
+import { productPath } from "@/shared/routing/public-page-path";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
@@ -136,7 +138,7 @@ export async function MaterialReaderPage({
   });
   if (
     material.kind === "available" &&
-    seriesContext === null &&
+    seriesContext?.series.hasModeVariants !== true &&
     anchor === undefined
   ) {
     return (
@@ -144,9 +146,17 @@ export async function MaterialReaderPage({
         productMode={defaultProductMode}
         hintSeen
         deferredPracticeActions={
-          <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
-            <PublicMaterialPractice slug={slug} />
-          </Suspense>
+          <>
+            <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
+              <PublicMaterialPractice slug={slug} />
+            </Suspense>
+            {productSlug === undefined ||
+            seriesContext?.programme == null ? null : (
+              <Suspense fallback={null}>
+                <PublicCourseTaskStatuses productSlug={productSlug} />
+              </Suspense>
+            )}
+          </>
         }
         result={material}
         returnTarget={effectiveReturnTarget}
@@ -173,6 +183,33 @@ export async function MaterialReaderPage({
         slug={slug}
       />
     </Suspense>
+  );
+}
+
+/** Private rail status streams separately from both the cached body and optional Practice. */
+async function PublicCourseTaskStatuses({
+  productSlug,
+}: {
+  readonly productSlug: string;
+}) {
+  await connection();
+  const token = await getOptionalPlatformAccessToken();
+  if (token === undefined) return null;
+  const series = await readReaderSeries(productSlug, token);
+  if (series.kind !== "ready" && series.kind !== "empty") return null;
+  return (
+    <CourseTaskSubmissionStatuses
+      courseHref={productPath(productSlug)}
+      submittedTaskIds={series.chapters.flatMap((chapter) =>
+        (chapter.tasks ?? [])
+          .filter(
+            (task) =>
+              task.availability === "available" &&
+              task.lastSubmittedAt !== null,
+          )
+          .map((task) => `task:${task.code}`),
+      )}
+    />
   );
 }
 

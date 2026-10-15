@@ -1,7 +1,16 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, ChevronRight, List, X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -19,6 +28,27 @@ import type {
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
 
+interface TaskSubmissionOverlay {
+  readonly courseHref: string;
+  readonly submittedTaskIds: readonly string[];
+}
+const TaskSubmissionStatusContext = createContext<Dispatch<
+  SetStateAction<TaskSubmissionOverlay | null>
+> | null>(null);
+
+/** An uncached server island supplies private status without delaying the public body. */
+export function CourseTaskSubmissionStatuses({
+  courseHref,
+  submittedTaskIds,
+}: TaskSubmissionOverlay) {
+  const update = useContext(TaskSubmissionStatusContext);
+  useEffect(() => {
+    update?.({ courseHref, submittedTaskIds });
+    return () => update?.(null);
+  }, [courseHref, submittedTaskIds, update]);
+  return null;
+}
+
 /** Shared course composition; routes retain ownership of body, access and mutations. */
 export function CourseReadingLayout({
   context,
@@ -29,20 +59,43 @@ export function CourseReadingLayout({
   readonly context: CourseReadingContext | null;
   readonly children: ReactNode;
 }) {
+  const [submissionOverlay, setSubmissionOverlay] =
+    useState<TaskSubmissionOverlay | null>(null);
   if (context === null)
     return <div className={styles["standalone"]}>{children}</div>;
+  const displayedContext =
+    submissionOverlay?.courseHref === context.courseHref
+      ? {
+          ...context,
+          chapters: context.chapters.map((chapter) => ({
+            ...chapter,
+            steps: chapter.steps.map((step) =>
+              step.kind === "task"
+                ? {
+                    ...step,
+                    taskSubmitted: submissionOverlay.submittedTaskIds.includes(
+                      step.id,
+                    ),
+                  }
+                : step,
+            ),
+          })),
+        }
+      : context;
   return (
-    <div className={styles["layout"]} data-course-reading>
-      <HidePublicFooter />
-      <CourseRail context={context} />
-      <div className={styles["document"]}>
-        <ProgrammeDialog
-          context={context}
-          supplementary={supplementaryTitle !== undefined}
-        />
-        {children}
+    <TaskSubmissionStatusContext.Provider value={setSubmissionOverlay}>
+      <div className={styles["layout"]} data-course-reading>
+        <HidePublicFooter />
+        <CourseRail context={displayedContext} />
+        <div className={styles["document"]}>
+          <ProgrammeDialog
+            context={displayedContext}
+            supplementary={supplementaryTitle !== undefined}
+          />
+          {children}
+        </div>
       </div>
-    </div>
+    </TaskSubmissionStatusContext.Provider>
   );
 }
 
