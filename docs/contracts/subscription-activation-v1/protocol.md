@@ -79,3 +79,14 @@ HTTP 200 returns `{"ok":true,"value":...}` with one `state`:
 Refusal states carry only `contractVersion` and `state`. `{"ok":false,"error":{"code":...}}` returns `invalid_input`, `identity_conflict` or `unavailable` (a dependency failed or an internal rule was broken). `identity_conflict` means that the identity is linked to several Accounts.
 
 The operation is idempotent by `(code, identityRef)`: a lost answer is retried with the same request. Claim and redemption commit in one transaction. Purchase redemption admits the Account to buy that Offer for good, including an Offer with eligibility `invitation_only`.
+
+## Private owner announcement metadata
+
+`POST /integrations/telegram/v1/subscription-activation/announcement` reads the current published
+activation rule using the existing activation bearer credential. `announcementQuery` and
+`announcementResponse` define the wire contract. Responses carry `Cache-Control: private, no-store`.
+The query contains only the activation code and contract version. Success identifies the rule,
+revision, registered source and single Product authorized by the current assignable Offer revision.
+Unpublished, paused, expired, future, ambiguous and stale rules return `policy_paused`.
+This read creates no learner attempt, identity binding or grant. The Telegram private announcement
+operation compares the supplied Product/source with this response before preview or delivery.

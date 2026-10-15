@@ -320,10 +320,33 @@ function attempts(user: number) {
 /** The `/start` a member sends after pressing the owner's button in the course group. */
 async function pressButton(code: string) {
   const result = await announceActivation(
-    { activation: config.activation, sourceRef: "course", code, send: false },
+    {
+      activation: config.activation,
+      sourceRef: "course",
+      productId: "course-product",
+      text: "Текст владельца",
+      privateChatId: "1234",
+      operationId: "preview",
+      code,
+      send: false,
+    },
     {
       botUsername: () => Promise.resolve("inside_test_bot"),
+      privateChat: () => Promise.resolve(true),
       sendText: () => Promise.reject(new Error("A preview sends nothing")),
+    },
+    {
+      resolve: () =>
+        Promise.resolve({
+          sourceRef: "course",
+          productId: "course-product",
+        }),
+    },
+    {
+      claim: () => {
+        throw new Error("Preview claims nothing");
+      },
+      complete: () => Promise.resolve(),
     },
   );
   if (result.status !== "ready") throw new Error(result.status);

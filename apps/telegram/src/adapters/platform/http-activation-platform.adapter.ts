@@ -1,3 +1,4 @@
+import { validAnnouncementResponse } from "../../modules/subscription-activation/announcement-contract.js";
 import { readBoundedJson } from "./read-bounded-json.js";
 import {
   validBindingResponse,
@@ -26,6 +27,16 @@ export class HttpActivationPlatform implements ActivationPlatform {
     private readonly secret: string,
     private readonly fetcher: typeof fetch = fetch,
   ) {}
+  async resolve(
+    code: string,
+  ): Promise<{ sourceRef: string; productId: string } | undefined> {
+    const result = await this.post(
+      "announcement",
+      { contractVersion: ACTIVATION_VERSION, code },
+      validAnnouncementResponse,
+    );
+    return result?.ok === true ? result.value.rule : undefined;
+  }
   binding(identityRef: string): Promise<BindingResponse | undefined> {
     return this.post(
       "binding",

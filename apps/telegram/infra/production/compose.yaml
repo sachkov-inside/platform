@@ -43,11 +43,11 @@ services:
     profiles: [operations]
     restart: "no"
 
-  # Owner's button in a course group: run --rm -T activation-announcement --preview <sourceRef> <code>
+  # Private owner sample: run --rm -T activation-announcement --preview < /protected/announcement.json
   activation-announcement:
     <<: *runtime
     entrypoint: [node, dist/operations/activation-announcement-cli.js]
-    networks: [egress]
+    networks: [database, egress]
     profiles: [operations]
     restart: "no"
 

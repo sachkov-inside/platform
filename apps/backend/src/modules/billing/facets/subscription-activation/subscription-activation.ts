@@ -3,6 +3,8 @@ import {
   productIdFromCapability,
 } from "@inside/access-capabilities";
 import type { CoverageCatalog } from "../../../account-rights/index.js";
+  }
+import { readActivationAnnouncement } from "./read-activation-announcement.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -99,6 +101,9 @@ export class SubscriptionActivation {
     if (product === undefined || products.length !== 1) return null;
     if (product.slug === null) return null;
     return { id: product.id, slug: product.slug, name: product.title };
+  }
+  async announcement(input: unknown) {
+    return readActivationAnnouncement(this.dependencies, input);
   }
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
   async lookupBinding(input: unknown) {
