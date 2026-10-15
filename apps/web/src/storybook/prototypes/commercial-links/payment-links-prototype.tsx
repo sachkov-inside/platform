@@ -186,7 +186,9 @@ export function PaymentLinksPrototype({
         inputMode="decimal"
         required
         value={value}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => {
+          setValue(event.target.value);
+        }}
         disabled={created}
         aria-describedby="price-help"
       />
@@ -204,7 +206,9 @@ export function PaymentLinksPrototype({
             name="expiration"
             type="datetime-local"
             value={expiration}
-            onChange={(event) => setExpiration(event.target.value)}
+            onChange={(event) => {
+              setExpiration(event.target.value);
+            }}
             disabled={created}
           />
           <p>Без даты ссылка действует до одной успешной покупки или отзыва.</p>
@@ -231,7 +235,12 @@ export function PaymentLinksPrototype({
               : "Выберите продукт и согласованную цену. Публичная цена останется прежней."}
           </p>
         </div>
-        <Button variant="outline" onClick={() => setBuyer(!buyer)}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setBuyer(!buyer);
+          }}
+        >
           {buyer ? "Вид владельца" : "Вид покупателя"}
         </Button>
       </header>
@@ -252,7 +261,11 @@ export function PaymentLinksPrototype({
                     : `Действует до ${expiration.replace("T", " ")} (Москва).`}
                 </p>
                 {!signedIn ? (
-                  <Button onClick={() => setSignedIn(true)}>
+                  <Button
+                    onClick={() => {
+                      setSignedIn(true);
+                    }}
+                  >
                     Войти для покупки
                   </Button>
                 ) : (
@@ -262,7 +275,9 @@ export function PaymentLinksPrototype({
                       <input
                         type="checkbox"
                         checked={accepted}
-                        onChange={(event) => setAccepted(event.target.checked)}
+                        onChange={(event) => {
+                          setAccepted(event.target.checked);
+                        }}
                       />{" "}
                       Принимаю оферту и условия покупки
                     </label>
@@ -276,7 +291,9 @@ export function PaymentLinksPrototype({
                     </details>
                     <Button
                       disabled={!accepted || !valid}
-                      onClick={() => setState("pending")}
+                      onClick={() => {
+                        setState("pending");
+                      }}
                     >
                       Перейти к оплате {valid ? money(amount) : ""}
                     </Button>
@@ -294,11 +311,11 @@ export function PaymentLinksPrototype({
               <>
                 <p>Банк подтвердил оплату. Доступ к продукту готов.</p>
                 <Button
-                  onClick={() =>
+                  onClick={() => {
                     setMessage(
                       "В реализации откроется купленный продукт с программой и шагами подключения Telegram.",
-                    )
-                  }
+                    );
+                  }}
                 >
                   Открыть продукт
                 </Button>
@@ -340,20 +357,31 @@ export function PaymentLinksPrototype({
                 <Button
                   onClick={() => {
                     void navigator.clipboard.writeText(link).then(
-                      () => setCopied(true),
-                      () => setMessage("Скопируйте ссылку вручную из поля."),
+                      () => {
+                        setCopied(true);
+                      },
+                      () => {
+                        setMessage("Скопируйте ссылку вручную из поля.");
+                      },
                     );
                   }}
                 >
                   {copied ? "Скопировано" : "Скопировать ссылку"}
                 </Button>
-                <Button variant="outline" onClick={() => setBuyer(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBuyer(true);
+                  }}
+                >
                   Посмотреть оформление
                 </Button>
                 <Button
                   variant="destructive"
                   disabled={!available}
-                  onClick={() => setState("revoked")}
+                  onClick={() => {
+                    setState("revoked");
+                  }}
                 >
                   Отозвать ссылку
                 </Button>
@@ -381,7 +409,19 @@ export function PaymentLinksPrototype({
           value={state}
           onChange={(event) => {
             const next = event.target.value;
-            if (next in states) setState(next as LinkState);
+            const knownStates: LinkState[] = [
+              "active",
+              "pending",
+              "unknown",
+              "paid",
+              "revoked",
+              "expired",
+              "failed",
+            ];
+            const selected = knownStates.find(
+              (candidate) => candidate === next,
+            );
+            if (selected !== undefined) setState(selected);
           }}
         >
           {Object.entries(states).map(([key, label]) => (
@@ -421,7 +461,9 @@ export function PaymentLinksPrototype({
           <Button
             variant="ghost"
             aria-label="Предыдущий вариант"
-            onClick={() => changeVariant(-1)}
+            onClick={() => {
+              changeVariant(-1);
+            }}
           >
             <ArrowLeft aria-hidden="true" />
           </Button>
@@ -431,7 +473,9 @@ export function PaymentLinksPrototype({
           <Button
             variant="ghost"
             aria-label="Следующий вариант"
-            onClick={() => changeVariant(1)}
+            onClick={() => {
+              changeVariant(1);
+            }}
           >
             <ArrowRight aria-hidden="true" />
           </Button>
