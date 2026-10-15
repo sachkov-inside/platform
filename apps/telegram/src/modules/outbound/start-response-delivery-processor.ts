@@ -28,10 +28,15 @@ export class StartResponseDeliveryProcessor {
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
   ) {}
 
+  async processSource(sourceKey:string):Promise<number> {
+    return this.processAvailable(1,undefined,undefined,sourceKey);
+  }
+
   async processAvailable(
     limit = 50,
     now?: Date,
     signal?: AbortSignal,
+    sourceKey?:string,
   ): Promise<number> {
     let processed = 0;
     for (; processed < limit && !isTruthy(signal?.aborted); processed += 1) {
@@ -39,12 +44,13 @@ export class StartResponseDeliveryProcessor {
       const delivery = await this.queue.claimNext(
         attemptedAt,
         this.config.signInEnabled === true,
+        sourceKey,
       );
       if (!delivery) {
         break;
       }
 
-      const result = hasText(delivery.editMessageId)
+      let result = hasText(delivery.editMessageId)
         ? await this.messages.editText({
             chatId: delivery.privateChatId,
             messageId: delivery.editMessageId,
@@ -70,6 +76,9 @@ export class StartResponseDeliveryProcessor {
                 }
               : {}),
           });
+      if(delivery.editMessageId && result.kind === "api_rejected" && result.providerErrorCode === 400) {
+        result = await this.messages.sendText({chatId:delivery.privateChatId,text:delivery.messageText,...(delivery.buttons?{buttons:delivery.buttons}:{})});
+      }
       if (!(await this.queue.recordResult(delivery, result, now ?? new Date())))
         reportCondition("outbound.delivery", "lease_lost", {
           delivery_id: delivery.id,

@@ -84,6 +84,7 @@ async function createFixture() {
     onSourceCheck: undefined as (() => Promise<void>) | undefined,
     source: "member" as "member" | "not_member" | "unavailable",
     bindingUnavailable: false,
+    products: [{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering",programmeUrl:"https://sachkov.dev/products/ai-engineering/programme",materials:{state:"available" as const},community:{state:"available" as const}}],
   };
   const rule = { id: randomUUID(), revision: 1, sourceRef: "course" };
   const platform: ActivationPlatform = {
@@ -172,6 +173,7 @@ async function createFixture() {
         ok: true,
         value: {
           contractVersion: ACTIVATION_VERSION,
+          products: state.products,
           enrollments: [],
           grounds: [],
           admission: { state: "no_access", admissionRestriction: "none" },
@@ -293,6 +295,52 @@ async function createFixture() {
 }
 
 describe("durable activation ingress, identity and continuation", () => {
+  it("lists linked Products by name and exposes separate current rights in a selected card", async ({activation}) => {
+    await activation.ingress(70103, "/start");
+    await activation.link(70103);
+    await activation.ingress(70103, "/start");
+    const queue = activation.app.get(StartResponseDeliveryQueue);
+    let reply;
+    for(let i=0;i<4;i++) { const next = await queue.claimNext(activation.clock.now()); if(!next) break; reply=next; await queue.recordResult(next,{kind:"delivered",providerMessageId:String(i+1)},activation.clock.now()); }
+    expect(reply?.messageText).toBe("Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.");
+    expect(reply?.buttons).toContainEqual({text:"AI Engineering",callbackData:"access:product:11111111-1111-4111-8111-111111111111"});
+    await activation.worker.action({botIdentity:activation.bot,telegramUserId:"70103",privateChatId:"70103",updateId:"9999999",observedAt:activation.clock.now()},"product","11111111-1111-4111-8111-111111111111");
+    const card = await queue.claimNext(activation.clock.now());
+    expect(card?.messageText).toBe("AI Engineering\n\nМатериалы доступны. Вы можете вступить в группу курса.");
+    expect(card?.buttons).toContainEqual({text:"Открыть курс",url:"https://sachkov.dev/products/ai-engineering/programme"});
+  });
+
+  it("verifies the source before browser linking and retains the exact activation attempt", async ({activation}) => {
+    let verified = false;
+    activation.state.onSourceCheck = async () => { verified = true; };
+    await activation.ingress(70102, "/start a_course");
+    expect(verified).toBe(true);
+    const replies = activation.app.get(StartResponseDeliveryQueue);
+    const reply = await replies.claimNext(activation.clock.now());
+    expect(reply?.messageText).toContain("подтверждено");
+    expect(reply?.buttons).toContainEqual({text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${activation.begins[0]}`});
+    await activation.link(70102);
+    activation.clock.value = new Date(activation.clock.now().getTime() + 1000);
+    await activation.worker.processAvailable();
+    expect(activation.granted.size).toBe(1);
+    expect(activation.proofs.at(-1)?.attemptId).toBe(activation.begins[0]);
+  });
+
+  it("shows ordinary start without creating an Account or checking activation", async ({ activation }) => {
+    await activation.ingress(70101, "/start");
+    const reply = await activation.app.get(StartResponseDeliveryQueue).claimNext(activation.clock.now());
+    expect(reply).toMatchObject({
+      messageText: "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+      buttons: [
+        { text: "Открыть платформу", url: "https://sachkov.dev" },
+        { text: "Уже есть аккаунт", url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess" },
+        { text: "Помощь", callbackData: "access:help" },
+      ],
+    });
+    expect(activation.begins).toEqual([]);
+    expect(activation.granted.size).toBe(0);
+  });
+
   it("keeps the same source identity across linking, two links and concurrent workers", async ({
     activation,
   }) => {

@@ -1,5 +1,4 @@
 import { isProductCapability } from "@inside/access-capabilities";
-import { hasText } from "../../shared/text.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import type {
   OwnAccess,
@@ -23,7 +22,7 @@ const OUTSIDE_COURSE_GROUP =
 /** Tells the person that an unconfirmed ground is now in the owner's review queue. */
 export const OWNER_REVIEW = "Запрос передан автору курса.";
 export function activationMenu(
-  accountUrl: string,
+  _accountUrl: string,
   result?: ActivationResult<ActivationResponse>,
   code?: string,
 ): readonly TelegramButton[] {
@@ -31,11 +30,11 @@ export function activationMenu(
     result?.ok === true &&
     ["active", "already_active"].includes(result.value.state)
   ) {
+    const product = result.value.rule?.product;
     return [
-      { text: "Открыть платформу", url: accountUrl },
-      ...(result.value.enrollment?.tier.benefits.includes("community") === true
-        ? [{ text: "Чат курса", callbackData: "access:community" }]
-        : []),
+      ...(product ? [{text:"Открыть курс",url:`https://sachkov.dev/products/${product.slug}/programme`},{text:"Вступить в группу",callbackData:`access:community:${product.id}`}] : [{text:"Открыть платформу",url:"https://sachkov.dev"}]),
+      {text:"Помощь",callbackData:product ? `access:help:${product.id}` : "access:help"},
+      {text:"Мои продукты",callbackData:"access:own"},
     ];
   }
   const help: TelegramButton = { text: "Помощь", callbackData: "access:help" };
@@ -57,21 +56,17 @@ export function activationMenu(
   ];
 }
 export function accountPrompt(
-  accountUrl: string,
-  code?: string,
+  _accountUrl: string,
+  _code?: string,
 ): {
   text: string;
   buttons: readonly TelegramButton[];
 } {
   return {
-    text: "Чтобы открыть курс, войдите на платформу и привяжите Telegram в аккаунте.",
+    text: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
     buttons: [
-      { text: "Войти на платформу", url: accountUrl },
-      {
-        text: "Проверить доступ",
-        callbackData:
-          code === undefined ? "access:retry" : `access:retry:${code}`,
-      },
+      {text:"Продолжить на платформе",url:"https://sachkov.dev/account/access"},
+      {text:"Помощь",callbackData:"access:help"},
     ],
   };
 }
@@ -89,12 +84,12 @@ export function activationMessage(
   if (!result.ok) {
     const messages: Partial<Record<string, string>> = {
       policy_paused:
-        "Активация по этой ссылке приостановлена. Напишите автору курса.",
+        "Получение доступа по этой ссылке сейчас недоступно.",
       identity_conflict:
         "Не удалось связать Telegram с аккаунтом. Напишите автору курса.",
       source_not_confirmed: `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`,
       not_found:
-        "Ссылка активации не найдена. Попросите новую ссылку у автора курса.",
+        "Получение доступа по этой ссылке сейчас недоступно.",
       revision_conflict:
         "Условия доступа обновились. Нажмите «Проверить ещё раз».",
     };
@@ -106,12 +101,8 @@ export function activationMessage(
   switch (result.value.state) {
     case "active":
     case "already_active": {
-      const heading =
-        result.value.state === "active"
-          ? "Доступ к курсу открыт"
-          : "Доступ к курсу уже открыт";
-      const name = result.value.enrollment?.tier.name;
-      return `${heading}\n\n${hasText(name) ? `${name}\n` : ""}Материалы доступны на платформе.`;
+      const name = result.value.rule?.product?.name ?? result.value.enrollment?.tier.name ?? "Курс";
+      return `${name}\n\nКурс доступен. Открывайте материалы и присоединяйтесь к группе курса.`;
     }
     case "pending_review":
       if (result.value.enrollment && result.value.enrollment.state !== "active")

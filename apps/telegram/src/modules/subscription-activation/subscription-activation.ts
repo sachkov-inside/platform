@@ -1,3 +1,7 @@
+import {StartResponseDeliveryProcessor} from "../outbound/start-response-delivery-processor.js";
+import {productList,productCard,helpScreen,courseButton,SUPPORT_URL,type LearnerScreen} from "./learner-view.js";
+import {Optional} from "@nestjs/common";
+import {AUTHOR_AUTHORIZATION,type AuthorAuthorization} from "../communications/author-authorization.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -36,7 +40,6 @@ import {
   activationMessage,
   asksToWriteAuthor,
   OWNER_REVIEW,
-  ownAccessText,
 } from "./activation-view.js";
 import type { ActivationTables, GroundOutcome } from "./activation-storage.js";
 import { reportFailure } from "../../shared/failure-diagnostics.js";
@@ -52,7 +55,7 @@ const expirableAttempt = sql<boolean>`(coalesce(
   (evidence is null and result is null)
   or result->>'ok' = 'false'
   or result->'value'->>'state' in ('unavailable', 'checking', 'needs_account', 'pending_review'), false))`;
-export type AccessAction = "own" | "community" | "retry" | "help" | "platform";
+export type AccessAction = "own" | "product" | "community" | "retry" | "help" | "help_missing" | "help_group" | "help_signin" | "platform";
 
 /** Durable Telegram continuation; Account and every grant remain Platform-owned. */
 @Injectable()
@@ -66,6 +69,8 @@ export class SubscriptionActivation {
     @Inject(StartResponseDeliveryQueue)
     private readonly replies: StartResponseDeliveryQueue,
     @Inject(CommunityProvider) private readonly community: CommunityProvider,
+    @Optional() @Inject(AUTHOR_AUTHORIZATION) private readonly authors?:AuthorAuthorization,
+    @Optional() @Inject(StartResponseDeliveryProcessor) private readonly outbound?:StartResponseDeliveryProcessor,
   ) {}
 
   async start(
@@ -118,7 +123,21 @@ export class SubscriptionActivation {
   }
 
   /** `onlyCode` limits a retry to one rule, as an owner link does. */
-  async action(
+  async action(contact:VerifiedPrivateStart,action:AccessAction,onlyCode?:string):Promise<void> {
+    if(action !== "community") return this.performAction(contact,action,onlyCode);
+    const progressKey = `access-progress:${contact.botIdentity}:${contact.updateId}`;
+    await this.replies.enqueue({...this.delivery(contact,"Проверяем доступ к группе…"),sourceKey:progressKey});
+    await this.flush(progressKey);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const work = this.performAction(contact,action,onlyCode);
+    try {
+      await Promise.race([work,new Promise<void>(resolve=>{timer=setTimeout(()=>{void this.screen(contact,{text:"Не удалось проверить доступ. Попробуйте ещё раз.",buttons:[{text:"Повторить",callbackData:onlyCode?`access:community:${onlyCode}`:"access:own"},{text:"Помощь",callbackData:onlyCode?`access:help:${onlyCode}`:"access:help"}]}).then(resolve);},10000);})]);
+    } finally { if(timer) clearTimeout(timer); }
+    // Committed provider facts may finish later; the result source key prevents a second answer.
+    void work.catch(error=>reportFailure("activation.action",error));
+  }
+
+  private async performAction(
     contact: VerifiedPrivateStart,
     action: AccessAction,
     onlyCode?: string,
@@ -131,11 +150,8 @@ export class SubscriptionActivation {
       );
       return;
     }
-    if (action === "help") {
-      await this.reply(
-        contact,
-        "Не получается открыть курс?\n\nНапишите автору курса и приложите скриншот ответа бота.",
-      );
+    if (action.startsWith("help")) {
+      await this.screen(contact, helpScreen(action,onlyCode));
       return;
     }
     if (action === "platform") {
@@ -155,29 +171,6 @@ export class SubscriptionActivation {
           contact.telegramUserId,
         ),
       );
-    const lookup = await this.platform.binding(identity);
-    if (!lookup || !lookup.ok) {
-      await this.reply(
-        contact,
-        lookup?.error.code === "identity_conflict"
-          ? "Связь аккаунта требует помощи владельца. Проверка остановлена; аккаунты не объединяются."
-          : "Платформа временно не отвечает. Повторите проверку позже.",
-        onlyCode,
-      );
-      return;
-    }
-    if (lookup.value.state === "unlinked") {
-      const prompt = accountPrompt(config.accountUrl, onlyCode);
-      await this.replies.enqueue({
-        ...this.delivery(contact, prompt.text),
-        buttons: prompt.buttons,
-      });
-      return;
-    }
-    if (lookup.value.binding.identityRef !== identity) {
-      await this.reply(contact, "Связь аккаунта требует проверки владельца.");
-      return;
-    }
     if (action === "retry") {
       await this.db.transaction().execute(async (tx) => {
         let query = tx
@@ -195,34 +188,43 @@ export class SubscriptionActivation {
         telegramUserId: contact.telegramUserId,
         ...(onlyCode === undefined ? {} : { code: onlyCode }),
       });
-      let failures = this.db
-        .selectFrom("activation_attempts")
-        .select("state")
-        .where("bot_identity", "=", contact.botIdentity)
-        .where("telegram_user_id", "=", contact.telegramUserId)
-        .where("state", "in", ["retry", "needs_account"])
-        .where("lease_token", "is", null)
-        .where("diagnostic_code", "is not", null)
-        .where("result", "is", null);
-      if (onlyCode !== undefined)
-        failures = failures.where("code", "=", onlyCode);
-      const failure = await failures.executeTakeFirst();
-      if (failure?.state === "needs_account") {
-        const prompt = accountPrompt(config.accountUrl, onlyCode);
-        await this.replies.enqueue({
-          ...this.delivery(contact, prompt.text),
-          buttons: prompt.buttons,
-        });
-      } else if (failure) {
-        await this.reply(
-          contact,
-          "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.",
-          onlyCode,
-        );
-      }
       return;
     }
-    const access = await this.platform.own(lookup.value.binding);
+    const lookup = await this.platform.binding(identity);
+    if (!lookup || !lookup.ok) {
+      await this.reply(
+        contact,
+        lookup?.error.code === "identity_conflict"
+          ? "Связь аккаунта требует помощи владельца. Проверка остановлена; аккаунты не объединяются."
+          : "Платформа временно не отвечает. Повторите проверку позже.",
+        onlyCode,
+      );
+      return;
+    }
+    if (lookup.value.state === "unlinked" && action === "own") {
+      await this.replies.enqueue({
+        ...this.delivery(contact, "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы."),
+        buttons: [
+          { text: "Открыть платформу", url: "https://sachkov.dev" },
+          { text: "Уже есть аккаунт", url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess" },
+          { text: "Помощь", callbackData: "access:help" },
+        ],
+      });
+      return;
+    }
+    if (lookup.value.state === "unlinked") {
+      const prompt = accountPrompt(config.accountUrl, onlyCode);
+      await this.replies.enqueue({
+        ...this.delivery(contact, prompt.text),
+        buttons: prompt.buttons,
+      });
+      return;
+    }
+    if (lookup.value.binding.identityRef !== identity) {
+      await this.reply(contact, "Связь аккаунта требует проверки владельца.");
+      return;
+    }
+    const access = await this.platform.own(lookup.value.binding, action === "community");
     if (!isTruthy(access?.ok)) {
       await this.reply(
         contact,
@@ -233,40 +235,44 @@ export class SubscriptionActivation {
       return;
     }
     if (action === "own") {
-      await this.reply(contact, ownAccessText(access.value));
+      const author = await this.authors?.authorize({kind:"telegram",accountRef:lookup.value.binding.accountRef,telegramIdentityRef:identity,botIdentity:contact.botIdentity});
+      await this.screen(contact, productList(access.value.products ?? [],author === "allowed"));
       return;
     }
-    if (access.value.admission.state !== "ready") {
-      await this.reply(
-        contact,
-        access.value.admission.admissionRestriction === "moderation" ||
-          access.value.admission.admissionRestriction === "external_unknown" ||
-          access.value.admission.state === "moderation_blocked"
-          ? "Вступление ограничено. Обратитесь к владельцу; право на материалы сохраняется."
-          : access.value.admission.state === "checking"
-            ? "Состояние сообщества уточняется. Повторите запрос через минуту."
-            : "Сейчас нет действующего права на сообщество.",
-      );
+    const product = access.value.products?.find(item => item.id === onlyCode);
+    if (!product) {
+      await this.screen(contact,{text:"Не удалось проверить доступ. Попробуйте ещё раз.",buttons:[{text:"Повторить",callbackData:"access:own"},{text:"Помощь",callbackData:"access:help"}]});
       return;
     }
-    if (this.config.communityMode !== "live") {
-      await this.reply(
-        contact,
-        "Вступление пока не включено. Открыть материалы можно на платформе.",
-      );
+    if(action === "product") {
+      const admission = await this.community.currentAdmission(contact.telegramUserId);
+      const card = productCard(product,admission);
+      const groupUrl = this.community.groupUrl();
+      await this.screen(contact,{...card,buttons:[...courseButton(product),...(admission.kind === "member" && groupUrl && product.community.state === "available" ? [{text:"Открыть группу",url:groupUrl}] : []),...card.buttons.slice(courseButton(product).length)]});
       return;
     }
-    const admission = await this.community.admissionFor(contact.telegramUserId);
-    await this.reply(
-      contact,
-      admission.kind === "link"
-        ? `Личная ссылка на вступление (действует несколько минут):\n${admission.inviteLink}`
-        : admission.kind === "member"
-          ? "Вы уже в чате курса."
-          : admission.kind === "moderation_blocked"
-            ? "Вступление требует проверки владельца."
-            : "Готовим вступление. Повторите запрос через минуту.",
-    );
+    if (product.community.state !== "available") {
+      await this.screen(contact,productCard(product,{kind:"none"}));
+      return;
+    }
+    const admission = this.config.communityMode === "live" ? await this.community.requestAdmission(contact.telegramUserId) : {kind:"preparing" as const};
+    const back:TelegramButton = {text:"Назад к продукту",callbackData:`access:product:${product.id}`};
+    const groupUrl = this.community.groupUrl();
+    const buttons:TelegramButton[] = [...courseButton(product),back];
+    if(admission.kind === "link") buttons.unshift({text:"Вступить в группу",url:admission.inviteLink});
+    if(admission.kind === "member" && groupUrl) buttons.unshift({text:"Открыть группу",url:groupUrl});
+    if(admission.kind === "moderation_blocked") buttons.unshift({text:"Написать в поддержку",url:SUPPORT_URL});
+    if(admission.kind === "preparing" || admission.kind === "none") buttons.unshift({text:"Повторить",callbackData:`access:community:${product.id}`},{text:"Помощь",callbackData:`access:help:${product.id}`});
+    await this.screen(contact,{text:admission.kind === "link" ? `${product.name}\n\nМожно вступить в группу курса.` : admission.kind === "member" ? `${product.name}\n\nВы уже в группе курса.` : admission.kind === "moderation_blocked" ? `${product.name}\n\nВступление в группу ограничено. Напишите в поддержку, чтобы уточнить причину.` : "Не удалось проверить доступ. Попробуйте ещё раз.",buttons});
+  }
+
+  private async screen(contact:VerifiedPrivateStart,screen:LearnerScreen):Promise<void> {
+    const reply = {...this.delivery(contact,screen.text),buttons:screen.buttons};
+    await this.replies.enqueue(reply);
+    await this.flush(reply.sourceKey);
+  }
+  private async flush(sourceKey:string):Promise<void> {
+    if(this.config.deliveryMode === "live") await this.outbound?.processSource(sourceKey);
   }
 
   async processAvailable(
@@ -318,6 +324,7 @@ export class SubscriptionActivation {
       if (!attempt) break;
       try {
         await this.process(attempt);
+        await this.flush(`activation:${attempt.attempt_id}:needs_account`);
       } catch (error) {
         reportFailure("activation.process", error, {
           attempt_id: attempt.attempt_id,
@@ -402,7 +409,7 @@ export class SubscriptionActivation {
     if (
       attempt.result !== null &&
       (attempt.result.ok
-        ? ["unavailable", "checking", "needs_account"].includes(
+        ? ["unavailable", "checking"].includes(
             attempt.result.value.state,
           )
         : attempt.result.error.code === "unavailable")
@@ -456,6 +463,20 @@ export class SubscriptionActivation {
       await this.defer(attempt, "invalid_attempt_response");
       return;
     }
+    const rule = begun.value.rule;
+    const checkedAt = this.clock.now();
+    const cached = attempt.source_proof;
+    const proof = cached && cached.ruleId === rule.id && cached.ruleRevision === rule.revision && Date.parse(cached.validUntil) > checkedAt.getTime()
+      ? { decision: cached.decision }
+      : await this.proof.check(rule.sourceRef, attempt.identity_ref, attempt.telegram_user_id);
+    if (proof.decision !== "member") {
+      await this.finish(attempt, {ok:true, value:{...begun.value,state:proof.decision === "not_member" ? "rejected" : "unavailable"}});
+      return;
+    }
+    await this.db.updateTable("activation_attempts").set({source_proof:{
+      decision: proof.decision, ruleId:rule.id, ruleRevision:rule.revision,
+      checkedAt:checkedAt.toISOString(), validUntil:new Date(checkedAt.getTime()+300000).toISOString(),
+    }}).where("attempt_id","=",attempt.attempt_id).where("lease_token","=",attempt.lease_token).execute();
     const lookup = await this.platform.binding(attempt.identity_ref);
     if (!lookup || !lookup.ok) {
       if (lookup?.error.code === "identity_conflict")
@@ -464,7 +485,15 @@ export class SubscriptionActivation {
       return;
     }
     if (lookup.value.state === "unlinked") {
-      await this.defer(attempt, "needs_account", "needs_account");
+      await this.replies.enqueue({
+        ...this.delivery(this.contact(attempt), `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`),
+        sourceKey: `activation:${attempt.attempt_id}:needs_account`,
+        buttons: [
+          {text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}`},
+          {text:"Помощь",callbackData:"access:help"},
+        ],
+      });
+      await this.defer(attempt, "needs_account", "needs_account", 1000);
       return;
     }
     const binding = lookup.value.binding;
@@ -475,13 +504,6 @@ export class SubscriptionActivation {
       });
       return;
     }
-    const rule = begun.value.rule;
-    const checkedAt = this.clock.now();
-    const proof = await this.proof.check(
-      rule.sourceRef,
-      binding.identityRef,
-      attempt.telegram_user_id,
-    );
     const evidence: ActivationEvidence = {
       contractVersion: ACTIVATION_VERSION,
       audience: "inside.platform.subscription-activation",
@@ -531,6 +553,7 @@ export class SubscriptionActivation {
         )
       : result.error.code === "unavailable";
     const confirmed = confirmedResult(result);
+    const editMessageId = await this.replies.deliveredMessageId(`activation:${attempt.attempt_id}:needs_account`);
     await this.db.transaction().execute(async (tx) => {
       const stored = await tx
         .updateTable("activation_attempts")
@@ -606,6 +629,7 @@ export class SubscriptionActivation {
             .digest(
               "hex",
             )}:${result.ok ? (result.value.state === "pending_review" ? `pending_review:${result.value.enrollment?.state ?? "none"}` : result.value.state) : result.error.code}`,
+          ...(editMessageId ? {editMessageId} : {}),
           ...this.menu(result, attempt.code),
         },
         tx,
@@ -680,6 +704,7 @@ export class SubscriptionActivation {
     attempt: Attempt,
     code: string,
     state: "retry" | "needs_account" = "retry",
+    delay = CADENCE,
   ): Promise<void> {
     await this.db
       .updateTable("activation_attempts")
@@ -688,7 +713,7 @@ export class SubscriptionActivation {
         diagnostic_code: code,
         lease_token: null,
         lease_until: null,
-        due_at: new Date(this.clock.now().getTime() + CADENCE),
+        due_at: new Date(this.clock.now().getTime() + delay),
       })
       .where("attempt_id", "=", attempt.attempt_id)
       .where("lease_token", "=", attempt.lease_token)
@@ -703,6 +728,9 @@ export class SubscriptionActivation {
       observedAt: this.clock.now(),
     };
   }
+  private sourceName(sourceRef: string): string {
+    return this.config.activation?.sources.find((source) => source.sourceRef === sourceRef)?.name ?? sourceRef;
+  }
   private delivery(contact: VerifiedPrivateStart, messageText: string) {
     return {
       botIdentity: contact.botIdentity,
@@ -711,6 +739,7 @@ export class SubscriptionActivation {
       triggerUpdateId: contact.updateId,
       now: this.clock.now(),
       sourceKey: `access:${contact.botIdentity}:${contact.updateId}`,
+      ...(contact.messageId ? {editMessageId:contact.messageId} : {}),
       messageText,
     };
   }
@@ -787,6 +816,7 @@ function newAttempt(
     trigger_update_id: contact.updateId,
     state: "pending" as const,
     evidence: null,
+    source_proof: null,
     result: null,
     created_at: now,
     expires_at: new Date(now.getTime() + RETENTION),

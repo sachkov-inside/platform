@@ -21,6 +21,7 @@ export interface ActivationTables {
       | "pending_review"
       | "completed"
       | "rejected";
+    source_proof: {readonly decision:"member";readonly ruleId:string;readonly ruleRevision:number;readonly checkedAt:string;readonly validUntil:string} | null;
     evidence: ActivationEvidence | null;
     result: ActivationResult<ActivationResponse> | null;
     created_at: Timestamp;

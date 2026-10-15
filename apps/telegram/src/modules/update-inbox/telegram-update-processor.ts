@@ -247,7 +247,7 @@ export class TelegramUpdateProcessor {
       start.activationCode !== undefined || start.invitationCode !== undefined;
     await this.botContacts.observeStart(
       start.contact,
-      accessLink
+      accessLink || isTruthy(this.config.activation?.enabled)
         ? "none"
         : start.signInToken
           ? "none"
@@ -272,11 +272,15 @@ export class TelegramUpdateProcessor {
         telegramUserId: start.contact.telegramUserId,
       });
     }
+    if (!accessLink && !start.linkToken && !start.signInToken && isTruthy(this.config.activation?.enabled) && !start.marketingSource) {
+      await this.activation.action(start.contact, "own");
+    }
     if (
       !accessLink &&
       !start.linkToken &&
       !start.signInToken &&
-      this.marketing.enabled()
+      this.marketing.enabled() &&
+      (!isTruthy(this.config.activation?.enabled) || start.marketingSource !== undefined)
     ) {
       await this.marketing.enter(start.contact, start.marketingSource);
     }

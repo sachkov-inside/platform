@@ -277,6 +277,14 @@ export class CommunityEntitlements {
     }
   }
 
+  /** Delivers only this Account's current entitlement before a synchronous bot admission. */
+  async prepareOwnAdmission(accountId:string):Promise<OwnAdmission> {
+    const projected = await this.project(accountId);
+    if(!projected.ok) return {state:"checking",admissionRestriction:null};
+    await deliverCommunityOperations(this.dependencies,20,this.clock(),accountId);
+    return this.readOwnAdmission(accountId);
+  }
+
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
     return (await this.resolveOwnAdmission(accountId)).admission;
   }

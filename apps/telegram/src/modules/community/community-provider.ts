@@ -571,6 +571,57 @@ export class CommunityProvider {
     return { kind: "preparing" };
   }
 
+  private readonly admissions = new Map<string, Promise<CommunityAdmission>>();
+
+  /** Executes the existing checked admission boundary for this contact only. */
+  async requestAdmission(telegramUserId: string): Promise<CommunityAdmission> {
+    const running = this.admissions.get(telegramUserId);
+    if (running) return running;
+    const operation = this.prepareAdmission(telegramUserId);
+    this.admissions.set(telegramUserId, operation);
+    try {
+      return await operation;
+    } finally {
+      if (this.admissions.get(telegramUserId) === operation)
+        this.admissions.delete(telegramUserId);
+    }
+  }
+
+  async currentAdmission(telegramUserId:string):Promise<CommunityAdmission> {
+    const link = await findPlatformLink(this.db,{botIdentity:this.bot,telegramUserId});
+    if(link) {
+      const state = await this.db.selectFrom("community_desired_states").select("account_ref").where("bot_identity","=",this.bot).where("account_ref","=",link.accountRef).executeTakeFirst();
+      if(state) await this.reconcileAccount(link.accountRef,true);
+    }
+    return this.admissionFor(telegramUserId);
+  }
+
+  groupUrl(): string | undefined {
+    const channelId = -BigInt(this.canonicalChatId) - 1_000_000_000_000n;
+    return channelId > 0n ? `https://t.me/c/${channelId}/1` : undefined;
+  }
+
+  private async prepareAdmission(telegramUserId: string): Promise<CommunityAdmission> {
+    const link = await findPlatformLink(this.db, { botIdentity: this.bot, telegramUserId });
+    if (!link) return { kind: "none" };
+    const state = await this.db.selectFrom("community_desired_states")
+      .select("account_ref").where("bot_identity", "=", this.bot)
+      .where("account_ref", "=", link.accountRef).executeTakeFirst();
+    if (!state) return { kind: "none" };
+    await this.reconcileAccount(link.accountRef, true);
+    for (let step = 0; step < 4; step++) {
+      const result = await this.admissionFor(telegramUserId);
+      if (result.kind !== "preparing") return result;
+      const effect = await this.db.selectFrom("community_effects").select("effect_ref")
+        .where("bot_identity", "=", this.bot).where("account_ref", "=", link.accountRef)
+        .where("state", "in", ["pending", "unknown"])
+        .where("available_at", "<=", this.clock.now()).orderBy("available_at").executeTakeFirst();
+      if (!effect) break;
+      await this.runEffect(effect.effect_ref);
+    }
+    return this.admissionFor(telegramUserId);
+  }
+
   /** Trusted canonical events distinguish moderator actions from our recorded removals. */
   async observeMembershipEvent(
     event: DurableMembershipEnvelope,
@@ -1724,12 +1775,12 @@ export class CommunityProvider {
     return due.length;
   }
 
-  private async reconcileAccount(accountRef: string): Promise<void> {
+  private async reconcileAccount(accountRef: string, force = false): Promise<void> {
     const claimed = await this.db.transaction().execute(async (tx) => {
       await lockAccount(tx, this.bot, accountRef);
       const desired = await desiredFor(tx, this.bot, accountRef);
       const now = this.clock.now();
-      if (desired.due_at > now) return;
+      if (!force && desired.due_at > now) return;
       if (
         desired.access.kind === "finite" &&
         !accessAllows(desired.access, now)

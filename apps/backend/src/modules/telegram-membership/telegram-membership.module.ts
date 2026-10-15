@@ -89,7 +89,7 @@ import {
           prisma,
           grants,
           bindings,
-          readAdmission: (accountId) => community.readOwnAdmission(accountId),
+          readAdmission: (accountId,prepareCommunity) => prepareCommunity ? community.prepareOwnAdmission(accountId) : community.readOwnAdmission(accountId),
           siteOrigin: config.publicSite.origin,
         }),
     },
