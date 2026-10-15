@@ -21,14 +21,14 @@ export function productCard(product:LearnerProduct,admission:CommunityAdmission)
  const community = restricted ? "Вступление в группу ограничено" : admission.kind === "member" ? "Вы уже в группе курса" : product.community.state === "available" ? "Вы можете вступить в группу курса" : product.community.state === "expired" ? "Доступ к группе завершён" : product.community.state === "revoked" ? "Доступ к группе отозван" : "Не удалось проверить доступ к группе";
  return {text:`${product.name}\n\n${material}. ${community}.`,buttons:[...courseButton(product),...(product.community.state === "available" && !restricted && admission.kind !== "member" ? [{text:"Вступить в группу",callbackData:`access:community:${product.id}`}] : []),help(product.id),products]};
 }
-export function helpScreen(topic:string,id?:string):LearnerScreen {
+export function helpScreen(topic:string,id?:string,programmeUrl?:string):LearnerScreen {
  const back:TelegramButton={text:"Назад",callbackData:`access:help${id?`:${id}`:""}`};
  const support:TelegramButton={text:"Написать в поддержку",url:SUPPORT_URL};
  const account:TelegramButton={text:"Открыть аккаунт",url:`${PLATFORM_URL}/account`};
  const selected:TelegramButton = id ? {text:"Открыть продукт",callbackData:`access:product:${id}`} : {text:"Мои продукты",callbackData:"access:own"};
  if(topic === "help_missing") return {text:"Проверьте, что вошли в аккаунт, в котором получали доступ, и подключили к нему Telegram. Если у вас есть ссылка для получения доступа, откройте её в боте.",buttons:[account,support,back]};
  if(topic === "help_group") return {text:"Откройте продукт в боте и нажмите кнопку входа в группу. Если бот сообщает об ограничении, напишите в поддержку.",buttons:[selected,support,back]};
- if(topic === "help_signin") return {text:"Начните вход на платформе ещё раз. Если раньше входили по почте, используйте ту же почту. Подтвердите вход в том же браузере, где начали его.",buttons:[{text:"Войти на платформу",url:`${PLATFORM_URL}/auth/sign-in?returnTo=${encodeURIComponent(id?`/products/${id}`:"/account/access")}`},support,back]};
+ if(topic === "help_signin") return {text:"Начните вход на платформе ещё раз. Если раньше входили по почте, используйте ту же почту. Подтвердите вход в том же браузере, где начали его.",buttons:[{text:"Войти на платформу",url:`${PLATFORM_URL}/auth/sign-in?returnTo=${encodeURIComponent(programmeUrl ? new URL(programmeUrl).pathname : "/account/access")}`},support,back]};
  return {text:"Помощь\n\nВыберите, с чем нужна помощь.",buttons:[
  {text:"Не вижу продукт",callbackData:`access:help_missing${id?`:${id}`:""}`},
  {text:"Не могу вступить в группу",callbackData:`access:help_group${id?`:${id}`:""}`},

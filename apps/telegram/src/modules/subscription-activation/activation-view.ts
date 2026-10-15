@@ -32,7 +32,7 @@ export function activationMenu(
   ) {
     const product = result.value.rule?.product;
     return [
-      ...(product ? [{text:"Открыть курс",url:`https://sachkov.dev/products/${product.slug}/programme`},{text:"Вступить в группу",callbackData:`access:community:${product.id}`}] : [{text:"Открыть платформу",url:"https://sachkov.dev"}]),
+      ...(product ? [{text:"Открыть курс",url:`https://sachkov.dev/products/${product.slug}/programme`},...(result.value.enrollment?.tier.benefits.includes("community") ? [{text:"Вступить в группу",callbackData:`access:community:${product.id}`}] : [])] : [{text:"Открыть платформу",url:"https://sachkov.dev"}]),
       {text:"Помощь",callbackData:product ? `access:help:${product.id}` : "access:help"},
       {text:"Мои продукты",callbackData:"access:own"},
     ];
@@ -80,6 +80,7 @@ export function asksToWriteAuthor(
 }
 export function activationMessage(
   result: ActivationResult<ActivationResponse>,
+  sourceName?:string,
 ): string {
   if (!result.ok) {
     const messages: Partial<Record<string, string>> = {
@@ -102,14 +103,14 @@ export function activationMessage(
     case "active":
     case "already_active": {
       const name = result.value.rule?.product?.name ?? result.value.enrollment?.tier.name ?? "Курс";
-      return `${name}\n\nКурс доступен. Открывайте материалы и присоединяйтесь к группе курса.`;
+      return `${name}\n\nКурс доступен. Открывайте материалы${result.value.enrollment?.tier.benefits.includes("community") ? " и присоединяйтесь к группе курса" : ""}.`;
     }
     case "pending_review":
       if (result.value.enrollment && result.value.enrollment.state !== "active")
         return `Доступ пока не подтверждён.\n\n${result.value.enrollment.tier.name}: ${enrollmentStates[result.value.enrollment.state]}.`;
       return "Доступ пока не подтверждён.";
     case "rejected":
-      return `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
+      return sourceName ? `Доступ по этой ссылке предназначен для участников ${sourceName}. Не удалось подтвердить ваше участие. Проверьте, что открыли бота тем аккаунтом, которым пользуетесь в группе.` : `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
     case "checking":
       return "Проверяем доступ к курсу…";
     case "needs_account":

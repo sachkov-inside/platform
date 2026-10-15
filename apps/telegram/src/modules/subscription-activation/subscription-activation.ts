@@ -150,10 +150,6 @@ export class SubscriptionActivation {
       );
       return;
     }
-    if (action.startsWith("help")) {
-      await this.screen(contact, helpScreen(action,onlyCode));
-      return;
-    }
     if (action === "platform") {
       const prompt = accountPrompt(config.accountUrl, onlyCode);
       await this.replies.enqueue({
@@ -199,6 +195,12 @@ export class SubscriptionActivation {
           : "Платформа временно не отвечает. Повторите проверку позже.",
         onlyCode,
       );
+      return;
+    }
+    if(action.startsWith("help")) {
+      const access = lookup.value.state === "linked" && onlyCode ? await this.platform.own(lookup.value.binding) : undefined;
+      const product = access?.ok ? access.value.products?.find(item=>item.id===onlyCode) : undefined;
+      await this.screen(contact,helpScreen(action,product?.id,product?.programmeUrl));
       return;
     }
     if (lookup.value.state === "unlinked" && action === "own") {
@@ -379,7 +381,7 @@ export class SubscriptionActivation {
         return;
       }
       if (!replay.ok && replay.error.code === "identity_conflict") {
-        await this.finish(attempt, replay);
+        await this.finish(attempt, replay.ok && attempt.source_proof?.product ? {...replay,value:{...replay.value,rule:{id:attempt.source_proof.ruleId,revision:attempt.source_proof.ruleRevision,sourceRef:attempt.source_proof.sourceRef ?? "",product:attempt.source_proof.product}}} : replay);
         return;
       }
       if (
@@ -391,7 +393,7 @@ export class SubscriptionActivation {
               this.clock.now().getTime()
           ))
       ) {
-        await this.finish(attempt, replay);
+        await this.finish(attempt, replay.ok && attempt.source_proof?.product ? {...replay,value:{...replay.value,rule:{id:attempt.source_proof.ruleId,revision:attempt.source_proof.ruleRevision,sourceRef:attempt.source_proof.sourceRef ?? "",product:attempt.source_proof.product}}} : replay);
         return;
       }
       const expired = attempt.expires_at <= this.clock.now();
@@ -476,6 +478,7 @@ export class SubscriptionActivation {
     await this.db.updateTable("activation_attempts").set({source_proof:{
       decision: proof.decision, ruleId:rule.id, ruleRevision:rule.revision,
       checkedAt:checkedAt.toISOString(), validUntil:new Date(checkedAt.getTime()+300000).toISOString(),
+      sourceRef:rule.sourceRef,...(rule.product ? {product:rule.product} : {}),
     }}).where("attempt_id","=",attempt.attempt_id).where("lease_token","=",attempt.lease_token).execute();
     const lookup = await this.platform.binding(attempt.identity_ref);
     if (!lookup || !lookup.ok) {
@@ -533,7 +536,7 @@ export class SubscriptionActivation {
     }
     await this.finish(
       attempt,
-      response,
+      response.ok ? {...response,value:{...response.value,rule}} : response,
       Math.max(CADENCE, (proof.retryAfterSeconds ?? 0) * 1000),
     );
   }
@@ -614,8 +617,8 @@ export class SubscriptionActivation {
               trigger_update_id: stored.trigger_update_id,
             }),
             review && !asksToWriteAuthor(result)
-              ? `${activationMessage(result)}\n\n${OWNER_REVIEW}`
-              : activationMessage(result),
+              ? `${activationMessage(result,result.ok && result.value.rule ? this.sourceName(result.value.rule.sourceRef) : undefined)}\n\n${OWNER_REVIEW}`
+              : activationMessage(result,result.ok && result.value.rule ? this.sourceName(result.value.rule.sourceRef) : undefined),
           ),
           sourceKey: `activation:${createHash("sha256")
             .update(
