@@ -20,7 +20,7 @@ test("practice Reader preserves the ready public body and closed practice geomet
   await signInFullStack(context, "MEMBER");
   await page.goto(`/materials/${slug}`, { waitUntil: "commit" });
   await expect(page.locator("[data-reader-body]")).toBeVisible();
-  const actions = page.locator("[data-material-actions]");
+  const actions = page.locator("[data-reader-practice-actions]");
   const slot = actions.locator(
     "[data-practice-loading], [data-practice-summary]",
   );
