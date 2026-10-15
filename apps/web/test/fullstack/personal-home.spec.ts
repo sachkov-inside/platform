@@ -7,7 +7,7 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
-import { expectCourseProgrammeReturn } from "../support/course-programme";
+import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 async function dismissOnboarding(page: Page) {
@@ -227,14 +227,16 @@ test("profile continuation opens the real series, persists marks and reconciles 
   );
   await videoTitle.click();
   const mobile = testInfo.project.name === "mobile-chromium";
-  await expect(
-    page.locator("[data-course-reading]:visible [data-reader-header]"),
-  ).toContainText("Шаг 2 из 3");
-  await expectCourseProgrammeReturn(page, mobile, programmeReturnHref);
-  const videoMark = await unmark(page, "Просмотрено", "course");
+  await expect(page.locator("[data-course-reading]")).toHaveCount(0);
+  if (mobile)
+    await expect(
+      page.getByRole("link", { name: "Программа, урок 2 из 3", exact: true }),
+    ).toBeVisible();
+  await expectLinearProgrammeReturn(page, mobile, programmeReturnHref);
+  const videoMark = await unmark(page, "Просмотрено");
   await videoMark.click();
   await expect(videoMark).toHaveAttribute("aria-pressed", "true");
-  await expectReadingMark(page, "Просмотрено", true, "course");
+  await expectReadingMark(page, "Просмотрено", true);
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toContainText("Гайд для проверки прогресса");
   await page.reload();
@@ -242,10 +244,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await current
     .getByRole("link", { name: "Гайд для проверки прогресса", exact: true })
     .click();
-  const productMark = await unmark(page, "Изучено", "course");
+  const productMark = await unmark(page, "Изучено");
   await productMark.click();
   await expect(productMark).toHaveAttribute("aria-pressed", "true");
-  await expectReadingMark(page, "Изучено", true, "course");
+  await expectReadingMark(page, "Изучено", true);
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toHaveCount(0);
   await expect(readMarkers).toHaveCount(3);

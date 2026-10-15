@@ -8,6 +8,7 @@ import {
 } from "@playwright/test";
 import { resolve } from "node:path";
 
+import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
@@ -888,52 +889,19 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   );
   const programmeReturnHref =
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
-  const course = page.locator("[data-course-reading]:visible");
-  await expect(
-    course.getByRole("navigation", { name: "Действия материала", exact: true }),
-  ).toHaveCount(1);
-  await expect(
-    course.getByRole("navigation", {
-      name: "Действия в конце материала",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    course.getByRole("navigation", {
-      name:
-        testInfo.project.name === "mobile-chromium"
-          ? "Навигация по урокам"
-          : "Шаги курса",
-      exact: true,
-    }),
-  ).toBeVisible();
-  const programmeAction =
-    testInfo.project.name === "mobile-chromium"
-      ? course.getByRole("button", { name: "Вся программа", exact: true })
-      : course.getByRole("link", { name: "Вся программа", exact: true });
-  await expect(programmeAction).toBeVisible();
-  if (testInfo.project.name !== "mobile-chromium")
-    await expect(programmeAction).toHaveAttribute("href", programmeReturnHref);
+  const programmeAction = await expectLinearProgrammeReturn(
+    page,
+    testInfo.project.name === "mobile-chromium",
+    programmeReturnHref,
+  );
   await expect(
     page.getByRole("link", { name: "Все материалы продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    course
+    page
       .locator("[data-reader-header]")
       .getByRole("link", { name: "Platform", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Назад к программе" }),
-  ).toHaveCount(0);
-  await expect(
-    course.getByRole("navigation", {
-      name:
-        testInfo.project.name === "mobile-chromium"
-          ? "Навигация по урокам"
-          : "Шаги курса",
-      exact: true,
-    }),
-  ).not.toContainText("· №");
+  ).toHaveCount(1);
 
   await expect(page).toHaveTitle(
     "Как устроен Inside Platform · Sachkov Inside",
@@ -942,17 +910,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
-  if (testInfo.project.name === "mobile-chromium") {
-    await programmeAction.click();
-    await course
-      .getByRole("dialog")
-      .getByRole("button", { name: "Закрыть программу", exact: true })
-      .click();
-    await course
-      .getByRole("navigation", { name: "Действия материала", exact: true })
-      .getByRole("link", { name: "К курсу", exact: true })
-      .click();
-  } else await programmeAction.click();
+  await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
   await expect(programme).toHaveCount(1);
   await expect(representativeSeriesItem).toHaveCount(1);
@@ -965,13 +923,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
   page,
-}, testInfo) => {
+}) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
   await page.goto("/products/demo-series-harness/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  const harnessNext = readerNextLink(page, testInfo);
+  const harnessNext = readerNextLink(page);
   await expect(harnessNext).toHaveAttribute(
     "href",
     /\/materials\/demo-295-finalnyy-gayd\?/u,
@@ -995,7 +953,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  const mixedNext = readerNextLink(page, testInfo);
+  const mixedNext = readerNextLink(page);
   await expect(mixedNext).toHaveAttribute(
     "href",
     /\/materials\/demo-295-video-razbor\?/u,
@@ -1031,16 +989,10 @@ test("uses the selected Series order for a shared Material and leaves standalone
   ).toBeVisible();
 });
 
-function readerNextLink(page: Page, testInfo: TestInfo) {
+function readerNextLink(page: Page) {
   return page
-    .getByRole("navigation", {
-      name:
-        testInfo.project.name === "mobile-chromium"
-          ? "Навигация по урокам"
-          : "Шаги курса",
-      exact: true,
-    })
-    .getByRole("link", { name: /^Следующий шаг/u });
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Следующий урок", exact: true });
 }
 
 async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
