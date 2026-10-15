@@ -103,8 +103,8 @@ test("production reaches attempt 51 and its feedback; a failed continuation retr
       )
       .toBe(true);
     await expect(
-      page.getByText("Сдано 2 октября", { exact: true }),
-    ).toBeVisible();
+      page.locator("[data-own-submissions] [data-submission] time"),
+    ).toHaveAttribute("datetime", "2026-10-01T00:00:00.000Z");
     expect(new URL(page.url()).searchParams.get("attemptsAfter")).toBe(
       "older-history",
     );
