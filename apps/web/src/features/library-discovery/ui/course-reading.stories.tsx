@@ -307,7 +307,8 @@ export const SubmittedCurrentAssignment: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const opener = canvas.queryByRole("button", {
-      name: "Открыть программу курса",
+      name: "Вся программа",
+      exact: true,
     });
     if (opener !== null && opener.getClientRects().length > 0)
       await userEvent.click(opener);

@@ -265,3 +265,30 @@ test("free tasks open for a guest and unknown or unpublished task codes remain u
     ).toHaveCount(0);
   }
 });
+
+test("free lesson without mode variants reads saved Task state privately", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  if (baseURL === undefined) throw new Error("baseURL is required");
+  const path =
+    "/materials/navigation-lesson-1?from=%2Fproducts%2Fnavigation-saved-tasks%2Fprogramme";
+  await page.goto(path);
+  if (testInfo.project.name === "mobile-chromium")
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+  await expect(
+    page.locator('[data-task-submitted="true"]:visible'),
+  ).toHaveCount(0);
+  await context.addCookies([await memberCookie(baseURL)]);
+  await page.goto(path);
+  if (testInfo.project.name === "mobile-chromium")
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+  const title = page.locator('[data-task-submitted="true"]:visible');
+  await expect(title).toHaveText("Сохранённое задание");
+  await expect(title).toHaveCSS("text-decoration-line", "line-through");
+});

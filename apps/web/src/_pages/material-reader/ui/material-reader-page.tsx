@@ -136,7 +136,7 @@ export async function MaterialReaderPage({
   });
   if (
     material.kind === "available" &&
-    seriesContext?.series.hasModeVariants !== true &&
+    seriesContext === null &&
     anchor === undefined
   ) {
     return (
@@ -204,7 +204,7 @@ async function PersonalMaterialReader({
   slug,
 }: {
   readonly anchor?: ReaderCourseAnchor | undefined;
-  /** Бесплатный урок уже прочитан из общего кеша: личной остаётся только выбор режима. */
+  /** Бесплатный урок уже прочитан из общего кеша: личными остаются режим и статусы сдачи в программе. */
   readonly sharedMaterial?: PublicMaterialResult;
   readonly inferCourseReturn: boolean;
   readonly returnTarget: MaterialReaderReturnTarget;

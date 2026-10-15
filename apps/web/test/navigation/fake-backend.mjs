@@ -387,6 +387,41 @@ function route(method, url, entitled) {
   if (taskNavigation !== undefined) return taskNavigation;
   const path = url.pathname;
   if (method !== "GET") return undefined;
+  if (path === "/library/products/navigation-saved-tasks") {
+    const lesson = lessons[0];
+    if (lesson === undefined) throw new Error("Missing free lesson fixture");
+    return json({
+      kind: "series",
+      hasNext: false,
+      relatedSeries: [],
+      topics: [],
+      reference: {
+        ...products[0],
+        slug: "navigation-saved-tasks",
+        introduction: null,
+        summary: "Saved Task sidebar regression",
+      },
+      items: [projection(lesson, entitled)],
+      chapters: [
+        {
+          id: "44444444-4444-4444-8444-444444444417",
+          name: "Сохранённые сдачи",
+          summary: "",
+          materialIds: [lesson.materialId],
+          tasks: [
+            {
+              code: "saved-sidebar-task",
+              title: "Сохранённое задание",
+              access: "free",
+              availability: "available",
+              afterMaterialId: null,
+              lastSubmittedAt: entitled ? "2026-10-14T09:00:00.000Z" : null,
+            },
+          ],
+        },
+      ],
+    });
+  }
   if (path === "/library/home") {
     return json({
       guides: lessonsOf(products[0]).map((lesson) =>
