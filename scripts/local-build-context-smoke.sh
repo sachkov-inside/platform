@@ -40,9 +40,12 @@ PY
 for application in backend web; do
   copy_instructions="$(python3 - "$repository_root/apps/$application/Dockerfile" <<'PY'
 from pathlib import Path
+import re
 import sys
 
-development = Path(sys.argv[1]).read_text().split('FROM dependencies AS development\n', 1)[1].split('\nFROM ', 1)[0]
+stages = re.split(r'^FROM dependencies AS (?:source|development)\s*$', Path(sys.argv[1]).read_text(), maxsplit=1, flags=re.M)
+assert len(stages) == 2, 'Missing source-copy stage'
+development = stages[1].split('\nFROM ', 1)[0]
 instructions = [line for line in development.splitlines() if line.startswith('COPY ')]
 assert instructions, 'Missing development COPY'
 print('\n'.join(line.replace('--chown=node:node', '--chown=1000:1000') for line in instructions))

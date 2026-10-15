@@ -17,7 +17,9 @@ CONTEXT = "desktop-linux"
 
 def dependency_fixture(dockerfile):
     """Retain the real base/environment/COPY ancestry, replacing expensive RUN work."""
-    prefix = dockerfile.split('FROM dependencies AS development', 1)[0]
+    stages = re.split(r'^FROM dependencies AS (?:source|development)\s*$', dockerfile, maxsplit=1, flags=re.M)
+    assert len(stages) == 2, 'Missing dependency-stage boundary'
+    prefix = stages[0]
     instructions = [line.strip() for line in re.sub(r'\\\n\s*', ' ', prefix).splitlines()
                     if line.strip() and not line.strip().startswith('#')]
     result = []

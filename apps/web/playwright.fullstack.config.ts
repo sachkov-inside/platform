@@ -9,6 +9,8 @@ export default defineConfig({
   testIgnore: ["**/enrollment.spec.ts", "**/buyer-journey.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
+  // CI already binds evidence to its source SHA; avoid Playwright fetching a missing PR base.
+  captureGitInfo: { diff: false },
   reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
   workers: 1,

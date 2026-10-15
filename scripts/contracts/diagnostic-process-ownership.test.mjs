@@ -16,7 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   publishDescendantReadiness,
@@ -429,120 +429,124 @@ test("descendant readiness stays complete when publishers overlap", async (conte
   assert.deepEqual(report, { pid: 789, port: 654 });
 });
 
-for (const script of diagnostics) {
-  for (const signal of /** @type {const} */ ([
-    "SIGINT",
-    "SIGTERM",
-    "SIGKILL",
-  ])) {
+// Every process case owns its temporary workspace, supervisor and dynamic loopback port.
+// Bound only these independent trees; readiness tests above patch shared fs methods.
+describe("isolated diagnostic process trees", { concurrency: 4 }, () => {
+  for (const script of diagnostics) {
+    for (const signal of /** @type {const} */ ([
+      "SIGINT",
+      "SIGTERM",
+      "SIGKILL",
+    ])) {
+      test(
+        `${script} clears its TERM-resistant descendant after owner ${signal}`,
+        { timeout: 25_000 },
+        async () => {
+          const running = await fixture(script);
+          try {
+            process.kill(running.descendantPid, 0);
+            assert(running.owner.kill(signal));
+            const { code, signal: actualSignal } = await treeClosed(running);
+            if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
+            else
+              assert.equal(
+                code,
+                signal === "SIGINT" ? 130 : 143,
+                running.output.join(""),
+              );
+          } finally {
+            await dispose(running);
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    "stand gateway finishes only after its TERM-resistant descendant stops",
+    { timeout: 25_000 },
+    async () => {
+      const running = await fixture("stand-gateway-session", "finish");
+      try {
+        const { code } = await treeClosed(running);
+        assert.equal(code, 0);
+      } finally {
+        await dispose(running);
+      }
+    },
+  );
+
+  for (const script of [
+    "identity-proof-dev",
+    "identity-proof-start",
+    "setup-local",
+    "local-stand",
+    "editor-local-review",
+    "full-stack-smoke",
+    "billing-contact-proof",
+    "identity-hardening-proof",
+  ]) {
     test(
-      `${script} clears its TERM-resistant descendant after owner ${signal}`,
+      `${script} clears descendants when a short launcher fails`,
       { timeout: 25_000 },
       async () => {
-        const running = await fixture(script);
+        const running = await fixture(script, "fail");
         try {
-          process.kill(running.descendantPid, 0);
-          assert(running.owner.kill(signal));
-          const { code, signal: actualSignal } = await treeClosed(running);
-          if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
-          else
-            assert.equal(
-              code,
-              signal === "SIGINT" ? 130 : 143,
-              running.output.join(""),
-            );
+          const { code } = await treeClosed(running);
+          assert(typeof code === "number" && code !== 0);
         } finally {
           await dispose(running);
         }
       },
     );
   }
-}
 
-test(
-  "stand gateway finishes only after its TERM-resistant descendant stops",
-  { timeout: 25_000 },
-  async () => {
-    const running = await fixture("stand-gateway-session", "finish");
-    try {
-      const { code } = await treeClosed(running);
-      assert.equal(code, 0);
-    } finally {
-      await dispose(running);
-    }
-  },
-);
+  for (const signal of /** @type {const} */ (["SIGTERM", "SIGKILL"])) {
+    test(
+      `setup-local interrupts the cleanup command tree after ${signal}`,
+      { timeout: 25_000 },
+      async () => {
+        const running = await fixture("setup-local", "cleanup");
+        try {
+          assert(running.owner.kill(signal));
+          const { code, signal: actualSignal } = await treeClosed(running);
+          if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
+          else assert.equal(code, 143, running.output.join(""));
+        } finally {
+          await dispose(running);
+        }
+      },
+    );
+  }
 
-for (const script of [
-  "identity-proof-dev",
-  "identity-proof-start",
-  "setup-local",
-  "local-stand",
-  "editor-local-review",
-  "full-stack-smoke",
-  "billing-contact-proof",
-  "identity-hardening-proof",
-]) {
+  for (const script of diagnostics) {
+    test(
+      `${script} rejects a supervisor startup failure without hanging`,
+      { timeout: 15_000 },
+      async () => {
+        await assert.rejects(
+          fixture(script, "unavailable"),
+          /Script failed before command readiness/u,
+        );
+      },
+    );
+  }
+
   test(
-    `${script} clears descendants when a short launcher fails`,
+    "stand gateway startup timeout clears its TERM-resistant descendant",
     { timeout: 25_000 },
     async () => {
-      const running = await fixture(script, "fail");
+      const running = await fixture("stand-gateway-session", "timeout");
       try {
         const { code } = await treeClosed(running);
-        assert(typeof code === "number" && code !== 0);
+        assert.equal(code, 1);
+        assert.match(
+          running.output.join(""),
+          /The authoring gateway did not start in time/u,
+        );
       } finally {
         await dispose(running);
       }
     },
   );
-}
-
-for (const signal of /** @type {const} */ (["SIGTERM", "SIGKILL"])) {
-  test(
-    `setup-local interrupts the cleanup command tree after ${signal}`,
-    { timeout: 25_000 },
-    async () => {
-      const running = await fixture("setup-local", "cleanup");
-      try {
-        assert(running.owner.kill(signal));
-        const { code, signal: actualSignal } = await treeClosed(running);
-        if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
-        else assert.equal(code, 143, running.output.join(""));
-      } finally {
-        await dispose(running);
-      }
-    },
-  );
-}
-
-for (const script of diagnostics) {
-  test(
-    `${script} rejects a supervisor startup failure without hanging`,
-    { timeout: 15_000 },
-    async () => {
-      await assert.rejects(
-        fixture(script, "unavailable"),
-        /Script failed before command readiness/u,
-      );
-    },
-  );
-}
-
-test(
-  "stand gateway startup timeout clears its TERM-resistant descendant",
-  { timeout: 25_000 },
-  async () => {
-    const running = await fixture("stand-gateway-session", "timeout");
-    try {
-      const { code } = await treeClosed(running);
-      assert.equal(code, 1);
-      assert.match(
-        running.output.join(""),
-        /The authoring gateway did not start in time/u,
-      );
-    } finally {
-      await dispose(running);
-    }
-  },
-);
+});
