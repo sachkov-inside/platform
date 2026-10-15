@@ -1,3 +1,4 @@
+import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -22,6 +23,7 @@ export const quotePurchaseSchema = z.strictObject({
   operationId: idSchema,
   paymentOptionId: idSchema,
   optionRevision: revisionSchema,
+  paymentLinkId: idSchema.optional(),
   promoCode: z.string().trim().min(1).max(100).optional(),
 });
 export const priceQuoteSchema = z.strictObject({
@@ -40,6 +42,7 @@ type QuotePurchaseResult = PricingResult<
   | "unsupported_amount"
   | "operation_conflict"
   | "quote_changed"
+  | "reservation_conflict"
   | "method_unavailable"
   | "legacy_review_required"
   | "not_eligible"
@@ -84,12 +87,20 @@ export async function quotePurchase(
               }
             : failure("operation_conflict");
         const now = clock();
-        const price = await selectPrice(
-          tx,
-          command.paymentOptionId,
-          now,
-          command.promoCode,
-        );
+        const price =
+          command.paymentLinkId === undefined
+            ? await selectPrice(
+                tx,
+                command.paymentOptionId,
+                now,
+                command.promoCode,
+              )
+            : await selectPaymentLinkPrice(
+                tx,
+                command.paymentLinkId,
+                command.paymentOptionId,
+                now,
+              );
         if (!price.ok) return price;
         if (price.value.paymentOption.revision !== command.optionRevision)
           return failure("quote_changed");
@@ -112,6 +123,7 @@ export async function quotePurchase(
             fingerprint: fingerprint.digest,
             snapshot: price.value,
             promoCode: command.promoCode ?? null,
+            paymentLinkId: command.paymentLinkId ?? null,
             createdAt: now,
             expiresAt,
           },

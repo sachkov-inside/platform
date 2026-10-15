@@ -68,6 +68,9 @@ export const promotionSchema = z.strictObject({
   archived: z.boolean(),
 });
 export const priceSnapshotSchema = z.strictObject({
+  individualPayment: z
+    .strictObject({ linkId: idSchema, basePriceKopecks: moneySchema })
+    .optional(),
   communityPolicy: z.literal("explicit").optional(),
   offer: offerSchema,
   paymentOption: optionSchema,

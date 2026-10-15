@@ -62,6 +62,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -119,6 +123,10 @@ export class BillingService {
           communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
           offer: {
             archived: boolean;
             availableForAssignment?: boolean;
@@ -332,6 +340,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -448,6 +460,10 @@ export class BillingService {
       communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
       offer: {
         archived: boolean;
         availableForAssignment?: boolean;
@@ -530,6 +546,10 @@ export class BillingService {
       communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
       offer: {
         archived: boolean;
         availableForAssignment?: boolean;
@@ -601,6 +621,10 @@ export class BillingService {
       communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
       offer: {
         archived: boolean;
         availableForAssignment?: boolean;
@@ -663,6 +687,7 @@ export class BillingService {
     requestBody: {
       operationId: string;
       optionRevision: number;
+      paymentLinkId?: string;
       paymentOptionId: string;
       promoCode?: string;
     },
@@ -674,6 +699,10 @@ export class BillingService {
       communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
       offer: {
         archived: boolean;
         availableForAssignment?: boolean;
@@ -753,6 +782,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -872,6 +905,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -929,6 +966,10 @@ export class BillingService {
           communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
           offer: {
             archived: boolean;
             availableForAssignment?: boolean;
@@ -1053,6 +1094,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -1170,6 +1215,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -1216,6 +1265,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -1297,6 +1350,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -1399,6 +1456,29 @@ export class BillingService {
     requestBody,
   }: {
     requestBody: ({
+      expiresAt: string | null;
+      operation: 'paymentLinks.create';
+      operationId: string;
+      optionRevision: number;
+      paymentOptionId: string;
+      price: ({
+        amountKopecks: number;
+        kind: 'amount';
+      } | {
+        kind: 'discount';
+        percent: number;
+      });
+    } | {
+      expectedRevision: number;
+      id: string;
+      operation: 'paymentLinks.revoke';
+      operationId: string;
+    } | {
+      cursor?: string;
+      limit: number;
+      operation: 'paymentLinks.list';
+      operationId: string;
+    } | {
       operation: 'tribute.status';
       operationId: string;
       page?: number;
@@ -1796,6 +1876,115 @@ export class BillingService {
   }): CancelablePromise<{
     operationRef: string;
     result: ({
+      outcome: 'paymentLink';
+      value: {
+        createdAt: string;
+        expiresAt: string | null;
+        id: string;
+        revision: number;
+        snapshot: {
+          communityPolicy?: 'explicit';
+          currency: 'RUB';
+          firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
+          offer: {
+            archived: boolean;
+            availableForAssignment?: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            coverage?: {
+              materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
+            } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+            id: string;
+            name: string;
+            published?: boolean;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription' | 'one_time';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          promotion: {
+            id: string;
+            name: string;
+            percent: number;
+            revision: number;
+          } | null;
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
+      };
+    } | {
+      items: Array<{
+        createdAt: string;
+        expiresAt: string | null;
+        id: string;
+        revision: number;
+        snapshot: {
+          communityPolicy?: 'explicit';
+          currency: 'RUB';
+          firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
+          offer: {
+            archived: boolean;
+            availableForAssignment?: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            coverage?: {
+              materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
+            } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+            id: string;
+            name: string;
+            published?: boolean;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription' | 'one_time';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          promotion: {
+            id: string;
+            name: string;
+            percent: number;
+            revision: number;
+          } | null;
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
+      }>;
+      nextCursor: string | null;
+      outcome: 'paymentLinks';
+    } | {
       outcome: 'tributeImportReview';
       value: {
         batchRef: string;
@@ -2302,6 +2491,10 @@ export class BillingService {
         communityPolicy?: 'explicit';
         currency: 'RUB';
         firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
         offer: {
           archived: boolean;
           availableForAssignment?: boolean;
@@ -2361,6 +2554,10 @@ export class BillingService {
           communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
           offer: {
             archived: boolean;
             availableForAssignment?: boolean;
@@ -2465,6 +2662,10 @@ export class BillingService {
           communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
           offer: {
             archived: boolean;
             availableForAssignment?: boolean;
@@ -2528,6 +2729,10 @@ export class BillingService {
           communityPolicy?: 'explicit';
           currency: 'RUB';
           firstPriceKopecks: number;
+          individualPayment?: {
+            basePriceKopecks: number;
+            linkId: string;
+          };
           offer: {
             archived: boolean;
             availableForAssignment?: boolean;
@@ -2590,6 +2795,10 @@ export class BillingService {
             communityPolicy?: 'explicit';
             currency: 'RUB';
             firstPriceKopecks: number;
+            individualPayment?: {
+              basePriceKopecks: number;
+              linkId: string;
+            };
             offer: {
               archived: boolean;
               availableForAssignment?: boolean;
@@ -2993,6 +3202,10 @@ export class BillingService {
       communityPolicy?: 'explicit';
       currency: 'RUB';
       firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
       offer: {
         archived: boolean;
         availableForAssignment?: boolean;
@@ -3040,6 +3253,86 @@ export class BillingService {
         'mode': mode,
         'limit': limit,
         'cursor': cursor,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+      },
+    });
+  }
+  /**
+   * Read one private payment link without revealing buyer identity or changing public sales
+   * @returns any
+   * @throws ApiError
+   */
+  public readBillingPaymentLink({
+    id,
+  }: {
+    id: string,
+  }): CancelablePromise<{
+    createdAt: string;
+    expiresAt: string | null;
+    id: string;
+    product: {
+      available: boolean;
+      id: string;
+      kind: 'product' | 'material';
+      slug: string | null;
+      title: string;
+    } | null;
+    revision: number;
+    snapshot: {
+      communityPolicy?: 'explicit';
+      currency: 'RUB';
+      firstPriceKopecks: number;
+      individualPayment?: {
+        basePriceKopecks: number;
+        linkId: string;
+      };
+      offer: {
+        archived: boolean;
+        availableForAssignment?: boolean;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        coverage?: {
+          materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
+        } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+        id: string;
+        name: string;
+        published?: boolean;
+        revision: number;
+      };
+      paymentOption: {
+        archived: boolean;
+        id: string;
+        mode?: 'subscription' | 'one_time';
+        months: number;
+        offerId: string;
+        priceKopecks: number;
+        revision: number;
+      };
+      promotion: {
+        id: string;
+        name: string;
+        percent: number;
+        revision: number;
+      } | null;
+      renewalPriceKopecks: number;
+      timezone: 'Europe/Moscow';
+    };
+    state: 'active' | 'pending' | 'unknown' | 'paid' | 'revoked' | 'expired' | 'changed';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/payment-links/{id}',
+      path: {
+        'id': id,
       },
       errors: {
         401: `Optional Account proof is invalid`,
