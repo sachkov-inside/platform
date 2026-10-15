@@ -301,7 +301,14 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
           ))}
         </SelectContent>
       </Select>
-      <div className={styles["railSteps"]} ref={rail} data-course-rail-scroll>
+      <div
+        className={styles["railSteps"]}
+        ref={rail}
+        data-course-rail-scroll
+        role="navigation"
+        aria-label="Шаги текущей главы"
+        tabIndex={0}
+      >
         {chapter?.steps.length === 0 ? (
           <p className={styles["empty"]}>Глава готовится</p>
         ) : (

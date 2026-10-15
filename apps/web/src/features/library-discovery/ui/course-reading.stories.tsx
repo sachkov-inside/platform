@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { courseReadingContext } from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
   courseGuide,
   courseTask,
@@ -24,6 +24,53 @@ const meta = {
 } satisfies Meta<typeof CourseReadingLayout>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+export const LongChapter: Story = {
+  render: () => {
+    const steps = Array.from({ length: 20 }, (_, index) => ({
+      ...courseGuide.current,
+      id: `long-chapter-${String(index)}`,
+      title: `Практический шаг ${String(index + 1)}: проверь работу приложения с агентом`,
+    }));
+    const current = steps.at(-1) ?? courseGuide.current;
+    const context = {
+      ...courseGuide,
+      current,
+      chapters: courseGuide.chapters.map((chapter) =>
+        chapter.id === courseGuide.currentChapterId
+          ? { ...chapter, steps }
+          : chapter,
+      ),
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <CourseReadingHeader
+          context={context}
+          title={current.title}
+          metadata={null}
+        />
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const rail = within(canvasElement).queryByRole("navigation", {
+      name: "Шаги текущей главы",
+    });
+    if (rail === null || rail.getClientRects().length === 0) return;
+    rail.focus();
+    rail.scrollTo({ top: rail.scrollHeight, behavior: "instant" });
+    await waitFor(async () => {
+      const last = rail.querySelector("li:last-child");
+      if (last === null) throw new Error("Last course step missing");
+      const gap =
+        rail.getBoundingClientRect().bottom -
+        last.getBoundingClientRect().bottom;
+      await expect(gap).toBeGreaterThanOrEqual(24);
+      await expect(last.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+        rail.getBoundingClientRect().top,
+      );
+    });
+  },
+};
 export const ChapterNavigation: Story = {
   render: () => (
     <CourseReadingLayout context={courseGuide}>
