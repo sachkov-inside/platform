@@ -126,6 +126,7 @@ export function syntheticLearningTasks(input: {
           code: task.code,
           currentVersion: 1,
           latestSubmittedAt: null,
+          reviewProgress: null,
           nextCursor: null,
           versions: [],
           submissions: [],
