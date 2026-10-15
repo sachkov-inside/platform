@@ -31,7 +31,7 @@ async function connect() {
 }
 
 describe("Product Task tools on the learner MCP", () => {
-  test("the endpoint lists exactly the committed learner tool surface, including the four task tools", async () => {
+  test("the endpoint lists exactly the committed learner tool surface, including the task review update tool", async () => {
     const client = await connect();
     try {
       const { tools } = await client.listTools();
@@ -82,7 +82,7 @@ describe("Product Task tools on the learner MCP", () => {
     }
   });
 
-  test("the review_task prompt carries procedure v3 word for word for the named task code", async () => {
+  test("the review_task prompt carries current procedure word for word for the named task code", async () => {
     const client = await connect();
     try {
       const { prompts } = await client.listPrompts();
@@ -102,7 +102,7 @@ describe("Product Task tools on the learner MCP", () => {
       for (const instruction of taskReviewProtocol.instructions)
         expect(text).toContain(instruction);
       // Lesson practice keeps procedure v2; v3 is a different text, not its edit.
-      expect(taskReviewProtocol.version).toBe("4");
+      expect(taskReviewProtocol.version).toBe("5");
       expect(practiceReviewProtocol.version).toBe("2");
     } finally {
       await client.close();

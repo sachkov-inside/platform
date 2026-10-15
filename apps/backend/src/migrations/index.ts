@@ -1,4 +1,8 @@
 import {
+  name as taskReviewProgressName,
+  statement as taskReviewProgressStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0094-task-review-progress.js";
+import {
   name as productExclusionsName,
   statement as productExclusionsStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0092-product-access-exclusions.js";
@@ -607,6 +611,7 @@ export const platformMigrations = [
   { name: productCommunitiesName, statement: productCommunitiesStatement },
   { name: productExclusionsName, statement: productExclusionsStatement },
   { name: learningStartedName, statement: learningStartedStatement },
+  { name: taskReviewProgressName, statement: taskReviewProgressStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -258,6 +258,7 @@ describe("Platform migrations", () => {
         "0091_product_communities",
         "0092_product_access_exclusions",
         "0093_product_learning_started",
+        "0094_task_review_progress",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -284,6 +285,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
+      "review_progress",
       "submissions",
       "task_versions",
       "tasks",
@@ -943,6 +945,7 @@ describe("Platform migrations", () => {
           "0091_product_communities",
           "0092_product_access_exclusions",
           "0093_product_learning_started",
+          "0094_task_review_progress",
         ],
       });
 

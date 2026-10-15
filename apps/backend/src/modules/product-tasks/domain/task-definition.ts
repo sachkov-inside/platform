@@ -39,6 +39,7 @@ const taskDefinitionV1Schema = z
     situation: text,
     result: z.array(z.string().trim().min(1).max(2_000)).min(1).max(20),
     freedom: text,
+    reviewGuidance: text.optional(),
     criteria: z
       .array(
         z
@@ -88,6 +89,7 @@ const taskDefinitionV2Schema = z
     format: z.literal("c"),
     intro: authoredText,
     freedom: authoredText,
+    reviewGuidance: authoredText.optional(),
     criteria: z
       .array(
         z

@@ -117,6 +117,7 @@ export type ProductTasksPrisma = Pick<
   | "productTaskVersion"
   | "productTaskImportReceipt"
   | "productTaskSubmission"
+  | "productTaskReviewProgress"
   | "productTaskAuthorFeedback"
 >;
 export type ProductTasksPrismaClient = ProductTasksPrisma &

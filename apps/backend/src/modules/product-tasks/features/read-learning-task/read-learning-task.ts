@@ -64,7 +64,7 @@ export function learningTaskContextVersion(task: CurrentTask): string {
 }
 
 /**
- * The context one task read serializes: the task with its current Task Version, procedure v3,
+ * The context one task read serializes: the task with its current Task Version, current procedure,
  * related Materials and whether submission is open, closed by its end marker.
  */
 export function serializeLearningTaskContext(input: {
@@ -109,7 +109,7 @@ export function serializeLearningTaskContext(input: {
 }
 
 /**
- * The current requirements of one open task with the review procedure v3 and its related
+ * The current requirements of one open task with the review current procedure and its related
  * Materials, as canonical JSON in bounded parts. Part 0 pins `contextVersion` and `contentSha256`;
  * every later part must name both, and a task that changed between parts answers with an error,
  * never with a mix of two versions.

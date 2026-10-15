@@ -23,6 +23,24 @@ export class ProductTasksService {
     currentVersion: number;
     latestSubmittedAt: string | null;
     nextCursor: string | null;
+    reviewProgress: {
+      phase: 'reviewing' | 'ready' | 'stopped' | 'submitted';
+      reviewReport: {
+        criteria: Array<{
+          criterionId: string;
+          evidence: string;
+          gap: string;
+          obtainedByRun: boolean;
+          status: 'confirmed' | 'violation' | 'not_verified';
+        }>;
+        summary?: string;
+      } | null;
+      revision: number;
+      runKey: string;
+      summary: string;
+      taskVersion: number;
+      updatedAt: string;
+    } | null;
     submissions: Array<{
       authorFeedback: {
         comment: string | null;
@@ -31,6 +49,16 @@ export class ProductTasksService {
       note: string;
       reportText: string | null;
       repositoryUrl: string | null;
+      reviewReport: {
+        criteria: Array<{
+          criterionId: string;
+          evidence: string;
+          gap: string;
+          obtainedByRun: boolean;
+          status: 'confirmed' | 'violation' | 'not_verified';
+        }>;
+        summary?: string;
+      } | null;
       source: 'mcp' | 'form';
       submissionId: string;
       submittedAt: string;

@@ -232,6 +232,136 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
   });
   afterAll(async () => db.dispose());
 
+  test("progress is private, version-pinned and separate from saved submissions; retries and stale runs cannot rewrite it", async () => {
+    const { code } = await imported();
+    const subject = await learner();
+    const other = await learner();
+    const tasks = learning();
+    const runKey = randomUUID();
+    const update = {
+      subject,
+      code,
+      taskVersion: 1,
+      runKey,
+      expectedRevision: 0,
+      phase: "reviewing",
+      summary: "Проверяю права доступа.",
+    };
+    const started = await tasks.updateReview(update);
+    expect(started).toMatchObject({
+      ok: true,
+      value: { revision: 1, phase: "reviewing" },
+    });
+    expect(await tasks.updateReview(update)).toEqual(started);
+    expect(await tasks.submissions({ subject: other, code })).toMatchObject({
+      ok: true,
+      value: { reviewProgress: null, submissions: [] },
+    });
+    expect(await tasks.submissions({ subject, code })).toMatchObject({
+      ok: true,
+      value: { submissions: [], reviewProgress: { revision: 1 } },
+    });
+    expect(
+      await tasks.updateReview({ ...update, summary: "Stale" }),
+    ).toMatchObject({ ok: false, error: { code: "review_conflict" } });
+    expect(
+      await tasks.updateReview({
+        ...update,
+        expectedRevision: 1,
+        taskVersion: 2,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "task_version_changed" } });
+    expect(
+      await tasks.updateReview({
+        ...update,
+        expectedRevision: 1,
+        phase: "ready",
+        reviewReport: report(definition, "ownership"),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "report_coverage_mismatch" } });
+    const completed = {
+      ...update,
+      expectedRevision: 1,
+      phase: "ready",
+      reviewReport: report(definition),
+    };
+    expect(await tasks.updateReview(completed)).toMatchObject({
+      ok: true,
+      value: { revision: 2, phase: "ready" },
+    });
+    const submission = {
+      code,
+      taskVersion: 1,
+      submissionKey: randomUUID(),
+      reviewRunKey: runKey,
+      note: "Готово",
+      reviewReport: report(definition),
+    };
+    const saved = await tasks.submit({ subject, source: "mcp", submission });
+    expect(saved.ok).toBe(true);
+    expect(await tasks.submit({ subject, source: "mcp", submission })).toEqual(
+      saved,
+    );
+    expect(await tasks.updateReview(completed)).toMatchObject({
+      ok: false,
+      error: { code: "review_conflict", currentRevision: 3 },
+    });
+    const nextRun = { ...update, runKey: randomUUID(), expectedRevision: 3 };
+    expect(await tasks.updateReview(nextRun)).toMatchObject({
+      ok: true,
+      value: { revision: 4 },
+    });
+    expect(
+      await tasks.updateReview({ ...update, expectedRevision: 2 }),
+    ).toMatchObject({ ok: false, error: { code: "review_conflict" } });
+    expect(await tasks.submissions({ subject, code })).toMatchObject({
+      ok: true,
+      value: {
+        submissions: [expect.objectContaining({ note: "Готово" })],
+        reviewProgress: { revision: 4, reviewReport: null },
+      },
+    });
+    const closed = await imported({ access: "closed" });
+    expect(
+      await tasks.updateReview({ ...update, code: closed.code }),
+    ).toMatchObject({ ok: false, error: { code: "task_not_available" } });
+  });
+
+  test("agent-only guidance is versioned with task requirements and included in complete MCP context", async () => {
+    const body = source();
+    const apply = assembleApplySourceTask(importDependencies());
+    const original = await apply(
+      {
+        ...body,
+        definition: {
+          ...definition,
+          reviewGuidance: "Check tenant isolation using existing reports.",
+        },
+        expectedRevision: null,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    if (!original.ok) throw new Error(original.error.code);
+    const first = await learning().read({
+      subject: await learner(),
+      code: body.code,
+      part: 0,
+    });
+    expect(JSON.stringify(first)).toContain("reviewGuidance");
+    const changed = await apply(
+      {
+        ...body,
+        definition: {
+          ...definition,
+          reviewGuidance: "Check tenant isolation and expired sessions.",
+        },
+        expectedRevision: original.value.revision,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(changed).toMatchObject({ ok: true, value: { currentVersion: 2 } });
+  });
+
   async function publishedMaterial(access: "free" | "closed") {
     const id = randomUUID();
     const sourceDescriptor = {

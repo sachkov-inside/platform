@@ -1423,28 +1423,30 @@ review runbook; synthetic success is not proof of learning or production onboard
 
 Source: [Platform #946](https://github.com/sachkov-inside/platform/issues/946), specification
 [#939](https://github.com/sachkov-inside/platform/issues/939), [ADR 0030](../adr/0030-guide-task-module.md).
-The `product-tasks` Module registers four tools and one prompt on the same `/learning` surface; the
-surface stays without author permissions. `learning_task_submit` is its only write, and it records
-only the calling Account's own submission.
+The `product-tasks` Module registers five tools and one prompt on the same `/learning` surface; the
+surface stays without author permissions. `learning_task_submit` records only the calling Account's own submission.
+`learning_task_review_update` records their current review separately from saved submissions.
+The [agent-led submission contract](task-submission-agent-workflow.md) owns progress updates,
+agent-only versioned `reviewGuidance`, connection help and learner report presentation (#1504).
 
 - `learning_tasks_list` (`productSlug` optional): published tasks the Account can open, in Product,
   chapter and in-chapter order, with code, Product, chapter, title, current Task Version and the
   Account's latest submission time.
 - `learning_task_read` (`code`, `part`, pins): the current Task Version definition (v1 `situation`,
   `result`, `freedom`, or v2 `intro`, `freedom`, criteria with explanations and optional advice;
-  `criteria[]` keeps `level: required | additional` and `acceptableEvidence`), review procedure v3 and the
+  `criteria[]` keeps `level: required | additional` and `acceptableEvidence`), review procedure v5 and the
   published related Materials with availability, as canonical JSON parts. `contextVersion` pins the
   task, version, definition digest and protocol version; `contentSha256` pins the whole payload.
   Later parts require both; a mismatch answers `task_context_version_mismatch` or
   `task_content_changed`. A task without access answers `task_not_available`.
 - `learning_task_submit` (`code`, `taskVersion`, `submissionKey`, `reviewReport`, `note`,
-  `serviceMark`): annotations `readOnlyHint: false`, `destructiveHint: false`,
+  `serviceMark`, optional `reviewRunKey`): annotations `readOnlyHint: false`, `destructiveHint: false`,
   `idempotentHint: true`. The report covers every criterion of the submitted version exactly once;
   a version that is no longer current answers `task_version_changed`. The same key with the same
   content returns the first receipt; with other content, `idempotency_conflict`.
 - `learning_task_submissions` (`code`): the Account's own submissions, newest first, with version,
   report, note, service mark and Author Feedback.
-- Prompt `review_task` (`code`): procedure v3 word for word, the same text `learning_task_read`
+- Prompt `review_task` (`code`): procedure v5 word for word, the same text `learning_task_read`
   returns.
 
 Access is decided by ContentAccess on the `productTask` resource at every read, list and submission.
@@ -1531,17 +1533,18 @@ in author order (variant 2).
   requirements and submissions in an uncached personal boundary (ADR 0027). The browser retains
   a visited task for the same 60-second window as lessons; submission writes refresh that route.
   An open v1 task first shows related Materials with explicit studied progress, then «Ситуация»,
-  «Результат», «Обязательно», «Дополнительно» and «Свобода», followed by «Сдача» and «Мои сдачи». «Сдача» shows the learning MCP
-  address, the phrase with the task code and procedure v3, the same text MCP returns, with the
-  fallback form folded below. A task the reader cannot open shows only its title and chapter and
+  «Результат», «Обязательно», «Дополнительно» and «Свобода», followed by the separate «Сдача задания» workspace.
+  It contains short instructions, inline MCP setup help, a folded manual form and «Мои сдачи»,
+  as defined by the [agent-led submission contract](task-submission-agent-workflow.md). A task the reader cannot open shows only its title and chapter and
   leads to the programme; an unknown code, a code of another Product and a withdrawn task answer 404.
 - `GET /library/products/{slug}/tasks/{code}` (`readProductTaskPage`, optional Account) answers
   `access: open` with the current Task Version, procedure, related Materials and
   `submission.accepting`, or `access: closed` with the code, title, Product and chapter only; it
   answers `task_not_found` for the 404 cases.
 - `GET /accounts/current/product-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
-  Account's own submissions with source, version, note, text report, repository and Author
-  Feedback, and the criteria of every version they refer to.
+  Account's own submissions with source, version, note, agent report, manual text report, repository and Author
+  Feedback, the current `reviewProgress`, and the criteria of their versions. Agent-only guidance
+  is omitted from HTTP responses. The task page polls through `GET /api/product-tasks/submissions`.
 - `POST /accounts/current/product-tasks/{code}/submissions` (`submitProductTaskForm`) takes
   `taskVersion`, `submissionKey`, `note` (1–1000 characters), optional `repositoryUrl` and
   optional `reportText` (up to 20 000 characters) and records a `form` submission. The learner never

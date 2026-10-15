@@ -280,3 +280,102 @@ test("an Account without materials:manage sees no submissions (#948)", async ({
   ).toBeVisible();
   await expect(page.locator("[data-submission]")).toHaveCount(0);
 });
+
+test("agent progress reaches the open task page and becomes a saved report only after submission (#1504)", async ({
+  context,
+  page,
+  request,
+}) => {
+  const code = required("FULLSTACK_TASK_CODE");
+  const current = z
+    .object({
+      ok: z.literal(true),
+      value: z
+        .object({
+          reviewProgress: z.object({ revision: z.number() }).nullable(),
+        })
+        .loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_submissions", { code }),
+    );
+  const runKey = randomUUID();
+  const summary = `Проверяю сценарий заявки ${runKey}.`;
+  const progress = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ revision: z.number() }).loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_review_update", {
+        code,
+        taskVersion: 1,
+        runKey,
+        expectedRevision: current.value.reviewProgress?.revision ?? 0,
+        phase: "reviewing",
+        summary,
+      }),
+    );
+  await signInFullStack(context, "NON_MEMBER");
+  await page.goto(
+    `/products/${required("FULLSTACK_TASK_PRODUCT_SLUG")}/tasks/${code}`,
+  );
+  await expect(
+    page.locator("[data-task-review-progress]").getByText(summary),
+  ).toBeVisible();
+  const report = {
+    summary: "Заявка создаётся. Повторный запрос ещё не проверен.",
+    criteria: [
+      {
+        criterionId: "request",
+        status: "confirmed",
+        evidence: "Проверен сохранённый отчёт.",
+        gap: "",
+        obtainedByRun: false,
+      },
+      {
+        criterionId: "deduplication",
+        status: "not_verified",
+        evidence: "",
+        gap: "Нужна проверка повтора.",
+        obtainedByRun: false,
+      },
+    ],
+  };
+  const ready = await callLearningTool(request, "learning_task_review_update", {
+    code,
+    taskVersion: 1,
+    runKey,
+    expectedRevision: progress.value.revision,
+    phase: "ready",
+    summary: "Отчёт готов к обсуждению.",
+    reviewReport: report,
+  });
+  expect(ready).toMatchObject({ ok: true });
+  const liveUpdateBudgetMs = 20_000;
+  await expect(
+    page
+      .locator("[data-task-review-progress]")
+      .getByText("Отчёт готов к обсуждению."),
+  ).toBeVisible({ timeout: liveUpdateBudgetMs });
+  const saved = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ submissionId: z.uuid() }).loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_submit", {
+        code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        reviewRunKey: runKey,
+        reviewReport: report,
+        note: "Подтверждаю точный отчёт синтетической проверки.",
+      }),
+    );
+  const card = page.locator(`[data-submission="${saved.value.submissionId}"]`);
+  await expect(card.getByText(report.summary)).toBeVisible({
+    timeout: liveUpdateBudgetMs,
+  });
+  await expect(page.locator("[data-task-review-progress]")).toHaveCount(0);
+});

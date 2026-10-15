@@ -103,12 +103,43 @@ export const productTaskPageSchema = z.discriminatedUnion("access", [
     .strict(),
 ]);
 
+export const taskReviewReportSchema = z
+  .object({
+    summary: z.string().optional(),
+    criteria: z.array(
+      z
+        .object({
+          criterionId: z.string(),
+          status: z.enum(["confirmed", "violation", "not_verified"]),
+          evidence: z.string(),
+          gap: z.string(),
+          obtainedByRun: z.boolean(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export const taskReviewProgressSchema = z
+  .object({
+    taskVersion: z.number().int().positive(),
+    runKey: z.uuid(),
+    revision: z.number().int().positive(),
+    phase: z.enum(["reviewing", "ready", "stopped", "submitted"]),
+    summary: z.string(),
+    reviewReport: taskReviewReportSchema.nullable(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type TaskReviewReport = z.infer<typeof taskReviewReportSchema>;
+export type TaskReviewProgress = z.infer<typeof taskReviewProgressSchema>;
+
 export const ownTaskSubmissionsSchema = z
   .object({
     code: z.string(),
     currentVersion: z.number().int().positive(),
     nextCursor: z.string().min(1).nullable(),
     latestSubmittedAt: z.iso.datetime().nullable(),
+    reviewProgress: taskReviewProgressSchema.nullable().optional(),
     versions: z.array(
       z
         .object({
@@ -126,6 +157,7 @@ export const ownTaskSubmissionsSchema = z
           submittedAt: z.iso.datetime(),
           note: z.string(),
           reportText: z.string().nullable(),
+          reviewReport: taskReviewReportSchema.nullable().optional(),
           repositoryUrl: z.string().nullable(),
           authorFeedback: z
             .object({

@@ -1824,6 +1824,7 @@ model ProductTaskVersion {
 
   task        ProductTask             @relation(fields: [taskId], references: [id])
   submissions ProductTaskSubmission[]
+  reviews ProductTaskReviewProgress[]
 
   @@id([taskId, version], map: "task_versions_primary")
   @@map("task_versions")
@@ -1913,4 +1914,22 @@ model ProductLearningStarted {
   @@id([accountId, productId])
   @@map("product_learning_started")
   @@schema("reading_activity")
+}
+
+model ProductTaskReviewProgress {
+  accountId String @map("account_id") @db.Uuid
+  taskId String @map("task_id") @db.Uuid
+  taskVersion Int @map("task_version")
+  runKey String @map("run_key") @db.Uuid
+  revision Int
+  phase String
+  summary String
+  reviewReport Json? @map("review_report")
+  requestFingerprint String @map("request_fingerprint") @db.Char(64)
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  version ProductTaskVersion @relation(fields: [taskId, taskVersion], references: [taskId, version])
+
+  @@id([accountId, taskId], map: "review_progress_primary")
+  @@map("review_progress")
+  @@schema("product_tasks")
 }

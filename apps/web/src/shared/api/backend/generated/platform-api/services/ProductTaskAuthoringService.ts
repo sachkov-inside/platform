@@ -30,6 +30,7 @@ export class ProductTaskAuthoringService {
         }>;
         freedom: string;
         result: Array<string>;
+        reviewGuidance?: string;
         schemaVersion: 1;
         situation: string;
       } | {
@@ -44,6 +45,7 @@ export class ProductTaskAuthoringService {
         format: 'c';
         freedom: string;
         intro: string;
+        reviewGuidance?: string;
         schemaVersion: 2;
       });
       expectedRevision: number | null;
@@ -109,6 +111,7 @@ export class ProductTaskAuthoringService {
         }>;
         freedom: string;
         result: Array<string>;
+        reviewGuidance?: string;
         schemaVersion: 1;
         situation: string;
       } | {
@@ -123,6 +126,7 @@ export class ProductTaskAuthoringService {
         format: 'c';
         freedom: string;
         intro: string;
+        reviewGuidance?: string;
         schemaVersion: 2;
       });
       page?: Record<string, any>;

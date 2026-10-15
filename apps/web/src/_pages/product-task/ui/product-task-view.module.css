@@ -16,12 +16,17 @@
 .body h3 {
   font-size: 1.125rem;
 }
-.submission {
-  scroll-margin-top: 1.5rem;
-  padding: 1.25rem;
+.workspace {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+  padding: 1.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--muted);
+  background: var(--card);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 39.99rem) {
   .body {
@@ -33,7 +38,7 @@
   .body h3 {
     font-size: 1rem;
   }
-  .submission {
+  .workspace {
     padding: 1rem;
   }
 }

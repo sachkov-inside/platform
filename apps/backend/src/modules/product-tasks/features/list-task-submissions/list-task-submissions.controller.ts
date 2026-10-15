@@ -1,3 +1,5 @@
+import { reviewReportSchema } from "../../domain/review-report.js";
+import { reviewProgressSchema } from "../../domain/review-progress.js";
 import {
   Controller,
   Get,
@@ -53,6 +55,7 @@ export const ownTaskSubmissionsHttpSchema = z
   .object({
     code: z.string(),
     currentVersion: z.number().int().positive(),
+    reviewProgress: reviewProgressSchema.nullable(),
     nextCursor: ownSubmissionsCursorSchema.nullable(),
     latestSubmittedAt: z.iso.datetime().nullable(),
     versions: z.array(
@@ -72,6 +75,7 @@ export const ownTaskSubmissionsHttpSchema = z
           submittedAt: z.iso.datetime(),
           note: z.string(),
           reportText: z.string().nullable(),
+          reviewReport: reviewReportSchema.nullable(),
           repositoryUrl: z.string().nullable(),
           authorFeedback: z
             .object({
@@ -177,6 +181,7 @@ export class ListOwnTaskSubmissionsController {
     return {
       code: value.code,
       currentVersion: value.currentVersion,
+      reviewProgress: value.reviewProgress,
       nextCursor: value.nextCursor,
       latestSubmittedAt: value.latestSubmittedAt,
       versions: value.versions.map((version) => ({
@@ -190,6 +195,7 @@ export class ListOwnTaskSubmissionsController {
         submittedAt: submission.submittedAt,
         note: submission.note,
         reportText: submission.reportText,
+        reviewReport: submission.reviewReport,
         repositoryUrl: submission.serviceMark.repositoryUrl,
         authorFeedback:
           submission.authorFeedback === null

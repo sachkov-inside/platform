@@ -81,6 +81,7 @@ const meta = {
   },
   args: {
     programme: courseTask,
+    liveSubmissions: false,
     learnerMcpUrl,
     page: openProductTask,
     returnTo,
@@ -107,7 +108,7 @@ export const Submitted: Story = {
       "Обязательно",
       "Дополнительно",
       "Свобода",
-      "Сдача",
+      "Сдача задания",
       "Мои сдачи",
       "Материалы к заданию",
     ])
@@ -116,8 +117,8 @@ export const Submitted: Story = {
       canvasElement.querySelector<HTMLElement>('[id="task-submit"]');
     if (submission === null) throw new Error("Missing submission section");
     await expect(
-      within(submission).getByText(/^Сдано 5 октября$/u),
-    ).toBeVisible();
+      within(submission).getAllByText("Сдача отправлена"),
+    ).toHaveLength(2);
     const header =
       canvasElement.querySelector<HTMLElement>("[data-task-header]");
     if (header === null) throw new Error("Missing task header");
@@ -533,7 +534,7 @@ function courseLoadsInPlace({
         title: boxOf(canvasElement, "[data-reader-header] h1"),
       };
       stagedLoadingOf(loaded).deliverPersonalPart();
-      await canvas.findByText(/^Сдано 5 октября$/u);
+      await canvas.findByRole("heading", { name: "Мои сдачи" });
       await expect(
         originOf(boxOf(canvasElement, "[data-task-header]")),
       ).toEqual(before.header);
@@ -665,6 +666,145 @@ export const OlderAttempts: Story = {
     await expect(
       page.getByRole("link", { name: "К новым сдачам" }),
     ).toHaveAttribute("href", `${returnTo}#task-mine`);
-    await expect(page.getByText("Сдано 5 октября")).toBeVisible();
+    await expect(
+      page.getByText("Сдача отправлена", { exact: true }),
+    ).toBeVisible();
+  },
+};
+
+const agentReport = {
+  summary:
+    "Основной сценарий работает. Нужно проверить отзыв доступа и уточнить обработку отказа GitHub.",
+  criteria: openProductTask.task.definition.criteria.map(
+    (criterion, index) => ({
+      criterionId: criterion.id,
+      status:
+        index === 1
+          ? ("violation" as const)
+          : index === 2
+            ? ("not_verified" as const)
+            : ("confirmed" as const),
+      evidence:
+        index === 1
+          ? "В обработчике запроса не найдено проверки владельца."
+          : "Проверены файлы проекта и сохранённый отчёт тестов.",
+      gap:
+        index === 1
+          ? "Добавить проверку владельца перед чтением проекта."
+          : index === 2
+            ? "Нет сохранённого ответа GitHub."
+            : "",
+      obtainedByRun: false,
+    }),
+  ),
+};
+const reviewHistory = {
+  kind: "ready" as const,
+  code: openProductTask.task.code,
+  currentVersion: openProductTask.task.version,
+  nextCursor: null,
+  latestSubmittedAt: null,
+  submissions: [],
+  versions: [
+    {
+      version: openProductTask.task.version,
+      criteria: openProductTask.task.definition.criteria,
+    },
+  ],
+  reviewProgress: {
+    taskVersion: openProductTask.task.version,
+    runKey: "74000000-0000-4000-8000-000000000001",
+    revision: 2,
+    phase: "ready" as const,
+    summary: "Проверка завершена. Обсуди замечания и отправку с агентом.",
+    reviewReport: agentReport,
+    updatedAt: "2026-10-15T08:30:00.000Z",
+  },
+};
+export const ReviewReady: Story = {
+  args: { submissions: reviewHistory },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByText("Отчёт готов — обсуди его с агентом"),
+    ).toBeVisible();
+    await expect(page.getByText(/Ещё не отправлено/u)).toBeVisible();
+    await userEvent.click(
+      page.getByText("Отчёт по критериям", { exact: true }),
+    );
+    await expect(
+      page.getByText("Добавить проверку владельца перед чтением проекта.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.queryByText("Сдача отправлена", { exact: true }),
+    ).toBeNull();
+  },
+};
+export const ReviewReadyMobile: Story = {
+  ...ReviewReady,
+  globals: mobile.globals,
+};
+export const ReviewInProgress: Story = {
+  args: {
+    submissions: {
+      ...reviewHistory,
+      reviewProgress: {
+        ...reviewHistory.reviewProgress,
+        phase: "reviewing",
+        reviewReport: null,
+        summary: "Читаю проект и сверяю права доступа.",
+      },
+    },
+  },
+};
+export const ReviewStopped: Story = {
+  args: {
+    submissions: {
+      ...reviewHistory,
+      reviewProgress: {
+        ...reviewHistory.reviewProgress,
+        phase: "stopped",
+        reviewReport: null,
+        summary: "Не удалось прочитать отчёт CI. Продолжи проверку у агента.",
+      },
+    },
+  },
+};
+export const SavedAgentReport: Story = {
+  args: {
+    submissions: {
+      ...reviewHistory,
+      reviewProgress: null,
+      latestSubmittedAt: "2026-10-15T08:35:00.000Z",
+      submissions: [
+        {
+          submissionId: "75000000-0000-4000-8000-000000000001",
+          taskVersion: openProductTask.task.version,
+          source: "mcp",
+          submittedAt: "2026-10-15T08:35:00.000Z",
+          note: "Реализовал основной сценарий. Следующим шагом исправлю проверку владельца.",
+          reportText: null,
+          repositoryUrl: "https://github.com/learner/devportal",
+          reviewReport: agentReport,
+          authorFeedback: {
+            comment:
+              "Проверь доступ с двумя аккаунтами и повтори самопроверку.",
+            reviewedAt: null,
+          },
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByText("Комментарий автора", { exact: true }),
+    ).toBeVisible();
+    await expect(page.queryByText("Автор ещё не смотрел.")).toBeNull();
+    await expect(
+      page.getByText("Сдача отправлена", { exact: true }),
+    ).toBeVisible();
   },
 };

@@ -25126,6 +25126,115 @@
                       "nullable": true,
                       "type": "string"
                     },
+                    "reviewProgress": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "phase": {
+                          "enum": [
+                            "reviewing",
+                            "ready",
+                            "stopped",
+                            "submitted"
+                          ],
+                          "type": "string"
+                        },
+                        "reviewReport": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "criteria": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "criterionId": {
+                                    "maxLength": 100,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "evidence": {
+                                    "maxLength": 4000,
+                                    "type": "string"
+                                  },
+                                  "gap": {
+                                    "maxLength": 4000,
+                                    "type": "string"
+                                  },
+                                  "obtainedByRun": {
+                                    "type": "boolean"
+                                  },
+                                  "status": {
+                                    "enum": [
+                                      "confirmed",
+                                      "violation",
+                                      "not_verified"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "criterionId",
+                                  "status",
+                                  "evidence",
+                                  "gap",
+                                  "obtainedByRun"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 50,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "summary": {
+                              "maxLength": 1000,
+                              "minLength": 1,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "criteria"
+                          ],
+                          "type": "object"
+                        },
+                        "revision": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "runKey": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "summary": {
+                          "maxLength": 1000,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "taskVersion": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "updatedAt": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "taskVersion",
+                        "runKey",
+                        "revision",
+                        "phase",
+                        "summary",
+                        "reviewReport",
+                        "updatedAt"
+                      ],
+                      "type": "object"
+                    },
                     "submissions": {
                       "items": {
                         "additionalProperties": false,
@@ -25162,6 +25271,63 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "reviewReport": {
+                            "additionalProperties": false,
+                            "nullable": true,
+                            "properties": {
+                              "criteria": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "criterionId": {
+                                      "maxLength": 100,
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "evidence": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "gap": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "obtainedByRun": {
+                                      "type": "boolean"
+                                    },
+                                    "status": {
+                                      "enum": [
+                                        "confirmed",
+                                        "violation",
+                                        "not_verified"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "criterionId",
+                                    "status",
+                                    "evidence",
+                                    "gap",
+                                    "obtainedByRun"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 50,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "summary": {
+                                "maxLength": 1000,
+                                "minLength": 1,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "criteria"
+                            ],
+                            "type": "object"
+                          },
                           "source": {
                             "enum": [
                               "mcp",
@@ -25193,6 +25359,7 @@
                           "submittedAt",
                           "note",
                           "reportText",
+                          "reviewReport",
                           "repositoryUrl",
                           "authorFeedback"
                         ],
@@ -25292,6 +25459,7 @@
                   "required": [
                     "code",
                     "currentVersion",
+                    "reviewProgress",
                     "nextCursor",
                     "latestSubmittedAt",
                     "versions",
@@ -49976,6 +50144,11 @@
                             "minItems": 1,
                             "type": "array"
                           },
+                          "reviewGuidance": {
+                            "maxLength": 16000,
+                            "minLength": 1,
+                            "type": "string"
+                          },
                           "schemaVersion": {
                             "enum": [
                               1
@@ -50067,6 +50240,11 @@
                             "type": "string"
                           },
                           "intro": {
+                            "maxLength": 16000,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reviewGuidance": {
                             "maxLength": 16000,
                             "minLength": 1,
                             "type": "string"
@@ -50833,6 +51011,11 @@
                             "minItems": 1,
                             "type": "array"
                           },
+                          "reviewGuidance": {
+                            "maxLength": 16000,
+                            "minLength": 1,
+                            "type": "string"
+                          },
                           "schemaVersion": {
                             "enum": [
                               1
@@ -50924,6 +51107,11 @@
                             "type": "string"
                           },
                           "intro": {
+                            "maxLength": 16000,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reviewGuidance": {
                             "maxLength": 16000,
                             "minLength": 1,
                             "type": "string"
