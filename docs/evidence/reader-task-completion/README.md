@@ -1,6 +1,7 @@
 # Reader Task submission marks — design comparison
 
-Owner assignment: 2026-10-15. Prototype only; no production change or owner selection yet.
+Owner assignment: 2026-10-15. Prototype only; no production change.
+Owner selected direction A, with the submission date removed. Preserve the strikethrough and «Сдано» label.
 Base source: `fa6f153e421d8f48823cba4a3ad24e3e2266f27a`.
 Branch: `prototype/reader-task-completion`.
 
@@ -9,7 +10,7 @@ Branch: `prototype/reader-task-completion`.
 How should the course Reader sidebar show a saved Task submission while retaining a readable title,
 chapter-local Task numbering and an independent current-step indication?
 
-- A: a subtle title strikethrough and submission date.
+- A: a subtle title strikethrough and «Сдано» label without a submission date.
 - B: an outlined check on the left and visible «Сдано» label.
 - C: a checked node on the existing position rail; an accessible «Сдано» label remains available.
 

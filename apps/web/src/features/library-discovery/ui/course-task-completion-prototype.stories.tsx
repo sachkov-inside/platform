@@ -113,9 +113,7 @@ function TaskLabel({
       <span className={styles["title"]}>{step.title}</span>
       {done && (
         <>
-          <span className={styles["status"]}>
-            {variant === 0 ? "Сдано 14 октября" : "Сдано"}
-          </span>
+          <span className={styles["status"]}>Сдано</span>
           {variant === 1 && (
             <CircleCheck
               className={styles["check"]}
