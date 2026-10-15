@@ -172,9 +172,12 @@ describe("Learning material reference batches", () => {
         {
           reader,
           tasks: {
-            materialTask: async () => {
+            materialTask: () => {
               taskLookupFinished = true;
-              return { ok: false, error: { code: "task_not_found" } };
+              return Promise.resolve({
+                ok: false as const,
+                error: { code: "task_not_found" as const },
+              });
             },
           },
           contentAccess: {
