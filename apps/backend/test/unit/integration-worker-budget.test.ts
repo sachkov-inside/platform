@@ -20,3 +20,20 @@ test.each([
     expect(integrationWorkerBudget(resources)).toBe(resources.workers);
   },
 );
+
+// Dedicated hosted runners do not share their CPU budget with another local session.
+test.each([
+  { availableCpuCount: 4, availableMemoryBytes: 7 * 1024 ** 3, workers: 3 },
+  { availableCpuCount: 16, availableMemoryBytes: 16 * 1024 ** 3, workers: 3 },
+  { availableCpuCount: 4, availableMemoryBytes: 4 * 1024 ** 3, workers: 2 },
+  { availableCpuCount: 4, availableMemoryBytes: 2 * 1024 ** 3, workers: 1 },
+  { availableCpuCount: 2, availableMemoryBytes: 7 * 1024 ** 3, workers: 1 },
+  { availableCpuCount: 1, availableMemoryBytes: 0, workers: 1 },
+])(
+  "reserves hosted-runner resources with $workers workers for $availableCpuCount CPUs and $availableMemoryBytes bytes",
+  (resources) => {
+    expect(
+      integrationWorkerBudget({ ...resources, isolatedRunner: true }),
+    ).toBe(resources.workers);
+  },
+);
