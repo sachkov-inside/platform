@@ -30,6 +30,7 @@ import {
 } from "./material-reader-view";
 
 import { ReaderTopActions } from "./reader-top-actions.client";
+import { ReaderOutline } from "./reader-outline.client";
 
 /**
  * Скелет маршрута: об уроке ещё ничего не известно. Он собран из рамки самого ридера — кнопка
@@ -106,6 +107,7 @@ export function MaterialReaderPending({
               ) : undefined
             }
             context={seriesContext}
+            readingAction={null}
             format={material.format.slug}
           />
         }
@@ -115,7 +117,13 @@ export function MaterialReaderPending({
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
-            actions={<ReservedReaderActions format={material.format.slug} />}
+            actions={<ReservedBookmarkAction />}
+          />
+          <ReaderOutline
+            items={[]}
+            readingAction={
+              <ReservedReadingAction format={material.format.slug} />
+            }
           />
           <div
             aria-busy="true"
@@ -258,6 +266,7 @@ export function MaterialReaderAccess({
                 ) : undefined
               }
               context={seriesContext}
+              readingAction={null}
               format={material.format.slug}
             />
           }
@@ -267,11 +276,14 @@ export function MaterialReaderAccess({
               material={material}
               programme={seriesContext?.programme}
               supplementary={seriesContext?.supplementary ?? false}
-              actions={
-                <ReservedReaderActions
-                  format={material.format.slug}
-                  readingAction={readingAction}
-                />
+              actions={<ReservedBookmarkAction />}
+            />
+            <ReaderOutline
+              items={[]}
+              readingAction={
+                readingAction ?? (
+                  <ReservedReadingAction format={material.format.slug} />
+                )
               }
             />
             <section
@@ -336,30 +348,25 @@ export function MaterialReaderAccess({
 }
 
 /** Pending/access states reserve the same truthful actions without starting a personal read. */
-function ReservedReaderActions({
-  format,
-  readingAction,
-}: {
-  readonly format: string;
-  readonly readingAction?: React.ReactNode;
-}) {
+function ReservedBookmarkAction() {
   return (
-    <>
-      <Button
-        disabled
-        variant="ghost"
-        className="size-9 shrink-0 p-0"
-        aria-label="Закладка недоступна"
-      >
-        <Bookmark aria-hidden="true" />
-      </Button>
-      {readingAction ?? (
-        <Button disabled variant="ghost" className="h-9 px-3">
-          <Circle aria-hidden="true" />
-          {materialReadingLabels(format).complete}
-        </Button>
-      )}
-    </>
+    <Button
+      disabled
+      variant="ghost"
+      className="size-9 shrink-0 p-0"
+      aria-label="Закладка недоступна"
+    >
+      <Bookmark aria-hidden="true" />
+    </Button>
+  );
+}
+
+function ReservedReadingAction({ format }: { readonly format: string }) {
+  return (
+    <Button disabled variant="ghost" className="h-9 px-3">
+      <Circle aria-hidden="true" />
+      {materialReadingLabels(format).complete}
+    </Button>
   );
 }
 

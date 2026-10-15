@@ -232,6 +232,16 @@ function loadsInPlace(
         await expect(
           canvas.getByLabelText("Текст материала загружается"),
         ).toHaveAttribute("aria-busy", "true");
+        const headerActions = canvas.getByRole("navigation", {
+          name: "Действия материала",
+          exact: true,
+        });
+        await expect(within(headerActions).getAllByRole("button")).toHaveLength(
+          1,
+        );
+        await expect(
+          canvas.getByRole("group", { name: "Отметка изучения", exact: true }),
+        ).toBeVisible();
         const sharedPart = measure(canvasElement);
 
         sequence.deliverPersonalPart();
