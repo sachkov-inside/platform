@@ -432,7 +432,7 @@ stored order or group entity. Current membership owns the label. Published proje
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing return controls. Within a checked Product,
-Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
+Reader and Product Task share Course B: a 272 px chapter rail, one metadata/action row and a named
 previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count.
 A primary Material receives its course frame from explicit membership in an actual Product chapter.
 A supplementary Material opened from a primary lesson or Task keeps that originating step as its course anchor.
@@ -441,7 +441,11 @@ An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existi
 The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
 A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
 counts, progress or previous/next. The sidebar selects the originating step; breadcrumbs name the open document.
-An orange sidebar line connects chapter markers from the first step to the current anchor and stops there.
+A thin dashed orange sidebar line connects chapter markers to the current anchor and stops there.
+Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
+Below 48rem, the floating lesson dock opens the bottom programme sheet.
+From 48rem to below 64rem, a top button opens a left overlay drawer; the bottom dock is absent.
+At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
 Direct links without a valid anchor use standalone Reader and retain the confirmed course breadcrumb and return.

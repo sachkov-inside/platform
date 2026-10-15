@@ -84,6 +84,11 @@ const preview: Preview = {
           },
           type: "mobile",
         },
+        tablet820: {
+          name: "Tablet 820 × 1180",
+          styles: { height: "1180px", width: "820px" },
+          type: "tablet",
+        },
         desktop1036: {
           name: "Narrow desktop 1036 × 916",
           styles: {

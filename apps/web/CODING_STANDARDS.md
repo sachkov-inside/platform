@@ -265,13 +265,16 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
 - In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
-  a 240 px left chapter rail, position/title with one truthful action row, and
+  a 272 px left chapter rail, position/title with one truthful action row, and
   a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Owner correction 2026-10-13: mobile uses a floating rounded, blurred lesson dock
+  access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded, blurred lesson dock
   with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
   a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
-  and desktop resize. Keep the mobile course heading at 20 px; omit format, course and topic metadata.
-  Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
+  and desktop resize. From 48rem to below 64rem, a top button opens a left modal drawer;
+  omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.
+  Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
+  Keep the mobile course heading at 20 px; omit format, course and topic metadata.
+  Rail rows and chapter selection use 16 px, 1.6 line height and constant weight 400; active color,
   marker and `aria-current` identify the current step. Hover changes text only, including chapter
   options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
   The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal

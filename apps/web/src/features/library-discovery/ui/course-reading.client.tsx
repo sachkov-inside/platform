@@ -325,6 +325,15 @@ function ProgrammeDialog({
   }
   return (
     <div className={styles["mobileProgramme"]}>
+      <button
+        type="button"
+        className={styles["tabletTrigger"]}
+        onClick={openProgramme}
+        aria-haspopup="dialog"
+        aria-label="Вся программа"
+      >
+        <List size={18} aria-hidden="true" /> Вся программа
+      </button>
       <nav
         className={styles["dock"]}
         aria-label="Навигация по урокам"

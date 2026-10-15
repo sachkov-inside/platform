@@ -5,16 +5,16 @@
 .body {
   display: flow-root;
   margin-top: 2rem;
-  font-size: 1.125rem;
+  font-size: 1rem;
   line-height: 1.65;
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 .body h2 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
 }
 .body h3 {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
 }
 .submission {
   scroll-margin-top: 1.5rem;
@@ -55,4 +55,16 @@
 }
 .body > section > h2 {
   margin-bottom: 0.625rem;
+}
+
+@media (width >= 80rem) {
+  .body {
+    font-size: 1.125rem;
+  }
+  .body h2 {
+    font-size: 1.5rem;
+  }
+  .body h3 {
+    font-size: 1.25rem;
+  }
 }
