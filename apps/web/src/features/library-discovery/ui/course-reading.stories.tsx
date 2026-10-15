@@ -337,10 +337,18 @@ export const StreamedTaskSubmissionStatuses: Story = {
     const [personal, setPersonal] = useState(false);
     return (
       <CourseReadingLayout context={taskOnlyCourse}>
-        <button onClick={() => setPersonal(true)}>
+        <button
+          onClick={() => {
+            setPersonal(true);
+          }}
+        >
           Получить личные статусы
         </button>
-        <button onClick={() => setPersonal(false)}>
+        <button
+          onClick={() => {
+            setPersonal(false);
+          }}
+        >
           Убрать личный контекст
         </button>
         {personal ? (
