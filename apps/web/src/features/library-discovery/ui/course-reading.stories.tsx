@@ -5,6 +5,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, within } from "storybook/test";
 import {
   courseGuide,
+  courseTask,
   courseSource,
   courseNext,
   taskOnlyCourse,
@@ -378,5 +379,48 @@ export const StreamedTaskSubmissionStatuses: Story = {
     await expect(
       canvasElement.querySelector('[data-task-submitted="true"]'),
     ).toBeNull();
+  },
+};
+
+export const SupplementaryBreadcrumbs: Story = {
+  render: function SupplementaryOrigin() {
+    const [taskOrigin, setTaskOrigin] = useState(false);
+    return (
+      <>
+        <button
+          onClick={() => {
+            setTaskOrigin(true);
+          }}
+        >
+          Открыть из задания
+        </button>
+        <CourseReadingHeader
+          context={taskOrigin ? courseTask : courseGuide}
+          title="Описание учебного проекта"
+          metadata={null}
+          supplementary
+        />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const crumbs = within(
+      canvas.getByRole("navigation", { name: "Хлебные крошки" }),
+    );
+    await expect(
+      crumbs.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual(["AI Engineering", "Глава 1", "Описание учебного проекта"]);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть из задания" }),
+    );
+    await expect(
+      crumbs.getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual([
+      "AI Engineering",
+      "Глава 1",
+      "Задание",
+      "Описание учебного проекта",
+    ]);
   },
 };

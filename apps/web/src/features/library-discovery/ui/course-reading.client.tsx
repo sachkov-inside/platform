@@ -130,11 +130,10 @@ export function CourseReadingHeader({
                 fullLabel: chapter?.name,
                 href: chapter?.href ?? context.href,
               },
-              ...(supplementary
+              ...(supplementary && context.current.kind === "task"
                 ? [
                     {
-                      label:
-                        context.current.kind === "task" ? "Задание" : "Урок",
+                      label: "Задание",
                       fullLabel: context.current.title,
                       href: context.current.href,
                       restoreOrigin: true,

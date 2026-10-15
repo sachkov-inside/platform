@@ -453,8 +453,10 @@ Chapter selection lists actual chapters only, without a synthetic Materials chap
 
 Teaching pages use visible hierarchical breadcrumbs: catalogue, Product, programme, Materials and Tasks.
 Long breadcrumb names truncate with an ellipsis; the full name remains available in the title and accessible text.
-A course document shows Product, chapter and current document. A supplementary document also includes its
-originating primary step; intermediate supplementary documents belong to browser history, not to breadcrumbs.
+A course document shows Product, chapter and current document. A supplementary document opened from a
+Task also includes that originating Task. From a primary lesson, omit the generic Lesson breadcrumb:
+show Product, chapter and the open Material. Intermediate supplementary documents belong to browser history,
+not to breadcrumbs.
 Breadcrumbs use a named navigation landmark and identify the current page. They wrap on narrow screens.
 Profile, checkout, authoring and Home do not gain breadcrumbs through this change.
 
