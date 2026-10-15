@@ -64,7 +64,7 @@ export function TaskSubmissionHistory({
   const submissions =
     !live || initial.kind === "guest" ? initial : (query.data ?? initial);
   const refresh = () => {
-    if (live) {
+    if (live && accountId !== null) {
       void query.refetch();
     } else {
       router.refresh();
@@ -99,7 +99,9 @@ export function TaskSubmissionHistory({
     <div className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {live ? "Обновляется по сообщениям агента" : "Сохранённые результаты"}
+          {live && accountId !== null
+            ? "Обновляется по сообщениям агента"
+            : "Сохранённые результаты"}
         </p>
         <Button
           variant="ghost"

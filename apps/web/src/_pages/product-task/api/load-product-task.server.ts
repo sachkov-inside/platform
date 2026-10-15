@@ -1,7 +1,10 @@
+import type { QueryClient } from "@tanstack/react-query";
+import { taskSubmissionsQueryKey } from "../model/task-submissions-query";
 import "server-only";
 
 import {
   BackendConnectionError,
+  resolveAccount,
   requestProductTaskPage,
   requestOwnTaskSubmissions,
 } from "@/shared/api/backend/index.server";
@@ -76,4 +79,31 @@ export async function loadOwnSubmissions(
     if (error instanceof BackendConnectionError) return { kind: "unavailable" };
     throw error;
   }
+}
+
+/** Identity must be established before personal history enters the browser query cache. */
+export async function prefetchOwnTaskSubmissions(
+  client: QueryClient,
+  code: string,
+  accessToken: string | undefined,
+  after?: string,
+): Promise<{
+  readonly accountId: string | null;
+  readonly submissions: OwnSubmissionsView;
+}> {
+  if (accessToken === undefined)
+    return { accountId: null, submissions: { kind: "guest" } };
+  let accountId: string;
+  try {
+    accountId = (await resolveAccount(accessToken)).accountId;
+  } catch (error) {
+    if (error instanceof BackendConnectionError)
+      return { accountId: null, submissions: { kind: "unavailable" } };
+    throw error;
+  }
+  const submissions = await client.query({
+    queryKey: taskSubmissionsQueryKey(accountId, code, after),
+    queryFn: () => loadOwnSubmissions(code, accessToken, after),
+  });
+  return { accountId, submissions };
 }

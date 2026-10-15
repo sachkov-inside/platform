@@ -52,7 +52,8 @@ Updates carry a run key and the expected revision returned by the previous read 
 An update advances the revision once. Repeating identical content after a lost answer returns the existing result.
 A stale revision or a closed run cannot overwrite newer work. A new run starts explicitly from the current revision.
 Changing the task version invalidates updates using the old requirements.
-Successful submission closes only its linked run within the same transaction and leaves a revision tombstone.
+Successful submission closes only its linked run within the same transaction.
+The immutable submission retains `reviewRunKey`, so a closed key cannot be reused after another run starts.
 Older clients can still submit without linking progress.
 
 The website refreshes personal progress while visible and supplies a manual refresh action.

@@ -1,7 +1,5 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { getQueryClient } from "@/shared/api/query-client";
-import { resolveAccount } from "@/shared/api/backend/index.server";
-import { taskSubmissionsQueryKey } from "../model/task-submissions-query";
 import {
   publicPageUrl,
   readPublicSiteOrigin,
@@ -22,7 +20,7 @@ import { productTaskHref } from "@/shared/routing/subscription-route";
 
 import {
   getProductTaskPage,
-  loadOwnSubmissions,
+  prefetchOwnTaskSubmissions,
 } from "../api/load-product-task.server";
 import {
   ProductTaskLoading,
@@ -88,22 +86,12 @@ async function PersonalProductTask({
     typeof query.attemptsAfter === "string" ? query.attemptsAfter : undefined;
   const accessToken = await getOptionalPlatformAccessToken();
   const client = getQueryClient();
-  let accountId: string | null = null;
-  if (accessToken !== undefined) {
-    try {
-      accountId = (await resolveAccount(accessToken)).accountId;
-    } catch (error) {
-      if (!(error instanceof BackendConnectionError)) throw error;
-    }
-  }
-  const [result, submissions, series] = await Promise.all([
+  const [result, personal, series] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
-    client.query({
-      queryKey: taskSubmissionsQueryKey(accountId, code, after),
-      queryFn: () => loadOwnSubmissions(code, accessToken, after),
-    }),
+    prefetchOwnTaskSubmissions(client, code, accessToken, after),
     loadTaskProgramme(slug, accessToken),
   ]);
+  const { accountId, submissions } = personal;
   if (result.kind === "not-found") notFound();
   if (result.kind === "unavailable") return <ProductTaskUnavailable />;
   const programme =

@@ -265,6 +265,7 @@ export async function submitTask(
             taskId: task.id,
             taskVersion: task.version,
             submissionKey: command.submissionKey,
+            reviewRunKey: command.reviewRunKey ?? null,
             requestFingerprint: fingerprint,
             source: input.source,
             ...(command.reviewReport === null

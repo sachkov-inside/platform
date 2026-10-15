@@ -311,6 +311,13 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       ok: true,
       value: { revision: 4 },
     });
+    // Even a freshly read revision cannot resurrect an already submitted run.
+    expect(
+      await tasks.updateReview({ ...update, expectedRevision: 4 }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "review_conflict", currentRevision: 4 },
+    });
     expect(
       await tasks.updateReview({ ...update, expectedRevision: 2 }),
     ).toMatchObject({ ok: false, error: { code: "review_conflict" } });

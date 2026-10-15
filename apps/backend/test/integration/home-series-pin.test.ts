@@ -85,6 +85,7 @@ beforeAll(async () => {
       "0092_product_access_exclusions",
       "0093_product_learning_started",
       "0094_task_review_progress",
+      "0095_task_submission_review_run",
     ],
   });
   await database.prisma.topic.create({

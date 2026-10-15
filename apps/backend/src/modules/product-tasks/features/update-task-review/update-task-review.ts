@@ -100,6 +100,23 @@ export async function updateTaskReview(
       const previous = await transaction.productTaskReviewProgress.findUnique({
         where,
       });
+      // Immutable submissions retain closed run keys after current progress moves to another run.
+      const closed = await transaction.productTaskSubmission.findFirst({
+        where: {
+          accountId: subject.accountId,
+          taskId: task.id,
+          reviewRunKey: command.runKey,
+        },
+        select: { id: true },
+      });
+      if (closed !== null)
+        return {
+          ok: false,
+          error: {
+            code: "review_conflict",
+            currentRevision: previous?.revision ?? 0,
+          },
+        };
       const fingerprint = commandDigest(command);
       // A lost-response retry must neither advance the revision nor reopen submitted work.
       if (

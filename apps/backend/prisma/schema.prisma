@@ -1849,6 +1849,7 @@ model ProductTaskSubmission {
   taskId             String   @map("task_id") @db.Uuid
   taskVersion        Int      @map("task_version")
   submissionKey      String   @map("submission_key")
+  reviewRunKey       String?  @map("review_run_key") @db.Uuid
   requestFingerprint String   @map("request_fingerprint") @db.Char(64)
   source             String
   reviewReport       Json?    @map("review_report")
@@ -1864,6 +1865,7 @@ model ProductTaskSubmission {
   feedback ProductTaskAuthorFeedback?
 
   @@unique([accountId, submissionKey], map: "submissions_key_unique")
+  @@index([accountId, taskId, reviewRunKey], map: "submissions_review_run")
   @@index([accountId, taskId, submittedAt(sort: Desc), id], map: "submissions_account_task")
   @@index([accountId, submittedAt], map: "submissions_account_time")
   @@index([taskId, submittedAt(sort: Desc), id], map: "submissions_task_time")
