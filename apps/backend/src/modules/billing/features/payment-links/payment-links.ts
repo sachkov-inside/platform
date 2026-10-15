@@ -19,7 +19,10 @@ import {
 } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
-import { selectPrice } from "../../shared/select-price.js";
+import {
+  selectPricesForOptions,
+  selectPrice,
+} from "../../shared/select-price.js";
 import {
   offerGrantsWithheld,
   productSupportTermMissing,
@@ -217,51 +220,69 @@ export async function readPaymentLinkInTransaction(
   const reserved = await tx.billingPromoReservation.findFirst({
     where: { paymentLinkId: id, state: { not: "failed" } },
   });
+  const current = await selectPrice(
+    tx,
+    snapshot.paymentOption.id,
+    now,
+    undefined,
+    { allowUnpublished: true },
+  );
+  return {
+    ok: true,
+    value: projectPaymentLink(
+      row,
+      snapshot,
+      reserved?.state ?? null,
+      current.ok ? current.value : null,
+      now,
+    ),
+  };
+}
+
+type PaymentLinkRow = Awaited<
+  ReturnType<BillingPrisma["billingPaymentLink"]["findMany"]>
+>[number];
+function projectPaymentLink(
+  row: PaymentLinkRow,
+  snapshot: PriceSnapshot,
+  reservationState: string | null,
+  current: PriceSnapshot | null,
+  now: Date,
+): PaymentLinkView {
   let state: PaymentLinkView["state"] =
-    reserved?.state === "confirmed"
+    reservationState === "confirmed"
       ? "paid"
-      : reserved?.state === "unknown"
+      : reservationState === "unknown"
         ? "unknown"
-        : reserved !== null
+        : reservationState !== null
           ? "pending"
           : row.revokedAt !== null
             ? "revoked"
             : row.expiresAt !== null && row.expiresAt <= now
               ? "expired"
               : "active";
-  if (state === "active") {
-    const current = await selectPrice(
-      tx,
-      snapshot.paymentOption.id,
-      now,
-      undefined,
-      { allowUnpublished: true },
-    );
-    if (
-      !current.ok ||
+  if (
+    state === "active" &&
+    (current === null ||
       canonicalJson({
-        benefits: current.value.offer.benefits,
-        benefitPeriods: current.value.offer.benefitPeriods,
-        coverage: current.value.offer.coverage,
+        benefits: current.offer.benefits,
+        benefitPeriods: current.offer.benefitPeriods,
+        coverage: current.offer.coverage,
       }) !==
         canonicalJson({
           benefits: snapshot.offer.benefits,
           benefitPeriods: snapshot.offer.benefitPeriods,
           coverage: snapshot.offer.coverage,
-        })
-    )
-      state = "changed";
-  }
+        }))
+  )
+    state = "changed";
   return {
-    ok: true,
-    value: {
-      id,
-      revision: row.revision,
-      state,
-      snapshot,
-      createdAt: row.createdAt.toISOString(),
-      expiresAt: row.expiresAt?.toISOString() ?? null,
-    },
+    id: row.id,
+    revision: row.revision,
+    state,
+    snapshot,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt?.toISOString() ?? null,
   };
 }
 
@@ -325,12 +346,45 @@ export async function listPaymentLinks(
         orderBy: { id: "asc" },
         take: limit + 1,
       });
-      const page = rows.slice(0, limit),
-        items: PaymentLinkView[] = [];
-      for (const row of page) {
-        const result = await readPaymentLinkInTransaction(tx, row.id, now);
-        if (result.ok) items.push(result.value);
-      }
+      const page = rows.slice(0, limit);
+      const snapshots = new Map(
+        page.map((row) => [row.id, priceSnapshotSchema.parse(row.snapshot)]),
+      );
+      const reservations = await tx.billingPromoReservation.findMany({
+        where: {
+          paymentLinkId: { in: page.map((row) => row.id) },
+          state: { not: "failed" },
+        },
+        select: { paymentLinkId: true, state: true },
+      });
+      const reservationStates = new Map(
+        reservations.map((row) => [row.paymentLinkId, row.state]),
+      );
+      const optionIds = [
+        ...new Set(
+          [...snapshots.values()].map((snapshot) => snapshot.paymentOption.id),
+        ),
+      ];
+      const options = await tx.billingPaymentOption.findMany({
+        where: { id: { in: optionIds } },
+        include: { offer: true },
+      });
+      const prices = await selectPricesForOptions(tx, options, now, undefined, {
+        allowUnpublished: true,
+      });
+      const items = page.map((row) => {
+        const snapshot = snapshots.get(row.id);
+        if (snapshot === undefined)
+          throw new Error("Payment link snapshot missing");
+        const current = prices.get(snapshot.paymentOption.id);
+        return projectPaymentLink(
+          row,
+          snapshot,
+          reservationStates.get(row.id) ?? null,
+          current?.ok === true ? current.value : null,
+          now,
+        );
+      });
       return {
         ok: true as const,
         value: {

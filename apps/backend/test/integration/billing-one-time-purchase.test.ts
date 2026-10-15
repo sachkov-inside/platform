@@ -464,6 +464,20 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       ),
     ).toBe(true);
     expect(value(await pricing.paymentLink(link.id)).state).toBe("paid");
+    expect(await s.runtime.notification(s.notify("REFUNDED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("paid");
+    expect(
+      await pricing.quote(s.buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: s.optionId,
+        optionRevision: 1,
+        paymentLinkId: link.id,
+      }),
+    ).toEqual({ ok: false, error: { code: "reservation_conflict" } });
+
     expect(
       value(await pricing.ownerCatalog({})).items.find(
         (item) => item.paymentOption.id === s.optionId,

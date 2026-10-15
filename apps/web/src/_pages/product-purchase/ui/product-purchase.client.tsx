@@ -102,6 +102,18 @@ export function ProductPurchase({
     announceCurrentBillingChange();
     router.refresh();
   }, [ready, purchase, router]);
+  const refreshedFailure = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      purchase?.state !== "failed" ||
+      individualLink === undefined ||
+      !["pending", "unknown"].includes(individualLink.state) ||
+      refreshedFailure.current === purchase.purchaseRef
+    )
+      return;
+    refreshedFailure.current = purchase.purchaseRef;
+    router.refresh();
+  }, [purchase, individualLink, router]);
   const productId = product?.id;
   const alreadyOpen =
     productId !== undefined &&

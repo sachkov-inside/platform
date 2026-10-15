@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { expect, mocked, waitFor, within } from "storybook/test";
+import { getStoryRouter } from "../../../../.storybook/mocks/next-navigation";
+import { expect, fn, mocked, waitFor, within } from "storybook/test";
 
 import {
   individualLink,
@@ -23,6 +24,7 @@ import {
   legalDocuments,
   verifiedContact,
   pendingPurchase,
+  failedPurchase,
   confirmedProductPurchase,
 } from "@/storybook/billing.fixtures";
 import {
@@ -537,5 +539,39 @@ export const IndividualRevoked: Story = {
     await expect(
       within(canvasElement).getByText("Ссылка отозвана"),
     ).toBeVisible();
+  },
+};
+
+const failedLinkRefresh = fn();
+const failedLinkRoute = purchaseRoute(
+  "member",
+  failedPurchase,
+  false,
+  undefined,
+  true,
+);
+export const IndividualFailedBankRefresh: Story = {
+  ...failedLinkRoute,
+  args: {
+    ...IndividualGuest.args,
+    signedIn: true,
+    individualLink: { ...individualLink, state: "unknown" },
+  },
+  beforeEach: async (context) => {
+    const setup = failedLinkRoute.beforeEach;
+    if (typeof setup !== "function")
+      throw new Error("Missing failed-link fixture setup");
+    const cleanup = await setup(context);
+    failedLinkRefresh.mockClear();
+    const router = getStoryRouter();
+    const original = router.refresh;
+    router.refresh = failedLinkRefresh;
+    return () => {
+      if (typeof cleanup === "function") cleanup();
+      router.refresh = original;
+    };
+  },
+  play: async () => {
+    await waitFor(() => expect(failedLinkRefresh).toHaveBeenCalledTimes(1));
   },
 };

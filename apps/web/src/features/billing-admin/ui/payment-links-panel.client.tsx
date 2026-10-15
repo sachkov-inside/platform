@@ -5,6 +5,13 @@ import {
   type coverageEntrySchema,
 } from "@inside/access-capabilities";
 import type { z } from "zod";
+import { useEffect } from "react";
+import { paymentLinksQueryKey as key } from "../model/access-query-keys";
+import { refreshAccessRead } from "../model/access-refresh";
+import {
+  announcePaymentLinkChange,
+  subscribePaymentLinkChange,
+} from "../model/payment-link-events";
 import { useState } from "react";
 import {
   useInfiniteQuery,
@@ -24,7 +31,7 @@ import {
 } from "../api/payment-links.browser";
 import type { CreatePaymentLinkInput } from "../model/payment-link-operations";
 import { PaymentLinksView } from "./payment-links-view.client";
-const key = ["owner-payment-links"];
+
 export function PaymentLinksPanel({
   offers,
   content,
@@ -33,6 +40,13 @@ export function PaymentLinksPanel({
   readonly content: readonly z.infer<typeof coverageEntrySchema>[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribePaymentLinkChange((id) => {
+        void refreshAccessRead(cache, key, id);
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   const [issued, setIssued] = useState<PaymentLink | null>(null);
   const [error, setError] = useState<string>();
@@ -72,7 +86,7 @@ export function PaymentLinksPanel({
       setError(undefined);
       setIssued(result.value.result.value);
       setMessage("Отправьте ссылку покупателю самостоятельно.");
-      refresh();
+      void refreshAccessRead(cache, key, announcePaymentLinkChange());
     },
   });
   const revoking = useMutation({
@@ -92,7 +106,7 @@ export function PaymentLinksPanel({
       completeOperation(`revoke:${input.id}`);
       setError(undefined);
       setMessage("Ссылка отозвана.");
-      refresh();
+      void refreshAccessRead(cache, key, announcePaymentLinkChange());
     },
   });
   function create(input: Omit<CreatePaymentLinkInput, "operationId">) {

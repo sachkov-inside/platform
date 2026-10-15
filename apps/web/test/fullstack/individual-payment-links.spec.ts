@@ -123,12 +123,35 @@ test("individual payment link shows its fixed private price and actual terms, th
   await expect(
     page.getByText("26 100", { exact: false }).first(),
   ).toBeVisible();
+  const ownerRegion = page.getByRole("region", {
+    name: "Ссылки на оплату",
+    exact: true,
+  });
+  await ownerRegion
+    .getByLabel("Продукт", { exact: true })
+    .selectOption(optionId);
+  expect(
+    await ownerRegion.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await prepareEvidenceDirectory("issue-1450");
+    await ownerRegion.screenshot({
+      path: evidencePath("issue-1450", `owner-${testInfo.project.name}.png`),
+    });
+  }
   const guest = await browser.newContext({
     viewport: page.viewportSize() ?? { width: 1440, height: 1024 },
   });
   const buyer = await guest.newPage();
   const path = `/payment/links/${link.id}`;
   const response = await buyer.goto(path);
+  const storageNotice = buyer.getByRole("button", {
+    name: "Понятно",
+    exact: true,
+  });
+  if (await storageNotice.isVisible()) await storageNotice.click();
   expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
   expect(response?.headers()["cache-control"]).toContain("no-store");
   await expect(
@@ -167,23 +190,35 @@ test("individual payment link shows its fixed private price and actual terms, th
   await signInFullStack(guest, "NON_MEMBER");
   await buyer.reload();
   await expect(buyer.getByRole("button", { name: /Оплатить/ })).toBeVisible();
-  await expect(buyer.getByRole("link", { name: /оферт/ })).toHaveAttribute(
+  await buyer.getByText("Условия и документы покупки", { exact: true }).click();
+  await expect(buyer.getByRole("link", { name: /Оферта/ })).toHaveAttribute(
     "href",
     /\/legal\/purchase\/v6/,
   );
-  const revoked = await fullStackBrowserRequest(
-    page,
-    "/api/authoring/billing/payment-links/revoke",
-    "POST",
-    {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        id: link.id,
-        expectedRevision: link.revision,
-      }),
-    },
+  const secondOwner = await context.newPage();
+  await secondOwner.goto("/authoring/billing");
+  const secondRegion = secondOwner.getByRole("region", {
+    name: "Ссылки на оплату",
+    exact: true,
+  });
+  await expect(secondRegion.locator(`input[value$="/${link.id}"]`)).toHaveCount(
+    1,
   );
-  expect(await revoked.json()).toMatchObject({ ok: true });
+  const region = page.getByRole("region", {
+    name: "Ссылки на оплату",
+    exact: true,
+  });
+  const row = region
+    .locator("section")
+    .filter({ has: page.locator(`input[value$="/${link.id}"]`) });
+  await row
+    .getByRole("button", { name: "Отозвать ссылку", exact: true })
+    .click();
+  const secondRow = secondRegion
+    .locator("section")
+    .filter({ has: secondOwner.locator(`input[value$="/${link.id}"]`) });
+  await expect(secondRow.getByText(/Ссылка отозвана/)).toBeVisible();
+  await secondOwner.close();
   await buyer.reload();
   await expect(
     buyer.getByRole("heading", { name: "Ссылка отозвана" }),

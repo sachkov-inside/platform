@@ -182,7 +182,18 @@ export class BillingPricing {
         entries.find(
           (entry) => entry.kind === "product" && entry.id === productId,
         ) ?? null;
-      return { ok: true as const, value: { ...result.value, product } };
+      return {
+        ok: true as const,
+        value: {
+          id: result.value.id,
+          revision: result.value.revision,
+          state: result.value.state,
+          snapshot: result.value.snapshot,
+          createdAt: result.value.createdAt,
+          expiresAt: result.value.expiresAt,
+          product,
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "paymentLink" },

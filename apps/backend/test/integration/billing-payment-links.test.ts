@@ -1,6 +1,15 @@
+import { PrismaClient } from "../../src/infrastructure/prisma/generated/client.js";
+import { createPrismaPgAdapter } from "../../src/infrastructure/prisma/prisma-adapter.js";
 import { randomUUID } from "node:crypto";
 import { productCapability } from "@inside/access-capabilities";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import type { BillingPricing } from "../../src/modules/billing/index.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
@@ -27,6 +36,9 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
   const owner = randomUUID();
   const buyer = randomUUID();
   let now = new Date("2026-10-15T10:00:00Z");
+  beforeEach(() => {
+    now = new Date("2026-10-15T10:00:00Z");
+  });
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
     for (const id of [owner, buyer])
@@ -316,5 +328,62 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
         paymentLinkId: link.id,
       }),
     ).toEqual({ ok: false, error: { code: "not_found" } });
+  });
+  test("100 issued links use a bounded number of physical SQL queries", async () => {
+    const { optionId } = await productOption();
+    const template = value(
+      await pricing.managePaymentLink(owner, {
+        operation: "paymentLinks.create",
+        operationId: randomUUID(),
+        paymentOptionId: optionId,
+        optionRevision: 1,
+        price: { kind: "discount", percent: 10 },
+        expiresAt: null,
+      }),
+    );
+    await db.prisma.billingPaymentLink.createMany({
+      data: Array.from({ length: 100 }, () => {
+        const id = randomUUID();
+        return {
+          id,
+          revision: 1,
+          createdAt: now,
+          snapshot: {
+            ...template.snapshot,
+            individualPayment: { linkId: id, basePriceKopecks: 2900000 },
+          },
+        };
+      }),
+    });
+    const observer = new PrismaClient({
+      adapter: createPrismaPgAdapter(db.url),
+      log: [{ emit: "event", level: "query" }],
+    });
+    try {
+      let queries = 0;
+      observer.$on("query", () => {
+        queries += 1;
+      });
+      const accounts = assembleAccounts({
+        prisma: observer,
+        emailFingerprintKey: "individual-links-test-key-00000000000",
+      });
+      const observed = assembleTestBillingPricing({
+        prisma: observer,
+        accounts,
+        clock: () => now,
+        sale: { payments: true, subscriptions: false },
+      });
+      value(await observed.paymentLinks(owner, { limit: 1 }));
+      const small = queries;
+      queries = 0;
+      const large = value(await observed.paymentLinks(owner, { limit: 100 }));
+      expect(large.items).toHaveLength(100);
+      expect(large.nextCursor).not.toBeNull();
+      expect(queries).toBeLessThanOrEqual(small + 2);
+      expect(queries).toBeLessThanOrEqual(15);
+    } finally {
+      await observer.$disconnect();
+    }
   });
 });
