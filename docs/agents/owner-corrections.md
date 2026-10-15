@@ -14,7 +14,8 @@ this contract handles explicit corrections without invoking that manual skill.
    to this case, one module, one application, or the repository. Preserve the owner's actual scope.
 2. Find the existing authority and enforcement. If they already express the requirement, fix why
    implementation, checks, or review missed it rather than adding a duplicate rule.
-3. Choose the smallest durable change using the authority table below. Generalize only as far as
+3. Choose the smallest durable change using the [authority table](documentation-maintenance.md#choose-the-authority).
+   Generalize only as far as
    the owner's correction and its demonstrated cause support. Read the relevant section rather
    than loading every standard into the implementer's context.
 4. For a mechanically detectable failure, add or repair the existing check. Demonstrate that it
@@ -29,18 +30,7 @@ A one-case correction can close through code and its focused test alone. Permane
 a reusable judgement criterion. An unresolved owner decision remains pending; time is not consent.
 If recording is blocked, name the missing authority or decision and the remaining work explicitly.
 
-## Choose the authority
-
-| Requirement | Authority |
-|---|---|
-| Mechanically detectable code or process constraint | Existing lint, type, architecture, or test check; extend its negative fixtures |
-| Repository-wide judgement rule | Root `CODING_STANDARDS.md` |
-| Application-specific judgement rule | `apps/<app>/CODING_STANDARDS.md` |
-| One module's behaviour or implementation constraint | Owning code and focused tests; a nearby comment explains a non-obvious reason |
-| Durable architectural trade-off | Owning ADR; a standards rule links to its rationale when review needs it |
-| Product behaviour, terms, or public contract | The authority selected by [documentation maintenance](documentation-maintenance.md) |
-| Agent execution or delivery procedure | `WORKFLOW.md` or its scoped `docs/agents/` contract |
-| Condition for reading scoped instructions | Nearest `AGENTS.md`; link the authority rather than copying its rules |
+## Scope and history
 
 Issue and PR history retain the incident, evidence and resolution. They do not replace an active
 rule or check. Keep synchronized pipeline skills unchanged; project extensions live in project
