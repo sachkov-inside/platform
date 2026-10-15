@@ -38,7 +38,9 @@ test("tablet Home can scroll through the feed and keeps navigation usable", asyn
   await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
   // The header hides while scrolling down and returns when the reader scrolls up.
   const header = page.locator("[data-mobile-header]");
-  await expect.poll(async () => (await header.boundingBox())?.y).toBeLessThan(0);
+  await expect
+    .poll(async () => (await header.boundingBox())?.y)
+    .toBeLessThan(0);
   await page.evaluate(() => {
     window.scrollBy(0, -40);
   });
