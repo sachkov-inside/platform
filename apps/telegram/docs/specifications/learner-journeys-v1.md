@@ -265,6 +265,7 @@ That deferral does not permit omitting first-link implementation or its regressi
 This document consolidates the accepted owner decisions and screen direction for one implementation task.
 There are no additional owner product choices reserved for a separate prototype.
 Engineering verification of forwarding, mobile-browser continuity, and latency belongs to #1496 acceptance.
-The existing #1496 body and labels have not been updated by this local document change.
-Before execution in another context, attach this specification to #1496 and reconcile its obsolete #1467 prototype/design prerequisite.
+The consolidated specification is published in #1496, labelled `ready-for-agent`.
+Its accepted owner override supersedes the separate #1467 prototype/design prerequisite for this task.
+This repository file is the corresponding planning snapshot; keep its contract aligned when the implementation changes it.
 Do not treat a local file, text acceptance, successful documentation checks, or implementation tests as a deployment result.
