@@ -65,30 +65,35 @@ export function TaskMcpSetup({
             Один раз для всех заданий. Передай запрос агенту и подтверди вход в
             браузере тем же аккаунтом, что на сайте.
           </p>
-          <Button
-            type="button"
-            aria-label={copyState}
-            variant="outline"
-            className="min-h-11 w-fit max-w-full whitespace-normal"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(
-                  learnerMcpConnectPrompt(
-                    new URL(setupUrl, window.location.origin).href,
-                  ),
-                )
-                .then(() => {
-                  setCopyState("Скопировано");
-                })
-                .catch(() => {
-                  setCopyState(
-                    "Не удалось скопировать — смотри инструкцию ниже",
-                  );
-                });
-            }}
-          >
-            <span role="status">{copyState}</span>
-          </Button>
+          <div className="grid gap-5 rounded-xl bg-foreground p-6 text-card">
+            <p className="whitespace-pre-line font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+              {learnerMcpConnectPrompt(setupUrl)}
+            </p>
+            <Button
+              type="button"
+              aria-label={copyState}
+              variant="outline"
+              className="min-h-11 w-fit max-w-full whitespace-normal bg-card text-foreground hover:bg-card/90"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(
+                    learnerMcpConnectPrompt(
+                      new URL(setupUrl, window.location.origin).href,
+                    ),
+                  )
+                  .then(() => {
+                    setCopyState("Скопировано");
+                  })
+                  .catch(() => {
+                    setCopyState(
+                      "Не удалось скопировать — смотри инструкцию ниже",
+                    );
+                  });
+              }}
+            >
+              <span role="status">{copyState}</span>
+            </Button>
+          </div>
           <p className="text-muted-foreground">
             Адрес MCP: <code className="break-all">{url}</code>
           </p>
