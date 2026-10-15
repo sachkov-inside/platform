@@ -387,7 +387,12 @@ function route(method, url, entitled) {
   if (taskNavigation !== undefined) return taskNavigation;
   const path = url.pathname;
   if (method !== "GET") return undefined;
-  if (path === "/library/products/navigation-saved-tasks") {
+  if (
+    path === "/library/products/navigation-saved-tasks" ||
+    path === "/library/products/navigation-saved-tasks-failing"
+  ) {
+    if (entitled && path.endsWith("-failing"))
+      return { status: 500, value: { code: "test_private_programme_failure" } };
     const lesson = lessons[0];
     if (lesson === undefined) throw new Error("Missing free lesson fixture");
     return json({
@@ -397,7 +402,7 @@ function route(method, url, entitled) {
       topics: [],
       reference: {
         ...products[0],
-        slug: "navigation-saved-tasks",
+        slug: path.split("/").at(-1),
         introduction: null,
         summary: "Saved Task sidebar regression",
       },

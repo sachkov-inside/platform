@@ -1,3 +1,4 @@
+import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { CourseTaskSubmissionStatuses } from "@/features/library-discovery";
 import { productPath } from "@/shared/routing/public-page-path";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
@@ -195,7 +196,13 @@ async function PublicCourseTaskStatuses({
   await connection();
   const token = await getOptionalPlatformAccessToken();
   if (token === undefined) return null;
-  const series = await readReaderSeries(productSlug, token);
+  let series: PublishedSeriesResult;
+  try {
+    series = await readReaderSeries(productSlug, token);
+  } catch (error) {
+    if (error instanceof BackendConnectionError) return null;
+    throw error;
+  }
   if (series.kind !== "ready" && series.kind !== "empty") return null;
   return (
     <CourseTaskSubmissionStatuses

@@ -298,3 +298,29 @@ test("free lesson without mode variants reads saved Task state privately", async
   await expect(title).toHaveText("Сохранённое задание");
   await expect(title).toHaveCSS("text-decoration-line", "line-through");
 });
+
+test("optional private Task status failure preserves the free lesson and public programme", async ({
+  page,
+  context,
+  baseURL,
+}, testInfo) => {
+  if (baseURL === undefined) throw new Error("baseURL is required");
+  await context.addCookies([await memberCookie(baseURL)]);
+  await page.goto(
+    "/materials/navigation-lesson-1?from=%2Fproducts%2Fnavigation-saved-tasks-failing%2Fprogramme",
+  );
+  await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+  if (testInfo.project.name === "mobile-chromium")
+    await page
+      .getByRole("button", { name: "Вся программа", exact: true })
+      .click();
+  await expect(
+    page.getByRole("link", {
+      name: "Задание 1 Сохранённое задание",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-task-submitted="true"]:visible'),
+  ).toHaveCount(0);
+});
