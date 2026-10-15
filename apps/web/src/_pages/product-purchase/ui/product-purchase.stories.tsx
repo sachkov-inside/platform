@@ -575,3 +575,12 @@ export const IndividualFailedBankRefresh: Story = {
     await waitFor(() => expect(failedLinkRefresh).toHaveBeenCalledTimes(1));
   },
 };
+
+export const IndividualGuestMobile: Story = {
+  ...IndividualGuest,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const IndividualMemberMobile: Story = {
+  ...IndividualMember,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

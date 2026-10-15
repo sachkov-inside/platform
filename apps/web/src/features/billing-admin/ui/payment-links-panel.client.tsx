@@ -105,6 +105,11 @@ export function PaymentLinksPanel({
       }
       completeOperation(`revoke:${input.id}`);
       setError(undefined);
+      setIssued((current) =>
+        current?.id === result.value.result.value.id
+          ? result.value.result.value
+          : current,
+      );
       setMessage("Ссылка отозвана.");
       void refreshAccessRead(cache, key, announcePaymentLinkChange());
     },
@@ -137,11 +142,11 @@ export function PaymentLinksPanel({
       issued={issued}
       loading={list.isFetching}
       pending={creating.isPending || revoking.isPending}
-      error={
-        error ??
-        (list.isError
+      error={error}
+      listError={
+        list.isError
           ? "Не удалось загрузить ссылки. Обновите список."
-          : undefined)
+          : undefined
       }
       message={message}
       hasNext={list.hasNextPage}

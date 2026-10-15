@@ -85,9 +85,12 @@ export const Loading: Story = {
   },
 };
 export const Unavailable: Story = {
-  args: { error: "Не удалось загрузить ссылки. Обновите список." },
+  args: { listError: "Не удалось загрузить ссылки. Обновите список." },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole("alert")).toBeVisible();
+    await expect(
+      within(canvasElement).queryByText("Выданных ссылок пока нет."),
+    ).not.toBeInTheDocument();
   },
 };
 export const NoProducts: Story = {
@@ -95,4 +98,13 @@ export const NoProducts: Story = {
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole("status")).toBeVisible();
   },
+};
+
+export const CreateMobile: Story = {
+  ...Create,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const IssuedMobile: Story = {
+  ...Issued,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

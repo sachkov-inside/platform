@@ -1,0 +1,52 @@
+[
+  {
+    "width": 1440,
+    "state": "owner",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
+    "state": "buyer",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
+    "state": "member",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
+    "state": "unknown",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
+    "state": "revoked",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "owner",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "buyer",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "member",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "unknown",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "revoked",
+    "horizontalOverflow": false
+  }
+]

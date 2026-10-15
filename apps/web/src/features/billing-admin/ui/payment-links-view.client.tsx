@@ -21,6 +21,7 @@ export interface PaymentLinksViewProps {
   readonly loading: boolean;
   readonly pending: boolean;
   readonly error?: string | undefined;
+  readonly listError?: string | undefined;
   readonly message?: string | undefined;
   readonly hasNext: boolean;
   readonly onCreate: (
@@ -38,6 +39,7 @@ export function PaymentLinksView({
   loading,
   pending,
   error,
+  listError,
   message,
   hasNext,
   onCreate,
@@ -249,10 +251,17 @@ export function PaymentLinksView({
             Обновить список
           </Button>
         </div>
+        {listError !== undefined && (
+          <p role="alert" className="mt-4 text-sm text-destructive">
+            {listError}
+          </p>
+        )}
         {loading && links.length === 0 ? (
           <p role="status">Загружаем ссылки…</p>
         ) : links.length === 0 ? (
-          <p>Выданных ссылок пока нет.</p>
+          listError === undefined ? (
+            <p>Выданных ссылок пока нет.</p>
+          ) : null
         ) : (
           links.map((link) => (
             <PaymentLinkRow

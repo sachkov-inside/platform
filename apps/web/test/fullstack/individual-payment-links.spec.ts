@@ -211,8 +211,32 @@ test("individual payment link shows its fixed price and terms, revokes across op
       .click();
     await expect(buyer.getByRole("link", { name: /Оферта/ })).toHaveAttribute(
       "href",
-      /\/legal\/purchase\/v6/,
+      "/legal/purchase",
     );
+    const contactResponse = await fullStackBrowserRequest(
+      buyer,
+      "/api/account/billing/contact",
+    );
+    const consentCatalog = z
+      .object({
+        ok: z.literal(true),
+        documents: z.array(
+          z.object({
+            documentId: z.string(),
+            version: z.string(),
+            url: z.string(),
+          }),
+        ),
+      })
+      .parse(await contactResponse.json());
+    expect(
+      consentCatalog.documents.find(
+        (document) => document.documentId === "purchase",
+      ),
+    ).toMatchObject({
+      version: "6",
+      url: expect.stringContaining("/legal/purchase/v6"),
+    });
     const secondOwner = await context.newPage();
     await secondOwner.addLocatorHandler(
       secondOwner.getByRole("button", { name: "Закрыть подключение Telegram" }),
