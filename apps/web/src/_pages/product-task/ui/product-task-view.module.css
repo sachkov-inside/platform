@@ -22,7 +22,7 @@
   margin-top: 4rem;
   padding: 2rem;
   border: 1px solid color-mix(in oklch, var(--accent) 20%, var(--border));
-  border-top: 3px solid var(--accent);
+  border-top-color: var(--accent);
   border-radius: var(--radius-lg);
   background: color-mix(in oklch, var(--accent) 4%, var(--card));
   font-size: 0.9375rem;
