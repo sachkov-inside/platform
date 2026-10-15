@@ -272,7 +272,13 @@ export class TelegramUpdateProcessor {
         telegramUserId: start.contact.telegramUserId,
       });
     }
-    if (!accessLink && !start.linkToken && !start.signInToken && isTruthy(this.config.activation?.enabled) && !start.marketingSource) {
+    if (
+      !accessLink &&
+      !start.linkToken &&
+      !start.signInToken &&
+      isTruthy(this.config.activation?.enabled) &&
+      !hasText(start.marketingSource)
+    ) {
       await this.activation.action(start.contact, "own");
     }
     if (
@@ -280,7 +286,8 @@ export class TelegramUpdateProcessor {
       !start.linkToken &&
       !start.signInToken &&
       this.marketing.enabled() &&
-      (!isTruthy(this.config.activation?.enabled) || start.marketingSource !== undefined)
+      (!isTruthy(this.config.activation?.enabled) ||
+        start.marketingSource !== undefined)
     ) {
       await this.marketing.enter(start.contact, start.marketingSource);
     }

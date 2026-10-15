@@ -66,7 +66,12 @@ export class HttpActivationPlatform implements ActivationPlatform {
   ): Promise<ActivationResult<OwnAccess> | undefined> {
     return this.post(
       "own-access",
-      { contractVersion: ACTIVATION_VERSION, ...binding, includeProducts:true, prepareCommunity },
+      {
+        contractVersion: ACTIVATION_VERSION,
+        ...binding,
+        includeProducts: true,
+        prepareCommunity,
+      },
       validOwnAccessResponse,
     );
   }

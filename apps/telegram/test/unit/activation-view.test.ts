@@ -17,7 +17,16 @@ const active: ActivationResult<ActivationResponse> = {
     contractVersion: "inside.subscription-activation.v1",
     attemptId: "example-attempt",
     state: "active",
-    rule:{id:"rule",revision:1,sourceRef:"course",product:{id:"625a0cca-c8ff-4a65-9125-17194dd3b769",slug:"ai-engineering",name:"AI Engineering"}},
+    rule: {
+      id: "rule",
+      revision: 1,
+      sourceRef: "course",
+      product: {
+        id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
+        slug: "ai-engineering",
+        name: "AI Engineering",
+      },
+    },
     enrollment: {
       id: "example-enrollment",
       tier: {
@@ -75,10 +84,19 @@ describe("learner activation messages", () => {
       "AI Engineering\n\nКурс доступен. Открывайте материалы и присоединяйтесь к группе курса.",
     );
     expect(activationMenu(accountUrl, active)).toEqual([
-      {text:"Открыть курс",url:"https://sachkov.dev/products/ai-engineering/programme"},
-      {text:"Вступить в группу",callbackData:"access:community:625a0cca-c8ff-4a65-9125-17194dd3b769"},
-      {text:"Помощь",callbackData:"access:help:625a0cca-c8ff-4a65-9125-17194dd3b769"},
-      {text:"Мои продукты",callbackData:"access:own"},
+      {
+        text: "Открыть курс",
+        url: "https://sachkov.dev/products/ai-engineering/programme",
+      },
+      {
+        text: "Вступить в группу",
+        callbackData: "access:community:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      {
+        text: "Помощь",
+        callbackData: "access:help:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
     ]);
   });
 
@@ -99,9 +117,15 @@ describe("learner activation messages", () => {
       },
     };
     expect(activationMenu(accountUrl, productOnly)).toEqual([
-      {text:"Открыть курс",url:"https://sachkov.dev/products/ai-engineering/programme"},
-      {text:"Помощь",callbackData:"access:help:625a0cca-c8ff-4a65-9125-17194dd3b769"},
-      {text:"Мои продукты",callbackData:"access:own"},
+      {
+        text: "Открыть курс",
+        url: "https://sachkov.dev/products/ai-engineering/programme",
+      },
+      {
+        text: "Помощь",
+        callbackData: "access:help:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
     ]);
   });
 
@@ -109,8 +133,11 @@ describe("learner activation messages", () => {
     expect(accountPrompt(accountUrl)).toEqual({
       text: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
       buttons: [
-        {text:"Продолжить на платформе",url:"https://sachkov.dev/account/access"},
-        {text:"Помощь",callbackData:"access:help"},
+        {
+          text: "Продолжить на платформе",
+          url: "https://sachkov.dev/account/access",
+        },
+        { text: "Помощь", callbackData: "access:help" },
       ],
     });
   });

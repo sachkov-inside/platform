@@ -161,14 +161,20 @@ describe("community v2 exact target, moderation and durable effects", () => {
     const s = await stand();
     await s.set();
     const provider = s.provider();
-    const outcomes = await Promise.all([provider.requestAdmission(s.user), provider.requestAdmission(s.user)]);
+    const outcomes = await Promise.all([
+      provider.requestAdmission(s.user),
+      provider.requestAdmission(s.user),
+    ]);
     expect(outcomes).toEqual([
       { kind: "link", inviteLink: "https://t.me/+synthetic" },
       { kind: "link", inviteLink: "https://t.me/+synthetic" },
     ]);
     expect(s.chat.count("create_invite")).toBe(1);
     s.clock.value = new Date(s.clock.now().getTime() + 601000);
-    expect(await provider.requestAdmission(s.user)).toEqual({kind:"link",inviteLink:"https://t.me/+synthetic"});
+    expect(await provider.requestAdmission(s.user)).toEqual({
+      kind: "link",
+      inviteLink: "https://t.me/+synthetic",
+    });
     expect(s.chat.count("create_invite")).toBe(2);
   });
 

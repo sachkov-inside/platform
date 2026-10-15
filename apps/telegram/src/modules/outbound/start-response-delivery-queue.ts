@@ -206,7 +206,7 @@ export class StartResponseDeliveryQueue {
   async claimNext(
     now: Date,
     signInEnabled = false,
-    sourceKey?:string,
+    sourceKey?: string,
   ): Promise<ClaimedStartResponseDelivery | undefined> {
     return this.database.transaction().execute(async (transaction) => {
       const abandoned = await expireLeases(transaction, replies, now, {
@@ -249,7 +249,7 @@ export class StartResponseDeliveryQueue {
         ],
         where: (eb) =>
           eb.and([
-            ...(sourceKey ? [eb("source_key","=",sourceKey)] : []),
+            ...(hasText(sourceKey) ? [eb("source_key", "=", sourceKey)] : []),
             ...(this.config
               ? [eb("bot_identity", "=", this.config.botIdentity)]
               : []),
@@ -296,11 +296,23 @@ export class StartResponseDeliveryQueue {
     });
   }
 
-  async deliveredMessageId(sourceKey:string):Promise<string|undefined> {
-    const delivery = await this.database.selectFrom("start_response_deliveries")
-      .innerJoin("start_response_delivery_attempts","start_response_delivery_attempts.start_response_delivery_id","start_response_deliveries.id")
-      .select("provider_message_id").where("source_key","=",sourceKey)
-      .where("outcome","=","delivered").orderBy("attempt_number","desc").executeTakeFirst();
+  async hasSource(sourceKey:string,database:Database|Transaction<DatabaseSchema>=this.database):Promise<boolean> {
+    return (await database.selectFrom("start_response_deliveries").select("id").where("source_key","=",sourceKey).executeTakeFirst()) !== undefined;
+  }
+
+  async deliveredMessageId(sourceKey: string): Promise<string | undefined> {
+    const delivery = await this.database
+      .selectFrom("start_response_deliveries")
+      .innerJoin(
+        "start_response_delivery_attempts",
+        "start_response_delivery_attempts.start_response_delivery_id",
+        "start_response_deliveries.id",
+      )
+      .select("provider_message_id")
+      .where("source_key", "=", sourceKey)
+      .where("outcome", "=", "delivered")
+      .orderBy("attempt_number", "desc")
+      .executeTakeFirst();
     return delivery?.provider_message_id ?? undefined;
   }
 

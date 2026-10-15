@@ -1,7 +1,17 @@
-import {StartResponseDeliveryProcessor} from "../outbound/start-response-delivery-processor.js";
-import {productList,productCard,helpScreen,courseButton,SUPPORT_URL,type LearnerScreen} from "./learner-view.js";
-import {Optional} from "@nestjs/common";
-import {AUTHOR_AUTHORIZATION,type AuthorAuthorization} from "../communications/author-authorization.js";
+import { StartResponseDeliveryProcessor } from "../outbound/start-response-delivery-processor.js";
+import {
+  productList,
+  productCard,
+  helpScreen,
+  courseButton,
+  SUPPORT_URL,
+  type LearnerScreen,
+} from "./learner-view.js";
+import { Optional } from "@nestjs/common";
+import {
+  AUTHOR_AUTHORIZATION,
+  type AuthorAuthorization,
+} from "../communications/author-authorization.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -47,6 +57,8 @@ import { reportFailure } from "../../shared/failure-diagnostics.js";
 type Attempt = Selectable<ActivationTables["activation_attempts"]>;
 const RETENTION = 30 * 24 * 60 * 60_000;
 const CADENCE = 60_000;
+const SOURCE_PROOF_WINDOW_MS = 300_000;
+const LEARNER_ACTION_TIMEOUT_MS = 10_000;
 // A known unfinished outcome may expire. Never discard an uncertain evidence write
 // or a confirmed Enrollment receipt just because the user has not returned. An expired
 // confirmed attempt stops retrying and returns to completed; the deletions skip it.
@@ -55,7 +67,16 @@ const expirableAttempt = sql<boolean>`(coalesce(
   (evidence is null and result is null)
   or result->>'ok' = 'false'
   or result->'value'->>'state' in ('unavailable', 'checking', 'needs_account', 'pending_review'), false))`;
-export type AccessAction = "own" | "product" | "community" | "retry" | "help" | "help_missing" | "help_group" | "help_signin" | "platform";
+export type AccessAction =
+  | "own"
+  | "product"
+  | "community"
+  | "retry"
+  | "help"
+  | "help_missing"
+  | "help_group"
+  | "help_signin"
+  | "platform";
 
 /** Durable Telegram continuation; Account and every grant remain Platform-owned. */
 @Injectable()
@@ -69,8 +90,12 @@ export class SubscriptionActivation {
     @Inject(StartResponseDeliveryQueue)
     private readonly replies: StartResponseDeliveryQueue,
     @Inject(CommunityProvider) private readonly community: CommunityProvider,
-    @Optional() @Inject(AUTHOR_AUTHORIZATION) private readonly authors?:AuthorAuthorization,
-    @Optional() @Inject(StartResponseDeliveryProcessor) private readonly outbound?:StartResponseDeliveryProcessor,
+    @Optional()
+    @Inject(AUTHOR_AUTHORIZATION)
+    private readonly authors?: AuthorAuthorization,
+    @Optional()
+    @Inject(StartResponseDeliveryProcessor)
+    private readonly outbound?: StartResponseDeliveryProcessor,
   ) {}
 
   async start(
@@ -123,18 +148,36 @@ export class SubscriptionActivation {
   }
 
   /** `onlyCode` limits a retry to one rule, as an owner link does. */
-  async action(contact:VerifiedPrivateStart,action:AccessAction,onlyCode?:string):Promise<void> {
-    if(action !== "community") return this.performAction(contact,action,onlyCode);
-    const progressKey = `access-progress:${contact.botIdentity}:${contact.updateId}`;
-    await this.replies.enqueue({...this.delivery(contact,"Проверяем доступ к группе…"),sourceKey:progressKey});
-    await this.flush(progressKey);
+  async action(
+    contact: VerifiedPrivateStart,
+    action: AccessAction,
+    onlyCode?: string,
+  ): Promise<void> {
+    if (action !== "community" && action !== "retry")
+      return this.performAction(contact, action, onlyCode);
+    const failure = () => this.screen(contact,{
+      text:"Не удалось проверить доступ. Попробуйте ещё раз.",
+      buttons:[{text:"Повторить",callbackData:hasText(onlyCode)?`access:${action}:${onlyCode}`:"access:own"},{text:"Помощь",callbackData:action === "community" && hasText(onlyCode)?`access:help:${onlyCode}`:"access:help"}],
+    });
     let timer:ReturnType<typeof setTimeout>|undefined;
-    const work = this.performAction(contact,action,onlyCode);
+    const work = (async()=>{
+      if(action === "community") {
+        const progressKey=`access-progress:${contact.botIdentity}:${contact.updateId}`;
+        await this.replies.enqueue({...this.delivery(contact,"Проверяем доступ к группе…"),sourceKey:progressKey});
+        await this.flush(progressKey);
+      }
+      await this.performAction(contact,action,onlyCode);
+    })();
     try {
-      await Promise.race([work,new Promise<void>(resolve=>{timer=setTimeout(()=>{void this.screen(contact,{text:"Не удалось проверить доступ. Попробуйте ещё раз.",buttons:[{text:"Повторить",callbackData:onlyCode?`access:community:${onlyCode}`:"access:own"},{text:"Помощь",callbackData:onlyCode?`access:help:${onlyCode}`:"access:help"}]}).then(resolve);},10000);})]);
-    } finally { if(timer) clearTimeout(timer); }
-    // Committed provider facts may finish later; the result source key prevents a second answer.
-    void work.catch(error=>reportFailure("activation.action",error));
+      await Promise.race([work,new Promise<void>((resolve,reject)=>{
+        timer=setTimeout(()=>{void failure().then(resolve,reject);},LEARNER_ACTION_TIMEOUT_MS);
+      })]);
+    } catch(error:unknown) {
+      reportFailure("activation.action",error);
+      await failure();
+    } finally {if(timer !== undefined) clearTimeout(timer);}
+    // A late result shares the durable reply key with the timeout and cannot send another answer.
+    void work.catch((error:unknown)=>reportFailure("activation.action",error));
   }
 
   private async performAction(
@@ -197,18 +240,29 @@ export class SubscriptionActivation {
       );
       return;
     }
-    if(action.startsWith("help")) {
-      const access = lookup.value.state === "linked" && onlyCode ? await this.platform.own(lookup.value.binding) : undefined;
-      const product = access?.ok ? access.value.products?.find(item=>item.id===onlyCode) : undefined;
-      await this.screen(contact,helpScreen(action,product?.id,product?.programmeUrl));
+    if (action.startsWith("help")) {
+      const access =
+        lookup.value.state === "linked" && hasText(onlyCode)
+          ? await this.platform.own(lookup.value.binding)
+          : undefined;
+      const product = access?.ok === true ? access.value.products?.find(item=>item.id === onlyCode) : undefined;
+      const attempts = product || !hasText(onlyCode) ? [] : await this.db.selectFrom("activation_attempts").select(["attempt_id","source_proof","code"]).where("bot_identity","=",contact.botIdentity).where("telegram_user_id","=",contact.telegramUserId).execute();
+      const attempt = attempts.find(row=>row.source_proof?.product?.id === onlyCode);
+      await this.screen(contact,helpScreen(action,product?.id ?? attempt?.source_proof?.product?.id,product?.programmeUrl,attempt ? `https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}` : undefined,attempt ? `access:retry:${attempt.code}` : undefined));
       return;
     }
     if (lookup.value.state === "unlinked" && action === "own") {
       await this.replies.enqueue({
-        ...this.delivery(contact, "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы."),
+        ...this.delivery(
+          contact,
+          "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+        ),
         buttons: [
           { text: "Открыть платформу", url: "https://sachkov.dev" },
-          { text: "Уже есть аккаунт", url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess" },
+          {
+            text: "Уже есть аккаунт",
+            url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess",
+          },
           { text: "Помощь", callbackData: "access:help" },
         ],
       });
@@ -226,7 +280,10 @@ export class SubscriptionActivation {
       await this.reply(contact, "Связь аккаунта требует проверки владельца.");
       return;
     }
-    const access = await this.platform.own(lookup.value.binding, action === "community");
+    const access = await this.platform.own(
+      lookup.value.binding,
+      action === "community",
+    );
     if (!isTruthy(access?.ok)) {
       await this.reply(
         contact,
@@ -237,44 +294,101 @@ export class SubscriptionActivation {
       return;
     }
     if (action === "own") {
-      const author = await this.authors?.authorize({kind:"telegram",accountRef:lookup.value.binding.accountRef,telegramIdentityRef:identity,botIdentity:contact.botIdentity});
-      await this.screen(contact, productList(access.value.products ?? [],author === "allowed"));
+      const author = await this.authors?.authorize({
+        kind: "telegram",
+        accountRef: lookup.value.binding.accountRef,
+        telegramIdentityRef: identity,
+        botIdentity: contact.botIdentity,
+      });
+      await this.screen(
+        contact,
+        productList(access.value.products ?? [], author === "allowed"),
+      );
       return;
     }
-    const product = access.value.products?.find(item => item.id === onlyCode);
+    const product = access.value.products?.find((item) => item.id === onlyCode);
     if (!product) {
-      await this.screen(contact,{text:"Не удалось проверить доступ. Попробуйте ещё раз.",buttons:[{text:"Повторить",callbackData:"access:own"},{text:"Помощь",callbackData:"access:help"}]});
+      await this.screen(contact, {
+        text: "Не удалось проверить доступ. Попробуйте ещё раз.",
+        buttons: [
+          { text: "Повторить", callbackData: "access:own" },
+          { text: "Помощь", callbackData: "access:help" },
+        ],
+      });
       return;
     }
-    if(action === "product") {
-      const admission = await this.community.currentAdmission(contact.telegramUserId);
-      const card = productCard(product,admission);
+    if (action === "product") {
+      const admission = await this.community.currentAdmission(
+        contact.telegramUserId,
+      );
+      const card = productCard(product, admission);
       const groupUrl = this.community.groupUrl();
-      await this.screen(contact,{...card,buttons:[...courseButton(product),...(admission.kind === "member" && groupUrl && product.community.state === "available" ? [{text:"Открыть группу",url:groupUrl}] : []),...card.buttons.slice(courseButton(product).length)]});
+      await this.screen(contact, {
+        ...card,
+        buttons: [
+          ...courseButton(product),
+          ...(admission.kind === "member" &&
+          hasText(groupUrl) &&
+          product.community.state === "available"
+            ? [{ text: "Открыть группу", url: groupUrl }]
+            : []),
+          ...card.buttons.slice(courseButton(product).length),
+        ],
+      });
       return;
     }
     if (product.community.state !== "available") {
-      await this.screen(contact,productCard(product,{kind:"none"}));
+      await this.screen(contact, productCard(product, { kind: "none" }));
       return;
     }
-    const admission = this.config.communityMode === "live" ? await this.community.requestAdmission(contact.telegramUserId) : {kind:"preparing" as const};
-    const back:TelegramButton = {text:"Назад к продукту",callbackData:`access:product:${product.id}`};
+    const admission =
+      this.config.communityMode === "live"
+        ? await this.community.requestAdmission(contact.telegramUserId)
+        : { kind: "preparing" as const };
+    const back: TelegramButton = {
+      text: "Назад к продукту",
+      callbackData: `access:product:${product.id}`,
+    };
     const groupUrl = this.community.groupUrl();
-    const buttons:TelegramButton[] = [...courseButton(product),back];
-    if(admission.kind === "link") buttons.unshift({text:"Вступить в группу",url:admission.inviteLink});
-    if(admission.kind === "member" && groupUrl) buttons.unshift({text:"Открыть группу",url:groupUrl});
-    if(admission.kind === "moderation_blocked") buttons.unshift({text:"Написать в поддержку",url:SUPPORT_URL});
-    if(admission.kind === "preparing" || admission.kind === "none") buttons.unshift({text:"Повторить",callbackData:`access:community:${product.id}`},{text:"Помощь",callbackData:`access:help:${product.id}`});
-    await this.screen(contact,{text:admission.kind === "link" ? `${product.name}\n\nМожно вступить в группу курса.` : admission.kind === "member" ? `${product.name}\n\nВы уже в группе курса.` : admission.kind === "moderation_blocked" ? `${product.name}\n\nВступление в группу ограничено. Напишите в поддержку, чтобы уточнить причину.` : "Не удалось проверить доступ. Попробуйте ещё раз.",buttons});
+    const buttons: TelegramButton[] = [...courseButton(product), back];
+    if (admission.kind === "link")
+      buttons.unshift({ text: "Вступить в группу", url: admission.inviteLink });
+    if (admission.kind === "member" && hasText(groupUrl))
+      buttons.unshift({ text: "Открыть группу", url: groupUrl });
+    if (admission.kind === "moderation_blocked")
+      buttons.unshift({ text: "Написать в поддержку", url: SUPPORT_URL });
+    if (admission.kind === "preparing" || admission.kind === "none")
+      buttons.unshift(
+        { text: "Повторить", callbackData: `access:community:${product.id}` },
+        { text: "Помощь", callbackData: `access:help:${product.id}` },
+      );
+    await this.screen(contact, {
+      text:
+        admission.kind === "link"
+          ? `${product.name}\n\nМожно вступить в группу курса.`
+          : admission.kind === "member"
+            ? `${product.name}\n\nВы уже в группе курса.`
+            : admission.kind === "moderation_blocked"
+              ? `${product.name}\n\nВступление в группу ограничено. Напишите в поддержку, чтобы уточнить причину.`
+              : "Не удалось проверить доступ. Попробуйте ещё раз.",
+      buttons,
+    });
   }
 
-  private async screen(contact:VerifiedPrivateStart,screen:LearnerScreen):Promise<void> {
-    const reply = {...this.delivery(contact,screen.text),buttons:screen.buttons};
+  private async screen(
+    contact: VerifiedPrivateStart,
+    screen: LearnerScreen,
+  ): Promise<void> {
+    const reply = {
+      ...this.delivery(contact, screen.text),
+      buttons: screen.buttons,
+    };
     await this.replies.enqueue(reply);
     await this.flush(reply.sourceKey);
   }
-  private async flush(sourceKey:string):Promise<void> {
-    if(this.config.deliveryMode === "live") await this.outbound?.processSource(sourceKey);
+  private async flush(sourceKey: string): Promise<void> {
+    if (this.config.deliveryMode === "live")
+      await this.outbound?.processSource(sourceKey);
   }
 
   async processAvailable(
@@ -381,7 +495,7 @@ export class SubscriptionActivation {
         return;
       }
       if (!replay.ok && replay.error.code === "identity_conflict") {
-        await this.finish(attempt, replay.ok && attempt.source_proof?.product ? {...replay,value:{...replay.value,rule:{id:attempt.source_proof.ruleId,revision:attempt.source_proof.ruleRevision,sourceRef:attempt.source_proof.sourceRef ?? "",product:attempt.source_proof.product}}} : replay);
+        await this.finish(attempt, replay);
         return;
       }
       if (
@@ -393,7 +507,23 @@ export class SubscriptionActivation {
               this.clock.now().getTime()
           ))
       ) {
-        await this.finish(attempt, replay.ok && attempt.source_proof?.product ? {...replay,value:{...replay.value,rule:{id:attempt.source_proof.ruleId,revision:attempt.source_proof.ruleRevision,sourceRef:attempt.source_proof.sourceRef ?? "",product:attempt.source_proof.product}}} : replay);
+        await this.finish(
+          attempt,
+          replay.ok && attempt.source_proof?.product
+            ? {
+                ...replay,
+                value: {
+                  ...replay.value,
+                  rule: {
+                    id: attempt.source_proof.ruleId,
+                    revision: attempt.source_proof.ruleRevision,
+                    sourceRef: attempt.source_proof.sourceRef ?? "",
+                    product: attempt.source_proof.product,
+                  },
+                },
+              }
+            : replay,
+        );
         return;
       }
       const expired = attempt.expires_at <= this.clock.now();
@@ -411,9 +541,7 @@ export class SubscriptionActivation {
     if (
       attempt.result !== null &&
       (attempt.result.ok
-        ? ["unavailable", "checking"].includes(
-            attempt.result.value.state,
-          )
+        ? ["unavailable", "checking"].includes(attempt.result.value.state)
         : attempt.result.error.code === "unavailable")
     ) {
       await this.db
@@ -466,20 +594,55 @@ export class SubscriptionActivation {
       return;
     }
     const rule = begun.value.rule;
+    if(this.config.deliveryMode === "live") {
+      const progressKey=`activation:${attempt.attempt_id}:progress`;
+      await this.replies.enqueue({...this.delivery(this.contact(attempt),`${rule.product?.name ?? "Курс"}\n\nПроверяем участие в ${this.sourceName(rule.sourceRef)}…`),sourceKey:progressKey});
+      await this.flush(progressKey);
+    }
     const checkedAt = this.clock.now();
     const cached = attempt.source_proof;
-    const proof = cached && cached.ruleId === rule.id && cached.ruleRevision === rule.revision && Date.parse(cached.validUntil) > checkedAt.getTime()
-      ? { decision: cached.decision }
-      : await this.proof.check(rule.sourceRef, attempt.identity_ref, attempt.telegram_user_id);
+    const reusable =
+      cached !== null &&
+      cached.ruleId === rule.id &&
+      cached.ruleRevision === rule.revision &&
+      Date.parse(cached.validUntil) > checkedAt.getTime();
+    const proof = reusable
+        ? { decision: cached.decision }
+        : await this.proof.check(
+            rule.sourceRef,
+            attempt.identity_ref,
+            attempt.telegram_user_id,
+          );
     if (proof.decision !== "member") {
-      await this.finish(attempt, {ok:true, value:{...begun.value,state:proof.decision === "not_member" ? "rejected" : "unavailable"}});
+      await this.finish(attempt, {
+        ok: true,
+        value: {
+          ...begun.value,
+          state: proof.decision === "not_member" ? "rejected" : "unavailable",
+        },
+      });
       return;
     }
-    await this.db.updateTable("activation_attempts").set({source_proof:{
-      decision: proof.decision, ruleId:rule.id, ruleRevision:rule.revision,
-      checkedAt:checkedAt.toISOString(), validUntil:new Date(checkedAt.getTime()+300000).toISOString(),
-      sourceRef:rule.sourceRef,...(rule.product ? {product:rule.product} : {}),
-    }}).where("attempt_id","=",attempt.attempt_id).where("lease_token","=",attempt.lease_token).execute();
+    const proofCheckedAt = reusable ? cached.checkedAt : checkedAt.toISOString();
+    const proofValidUntil = reusable ? cached.validUntil : new Date(checkedAt.getTime()+SOURCE_PROOF_WINDOW_MS).toISOString();
+    const saved = await this.db
+      .updateTable("activation_attempts")
+      .set({
+        source_proof: {
+          decision: proof.decision,
+          ruleId: rule.id,
+          ruleRevision: rule.revision,
+          checkedAt: proofCheckedAt,
+          validUntil: proofValidUntil,
+          sourceRef: rule.sourceRef,
+          ...(rule.product ? { product: rule.product } : {}),
+        },
+      })
+      .where("attempt_id", "=", attempt.attempt_id)
+      .where("lease_token", "=", attempt.lease_token)
+      .where("lease_until",">",this.clock.now())
+      .returning("attempt_id").executeTakeFirst();
+    if(!saved) return;
     const lookup = await this.platform.binding(attempt.identity_ref);
     if (!lookup || !lookup.ok) {
       if (lookup?.error.code === "identity_conflict")
@@ -488,12 +651,20 @@ export class SubscriptionActivation {
       return;
     }
     if (lookup.value.state === "unlinked") {
+      const editMessageId = await this.replies.deliveredMessageId(`activation:${attempt.attempt_id}:progress`);
       await this.replies.enqueue({
-        ...this.delivery(this.contact(attempt), `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`),
+        ...(hasText(editMessageId) ? {editMessageId} : {}),
+        ...this.delivery(
+          this.contact(attempt),
+          `${rule.product?.name ?? "Курс"}\n\nУчастие в ${this.sourceName(rule.sourceRef)} подтверждено. Продолжите на платформе, чтобы получить доступ к курсу.`,
+        ),
         sourceKey: `activation:${attempt.attempt_id}:needs_account`,
         buttons: [
-          {text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}`},
-          {text:"Помощь",callbackData:"access:help"},
+          {
+            text: "Продолжить на платформе",
+            url: `https://sachkov.dev/telegram/continue?attempt=${attempt.attempt_id}`,
+          },
+          { text: "Помощь", callbackData: rule.product ? `access:help:${rule.product.id}` : "access:help" },
         ],
       });
       await this.defer(attempt, "needs_account", "needs_account", 1000);
@@ -516,8 +687,8 @@ export class SubscriptionActivation {
       ...binding,
       ruleId: rule.id,
       ruleRevision: rule.revision,
-      checkedAt: checkedAt.toISOString(),
-      validUntil: new Date(checkedAt.getTime() + 300_000).toISOString(),
+      checkedAt: proofCheckedAt,
+      validUntil: proofValidUntil,
       decision: proof.decision,
     };
     const persisted = await this.db
@@ -536,7 +707,9 @@ export class SubscriptionActivation {
     }
     await this.finish(
       attempt,
-      response.ok ? {...response,value:{...response.value,rule}} : response,
+      response.ok
+        ? { ...response, value: { ...response.value, rule } }
+        : response,
       Math.max(CADENCE, (proof.retryAfterSeconds ?? 0) * 1000),
     );
   }
@@ -556,7 +729,23 @@ export class SubscriptionActivation {
         )
       : result.error.code === "unavailable";
     const confirmed = confirmedResult(result);
-    const editMessageId = await this.replies.deliveredMessageId(`activation:${attempt.attempt_id}:needs_account`);
+    let currentScreen:LearnerScreen|undefined;
+    const productId=result.ok ? result.value.rule?.product?.id ?? attempt.source_proof?.product?.id : undefined;
+    if(confirmed && hasText(productId)) {
+      const lookup=await this.platform.binding(attempt.identity_ref);
+      const access=lookup?.ok === true && lookup.value.state === "linked" ? await this.platform.own(lookup.value.binding) : undefined;
+      const product=access?.ok === true ? access.value.products?.find(item=>item.id === productId) : undefined;
+      if(product) {
+        const admission=await this.community.currentAdmission(attempt.telegram_user_id);
+        currentScreen=productCard(product,admission);
+        const groupUrl=this.community.groupUrl();
+        if(admission.kind === "member" && hasText(groupUrl) && product.community.state === "available") currentScreen={...currentScreen,buttons:[...courseButton(product),{text:"Открыть группу",url:groupUrl},...currentScreen.buttons.slice(courseButton(product).length)]};
+        if(product.materials.state === "available" && product.community.state === "available") currentScreen={...currentScreen,text:`${product.name}\n\n${admission.kind === "member" ? "Курс доступен. Вы уже в группе курса." : "Курс доступен. Открывайте материалы и присоединяйтесь к группе курса."}`};
+      } else currentScreen={text:"Не удалось проверить доступ. Попробуйте ещё раз.",buttons:[{text:"Повторить",callbackData:"access:own"},{text:"Помощь",callbackData:"access:help"}]};
+    }
+    const reviewBinding=unconfirmedGround(result) ? await this.platform.binding(attempt.identity_ref) : undefined;
+    const reviewAccountRef=reviewBinding?.ok === true && reviewBinding.value.state === "linked" ? reviewBinding.value.binding.accountRef : undefined;
+    const editMessageId = (await this.replies.deliveredMessageId(`activation:${attempt.attempt_id}:needs_account`)) ?? (await this.replies.deliveredMessageId(`activation:${attempt.attempt_id}:progress`));
     await this.db.transaction().execute(async (tx) => {
       const stored = await tx
         .updateTable("activation_attempts")
@@ -607,8 +796,9 @@ export class SubscriptionActivation {
           tx,
           attempt,
           [{ code: attempt.code, outcome: outcomeOf(result) }],
-          stored.evidence?.accountRef,
+          stored.evidence?.accountRef ?? reviewAccountRef,
         );
+      if(await this.replies.hasSource(`access:${attempt.bot_identity}:${stored.trigger_update_id}`,tx)) return;
       await this.replies.enqueue(
         {
           ...this.delivery(
@@ -617,8 +807,13 @@ export class SubscriptionActivation {
               trigger_update_id: stored.trigger_update_id,
             }),
             review && !asksToWriteAuthor(result)
-              ? `${activationMessage(result,result.ok && result.value.rule ? this.sourceName(result.value.rule.sourceRef) : undefined)}\n\n${OWNER_REVIEW}`
-              : activationMessage(result,result.ok && result.value.rule ? this.sourceName(result.value.rule.sourceRef) : undefined),
+              ? `${activationMessage(result, result.ok && result.value.rule ? this.sourceName(result.value.rule.sourceRef) : undefined)}\n\n${OWNER_REVIEW}`
+              : activationMessage(
+                  result,
+                  result.ok && result.value.rule
+                    ? this.sourceName(result.value.rule.sourceRef)
+                    : undefined,
+                ),
           ),
           sourceKey: `activation:${createHash("sha256")
             .update(
@@ -632,8 +827,9 @@ export class SubscriptionActivation {
             .digest(
               "hex",
             )}:${result.ok ? (result.value.state === "pending_review" ? `pending_review:${result.value.enrollment?.state ?? "none"}` : result.value.state) : result.error.code}`,
-          ...(editMessageId ? {editMessageId} : {}),
+          ...(hasText(editMessageId) ? { editMessageId } : {}),
           ...this.menu(result, attempt.code),
+          ...(currentScreen ? {messageText:currentScreen.text,buttons:currentScreen.buttons} : {}),
         },
         tx,
       );
@@ -721,6 +917,7 @@ export class SubscriptionActivation {
       .where("attempt_id", "=", attempt.attempt_id)
       .where("lease_token", "=", attempt.lease_token)
       .execute();
+    if(state === "retry") await this.reply(this.contact(attempt),"Не удалось проверить доступ. Попробуйте ещё раз.",attempt.code);
   }
   private contact(attempt: Attempt): VerifiedPrivateStart {
     return {
@@ -732,7 +929,11 @@ export class SubscriptionActivation {
     };
   }
   private sourceName(sourceRef: string): string {
-    return this.config.activation?.sources.find((source) => source.sourceRef === sourceRef)?.name ?? sourceRef;
+    return (
+      this.config.activation?.sources.find(
+        (source) => source.sourceRef === sourceRef,
+      )?.name ?? sourceRef
+    );
   }
   private delivery(contact: VerifiedPrivateStart, messageText: string) {
     return {
@@ -742,7 +943,7 @@ export class SubscriptionActivation {
       triggerUpdateId: contact.updateId,
       now: this.clock.now(),
       sourceKey: `access:${contact.botIdentity}:${contact.updateId}`,
-      ...(contact.messageId ? {editMessageId:contact.messageId} : {}),
+      ...(hasText(contact.messageId) ? { editMessageId: contact.messageId } : {}),
       messageText,
     };
   }

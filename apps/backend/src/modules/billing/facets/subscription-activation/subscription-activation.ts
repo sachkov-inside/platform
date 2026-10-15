@@ -3,7 +3,6 @@ import {
   productIdFromCapability,
 } from "@inside/access-capabilities";
 import type { CoverageCatalog } from "../../../account-rights/index.js";
-  }
 import { readActivationAnnouncement } from "./read-activation-announcement.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -45,6 +44,7 @@ export class SubscriptionActivation {
       readAdmission: (
         accountId: string,
         prepareCommunity?: boolean,
+        expected?: {identityRef:string;linkRef:string;linkRevision:number},
       ) => Promise<{
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
@@ -198,7 +198,7 @@ export class SubscriptionActivation {
     const [enrollments, access, admission, products] = await Promise.all([
       this.dependencies.grants.readOwnEnrollments(accountId),
       this.dependencies.grants.readOwnAccess(accountId),
-      this.dependencies.readAdmission(accountId, query.prepareCommunity),
+      this.dependencies.readAdmission(accountId, query.prepareCommunity,query),
       query.includeProducts === true
         ? this.dependencies.grants.readOwnProducts(accountId)
         : Promise.resolve(undefined),
@@ -233,7 +233,11 @@ export class SubscriptionActivation {
             ? {}
             : {
                 products: products.value.map((product) => ({
-                  ...product,
+                  id: product.id,
+                  slug: product.slug,
+                  name: product.name,
+                  materials: product.materials,
+                  community: product.community,
                   ...(product.slug === null ||
                   this.dependencies.siteOrigin === undefined
                     ? {}

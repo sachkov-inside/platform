@@ -661,8 +661,13 @@ const ACCESS_ACTIONS: readonly AccessAction[] = [
 function accessCallbackAction(
   data: string,
 ): { action: AccessAction; code?: string } | undefined {
-  const contextual = /^access:(product|community|help|help_missing|help_group|help_signin):([A-Fa-f0-9-]{36})$/.exec(data);
-  if(contextual?.[1] && contextual[2]) return {action:contextual[1] as AccessAction,code:contextual[2]};
+  const contextual =
+    /^access:(product|community|help|help_missing|help_group|help_signin):([A-Fa-f0-9-]{36})$/.exec(
+      data,
+    );
+  const contextualAction = ACCESS_ACTIONS.find(value=>value === contextual?.[1]);
+  if (contextualAction !== undefined && contextual?.[2] !== undefined)
+    return { action: contextualAction, code: contextual[2] };
   const scoped = /^access:retry:([A-Za-z0-9_-]{1,40})$/.exec(data);
   if (scoped?.[1] !== undefined) return { action: "retry", code: scoped[1] };
   const action = ACCESS_ACTIONS.find((value) => data === `access:${value}`);

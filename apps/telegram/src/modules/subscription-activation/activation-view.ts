@@ -32,9 +32,27 @@ export function activationMenu(
   ) {
     const product = result.value.rule?.product;
     return [
-      ...(product ? [{text:"Открыть курс",url:`https://sachkov.dev/products/${product.slug}/programme`},...(result.value.enrollment?.tier.benefits.includes("community") ? [{text:"Вступить в группу",callbackData:`access:community:${product.id}`}] : [])] : [{text:"Открыть платформу",url:"https://sachkov.dev"}]),
-      {text:"Помощь",callbackData:product ? `access:help:${product.id}` : "access:help"},
-      {text:"Мои продукты",callbackData:"access:own"},
+      ...(product
+        ? [
+            {
+              text: "Открыть курс",
+              url: `https://sachkov.dev/products/${product.slug}/programme`,
+            },
+            ...(result.value.enrollment?.tier.benefits.includes("community") === true
+              ? [
+                  {
+                    text: "Вступить в группу",
+                    callbackData: `access:community:${product.id}`,
+                  },
+                ]
+              : []),
+          ]
+        : [{ text: "Открыть платформу", url: "https://sachkov.dev" }]),
+      {
+        text: "Помощь",
+        callbackData: product ? `access:help:${product.id}` : "access:help",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
     ];
   }
   const help: TelegramButton = { text: "Помощь", callbackData: "access:help" };
@@ -65,8 +83,11 @@ export function accountPrompt(
   return {
     text: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
     buttons: [
-      {text:"Продолжить на платформе",url:"https://sachkov.dev/account/access"},
-      {text:"Помощь",callbackData:"access:help"},
+      {
+        text: "Продолжить на платформе",
+        url: "https://sachkov.dev/account/access",
+      },
+      { text: "Помощь", callbackData: "access:help" },
     ],
   };
 }
@@ -80,17 +101,15 @@ export function asksToWriteAuthor(
 }
 export function activationMessage(
   result: ActivationResult<ActivationResponse>,
-  sourceName?:string,
+  sourceName?: string,
 ): string {
   if (!result.ok) {
     const messages: Partial<Record<string, string>> = {
-      policy_paused:
-        "Получение доступа по этой ссылке сейчас недоступно.",
+      policy_paused: "Получение доступа по этой ссылке сейчас недоступно.",
       identity_conflict:
         "Не удалось связать Telegram с аккаунтом. Напишите автору курса.",
       source_not_confirmed: `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`,
-      not_found:
-        "Получение доступа по этой ссылке сейчас недоступно.",
+      not_found: "Получение доступа по этой ссылке сейчас недоступно.",
       revision_conflict:
         "Условия доступа обновились. Нажмите «Проверить ещё раз».",
     };
@@ -102,15 +121,20 @@ export function activationMessage(
   switch (result.value.state) {
     case "active":
     case "already_active": {
-      const name = result.value.rule?.product?.name ?? result.value.enrollment?.tier.name ?? "Курс";
-      return `${name}\n\nКурс доступен. Открывайте материалы${result.value.enrollment?.tier.benefits.includes("community") ? " и присоединяйтесь к группе курса" : ""}.`;
+      const name =
+        result.value.rule?.product?.name ??
+        result.value.enrollment?.tier.name ??
+        "Курс";
+      return `${name}\n\nКурс доступен. Открывайте материалы${result.value.enrollment?.tier.benefits.includes("community") === true ? " и присоединяйтесь к группе курса" : ""}.`;
     }
     case "pending_review":
       if (result.value.enrollment && result.value.enrollment.state !== "active")
         return `Доступ пока не подтверждён.\n\n${result.value.enrollment.tier.name}: ${enrollmentStates[result.value.enrollment.state]}.`;
       return "Доступ пока не подтверждён.";
     case "rejected":
-      return sourceName ? `Доступ по этой ссылке предназначен для участников ${sourceName}. Не удалось подтвердить ваше участие. Проверьте, что открыли бота тем аккаунтом, которым пользуетесь в группе.` : `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
+      return sourceName !== undefined
+        ? `Доступ по этой ссылке предназначен для участников ${sourceName}. Не удалось подтвердить ваше участие. Проверьте, что открыли бота тем аккаунтом, которым пользуетесь в группе.`
+        : `Доступ пока не подтверждён.\n\n${OUTSIDE_COURSE_GROUP}`;
     case "checking":
       return "Проверяем доступ к курсу…";
     case "needs_account":

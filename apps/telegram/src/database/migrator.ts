@@ -1,4 +1,4 @@
-import {learnerActivationMigration} from "./migrations/031-learner-activation.js";
+import { learnerActivationMigration } from "./migrations/031-learner-activation.js";
 import { activationAnnouncementMigration } from "./migrations/032-activation-announcement.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { invitationRedemptionsMigration } from "./migrations/030-invitation-redemptions.js";

@@ -448,8 +448,10 @@ export class SubscriptionActivationIntegrationService {
       accountRef: string;
       contractVersion: 'inside.subscription-activation.v1';
       identityRef: string;
+      includeProducts?: boolean;
       linkRef: string;
       linkRevision: number;
+      prepareCommunity?: boolean;
     },
   }): CancelablePromise<({
     ok: boolean;
@@ -561,6 +563,18 @@ export class SubscriptionActivationIntegrationService {
         source: 'paid' | 'manual' | 'legacy';
         startsAt: string;
         validUntil: string | null;
+      }>;
+      products?: Array<{
+        community: {
+          state: 'available' | 'expired' | 'revoked' | 'unavailable';
+        };
+        id: string;
+        materials: {
+          state: 'available' | 'expired' | 'revoked' | 'unavailable';
+        };
+        name: string;
+        programmeUrl?: string;
+        slug: string | null;
       }>;
     };
   } | {

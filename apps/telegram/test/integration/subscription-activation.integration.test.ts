@@ -1,3 +1,4 @@
+import {AUTHOR_AUTHORIZATION} from "../../src/modules/communications/author-authorization.js";
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -5,7 +6,9 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import {TELEGRAM_MESSAGES,type TelegramTextMessage,type TelegramMessageEdit} from "../../src/modules/outbound/telegram-messages.js";
+import {StartResponseDeliveryProcessor} from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
@@ -18,6 +21,7 @@ import {
 } from "../../src/modules/subscription-activation/activation-ports.js";
 import {
   ACTIVATION_VERSION,
+  type OwnAccess,
   type ActivationBinding,
   type ActivationEvidence,
   type ActivationResponse,
@@ -84,9 +88,21 @@ async function createFixture() {
     onSourceCheck: undefined as (() => Promise<void>) | undefined,
     source: "member" as "member" | "not_member" | "unavailable",
     bindingUnavailable: false,
-    products: [{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering",programmeUrl:"https://sachkov.dev/products/ai-engineering/programme",materials:{state:"available" as const},community:{state:"available" as const}}],
+    author:"denied" as "allowed"|"denied"|"unavailable",
+    editRejected:false,
+    onOwn:undefined as (()=>Promise<void>)|undefined,
+    products: [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        slug: "ai-engineering",
+        name: "AI Engineering",
+        programmeUrl: "https://sachkov.dev/products/ai-engineering/programme",
+        materials: { state: "available" as const },
+        community: { state: "available" as const },
+      },
+    ] as NonNullable<OwnAccess["products"]>,
   };
-  const rule = { id: randomUUID(), revision: 1, sourceRef: "course" };
+  const rule = { id: randomUUID(), revision: 1, sourceRef: "course",product:{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering"} };
   const platform: ActivationPlatform = {
     redeem: () => Promise.resolve(undefined),
     binding(identityRef) {
@@ -168,8 +184,9 @@ async function createFixture() {
       }
       return Promise.resolve(result);
     },
-    own() {
-      return Promise.resolve({
+    async own() {
+      await state.onOwn?.();
+      return {
         ok: true,
         value: {
           contractVersion: ACTIVATION_VERSION,
@@ -178,13 +195,20 @@ async function createFixture() {
           grounds: [],
           admission: { state: "no_access", admissionRestriction: "none" },
         },
-      });
+      };
     },
   };
 
+  const sent:TelegramTextMessage[] = [];
+  const edited:TelegramMessageEdit[] = [];
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(AUTHOR_AUTHORIZATION).useValue({authorize:()=>Promise.resolve(state.author)})
+    .overrideProvider(TELEGRAM_MESSAGES).useValue({
+      sendText(message:TelegramTextMessage){sent.push(message);return Promise.resolve({kind:"delivered",providerMessageId:String(sent.length)});},
+      editText(message:TelegramMessageEdit){edited.push(message);return Promise.resolve(state.editRejected ? {kind:"api_rejected",providerErrorCode:400} : {kind:"delivered",providerMessageId:message.messageId});},
+    })
     .overrideProvider(CLOCK)
     .useValue(clock)
     .overrideProvider(ACTIVATION_PLATFORM)
@@ -220,6 +244,12 @@ async function createFixture() {
       headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
       payload: privateStartUpdate(++updateId, user, { text }),
     });
+    expect(response.statusCode).toBe(202);
+    await app.get(TelegramUpdateProcessor).processAvailable();
+  }
+  async function callback(user:number,data:string,messageId=42) {
+    const id=++updateId;
+    const response=await app.inject({method:"POST",url:"/webhooks/telegram",headers:{"x-telegram-bot-api-secret-token":config.webhookSecret},payload:{update_id:id,callback_query:{id:String(id),data,from:{id:user,is_bot:false},message:{message_id:messageId,chat:{id:user,type:"private"}}}}});
     expect(response.statusCode).toBe(202);
     await app.get(TelegramUpdateProcessor).processAvailable();
   }
@@ -276,6 +306,7 @@ async function createFixture() {
 
   return {
     app,
+    sent,edited,
     db,
     worker,
     bot,
@@ -289,36 +320,157 @@ async function createFixture() {
     platform,
     state,
     ingress,
+    callback,
     identity,
     link,
   };
 }
 
 describe("durable activation ingress, identity and continuation", () => {
-  it("lists linked Products by name and exposes separate current rights in a selected card", async ({activation}) => {
+  it("shows the empty Product menu and reserves management for an authorized author",async({activation:a})=>{
+    await a.ingress(70108,"/start");await a.link(70108);a.state.products=[];
+    const outbound=a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70108,"/start");await outbound.processAvailable(10,a.clock.now());
+    expect(a.sent.at(-1)?.text).toContain("Пока нет доступных продуктов");
+    expect(a.sent.at(-1)?.buttons?.some(button=>button.text==="Управление")).toBe(false);
+    a.state.author="allowed";await a.ingress(70108,"/start");await outbound.processAvailable(10,a.clock.now());
+    expect(a.sent.at(-1)?.buttons).toContainEqual({text:"Управление",callbackData:"author:home"});
+  });
+  it("keeps the selected Product through help and edits the current inline message",async({activation:a})=>{
+    await a.ingress(70109,"/start");await a.link(70109);
+    const id=required(a.state.products[0]).id;
+    await a.callback(70109,`access:help:${id}`);
+    await a.callback(70109,`access:help_signin:${id}`);
+    await a.app.get(StartResponseDeliveryProcessor).processAvailable(20,a.clock.now());
+    expect(a.edited.at(-1)?.messageId).toBe("42");
+    expect(a.edited.at(-1)?.buttons).toContainEqual({text:"Войти на платформу",url:"https://sachkov.dev/auth/sign-in?returnTo=%2Fproducts%2Fai-engineering%2Fprogramme"});
+    expect(a.edited.at(-1)?.buttons).toContainEqual({text:"Написать в поддержку",url:"https://t.me/sachkova_mng"});
+  });
+
+  it("renders current revoked rights when an old activation link repeats a historical grant",async({activation:a})=>{
+    await a.ingress(70107,"/start");await a.link(70107);await a.ingress(70107,"/start a_course");
+    const product=required(a.state.products[0]);
+    a.state.products=[{...product,materials:{state:"revoked"},community:{state:"revoked"}}];
+    await a.ingress(70107,"/start a_course");
+    const queue=a.app.get(StartResponseDeliveryQueue);let last;
+    for(let i=0;i<10;i++){const reply=await queue.claimNext(a.clock.now());if(!reply)break;last=reply;await queue.recordResult(reply,{kind:"delivered",providerMessageId:String(i+1)},a.clock.now());}
+    expect(last?.messageText).toContain("Доступ к материалам отозван");
+    expect(last?.buttons?.some(button=>button.text === "Вступить в группу")).toBe(false);
+    expect(a.granted.size).toBe(1);
+  });
+
+  it("returns bounded failure for a stalled community check and permits a fresh checked retry",async ({activation:a})=>{
+    await a.ingress(70106,"/start"); await a.link(70106);
+    let entered!:()=>void;const started=new Promise<void>(resolve=>{entered=resolve;});
+    let release!:()=>void;const stalled=new Promise<void>(resolve=>{release=resolve;});
+    a.state.onOwn=()=>{entered();return stalled;};
+    vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
+    try {
+      const action=a.worker.action({botIdentity:a.bot,telegramUserId:"70106",privateChatId:"70106",updateId:"900001",observedAt:a.clock.now()},"community",a.state.products[0]?.id);
+      await started;
+      await vi.advanceTimersByTimeAsync(10000);
+      await action;
+      const queue=a.app.get(StartResponseDeliveryQueue);
+      const texts:string[]=[];
+      for(let i=0;i<5;i++){const reply=await queue.claimNext(a.clock.now());if(!reply)break;texts.push(reply.messageText);await queue.recordResult(reply,{kind:"delivered",providerMessageId:String(i+1)},a.clock.now());}
+      expect(texts).toContain("Не удалось проверить доступ. Попробуйте ещё раз.");
+      a.state.onOwn=undefined;
+      release();
+      await a.worker.action({botIdentity:a.bot,telegramUserId:"70106",privateChatId:"70106",updateId:"900002",observedAt:a.clock.now()},"community",a.state.products[0]?.id);
+      expect(a.granted.size).toBe(0);
+    }finally{release();vi.useRealTimers();}
+  });
+
+  it("edits the original activation card automatically after linking and replaces an uneditable old card once", async ({activation:a})=>{
+    await a.ingress(70104,"/start a_course");
+    const outbound=a.app.get(StartResponseDeliveryProcessor);
+    await outbound.processAvailable(10,a.clock.now());
+    expect(a.sent.at(-1)?.buttons).toContainEqual({text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${a.begins[0]}`});
+    const before=a.sent.length;
+    await a.link(70104);
+    await a.worker.processAvailable();
+    a.state.editRejected=true;
+    await outbound.processAvailable(10,a.clock.now());
+    expect(a.edited.at(-1)?.messageId).toBe(String(before));
+    expect(a.sent).toHaveLength(before+1);
+    expect(a.sent.at(-1)?.text).toContain("Курс доступен");
+    await outbound.processAvailable(10,a.clock.now());
+    expect(a.sent).toHaveLength(before+1);
+  });
+
+  it("keeps a verified source proof's actual time when linking continues",async ({activation:a})=>{
+    const checkedAt=a.clock.now().toISOString();
+    await a.ingress(70105,"/start a_course");
+    a.clock.value=new Date(a.clock.now().getTime()+30000);
+    await a.worker.processAvailable();
+    await a.link(70105);
+    await a.worker.processAvailable();
+    expect(a.proofs.at(-1)?.checkedAt).toBe(checkedAt);
+  });
+
+  it("lists linked Products by name and exposes separate current rights in a selected card", async ({
+    activation,
+  }) => {
     await activation.ingress(70103, "/start");
     await activation.link(70103);
     await activation.ingress(70103, "/start");
     const queue = activation.app.get(StartResponseDeliveryQueue);
     let reply;
-    for(let i=0;i<4;i++) { const next = await queue.claimNext(activation.clock.now()); if(!next) break; reply=next; await queue.recordResult(next,{kind:"delivered",providerMessageId:String(i+1)},activation.clock.now()); }
-    expect(reply?.messageText).toBe("Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.");
-    expect(reply?.buttons).toContainEqual({text:"AI Engineering",callbackData:"access:product:11111111-1111-4111-8111-111111111111"});
-    await activation.worker.action({botIdentity:activation.bot,telegramUserId:"70103",privateChatId:"70103",updateId:"9999999",observedAt:activation.clock.now()},"product","11111111-1111-4111-8111-111111111111");
+    for (let i = 0; i < 4; i++) {
+      const next = await queue.claimNext(activation.clock.now());
+      if (!next) break;
+      reply = next;
+      await queue.recordResult(
+        next,
+        { kind: "delivered", providerMessageId: String(i + 1) },
+        activation.clock.now(),
+      );
+    }
+    expect(reply?.messageText).toBe(
+      "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.",
+    );
+    expect(reply?.buttons).toContainEqual({
+      text: "AI Engineering",
+      callbackData: "access:product:11111111-1111-4111-8111-111111111111",
+    });
+    await activation.worker.action(
+      {
+        botIdentity: activation.bot,
+        telegramUserId: "70103",
+        privateChatId: "70103",
+        updateId: "9999999",
+        observedAt: activation.clock.now(),
+      },
+      "product",
+      "11111111-1111-4111-8111-111111111111",
+    );
     const card = await queue.claimNext(activation.clock.now());
-    expect(card?.messageText).toBe("AI Engineering\n\nМатериалы доступны. Вы можете вступить в группу курса.");
-    expect(card?.buttons).toContainEqual({text:"Открыть курс",url:"https://sachkov.dev/products/ai-engineering/programme"});
+    expect(card?.messageText).toBe(
+      "AI Engineering\n\nМатериалы доступны. Вы можете вступить в группу курса.",
+    );
+    expect(card?.buttons).toContainEqual({
+      text: "Открыть курс",
+      url: "https://sachkov.dev/products/ai-engineering/programme",
+    });
   });
 
-  it("verifies the source before browser linking and retains the exact activation attempt", async ({activation}) => {
+  it("verifies the source before browser linking and retains the exact activation attempt", async ({
+    activation,
+  }) => {
     let verified = false;
-    activation.state.onSourceCheck = async () => { verified = true; };
+    activation.state.onSourceCheck = () => {
+      verified = true;
+      return Promise.resolve();
+    };
     await activation.ingress(70102, "/start a_course");
     expect(verified).toBe(true);
     const replies = activation.app.get(StartResponseDeliveryQueue);
     const reply = await replies.claimNext(activation.clock.now());
     expect(reply?.messageText).toContain("подтверждено");
-    expect(reply?.buttons).toContainEqual({text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${activation.begins[0]}`});
+    expect(reply?.buttons).toContainEqual({
+      text: "Продолжить на платформе",
+      url: `https://sachkov.dev/telegram/continue?attempt=${activation.begins[0]}`,
+    });
     await activation.link(70102);
     activation.clock.value = new Date(activation.clock.now().getTime() + 1000);
     await activation.worker.processAvailable();
@@ -326,14 +478,22 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(activation.proofs.at(-1)?.attemptId).toBe(activation.begins[0]);
   });
 
-  it("shows ordinary start without creating an Account or checking activation", async ({ activation }) => {
+  it("shows ordinary start without creating an Account or checking activation", async ({
+    activation,
+  }) => {
     await activation.ingress(70101, "/start");
-    const reply = await activation.app.get(StartResponseDeliveryQueue).claimNext(activation.clock.now());
+    const reply = await activation.app
+      .get(StartResponseDeliveryQueue)
+      .claimNext(activation.clock.now());
     expect(reply).toMatchObject({
-      messageText: "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
+      messageText:
+        "Inside\n\nНа платформе доступны продукты и учебные материалы. Войдите и подключите Telegram, чтобы видеть свои продукты и вступать в их группы.",
       buttons: [
         { text: "Открыть платформу", url: "https://sachkov.dev" },
-        { text: "Уже есть аккаунт", url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess" },
+        {
+          text: "Уже есть аккаунт",
+          url: "https://sachkov.dev/auth/sign-in?returnTo=%2Faccount%2Faccess",
+        },
         { text: "Помощь", callbackData: "access:help" },
       ],
     });
@@ -390,7 +550,7 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(
       prompt.some(
         (row) =>
-          row.buttons?.some((button) => button.text === "Открыть платформу") ===
+          row.buttons?.some((button) => button.text === "Открыть курс") ===
           true,
       ),
     ).toBe(true);

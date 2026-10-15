@@ -82,7 +82,11 @@ export interface ActivationResponse {
     readonly revision: number;
     readonly sourceRef: string;
     readonly verificationMode?: "course_membership";
-    readonly product?: {readonly id:string;readonly slug:string;readonly name:string};
+    readonly product?: {
+      readonly id: string;
+      readonly slug: string;
+      readonly name: string;
+    };
   };
 }
 export interface OwnAccess {

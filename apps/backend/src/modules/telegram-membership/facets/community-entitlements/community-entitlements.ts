@@ -278,10 +278,20 @@ export class CommunityEntitlements {
   }
 
   /** Delivers only this Account's current entitlement before a synchronous bot admission. */
-  async prepareOwnAdmission(accountId:string):Promise<OwnAdmission> {
-    const projected = await this.project(accountId);
-    if(!projected.ok) return {state:"checking",admissionRestriction:null};
-    await deliverCommunityOperations(this.dependencies,20,this.clock(),accountId);
+  async prepareOwnAdmission(accountId: string,expected?:{identityRef:string;linkRef:string;linkRevision:number}): Promise<OwnAdmission> {
+    const dependencies=this.groupDependencies;
+    const projected = await projectCommunityEntitlement({...dependencies,links:{readBinding:async(input)=>{
+      const current=await dependencies.links.readBinding(input);
+      if(expected !== undefined && current.ok && (current.binding === null || current.binding.telegramIdentityRef !== expected.identityRef || current.binding.linkRef !== expected.linkRef || current.binding.linkRevision !== expected.linkRevision)) return {ok:false,error:{code:"unavailable"}} as const;
+      return current;
+    }}},accountId,this.clock());
+    if (!projected.ok) return { state: "checking", admissionRestriction: null };
+    await deliverCommunityOperations(
+      this.dependencies,
+      20,
+      this.clock(),
+      accountId,
+    );
     return this.readOwnAdmission(accountId);
   }
 

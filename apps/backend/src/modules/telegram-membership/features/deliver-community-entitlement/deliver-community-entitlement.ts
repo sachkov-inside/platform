@@ -54,10 +54,14 @@ export async function deliverCommunityOperations(
   dependencies: CommunityDeliveryDependencies,
   limit: number,
   now: Date,
-  accountId?:string,
+  accountId?: string,
 ): Promise<CommunityDeliveryReport> {
   const due = await dependencies.prisma.telegramCommunityOperation.findMany({
-    where: { delivery: "pending", nextAttemptAt: { lte: now },...(accountId ? {accountId} : {}) },
+    where: {
+      delivery: "pending",
+      nextAttemptAt: { lte: now },
+      ...(accountId !== undefined ? { accountId } : {}),
+    },
     orderBy: [{ nextAttemptAt: "asc" }, { operationId: "asc" }],
     take: limit,
   });

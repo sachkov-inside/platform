@@ -96,7 +96,10 @@ import {
           contentCatalog,
           grants,
           bindings,
-          readAdmission: (accountId,prepareCommunity) => prepareCommunity ? community.prepareOwnAdmission(accountId) : community.readOwnAdmission(accountId),
+          readAdmission: (accountId, prepareCommunity,expected) =>
+            prepareCommunity === true
+              ? community.prepareOwnAdmission(accountId,expected)
+              : community.readOwnAdmission(accountId),
           siteOrigin: config.publicSite.origin,
         }),
     },

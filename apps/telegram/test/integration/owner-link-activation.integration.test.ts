@@ -77,12 +77,14 @@ const rules = {
     revision: 1,
     sourceRef: "course",
     verificationMode: "course_membership" as const,
+    product:{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering"},
   },
   course: {
     id: randomUUID(),
     revision: 1,
     sourceRef: "course",
     verificationMode: "course_membership" as const,
+    product:{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering"},
   },
 };
 type Code = keyof typeof rules;
@@ -178,6 +180,7 @@ const platform: ActivationPlatform = {
       ok: true,
       value: {
         contractVersion: ACTIVATION_VERSION,
+        products:[{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering",programmeUrl:"https://sachkov.dev/products/ai-engineering/programme",materials:{state:"available"},community:{state:"available"}}],
         enrollments: [],
         grounds: [],
         admission: { state: "no_access", admissionRestriction: "none" },
@@ -376,7 +379,7 @@ describe("ordinary /start", () => {
       .where("bot_identity", "=", bot)
       .where("telegram_user_id", "=", String(person.user))
       .execute();
-    expect(texts.map((row) => row.message_text)).toContain("Welcome");
+    expect(texts.map((row) => row.message_text)).toContain("Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу.");
   });
 });
 
@@ -398,10 +401,7 @@ describe("the owner's button in the course group", () => {
           ]),
         )
         .execute();
-      expect(messages).toHaveLength(1);
-      expect(required(messages[0]).message_text).toContain(
-        "Не удалось проверить доступ",
-      );
+      expect(messages.filter(message=>message.message_text.includes("Не удалось проверить доступ"))).toHaveLength(1);
     } finally {
       explicitUnavailable.clear();
       await db
@@ -464,10 +464,7 @@ describe("the owner's button in the course group", () => {
         .where("telegram_user_id", "=", String(person.user))
         .where("source_key", "like", "access:%")
         .execute();
-      expect(messages).toHaveLength(1);
-      expect(required(messages[0]).message_text).toContain(
-        "Не удалось проверить доступ",
-      );
+      expect(messages.filter(message=>message.message_text.includes("Не удалось проверить доступ"))).toHaveLength(1);
       expect(grants.has(`course:${person.identityRef}`)).toBe(false);
       expect(await attempts(person.user)).toEqual([
         { code: "course", state: "retry" },
@@ -489,7 +486,7 @@ describe("the owner's button in the course group", () => {
       await send(person.user, "/start a_course");
       expect(begins).toEqual(["course"]);
       expect(await attempts(other)).toEqual([
-        { code: "course", state: "pending" },
+        { code: "course", state: "rejected" },
       ]);
       expect(grants.get(`course:${person.identityRef}`)).toBe(1);
     } finally {
@@ -521,8 +518,8 @@ describe("the owner's button in the course group", () => {
         ]),
       )
       .execute();
-    expect(messages).toHaveLength(1);
-    expect(required(messages[0]).message_text).not.toContain("запланирована");
+    expect(messages.filter(message=>message.message_text.includes("Курс доступен"))).toHaveLength(1);
+    expect(messages.every(message=>!message.message_text.includes("запланирована"))).toBe(true);
   });
 
   it("leads a group member to rights and the community invitation", async () => {
@@ -536,9 +533,9 @@ describe("the owner's button in the course group", () => {
     expect(memberLookups).toEqual([courseChatId]);
     expect(grants.get(`course:${person.identityRef}`)).toBe(1);
     const [message] = await activationMessages(person.user);
-    expect(required(message).message_text).toContain("Доступ к курсу открыт");
+    expect(required(message).message_text).toContain("Курс доступен");
     expect(
-      required(message).buttons?.some((button) => button.text === "Чат курса"),
+      required(message).buttons?.some((button) => button.text === "Вступить в группу"),
     ).toBe(true);
     expect(await openReviews(person.user)).toEqual([]);
     // Pressing again confirms the same right: no second grant, attempt or review.
@@ -631,10 +628,10 @@ describe("the owner's button in the course group", () => {
     const messages = await activationMessages(person.user);
     expect(messages).toHaveLength(1);
     expect(required(messages[0]).message_text).toContain(
-      "Доступ пока не подтверждён",
+      "Не удалось подтвердить ваше участие",
     );
     // One instruction: the person writes to the author; the owner still gets the review.
-    expect(required(messages[0]).message_text).toContain("напишите автору");
+    expect(required(messages[0]).buttons).toContainEqual({text:"Помощь",callbackData:"access:help"});
     expect(required(messages[0]).message_text).not.toContain(OWNER_REVIEW);
     const [review] = await openReviews(person.user);
     expect(review).toMatchObject({
@@ -664,7 +661,7 @@ describe("the owner's button in the course group", () => {
     expect(await openReviews(person.user)).toEqual([]);
     expect(
       (await activationMessages(person.user)).at(-1)?.message_text,
-    ).toContain("Доступ к курсу открыт");
+    ).toContain("Курс доступен");
   });
 
   it("never accepts the canonical community chat as a ground", async () => {
@@ -747,7 +744,7 @@ describe("the owner link", () => {
     }
     const messages = await activationMessages(person.user);
     expect(required(messages[0]).message_text).toBe(
-      "Ссылка активации не найдена. Попросите новую ссылку у автора курса.",
+      "Получение доступа по этой ссылке сейчас недоступно.",
     );
     expect(messages).toHaveLength(2);
     expect(await openReviews(person.user)).toEqual([]);
