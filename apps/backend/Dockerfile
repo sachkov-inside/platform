@@ -31,13 +31,15 @@ COPY --chown=node:node docs/contracts ./docs/contracts
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
-FROM dependencies AS development
+FROM dependencies AS source
 
 # Restore installed patch metadata after source COPY: pnpm checks its timestamps.
 COPY --chown=node:node . .
 COPY --from=dependencies --chown=node:node /workspace/patches ./patches
 
 ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
+
+FROM source AS development
 
 # The production-web stand binds its API to this image's immutable release identity.
 ARG INSIDE_RELEASE_VERSION=""
@@ -98,7 +100,7 @@ FROM development AS bank-double
 # пустой именованный том наследует владельца каталога образа.
 CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
 
-FROM development AS production-build
+FROM source AS production-build
 
 RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
@@ -117,7 +119,6 @@ WORKDIR /app
 RUN mkdir -p ./infra/tls
 COPY --chown=root:root --chmod=0444 infra/tls/russian-trusted-root-ca.pem ./infra/tls/russian-trusted-root-ca.pem
 
-COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/node_modules ./node_modules
 COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./dist
@@ -127,6 +128,9 @@ COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-iden
 # Сторож production (#245): deploy-release копирует его из образа выбранного выпуска на сервер.
 # Приложение его не запускает.
 COPY --chown=root:root --chmod=0555 infra/production/watchdog/ ./ops/watchdog/
+
+# Attach identity after the reusable payload so identity-only changes retain its cached layers.
+COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 
 EXPOSE 3001
 USER node

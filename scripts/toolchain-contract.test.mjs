@@ -114,10 +114,31 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("keeps backend compilation independent of release identity arguments", () => {
+    const stages = read("apps/backend/Dockerfile")
+      .split(/^FROM /mu)
+      .slice(1);
+    let stage = stages.find((value) =>
+      value.split("\n")[0]?.endsWith(" AS production-build"),
+    );
+    assert.ok(stage);
+    while (stage !== undefined) {
+      assert.doesNotMatch(
+        stage,
+        /^ARG INSIDE_(RELEASE_VERSION|SOURCE_SHA)/mu,
+        "A release identity change must not invalidate backend compilation",
+      );
+      const parent = stage.split(" AS ")[0];
+      stage = stages.find((value) =>
+        value.split("\n")[0]?.endsWith(` AS ${parent}`),
+      );
+    }
+  });
+
   it("shares the complete cacheable dependency ancestry between backend and Web", () => {
     const dependencyAncestry = (/** @type {string} */ dockerfile) =>
       dockerfile
-        .split("FROM dependencies AS development")[0]
+        .split(/FROM dependencies AS (?:development|source)/u)[0]
         ?.replace(/\\\n\s*/gu, " ")
         .split("\n")
         .map((line) => line.trim())
