@@ -90,6 +90,9 @@ export const activationOutcomeSchema = z.strictObject({
       id: z.uuid(),
       revision: z.int().positive(),
       sourceRef: sourceRefSchema,
+      product: z
+        .strictObject({ id: z.uuid(), slug: z.string(), name: z.string() })
+        .optional(),
       verificationMode: verificationModeSchema.optional(),
     })
     .optional(),
@@ -161,4 +164,6 @@ export const ownSubscriptionAccessQuerySchema = z.strictObject({
   identityRef: sourceRefSchema,
   linkRef: z.uuid(),
   linkRevision: z.int().positive(),
+  includeProducts: z.boolean().optional(),
+  prepareCommunity: z.boolean().optional(),
 });

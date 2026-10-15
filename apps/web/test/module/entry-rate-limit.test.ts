@@ -61,7 +61,7 @@ function overrunBillingCommand(
 
 /** Раздел документов в том же `matcher` проверяет адрес, а не частоту (ADR 0027). */
 const entryMatcher = proxyConfig.matcher.filter(
-  (path) => path !== "/legal/:path+",
+  (path) => path !== "/legal/:path+" && path !== "/",
 );
 
 /** Сравнивает matcher с перечнем ограничителя; пустой список — совпадение. */
@@ -244,4 +244,20 @@ it("private payment links use the public-link limit", () => {
       "/payment/links/69000000-0000-4000-8000-000000001450",
     ),
   ).toBe("public-link");
+});
+
+it("bounds public Telegram Product continuation before resolving its intent", () => {
+  const limiter = createEntryRateLimiter(clock().now);
+  expect(classifyEntryRoute("GET", "/telegram/continue")).toBe("public-link");
+  expect(classifyEntryRoute("HEAD", "/telegram/continue")).toBe("public-link");
+  const results = Array.from(
+    { length: entryRequestsPerWindow["public-link"] + 1 },
+    () =>
+      limitEntryRequest(
+        limiter,
+        request("/telegram/continue?attempt=public-intent", client, "GET"),
+        "production",
+      ),
+  );
+  expect(results.at(-1)?.status).toBe(429);
 });

@@ -31,9 +31,11 @@ import {
 export function AccountTelegramPanel({
   link,
   onRefresh,
+  retryLabel = "Попробовать снова",
 }: {
   readonly link: AccountTelegramMembership["link"];
   readonly onRefresh: () => Promise<void>;
+  readonly retryLabel?: string;
 }) {
   const flow = useTelegramLinkFlow(onRefresh);
   const presentation = telegramLinkPresentation(link);
@@ -69,7 +71,7 @@ export function AccountTelegramPanel({
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-          {telegramAction(presentation.action, flow)}
+          {telegramAction(presentation.action, flow, retryLabel)}
         </div>
       </article>
       <MutationNotice result={flow.mutationResult} />
@@ -87,14 +89,16 @@ type TelegramActionFlow = Pick<
   | "refresh"
 >;
 
-function telegramAction(action: TelegramLinkAction, flow: TelegramActionFlow) {
+function telegramAction(
+  action: TelegramLinkAction,
+  flow: TelegramActionFlow,
+  retryLabel: string,
+) {
   switch (action.kind) {
     case "begin":
       return (
         <TelegramButton
-          label={
-            action.context === "initial" ? "Подключить" : "Попробовать снова"
-          }
+          label={action.context === "initial" ? "Подключить" : retryLabel}
           onClick={() => {
             void flow.begin();
           }}

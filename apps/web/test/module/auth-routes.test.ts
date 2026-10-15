@@ -326,6 +326,24 @@ describe("Logto BFF route orchestration", () => {
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
   });
 
+  it("keeps a selected Product continuation through conflict logout", async () => {
+    const returnTo =
+      "/telegram/continue?attempt=62000000-0000-4000-8000-000000000001";
+    const response = await signOut(
+      new Request("https://inside.example.test/auth/sign-out", {
+        method: "POST",
+        headers: {
+          origin: "https://inside.example.test",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ returnTo }),
+      }),
+    );
+    expect(fakes.handleSignOut).toHaveBeenCalledWith(fakes.config.baseUrl);
+    expect(response.headers.get("set-cookie")).toContain(
+      encodeURIComponent(returnTo),
+    );
+  });
   it("clears the local Logto cookie and reports incomplete provider logout", async () => {
     fakes.handleSignOut.mockRejectedValueOnce(
       new Error("provider unavailable"),

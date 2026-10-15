@@ -3,12 +3,14 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   bindingLookupQuerySchema,
+  announcementQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
   redeemInvitationSchema,
 } from "../src/modules/account-rights/index.js";
 import {
+  announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
@@ -22,6 +24,8 @@ const directory = fileURLToPath(
 );
 const definitions = Object.fromEntries(
   Object.entries({
+    announcementQuery: announcementQuerySchema,
+    announcementResponse: announcementResponseSchema,
     begin: beginActivationSchema,
     evidence: activationEvidenceSchema,
     activationResponse: activationResponseSchema,

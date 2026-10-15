@@ -56,7 +56,7 @@ sachkov.dev, inside.sachkov.dev {
 		# приглашения; отдельный bearer активации.
 		@telegram_activation {
 			method POST
-			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/invitations/redeem
+			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/subscription-activation/announcement /integrations/telegram/v1/invitations/redeem
 		}
 		reverse_proxy @telegram_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 

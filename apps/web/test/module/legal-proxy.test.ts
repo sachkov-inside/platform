@@ -81,7 +81,7 @@ it("раздел документов в matcher не захватывает с�
       url: "/materials/unknown",
     }),
   ).toBe(false);
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/" })).toBe(
-    false,
-  );
+  expect(
+    unstable_doesMiddlewareMatch({ config, nextConfig, url: "/foreign/path" }),
+  ).toBe(false);
 });

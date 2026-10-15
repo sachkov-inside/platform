@@ -3,6 +3,7 @@ import { hasText } from "../shared/text.js";
 import { assertServiceSecret } from "./service-secret.js";
 export interface ActivationSource {
   readonly sourceRef: string;
+  readonly name?: string;
   readonly chatId: string;
   readonly policy: "whole_group" | "confirmed_list";
   readonly confirmedIdentityRefs?: readonly string[];
@@ -48,6 +49,7 @@ export function loadActivationConfig(
     const sourceRef = fields?.get("sourceRef");
     const chatId = fields?.get("chatId");
     const policy = fields?.get("policy");
+    const name = fields?.get("name");
     const confirmed = fields?.get("confirmedIdentityRefs");
     if (
       !fields ||
@@ -55,6 +57,10 @@ export function loadActivationConfig(
       sourceRef.length < 1 ||
       sourceRef.length > 256 ||
       refs.has(sourceRef) ||
+      (name !== undefined &&
+        (typeof name !== "string" ||
+          name.trim().length < 1 ||
+          name.length > 128)) ||
       typeof chatId !== "string" ||
       !/^-?[1-9][0-9]{0,15}$/.test(chatId) ||
       !Number.isSafeInteger(Number(chatId)) ||
@@ -62,9 +68,13 @@ export function loadActivationConfig(
       (policy !== "whole_group" && policy !== "confirmed_list") ||
       [...fields.keys()].some(
         (k) =>
-          !["sourceRef", "chatId", "policy", "confirmedIdentityRefs"].includes(
-            k,
-          ),
+          ![
+            "sourceRef",
+            "name",
+            "chatId",
+            "policy",
+            "confirmedIdentityRefs",
+          ].includes(k),
       )
     )
       throw new Error("Invalid activation source registry entry");
@@ -73,7 +83,12 @@ export function loadActivationConfig(
         throw new Error(
           "whole_group cannot silently ignore a confirmation list",
         );
-      entries.push({ sourceRef, chatId, policy });
+      entries.push({
+        sourceRef,
+        chatId,
+        policy,
+        ...(typeof name === "string" ? { name } : {}),
+      });
     } else {
       const confirmedIdentityRefs: readonly unknown[] | undefined =
         Array.isArray(confirmed) ? confirmed : undefined;
@@ -87,7 +102,13 @@ export function loadActivationConfig(
         throw new Error(
           "A confirmed_list source requires opaque confirmed identity references",
         );
-      entries.push({ sourceRef, chatId, policy, confirmedIdentityRefs });
+      entries.push({
+        sourceRef,
+        chatId,
+        policy,
+        confirmedIdentityRefs,
+        ...(typeof name === "string" ? { name } : {}),
+      });
     }
     refs.add(sourceRef);
   }

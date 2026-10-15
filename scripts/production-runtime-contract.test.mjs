@@ -17,7 +17,7 @@ const productionTemplates = readdirSync(
 
 // The activation protocol has exactly these operations; a prefix would expose any future sub-route.
 const activationPaths = [
-  ...["binding", "own-access", "attempts", "evidence"].map(
+  ...["binding", "own-access", "attempts", "evidence", "announcement"].map(
     (operation) =>
       `/integrations/telegram/v1/subscription-activation/${operation}`,
   ),

@@ -763,6 +763,26 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     ).toMatchObject({ ok: false });
   });
 
+  test("prepares only the requesting Account community delivery within its action", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantCommunity(account, finish);
+    const other = await member();
+    await link(other, `identity-${other}`);
+    await grantCommunity(other, finish);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    await app.project(other);
+    await app.prepareOwnAdmission(account);
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]?.binding.telegramIdentityRef).toBe(
+      `identity-${account}`,
+    );
+    expect((await operations(other))[0]?.delivery).toBe("pending");
+    await app.prepareOwnAdmission(other);
+  });
+
   test("a granted right is delivered once, a revoke supersedes it, and a replay never resurrects it", async () => {
     now = new Date(start);
     const account = await member();

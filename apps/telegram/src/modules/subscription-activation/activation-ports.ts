@@ -19,6 +19,7 @@ export interface ActivationPlatform {
   ): Promise<ActivationResult<ActivationResponse> | undefined>;
   own(
     binding: ActivationBinding,
+    prepareCommunity?: boolean,
   ): Promise<ActivationResult<OwnAccess> | undefined>;
   /** Idempotent by `(code, identityRef)`: a lost answer is retried with the same input. */
   redeem(

@@ -7,6 +7,7 @@ export interface VerifiedPrivateStart {
   readonly privateChatId: string;
   readonly telegramUserId: string;
   readonly updateId: string;
+  readonly messageId?: string;
 }
 
 /** Telegram's report that a private chat with the bot was blocked or reopened. */
