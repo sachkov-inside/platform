@@ -11,6 +11,7 @@ import { contractDigest } from "../../src/infrastructure/contracts/canonical-dig
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import {
   assembleAccounts,
@@ -403,37 +404,26 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
 test("uses a frozen paid Product scope without modifying purchases or grant terms", async () => {
   const purchaseId = randomUUID();
   const quoteRef = randomUUID();
-  await db.prisma.billingPriceQuote.create({
-    data: {
-      id: quoteRef,
-      accountId: account,
-      operationId: randomUUID(),
-      fingerprint: quoteRef,
-      snapshot: { offer: { benefits: [`product:${product}`, "support"] } },
-      createdAt: start,
-      expiresAt: finish,
-    },
+  const snapshot = JSON.stringify({
+    offer: { benefits: [`product:${product}`, "support"] },
   });
-  await db.prisma.billingPurchase.create({
-    data: {
-      id: purchaseId,
-      accountId: account,
-      kind: "one_time",
-      quoteRef,
-      state: "confirmed",
-      lifecycleActive: false,
-      environment: "test",
-      terminalRef: "HISTORICAL",
-      amountKopecks: 1000n,
-      snapshot: { offer: { benefits: [`product:${product}`, "support"] } },
-      acceptance: {},
-      contact: {},
-      fiscalization: "pending",
-      createdAt: start,
-      updatedAt: start,
-      confirmedAt: start,
-    },
-  });
+  // This fixture reconstructs pre-0090 storage. The current Prisma model already knows
+  // 0094's payment_link_id; explicit historical columns must not request that future field.
+  await db.prisma.$executeRaw(Prisma.sql`
+    INSERT INTO billing.price_quotes
+      (id, account_id, operation_id, fingerprint, snapshot, created_at, expires_at)
+    VALUES (${quoteRef}::uuid, ${account}::uuid, ${randomUUID()}::uuid,
+      ${quoteRef}, ${snapshot}::jsonb, ${start}, ${finish})
+  `);
+  await db.prisma.$executeRaw(Prisma.sql`
+    INSERT INTO billing.purchases
+      (id, account_id, kind, quote_ref, state, lifecycle_active, environment,
+       terminal_ref, amount_kopecks, snapshot, acceptance, contact, fiscalization,
+       created_at, updated_at, confirmed_at)
+    VALUES (${purchaseId}::uuid, ${account}::uuid, 'one_time', ${quoteRef}::uuid,
+      'confirmed', false, 'test', 'HISTORICAL', 1000, ${snapshot}::jsonb,
+      '{}'::jsonb, '{}'::jsonb, 'pending', ${start}, ${start}, ${start})
+  `);
   const grantId = await historicalGrant(["community"], finish);
   await db.prisma.accessGrant.update({
     where: { id: grantId },
