@@ -43,13 +43,10 @@ async function openReader(
   const reader = page.locator(
     `[data-material-reader-state='${readerState}']:visible`,
   );
-  const actionScope =
-    readerState === "available"
-      ? reader.getByRole("group", {
-          name: "Отметка изучения",
-          exact: true,
-        })
-      : reader;
+  const actionScope = reader.getByRole("group", {
+    name: "Отметка изучения",
+    exact: true,
+  });
   const action = actionScope.locator("[data-reading-action-state]:visible");
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   return action.getByRole("button", { name: label, exact: true });
@@ -65,6 +62,8 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "false");
   }
+  // Finish the optional reset, including its refresh, before simulating a lost response.
+  await expect(button).toHaveAttribute("aria-busy", "false");
   // The backend commits, but the browser loses the response. Retry must reuse the command.
   const commands: string[] = [];
   let loseResponse = true;
