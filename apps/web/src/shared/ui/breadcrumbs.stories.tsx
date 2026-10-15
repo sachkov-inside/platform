@@ -49,3 +49,28 @@ export const Mobile: Story = {
   ...CourseLocation,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+export const LongTitles: Story = {
+  args: {
+    items: [
+      { label: "Inside AI Engineering", href: productPath("ai-engineering") },
+      { label: "Глава 1", href: productProgrammeHref("ai-engineering") },
+      { label: "Как устроен пайплайн разработки с агентом" },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const current = canvasElement.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (current === null) throw new Error("Current breadcrumb is missing");
+    await expect(current).toHaveAttribute(
+      "title",
+      "Как устроен пайплайн разработки с агентом",
+    );
+    await expect(current.scrollWidth).toBeGreaterThan(current.clientWidth);
+    await expect(getComputedStyle(current).textOverflow).toBe("ellipsis");
+  },
+};
+export const LongTitlesMobile: Story = {
+  ...LongTitles,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

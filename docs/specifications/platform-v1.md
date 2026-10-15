@@ -440,13 +440,15 @@ The displayed document, primary course anchor and browser return entry remain di
 An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existing validated programme `from`.
 The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
 A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
-counts, progress or previous/next. The sidebar distinguishes the open document from the learner's course position.
+counts, progress or previous/next. The sidebar selects the originating step; breadcrumbs name the open document.
+An orange sidebar line connects chapter markers from the first step to the current anchor and stops there.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
 Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
 Direct links without a valid anchor use standalone Reader and retain the confirmed course breadcrumb and return.
 Chapter selection lists actual chapters only, without a synthetic Materials chapter.
 
 Teaching pages use visible hierarchical breadcrumbs: catalogue, Product, programme, Materials and Tasks.
+Long breadcrumb names truncate with an ellipsis; the full name remains available in the title and accessible text.
 A course document shows Product, chapter and current document. A supplementary document also includes its
 originating primary step; intermediate supplementary documents belong to browser history, not to breadcrumbs.
 Breadcrumbs use a named navigation landmark and identify the current page. They wrap on narrow screens.

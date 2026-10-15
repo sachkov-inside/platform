@@ -2048,8 +2048,8 @@ export const SupplementaryFromTask: Story = {
     ).toBeVisible();
     const rail = canvas.getByLabelText("Текущая глава");
     if (rail.getClientRects().length > 0) {
-      await expect(rail).toHaveTextContent("Ваше место в курсе");
-      await expect(rail).toHaveTextContent("Открытый материал");
+      await expect(rail).not.toHaveTextContent("Открытый материал");
+      await expect(rail).not.toHaveTextContent("Ваше место в курсе");
     }
     await expect(
       canvasElement.querySelector(

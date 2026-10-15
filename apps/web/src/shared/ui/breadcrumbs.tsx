@@ -34,7 +34,7 @@ export function Breadcrumbs({
                 <span
                   aria-current="page"
                   title={item.label}
-                  className="min-w-0 max-w-[16rem] truncate text-foreground sm:max-w-[26rem]"
+                  className="min-w-0 max-w-[12rem] truncate text-foreground sm:max-w-[16rem]"
                 >
                   {item.label}
                 </span>
@@ -42,7 +42,7 @@ export function Breadcrumbs({
                 <Link
                   aria-label={item.fullLabel}
                   title={item.fullLabel ?? item.label}
-                  className="inline-flex min-h-11 min-w-0 max-w-[10rem] items-center underline-offset-4 hover:text-foreground hover:underline sm:max-w-[18rem]"
+                  className="inline-flex min-h-11 min-w-0 max-w-[8rem] items-center underline-offset-4 hover:text-foreground hover:underline sm:max-w-[12rem]"
                   href={item.href}
                 >
                   <span className="truncate">{item.label}</span>

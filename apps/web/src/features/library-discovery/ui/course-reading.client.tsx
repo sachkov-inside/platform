@@ -34,7 +34,7 @@ export function CourseReadingLayout({
   return (
     <div className={styles["layout"]} data-course-reading>
       <HidePublicFooter />
-      <CourseRail context={context} supplementaryTitle={supplementaryTitle} />
+      <CourseRail context={context} />
       <div className={styles["document"]}>
         <ProgrammeDialog
           context={context}
@@ -161,13 +161,7 @@ export function CourseReadingFooter({
   );
 }
 
-function CourseRail({
-  context,
-  supplementaryTitle,
-}: {
-  readonly context: CourseReadingContext;
-  readonly supplementaryTitle?: string | undefined;
-}) {
+function CourseRail({ context }: { readonly context: CourseReadingContext }) {
   // Next preserves this component between steps; a new server-selected step owns the selection.
   const selectionKey = `${context.current.id}:${context.currentChapterId}`;
   const [selection, setSelection] = useState({
@@ -182,6 +176,8 @@ function CourseRail({
       ? selection.chapter
       : context.currentChapterId;
   const chapter = context.chapters.find((entry) => entry.id === chapterId);
+  const currentStepIndex =
+    chapter?.steps.findIndex((step) => step.id === context.current.id) ?? -1;
   const rail = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const restore = (event: Event) => {
@@ -215,15 +211,6 @@ function CourseRail({
       aria-label="Текущая глава"
       data-course-chapter={chapterId}
     >
-      {supplementaryTitle === undefined ? null : (
-        <div className="mb-4 border-b border-border pb-3 text-sm">
-          <p className="font-semibold">Открытый материал</p>
-          <p className="mt-1 break-words text-muted-foreground">
-            {supplementaryTitle}
-          </p>
-          <p className="mt-3 font-semibold">Ваше место в курсе</p>
-        </div>
-      )}
       <IntentPrefetchLink
         className={styles["programmeLink"]}
         href={context.href}
@@ -260,8 +247,17 @@ function CourseRail({
           <p className={styles["empty"]}>Глава готовится</p>
         ) : (
           <ol>
-            {chapter?.steps.map((step) => (
-              <li key={step.id}>
+            {chapter?.steps.map((step, index) => (
+              <li
+                key={step.id}
+                data-course-position={
+                  index < currentStepIndex
+                    ? "before"
+                    : index === currentStepIndex
+                      ? "current"
+                      : undefined
+                }
+              >
                 <StepLink step={step} current={context.current.id} />
               </li>
             ))}
