@@ -69,6 +69,7 @@ async function signInWithTelegram(
 
 test("покупатель курса проходит путь от страницы продукта до материалов и общего чата", async ({
   page,
+  browser,
 }, info) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
@@ -139,22 +140,66 @@ test("покупатель курса проходит путь от стран�
         document.documentElement.clientWidth,
     ),
   ).toBe(true);
-  await prepareEvidenceDirectory("issue-1401");
   const cookieNotice = page.getByRole("button", {
     name: "Понятно",
     exact: true,
   });
   if (await cookieNotice.isVisible()) await cookieNotice.click();
   await emailInput.blur();
-  await screenshotWholePage(page, {
-    path: evidencePath("issue-1401", `${info.project.name}-checkout.png`),
-  });
-  await prepareEvidenceDirectory("issue-1442");
-  await screenshotWholePage(page, {
-    path: evidencePath("issue-1442", `${info.project.name}-live-checkout.png`),
-  });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await prepareEvidenceDirectory("issue-1401");
+    await screenshotWholePage(page, {
+      path: evidencePath("issue-1401", `${info.project.name}-checkout.png`),
+    });
+    await prepareEvidenceDirectory("issue-1442");
+    await screenshotWholePage(page, {
+      path: evidencePath(
+        "issue-1442",
+        `${info.project.name}-live-checkout.png`,
+      ),
+    });
+  }
   await pay.click();
+  await expect(page).toHaveURL(/\/pay\/[^/]+$/u);
+  const bankUrl = page.url();
   await page.getByRole("button", { name: "Оплата прошла" }).click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === `/products/${slug}/buy` &&
+      url.searchParams.has("purchaseRef"),
+  );
+  const returnUrl = page.url();
+  const purchaseRef = z
+    .uuid()
+    .parse(new URL(returnUrl).searchParams.get("purchaseRef"));
+  await expect(
+    page.getByRole("heading", { name: "Продукт открыт", exact: true }),
+  ).toBeVisible();
+
+  // The bank return must recover from the URL without browser checkout memory.
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.goto(returnUrl);
+  await expect(
+    page.getByRole("heading", { name: "Продукт открыт", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Создание Platform Inside", { exact: true }).first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Продукт открыт", exact: true }),
+  ).toBeVisible();
+  const statusResponse = await fullStackBrowserRequest(
+    page,
+    `/api/account/billing/purchase-status?purchaseRef=${purchaseRef}`,
+  );
+  expect(statusResponse.status()).toBe(200);
+  expect(await statusResponse.json()).toMatchObject({
+    value: { purchaseRef, state: "confirmed", access: "ready" },
+  });
 
   // После оплаты материалы курса открыты.
   await expect
@@ -178,20 +223,30 @@ test("покупатель курса проходит путь от стран�
     "/api/account/billing",
   );
   expect(billingResponse.ok()).toBe(true);
-  const billing = z
-    .object({
-      value: z.object({
-        grounds: z.array(
-          z.object({
-            source: z.string(),
-            capabilities: z.array(z.string()),
-            validUntil: z.string().nullable(),
-            active: z.boolean(),
-          }),
-        ),
-      }),
-    })
-    .parse(await billingResponse.json());
+  const billingSchema = z.object({
+    value: z.object({
+      payments: z.array(
+        z.object({
+          purchaseRef: z.uuid(),
+          state: z.string(),
+          amountKopecks: z.number(),
+        }),
+      ),
+      grounds: z.array(
+        z.object({
+          source: z.string(),
+          startsAt: z.string(),
+          capabilities: z.array(z.string()),
+          validUntil: z.string().nullable(),
+          active: z.boolean(),
+        }),
+      ),
+    }),
+  });
+  const billing = billingSchema.parse(await billingResponse.json());
+  expect(billing.value.payments).toEqual([
+    expect.objectContaining({ purchaseRef, state: "confirmed" }),
+  ]);
   const paid = billing.value.grounds.filter(
     (ground) => ground.source === "paid" && ground.active,
   );
@@ -214,19 +269,62 @@ test("покупатель курса проходит путь от стран�
   expect(
     z.object({ contact: z.null() }).parse(await contactResponse.json()).contact,
   ).toBeNull();
-  await screenshotWholePage(page, {
-    path: evidencePath("issue-1442", `${info.project.name}-live-purchases.png`),
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await screenshotWholePage(page, {
+      path: evidencePath(
+        "issue-1442",
+        `${info.project.name}-live-purchases.png`,
+      ),
+    });
+  }
+
+  // Replayed bank notifications cannot create another purchase or extend its grants.
+  await page.goto(bankUrl);
+  await page.getByRole("button", { name: "Повторить нотификацию" }).click();
+  await expect(page).toHaveURL(returnUrl);
+  await expect(
+    page.getByRole("heading", { name: "Продукт открыт", exact: true }),
+  ).toBeVisible();
+  const replayedBilling = await fullStackBrowserRequest(
+    page,
+    "/api/account/billing",
+  );
+  expect(replayedBilling.status()).toBe(200);
+  expect(billingSchema.parse(await replayedBilling.json())).toEqual(billing);
+
+  // Another authenticated buyer cannot read this purchase or its protected material.
+  const stranger = await browser.newContext({
+    baseURL: new URL(returnUrl).origin,
   });
+  try {
+    const strangerPage = await stranger.newPage();
+    await strangerPage.goto(`/products/${slug}`);
+    await signInWithTelegram(strangerPage, `${telegramUserId}9`, slug);
+    for (const path of [
+      `/api/account/billing/purchase-status?purchaseRef=${purchaseRef}`,
+      `/api/account/billing/product-purchase?productId=72000000-0000-4000-8000-000000000007&purchaseRef=${purchaseRef}`,
+    ]) {
+      const denied = await fullStackBrowserRequest(strangerPage, path);
+      expect(denied.status()).toBe(404);
+    }
+    await strangerPage.goto(paidChapter);
+    await expect(strangerPage.locator(accessRequired).first()).toBeVisible();
+    await expect(strangerPage.getByText(paidBody)).toHaveCount(0);
+  } finally {
+    await stranger.close();
+  }
   await page.goto(`/products/${slug}/programme`);
   await expect(
     page.getByRole("button", { name: "Онбординг", exact: true }).first(),
   ).toBeVisible();
-  await screenshotWholePage(page, {
-    path: evidencePath(
-      "issue-1442",
-      `${info.project.name}-live-onboarding.png`,
-    ),
-  });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await screenshotWholePage(page, {
+      path: evidencePath(
+        "issue-1442",
+        `${info.project.name}-live-onboarding.png`,
+      ),
+    });
+  }
   expect(contactMutations).toEqual([]);
   expect(browserErrors).toEqual([]);
 });
