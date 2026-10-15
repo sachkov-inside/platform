@@ -56,17 +56,18 @@ export function productCard(
         : product.materials.state === "revoked"
           ? "Доступ к материалам отозван"
           : "Не удалось проверить доступ к материалам";
-  const community = restricted
-    ? "Вступление в группу ограничено"
-    : admission.kind === "member"
-      ? "Вы уже в группе курса"
-      : product.community.state === "available"
-        ? "Вы можете вступить в группу курса"
-        : product.community.state === "expired"
-          ? "Доступ к группе завершён"
-          : product.community.state === "revoked"
-            ? "Доступ к группе отозван"
-            : "Не удалось проверить доступ к группе";
+  const community =
+    product.community.state === "expired"
+      ? "Доступ к группе завершён"
+      : product.community.state === "revoked"
+        ? "Доступ к группе отозван"
+        : product.community.state === "unavailable"
+          ? "Не удалось проверить доступ к группе"
+          : restricted
+            ? "Вступление в группу ограничено"
+            : admission.kind === "member"
+              ? "Вы уже в группе курса"
+              : "Вы можете вступить в группу курса";
   return {
     text: `${product.name}\n\n${material}. ${community}.`,
     buttons: [

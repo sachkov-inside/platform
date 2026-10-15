@@ -9,10 +9,8 @@ import {
 import { Button } from "@/shared/ui/button";
 import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
 import { internalRoute } from "@/shared/routing/internal-route";
-import {
-  telegramContinuationPath,
-  telegramContinuationSchema,
-} from "../model/telegram-continuation";
+import { requestTelegramContinuation } from "../api/telegram-continuation.browser";
+import { telegramContinuationPath } from "../model/telegram-continuation";
 
 /** The URL carries Product intent; the browser's own session authorizes every read and link. */
 export function TelegramContinuationPage({
@@ -32,15 +30,7 @@ export function TelegramContinuationPage({
     ...selfRefreshingRead,
     queryKey: ["telegram-activation", attemptId],
     gcTime: 0,
-    queryFn: async ({ signal }) => {
-      const response = await fetch(
-        `/api/account/telegram-activation/${encodeURIComponent(attemptId)}`,
-        { signal, cache: "no-store" },
-      );
-      if (response.status === 401) return { state: "unauthorized" } as const;
-      if (!response.ok) throw new Error("Activation continuation unavailable");
-      return telegramContinuationSchema.parse(await response.json());
-    },
+    queryFn: ({ signal }) => requestTelegramContinuation(attemptId, signal),
     refetchInterval: (current) =>
       current.state.data?.state === "pending" ||
       current.state.data?.state === "link_required"
@@ -108,7 +98,10 @@ export function TelegramContinuationPage({
           Ссылка больше не действует. Откройте ссылку получения доступа в боте
           ещё раз.
         </p>
-      ) : query.isError || state?.state === "unavailable" ? (
+      ) : query.isError ||
+        state?.state === "unavailable" ||
+        state?.state === "identity_unavailable" ||
+        state?.state === "dependency_unavailable" ? (
         <div className="mt-6 space-y-4" role="alert">
           <p>Не удалось проверить доступ. Попробуйте ещё раз.</p>
           <Button
