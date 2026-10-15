@@ -204,6 +204,41 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     ).toMatchObject({ ok: true });
     return { id, identityRef, policy, tier, rule };
   }
+  test("browser continuation requires the matching Telegram identity and survives until its attempt expires", async () => {
+    const context = await setup();
+    const attemptId = randomUUID();
+    await grants.beginActivation({
+      contractVersion: version,
+      attemptId,
+      code: context.rule.code,
+      identityRef: context.identityRef,
+    });
+    expect(
+      await grants.readActivationContinuation(attemptId, context.id, null),
+    ).toEqual({ state: "link_required", ruleId: context.rule.id });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        "another-telegram",
+      ),
+    ).toEqual({ state: "identity_conflict" });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "pending", ruleId: context.rule.id });
+    now = new Date("2030-02-01T00:00:00.000Z");
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "expired" });
+  });
   test("pending source does not grant; two links and owner assignment share one durable source", async () => {
     const context = await setup();
     const attemptId = randomUUID();
@@ -314,6 +349,20 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ok: true,
       value: { state: "active" },
     });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        context.id,
+        context.identityRef,
+      ),
+    ).toEqual({ state: "active", ruleId: context.rule.id });
+    expect(
+      await grants.readActivationContinuation(
+        attemptId,
+        randomUUID(),
+        context.identityRef,
+      ),
+    ).toEqual({ state: "identity_conflict" });
     const assigned = await grants.readOwnEnrollments(context.id);
     if (!assigned.ok) throw new Error(assigned.error.code);
     expect(assigned.value[0]?.endsAt).toBeNull();

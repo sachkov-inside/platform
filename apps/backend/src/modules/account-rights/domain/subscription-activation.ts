@@ -90,6 +90,9 @@ export const activationOutcomeSchema = z.strictObject({
       id: z.uuid(),
       revision: z.int().positive(),
       sourceRef: sourceRefSchema,
+      product: z
+        .strictObject({ id: z.uuid(), slug: z.string(), name: z.string() })
+        .optional(),
       verificationMode: verificationModeSchema.optional(),
     })
     .optional(),

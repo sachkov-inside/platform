@@ -7,6 +7,37 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class TelegramMembershipService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Continue a selected activation for the current Account binding
+   * @returns any
+   * @throws ApiError
+   */
+  public readTelegramActivationContinuation({
+    attemptId,
+  }: {
+    attemptId: string,
+  }): CancelablePromise<({
+    state: 'expired' | 'identity_conflict' | 'unavailable';
+  } | {
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    state: 'link_required' | 'pending' | 'active';
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/telegram-activation/{attemptId}',
+      path: {
+        'attemptId': attemptId,
+      },
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
+    });
+  }
+  /**
    * Begin a Telegram Membership link for the current Account
    * @returns any
    * @throws ApiError

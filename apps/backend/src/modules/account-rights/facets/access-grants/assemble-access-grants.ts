@@ -1,3 +1,4 @@
+import { readActivationContinuation } from "../../features/activate-subscription/read-activation-continuation.js";
 import {
   previewProductRevocation,
   revokeProductAccess,
@@ -445,6 +446,18 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             endsAt: row.endsAt?.toISOString() ?? null,
           });
     },
+    readActivationContinuation: (
+      attemptId: string,
+      accountId: string,
+      identityRef: string | null,
+    ) =>
+      readActivationContinuation(
+        prisma,
+        attemptId,
+        accountId,
+        identityRef,
+        clock(),
+      ),
     beginActivation: (input: unknown) =>
       beginActivation(prisma, input, clock()),
     /** Billing проверил Offer и режим; выдача пишет приглашение с ревизией этого Offer. */

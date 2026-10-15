@@ -8,6 +8,7 @@ import { TelegramAccountSignIn } from "./features/complete-telegram-sign-in/tele
 import { HttpTelegramSignInProvider } from "./features/complete-telegram-sign-in/telegram-sign-in-provider.js";
 import { TelegramAccountSignInController } from "./features/complete-telegram-sign-in/telegram-account-sign-in.controller.js";
 import { ResumeTelegramAccountSignInController } from "./features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
+import { TelegramActivationContinuationController } from "./features/activate-subscription/telegram-activation-continuation.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -30,6 +31,8 @@ import {
   SubscriptionActivation,
 } from "../billing/index.js";
 import {
+  COVERAGE_CATALOG,
+  type CoverageCatalog,
   ACCESS_GRANTS,
   type AccessGrants,
   ACCOUNT_RIGHTS,
@@ -60,6 +63,7 @@ import {
   ],
   controllers: [
     SubscriptionActivationController,
+    TelegramActivationContinuationController,
     InvitationRedemptionController,
     TelegramAccountSignInController,
     ResumeTelegramAccountSignInController,
@@ -77,6 +81,7 @@ import {
         TelegramAccountLinks,
         CommunityEntitlements,
         PLATFORM_CONFIG,
+        COVERAGE_CATALOG,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -84,9 +89,11 @@ import {
         bindings: TelegramAccountLinks,
         community: CommunityEntitlements,
         config: PlatformConfig,
+        contentCatalog: CoverageCatalog,
       ) =>
         new SubscriptionActivation({
           prisma,
+          contentCatalog,
           grants,
           bindings,
           readAdmission: (accountId) => community.readOwnAdmission(accountId),
