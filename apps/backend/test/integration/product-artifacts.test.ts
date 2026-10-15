@@ -757,8 +757,15 @@ describe("Product Artifacts", () => {
   });
 
   test("imports declared Material links with source ownership, preserving shared bindings and replay", async () => {
-    const productIds = [randomUUID(), randomUUID()] as const;
-    const materialIds = [randomUUID(), randomUUID(), randomUUID()] as const;
+    const productIds = [
+      `a${randomUUID().slice(1)}`,
+      `b${randomUUID().slice(1)}`,
+    ] as const;
+    const materialIds = [
+      `c${randomUUID().slice(1)}`,
+      randomUUID(),
+      randomUUID(),
+    ] as const;
     for (const id of productIds)
       await db.prisma.product.create({
         data: {
@@ -850,6 +857,15 @@ describe("Product Artifacts", () => {
     expect(attached.value.materialIds.toSorted()).toEqual(
       materialIds.slice(0, 2).sort(),
     );
+    expect(
+      await artifacts.attachImportedMaterials({
+        ...command,
+        actor: owner.toUpperCase(),
+        artifactId: record.id.toUpperCase(),
+        productId: command.productId.toUpperCase(),
+        materialIds: [materialIds[0], materialIds[0].toUpperCase()],
+      }),
+    ).toMatchObject({ ok: true });
     const before = await db.prisma.productArtifact.findUniqueOrThrow({
       where: { id: record.id },
     });

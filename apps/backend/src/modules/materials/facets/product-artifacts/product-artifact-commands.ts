@@ -88,12 +88,15 @@ export const materialsSchema = z
     materialIds: z.array(uuidSchema).max(200),
   })
   .strict();
+const canonicalUuidSchema = uuidSchema.toLowerCase();
 export const importedMaterialsSchema = materialsSchema
   .extend({
-    productId: uuidSchema,
+    actor: canonicalUuidSchema,
+    artifactId: canonicalUuidSchema,
+    productId: canonicalUuidSchema,
     productSourceId: sourceIdSchema,
     sourceId: sourceIdSchema,
-    materialIds: z.array(uuidSchema).min(1).max(200),
+    materialIds: z.array(canonicalUuidSchema).min(1).max(200),
   })
   .strict();
 export const removeSchema = z
