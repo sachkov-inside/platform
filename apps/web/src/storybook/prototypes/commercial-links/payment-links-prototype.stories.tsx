@@ -6,7 +6,6 @@ import {
 } from "@/storybook/story-environment";
 
 const meta = {
-  ...authoringPageEnvironment("/authoring/billing"),
   title: "Prototypes/Commercial/PaymentLinks",
   component: PaymentLinksPrototype,
   parameters: {
@@ -21,7 +20,9 @@ const meta = {
 } satisfies Meta<typeof PaymentLinksPrototype>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Owner: Story = {};
+export const Owner: Story = {
+  ...authoringPageEnvironment("/authoring/billing"),
+};
 const buyerEnvironment = publicPageEnvironment("/products/ai-engineering/buy", {
   account: "guest",
 });

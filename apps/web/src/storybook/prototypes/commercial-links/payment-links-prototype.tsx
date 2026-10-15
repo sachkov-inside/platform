@@ -103,7 +103,7 @@ export function PaymentLinksPrototype({
         {valid && (
           <p>
             {product === "aie"
-              ? `Материалы и чат — ${money(amount / 2)}. Сопровождение — ${money(amount / 2)}.`
+              ? `Материалы и чат — ${money(Math.floor((amount * 100) / 2) / 100)}. Сопровождение — ${money(Math.ceil((amount * 100) / 2) / 100)}.`
               : `Материалы — ${money(amount)}.`}
           </p>
         )}
