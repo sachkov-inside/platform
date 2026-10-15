@@ -2,9 +2,11 @@
 import argparse
 import datetime
 import json
+import math
 import pathlib
 import subprocess
 import sys
+import time
 
 from queries import DOMAIN_CATALOG, logto_secret_inventory
 
@@ -192,8 +194,11 @@ def verify_public_routes(record):
                         'old Web origin redirects with the same path and query'))
 
 
-def read_logs(container):
-    result = subprocess.run(['docker', 'logs', '--since', container['State']['StartedAt'], container['Id']],
+def read_logs(container, since=None, until=None):
+    args = ['docker', 'logs', '--since', since or container['State']['StartedAt']]
+    if until is not None:
+        args += ['--until', until]
+    result = subprocess.run([*args, container['Id']],
                             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
     if result.returncode != 0:
         raise RuntimeError('logs read failed')
@@ -203,6 +208,88 @@ def read_logs(container):
 def error_logs(logs):
     import re
     return bool(re.search(r'\[ERROR\]|operator_attention|delivery_not_configured|email_dispatch_failed|platform_response_invalid|"level"\s*:\s*"error"', logs))
+
+
+TELEGRAM_ERROR_COUNTERS = [
+    'inside_telegram_update_failed_total', 'inside_telegram_delivery_api_retryable_total',
+    'inside_telegram_delivery_transport_unknown_total', 'inside_telegram_reconciliation_failure_total',
+    'inside_telegram_reconciliation_degraded_total',
+]
+TELEGRAM_HEALTH_GAUGES = [
+    'inside_telegram_community_effects_unknown', 'inside_telegram_reconciliation_due',
+    'inside_telegram_reconciliation_oldest_due_seconds', 'inside_telegram_evidence_delivery_backlog',
+    'inside_telegram_community_due', 'inside_telegram_community_oldest_due_seconds',
+    'inside_telegram_community_effect_backlog',
+]
+
+
+def telegram_metrics():
+    status, body = http('http://127.0.0.1:3303/metrics')
+    values = {line.split()[0]: float(line.split()[1]) for line in body.splitlines()
+              if line and not line.startswith('#')}
+    return status, values
+
+
+def telegram_error_check(status, values):
+    return check('Telegram error counters', status == 200 and all(values.get(name) == 0 for name in
+                 TELEGRAM_ERROR_COUNTERS + ['inside_telegram_community_effects_unknown']),
+                 'five counters are zero since start; community_effects_unknown gauge is currently zero')
+
+
+def telegram_snapshot():
+    app = collect_containers('inside-production-telegram')['app']
+    status, values = telegram_metrics()
+    if status != 200 or any(not math.isfinite(values.get(name, float('nan'))) or values[name] < 0
+                            for name in TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES):
+        raise RuntimeError('metrics unavailable')
+    ready_status, ready = http('http://127.0.0.1:3303/ready')
+    current = collect_containers('inside-production-telegram')['app']
+    if (app['Id'], app['State']['StartedAt'], app['RestartCount']) != (
+            current['Id'], current['State']['StartedAt'], current['RestartCount']):
+        raise RuntimeError('process changed during sample')
+    return {'containerId': app['Id'], 'startedAt': app['State']['StartedAt'],
+            'restartCount': app['RestartCount'],
+            'ready': ready_status == 200 and json.loads(ready).get('status') == 'ready' and
+                     app['State'].get('Running') is True and app['State'].get('Health', {}).get('Status') == 'healthy',
+            'metrics': {name: values.get(name) for name in TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES}}
+
+
+def telegram_observation_checks(before, after, logs):
+    def valid(value):
+        return isinstance(value, (int, float)) and math.isfinite(value) and value >= 0
+
+    counters = all(valid(before['metrics'].get(name)) and valid(after['metrics'].get(name)) and
+                   before['metrics'][name] == after['metrics'][name] for name in TELEGRAM_ERROR_COUNTERS)
+    gauges = all(snapshot['metrics'].get(name) == 0 for snapshot in [before, after] for name in TELEGRAM_HEALTH_GAUGES)
+    return [
+        check('observation process continuity', all(before[key] == after[key] for key in
+              ['containerId', 'startedAt', 'restartCount']), 'same container, start time and restart count at both samples'),
+        check('observation readiness', before['ready'] and after['ready'], 'ready and healthy at both samples'),
+        check('observation error counters', counters, 'five finite nonnegative counters unchanged between samples; resets fail'),
+        check('observation queue gauges', gauges, 'reconciliation/community due, age, backlog and unknown gauges zero at both samples'),
+        check('observation logs', not error_logs(logs), 'no matching error log lines within the reported bounds'),
+    ]
+
+
+def observe_telegram(seconds):
+    # This supplemental result never replaces the process-lifetime release verdict.
+    result = {'requestedSeconds': seconds, 'passed': False, 'checks': []}
+    try:
+        result['startedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        started = time.monotonic()
+        before = telegram_snapshot()
+        time.sleep(seconds)  # Deliberate measurement window, not a readiness wait.
+        after = telegram_snapshot()
+        result['finishedAt'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        result['elapsedSeconds'] = time.monotonic() - started
+        logs = read_logs({'Id': before['containerId']}, since=result['startedAt'], until=result['finishedAt'])
+        result['samples'] = [before, after]
+        result['checks'] = telegram_observation_checks(before, after, logs)
+        result['passed'] = all(item['status'] == 'passed' for item in result['checks'])
+    except Exception:
+        result['checks'].append({'name': 'Telegram observation reads', 'status': 'not_checked',
+                                 'reason': 'read or input shape failed; private stderr suppressed'})
+    return result
 
 
 TELEGRAM_READ = r"""
@@ -292,13 +379,8 @@ def verify_telegram(manifest, state, record):
     for method, path, expected in routes:
         status, _ = http('https://telegram.sachkov.dev' + path, method, 'telegram.sachkov.dev')
         record.append(check(method + ' ' + path, status == expected, 'expected allowlist/authentication boundary'))
-    status, metrics = http('http://127.0.0.1:3303/metrics')
-    values = {line.split()[0]: float(line.split()[1]) for line in metrics.splitlines() if line and not line.startswith('#')}
-    errors = ['inside_telegram_update_failed_total', 'inside_telegram_delivery_api_retryable_total',
-              'inside_telegram_delivery_transport_unknown_total', 'inside_telegram_community_effects_unknown',
-              'inside_telegram_reconciliation_failure_total', 'inside_telegram_reconciliation_degraded_total']
-    record.append(check('Telegram error counters', status == 200 and all(values.get(name) == 0 for name in errors),
-                        'five counters are zero since start; community_effects_unknown gauge is currently zero'))
+    status, values = telegram_metrics()
+    record.append(telegram_error_check(status, values))
     record.append(check('Telegram startup logs', not error_logs(read_logs(app)), 'no contract/operator/delivery errors since app start'))
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
     record.append(verify_bot_identity(telegram))
@@ -342,7 +424,7 @@ def verify_logto_inventory(facts):
                  'active timestamp-based secret or legacy secret exists; values never returned')
 
 
-def verify_host(application, version, logto_app_id=None, validated_context=None):
+def verify_host(application, version, logto_app_id=None, validated_context=None, telegram_observe_seconds=None):
     import hashlib
     record = Checks()
     result = {'application': application, 'version': version, 'checks': record,
@@ -363,6 +445,8 @@ def verify_host(application, version, logto_app_id=None, validated_context=None)
         record.append(check('selected version', manifest['version'] == version, 'manifest is the requested release'))
         digest = 'sha256:' + hashlib.sha256(raw).hexdigest()
         record.append(check('manifest digest', state['current']['manifestSha256'] == digest, 'manifest bytes match deployed state'))
+        if telegram_observe_seconds is not None:
+            result['telegramObservation'] = observe_telegram(telegram_observe_seconds)
         stage = 'runtime reads'
         if application == 'platform':
             verify_platform(manifest, state, record)
@@ -375,7 +459,7 @@ def verify_host(application, version, logto_app_id=None, validated_context=None)
         else:
             record.append({'name': 'Logto test application credentials', 'status': 'not_checked', 'reason': 'no test app selected'})
         result['sourceSha'] = manifest['source']['sha']
-        result['passed'] = True
+        result['passed'] = result.get('telegramObservation', {}).get('passed', True)
     except VerificationFailed:
         result['passed'] = False
     except Exception:
@@ -399,7 +483,12 @@ def main():
     target.add_argument('--host', help='SSH alias; verification source is sent in memory, never installed')
     target.add_argument('--local', action='store_true', help='run on the production host')
     parser.add_argument('--logto-app-id', help='optional existing test application; reads counts only')
+    parser.add_argument('--telegram-observe-seconds', type=int,
+                        help='supplemental Telegram interval (1..60 seconds); strict checks still apply')
     args = parser.parse_args()
+    if args.telegram_observe_seconds is not None and (args.application != 'telegram' or
+                                                     not 1 <= args.telegram_observe_seconds <= 60):
+        parser.error('--telegram-observe-seconds requires Telegram and 1..60 seconds')
     if not re.fullmatch(r'v[1-9][0-9]*', args.version):
         parser.error('version must be vN')
     if args.host:
@@ -420,6 +509,8 @@ def main():
         remote = ['python3', '-', '--local', '--application', args.application, '--version', args.version]
         if args.logto_app_id is not None:
             remote += ['--logto-app-id', args.logto_app_id]
+        if args.telegram_observe_seconds is not None:
+            remote += ['--telegram-observe-seconds', str(args.telegram_observe_seconds)]
         completed = subprocess.run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', args.host, shlex.join(remote)],
                                    input=bootstrap, text=True, capture_output=True, timeout=300)
         try:
@@ -431,7 +522,7 @@ def main():
             result = {'passed': False, 'checks': [{'name': 'SSH verification', 'status': 'not_checked',
                                                   'reason': 'remote verification unavailable; private stderr suppressed'}]}
     else:
-        result = verify_host(args.application, args.version, args.logto_app_id, globals().get('VALIDATED_CONTEXT'))
+        result = verify_host(args.application, args.version, args.logto_app_id, globals().get('VALIDATED_CONTEXT'), args.telegram_observe_seconds)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result['passed'] else 1
 
