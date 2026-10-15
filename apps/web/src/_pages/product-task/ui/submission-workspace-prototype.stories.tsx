@@ -58,36 +58,17 @@ function CopyAction({ text, label }: { text: string; label: string }) {
 }
 
 function Connection() {
-  const [client, setClient] = useState("Claude Code");
   const [more, setMore] = useState(false);
-  const command =
-    client === "Claude Code"
-      ? `claude mcp add --transport http learning ${learnerMcpUrl}`
-      : client === "Codex"
-        ? `codex mcp add learning --url ${learnerMcpUrl}`
-        : learnerMcpUrl;
+  const prompt = `Подключи учебный MCP Sachkov Inside по HTTP: ${learnerMcpUrl}. Используй настройки этого агента. Если потребуется вход, дай мне ссылку. После входа проверь, что инструменты MCP доступны.`;
   return (
     <div className={styles["content"]}>
       <p>
-        Подключи учебный MCP один раз для всех заданий. Войди тем же аккаунтом,
-        что и на сайте.
+        Передай этот запрос своему агенту. Если он предложит вход, войди тем же
+        аккаунтом, что и на сайте.
       </p>
-      <div className={styles["clientPicker"]} aria-label="Твой агент">
-        {["Claude Code", "Codex", "Другой агент"].map((name) => (
-          <button
-            key={name}
-            aria-pressed={client === name}
-            onClick={() => {
-              setClient(name);
-            }}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-      <div className={styles["command"]}>
-        <code>{command}</code>
-        <CopyAction text={command} label="Скопировать" />
+      <div className={styles["request"]}>
+        <code>{prompt}</code>
+        <CopyAction text={prompt} label="Скопировать запрос" />
       </div>
       <button
         className={styles["textButton"]}
@@ -123,8 +104,9 @@ function Request({
   return (
     <div className={styles["content"]}>
       <p>
-        Открой агента в папке проекта и отправь этот запрос. Агент получит
-        задание и начнёт проверку.
+        Открой новую сессию агента в папке проекта, где ты выполнил задание.
+        Отправь этот запрос в новой сессии — агент получит задание и начнёт
+        проверку.
       </p>
       <div className={styles["request"]}>
         <code>{phrase}</code>
@@ -467,7 +449,7 @@ function Roadmap({
               <p className={styles["stepSummary"]}>
                 {index === 0
                   ? "Подключи один раз для всех заданий"
-                  : "Передай запрос агенту в папке проекта"}
+                  : "Открой новую сессию агента в папке проекта"}
               </p>
               <div
                 id={`roadmap-detail-${String(index)}`}
