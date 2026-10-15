@@ -40,7 +40,7 @@ export async function downloadInlineArtifact(
         "artifact_not_found",
         "Artifact not found",
       );
-    return copyBackendResponse(
+    const response = copyBackendResponse(
       await requestReaderProductArtifactFile({
         productId: input.productId,
         artifactId: artifact.artifactId,
@@ -50,6 +50,9 @@ export async function downloadInlineArtifact(
         signal: request.signal,
       }),
     );
+    // This source URL is stable across versions and access changes.
+    response.headers.set("cache-control", "private, no-store");
+    return response;
   } catch {
     return backendProxyProblem(
       503,

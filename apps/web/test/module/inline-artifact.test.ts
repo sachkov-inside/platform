@@ -60,7 +60,7 @@ describe("Inline artifact binding and current protected download", () => {
           headers: {
             "content-type": "text/markdown",
             "content-disposition": 'attachment; filename="customer-brief.md"',
-            "cache-control": "private, no-store",
+            "cache-control": "public, max-age=31536000, immutable",
           },
         }),
       );
