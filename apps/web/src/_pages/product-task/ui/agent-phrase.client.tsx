@@ -25,7 +25,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
   );
   return (
     <div
-      className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+      className="grid gap-5 rounded-xl bg-foreground p-6 text-card"
       data-agent-phrase
     >
       <p className="text-pretty font-mono text-[0.8125rem] leading-6 [overflow-wrap:anywhere]">
@@ -33,7 +33,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
       </p>
       <Button
         aria-label={labels[state]}
-        className="min-h-11 rounded-lg bg-accent px-4 text-accent-foreground hover:bg-accent-hover"
+        className="min-h-11 w-fit max-w-full whitespace-normal rounded-lg bg-card px-4 text-foreground hover:bg-card/90"
         onClick={() => {
           clearTimeout(reset.current);
           void navigator.clipboard

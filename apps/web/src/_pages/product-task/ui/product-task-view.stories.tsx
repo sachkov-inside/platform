@@ -110,10 +110,12 @@ export const Submitted: Story = {
       "Дополнительно",
       "Свобода",
       "Сдача задания",
-      "Мои сдачи",
+      "Подключение MCP",
+      "Начало проверки",
+      "Результат и обратная связь",
       "Материалы к заданию",
     ])
-      await expect(page.getByRole("heading", { level: 2, name })).toBeVisible();
+      await expect(page.getByRole("heading", { name })).toBeVisible();
     const submission =
       canvasElement.querySelector<HTMLElement>('[id="task-submit"]');
     if (submission === null) throw new Error("Missing submission section");
@@ -834,9 +836,17 @@ export const ConnectionHelp: Story = {
   ],
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await userEvent.click(
-      page.getByText("Подключить учебный MCP", { exact: true }),
-    );
+    const setupButton = page.getByRole("button", {
+      name: "Настроить подключение",
+    });
+    await expect(setupButton).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      page.queryByRole("button", { name: "Скопировать запрос подключения" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(setupButton);
+    await expect(
+      page.getByRole("button", { name: "Скрыть инструкцию" }),
+    ).toHaveAttribute("aria-expanded", "true");
     await expect(
       page.getByRole("button", { name: "Скопировать запрос подключения" }),
     ).toBeVisible();
@@ -850,6 +860,15 @@ export const ConnectionHelp: Story = {
     await expect(
       page.queryByRole("link", { name: "Инструкция подключения" }),
     ).not.toBeInTheDocument();
+    await userEvent.click(
+      page.getByRole("button", { name: "Скрыть инструкцию" }),
+    );
+    await expect(
+      page.getByRole("button", { name: "Настроить подключение" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      page.getByRole("button", { name: "Скопировать запрос" }),
+    ).toBeVisible();
   },
 };
 

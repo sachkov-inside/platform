@@ -187,11 +187,11 @@ export function TaskSubmissionHistory({
                 className="grid gap-3 py-5 first:pt-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-base font-semibold">
+                  <h5 className="text-base font-semibold">
                     <time dateTime={submission.submittedAt}>
                       {formatSubmissionMoment(submission.submittedAt)}
                     </time>
-                  </h3>
+                  </h5>
                   <span className="text-xs font-medium">Сдача отправлена</span>
                 </div>
                 <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">

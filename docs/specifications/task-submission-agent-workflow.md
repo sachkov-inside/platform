@@ -3,7 +3,12 @@
 Status: implementation in progress for [#1504](https://github.com/sachkov-inside/platform/issues/1504).
 Owner direction: 2026-10-15. This specification describes target behaviour; it is not runtime evidence.
 The owner assigned implementation and direct review on the existing local stand in the same branch.
-That assignment replaces a separate preparatory prototype stage for this task. Keep Storybook states alongside the production component.
+The owner accepted the monochrome roadmap prototype on 2026-10-15.
+The accepted proof and decision are preserved on `prototype/1504-submission-monochrome` at `70817c11`.
+Promote the three numbered sections: MCP connection, review start, and results with feedback.
+Use a white surface and an explicit labelled setup button. Keep the review request and results visible.
+The learner starts the review in a fresh agent session in the completed project's directory.
+Keep Storybook states alongside the production component. Prototype acceptance does not replace production visual acceptance.
 
 ## Responsibilities
 

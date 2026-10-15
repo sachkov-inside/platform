@@ -84,23 +84,84 @@ export function ProductTaskView({
           Сдача задания
         </h2>
         <p className="text-sm leading-6 text-body-muted">
-          Здесь можно начать проверку и посмотреть результат. Всю работу и
-          обсуждение веди у своего агента.
+          Агент проверяет проект. Здесь — подключение, начало проверки и её
+          результат.
         </p>
       </header>
-      <div className="grid gap-3">
-        <p className="text-sm leading-6">
-          Передай запрос агенту в папке проекта. Он проверит работу и попросит
-          подтвердить отправку. Статус и краткий отчёт появятся ниже.
-        </p>
-        <AgentPhrase text={productTaskAgentPhrase(task.code)} />
-      </div>
-      {page.submission.accepting ? null : (
-        <p role="status" className="text-sm leading-6">
-          Приём сдач скоро откроется. Проверить работу у агента уже можно.
-        </p>
-      )}
-      <TaskMcpSetup url={learnerMcpUrl} setupUrl={learnerMcpSetupUrl} />
+      <ol className={styles["roadmap"]}>
+        <li className={styles["step"]}>
+          <span className={styles["stepNumber"]} aria-hidden="true">
+            1
+          </span>
+          <TaskMcpSetup url={learnerMcpUrl} setupUrl={learnerMcpSetupUrl} />
+        </li>
+        <li className={styles["step"]}>
+          <span className={styles["stepNumber"]} aria-hidden="true">
+            2
+          </span>
+          <div className={styles["stepContent"]}>
+            <h3 className="text-lg font-semibold">Начало проверки</h3>
+            <p className={styles["stepDescription"]}>
+              Открой новую сессию агента в папке проекта, где ты выполнил
+              задание.
+            </p>
+            <p className="text-sm leading-6">
+              Передай запрос в новой сессии. Агент проверит работу, покажет
+              отчёт и попросит подтвердить отправку.
+            </p>
+            <AgentPhrase text={productTaskAgentPhrase(task.code)} />
+            <p className={styles["stepDescription"]}>
+              Работай и обсуждай замечания у агента. Здесь появятся статус
+              проверки и краткий отчёт.
+            </p>
+            {page.submission.accepting ? null : (
+              <p role="status" className="text-sm leading-6">
+                Приём сдач скоро откроется. Проверить работу у агента уже можно.
+              </p>
+            )}
+          </div>
+        </li>
+        <li className={styles["step"]}>
+          <span className={styles["stepNumber"]} aria-hidden="true">
+            3
+          </span>
+          <div className={styles["stepContent"]}>
+            <h3 className="text-lg font-semibold">
+              Результат и обратная связь
+            </h3>
+            <p className={styles["stepDescription"]}>
+              Статус проверки, твои сдачи и ответ автора — в одном месте.
+            </p>
+            <section
+              className={styles["history"]}
+              id={pageId("task-mine")}
+              aria-labelledby={pageId("task-mine-heading")}
+            >
+              <h4
+                className="text-sm font-semibold"
+                id={pageId("task-mine-heading")}
+              >
+                Мои сдачи
+              </h4>
+              <TaskSubmissionHistory
+                initial={submissions}
+                code={task.code}
+                currentVersion={task.version}
+                returnTo={returnTo}
+                historyAnchor={pageId("task-mine")}
+                live={liveSubmissions}
+                after={attemptsAfter}
+                accountId={accountId}
+                key={
+                  submissions.kind === "ready"
+                    ? (submissions.latestSubmittedAt ?? "empty")
+                    : submissions.kind
+                }
+              />
+            </section>
+          </div>
+        </li>
+      </ol>
       <Disclosure
         title="Нет агента с MCP? Сдать через форму"
         dataAttribute="fallback-form"
@@ -118,30 +179,6 @@ export function ProductTaskView({
           />
         )}
       </Disclosure>
-      <section
-        className="grid gap-3 border-t border-border pt-6"
-        id={pageId("task-mine")}
-        aria-labelledby={pageId("task-mine-heading")}
-      >
-        <h2 className="text-lg font-semibold" id={pageId("task-mine-heading")}>
-          Мои сдачи
-        </h2>
-        <TaskSubmissionHistory
-          initial={submissions}
-          code={task.code}
-          currentVersion={task.version}
-          returnTo={returnTo}
-          historyAnchor={pageId("task-mine")}
-          live={liveSubmissions}
-          after={attemptsAfter}
-          accountId={accountId}
-          key={
-            submissions.kind === "ready"
-              ? (submissions.latestSubmittedAt ?? "empty")
-              : submissions.kind
-          }
-        />
-      </section>
     </section>
   );
   return (
