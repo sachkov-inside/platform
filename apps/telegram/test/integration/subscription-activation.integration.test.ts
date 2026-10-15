@@ -519,7 +519,7 @@ describe("durable activation ingress, identity and continuation", () => {
     state.bindingUnavailable = false;
     await link(70003);
     state.source = "not_member";
-    clock.value = new Date(clock.now().getTime() + 60_000);
+    clock.value = new Date(clock.now().getTime() + 301_000);
     await worker.processAvailable();
     expect(granted.has(`course:${await identity(70003)}`)).toBe(false);
     state.source = "member";
@@ -543,7 +543,7 @@ describe("durable activation ingress, identity and continuation", () => {
     await ingress(70005, "/start a_course");
     await link(70005);
     await worker.processAvailable();
-    const initial = required(proofs.at(-1));
+    const initialAttempt = required(activation.begins.at(-1));
     for (let i = 0; i < 3; i++) {
       clock.value = new Date(clock.now().getTime() + 60_000);
       await worker.processAvailable();
@@ -559,7 +559,7 @@ describe("durable activation ingress, identity and continuation", () => {
     state.source = "member";
     clock.value = new Date(clock.now().getTime() + 60_000);
     await worker.processAvailable();
-    expect(required(proofs.at(-1)).attemptId).not.toBe(initial.attemptId);
+    expect(required(proofs.at(-1)).attemptId).not.toBe(initialAttempt);
     expect(granted.has(`course:${await identity(70005)}`)).toBe(true);
   });
   it("expires known unavailable work and permits a fresh explicit start", async ({
@@ -582,7 +582,7 @@ describe("durable activation ingress, identity and continuation", () => {
     await ingress(70011, "/start a_course");
     await link(70011);
     await worker.processAvailable();
-    const first = required(proofs.at(-1));
+    const firstAttempt = required(begins.at(-1));
     const calls = { begins: begins.length, proofs: proofs.length };
     clock.value = new Date(clock.now().getTime() + 31 * 24 * 60 * 60_000);
     await worker.processAvailable();
@@ -598,7 +598,7 @@ describe("durable activation ingress, identity and continuation", () => {
     state.source = "member";
     await ingress(70011, "/start a_course");
     await worker.processAvailable();
-    expect(required(proofs.at(-1)).attemptId).not.toBe(first.attemptId);
+    expect(required(proofs.at(-1)).attemptId).not.toBe(firstAttempt);
     expect(granted.has(`course:${await identity(70011)}`)).toBe(true);
   });
   it("resolves expired uncertain evidence before cleanup without starting a new proof", async ({
@@ -646,12 +646,12 @@ describe("durable activation ingress, identity and continuation", () => {
     await ingress(70006, "/start a_course");
     await link(70006);
     await worker.processAvailable();
-    const rejected = required(proofs.at(-1));
+    const rejectedAttempt = required(activation.begins.at(-1));
     clock.value = new Date(clock.now().getTime() + 31 * 24 * 60 * 60_000);
     state.source = "member";
     await ingress(70006, "/start a_course");
     await worker.processAvailable();
-    expect(required(proofs.at(-1)).attemptId).not.toBe(rejected.attemptId);
+    expect(required(proofs.at(-1)).attemptId).not.toBe(rejectedAttempt);
     expect(granted.has(`course:${await identity(70006)}`)).toBe(true);
   });
   it("purges old unlinked attempts while retaining the stable source identity", async ({

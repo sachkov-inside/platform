@@ -775,7 +775,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     const app = community(provider);
     await app.project(other);
     await app.prepareOwnAdmission(account);
-    expect(provider.sent.map(command=>command.binding.accountRef)).toEqual([(await operations(account))[0]?.binding.accountRef]);
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]?.binding.telegramIdentityRef).toBe(`identity-${account}`);
     expect((await operations(other))[0]?.delivery).toBe("pending");
   });
 

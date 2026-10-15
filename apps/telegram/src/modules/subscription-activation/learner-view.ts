@@ -13,7 +13,7 @@ export function productList(items:readonly LearnerProduct[],author:boolean):Lear
  {text:"На платформу",url:PLATFORM_URL},help(),...(author ? [{text:"Управление",callbackData:"author:home"}] : [])]};
 }
 export function courseButton(product:LearnerProduct):TelegramButton[] {
- return product.materials.state === "available" ? [{text:"Открыть курс",url:product.programmeUrl}] : [];
+ return product.materials.state === "available" && product.programmeUrl ?  [{text:"Открыть курс",url:product.programmeUrl}] : [];
 }
 export function productCard(product:LearnerProduct,admission:CommunityAdmission):LearnerScreen {
  const restricted = admission.kind === "moderation_blocked";
