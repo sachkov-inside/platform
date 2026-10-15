@@ -14,7 +14,7 @@ import type { LearningTasks } from "../../../apps/backend/src/modules/product-ta
 import type { CurrentTask } from "../../../apps/backend/src/modules/product-tasks/shared/learning-task-dependencies.js";
 
 /**
- * One synthetic open task served by the same context serializer, parts and procedure v3 text as
+ * One synthetic open task served by the same context serializer, parts and versioned procedure text as
  * the real `learning_task_read`. Submissions stay in memory, so a trial can prove that none was
  * sent without the learner's confirmation.
  */
@@ -115,6 +115,8 @@ export function syntheticLearningTasks(input: {
         },
       });
     },
+    // The bounded trial exposes read/submit tools; it has no progress surface.
+    updateReview: () => Promise.resolve(unavailable),
     // The trial drives the learning MCP only; the task page and the programme are web surfaces.
     page: () =>
       Promise.resolve({ ok: false, error: { code: "task_not_found" } }),
