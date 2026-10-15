@@ -1,3 +1,8 @@
+import {
+  paymentLinkCommandSchema,
+  paymentLinkViewSchema,
+  paymentLinksPageSchema,
+} from "../features/payment-links/payment-links.contract.js";
 import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import {
   dismissTributeImportSchema,
@@ -89,6 +94,12 @@ export function refundAccessFor(basis: RefundBasis): RefundAccess {
  * прежние схемы, платежи и возвраты добавляют собственные. Actor приходит из adapter, не из payload.
  */
 export const ownerOperationSchema = z.discriminatedUnion("operation", [
+  ...paymentLinkCommandSchema.options,
+  z.strictObject({
+    ...command,
+    operation: z.literal("paymentLinks.list"),
+    ...listBounds,
+  }),
   z.strictObject({
     ...command,
     operation: z.literal("tribute.status"),
@@ -273,6 +284,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
 export const ownerReadOperations = [
+  "paymentLinks.list",
   "tribute.status",
   "recipients.lookup",
   "content.list",
@@ -406,6 +418,14 @@ export const accessSummarySchema = z.strictObject({
 });
 export type AccessSummary = z.infer<typeof accessSummarySchema>;
 export const ownerSuccessSchema = z.union([
+  z.strictObject({
+    outcome: z.literal("paymentLink"),
+    value: paymentLinkViewSchema,
+  }),
+  z.strictObject({
+    outcome: z.literal("paymentLinks"),
+    ...paymentLinksPageSchema.shape,
+  }),
   z.strictObject({
     outcome: z.literal("tributeImportReview"),
     value: tributeImportReviewSchema,

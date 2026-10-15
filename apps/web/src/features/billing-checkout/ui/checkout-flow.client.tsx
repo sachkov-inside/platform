@@ -110,6 +110,7 @@ export function CheckoutFlow({
     snapshot.paymentOption.revision,
     paymentMode(snapshot),
     promoCode,
+    snapshot.individualPayment?.linkId,
   ]);
   const [selection, setSelection] = useState(() => newSelection(selectionKey));
   // Сбрасываем до commit: кнопка не получает старый расчёт даже на один рендер.
@@ -144,7 +145,11 @@ export function CheckoutFlow({
     onSuccess: (result, request) => {
       if (!result.ok) {
         updateSelection(request.identity, {
-          error: billingErrorMessage(result.code),
+          error:
+            snapshot.individualPayment !== undefined &&
+            result.code === "reservation_conflict"
+              ? "По этой ссылке уже началась или завершилась покупка. Обновите страницу."
+              : billingErrorMessage(result.code),
         });
         return;
       }
@@ -257,7 +262,11 @@ export function CheckoutFlow({
       if (result.value.paymentUrl !== null)
         (onNavigate ?? defaultNavigate)(result.value.paymentUrl);
       else if (result.value.state === "confirmed")
-        (onNavigate ?? defaultNavigate)("/payment/return");
+        (onNavigate ?? defaultNavigate)(
+          snapshot.individualPayment === undefined
+            ? "/payment/return"
+            : `/payment/links/${snapshot.individualPayment.linkId}?purchaseRef=${result.value.purchaseRef}`,
+        );
       else if (
         result.value.state === "failed" &&
         selection.identity === identity
@@ -272,7 +281,11 @@ export function CheckoutFlow({
     onSuccess: (result) => {
       if (!result.ok) {
         updateSelection(selection.identity, {
-          error: billingErrorMessage(result.code),
+          error:
+            snapshot.individualPayment !== undefined &&
+            result.code === "reservation_conflict"
+              ? "По этой ссылке уже началась или завершилась покупка. Обновите страницу."
+              : billingErrorMessage(result.code),
         });
         return;
       }
@@ -287,7 +300,12 @@ export function CheckoutFlow({
         setPaymentError(undefined);
         completeOperation("purchase");
         if (result.value.state === "failed") requestQuote();
-        else (onNavigate ?? defaultNavigate)("/payment/return");
+        else
+          (onNavigate ?? defaultNavigate)(
+            snapshot.individualPayment === undefined
+              ? "/payment/return"
+              : `/payment/links/${snapshot.individualPayment.linkId}?purchaseRef=${result.value.purchaseRef}`,
+          );
       }
     },
   });
@@ -297,6 +315,9 @@ export function CheckoutFlow({
     const input = {
       paymentOptionId: snapshot.paymentOption.id,
       optionRevision: snapshot.paymentOption.revision,
+      ...(snapshot.individualPayment === undefined
+        ? {}
+        : { paymentLinkId: snapshot.individualPayment.linkId }),
       ...(promoCode === undefined ? {} : { promoCode }),
     };
     quoteMutation.mutate({

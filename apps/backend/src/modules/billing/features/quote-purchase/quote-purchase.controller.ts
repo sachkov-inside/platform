@@ -56,7 +56,11 @@ import { quotePurchaseSchema, priceQuoteSchema } from "./quote-purchase.js";
 @ApiResponse({
   status: 409,
   content: problemDetailsOneOfContent(
-    problemDetailsSchema(409, ["operation_conflict", "quote_changed"]),
+    problemDetailsSchema(409, [
+      "operation_conflict",
+      "quote_changed",
+      "reservation_conflict",
+    ]),
     accountProblemSchema,
   ),
 })

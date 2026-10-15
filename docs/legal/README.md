@@ -343,3 +343,9 @@ The owner selected explicit Product community benefits on 2026-10-14 (#1443). Th
 still describes the common group as part of the Product purchase. [#1464](https://github.com/sachkov-inside/platform/issues/1464)
 tracks a prospective edition and consent mapping. No new edition is published by the buyer-journey
 implementation. Published editions and accepted purchase snapshots remain immutable.
+
+## Редакция 6 — подготовлена к выпуску в #1464
+
+Владелец принял текст 15.10.2026 в #1359, commit `48f2fc49320c77b3fe632868aa847ff99df3a761`. [Редакция 6](purchase-v6.md) подключена в коде отдельной редакцией. Чат и сопровождение входят только при явном указании в предложении. Индивидуальная ссылка фиксирует цену и допускает одну успешную покупку.
+
+Редакция 5, её digest и исторические согласия сохраняются. Выпуск координирует #854. Плановая дата действия — 15.10.2026; если выпуск состоится позже, координатор сверяет дату до публикации. Эта запись не подтверждает выпуск в production.

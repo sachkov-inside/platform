@@ -64,7 +64,10 @@ interface Dependencies {
   readonly tribute?: TributeConvergence;
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
-  readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
+  readonly pricing: Pick<
+    BillingPricing,
+    "manage" | "ownerCatalog" | "managePaymentLink" | "paymentLinks"
+  >;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
   readonly grants: Pick<
@@ -285,6 +288,37 @@ export class BillingOperations {
     const { prisma, grants } = this.dependencies;
     const operationRef = command.operationId;
     switch (command.operation) {
+      case "paymentLinks.create":
+      case "paymentLinks.revoke": {
+        const result = await this.dependencies.pricing.managePaymentLink(
+          actorId,
+          command,
+        );
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "paymentLink", value: result.value },
+            }
+          : ownerFailure(
+              result.error.code === "quote_changed"
+                ? "state_conflict"
+                : result.error.code,
+            );
+      }
+      case "paymentLinks.list": {
+        const result = await this.dependencies.pricing.paymentLinks(actorId, {
+          ...(command.cursor === undefined ? {} : { cursor: command.cursor }),
+          limit: command.limit,
+        });
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "paymentLinks", ...result.value },
+            }
+          : ownerFailure(result.error.code);
+      }
       case "tribute.status": {
         if (this.dependencies.tribute === undefined)
           return ownerFailure("dependency_unavailable");
@@ -1135,6 +1169,14 @@ function storedResult(operationRef: string, stored: unknown): OwnerResult {
 /** Аудит собирается по объекту операции: решение и исполнение возврата ведут к своему платежу. */
 function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
   switch (command.operation) {
+    case "paymentLinks.create":
+      return outcome.outcome === "paymentLink"
+        ? outcome.value.id
+        : command.operationId;
+    case "paymentLinks.revoke":
+      return command.id;
+    case "paymentLinks.list":
+      return command.operationId;
     case "tribute.dismissImport":
     case "tribute.status":
     case "tribute.savePolicy":

@@ -1,6 +1,7 @@
 "use client";
 import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
+import { PaymentLinksPanel } from "./payment-links-panel.client";
 import { SurveyRespondentsPanel } from "./survey-respondents-panel.client";
 import {
   listAllSubscriptionTiers,
@@ -193,6 +194,9 @@ export function BillingAdminPanel({
           <SubscriptionSourcePanel />
           <TributeOperationsPanel />
         </>
+      }
+      paymentLinkControls={
+        <PaymentLinksPanel offers={catalog} content={content.data ?? []} />
       }
       respondentControls={<SurveyRespondentsPanel />}
       batch={batch}

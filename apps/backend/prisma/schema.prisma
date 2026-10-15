@@ -1010,7 +1010,21 @@ model BillingPricingCommand {
   @@map("pricing_commands")
   @@schema("billing")
 }
+model BillingPaymentLink {
+  id String @id @db.Uuid
+  revision Int
+  snapshot Json
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  quotes BillingPriceQuote[]
+  reservations BillingPromoReservation[]
+  @@map("payment_links")
+  @@schema("billing")
+}
 model BillingPriceQuote {
+  paymentLinkId String? @map("payment_link_id") @db.Uuid
+  paymentLink BillingPaymentLink? @relation(fields:[paymentLinkId],references:[id],onDelete:NoAction,onUpdate:NoAction)
   id String @id @db.Uuid
   accountId String @map("account_id") @db.Uuid
   operationId String @map("operation_id") @db.Uuid
@@ -1025,6 +1039,8 @@ model BillingPriceQuote {
   @@schema("billing")
 }
 model BillingPromoReservation {
+  paymentLinkId String? @map("payment_link_id") @db.Uuid
+  paymentLink BillingPaymentLink? @relation(fields:[paymentLinkId],references:[id],onDelete:NoAction,onUpdate:NoAction)
   purchaseRef String @id @map("purchase_ref") @db.Uuid
   accountId String @map("account_id") @db.Uuid
   quoteRef String @unique @map("quote_ref") @db.Uuid

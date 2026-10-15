@@ -72,3 +72,9 @@ export {
   handlePreviewProductRevocation,
   handleRevokeProductAccess,
 } from "./billing-admin/api/product-revocation.server";
+
+export {
+  handleCreatePaymentLink,
+  handleRevokePaymentLink,
+  handleListPaymentLinks,
+} from "./billing-admin/api/payment-links.server";

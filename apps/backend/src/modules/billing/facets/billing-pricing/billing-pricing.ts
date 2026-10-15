@@ -1,3 +1,14 @@
+import {
+  productIdFromCapability,
+  isProductCapability,
+} from "@inside/access-capabilities";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import {
+  managePaymentLink,
+  readPaymentLink,
+  listPaymentLinks,
+} from "../../features/payment-links/payment-links.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { manageCatalog } from "../../features/manage-catalog/manage-catalog.js";
@@ -34,6 +45,7 @@ export class BillingPricing {
       accounts: Pick<Accounts, "checkPermission">;
       clock?: () => Date;
       sale: SaleCapability;
+      contentCatalog?: CoverageCatalog;
       /** Основания Account для Offer с ограничением допуска; без них такие Offer не продаются. */
       grants?: PurchaseGroundsReader &
         Pick<AccessGrants, "readLegacyClassification">;
@@ -140,6 +152,55 @@ export class BillingPricing {
       this.dependencies.sale,
       legacy?.recurringAllowed ?? true,
     );
+  }
+  managePaymentLink(actor: string, input: unknown) {
+    return managePaymentLink(this.dependencies, actor, input, this.clock());
+  }
+  paymentLinks(actor: string, input: unknown) {
+    return listPaymentLinks(this.dependencies, actor, input, this.clock());
+  }
+  async paymentLink(id: string) {
+    const result = await readPaymentLink(
+      this.dependencies.prisma,
+      id,
+      this.clock(),
+    );
+    if (!result.ok) return result;
+    try {
+      const capability =
+        result.value.snapshot.offer.benefits.find(isProductCapability);
+      const productId =
+        capability === undefined ? null : productIdFromCapability(capability);
+      const entries =
+        productId === null
+          ? []
+          : ((await this.dependencies.contentCatalog?.resolve({
+              productIds: [productId],
+              materialIds: [],
+            })) ?? []);
+      const product =
+        entries.find(
+          (entry) => entry.kind === "product" && entry.id === productId,
+        ) ?? null;
+      return {
+        ok: true as const,
+        value: {
+          id: result.value.id,
+          revision: result.value.revision,
+          state: result.value.state,
+          snapshot: result.value.snapshot,
+          createdAt: result.value.createdAt,
+          expiresAt: result.value.expiresAt,
+          product,
+        },
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "paymentLink" },
+        error,
+        failure("dependency_unavailable"),
+      );
+    }
   }
   reserve(input: ReservePurchase) {
     return reservePurchase(this.dependencies.prisma, input, this.clock);
