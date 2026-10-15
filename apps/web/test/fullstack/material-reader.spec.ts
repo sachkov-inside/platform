@@ -699,11 +699,13 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     ]),
   });
 
+  await page.addLocatorHandler(onboardingDismiss, async () => {
+    await onboardingDismiss.click();
+  });
   await page.goto("/account");
   await expect(
     page.getByRole("heading", { name: "Редактор Базы знаний" }),
   ).toHaveCount(0);
-  await closeTelegramOnboardingIfPresent(page);
   await captureIssue271Evidence(page, testInfo, "account");
   if (testInfo.project.name === "mobile-chromium") {
     await page.goto("/authoring/materials");
@@ -1101,19 +1103,6 @@ async function expectNoHorizontalOverflow(page: Page) {
     scrollWidth: element.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
-}
-
-async function closeTelegramOnboardingIfPresent(page: Page) {
-  const dismiss = page.getByRole("button", {
-    name: "Закрыть подключение Telegram",
-  });
-  const visible = await dismiss
-    .waitFor({ state: "visible", timeout: 3_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!visible) return;
-  await dismiss.click();
-  await expect(dismiss).toBeHidden();
 }
 
 async function captureIssue93Evidence(

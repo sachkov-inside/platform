@@ -75,7 +75,6 @@ for (const access of ["public", "closed"] as const) {
       },
     );
     await page.goto("/authoring/materials/new");
-    await completeProfileOnboardingIfPresent(page);
     await fillPublishableDraft(page, title);
     if (access === "closed") {
       await page.getByRole("combobox", { name: "Доступ" }).click();
@@ -250,13 +249,15 @@ for (const access of ["public", "closed"] as const) {
         .locator("html")
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
-    const snapshots = await prepareEvidenceDirectory("issue-186");
     const viewport =
       testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-    await screenshotWholePage(page, {
-      animations: "disabled",
-      path: resolve(snapshots, `${access}-${viewport}.png`),
-    });
+    if (process.env["CAPTURE_EVIDENCE"] === "1") {
+      const snapshots = await prepareEvidenceDirectory("issue-186");
+      await screenshotWholePage(page, {
+        animations: "disabled",
+        path: resolve(snapshots, `${access}-${viewport}.png`),
+      });
+    }
 
     const anonymousFile = await request.get(href, { maxRedirects: 0 });
     expect(anonymousFile.status()).toBe(access === "public" ? 200 : 404);
@@ -316,10 +317,13 @@ for (const access of ["public", "closed"] as const) {
       await expect(page.locator("iframe")).toHaveCount(0);
       expect(protectedRequests).toEqual([]);
       expect(anonymousFile.headers()["cache-control"]).toContain("no-store");
-      await screenshotWholePage(page, {
-        animations: "disabled",
-        path: resolve(snapshots, `denied-${viewport}.png`),
-      });
+      if (process.env["CAPTURE_EVIDENCE"] === "1") {
+        const snapshots = await prepareEvidenceDirectory("issue-186");
+        await screenshotWholePage(page, {
+          animations: "disabled",
+          path: resolve(snapshots, `denied-${viewport}.png`),
+        });
+      }
       for (const role of [
         "NON_MEMBER",
         "EXPIRED_MEMBER",
@@ -423,7 +427,6 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   );
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -930,7 +933,6 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
   const title = `Safe Video deletion ${suffix}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -992,7 +994,6 @@ test("member primary Video denies anonymous and non-member access while authoriz
   const slug = `member-video-${suffix}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
@@ -1078,7 +1079,6 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   const slug = `asset-flow-${suffix}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -1196,7 +1196,6 @@ test("member Material hides bytes from anonymous access and issues only a protec
   const slug = `member-asset-${suffix}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
@@ -1257,7 +1256,6 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
 
   const response = await page.goto("/authoring/materials/new");
   expect(response?.status()).toBe(200);
-  await completeProfileOnboardingIfPresent(page);
   await expect(
     page.getByRole("heading", { name: "Новый материал" }),
   ).toBeVisible();
@@ -1453,7 +1451,6 @@ test("full-state Save is live and a stale editor preserves local input through l
   const slug = `mutable-material-winner-${uniqueSuffix}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, initialTitle);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -1556,7 +1553,6 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   const title = `Lifecycle из списка ${randomUUID()}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -1608,7 +1604,6 @@ test("trusted author cancels and confirms deletion of a never-published draft", 
   const title = `Удаляемый черновик ${randomUUID()}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
-  await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -1650,7 +1645,6 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   const response = await page.goto(
     "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
   );
-  await completeProfileOnboardingIfPresent(page);
 
   expect(response?.status()).toBe(200);
   await expect(
@@ -1907,7 +1901,6 @@ test("trusted author walks a product chapter through Previews that stay closed t
   await signInFullStack(context, "OWNER");
 
   await page.goto("/authoring/products");
-  await completeProfileOnboardingIfPresent(page);
   await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   const productId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
@@ -2102,18 +2095,6 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
     page.getByRole("button", { name: "Сохранить", exact: true }),
   ).toHaveCount(0);
 });
-
-async function completeProfileOnboardingIfPresent(page: Page): Promise<void> {
-  const dialog = page.getByRole("dialog", { name: "Как к вам обращаться?" });
-  const visible = await dialog
-    .waitFor({ state: "visible", timeout: 3_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!visible) return;
-  await dialog.getByLabel("Имя").fill("Full-stack author");
-  await dialog.getByRole("button", { name: "Продолжить" }).click();
-  await expect(dialog).toBeHidden();
-}
 
 async function fillPublishableDraft(page: Page, title: string) {
   await page.getByLabel("Название").fill(title);

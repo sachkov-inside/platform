@@ -51,8 +51,16 @@ jobs:
               'Integration', 'Integration serial', 'Development Compose',
               'Production Compose', 'Telegram full checks', 'Full-stack smoke',
             ];
-            if (jobs.length !== requiredNames.length ||
-                !requiredNames.every(name => jobs.filter(job =>
+            const browserNames = ['Full-stack browser (desktop-chromium)', 'Full-stack browser (mobile-chromium)'];
+            const browserJobs = jobs.filter(job => browserNames.includes(job.name) || job.name === 'Full-stack browser ()');
+            const prerequisites = jobs.filter(job => !browserJobs.includes(job));
+            const fullstack = prerequisites.find(job => job.name === 'Full-stack smoke');
+            const browsersComplete = fullstack?.conclusion === 'skipped'
+              ? browserJobs.length > 0 && browserJobs.every(job => job.status === 'completed' && job.conclusion === 'skipped')
+              : browserJobs.length === browserNames.length && browserNames.every(name => browserJobs.filter(job =>
+                  job.name === name && job.status === 'completed' && job.conclusion === 'success').length === 1);
+            if (!browsersComplete || prerequisites.length !== requiredNames.length ||
+                !requiredNames.every(name => prerequisites.filter(job =>
                   job.name === name && job.status === 'completed' &&
                   (name === 'Coverage plan (isolated reruns)' ?
                     job.conclusion === 'success' :

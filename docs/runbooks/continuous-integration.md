@@ -66,7 +66,7 @@ names its seam and the stages run in parallel:
 |---|---|
 | `docs` | `pnpm docs:check` |
 | `contracts` | `pnpm test:tooling && pnpm test:contracts`: repository-owned tooling/workflow and root release/deploy process contracts |
-| `fullstack` | `pnpm smoke:fullstack` after isolated infrastructure startup, with unconditional Compose cleanup |
+| `fullstack` | Stable aggregate over desktop/mobile `fullstack-browser` matrix jobs; each runs `pnpm smoke:fullstack` with isolated infrastructure and unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
@@ -108,6 +108,30 @@ checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_
 The already-acquired pinned broker and edge must be present. Separate Actions log groups measure
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
 removes its own tags and override and preserves the primary failure if cleanup also fails.
+
+### Full-stack browser execution
+
+The desktop and mobile profiles run concurrently on separate disposable GitHub runners.
+Each runner owns its PostgreSQL, object storage, identities and application processes.
+Each profile retains one Playwright worker because scenarios mutate shared account and catalogue fixtures.
+The stable `Full-stack smoke` job succeeds only after both profiles succeed; CI Gate and release evidence retain that identity.
+A failed, cancelled or skipped selected profile fails the aggregate. Both profiles finish independently to retain failure diagnostics.
+Path-based coverage selection remains unchanged; this matrix does not add full-stack checks to ordinary Web-only PRs.
+
+`FULLSTACK_TEST_PROJECT` selects exactly `desktop-chromium` or `mobile-chromium` before fixture preparation.
+An absent selector retains both profiles locally and in the manual smoke workflow.
+`FULLSTACK_TEST_GREP` remains an investigation filter; Application CI sets no scenario filter.
+Full-stack output includes `fullstack-timing` JSON records for commands, startup, fixtures, browser execution and cleanup.
+Compare successful attempts by profile and source; startup duplication increases runner minutes while concurrent profiles shorten elapsed time.
+Runner availability and the Production Compose job can still determine total CI duration.
+
+The material-authoring suite retains upload, replacement, authorization, accessibility and publication assertions.
+It no longer waits for the removed profile-onboarding dialog.
+Historical whole-page captures in authoring and the buyer journey require `CAPTURE_EVIDENCE=1`;
+failure screenshots and traces remain automatic.
+The existing buyer journey also checks URL-based payment return after clearing browser storage and after reload,
+replayed bank notifications without additional purchase or changed access terms, and another account's denied access.
+These checks use the synthetic sign-in provider and local bank double; they do not prove real bank charges or email delivery.
 
 ### Local contract tests
 
