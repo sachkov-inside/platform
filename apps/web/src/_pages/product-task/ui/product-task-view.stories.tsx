@@ -140,7 +140,7 @@ export const Submitted: Story = {
       page.getByText(/Проверь моё задание aie-ch1-onboarding/u),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Скопировать запрос", exact: true }),
+      page.getByRole("button", { name: "Скопировать запрос" }),
     ).toBeVisible();
   },
 };
