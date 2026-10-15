@@ -33,3 +33,22 @@ export async function readActivationContinuation(
     ruleId: attempt.ruleId,
   } as const;
 }
+
+/** Public navigation metadata only. Never project the identity, Account, binding, proof, or grant. */
+export async function readActivationIntent(
+  prisma: Pick<AccountRightsPrismaClient, "activationAttempt">,
+  attemptId: string,
+  now: Date,
+) {
+  if (!z.uuid().safeParse(attemptId).success) return null;
+  const attempt = await prisma.activationAttempt.findUnique({
+    where: { id: attemptId },
+  });
+  return attempt === null
+    ? null
+    : {
+        state:
+          attempt.expiresAt <= now ? ("expired" as const) : ("ready" as const),
+        ruleId: attempt.ruleId,
+      };
+}

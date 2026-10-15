@@ -49,6 +49,23 @@ export class SubscriptionActivation {
       contentCatalog?: Pick<CoverageCatalog, "resolve">;
     },
   ) {}
+  async readIntent(attemptId: string) {
+    try {
+      const intent =
+        await this.dependencies.grants.readActivationIntent(attemptId);
+      if (intent === null) return { state: "unavailable" } as const;
+      const product = await this.activationProduct(intent.ruleId);
+      return product === null
+        ? ({ state: "unavailable" } as const)
+        : { state: intent.state, product };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "readIntent" },
+        error,
+        { state: "unavailable" } as const,
+      );
+    }
+  }
   async readContinuation(accountId: string, attemptId: string) {
     try {
       const binding = await this.dependencies.bindings.readBinding({

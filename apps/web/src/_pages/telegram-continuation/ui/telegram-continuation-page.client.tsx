@@ -17,8 +17,14 @@ import {
 /** The URL carries Product intent; the browser's own session authorizes every read and link. */
 export function TelegramContinuationPage({
   attemptId,
+  product,
 }: {
   readonly attemptId: string;
+  readonly product?: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+  };
 }) {
   const router = useRouter();
   const account = useQuery(accountPresentationBrowserQueryOptions());
@@ -62,11 +68,15 @@ export function TelegramContinuationPage({
       <h1 className="text-balance text-3xl font-bold">
         {state !== undefined && "product" in state
           ? state.product.name
-          : "Получить доступ к курсу"}
+          : (product?.name ?? "Получить доступ к курсу")}
       </h1>
       {unauthorized ? (
         <div className="mt-6 space-y-4">
-          <p>Войдите, чтобы получить доступ к курсу.</p>
+          <p>
+            {product === undefined
+              ? "Войдите, чтобы получить доступ к курсу."
+              : `Войдите, чтобы получить доступ к ${product.name}.`}
+          </p>
           <p className="text-sm text-muted-foreground">
             Уже есть аккаунт с почтой? Войдите в него, чтобы сохранить покупки и
             прогресс. Новый аккаунт можно создать через Telegram.
@@ -87,6 +97,7 @@ export function TelegramContinuationPage({
             или обратитесь за помощью в боте.
           </p>
           <form action="/auth/sign-out" method="post">
+            <input name="returnTo" type="hidden" value={returnTo} />
             <Button type="submit" variant="outline">
               Выйти из аккаунта
             </Button>
@@ -120,8 +131,16 @@ export function TelegramContinuationPage({
                   ? "Подключите Telegram, которым пользуетесь в группе курса."
                   : "Проверяем состояние аккаунта…"}
           </p>
+          {state?.state === "link_required" &&
+          presentation?.telegramMembership.link.kind === "retryable" &&
+          presentation.telegramMembership.link.reason === "expired" ? (
+            <p role="alert">
+              Время подтверждения истекло. Начните вход ещё раз.
+            </p>
+          ) : null}
           {state?.state === "link_required" && presentation !== null ? (
             <AccountTelegramPanel
+              retryLabel="Продолжить на платформе"
               link={presentation.telegramMembership.link}
               onRefresh={async () => {
                 await Promise.all([account.refetch(), query.refetch()]);

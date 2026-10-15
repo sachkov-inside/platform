@@ -930,7 +930,11 @@
                           "minLength": 1,
                           "maxLength": 256
                         },
-                        "product": {
+                        "verificationMode": {
+                          "type": "string",
+                          "const": "course_membership"
+                        },
+                        "guide": {
                           "type": "object",
                           "properties": {
                             "id": {
@@ -951,10 +955,6 @@
                             "name"
                           ],
                           "additionalProperties": false
-                        },
-                        "verificationMode": {
-                          "type": "string",
-                          "const": "course_membership"
                         }
                       },
                       "required": [

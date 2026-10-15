@@ -23,7 +23,7 @@ const meta = {
   ...environment,
   title: "Pages/Telegram activation",
   component: TelegramContinuationPage,
-  args: { attemptId },
+  args: { attemptId, product },
 } satisfies Meta<typeof TelegramContinuationPage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -136,6 +136,11 @@ export const SignIn: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText(
+        "Войдите, чтобы получить доступ к AI Engineering.",
+      ),
+    ).toBeVisible();
     const button = await canvas.findByRole("button", {
       name: "Войти через Telegram или почту",
     });
@@ -175,4 +180,82 @@ export const Expired: Story = {
         }),
       )(),
   ],
+};
+
+export const ExpiredLinkRecovery: Story = {
+  beforeEach: [
+    () => {
+      getQueryClient().clear();
+      return environment.beforeEach();
+    },
+    () => {
+      let renewed = false;
+      return fetchBeforeRender(
+        respondByPath({
+          "/api/account": () =>
+            accountPresentationResponse({
+              link: renewed
+                ? {
+                    kind: "linking",
+                    linkRef: attemptId,
+                    expiresAt: "2099-01-01T00:00:00.000Z",
+                  }
+                : { kind: "retryable", reason: "expired" },
+            }),
+          [`/api/account/telegram-activation/${attemptId}`]: () =>
+            Response.json({ state: "link_required", product }),
+          "/api/account/telegram-link/begin": () => {
+            renewed = true;
+            return Response.json({
+              kind: "received",
+              state: {
+                status: "pending",
+                linkRef: attemptId,
+                expiresAt: "2099-01-01T00:00:00.000Z",
+                deepLink: "https://t.me/inside_test_bot?start=fresh-credential",
+              },
+            });
+          },
+        }),
+      )();
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText(
+        "Время подтверждения истекло. Начните вход ещё раз.",
+      ),
+    ).toBeVisible();
+    const storyWindow = canvasElement.ownerDocument.defaultView;
+    if (storyWindow === null) throw new Error("Story window missing");
+    const originalOpen = storyWindow.open;
+    const opened = fn();
+    Object.defineProperty(storyWindow, "open", {
+      configurable: true,
+      value: () => ({
+        opener: null,
+        close: fn(),
+        location: { replace: opened },
+      }),
+    });
+    try {
+      await userEvent.click(
+        await canvas.findByRole("button", { name: "Продолжить на платформе" }),
+      );
+      await waitFor(() =>
+        expect(opened).toHaveBeenCalledWith(
+          "https://t.me/inside_test_bot?start=fresh-credential",
+        ),
+      );
+      await expect(
+        canvas.getByRole("heading", { name: "AI Engineering" }),
+      ).toBeVisible();
+    } finally {
+      Object.defineProperty(storyWindow, "open", {
+        configurable: true,
+        value: originalOpen,
+      });
+    }
+  },
 };

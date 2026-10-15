@@ -1,4 +1,7 @@
-import { readActivationContinuation } from "../../features/activate-subscription/read-activation-continuation.js";
+import {
+  readActivationContinuation,
+  readActivationIntent,
+} from "../../features/activate-subscription/read-activation-continuation.js";
 import {
   previewProductRevocation,
   revokeProductAccess,
@@ -446,6 +449,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             endsAt: row.endsAt?.toISOString() ?? null,
           });
     },
+    readActivationIntent: (attemptId: string) =>
+      readActivationIntent(prisma, attemptId, clock()),
     readActivationContinuation: (
       attemptId: string,
       accountId: string,

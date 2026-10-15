@@ -57,3 +57,15 @@ export function requestTelegramActivationContinuation(
     { accessToken },
   );
 }
+
+export function requestTelegramActivationIntent(
+  attemptId: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramMembershipService(request).readTelegramActivationIntent({
+        attemptId,
+      }),
+    200,
+  );
+}
