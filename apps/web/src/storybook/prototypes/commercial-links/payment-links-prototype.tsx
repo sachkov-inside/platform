@@ -50,6 +50,7 @@ export function PaymentLinksPrototype({
   const [accepted, setAccepted] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [copied, setCopied] = useState(false);
+  const RootTag = initialBuyer ? "section" : "main";
   const base = product === "aie" ? 29000 : 5000;
   const title = product === "aie" ? "AI Engineering" : "Практика TypeScript";
   const numericValue = Number(value.replace(",", "."));
@@ -233,7 +234,7 @@ export function PaymentLinksPrototype({
     </form>
   );
   return (
-    <main className={styles["root"]} data-variant={variant}>
+    <RootTag className={styles["root"]} data-variant={variant}>
       <p className={styles["notice"]}>
         Интерактивный прототип · данные вымышлены · реальные платежи отключены
       </p>
@@ -503,6 +504,6 @@ export function PaymentLinksPrototype({
           </Button>
         </nav>
       )}
-    </main>
+    </RootTag>
   );
 }
