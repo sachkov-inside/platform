@@ -106,6 +106,37 @@ describe("agent documentation contract", () => {
 });
 
 describe("harness routing contract", () => {
+  it("requires the correction contract from both session and workflow routing", () => {
+    const root = mkdtempSync(join(tmpdir(), "correction-routing-"));
+    try {
+      for (const name of readdirSync(repositoryRoot)) {
+        if (name !== "AGENTS.md" && name !== "WORKFLOW.md") {
+          symlinkSync(join(repositoryRoot, name), join(root, name));
+        }
+      }
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        writeFileSync(
+          join(root, path),
+          readFileSync(join(repositoryRoot, path)),
+        );
+      }
+      assert.deepEqual(checkHarnessRouting(root), []);
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        const content = readFileSync(join(root, path), "utf8");
+        writeFileSync(
+          join(root, path),
+          content.replaceAll("docs/agents/owner-corrections.md", "#removed"),
+        );
+        assert.deepEqual(checkHarnessRouting(root), [
+          `${path}: keep explicit owner corrections reachable`,
+        ]);
+        writeFileSync(join(root, path), content);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires review-stage standards routing and rejects the former implementation gate", () => {
     const root = mkdtempSync(join(tmpdir(), "standards-routing-"));
     try {
@@ -265,6 +296,18 @@ describe("harness routing contract", () => {
         join(root, "WORKFLOW.md"),
         "A specification uses one integration branch and final PR\n",
       );
+      mkdirSync(join(root, "docs/agents"), { recursive: true });
+      writeFileSync(
+        join(root, "docs/agents/owner-corrections.md"),
+        "Corrections\n",
+      );
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        writeFileSync(
+          join(root, path),
+          readFileSync(join(root, path), "utf8") +
+            "[Corrections](docs/agents/owner-corrections.md)\n",
+        );
+      }
       assert.deepEqual(checkHarnessRouting(root), []);
     } finally {
       rmSync(root, { recursive: true, force: true });

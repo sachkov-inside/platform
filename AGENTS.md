@@ -18,6 +18,8 @@ historical sources.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
 - Before review, read `CODING_STANDARDS.md` and the standards for each changed surface.
   Nested `AGENTS.md` files supply implementation context and verification.
+- After an explicit owner correction, follow [owner corrections](docs/agents/owner-corrections.md)
+  to fix the work and preserve the applicable requirement.
 - When a change alters durable product behaviour, domain language, architecture, public contracts,
   developer commands, delivery workflows, or agent routing, follow the
   [documentation maintenance contract](docs/agents/documentation-maintenance.md) and run

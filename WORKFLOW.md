@@ -102,10 +102,11 @@ The coordinator supplies root standards and every applicable surface standard to
 The independent Spec reviewer receives the assignment and acceptance criteria. Keep their reports separate.
 Reviewers inspect their assigned diff directly; they do not invoke `code-review` or delegate further reviews.
 Validate each finding against its cited source before accepting or rejecting it.
+Skip an automated rule only within its proven coverage; review the remaining semantic requirements.
 
 Record the base before changing files. Commit, then run `code-review` against the immutable task commit
 from that base. Supply the assignment and applicable standards. Reviewers use native read-only subagents;
-when unavailable, use a separate review process with the same inputs.
+when unavailable, report the limitation and keep independent review pending.
 Each finding is fixed, moved to a linked issue, or rejected with evidence.
 After fixes, review the changed findings again and record outcomes.
 Documentation changes receive this review before integration. Prototype preview and discussion use the scoped completion requirements.
@@ -138,8 +139,8 @@ The shared `report` skill and its HTML report are not completion requirements he
 
 ## Owner corrections
 
-Turn mechanical failures into checks and judgement rules into their owning contract.
-Apply `writing-for-agents` to agent instructions; use `retro` when the owner requests a retrospective.
+Follow [owner corrections](docs/agents/owner-corrections.md) after explicit corrective feedback.
+This project extension preserves upstream `retro` as an owner-invoked retrospective.
 
 ## Owner gates
 
