@@ -408,14 +408,19 @@ jobs:
             node --input-type=module -e "await import(\"./dist/app.module.js\")"
           '
 
-  fullstack:
-    name: Full-stack smoke
+  fullstack-browser:
+    name: Full-stack browser (${{ matrix.project }})
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'fullstack') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, mobile-chromium]
     env:
-      COMPOSE_PROJECT_NAME: inside-platform-fullstack-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_PROJECT_NAME: inside-platform-fullstack-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.project }}
+      FULLSTACK_TEST_PROJECT: ${{ matrix.project }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -440,7 +445,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fullstack-diagnostics-${{ github.run_attempt }}
+          name: fullstack-diagnostics-${{ matrix.project }}-${{ github.run_attempt }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
@@ -451,6 +456,18 @@ jobs:
       - name: Remove infrastructure
         if: ${{ always() }}
         run: docker compose down --volumes --remove-orphans
+
+  fullstack:
+    name: Full-stack smoke
+    needs: [plan, fullstack-browser]
+    if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'fullstack') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all isolated browser profiles
+        env:
+          PROFILE_RESULT: ${{ needs.fullstack-browser.result }}
+        run: test "$PROFILE_RESULT" = success
 
   ci-gate:
     name: CI Gate

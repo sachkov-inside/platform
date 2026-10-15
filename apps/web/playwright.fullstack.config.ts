@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { fullStackProjects } from "../../scripts/full-stack-options.mjs";
 
 const baseURL =
   process.env["FULLSTACK_WEB_BASE_URL"] ?? "http://127.0.0.1:3000";
@@ -18,14 +19,14 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "desktop-chromium",
+      name: fullStackProjects[0],
       use: {
         browserName: "chromium",
         viewport: { width: 1_440, height: 1_024 },
       },
     },
     {
-      name: "mobile-chromium",
+      name: fullStackProjects[1],
       use: {
         browserName: "chromium",
         hasTouch: true,
