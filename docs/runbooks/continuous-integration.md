@@ -109,6 +109,18 @@ The already-acquired pinned broker and edge must be present. Separate Actions lo
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
 removes its own tags and override and preserves the primary failure if cleanup also fails.
 
+The backend image compiles from a release-independent source stage. Development identity and
+production identity belong to separate descendant stages. Changing release/source identity therefore
+reuses compilation while still producing distinct immutable final images with their own identity files.
+Both cold and admitted-cache runtime proofs remain complete; their output includes
+`production-smoke-timing` records for preparation, startup, route checks, health transitions and worker handoff.
+Production health intervals and failure thresholds remain unchanged, including their observation cost.
+
+Root process-ownership contracts run at most four isolated command trees concurrently within their file.
+Each case retains its own temporary workspace, supervisor and dynamic listening port.
+The readiness-publication tests remain sequential because they patch shared filesystem methods.
+The outer root contract runner still admits two files; production TERM/KILL grace periods and all signal cases remain intact.
+
 ### Full-stack browser execution
 
 The desktop and mobile profiles run concurrently on separate disposable GitHub runners.

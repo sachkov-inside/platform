@@ -11,6 +11,12 @@ case "$cache_only" in
   0 | 1) ;;
   *) echo "PRODUCTION_SMOKE_CACHE_ONLY must be 0 or 1" >&2; exit 64 ;;
 esac
+smoke_stage_started_at=$SECONDS
+record_stage_timing() {
+  printf '{"kind":"production-smoke-timing","cacheOnly":%s,"phase":"%s","durationSeconds":%s}\n' \
+    "$cache_only" "$1" "$((SECONDS - smoke_stage_started_at))"
+  smoke_stage_started_at=$SECONDS
+}
 project_name="inside-platform-production-smoke-$$"
 foundation_project="${project_name}-database"
 foundation_network="${project_name}-database"
@@ -589,6 +595,7 @@ wait_for_active_cleanup_job() {
 
 write_runtime_configuration
 write_foundation_configuration
+record_stage_timing configuration
 
 if [[ "$cache_only" == 1 ]]; then
   admit_cached_images
@@ -615,6 +622,7 @@ else
     --tag "$web_image" \
     .
 fi
+record_stage_timing image-preparation
 if [[ "$cache_only" == 1 ]]; then
   PRODUCTION_SMOKE_BACKEND_IMAGE="$backend_image"
   PRODUCTION_SMOKE_WEB_IMAGE="$web_image"
@@ -682,6 +690,8 @@ if "${application_compose[@]}" config --images | grep -Eq ':(latest|v[0-9]+)$'; 
   echo "Production runtime resolved a moving image tag" >&2
   exit 1
 fi
+record_stage_timing foundation-and-migrations
+
 # ECR Public permits one anonymous pull per second. Separate commands keep Compose graph
 # ordering from admitting both images together; wait a full interval after the first completes.
 # This controls our two pulls, not other clients sharing the provider quota. Do not retry failures.
@@ -716,6 +726,8 @@ for worker in "${application_workers[@]}"; do
     exit 1
   fi
 done
+
+record_stage_timing application-startup
 
 # The broker imports exactly the environment definitions: five scoped principals, no default user and
 # eight quorum queues. It accepts only TLS that verifies against the environment CA as `rabbitmq`.
@@ -1018,6 +1030,8 @@ expect_sale_configuration_refusal "$runtime_config_dir/billing-worker.env" dist/
   "Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed"
 catalog_sql "update billing.offers set published = false where id = '$sale_offer_id';"
 
+record_stage_timing routes-and-sale-configuration
+
 original_checksum="$("${foundation_compose[@]}" exec -T postgres psql --username postgres --dbname inside --tuples-only --no-align --command 'select checksum from public.platform_migrations where position = 1;')"
 if [[ ! "$original_checksum" =~ ^[0-9a-f]{64}$ ]]; then
   echo "Could not capture the original migration checksum" >&2
@@ -1048,6 +1062,7 @@ if ! restored_schema_marker="$(read_schema_marker "$restored_readiness")" || [[ 
   exit 1
 fi
 wait_for_worker_health healthy
+record_stage_timing worker-health-transition
 
 "${docker_create[@]}" \
   --name "$wrong_release_container" \
@@ -1084,6 +1099,8 @@ if [[ "$(docker container logs "$contender_container" 2>&1)" != *"Another materi
   exit 1
 fi
 docker container rm "$contender_container" >/dev/null
+
+record_stage_timing identity-and-generation-rejection
 
 foundation_postgres_container="$("${foundation_compose[@]}" ps --quiet postgres)"
 foundation_postgres_image="$(docker container inspect "$foundation_postgres_container" --format '{{.Config.Image}}')"
@@ -1176,5 +1193,7 @@ if [[ "$new_worker_logs" != *'"status":"draining"'* || "$new_worker_logs" != *'"
   printf '%s\n' "$new_worker_logs" >&2
   exit 1
 fi
+
+record_stage_timing worker-handoff
 
 echo "Production runtime smoke passed: immutable images -> migration matrix -> broker -> readiness -> routes -> sale configuration -> worker handoff"
