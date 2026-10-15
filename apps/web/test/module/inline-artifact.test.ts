@@ -1,7 +1,11 @@
 import { z } from "zod";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readInlineArtifactReference } from "@/features/product-artifacts/model/inline-artifact";
 import { downloadInlineArtifact } from "@/features/product-artifacts/api/inline-artifact-file-bff.server";
+import { ReaderInlineArtifact } from "@/features/product-artifacts/ui/reader-inline-artifact.server";
+
+vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
 
 vi.mock("@/shared/auth/index.server", () => ({
   getOptionalPlatformAccessToken: () => Promise.resolve("reader-token"),
@@ -143,4 +147,22 @@ describe("Inline artifact binding and current protected download", () => {
       ).status,
     ).toBe(503);
   });
+  it.each([
+    new Response(null, { status: 500 }),
+    Response.json({ artifacts: [{ invalid: true }] }),
+  ])(
+    "keeps a failed inline file inside its unavailable state",
+    async (response) => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
+      const html = renderToStaticMarkup(
+        await ReaderInlineArtifact({
+          reference: { productId, sourceId },
+          href,
+          label: "Скачать бриф (.md)",
+        }),
+      );
+      expect(html).toContain("Файл сейчас недоступен");
+      expect(html).not.toContain("href=");
+    },
+  );
 });

@@ -1,6 +1,7 @@
 import "server-only";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
+import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 import { readReaderProductArtifacts } from "../api/read-reader-product-artifacts.server";
 import type { InlineArtifactReference } from "../model/inline-artifact";
@@ -18,7 +19,13 @@ export async function ReaderInlineArtifact({
 }) {
   await connection();
   const token = await getOptionalPlatformAccessToken();
-  const result = await readReaderProductArtifacts(reference.productId, token);
+  let result;
+  try {
+    result = await readReaderProductArtifacts(reference.productId, token);
+  } catch (error) {
+    if (!(error instanceof BackendConnectionError)) throw error;
+    return <InlineArtifactDownload href={href} label={label} />;
+  }
   const artifact =
     result.kind === "ready"
       ? result.artifacts.find((item) => item.sourceId === reference.sourceId)
