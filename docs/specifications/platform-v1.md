@@ -1576,8 +1576,8 @@ Only applicable subscription and card controls appear. Receipt and refund detail
 
 For a Product with actual community access, incomplete onboarding is the first programme section
 and the default on a new visit. Its steps are Telegram linking, joining that Product's configured
-group and starting learning. Explicit programme return links keep their target. Programme, Materials
-and Artifacts remain available. Completed onboarding disappears from desktop and mobile navigation.
+group and starting learning. Explicit programme return links keep their target. Programme and Materials
+remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
 [The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)

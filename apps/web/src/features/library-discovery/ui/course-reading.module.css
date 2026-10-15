@@ -425,7 +425,6 @@
 }
 .dialog .step[aria-current="step"] {
   background: var(--muted);
-  font-weight: 600;
 }
 .dialog .step[aria-current="step"] .mark {
   background: var(--primary);
