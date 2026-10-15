@@ -14,8 +14,8 @@ import {
 } from "../model/practice-review-setup";
 
 /**
- * Public lessons retain their prefetched body. The practice control shares the existing action
- * row; only opening its disclosure adds height. The fallback contains no private result.
+ * Public lessons retain their prefetched body. A fixed-size control preserves completion actions
+ * while practice loads. Opening its disclosure expands before those actions. The fallback contains no private result.
  */
 export function LearningPracticeDisclosure(
   props:

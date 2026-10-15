@@ -227,7 +227,7 @@ async function PublicCourseTaskStatuses({
   );
 }
 
-/** The existing action row holds private practice without an extra empty loading row. */
+/** Private practice streams before completion controls without delaying the public lesson body. */
 async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();

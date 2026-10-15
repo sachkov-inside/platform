@@ -238,9 +238,14 @@ export const EmptyDisclosure: Story = {
     const body = canvasElement.querySelector("[data-reader-body]");
     const actions = canvasElement.querySelector("[data-material-actions]");
     if (body === null || actions === null) throw new Error("Reader is missing");
+    const placeholder = canvasElement.querySelector("[data-practice-empty]");
+    if (placeholder === null) throw new Error("Practice placeholder missing");
+    await expect(placeholder.getBoundingClientRect().height).toBe(44);
     await expect(
-      actions.getBoundingClientRect().top - body.getBoundingClientRect().bottom,
-    ).toBeLessThanOrEqual(24);
+      actions.getBoundingClientRect().top -
+        body.getBoundingClientRect().bottom -
+        placeholder.getBoundingClientRect().height,
+    ).toBeLessThanOrEqual(32);
   },
 };
 
@@ -286,6 +291,16 @@ function delayedPractice(
           canvasElement.querySelector("[data-practice-loading]"),
         ).toBeNull(),
       );
+      const practice = canvasElement.querySelector(
+        "[data-reader-practice-actions]",
+      );
+      const completion = canvasElement.querySelector("[data-material-actions]");
+      if (practice === null || completion === null)
+        throw new Error("Practice or completion actions missing");
+      await expect(
+        practice.compareDocumentPosition(completion) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).not.toBe(0);
       const after = anchors.map((selector) => boxOf(canvasElement, selector));
       await expect(after).toEqual(before);
       await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(

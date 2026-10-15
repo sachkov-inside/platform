@@ -62,7 +62,7 @@ export interface MaterialReaderViewProps {
   readonly topBookmarkAction?: ReactNode;
   readonly practiceActions?: ReactNode;
   readonly submissionWorkspace?: ReactNode;
-  /** Streaming public-lesson practice shares the action row; an empty result has no extra row. */
+  /** Streaming practice precedes completion actions and course navigation. */
   readonly deferredPracticeActions?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
@@ -170,6 +170,14 @@ export function MaterialReaderView({
           </article>
           {practiceActions}
           {submissionWorkspace}
+          {deferredPracticeActions === undefined ? null : (
+            <div
+              className="mt-2 flex flex-wrap items-start"
+              data-reader-practice-actions
+            >
+              {deferredPracticeActions}
+            </div>
+          )}
           {bookmarkAction === undefined &&
           readingAction === undefined &&
           deferredPracticeActions === undefined &&
@@ -197,14 +205,6 @@ export function MaterialReaderView({
                   )}
                   <MaterialReaderFooter seriesContext={seriesContext} />
                 </>
-              )}
-              {deferredPracticeActions === undefined ? null : (
-                <div
-                  className="mt-2 flex flex-wrap items-start"
-                  data-reader-practice-actions
-                >
-                  {deferredPracticeActions}
-                </div>
               )}
             </div>
           )}
