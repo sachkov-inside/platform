@@ -114,6 +114,48 @@ describe("course reading composition", () => {
     expect(context?.hasModeVariants).toBe(true);
   });
 
+  it("numbers tasks in authored chapter order, independently of lesson placement and titles", () => {
+    const context = courseReadingContext({
+      series: {
+        ...series,
+        chapters: [
+          {
+            ...series.chapters[0],
+            tasks: [task("authored-first", "first-id"), task("leading-second")],
+          },
+          { ...series.chapters[1], tasks: [task("chapter-two-first")] },
+        ],
+      },
+      current: { kind: "task", code: "authored-first" },
+    });
+    expect(
+      context?.chapters.map((chapter) =>
+        chapter.steps
+          .filter((step) => step.kind === "task")
+          .map((step) => ({
+            id: step.id,
+            title: step.title,
+            ordinal: step.taskOrdinal,
+          })),
+      ),
+    ).toEqual([
+      [
+        { id: "task:leading-second", title: "leading-second", ordinal: 2 },
+        { id: "task:authored-first", title: "authored-first", ordinal: 1 },
+      ],
+      [
+        {
+          id: "task:chapter-two-first",
+          title: "chapter-two-first",
+          ordinal: 1,
+        },
+      ],
+    ]);
+    expect(context?.current.id).toBe("task:authored-first");
+    expect(context?.current.materialOrdinal).toBeUndefined();
+    expect(context?.next?.id).toBe("task:chapter-two-first");
+  });
+
   it("retains a task-only empty product and does not invent a missing step", () => {
     const empty = {
       ...series,

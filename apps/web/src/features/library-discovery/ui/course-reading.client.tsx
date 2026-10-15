@@ -289,7 +289,14 @@ function StepLink({
     >
       <span aria-hidden="true" className={styles["mark"]} />
       <span>
-        {step.kind === "task" ? <small>Задание</small> : null}
+        {step.kind === "task" ? (
+          <small>
+            Задание
+            {step.taskOrdinal === undefined
+              ? ""
+              : ` ${String(step.taskOrdinal)}`}
+          </small>
+        ) : null}
         {step.title}
       </span>
     </IntentPrefetchLink>

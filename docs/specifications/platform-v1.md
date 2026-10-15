@@ -527,6 +527,11 @@ importer, not an implemented automatic import or publication flow.
 каждое после названного автором материала той же главы или в начале главы, без номера урока
 ([Product Task page and programme](#product-task-page-and-programme-947)).
 
+The Reader sidebar labels each Task «Задание N» above its unchanged title. N follows the authored
+Task order within its chapter and restarts at 1 in each chapter. Lesson placement does not change
+these labels. The compact programme panel uses the same labels. This is presentation metadata;
+canonical Task titles, Material ordinals, current selection and progress remain unchanged.
+
 Материалы одной главы занимают один непрерывный участок основного маршрута, а главы, в которых
 есть материалы, следуют объявленному порядку глав. Нарушение возвращает `invalid_reference` с
 кодами `product_chapter_not_continuous` или `product_chapter_out_of_order`; ссылка на неизвестную главу

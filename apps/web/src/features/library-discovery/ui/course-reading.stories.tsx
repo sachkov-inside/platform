@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
+import { courseReadingContext } from "@/features/library-discovery";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expect, userEvent, within } from "storybook/test";
 import {
   courseGuide,
+  courseSource,
   courseNext,
   taskOnlyCourse,
 } from "@/storybook/course-reading.fixtures";
@@ -183,5 +185,77 @@ export const PhoneProgramme: Story = {
       within(dialog).getByRole("button", { name: "Закрыть программу" }),
     );
     await expect(dialog).not.toBeVisible();
+  },
+};
+
+export const NumberedAssignments: Story = {
+  render: () => {
+    const firstTask = courseSource.chapters[0].tasks[0];
+    const context = courseReadingContext({
+      series: {
+        ...courseSource,
+        chapters: [
+          {
+            ...courseSource.chapters[0],
+            tasks: [
+              {
+                ...firstTask,
+                code: "harness",
+                title: "Подготовь проект к работе с агентом",
+                afterMaterialId: "first-id",
+              },
+              {
+                ...firstTask,
+                code: "foundation",
+                title: "Заложи основу проекта",
+                afterMaterialId: "first-id",
+              },
+            ],
+          },
+          {
+            ...courseSource.chapters[1],
+            tasks: [
+              {
+                ...firstTask,
+                code: "chapter-two-task",
+                title: "Спроектируй MVP",
+                afterMaterialId: null,
+              },
+            ],
+          },
+        ],
+      },
+      current: { kind: "task", code: "foundation" },
+    });
+    if (context === null)
+      throw new Error("Numbered task fixture must contain its selected Task");
+    return (
+      <CourseReadingLayout context={context}>
+        <CourseReadingHeader context={context} title={context.current.title} />
+        <p className="mt-8">Номера заданий начинаются заново в каждой главе.</p>
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const selector = canvas.queryByRole("combobox", { name: "Глава курса" });
+    if (selector === null || selector.getClientRects().length === 0) return;
+    await expect(
+      canvas.getByRole("link", {
+        name: "Задание 1 Подготовь проект к работе с агентом",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "Задание 2 Заложи основу проекта" }),
+    ).toHaveAttribute("aria-current", "step");
+    await userEvent.click(selector);
+    await userEvent.click(
+      within(document.body).getByRole("option", {
+        name: "Глава 2 Продолжение",
+      }),
+    );
+    await expect(
+      canvas.getByRole("link", { name: "Задание 1 Спроектируй MVP" }),
+    ).toBeVisible();
   },
 };

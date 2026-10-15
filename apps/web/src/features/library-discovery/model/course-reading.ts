@@ -20,6 +20,7 @@ export interface CourseReadingStep {
   readonly kind: "material" | "task";
   readonly availability: "available" | "locked" | "unavailable";
   readonly materialOrdinal?: number;
+  readonly taskOrdinal?: number;
 }
 export interface CourseReadingChapter {
   readonly href?: Route;
@@ -108,6 +109,9 @@ export function courseReadingContext({
         id: `task:${task.code}`,
         kind: "task",
         title: task.title,
+        taskOrdinal:
+          (chapter.tasks ?? []).findIndex((entry) => entry.code === task.code) +
+          1,
         href: productTaskHref(series.reference.slug, task.code),
         availability: task.availability,
       }));
