@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { beforeEach, afterEach, expect, test } from "vitest";
+import { beforeEach, afterEach, expect, test, vi } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   assembleAccessGrants,
@@ -542,14 +542,12 @@ test("only configured Products expose community access and several Products shar
     },
   });
   await db.prisma.productCommunity.createMany({
-    data: ids
-      .slice(0, 2)
-      .map((productId) => ({
-        productId,
-        groupRef: "primary",
-        updatedBy: accountId,
-        updatedAt: now,
-      })),
+    data: ids.slice(0, 2).map((productId) => ({
+      productId,
+      groupRef: "primary",
+      updatedBy: accountId,
+      updatedAt: now,
+    })),
   });
   const identityRef = `mapping:${randomUUID()}`;
   const accountRef = await linkTelegramAccount(db.prisma, {
@@ -576,6 +574,7 @@ test("only configured Products expose community access and several Products shar
       status: () => Promise.resolve({ kind: "unavailable" }),
     },
   });
+  let rejectOwnerBoundary = false;
   const activation = new SubscriptionActivation({
     prisma: db.prisma,
     grants,
@@ -584,7 +583,9 @@ test("only configured Products expose community access and several Products shar
     readAdmission: () =>
       Promise.resolve({ state: "ready", admissionRestriction: "none" }),
     readConfiguredProductIds: (productIds) =>
-      community.readConfiguredProductIds(productIds),
+      rejectOwnerBoundary
+        ? Promise.reject(new Error("Synthetic owner capability rejection"))
+        : community.readConfiguredProductIds(productIds),
   });
   const result = ownSubscriptionAccessResponseSchema.parse(
     await activation.readOwn({
@@ -607,5 +608,38 @@ test("only configured Products expose community access and several Products shar
     result.value.products?.find((product) => product.id === ids[2])?.community
       .state,
   ).toBe("unavailable");
-  expect(await community.readConfiguredProductIds(ids)).toHaveLength(2);
+  const configured = await community.readConfiguredProductIds(ids);
+  expect(configured.ok).toBe(true);
+  if (!configured.ok) throw new Error("Missing configured Product groups");
+  expect(configured.value.toSorted()).toEqual(ids.slice(0, 2).toSorted());
+  const storageFailure = vi
+    .spyOn(db.prisma.productCommunity, "findMany")
+    .mockRejectedValueOnce(
+      new Error("Synthetic Product community storage outage"),
+    );
+  try {
+    await expect(
+      activation.readOwn({
+        contractVersion: "inside.subscription-activation.v1",
+        accountRef,
+        identityRef,
+        linkRef: binding.binding.linkRef,
+        linkRevision: binding.binding.linkRevision,
+        includeProducts: true,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
+  } finally {
+    storageFailure.mockRestore();
+  }
+  rejectOwnerBoundary = true;
+  await expect(
+    activation.readOwn({
+      contractVersion: "inside.subscription-activation.v1",
+      accountRef,
+      identityRef,
+      linkRef: binding.binding.linkRef,
+      linkRevision: binding.binding.linkRevision,
+      includeProducts: true,
+    }),
+  ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
 });

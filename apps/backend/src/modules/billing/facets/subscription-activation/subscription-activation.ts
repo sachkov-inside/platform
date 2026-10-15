@@ -43,7 +43,13 @@ export class SubscriptionActivation {
         Pick<RecipientLinks, "findCurrentByIdentity">;
       readConfiguredProductIds?: (
         ids: readonly string[],
-      ) => Promise<readonly string[]>;
+      ) => Promise<
+        | { readonly ok: true; readonly value: readonly string[] }
+        | {
+            readonly ok: false;
+            readonly error: { readonly code: "unavailable" };
+          }
+      >;
       readAdmission: (
         accountId: string,
         prepareCommunity?: boolean,
@@ -229,14 +235,26 @@ export class SubscriptionActivation {
     ]);
     if (!enrollments.ok || !access.ok || products?.ok === false)
       return { ok: false as const, error: { code: "unavailable" as const } };
-    const configuredProducts = new Set(
+    let configuredProducts: ReadonlySet<string> = new Set();
+    if (
       products?.ok === true &&
-        this.dependencies.readConfiguredProductIds !== undefined
-        ? await this.dependencies.readConfiguredProductIds(
-            products.value.map((product) => product.id),
-          )
-        : [],
-    );
+      this.dependencies.readConfiguredProductIds !== undefined
+    ) {
+      try {
+        const groups = await this.dependencies.readConfiguredProductIds(
+          products.value.map((product) => product.id),
+        );
+        if (!groups.ok)
+          return { ok: false, error: { code: "unavailable" } } as const;
+        configuredProducts = new Set(groups.value);
+      } catch (error: unknown) {
+        return dependencyFailure(
+          { module: "billing", operation: "readOwnProductCommunities" },
+          error,
+          { ok: false, error: { code: "unavailable" } } as const,
+        );
+      }
+    }
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
       const current = await this.dependencies.bindings.readBinding(

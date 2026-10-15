@@ -522,26 +522,33 @@ describe("durable activation ingress, identity and continuation", () => {
     const durations: number[] = [];
     let failures = 0;
     for (let sample = 0; sample < 100; sample++) {
+      const editedBeforeSample = a.edited.length;
+      const sampleMessageId = 10000 + sample;
       // deterministic-test-allow wall-clock: #1496 measures latency, never domain time or delivery readiness.
       const started = performance.now();
-      await a.callback(70111, `access:community:${id}`);
+      await a.callback(70111, `access:community:${id}`, sampleMessageId);
       await outbound.processAvailable(20, a.clock.now());
       // deterministic-test-allow wall-clock: end of the same prepared bot action and delivered-result measurement.
       durations.push(performance.now() - started);
-      if (
-        a.edited
-          .at(-1)
-          ?.buttons?.some(
-            (button) => button.url === "https://t.me/+synthetic",
-          ) !== true
-      )
-        failures++;
+      const newUsableResults = a.edited
+        .slice(editedBeforeSample)
+        .filter(
+          (message) =>
+            message.messageId === String(sampleMessageId) &&
+            message.text ===
+              "AI Engineering\n\nМожно вступить в группу курса." &&
+            message.buttons?.some(
+              (button) => button.url === "https://t.me/+synthetic",
+            ) === true,
+        );
+      if (newUsableResults.length !== 1) failures++;
     }
     const sorted = durations.toSorted((left, right) => left - right);
     const p95 = required(sorted[94]);
     const report = {
       record: "learner-admission-latency",
       samples: durations.length,
+      confirmedNewResults: durations.length - failures,
       p95Ms: Math.round(p95 * 100) / 100,
       failures,
       excludedOutages: 0,

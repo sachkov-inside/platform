@@ -318,21 +318,35 @@ export class CommunityEntitlements {
   /** Product-to-group association is owned here, independently of Account community rights. */
   async readConfiguredProductIds(
     productIds: readonly string[],
-  ): Promise<readonly string[]> {
-    if (productIds.length > 1000)
-      throw new Error("Product community read exceeds supported size");
-    if (productIds.length === 0) return [];
-    const rows = await this.dependencies.prisma.productCommunity.findMany({
-      where: {
-        productId: { in: [...new Set(productIds)] },
-        groupRef: "primary",
-      },
-      select: { productId: true },
-      take: 1001,
-    });
-    if (rows.length > 1000)
-      throw new Error("Product community mapping exceeds supported size");
-    return rows.map((row) => row.productId);
+  ): Promise<
+    | { readonly ok: true; readonly value: readonly string[] }
+    | { readonly ok: false; readonly error: { readonly code: "unavailable" } }
+  > {
+    try {
+      if (productIds.length > 1000)
+        throw new Error("Product community read exceeds supported size");
+      if (productIds.length === 0) return { ok: true, value: [] };
+      const rows = await this.dependencies.prisma.productCommunity.findMany({
+        where: {
+          productId: { in: [...new Set(productIds)] },
+          groupRef: "primary",
+        },
+        select: { productId: true },
+        take: 1001,
+      });
+      if (rows.length > 1000)
+        throw new Error("Product community mapping exceeds supported size");
+      return { ok: true, value: rows.map((row) => row.productId) };
+    } catch (error: unknown) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "readConfiguredProductIds",
+        },
+        error,
+        { ok: false, error: { code: "unavailable" } } as const,
+      );
+    }
   }
 
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
