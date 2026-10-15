@@ -24,6 +24,68 @@ const meta = {
 } satisfies Meta<typeof CourseReadingLayout>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+export const StableSelection: Story = {
+  render: function Selection() {
+    const first = {
+      ...courseGuide.current,
+      id: "stable-first",
+      title: "Подготовь проект к работе с агентом и проверь настройку",
+    };
+    const second = {
+      ...courseGuide.current,
+      id: "stable-second",
+      title: "Как устроен пайплайн разработки с агентом",
+    };
+    const [selectSecond, setSelectSecond] = useState(false);
+    const context = {
+      ...courseGuide,
+      current: selectSecond ? second : first,
+      chapters: courseGuide.chapters.map((chapter) =>
+        chapter.id === courseGuide.currentChapterId
+          ? { ...chapter, steps: [first, second] }
+          : chapter,
+      ),
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <button
+          onClick={() => {
+            setSelectSecond((value) => !value);
+          }}
+        >
+          Сменить выбранный урок
+        </button>
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const rail = canvas.queryByRole("navigation", {
+      name: "Шаги текущей главы",
+    });
+    if (rail === null || rail.getClientRects().length === 0) return;
+    await document.fonts.ready;
+    const geometry = () =>
+      Array.from(rail.querySelectorAll("[data-course-step]")).map((step) => {
+        const title = step.querySelector('[class*="stepTitle"]');
+        if (title === null) throw new Error("Course title missing");
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        return {
+          height: step.getBoundingClientRect().height,
+          lines: Array.from(range.getClientRects()).map((rect) => rect.width),
+        };
+      });
+    const before = geometry();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сменить выбранный урок" }),
+    );
+    await expect(geometry()).toEqual(before);
+    await expect(
+      rail.querySelector('[data-course-step="stable-second"]'),
+    ).toHaveAttribute("aria-current", "step");
+  },
+};
 export const LongChapter: Story = {
   render: () => {
     const steps = Array.from({ length: 20 }, (_, index) => ({
@@ -314,7 +376,7 @@ export const NumberedAssignments: Story = {
     await expect(current).toHaveAttribute("aria-current", "step");
     const title = current.querySelector('[class*="stepTitle"]');
     if (title === null) throw new Error("Current title missing");
-    await expect(getComputedStyle(title).fontWeight).toBe("500");
+    await expect(getComputedStyle(title).fontWeight).toBe("400");
     await expect(getComputedStyle(current).backgroundColor).toBe(
       "rgba(0, 0, 0, 0)",
     );
@@ -370,7 +432,7 @@ export const SubmittedCurrentAssignment: Story = {
     if (link === undefined) throw new Error("Current submitted Task missing");
     const title = link.querySelector('[data-task-submitted="true"]');
     if (title === null) throw new Error("Submitted title missing");
-    await expect(getComputedStyle(title).fontWeight).toBe("500");
+    await expect(getComputedStyle(title).fontWeight).toBe("400");
     await expect(getComputedStyle(title).textDecorationLine).toBe(
       "line-through",
     );

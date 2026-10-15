@@ -145,9 +145,6 @@
   text-decoration-thickness: 1px;
   text-decoration-color: var(--muted-foreground);
 }
-.step[aria-current="step"] .stepTitle {
-  font-weight: 500;
-}
 .railSteps .mark {
   margin-top: calc(0.8rem - 0.1875rem);
 }
@@ -186,7 +183,9 @@
   background: var(--border);
 }
 .step[aria-current="step"] .mark {
-  background: var(--foreground);
+  background: var(--action);
+  box-shadow: 0 0 0.5rem 0.125rem
+    color-mix(in srgb, var(--action) 25%, transparent);
 }
 .step small {
   display: flex;
