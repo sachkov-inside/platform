@@ -1022,7 +1022,7 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(breadcrumb).toHaveCount(1);
   await expect(breadcrumb).toBeVisible();
-  const back = breadcrumb.getByRole("link", {
+  const back = product.getByRole("link", {
     name: "Назад к теме",
     exact: true,
   });

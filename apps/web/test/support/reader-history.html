@@ -23,6 +23,8 @@
           supplementary ? source : undefined,
           document.querySelector("[data-reader-history-root]"),
         );
+        // Completing a streamed page or refreshing it replaces the router's state at the same URL.
+        history.replaceState({ __NA: true }, "", location.href);
         document.querySelector("#return").href =
           readerOriginHref(source) ?? source;
         document

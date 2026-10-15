@@ -530,7 +530,7 @@ export function MaterialReaderBreadcrumbs({
   return (
     <Breadcrumbs
       items={[
-        { label: "Главная", href: "/" },
+        { label: "Главная", href: target.kind === "home" ? target.href : "/" },
         ...(target.kind === "series" && target.seriesSlug !== undefined
           ? [
               {

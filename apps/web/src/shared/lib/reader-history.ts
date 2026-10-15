@@ -20,6 +20,7 @@ export const readerHistoryRestoreEvent = "inside-reader-history-restore";
 let pending:
   { target: string; origin?: Origin; restoreFrom?: string } | undefined;
 let activeEntryId: string | undefined;
+let preservationInstalled = false;
 export function resetReaderHistoryActivation() {
   activeEntryId = undefined;
 }
@@ -33,6 +34,29 @@ function state() {
   return (
     z.record(z.string(), z.unknown()).safeParse(window.history.state).data ?? {}
   );
+}
+
+/** A router refresh replaces its own state, but keeps the same browser history entry. */
+function preserveReaderHistoryEntry() {
+  if (preservationInstalled) return;
+  preservationInstalled = true;
+  const replace = window.history.replaceState.bind(window.history);
+  window.history.replaceState = (data: unknown, unused, url) => {
+    const current = entry();
+    const target = new URL(url ?? window.location.href, window.location.href)
+      .href;
+    const incoming = z.record(z.string(), z.unknown()).safeParse(data).data;
+    replace(
+      current !== undefined &&
+        current.href === window.location.href &&
+        target === current.href &&
+        incoming?.["insideReader"] === undefined
+        ? { ...incoming, insideReader: current }
+        : data,
+      unused,
+      url,
+    );
+  };
 }
 function path(href: string) {
   return new URL(href, window.location.origin).pathname;
@@ -86,6 +110,7 @@ export function enterReaderHistory(
   originHref?: string,
   root: ParentNode = document,
 ) {
+  preserveReaderHistoryEntry();
   let current = entry();
   if (current?.href !== window.location.href) current = undefined;
   const restoreFrom =
