@@ -6,6 +6,12 @@ import type {
 } from "./activation-contract.js";
 type Timestamp = ColumnType<Date, Date, Date>;
 export interface ActivationTables {
+  activation_announcement_deliveries: {
+    operation_id: string;
+    fingerprint: string;
+    status: "pending" | "sent" | "not_sent" | "unknown";
+    created_at: ColumnType<Date, Date | undefined, Date>;
+  };
   activation_attempts: {
     attempt_id: string;
     bot_identity: string;
@@ -21,6 +27,19 @@ export interface ActivationTables {
       | "pending_review"
       | "completed"
       | "rejected";
+    source_proof: {
+      readonly decision: "member";
+      readonly ruleId: string;
+      readonly ruleRevision: number;
+      readonly checkedAt: string;
+      readonly validUntil: string;
+      readonly sourceRef?: string;
+      readonly product?: {
+        readonly id: string;
+        readonly slug: string;
+        readonly name: string;
+      };
+    } | null;
     evidence: ActivationEvidence | null;
     result: ActivationResult<ActivationResponse> | null;
     created_at: Timestamp;

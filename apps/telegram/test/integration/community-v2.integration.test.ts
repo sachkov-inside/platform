@@ -157,6 +157,27 @@ async function stand(
   };
 }
 describe("community v2 exact target, moderation and durable effects", () => {
+  it("returns a usable admission in the requesting action and reuses concurrent clicks", async () => {
+    const s = await stand();
+    await s.set();
+    const provider = s.provider();
+    const outcomes = await Promise.all([
+      provider.requestAdmission(s.user),
+      provider.requestAdmission(s.user),
+    ]);
+    expect(outcomes).toEqual([
+      { kind: "link", inviteLink: "https://t.me/+synthetic" },
+      { kind: "link", inviteLink: "https://t.me/+synthetic" },
+    ]);
+    expect(s.chat.count("create_invite")).toBe(1);
+    s.clock.value = new Date(s.clock.now().getTime() + 601000);
+    expect(await provider.requestAdmission(s.user)).toEqual({
+      kind: "link",
+      inviteLink: "https://t.me/+synthetic",
+    });
+    expect(s.chat.count("create_invite")).toBe(2);
+  });
+
   it("uses exact v2 wire digest including UUID spelling and reads historical v1 receipts", async () => {
     const s = await stand();
     const old: CommunitySetCommand = {

@@ -1,3 +1,9 @@
+import {
+  accessCapabilitySchema,
+  productIdFromCapability,
+} from "@inside/access-capabilities";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import { readActivationAnnouncement } from "./read-activation-announcement.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -35,14 +41,98 @@ export class SubscriptionActivation {
       grants: AccessGrants;
       bindings: ActivationBindings &
         Pick<RecipientLinks, "findCurrentByIdentity">;
-      readAdmission: (accountId: string) => Promise<{
+      readConfiguredProductIds?: (ids: readonly string[]) => Promise<
+        | { readonly ok: true; readonly value: readonly string[] }
+        | {
+            readonly ok: false;
+            readonly error: { readonly code: "unavailable" };
+          }
+      >;
+      readAdmission: (
+        accountId: string,
+        prepareCommunity?: boolean,
+        expected?: {
+          identityRef: string;
+          linkRef: string;
+          linkRevision: number;
+        },
+      ) => Promise<{
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
       }>;
       /** Origin сайта: страница оформления Offer по приглашению лежит на нём. */
       siteOrigin?: string;
+      contentCatalog?: Pick<CoverageCatalog, "resolve">;
     },
   ) {}
+  async readIntent(attemptId: string) {
+    try {
+      const intent =
+        await this.dependencies.grants.readActivationIntent(attemptId);
+      if (intent === null) return { state: "unavailable" } as const;
+      const product = await this.activationProduct(intent.ruleId);
+      return product === null
+        ? ({ state: "unavailable" } as const)
+        : { state: intent.state, product };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "readIntent" },
+        error,
+        { state: "unavailable" } as const,
+      );
+    }
+  }
+  async readContinuation(accountId: string, attemptId: string) {
+    try {
+      const binding = await this.dependencies.bindings.readBinding({
+        accountId,
+      });
+      if (!binding.ok) return { state: "unavailable" } as const;
+      const result = await this.dependencies.grants.readActivationContinuation(
+        attemptId,
+        accountId,
+        binding.binding?.telegramIdentityRef ?? null,
+      );
+      if (!("ruleId" in result)) return result;
+      const product = await this.activationProduct(result.ruleId);
+      if (product === null) return { state: "unavailable" } as const;
+      return { state: result.state, product };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "readContinuation" },
+        error,
+        { state: "unavailable" } as const,
+      );
+    }
+  }
+  private async activationProduct(ruleId: string) {
+    const rule = await this.dependencies.grants.readActivationRule(ruleId);
+    if (rule === null) return null;
+    const offer = await this.dependencies.prisma.billingOffer.findUnique({
+      where: { id: rule.tierId },
+    });
+    if (offer === null || this.dependencies.contentCatalog === undefined)
+      return null;
+    const productIds = offer.benefits.flatMap((value) => {
+      const parsed = accessCapabilitySchema.safeParse(value);
+      const id = parsed.success ? productIdFromCapability(parsed.data) : null;
+      return id === null ? [] : [id];
+    });
+    const products = await this.dependencies.contentCatalog.resolve({
+      productIds,
+      materialIds: [],
+    });
+    const product = products.find(
+      (entry) =>
+        entry.kind === "product" && entry.available && entry.slug !== null,
+    );
+    if (product === undefined || products.length !== 1) return null;
+    if (product.slug === null) return null;
+    return { id: product.id, slug: product.slug, name: product.title };
+  }
+  async announcement(input: unknown) {
+    return readActivationAnnouncement(this.dependencies, input);
+  }
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
   async lookupBinding(input: unknown) {
     const parsed = bindingLookupQuerySchema.safeParse(input);
@@ -116,13 +206,53 @@ export class SubscriptionActivation {
         error: { code: "identity_conflict" as const },
       };
     const accountId = linked.link.accountId;
-    const [enrollments, access, admission] = await Promise.all([
+    if (query.prepareCommunity === true) {
+      const current = await this.dependencies.bindings.readBinding({
+        accountId,
+      });
+      if (!current.ok)
+        return { ok: false as const, error: { code: "unavailable" as const } };
+      if (
+        current.binding === null ||
+        current.binding.linkRef !== query.linkRef ||
+        current.binding.linkRevision !== query.linkRevision ||
+        current.binding.telegramIdentityRef !== query.identityRef
+      )
+        return {
+          ok: false as const,
+          error: { code: "identity_conflict" as const },
+        };
+    }
+    const [enrollments, access, admission, products] = await Promise.all([
       this.dependencies.grants.readOwnEnrollments(accountId),
       this.dependencies.grants.readOwnAccess(accountId),
-      this.dependencies.readAdmission(accountId),
+      this.dependencies.readAdmission(accountId, query.prepareCommunity, query),
+      query.includeProducts === true
+        ? this.dependencies.grants.readOwnProducts(accountId)
+        : Promise.resolve(undefined),
     ]);
-    if (!enrollments.ok || !access.ok)
+    if (!enrollments.ok || !access.ok || products?.ok === false)
       return { ok: false as const, error: { code: "unavailable" as const } };
+    let configuredProducts: ReadonlySet<string> = new Set();
+    if (
+      products?.ok === true &&
+      this.dependencies.readConfiguredProductIds !== undefined
+    ) {
+      try {
+        const groups = await this.dependencies.readConfiguredProductIds(
+          products.value.map((product) => product.id),
+        );
+        if (!groups.ok)
+          return { ok: false, error: { code: "unavailable" } } as const;
+        configuredProducts = new Set(groups.value);
+      } catch (error: unknown) {
+        return dependencyFailure(
+          { module: "billing", operation: "readOwn" },
+          error,
+          { ok: false, error: { code: "unavailable" } } as const,
+        );
+      }
+    }
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
       const current = await this.dependencies.bindings.readBinding(
@@ -147,6 +277,30 @@ export class SubscriptionActivation {
           enrollments: enrollments.value,
           grounds: access.value.grounds,
           admission,
+          ...(products === undefined
+            ? {}
+            : {
+                products: products.value.map((product) => ({
+                  id: product.id,
+                  slug: product.slug,
+                  name: product.name,
+                  materials: product.materials,
+                  community:
+                    product.community.state !== "available" ||
+                    configuredProducts.has(product.id)
+                      ? product.community
+                      : { state: "unavailable" as const },
+                  ...(product.slug === null ||
+                  this.dependencies.siteOrigin === undefined
+                    ? {}
+                    : {
+                        programmeUrl: new URL(
+                          `/products/${encodeURIComponent(product.slug)}/programme`,
+                          this.dependencies.siteOrigin,
+                        ).toString(),
+                      }),
+                })),
+              }),
         },
       };
     });
@@ -242,7 +396,27 @@ export class SubscriptionActivation {
   }
   async begin(input: unknown) {
     try {
-      return await this.dependencies.grants.beginActivation(input);
+      const result = await this.dependencies.grants.beginActivation(input);
+      if (!result.ok || result.value.rule === undefined) return result;
+      const product = await this.activationProduct(result.value.rule.id);
+      return {
+        ok: true as const,
+        value: {
+          contractVersion: result.value.contractVersion,
+          attemptId: result.value.attemptId,
+          state: result.value.state,
+          enrollment: result.value.enrollment,
+          rule: {
+            id: result.value.rule.id,
+            revision: result.value.rule.revision,
+            sourceRef: result.value.rule.sourceRef,
+            ...(result.value.rule.verificationMode === undefined
+              ? {}
+              : { verificationMode: result.value.rule.verificationMode }),
+            ...(product === null ? {} : { product }),
+          },
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "begin" },

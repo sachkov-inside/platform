@@ -53,6 +53,13 @@ export const botActivationOutcomeSchema = z.union([
   activationOutcomeSchema,
   activationOutcomeSchema.extend({
     enrollment: previousEnrollmentSchema.nullable(),
+    rule: activationOutcomeSchema.shape.rule
+      .unwrap()
+      .omit({ product: true })
+      .extend({
+        guide: activationOutcomeSchema.shape.rule.unwrap().shape.product,
+      })
+      .optional(),
   }),
 ]);
 export const botOwnAccessGroundSchema = z.union([

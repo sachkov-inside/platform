@@ -16,6 +16,34 @@ const entriesSchema = z.array(coverageEntrySchema);
 /** Metadata only. Knowing a title never authorizes its body, media or artifacts. */
 export class CoverageCatalog {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
+  async resolveWholePlatformProducts(
+    periods: readonly { startsAt: Date; endsAt: Date }[],
+  ) {
+    if (periods.length > COVERAGE_CATALOG_SCOPE_LIMIT)
+      throw new Error("Historical Product periods exceed supported size");
+    if (periods.length === 0) return [];
+    const rows = entriesSchema.parse(
+      await this.prisma.$queryRaw(Prisma.sql`
+      SELECT 'product' AS kind, product.id, product.name AS title,
+        CASE WHEN product.archived_at IS NULL THEN product.slug ELSE NULL END AS slug,
+        product.archived_at IS NULL AS available
+      FROM materials.series AS product
+      WHERE ${Prisma.join(
+        periods.map(
+          (period) => Prisma.sql`(
+        product.created_at < ${period.endsAt}
+        AND (product.archived_at IS NULL OR product.archived_at > ${period.startsAt})
+      )`,
+        ),
+        " OR ",
+      )}
+      ORDER BY product.name, product.id LIMIT ${maximumCatalogEntries + 1}
+    `),
+    );
+    if (rows.length > maximumCatalogEntries)
+      throw new Error("Historical Product catalog exceeds supported size");
+    return rows;
+  }
   async list() {
     const rows = entriesSchema.parse(
       await this.prisma.$queryRaw(Prisma.sql`

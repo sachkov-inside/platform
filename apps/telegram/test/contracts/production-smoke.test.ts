@@ -52,6 +52,9 @@ case "$1" in
         up) printf '%s\n' "$TELEGRAM_IMAGE" >"$FIXTURES/active" ;;
         port) echo 127.0.0.1:45678 ;;
         ps) echo fixture-app ;;
+        migrate)
+          read -r candidate <"$FIXTURES/candidate"
+          if [[ "$TELEGRAM_IMAGE" == "$candidate" ]]; then touch "$FIXTURES/upgraded"; fi ;;
       esac
     done ;;
   exec)
@@ -60,9 +63,12 @@ case "$1" in
       read -r active <"$FIXTURES/active"
       for query in "$@"; do :; done
       case "$query" in
-        'select count(*) from kysely_migration') echo 31 ;;
+        'select count(*) from kysely_migration') if [[ -f "$FIXTURES/upgraded" ]]; then echo 33; else echo 31; fi ;;
         'select name from kysely_migration order by name')
-          for ((i=1; i<=31; i+=1)); do printf 'migration-%s\n' "$i"; done
+          for file in "$REPOSITORY_ROOT/apps/telegram/src/database/migrations/"*.ts; do
+            name="$(basename "$file")"
+            if [[ -f "$FIXTURES/upgraded" || "$name" < 031- ]]; then printf '%s\n' "$(basename "$file" .ts)"; fi
+          done
           if [[ "$SCENARIO" == ledger && "$active" == "$candidate" ]]; then echo unexpected-migration; fi ;;
         'select value from delivery_smoke_sentinel')
           if [[ "$SCENARIO" == sentinel && "$active" == "$candidate" ]]; then echo corrupted; else echo preserved; fi ;;
@@ -134,6 +140,7 @@ function runSmoke(scenario: string) {
         PATH: `${bin}:${process.env["PATH"] ?? ""}`,
         TMPDIR: fixture,
         FIXTURES: fixture,
+        REPOSITORY_ROOT: root,
         SCENARIO: scenario,
         SOURCE_SHA: sourceSha,
         LEGACY_SHA: legacySha,
