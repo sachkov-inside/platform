@@ -161,7 +161,8 @@ CI service containers, application Dockerfile bases, Compose dependencies and ex
 Testcontainers/SQL inputs select immutable Docker Official Images. The authorized RabbitMQ,
 PostgreSQL `18.4-alpine`/`18.4-alpine3.23` and Node `26.10.0-alpine3.24` indexes use public
 `ghcr.io/sachkov-inside/` mirrors. Telegram Node `26.10.0-bookworm-slim` uses the official
-`docker.io/library/node` upstream with its unchanged index digest; Caddy retains ECR Public inputs.
+`docker.io/library/node` upstream; production-smoke Caddy uses the official `docker.io/library/caddy`
+upstream. Both retain their unchanged index digests.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 Consumers do not need registry credentials for these inputs.
@@ -228,23 +229,29 @@ No new public mirror is published, no credentials are added, and no acquisition 
 exception is introduced. The existing Telegram CI job still builds without layer cache and
 checks Node version, the unprivileged user and compiled application imports.
 
-### Remaining ECR inputs
+### Caddy acquisition
 
-ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
-The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
-separate Compose command before application startup. It waits one second after RabbitMQ finishes
-before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
-concurrency but leaves admission timing and graph order to Compose. The interval bounds this
-pair's own admission; RabbitMQ now comes from GHCR and only Caddy uses ECR in this pair. The
-interval cannot reserve a quota shared with other clients or prove the historical
-origin of throttling. A Compose call start does not timestamp its individual registry requests.
-Pull completion bounds the end of that opaque request window; the next admission follows that
-completion plus the provider interval. This conservatively separates the two request windows.
-The virtual-time adapter proves this contract, not successful acquisition from AWS; the exact-ref
-runtime smoke and current-head CI must provide that proof.
-Acquisition failures keep their original error and stop startup without a
-retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
-boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
+[#1390](https://github.com/sachkov-inside/platform/issues/1390) records two ECR Public failures
+for the same Caddy index on run38703582081: `Data limit exceeded`, then `Rate exceeded`.
+Both failures occurred before runtime assertions, after the preceding RabbitMQ pull and its existing
+one-second interval. The quota consumer and owner remain unknown. Increasing this interval would
+not establish or repair the documented anonymous monthly data limit.
+
+The production smoke now selects the official Docker Hub Caddy index directly. The
+[identity and failure receipt](../evidence/issue-1390/caddy-acquisition.json) records equal upstream/ECR
+index bytes, the unchanged digest and hash-verified `linux/amd64` and `linux/arm64` child manifests.
+A local anonymous upstream pull succeeded with existing exact-content layers retained; this is not
+a cold hosted-download or runtime proof. Docker Hub remains subject to its own availability and
+[anonymous limits](https://docs.docker.com/docker-hub/usage/pulls/). The change removes the failing
+ECR acquisition boundary without adding credentials, retries, fallback, preload or mirror publication.
+
+The smoke still prints resolved RabbitMQ/Caddy references and admits each service through a separate
+Compose command. Its existing one-second interval remains; it does not reserve a provider quota or
+prove the historical origin of throttling. Acquisition failures keep their original error and stop
+startup. The process adapter in `scripts/ecr-public-acquisition.test.mjs` preserves the historical
+throttle replay, image-input refusal and failed-cleanup checks. Exact-source Production Compose CI
+must still verify real acquisition, all runtime assertions and cleanup.
+
 Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
 smoke; this explicit group now contains no ECR Public image, so it has no ECR pair to space.
 Integration serial enables
