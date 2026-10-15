@@ -243,6 +243,7 @@ export function DesignLab({
               </div>
               <div
                 className="lab-stage"
+                data-variant={currentVariant}
                 key={`${scenario}-${String(revision)}`}
               >
                 {scenario === "workspace" ? (

@@ -78,8 +78,7 @@ body:has(.lab) {
   justify-content: space-between;
   gap: 20px;
   padding: 20px 28px;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
+  background: transparent;
 }
 .lab-brand {
   display: flex;
@@ -97,8 +96,7 @@ body:has(.lab) {
   letter-spacing: -0.04em;
 }
 .lab-brand span {
-  border-left: 1px solid var(--border);
-  padding-left: 15px;
+  padding-left: 8px;
   color: var(--muted-foreground);
 }
 .lab-fixture,
@@ -114,7 +112,6 @@ body:has(.lab) {
   min-height: calc(100svh - 85px);
 }
 .lab-sidebar {
-  border-right: 1px solid var(--border);
   padding: 28px 16px;
 }
 .lab-sidebar nav {
@@ -128,7 +125,7 @@ body:has(.lab) {
   border: 0;
   background: transparent;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   text-align: left;
   min-height: 44px;
 }
@@ -172,7 +169,8 @@ body:has(.lab) {
   font-size: 16px;
 }
 .lab-experiments {
-  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
 }
 .lab-experiment {
   display: grid;
@@ -182,12 +180,13 @@ body:has(.lab) {
   width: 100%;
   text-align: left;
   border: 0;
-  border-bottom: 1px solid var(--border);
-  padding: 27px 16px;
-  background: transparent;
+  border-radius: var(--radius-2xl);
+  padding: 26px 24px;
+  background: var(--card);
+  box-shadow: var(--elevation-note);
 }
 .lab-experiment:hover {
-  background: var(--card);
+  background: var(--secondary);
 }
 .lab-experiment-index {
   margin-top: 2px;
@@ -248,8 +247,8 @@ body:has(.lab) {
   padding: 24px 0 18px;
 }
 .lab-variants button {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
   padding: 9px 14px;
   background: var(--card);
   min-height: 44px;
@@ -265,8 +264,9 @@ body:has(.lab) {
   flex-wrap: wrap;
   gap: 12px 20px;
   padding: 15px 18px;
+  margin: 12px 12px 0;
   background: var(--secondary);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-2xl);
 }
 .lab-demo > span:first-child {
   font-size: 12px;
@@ -290,15 +290,14 @@ body:has(.lab) {
   max-width: 100%;
 }
 .lab-stage {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-3xl);
   background: var(--card);
+  box-shadow: var(--elevation-note);
 }
 .lab-source-note {
   padding: 15px 20px;
   color: var(--muted-foreground);
   font-size: 12px;
-  border-top: 1px solid var(--border);
   max-width: none !important;
 }
 .lab-verdict {
@@ -782,8 +781,7 @@ body:has(.lab) {
   }
   .lab-sidebar {
     padding: 10px 14px;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border: 0;
   }
   .lab-sidebar nav {
     display: flex;
@@ -807,7 +805,7 @@ body:has(.lab) {
   .lab-experiment {
     gap: 12px;
     grid-template-columns: 20px 1fr 20px;
-    padding-inline: 0;
+    padding: 22px 16px;
   }
   .lab-experiment h2 {
     font-size: 18px;
@@ -961,4 +959,119 @@ body:has(.lab) {
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+}
+
+/* Owner refinement, 2026-10-15: rounded surfaces replace decorative rules.
+ * The baseline content keeps its original separators for comparison. */
+.lab [data-slot="button"] {
+  border-radius: var(--radius-xl);
+}
+.lab-stage:not([data-variant="0"]) .lab-workspace {
+  padding: 12px;
+  gap: 12px;
+}
+.lab-stage:not([data-variant="0"]) .lab-editor-nav {
+  border-radius: var(--radius-2xl);
+}
+.lab-stage:not([data-variant="0"])
+  :is(.lab-editor-nav button, .lab-local-sections button) {
+  border-radius: var(--radius-xl);
+}
+.lab-stage:not([data-variant="0"]) .lab-product-heading {
+  border: 0;
+  padding-bottom: 16px;
+}
+.lab-stage:not([data-variant="0"]) .lab-search {
+  background: var(--background);
+  border: 0;
+  border-radius: var(--radius-xl);
+  padding-inline: 14px;
+}
+.lab-stage:not([data-variant="0"]) :is(.lab-material-row, .lab-data-row) {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--background);
+  padding: 18px 16px;
+  margin-top: 10px;
+}
+.lab-stage:not([data-variant="0"]) .lab-material-row:hover {
+  background: var(--secondary);
+}
+.lab-stage:not([data-variant="0"]) :is(.lab-notice, .lab-tag) {
+  border: 0;
+  background: var(--secondary);
+  border-radius: var(--radius-xl);
+}
+.lab-stage:not([data-variant="0"]) .lab-tag {
+  padding-inline: 10px;
+}
+.lab-stage:not([data-variant="0"]) .lab-overview-sections {
+  gap: 10px;
+  border: 0;
+}
+.lab-stage:not([data-variant="0"]) .lab-overview-sections button {
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--background);
+}
+.lab-stage:not([data-variant="0"])
+  .lab-overview-sections
+  button[aria-pressed="true"] {
+  background: var(--secondary);
+}
+.lab-stage:not([data-variant="0"]) .lab-task-tabs {
+  gap: 6px;
+  border: 0;
+}
+.lab-stage:not([data-variant="0"]) .lab-task-tabs button {
+  border: 0;
+  border-radius: var(--radius-xl);
+  padding-inline: 14px;
+}
+.lab-stage:not([data-variant="0"]) .lab-task-tabs button[aria-current] {
+  background: var(--secondary);
+}
+.lab-stage:not([data-variant="0"]) .lab-next-callout {
+  border-radius: var(--radius-2xl);
+}
+.lab-stage:not([data-variant="0"]) .lab-steps {
+  display: grid;
+  gap: 10px;
+}
+.lab-stage:not([data-variant="0"]) .lab-steps li {
+  border: 0;
+  border-radius: var(--radius-xl);
+  padding: 18px;
+}
+.lab-stage:not([data-variant="0"]) .lab-steps li[aria-current] {
+  background: var(--background);
+}
+.lab-stage:not([data-variant="0"]) .lab-field-group-title {
+  border: 0;
+  padding-top: 10px;
+}
+.lab-stage:not([data-variant="0"]) .lab-upload-file {
+  border: 0;
+  border-radius: var(--radius-2xl);
+  background: var(--background);
+  padding: 22px;
+}
+.lab-stage:not([data-variant="0"])
+  :is(.lab-field input, .lab-field textarea, select),
+.lab-demo select {
+  border-radius: var(--radius-xl);
+}
+@media (max-width: 800px) {
+  .lab-stage:not([data-variant="0"]) .lab-workspace-main {
+    padding-inline: 4px;
+  }
+  .lab-stage:not([data-variant="0"]) .lab-task-tabs {
+    gap: 4px;
+  }
+  .lab-stage:not([data-variant="0"]) .lab-task-tabs button {
+    padding-inline: 10px;
+  }
+  .lab-stage:not([data-variant="0"]) .lab-upload-file {
+    padding: 16px;
+  }
 }

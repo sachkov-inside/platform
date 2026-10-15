@@ -112,6 +112,20 @@ Screenshots in this directory identify scenario, variant and viewport width.
 `form-error-*`, `learner-next-*` and `upload-sileo-error-*` show operational states.
 `upload-reduced-motion-390.png` shows the static fallback.
 
+## Owner refinement — rounded surfaces, 2026-10-15
+
+The owner rejected the abundance of straight dividers and requested a more rounded, modern design.
+The laboratory frame now groups comparisons with rounded surfaces, spacing and the existing soft elevation token.
+Proposed variants replace decorative row rules, tab underlines and rectangular navigation regions with rounded tonal groups.
+The baseline content retains its separators for comparison. The shared laboratory frame changes around every variant.
+Input boundaries and keyboard focus remain visible. This is a styling direction, not acceptance of either information architecture.
+
+`rounded-*` captures supersede the initial screenshots for the proposed styling.
+All six captured views at 390/1440 px have no horizontal overflow.
+Material opening/return and first-error form focus were checked in the browser.
+Focused lint, Web TypeScript, formatting, documentation checks and the isolated Storybook build pass.
+No new Axe result is claimed for this refinement; the earlier sampled results describe the initial revision.
+
 ## Pending owner review
 
 | Proposal | Decision | Owning work |
