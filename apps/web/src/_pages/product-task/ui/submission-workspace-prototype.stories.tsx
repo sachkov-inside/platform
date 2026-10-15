@@ -163,6 +163,103 @@ function Confirmation({ ready }: { ready: () => void }) {
   );
 }
 
+// Fixture only: status labels illustrate presentation, not an agent contract.
+function ReviewReport({ submitted }: { submitted: boolean }) {
+  const criteria = [
+    {
+      title: "Вход и основной сценарий",
+      status: "Подтверждено",
+      tone: "confirmed",
+      detail:
+        "Проверен вход пользователя и переход к основному сценарию. Ошибок в проверенном сценарии не обнаружено.",
+    },
+    {
+      title: "Выдача доступа",
+      status: "Подтверждено",
+      tone: "confirmed",
+      detail:
+        "После подтверждения оплаты пользователь получает доступ к продукту.",
+    },
+    {
+      title: "Обработка ошибки GitHub",
+      status: "Есть замечание",
+      tone: "attention",
+      detail:
+        "При недоступности GitHub пользователь не получает понятного сообщения. Добавь сообщение об ошибке и возможность повторить действие.",
+    },
+    {
+      title: "Отзыв доступа",
+      status: "Не проверено",
+      tone: "unchecked",
+      detail:
+        "Агент не смог проверить этот сценарий: в примере нет подходящих тестовых данных. Это не означает, что критерий выполнен.",
+    },
+  ];
+  return (
+    <article className={styles["reviewReport"]} aria-label="Отчёт агента">
+      <header className={styles["reportHeader"]}>
+        <div>
+          <h4>Есть замечания</h4>
+          <p>
+            Проверка агента завершена. Два критерия подтверждены, один требует
+            исправления, один остаётся непроверенным.
+          </p>
+        </div>
+        <span className={styles["reportStatus"]} data-tone="attention">
+          Нужна доработка
+        </span>
+      </header>
+      <dl className={styles["reportCounts"]}>
+        <div>
+          <dt>Подтверждено</dt>
+          <dd>2 из 4</dd>
+        </div>
+        <div>
+          <dt>С замечаниями</dt>
+          <dd>1</dd>
+        </div>
+        <div>
+          <dt>Не проверено</dt>
+          <dd>1</dd>
+        </div>
+      </dl>
+      <section aria-label="Результаты по критериям">
+        <h4>Проверка по критериям</h4>
+        <ol className={styles["reportCriteria"]}>
+          {criteria.map((item, index) => (
+            <li key={item.title}>
+              <div className={styles["criterionHeading"]}>
+                <h5>
+                  {index + 1}. {item.title}
+                </h5>
+                <span className={styles["reportStatus"]} data-tone={item.tone}>
+                  {item.status}
+                </span>
+              </div>
+              <p>{item.detail}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <section className={styles["reportNext"]}>
+        <h4>Что дальше</h4>
+        <p>
+          Исправь обработку ошибки GitHub и проверь отзыв доступа. Обсуди
+          результат с агентом в той же сессии.
+        </p>
+      </section>
+      <footer className={styles["reportFooter"]}>
+        <h4>{submitted ? "Работа отправлена" : "Работа ещё не отправлена"}</h4>
+        <p>
+          {submitted
+            ? "Сдача №1 · Сегодня, 12:30. Ответ автора появится здесь отдельно от проверки агента."
+            : "Когда будешь готов, подтверди отправку у агента. Его отчёт не заменяет ответ автора."}
+        </p>
+      </footer>
+    </article>
+  );
+}
+
 function History({
   phase,
   setPhase,
@@ -173,6 +270,9 @@ function History({
   embedded?: boolean;
 }) {
   const [details, setDetails] = useState(false);
+  if (embedded && (phase === "ready" || phase === "submitted")) {
+    return <ReviewReport submitted={phase === "submitted"} />;
+  }
   const titles = {
     empty: "Пока нет сдач",
     reviewing: "Агент проверяет проект",
@@ -476,7 +576,12 @@ function SubmissionPrototype() {
   const host = useRef<HTMLDivElement>(null);
   const [target, setTarget] = useState<HTMLElement | null>(null);
   const [variant, setVariant] = useState(0);
-  const [phase, setPhase] = useState<Phase>("empty");
+  const [phase, setPhase] = useState<Phase>(() => {
+    const value = new URL(location.href).searchParams.get("phase");
+    return value === "ready" || value === "submitted" || value === "reviewing"
+      ? value
+      : "empty";
+  });
   const [fallback, setFallback] = useState(false);
   useEffect(() => {
     setTarget(host.current?.querySelector<HTMLElement>("#task-submit") ?? null);
