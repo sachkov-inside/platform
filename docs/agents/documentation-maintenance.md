@@ -13,9 +13,12 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Legal text or edition status | `docs/legal/README.md` and the owning versioned document; a move does not change accepted status |
 | Domain term, meaning, or relationship | `GLOSSARY.md`; keep implementation and history out of the glossary |
 | Hard-to-reverse or surprising trade-off | Add an ADR, or let the replacement ADR supersede the old decision explicitly; do not rewrite accepted history as if it never happened |
-| Repository-wide coding rule | Root `CODING_STANDARDS.md`; keep it a short router and shared contract |
-| Backend module seam, slice layout, DI, persistence, REST, or import rule | `apps/backend/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
-| Web slice, runtime, transport, server-state, mutation, or UI implementation rule | `apps/web/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
+| Mechanically detectable coding requirement | Owning lint, type, architecture, or test check and its negative fixtures |
+| Repository-wide coding judgement | Root `CODING_STANDARDS.md`; keep it a short review router and shared contract |
+| Backend module seam, slice layout, DI, persistence, REST, or import judgement | `apps/backend/CODING_STANDARDS.md` for review criteria and the relevant ADR for rationale |
+| Web slice, runtime, transport, server-state, mutation, or UI judgement | `apps/web/CODING_STANDARDS.md` for review criteria and the relevant ADR for rationale |
+| Telegram-specific coding judgement | `apps/telegram/CODING_STANDARDS.md` |
+| Module-local behaviour or implementation detail | Owning code and focused tests; explain non-obvious reasons beside the code |
 | REST contract | Controller schemas, generated OpenAPI, and the generated Web client; `pnpm api:check` owns drift detection |
 | MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |

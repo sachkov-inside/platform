@@ -48,6 +48,7 @@ function collectAgentDocumentation(repositoryRoot) {
   const roots = [
     resolve(repositoryRoot, "apps"),
     resolve(repositoryRoot, "docs/agents"),
+    resolve(repositoryRoot, "scripts"),
   ];
 
   for (const root of roots) {
@@ -196,6 +197,15 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
       continue;
     }
     const content = read(repositoryRoot, path);
+    if (path === "AGENTS.md" || path === "WORKFLOW.md") {
+      requireText(
+        failures,
+        path,
+        content,
+        "docs/agents/owner-corrections.md",
+        "keep explicit owner corrections reachable",
+      );
+    }
     rejectText(
       failures,
       path,

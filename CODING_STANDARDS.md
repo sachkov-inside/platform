@@ -1,18 +1,19 @@
 # Coding standards
 
-This file routes repository-wide rules. Apply the standard nearest to the code being changed:
+Reviewers apply these shared judgement rules and the standards for each changed surface.
+Implementers consult a specific rule only when a concrete question needs it; `WORKFLOW.md` owns the review process.
 
 - Platform backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);
 - Telegram bot modules, Kysely persistence and provider contracts: the repository-wide rules below,
   [application boundaries](apps/telegram/AGENTS.md), [testing standards](apps/telegram/CODING_STANDARDS.md)
   and its executable `guardrails` contract;
+- root repository scripts: these shared rules plus [script context](scripts/AGENTS.md);
 - Next.js, feature slices, transport adapters, server state, mutations, UI, and browser tests:
   [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md);
 - shared workspace packages under `packages/`: these repository-wide rules plus the backend
-  standard, because both applications compile that code with the same strict TypeScript and
-  type-aware lint configuration. A package keeps no framework, transport or persistence
-  dependency of its own.
+  standard where applicable. Nest composition, REST and Prisma rules do not apply to packages.
+  A package keeps no framework, transport or persistence dependency of its own;
 
 ADRs explain durable trade-offs; these standards describe the current implementation rules. The
 nearest `AGENTS.md` owns task routing and verification commands.
@@ -26,32 +27,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
   duplicating environment parsing, transport paths, schemas, policy, or cache state.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
-- Every TypeScript project extends `tsconfig.base.json` through its preset: `tsconfig.node-lib.json`
-  for `packages/`, `tsconfig.nest-app.json` for the Nest applications, `tsconfig.next-app.json` for
-  the web and `tsconfig.scripts.json` for repository `.mjs` scripts. Shared strictness changes only
-  in the base; `scripts/toolchain-contract.test.mjs` fails a project that bypasses the base or
-  overrides it. Where `isolatedDeclarations` in packages asks for an exported Zod schema's type,
-  write its exact Zod type, not a hand-written wire type.
-- Where `strict-boolean-expressions` (#694) rejects a text value, `hasText` and `presentText` keep
-  its former truthiness (`null`, `undefined` and `""` are absent). They live in
-  `apps/backend/src/infrastructure/contracts/text.ts` and `apps/web/src/shared/lib/text.ts`.
-- Repository `.mjs` scripts start with `// @ts-check` (#756) and compile and lint through
-  `tsconfig.scripts.json` with every `typescript/no-unsafe-*` rule of the shared type-aware set
-  (#694, #763); `scripts/toolchain-contract.test.mjs` holds the comment, the project and the rules.
-  Parse `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown`
-  until an explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`.
-- A script that loads an application's dependency through `createRequire` takes its types from the
-  application's `test/support/proof-dependencies`: a type import by a relative path into
-  `node_modules` cannot resolve the package's own imports. Assert the returned `any` to that type
-  inside an `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
-  `disable-next-line` comment inside a JSDoc cast does not suppress it.
-- Code at a script's top level calls a module function only after every module `const`, `let` and
-  `class` that function reads is declared: a function is hoisted, its values are not (#774).
-  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level call or
-  pass by name of such a function; a callback that the statement runs at once, such as one given to
-  `.map()`, is outside the check.
-- Scripts pass every failure on through their exit code and run under macOS bash 3.2: they use no
-  `wait -n` and expand no empty array under `set -u`.
+- Preserve shared compiler strictness. [Toolchain contracts](scripts/toolchain-contract.test.mjs)
+  own preset/configuration checks. Exported package schemas retain their exact Zod type when
+  `isolatedDeclarations` requires an annotation, rather than a duplicated wire type.
 - Keep checked-in generated contracts deterministic: change one through its source and regenerate
   it, never by hand.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
@@ -96,82 +74,48 @@ pauses would reject correct tests; the ban on network-idle waits below has its o
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
-Navigation tests wait for the completed RuntimeShell prefetch response of a compatible route shell, not the
-whole private Next.js queue (#1182). Route-tree responses and response headers alone do not prove
-the shell arrived. Optimistic routing can skip requests for other links that share that shell.
-The former `networkidle` exception (#758) is retired: unrelated unfinished requests can exhaust the
-test budget after the required shell has arrived. `scripts/quiet-window-waits.test.mjs` rejects
-`networkidle` waits in application tests and browser scripts.
-
-Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
-test turns the run red on its first attempt and is fixed, not retried until it passes.
-`scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
-
-The nearest standard names the helper for each surface.
+Browser suites fail on the first attempt, including CI. The
+[Playwright configuration contract](scripts/playwright-specs-load.test.mjs) rejects retries;
+[quiet-window checks](scripts/quiet-window-waits.test.mjs) reject `networkidle` waits.
+The nearest standard names surface-specific helpers and barriers.
 
 ## Deterministic test contracts (#1153)
 
-- Test and suite names stay identical across independent runs (#1166). Use fixed values or stable
-  case labels when parameterized names interpolate data; random data may remain behind a stable
-  name. The deterministic guardrail rejects direct `randomUUID` calls (including named crypto
-  import aliases) and `Math.random` in `it`/`test`/`describe` title expressions and inline `each`
-  array tables in columns consumed by printf-style title placeholders. Referenced tables,
-  `$property` titles, wrappers, clocks and other indirect name dependencies require review; this
-  syntax check does not prove stable identity.
-- Domain tests do not depend on today's date or the machine's wall clock. Fix one instant per case
-  or inject virtual clocks; derive expirations, deadlines and "today" from that instant. Producers
-  and consumers share the same clock. Never extend a literal expiry to make a failing test pass.
-  Measure elapsed time and polling budgets with monotonic clocks. A fake-timer test registers and
-  restores its virtual clock; a real-clock adapter contract names the boundary it verifies.
-- Every test creates its own mutable data. A shared immutable template is copied before mutation;
-  per-test hooks may reset local double observations. A reused database fixture never lets one
-  test rely on rows, counters or provider state left by another test.
-- Build, compile, migrate and prepare a large corpus before the test case or measurement starts.
-  Keep a bounded setup hook and cleanup for its owned resources. A performance test measures the
-  operation it names, not the seed or cold compiler.
-- Unit tests use supplied doubles for git, network and process boundaries. A real subprocess or
-  owned loopback responder belongs to a named process/adapter contract, with an explicit budget
-  and cleanup; it never calls a live external provider.
-- Tests and diagnostics that start processes or artificial load own their complete process tree.
-  Register cleanup immediately after acquisition. Use an isolated process group, bounded shutdown
-  with forced termination, and `finally`/test cleanup hooks; shell commands use an `EXIT` trap and
-  signal traps. Preserve the original failure status. Terminating only the launcher is insufficient.
-  Verify that no owned process remains after success, failure, timeout and interruption. Test the
-  actual cleanup path, not only a mocked `kill` call. Uncatchable termination requires a supervising
-  process outside the killed group; a trap alone cannot handle `SIGKILL`.
-- `scripts/check-deterministic-tests.mjs` runs in `pnpm guardrails`. It scans JS/TS application
-  `test/` trees (including support helpers) and `*.test.*`/`*.spec.*` files across the repository,
-  plus root/application `scripts/` commands for process ownership, excluding dependency, fixture
-  and generated build directories. It rejects `waitForTimeout`,
-  `setTimeout` calls (including member calls), named timer-import aliases, and process/network
-  imports or `fetch` calls in `unit/`, `module/` and package test files.
-- Direct asynchronous `spawn`/`fork` calls (including named import aliases) require a matching
-  child cleanup in `finally` or a test cleanup hook. Delegated cleanup uses a local
-  `process-cleanup` reason naming its owner and verification; legacy migrations link #1154.
-  This is a syntax check: review proves the group covers descendants, cleanup is registered before
-  a failure can happen, its shutdown is bounded, and error/signal paths really execute it. Shell
-  traps and indirect process wrappers require behavioral verification and review.
-- In tests/support, direct global `new Date()` without arguments, `Date()`, `Date.now()` (including
-  global/member computed forms), and named `systemClock` imports require an adjacent `wall-clock`
-  reason. Fixed dates and injected clock reads are allowed. A reason names the registered virtual
-  clock, real-clock contract or deferred migration issue; it never excuses a calendar-dependent
-  assertion. Indirect clock wrappers, namespace/dynamic imports, aliases and expiry literals require
-  review: syntax cannot prove that production consumers and fixtures share the fixed time.
-- In test/spec files it also rejects direct writes and listed collection mutators on module-level
-  object/array literals in modules and plain `describe` callbacks (including exported declarations).
-  A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
-  must prove the reset is complete. Local shadowed bindings, module initialization and `beforeAll` arrangement are allowed.
-- A retained timer must explain its role: polling a fact, bounding failure, modeling latency,
-  measuring a performance window, or an external clock. Put
-  `// deterministic-test-allow duration-wait: <specific reason>` immediately before that call.
-  A local process/adapter contract in a historic unit directory uses `unit-io` before its import or
-  call. A cleanup registry or deferred scenario migration uses `shared-mutation` before its
-  declaration. An exception never disables a file; deferred violations link their issue (#1154).
-- Negative fixtures in `scripts/deterministic-tests.test.mjs` prove each syntax rule rejects a bad
-  test or diagnostic, and the CLI fixture proves a nonzero exit. These checks are not proof of determinism:
-  indirect wrappers/import effects, escaped objects, mutable class instances, database isolation,
-  process lifetime guarantees, complete resets, meaningful barriers and preparation cost require review. A syntactic ban
-  cannot identify which observed fact belongs to a step or what work dominates its budget.
+- Test and suite names stay identical across independent runs. Keep random fixture data behind
+  stable case labels. Review indirect title dependencies, including referenced tables and clocks.
+- Fix one domain instant per case or inject a virtual clock shared by producers and consumers.
+  Derive expirations, deadlines and "today" from it; changing a literal expiry cannot repair a test.
+  Use monotonic clocks for elapsed time and polling budgets. Register and restore virtual clocks;
+  a real-clock adapter contract names the boundary it verifies.
+- Each test owns its mutable data, database rows and provider state. Copy immutable templates before
+  mutation. Review complete per-test resets, escaped objects and mutable instances, not just literals.
+- Compile, migrate and prepare large corpora in bounded setup hooks before the case or measurement.
+  A performance test measures the named operation rather than seed or cold compiler work.
+- Unit tests supply git, network and process doubles. Real subprocess and owned loopback contracts
+  name their boundary, failure budget and cleanup; they never call live external providers.
+- Tests and diagnostics own their complete process tree. Register cleanup immediately after acquisition;
+  use isolated process groups, bounded shutdown, forced termination and `finally`/test cleanup hooks.
+  Shell commands use `EXIT` and signal traps and preserve the original failure status. Verify actual
+  cleanup after success, failure, timeout and interruption; killing only a launcher is insufficient.
+  Uncatchable termination needs a supervisor outside the killed group; traps cannot handle `SIGKILL`.
+
+The [deterministic syntax check](scripts/check-deterministic-tests.mjs) runs in `pnpm guardrails`.
+Its [implementation](scripts/deterministic-tests.mjs) and
+[negative fixtures](scripts/deterministic-tests.test.mjs) own the detected syntax and CLI rejection contract.
+Review still proves meaningful barriers, clock sharing, isolation, preparation cost and process lifetime,
+including indirect wrappers and imports. A passing syntax check proves none of those semantics.
+
+Local `deterministic-test-allow` reasons name the actual exception and its owner:
+
+- `duration-wait`: polling a fact, bounding failure, modeling latency, a performance window, or an external clock;
+- `wall-clock`: the registered virtual clock, named real-clock contract, or deferred migration;
+- `unit-io`: a named process/adapter contract retained in a historic unit directory;
+- `process-cleanup`: the delegated cleanup owner and its verification;
+- `shared-mutation`: the cleanup registry or deferred scenario migration.
+
+Place the reason immediately before its owning call, import or declaration; exceptions never exempt a file.
+Deferred violations link their migration issue (#1154). A reason cannot excuse a calendar-dependent assertion,
+incomplete reset or unowned process. Review those requirements even when syntax accepts the exception.
 
 ## Live HTTP checks
 
