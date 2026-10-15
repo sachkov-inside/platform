@@ -74,6 +74,12 @@ async function fixture() {
   };
   const server = assembleLearnerMcpServer({
     ...defaults,
+    // These synthetic Materials have no embedded Task.
+    tasks: {
+      ...defaults.tasks,
+      materialTask: () =>
+        Promise.resolve({ ok: false, error: { code: "task_not_found" } }),
+    },
     accountId,
     reader: {
       ...defaults.reader,

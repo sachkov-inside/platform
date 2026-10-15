@@ -148,11 +148,19 @@ test("a practical Material reuses the real submission workspace without adding a
     "Урок перед заданием.",
   );
   await expect(page.locator("[data-own-submissions]")).toContainText(note);
+  const programme = page.getByRole("button", {
+    name: "Вся программа",
+    exact: true,
+  });
+  const mobileProgramme = await programme.isVisible();
+  if (mobileProgramme) await programme.click();
   await expect(
     page.locator(
-      `[data-course-step="material:${slug}"] [data-task-submitted="true"]`,
+      `[data-course-step="material:${slug}"] [data-task-submitted="true"]:visible`,
     ),
   ).toHaveCount(1);
+  if (mobileProgramme)
+    await page.getByRole("button", { name: "Закрыть программу" }).click();
   await expect(page.locator(`[data-course-step="task:${code}"]`)).toHaveCount(
     0,
   );
