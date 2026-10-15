@@ -10,6 +10,7 @@ import type { CommunityDeliveryOutcome } from "../../src/modules/telegram-member
 import { contractDigest } from "../../src/infrastructure/contracts/canonical-digest.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { afterEach, beforeEach, expect, test } from "vitest";
 import {
   assembleAccounts,
@@ -345,9 +346,12 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
   });
   await db.prisma.accessChange.deleteMany({ where: { grantId: noJournal } });
   await migrateHistoricalBaseline();
-  const cutoff = await db.prisma.$queryRaw<
-    { applied_at: Date }[]
-  >`SELECT applied_at FROM public.platform_migrations WHERE name = '0090_explicit_community_rights'`;
+  const cutoff = z
+    .array(z.strictObject({ applied_at: z.date() }))
+    .parse(
+      await db.prisma
+        .$queryRaw`SELECT applied_at FROM public.platform_migrations WHERE name = '0090_explicit_community_rights'`,
+    );
   const appliedAt = cutoff[0]?.applied_at;
   if (appliedAt === undefined)
     throw new Error("Historical migration boundary missing");
