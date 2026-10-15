@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
@@ -26,6 +27,7 @@ export function AccountTelegramOnboarding({
   readonly authenticated: boolean;
   readonly authResolved: boolean;
 }) {
+  const pathname = usePathname();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [journeyStarted, setJourneyStarted] = useState(false);
   const dismissed = useSyncExternalStore(
@@ -49,6 +51,7 @@ export function AccountTelegramOnboarding({
   const presentation =
     query.data?.kind === "ready" ? query.data.presentation : null;
   const journeyOpen =
+    pathname !== "/telegram/continue" &&
     authResolved &&
     authenticated &&
     !dismissed &&

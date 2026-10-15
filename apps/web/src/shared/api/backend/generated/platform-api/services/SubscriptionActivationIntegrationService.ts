@@ -116,6 +116,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -171,6 +176,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -306,6 +316,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -361,6 +376,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';

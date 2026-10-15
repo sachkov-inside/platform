@@ -1,3 +1,8 @@
+import {
+  accessCapabilitySchema,
+  productIdFromCapability,
+} from "@inside/access-capabilities";
+import type { CoverageCatalog } from "../../../account-rights/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -44,8 +49,57 @@ export class SubscriptionActivation {
       }>;
       /** Origin сайта: страница оформления Offer по приглашению лежит на нём. */
       siteOrigin?: string;
+      contentCatalog?: Pick<CoverageCatalog, "resolve">;
     },
   ) {}
+  async readContinuation(accountId: string, attemptId: string) {
+    try {
+      const binding = await this.dependencies.bindings.readBinding({
+        accountId,
+      });
+      if (!binding.ok) return { state: "unavailable" } as const;
+      const result = await this.dependencies.grants.readActivationContinuation(
+        attemptId,
+        accountId,
+        binding.binding?.telegramIdentityRef ?? null,
+      );
+      if (!("ruleId" in result)) return result;
+      const product = await this.activationProduct(result.ruleId);
+      if (product === null) return { state: "unavailable" } as const;
+      return { state: result.state, product };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "readContinuation" },
+        error,
+        { state: "unavailable" } as const,
+      );
+    }
+  }
+  private async activationProduct(ruleId: string) {
+    const rule = await this.dependencies.grants.readActivationRule(ruleId);
+    if (rule === null) return null;
+    const offer = await this.dependencies.prisma.billingOffer.findUnique({
+      where: { id: rule.tierId },
+    });
+    if (offer === null || this.dependencies.contentCatalog === undefined)
+      return null;
+    const productIds = offer.benefits.flatMap((value) => {
+      const parsed = accessCapabilitySchema.safeParse(value);
+      const id = parsed.success ? productIdFromCapability(parsed.data) : null;
+      return id === null ? [] : [id];
+    });
+    const products = await this.dependencies.contentCatalog.resolve({
+      productIds,
+      materialIds: [],
+    });
+    const product = products.find(
+      (entry) =>
+        entry.kind === "product" && entry.available && entry.slug !== null,
+    );
+    if (product === undefined || products.length !== 1) return null;
+    if (product.slug === null) return null;
+    return { id: product.id, slug: product.slug, name: product.title };
+  }
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
   async lookupBinding(input: unknown) {
     const parsed = bindingLookupQuerySchema.safeParse(input);
@@ -281,7 +335,19 @@ export class SubscriptionActivation {
   }
   async begin(input: unknown) {
     try {
-      return await this.dependencies.grants.beginActivation(input);
+      const result = await this.dependencies.grants.beginActivation(input);
+      if (!result.ok || result.value.rule === undefined) return result;
+      const product = await this.activationProduct(result.value.rule.id);
+      return {
+        ...result,
+        value: {
+          ...result.value,
+          rule: {
+            ...result.value.rule,
+            ...(product === null ? {} : { product }),
+          },
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "begin" },
