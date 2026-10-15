@@ -6,6 +6,11 @@
   },
   {
     "width": 1440,
+    "state": "archive",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 1440,
     "state": "buyer",
     "horizontalOverflow": false
   },
@@ -27,6 +32,11 @@
   {
     "width": 390,
     "state": "owner",
+    "horizontalOverflow": false
+  },
+  {
+    "width": 390,
+    "state": "archive",
     "horizontalOverflow": false
   },
   {

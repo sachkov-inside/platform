@@ -33,7 +33,7 @@ export interface BillingAdminViewProps
     Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
   readonly enrollmentControls?: ReactNode;
-  /** Скидка респондентам анкеты живёт рядом с каталогом: она выдаёт личные скидки по его шаблону. */
+  /** Historical survey facts remain readable beside the common payment-link workflow. */
   readonly respondentControls?: ReactNode;
   readonly paymentLinkControls?: ReactNode;
   readonly pending?: boolean;

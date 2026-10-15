@@ -107,7 +107,11 @@ export function PaymentLinksView({
     });
   }
   return (
-    <section className={styles["root"]} aria-labelledby={`${prefix}-heading`}>
+    <section
+      id="payment-links"
+      className={styles["root"]}
+      aria-labelledby={`${prefix}-heading`}
+    >
       <header className={styles["header"]}>
         <div>
           <h2 id={`${prefix}-heading`}>Ссылки на оплату</h2>

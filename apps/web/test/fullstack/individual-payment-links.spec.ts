@@ -127,6 +127,12 @@ test("individual payment link shows its fixed price and terms, revokes across op
   });
   await heading.scrollIntoViewIfNeeded();
   await expect(
+    page.getByRole("heading", { name: "Архив анкетных скидок" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Выдать ссылку", exact: true }),
+  ).toHaveCount(0);
+  await expect(
     page.getByText("26 100", { exact: false }).first(),
   ).toBeVisible();
   const ownerRegion = page.getByRole("region", {
