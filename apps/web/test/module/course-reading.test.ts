@@ -156,6 +156,39 @@ describe("course reading composition", () => {
     expect(context?.next?.id).toBe("task:chapter-two-first");
   });
 
+  it("marks only saved task submissions, independently of the currently open step", () => {
+    const source = {
+      ...series,
+      chapters: [
+        {
+          ...series.chapters[0],
+          tasks: [
+            {
+              ...task("saved", "first-id"),
+              lastSubmittedAt: "2026-10-14T09:00:00.000Z",
+            },
+            task("not-submitted", "first-id"),
+          ],
+        },
+      ],
+    };
+    for (const code of ["saved", "not-submitted"]) {
+      const context = courseReadingContext({
+        series: source,
+        current: { kind: "task", code },
+      });
+      expect(
+        context?.chapters[0]?.steps
+          .filter((step) => step.kind === "task")
+          .map((step) => [step.id, step.taskSubmitted]),
+      ).toEqual([
+        ["task:saved", true],
+        ["task:not-submitted", false],
+      ]);
+      expect(context?.current.title).toBe(code);
+    }
+  });
+
   it("retains a task-only empty product and does not invent a missing step", () => {
     const empty = {
       ...series,

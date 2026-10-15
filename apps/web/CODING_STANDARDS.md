@@ -274,9 +274,15 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.
   Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
   Keep the mobile course heading at 20 px; omit format, course and topic metadata.
-  Rail rows and chapter selection use 16 px, 1.6 line height and constant weight 400; active color,
-  marker and `aria-current` identify the current step. Hover changes text only, including chapter
-  options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
+  Rail rows and chapter selection use 16 px and 1.6 line height. Use weight 400 normally and
+  500 only for the current step title; omit selected-row fill and visible status badges.
+  Strike through a Task title only when its persisted submission timestamp is present, including
+  the currently open Task. Keep the submitted state accessible without a visible label or date;
+  an unsent review report does not count as a submission or imply acceptance by the author.
+  Chapter options use a subtle muted background for pointer and keyboard highlight, without
+  underlines or a surrounding focus ring. Retain the selection check and a forced-colors focus
+  outline. Allow the chapter menu up to 32rem within available viewport height.
+  Chapter titles wrap without clipping the chevron.
   The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal
   footer only on course landing, purchase, payment and legal routes. Navigation rows make no personal access claim from guest-cached composition; target
   routes retain their access gates. Material ordinals/progress stay separate from mixed positions.

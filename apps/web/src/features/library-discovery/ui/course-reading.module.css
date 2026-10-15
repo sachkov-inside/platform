@@ -64,6 +64,7 @@
   outline-offset: 3px;
 }
 .chapterMenu {
+  max-height: min(32rem, var(--radix-select-content-available-height));
   max-width: min(22rem, calc(100vw - 2rem));
   border-radius: var(--radius-md);
 }
@@ -81,8 +82,18 @@
   color: var(--foreground);
 }
 .chapterOption[data-highlighted] {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  background: var(--muted);
+  text-decoration: none;
+}
+.chapterOption:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+@media (forced-colors: active) {
+  .chapterOption[data-highlighted] {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
 }
 .railSteps {
   max-height: calc(100dvh - 14rem);
@@ -115,6 +126,18 @@
 }
 .railSteps .step {
   align-items: start;
+}
+.stepTitle {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.stepTitle[data-task-submitted] {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--muted-foreground);
+}
+.step[aria-current="step"] .stepTitle {
+  font-weight: 500;
 }
 .railSteps .mark {
   margin-top: calc(0.8rem - 0.1875rem);
@@ -453,7 +476,7 @@
   border-radius: var(--radius-sm);
 }
 .dialog .step[aria-current="step"] {
-  background: var(--muted);
+  background: transparent;
 }
 .dialog .step[aria-current="step"] .mark {
   background: var(--primary);

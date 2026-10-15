@@ -55,11 +55,13 @@ export const ChapterNavigation: Story = {
       "Глава 2 Продолжение",
       "Глава 3 Следующая глава",
     ]);
-    await userEvent.click(
-      within(document.body).getByRole("option", {
-        name: "Глава 2 Продолжение",
-      }),
-    );
+    const nextChapter = within(document.body).getByRole("option", {
+      name: "Глава 2 Продолжение",
+    });
+    await userEvent.hover(nextChapter);
+    await expect(getComputedStyle(nextChapter).outlineStyle).toBe("none");
+    await expect(getComputedStyle(nextChapter).textDecorationLine).toBe("none");
+    await userEvent.click(nextChapter);
     await expect(selector).toHaveTextContent("Продолжение");
     await expect(canvas.getByLabelText("Текущая глава")).toHaveTextContent(
       "Следующий урок",
@@ -201,6 +203,7 @@ export const NumberedAssignments: Story = {
               {
                 ...firstTask,
                 code: "harness",
+                lastSubmittedAt: "2026-10-14T09:00:00.000Z",
                 title: "Подготовь проект к работе с агентом",
                 afterMaterialId: "first-id",
               },
@@ -246,12 +249,26 @@ export const NumberedAssignments: Story = {
     if (selector === null || selector.getClientRects().length === 0) return;
     await expect(
       canvas.getByRole("link", {
-        name: "Задание 1 Подготовь проект к работе с агентом",
+        name: "Задание 1 Подготовь проект к работе с агентом Сдано",
       }),
     ).toBeVisible();
-    await expect(
-      canvas.getByRole("link", { name: "Задание 2 Заложи основу проекта" }),
-    ).toHaveAttribute("aria-current", "step");
+    const savedTitle = canvasElement.querySelector(
+      '[data-task-submitted="true"]',
+    );
+    if (savedTitle === null) throw new Error("Saved Task title missing");
+    await expect(getComputedStyle(savedTitle).textDecorationLine).toBe(
+      "line-through",
+    );
+    const current = canvas.getByRole("link", {
+      name: "Задание 2 Заложи основу проекта",
+    });
+    await expect(current).toHaveAttribute("aria-current", "step");
+    const title = current.querySelector('[class*="stepTitle"]');
+    if (title === null) throw new Error("Current title missing");
+    await expect(getComputedStyle(title).fontWeight).toBe("500");
+    await expect(getComputedStyle(current).backgroundColor).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
     await userEvent.click(selector);
     await userEvent.click(
       within(document.body).getByRole("option", {
@@ -261,5 +278,55 @@ export const NumberedAssignments: Story = {
     await expect(
       await canvas.findByRole("link", { name: "Задание 1 Спроектируй MVP" }),
     ).toBeVisible();
+  },
+};
+
+export const SubmittedCurrentAssignment: Story = {
+  render: () => {
+    const current = { ...taskOnlyCourse.current, taskSubmitted: true };
+    const context = {
+      ...taskOnlyCourse,
+      current,
+      chapters: taskOnlyCourse.chapters.map((chapter) => ({
+        ...chapter,
+        steps: chapter.steps.map((step) =>
+          step.id === current.id ? current : step,
+        ),
+      })),
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <CourseReadingHeader
+          context={context}
+          title={current.title}
+          metadata={null}
+        />
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const opener = canvas.queryByRole("button", {
+      name: "Открыть программу курса",
+    });
+    if (opener !== null && opener.getClientRects().length > 0)
+      await userEvent.click(opener);
+    const link = within(document.body)
+      .getAllByRole("link")
+      .find(
+        (entry) =>
+          entry.getAttribute("aria-current") === "step" &&
+          entry.getClientRects().length > 0,
+      );
+    if (link === undefined) throw new Error("Current submitted Task missing");
+    const title = link.querySelector('[data-task-submitted="true"]');
+    if (title === null) throw new Error("Submitted title missing");
+    await expect(getComputedStyle(title).fontWeight).toBe("500");
+    await expect(getComputedStyle(title).textDecorationLine).toBe(
+      "line-through",
+    );
+    await expect(getComputedStyle(link).backgroundColor).toBe(
+      "rgba(0, 0, 0, 0)",
+    );
   },
 };

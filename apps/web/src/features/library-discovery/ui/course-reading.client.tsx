@@ -297,7 +297,19 @@ function StepLink({
               : ` ${String(step.taskOrdinal)}`}
           </small>
         ) : null}
-        {step.title}
+        <span
+          className={styles["stepTitle"]}
+          data-task-submitted={
+            step.kind === "task" && step.taskSubmitted === true
+              ? true
+              : undefined
+          }
+        >
+          {step.title}
+        </span>
+        {step.kind === "task" && step.taskSubmitted === true ? (
+          <span className="sr-only">Сдано</span>
+        ) : null}
       </span>
     </IntentPrefetchLink>
   );
