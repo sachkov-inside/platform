@@ -1,0 +1,106 @@
+{
+  "sourceBase": "678c774c2b8a69df84128220c3a9b69b9dfa0f97",
+  "observedAtUtc": "2026-10-15T08:30:13.779858+00:00",
+  "originalFailures": [
+    {
+      "workflowRunId": 38703582081,
+      "jobId": 116317511740,
+      "attempt": 1,
+      "pullStartedAtUtc": "2026-10-15T08:12:41.3565701Z",
+      "failedAtUtc": "2026-10-15T08:12:41.7785777Z",
+      "primaryError": "toomanyrequests: Data limit exceeded",
+      "result": "exit 1 before runtime assertions; owned resources cleaned up"
+    },
+    {
+      "workflowRunId": 38703582081,
+      "jobId": 116322025754,
+      "attempt": 2,
+      "pullStartedAtUtc": "2026-10-15T08:24:12.6208690Z",
+      "failedAtUtc": "2026-10-15T08:24:13.1902601Z",
+      "primaryError": "toomanyrequests: Rate exceeded",
+      "result": "exit 1 before runtime assertions; owned resources cleaned up"
+    }
+  ],
+  "quotaConsumerAndOwner": "not established",
+  "image": "caddy:2.11.4-alpine",
+  "indexDigest": "sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+  "oldSource": "public.ecr.aws/docker/library/caddy",
+  "selectedSource": "docker.io/library/caddy",
+  "currentIndexBytesEqual": true,
+  "registries": [
+    {
+      "registry": "hub",
+      "indexStatus": 200,
+      "indexDigest": "sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+      "children": [
+        {
+          "platform": {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          "digest": "sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0",
+          "verified": true,
+          "status": 200
+        },
+        {
+          "platform": {
+            "architecture": "arm64",
+            "os": "linux",
+            "variant": "v8"
+          },
+          "digest": "sha256:c802bf2721a427e961b9fd6a194c3888a180de9990b43f8530a02bd6be017e17",
+          "verified": true,
+          "status": 200
+        }
+      ]
+    },
+    {
+      "registry": "ecr",
+      "indexStatus": 200,
+      "indexDigest": "sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+      "children": [
+        {
+          "platform": {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          "digest": "sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0",
+          "verified": true,
+          "status": 200
+        },
+        {
+          "platform": {
+            "architecture": "arm64",
+            "os": "linux",
+            "variant": "v8"
+          },
+          "digest": "sha256:c802bf2721a427e961b9fd6a194c3888a180de9990b43f8530a02bd6be017e17",
+          "verified": true,
+          "status": 200
+        }
+      ]
+    }
+  ],
+  "verificationMethod": "Anonymous Registry HTTP API V2 bearer-token exchange; raw index bytes compared and SHA-256 checked; linux/amd64 and linux/arm64 child manifest SHA-256 checked at both registries; one anonymous Docker CLI pull of the same official upstream pin on linux/amd64",
+  "anonymousUpstreamPull": {
+    "exit": 0,
+    "platform": "linux/amd64",
+    "elapsedSeconds": 4.037,
+    "isolatedEmptyDockerConfig": true,
+    "layerCache": "existing exact-content layers from preceding ECR probe retained; not a cold layer-download proof"
+  },
+  "localEcrProbe": {
+    "exit": 0,
+    "platform": "linux/amd64",
+    "elapsedSeconds": 8.826,
+    "meaning": "A later local success does not reproduce or explain the hosted quota failures."
+  },
+  "primarySources": [
+    "https://github.com/caddyserver/caddy-docker",
+    "https://hub.docker.com/_/caddy",
+    "https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html",
+    "https://docs.aws.amazon.com/AmazonECR/latest/public/docker-pull-ecr-image.html",
+    "https://docs.docker.com/docker-hub/usage/pulls/"
+  ],
+  "limits": "Only acquisition source changes. Docker Hub has its own availability and anonymous limits. Manifest identity and a local pull do not prove cold hosted acquisition or production-smoke runtime assertions. Current-head CI must verify those assertions and cleanup. No retry, fallback, registry credential, preload or mirror publication is introduced."
+}

@@ -58,7 +58,7 @@ const rabbitmqPins = new Map([
   ],
 ]);
 
-test("official acquisition inputs select exact GHCR mirrors, Telegram upstream Node and remaining immutable ECR inputs", () => {
+test("official acquisition inputs select exact approved mirrors and official upstream immutable indexes", () => {
   for (const path of inputPaths) {
     const source = readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
     // A dotted version excludes service URLs such as rabbitmq:5671 and postgres:5432.
@@ -75,6 +75,14 @@ test("official acquisition inputs select exact GHCR mirrors, Telegram upstream N
           reference,
           "docker.io/library/node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2",
           `${path}: both stages must use the verified upstream Node index without changing identity (#1432)`,
+        );
+        continue;
+      }
+      if (image.startsWith("caddy:")) {
+        assert.equal(
+          reference,
+          "docker.io/library/caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b",
+          `${path}: Caddy must use its verified official upstream without changing identity (#1390)`,
         );
         continue;
       }

@@ -31,6 +31,17 @@ community capability is `denied`, an unbounded one is `lifetime`, a bounded one 
 exact end. The tier name, the price, the presence of a payment and Telegram membership itself are
 never the rule.
 
+Migration `0090` preserves historical implicit community benefits. Migration `0095` completes its
+scope backfill for the exact empty JSON coverage left by older grant writers. It requires a grant
+journal entry before `0090` and no entry after that boundary. It leaves unjournaled grants and newer
+decisions unchanged.
+
+The repair uses encoded Product capabilities first, then frozen paid Product benefits. Otherwise,
+already explicit historical community remains unscoped. Explicit nonempty coverage stays unchanged.
+The repair changes no capability, term, revocation, grant revision, financial snapshot or learning
+activity. Product exclusions still restrict Product-scoped grants; independent historical unscoped
+community rights remain valid until their own expiry or revocation.
+
 One row per Account holds that desired state with a monotone `entitlementRevision`. The revision
 also increases when the verified link moves, not only when access changes. A stale read never moves
 a projection backwards: a lower access or link revision is ignored and the next pass corrects it.

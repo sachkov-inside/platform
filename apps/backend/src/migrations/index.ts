@@ -1,4 +1,8 @@
 import {
+  name as historicalCommunityCoverageName,
+  statement as historicalCommunityCoverageStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
+import {
   name as individualPaymentLinksName,
   statement as individualPaymentLinksStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0094-individual-payment-links.js";
@@ -614,6 +618,10 @@ export const platformMigrations = [
   {
     name: individualPaymentLinksName,
     statement: individualPaymentLinksStatement,
+  },
+  {
+    name: historicalCommunityCoverageName,
+    statement: historicalCommunityCoverageStatement,
   },
 ] as const;
 
