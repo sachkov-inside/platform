@@ -926,7 +926,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     page.getByRole("link", { name: "Назад к программе" }),
   ).toHaveCount(0);
   await expect(
-    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
+    course.getByRole("navigation", {
+      name:
+        testInfo.project.name === "mobile-chromium"
+          ? "Навигация по урокам"
+          : "Шаги курса",
+      exact: true,
+    }),
   ).not.toContainText("· №");
 
   await expect(page).toHaveTitle(
@@ -940,7 +946,11 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     await programmeAction.click();
     await course
       .getByRole("dialog")
-      .getByRole("link", { name: "Страница программы" })
+      .getByRole("button", { name: "Закрыть программу", exact: true })
+      .click();
+    await course
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("link", { name: "К курсу", exact: true })
       .click();
   } else await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
@@ -1021,9 +1031,15 @@ test("uses the selected Series order for a shared Material and leaves standalone
   ).toBeVisible();
 });
 
-function readerNextLink(page: Page, _testInfo: TestInfo) {
+function readerNextLink(page: Page, testInfo: TestInfo) {
   return page
-    .getByRole("navigation", { name: "Шаги курса", exact: true })
+    .getByRole("navigation", {
+      name:
+        testInfo.project.name === "mobile-chromium"
+          ? "Навигация по урокам"
+          : "Шаги курса",
+      exact: true,
+    })
     .getByRole("link", { name: /^Следующий шаг/u });
 }
 

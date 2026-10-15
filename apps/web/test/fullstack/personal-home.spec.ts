@@ -231,16 +231,6 @@ test("profile continuation opens the real series, persists marks and reconciles 
     page.locator("[data-course-reading]:visible [data-reader-header]"),
   ).toContainText("Шаг 2 из 3");
   await expectCourseProgrammeReturn(page, mobile, programmeReturnHref);
-  if (mobile) {
-    await page
-      .getByRole("dialog")
-      .getByRole("button", {
-        name: "Закрыть программу",
-        exact: true,
-      })
-      .click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-  }
   const videoMark = await unmark(page, "Просмотрено", "course");
   await videoMark.click();
   await expect(videoMark).toHaveAttribute("aria-pressed", "true");

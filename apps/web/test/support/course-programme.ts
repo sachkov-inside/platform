@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-/** The accepted course Reader exposes one programme entry per viewport. */
+/** Check the viewport-specific course navigation and return its programme link. */
 export async function expectCourseProgrammeReturn(
   page: Page,
   mobile: boolean,
@@ -12,7 +12,10 @@ export async function expectCourseProgrammeReturn(
     course.getByRole("navigation", { name: "Действия материала", exact: true }),
   ).toHaveCount(1);
   await expect(
-    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
+    course.getByRole("navigation", {
+      name: mobile ? "Навигация по урокам" : "Шаги курса",
+      exact: true,
+    }),
   ).toHaveCount(1);
   await expect(
     course.getByRole("navigation", {
@@ -28,11 +31,17 @@ export async function expectCourseProgrammeReturn(
     await expect(trigger).toHaveCount(1);
     await expect(trigger).toBeVisible();
     await trigger.click();
+    const dialog = course.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog
+      .getByRole("button", { name: "Закрыть программу", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
   }
   const action = mobile
     ? course
-        .getByRole("dialog")
-        .getByRole("link", { name: "Страница программы", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
+        .getByRole("link", { name: "К курсу", exact: true })
     : course.getByRole("link", { name: "Вся программа", exact: true });
   await expect(action).toHaveCount(1);
   await expect(action).toBeVisible();
