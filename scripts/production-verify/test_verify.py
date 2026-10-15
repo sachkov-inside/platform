@@ -290,3 +290,160 @@ class PublicRouteTests(unittest.TestCase):
         with patch('verify.http', return_value=(302, 'https://landing.invalid/')):
             verify_public_routes(checks)
         self.assertEqual(checks[-1]['status'], 'failed')
+
+
+class TelegramObservationTests(unittest.TestCase):
+    def snapshot(self):
+        from verify import TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        return {'containerId': 'app', 'startedAt': '2026-10-15T07:50:32Z',
+                'restartCount': 0, 'ready': True,
+                'metrics': dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0)}
+
+    def test_recovered_interval_does_not_clear_historical_counter_failure(self):
+        from verify import telegram_observation_checks, telegram_error_check
+        before = self.snapshot()
+        before['metrics']['inside_telegram_reconciliation_failure_total'] = 4
+        before['metrics']['inside_telegram_reconciliation_degraded_total'] = 4
+        after = self.snapshot()
+        after['metrics'].update(before['metrics'])
+        self.assertTrue(all(item['status'] == 'passed' for item in telegram_observation_checks(before, after, '')))
+        self.assertEqual(telegram_error_check(200, after['metrics'])['status'], 'failed')
+
+    def test_increment_reset_missing_nonfinite_and_negative_counters_fail(self):
+        from verify import telegram_observation_checks
+        for value in [5, 3, None, float('nan'), float('inf'), -1]:
+            with self.subTest(value=str(value)):
+                before, after = self.snapshot(), self.snapshot()
+                name = 'inside_telegram_reconciliation_failure_total'
+                before['metrics'][name] = 4
+                if value is None:
+                    del after['metrics'][name]
+                else:
+                    after['metrics'][name] = value
+                self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))
+
+    def test_restart_replacement_readiness_backlog_unknown_and_logs_fail(self):
+        from verify import telegram_observation_checks
+        for field, value in [('containerId', 'replacement'), ('startedAt', 'later'),
+                             ('restartCount', 1), ('ready', False)]:
+            with self.subTest(field=field):
+                before, after = self.snapshot(), self.snapshot()
+                after[field] = value
+                self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))
+        for name in ['inside_telegram_reconciliation_due', 'inside_telegram_community_effects_unknown']:
+            before, after = self.snapshot(), self.snapshot()
+            before['metrics'][name] = 1
+            self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))
+        self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(
+            self.snapshot(), self.snapshot(), '{"level":"error","private":"secret"}')))
+
+    def test_observation_read_failure_is_private_and_nonpassing(self):
+        from unittest.mock import patch
+        from verify import observe_telegram
+        with patch('verify.telegram_snapshot', side_effect=RuntimeError('private-token')):
+            result = observe_telegram(1)
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['checks'][0]['status'], 'not_checked')
+        self.assertNotIn('private-token', str(result))
+
+    def test_interval_uses_pinned_container_and_bounded_logs(self):
+        from unittest.mock import patch
+        from verify import observe_telegram
+        with patch('verify.telegram_snapshot', side_effect=[self.snapshot(), self.snapshot()]), \
+             patch('verify.time.sleep') as sleep, patch('verify.read_logs', return_value='') as execute:
+            result = observe_telegram(1)
+        self.assertTrue(result['passed'])
+        sleep.assert_called_once_with(1)
+        self.assertEqual(execute.call_args.args[0], {'Id': 'app'})
+        self.assertEqual(execute.call_args.kwargs, {'since': result['startedAt'], 'until': result['finishedAt']})
+
+
+class TelegramObservationVerdictTests(unittest.TestCase):
+    def test_passing_interval_cannot_override_failed_release_check(self):
+        import json
+        import hashlib
+        from unittest.mock import patch
+        from verify import verify_host, check
+        raw = json.dumps({'version': 'v19', 'source': {'sha': 'source'}}).encode()
+        state = {'current': {'manifestSha256': 'sha256:' + hashlib.sha256(raw).hexdigest()}}
+        def fail(manifest, state, record):
+            record.append(check('Telegram error counters', False, 'historical errors'))
+        with patch('verify.pathlib.Path.read_bytes', return_value=raw), \
+             patch('verify.pathlib.Path.read_text', return_value=json.dumps(state)), \
+             patch('verify.validate_context'), patch('verify.verify_telegram', side_effect=fail), \
+             patch('verify.observe_telegram', return_value={'passed': True, 'checks': []}):
+            result = verify_host('telegram', 'v19', telegram_observe_seconds=1)
+        self.assertFalse(result['passed'])
+        self.assertTrue(result['telegramObservation']['passed'])
+        self.assertEqual(result['checks'][-1]['status'], 'failed')
+
+    def test_failed_interval_cannot_produce_green_release_verdict(self):
+        import json
+        import hashlib
+        from unittest.mock import patch
+        from verify import verify_host
+        raw = json.dumps({'version': 'v19', 'source': {'sha': 'source'}}).encode()
+        state = {'current': {'manifestSha256': 'sha256:' + hashlib.sha256(raw).hexdigest()}}
+        with patch('verify.pathlib.Path.read_bytes', return_value=raw), \
+             patch('verify.pathlib.Path.read_text', return_value=json.dumps(state)), \
+             patch('verify.validate_context'), patch('verify.verify_telegram'), \
+             patch('verify.observe_telegram', return_value={'passed': False, 'checks': []}):
+            result = verify_host('telegram', 'v19', telegram_observe_seconds=1)
+        self.assertFalse(result['passed'])
+
+    def test_cli_rejects_invalid_interval_before_server_access(self):
+        import contextlib
+        import io
+        from unittest.mock import patch
+        from verify import main
+        for application, seconds in [('platform', '1'), ('telegram', '0'), ('telegram', '61')]:
+            with self.subTest(application=application, seconds=seconds), \
+                 patch('sys.argv', ['verify.py', '--host', 'example', '--application', application,
+                                    '--version', 'v19', '--telegram-observe-seconds', seconds]), \
+                 contextlib.redirect_stderr(io.StringIO()), patch('verify.run') as execute:
+                with self.assertRaises(SystemExit) as caught:
+                    main()
+                self.assertEqual(caught.exception.code, 2)
+                execute.assert_not_called()
+
+
+class TelegramSnapshotBoundaryTests(unittest.TestCase):
+    def app(self):
+        return {'Id': 'app', 'RestartCount': 0, 'State': {'StartedAt': 'start', 'Running': True,
+                                                       'Health': {'Status': 'healthy'}}}
+
+    def test_restarts_during_http_reads_invalidate_the_snapshot(self):
+        from unittest.mock import patch
+        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        replacement = self.app()
+        replacement['State']['StartedAt'] = 'new-start'
+        with patch('verify.collect_containers', side_effect=[{'app': self.app()}, {'app': replacement}]), \
+             patch('verify.telegram_metrics', return_value=(200, dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0))), \
+             patch('verify.http', return_value=(200, '{"status":"ready"}')):
+            with self.assertRaisesRegex(RuntimeError, 'process changed'):
+                telegram_snapshot()
+
+    def test_missing_and_nonfinite_metrics_invalidate_the_snapshot(self):
+        from unittest.mock import patch
+        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        for value in [None, float('nan'), float('inf'), -1]:
+            values = dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0)
+            if value is None:
+                del values[TELEGRAM_ERROR_COUNTERS[0]]
+            else:
+                values[TELEGRAM_ERROR_COUNTERS[0]] = value
+            with self.subTest(value=str(value)), patch('verify.collect_containers', return_value={'app': self.app()}), \
+                 patch('verify.telegram_metrics', return_value=(200, values)):
+                with self.assertRaisesRegex(RuntimeError, 'metrics unavailable'):
+                    telegram_snapshot()
+
+    def test_bounded_docker_log_read_merges_stderr_without_exposing_it(self):
+        from subprocess import CompletedProcess
+        from unittest.mock import patch
+        from verify import read_logs
+        with patch('verify.subprocess.run', return_value=CompletedProcess([], 0, 'log-lines')) as execute:
+            self.assertEqual(read_logs({'Id': 'app'}, since='start', until='end'), 'log-lines')
+        self.assertEqual(execute.call_args.args[0], ['docker', 'logs', '--since', 'start', '--until', 'end', 'app'])
+        with patch('verify.subprocess.run', return_value=CompletedProcess([], 1, 'private-token')):
+            with self.assertRaisesRegex(RuntimeError, '^logs read failed$'):
+                read_logs({'Id': 'app'}, since='start', until='end')
