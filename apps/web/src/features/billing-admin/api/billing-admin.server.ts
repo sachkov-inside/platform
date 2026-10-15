@@ -33,6 +33,7 @@ import {
   paymentsOutcomeSchema,
   previewBatchInputSchema,
   purchaseInputSchema,
+  readPaymentInputSchema,
   readClassificationInputSchema,
   readGrantsInputSchema,
   reconciledOutcomeSchema,
@@ -218,9 +219,16 @@ export function handleListPayments(request: Request): Promise<Response> {
 export function handleReadPayment(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    purchaseInputSchema,
+    readPaymentInputSchema,
     paymentOutcomeSchema,
-    (input) => ({ ...input, operation: "payments.read" }),
+    (input) => ({
+      operation: "payments.read",
+      operationId: input.operationId,
+      purchaseRef: input.purchaseRef,
+      ...(input.auditCursor === undefined
+        ? {}
+        : { auditCursor: input.auditCursor }),
+    }),
   );
 }
 
@@ -381,17 +389,30 @@ export async function loadBillingOffersForOwner(): Promise<
 > {
   const session = await readAuthenticatedSession("rsc");
   if (session.kind !== "ready") return [];
-  try {
-    const accessToken = session.value;
+  const accessToken = session.value;
+  const items: PriceSnapshot[] = [];
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  for (;;) {
     const result = await requestManageBilling(
-      { operation: "offers.list", operationId: randomUUID(), limit: 100 },
+      {
+        operation: "offers.list",
+        operationId: randomUUID(),
+        limit: 100,
+        ...(cursor === undefined ? {} : { cursor }),
+      },
       accessToken,
     );
-    if (!result.ok) return [];
+    if (!result.ok) throw new Error("Owner billing catalog unavailable");
     const parsed = catalogOffersOutcomeSchema.safeParse(result.body);
-    if (!parsed.success) return [];
-    return parsed.data.result.items;
-  } catch {
-    return [];
+    if (!parsed.success)
+      throw new Error("Owner billing catalog response invalid");
+    items.push(...parsed.data.result.items);
+    const nextCursor = parsed.data.result.nextCursor;
+    if (nextCursor === null) return items;
+    if (seen.has(nextCursor))
+      throw new Error("Owner billing catalog continuation invalid");
+    seen.add(nextCursor);
+    cursor = nextCursor;
   }
 }

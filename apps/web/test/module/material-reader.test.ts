@@ -109,6 +109,7 @@ describe("Material Reader server adapter", () => {
           {
             ordinal: 3,
             series: {
+              id: "72000000-0000-4000-8000-000000000005",
               name: "Создание Platform Inside",
               slug: "platform-inside",
             },
@@ -181,6 +182,7 @@ describe("Material Reader server adapter", () => {
           {
             ordinal: 3,
             series: {
+              id: "72000000-0000-4000-8000-000000000005",
               name: "Создание Platform Inside",
               slug: "platform-inside",
             },

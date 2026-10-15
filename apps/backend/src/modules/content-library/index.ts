@@ -27,3 +27,7 @@ export {
   projectPublishedCatalogAvailability,
   addPublishedCatalogDurations,
 } from "./shared/project-published-catalog-items.js";
+
+export { ListPublicSiteIndexController } from "./features/list-public-site-index/list-public-site-index.controller.js";
+
+export { ReadProductSaleAvailabilityController } from "./features/read-product-sale-availability/read-product-sale-availability.controller.js";

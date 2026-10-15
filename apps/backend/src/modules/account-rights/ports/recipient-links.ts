@@ -25,6 +25,19 @@ export interface RecipientLinks {
         };
       }
   >;
+  readBindings(accountIds: readonly string[]): Promise<
+    | { readonly ok: false }
+    | {
+        readonly ok: true;
+        readonly bindings: ReadonlyMap<
+          string,
+          Extract<
+            Awaited<ReturnType<RecipientLinks["readBinding"]>>,
+            { ok: true }
+          >["binding"]
+        >;
+      }
+  >;
   /** The current binding, or the one at `revision`; a null identity is an unlink tombstone. */
   readBinding(
     query: {

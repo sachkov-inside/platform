@@ -132,3 +132,80 @@ it("continues receiving the legacy written message from a previously opened tab"
     surface.stop();
   }
 });
+
+it("shares one channel for three same-document readers and closes it after the final unsubscribe", async () => {
+  const NativeChannel = BroadcastChannel;
+  let opened = 0;
+  let closed = 0;
+  vi.stubGlobal(
+    "BroadcastChannel",
+    class extends NativeChannel {
+      constructor(name: string) {
+        super(name);
+        opened += 1;
+      }
+      override close() {
+        closed += 1;
+        super.close();
+      }
+    },
+  );
+  const name = "test.fact-announcement.shared-readers";
+  const first = listeningSurface(factAnnouncement(name));
+  const second = listeningSurface(factAnnouncement(name));
+  const third = listeningSurface(factAnnouncement(name));
+  try {
+    expect(opened).toBe(1);
+    first.stop();
+    expect(closed).toBe(0);
+    factAnnouncement(name).announce();
+    await Promise.all([second.received, third.received]);
+    expect(first.deliveries()).toBe(0);
+    expect(second.deliveries()).toBe(1);
+    expect(third.deliveries()).toBe(1);
+    second.stop();
+    expect(closed).toBe(1); // Only the ephemeral writer has closed.
+    third.stop();
+    expect(closed).toBe(2);
+  } finally {
+    first.stop();
+    second.stop();
+    third.stop();
+  }
+});
+
+it.each([1, 10, 100])(
+  "uses one receiving channel for %i independently owned callbacks",
+  async (count) => {
+    const NativeChannel = BroadcastChannel;
+    let opened = 0;
+    vi.stubGlobal(
+      "BroadcastChannel",
+      class extends NativeChannel {
+        constructor(name: string) {
+          super(name);
+          opened += 1;
+        }
+      },
+    );
+    const fact = factAnnouncement(
+      `test.fact-announcement.workload.${String(count)}`,
+    );
+    let delivered = 0;
+    const completed = Promise.withResolvers<undefined>();
+    const stops = Array.from({ length: count }, () =>
+      fact.subscribe(() => {
+        delivered += 1;
+        if (delivered === count) completed.resolve(undefined);
+      }),
+    );
+    try {
+      expect(opened).toBe(1);
+      fact.announce();
+      await completed.promise;
+      expect(delivered).toBe(count);
+    } finally {
+      for (const stop of stops) stop();
+    }
+  },
+);

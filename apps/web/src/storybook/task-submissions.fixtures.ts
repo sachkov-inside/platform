@@ -218,6 +218,7 @@ export const reviewedSubmissions: TaskSubmissions = {
     },
   ],
   nextCursor: null,
+  nextProductCursor: null,
 };
 
 export const submissionsProductId = productId;

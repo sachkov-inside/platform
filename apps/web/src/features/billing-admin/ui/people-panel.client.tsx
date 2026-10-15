@@ -26,7 +26,7 @@ import {
 import {
   assignTariffAssignment,
   changeTariffAssignment,
-  listSubscriptionTiers,
+  listAllSubscriptionTiers,
 } from "../api/enrollments.browser";
 import {
   endOfMoscowDay,
@@ -102,10 +102,7 @@ export function PeoplePanel({
   const tiers = useQuery({
     queryKey: ["owner-subscription-tiers"],
     queryFn: async () => {
-      const result = await listSubscriptionTiers({
-        operationId: crypto.randomUUID(),
-        limit: 100,
-      });
+      const result = await listAllSubscriptionTiers();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
       return result.value.result.items;
     },

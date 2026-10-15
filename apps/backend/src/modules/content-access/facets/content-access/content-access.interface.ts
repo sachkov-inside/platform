@@ -144,10 +144,23 @@ export type ProductAccess = Readonly<{
   kind: "open" | "closed" | "unavailable";
 }>;
 
+export interface AccessAccountsRequest extends Omit<AccessRequest, "subject"> {
+  readonly accountIds: readonly AccountId[];
+}
+
 export interface ContentAccess {
+  /** One resource for many Accounts, with one decision per requested UUID key. */
+  authorizeAccounts?(
+    input: AccessAccountsRequest,
+  ): Promise<ReadonlyMap<string, AccessDecision>>;
   checkAvailabilityMany(
     input: AccessBatchRequest,
   ): Promise<AvailabilityBatchResult>;
   authorize(input: AccessRequest): Promise<AccessDecision>;
   checkProductAccess(input: ProductAccessRequest): Promise<ProductAccess>;
+  /** Complete input-order Product decisions, at most CONTENT_ACCESS_BATCH_SIZE IDs; never author permission. */
+  checkProductAccessMany(input: {
+    readonly subject: Subject;
+    readonly productIds: readonly string[];
+  }): Promise<readonly ProductAccess[]>;
 }

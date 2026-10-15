@@ -230,6 +230,13 @@ for (const access of ["public", "closed"] as const) {
       multipart: { materialId: crypto.randomUUID(), videoId },
     });
     expect(wrongMaterial.status()).toBe(403);
+    // The reader body can finish before streamed metadata moves from BODY into HEAD.
+    // #1364 observed TITLE disappearing during that move; Axe must scan the final document.
+    await expect(page.locator("head > title")).toHaveJSProperty(
+      "textContent",
+      `${title} · Sachkov Inside`,
+    );
+    await expect(page).toHaveTitle(`${title} · Sachkov Inside`);
     const accessibility = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();

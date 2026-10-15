@@ -1,3 +1,4 @@
+import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import { z } from "zod";
 import { coverageSchema } from "@inside/access-capabilities";
 
@@ -127,6 +128,9 @@ export const listPaymentsInputSchema = z.strictObject({
 export const purchaseInputSchema = z.strictObject({
   operationId,
   purchaseRef: z.uuid(),
+});
+export const readPaymentInputSchema = purchaseInputSchema.extend({
+  auditCursor: paymentAuditCursorSchema.optional(),
 });
 export const cancelSubscriptionInputSchema = z.strictObject({
   operationId,
@@ -320,6 +324,7 @@ export const paymentOutcomeSchema = envelope(
       }),
     ),
     decisions: z.array(refundDecisionViewSchema),
+    nextAuditCursor: paymentAuditCursorSchema.nullable(),
     audit: z.array(
       z.object({
         actorId: z.uuid(),
@@ -435,6 +440,7 @@ export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
 export type SaveCohortInput = z.infer<typeof saveCohortInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
+export type ReadPaymentInput = z.infer<typeof readPaymentInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;
 export type CancelSubscriptionInput = z.infer<
   typeof cancelSubscriptionInputSchema

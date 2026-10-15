@@ -28,9 +28,13 @@ export function requestBillingOffers(
   );
 }
 /** Потоки продуктов публичны: запрос идёт без токена и одинаков для всех. */
-export function requestProductCohorts() {
+export function requestProductCohorts(productId?: string, cursor?: string) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).billingProductCohorts(),
+    (request) =>
+      new BillingService(request).billingProductCohorts({
+        ...(productId === undefined ? {} : { productId }),
+        ...(cursor === undefined ? {} : { cursor }),
+      }),
     200,
     {},
   );
@@ -289,5 +293,20 @@ export function requestConfigureProductCommunity(
       }),
     200,
     { accessToken },
+  );
+}
+
+/** Fresh optional-auth admission only: no programme/cohort assembly or cross-request cache. */
+export function requestProductSaleAvailability(
+  productIds: readonly string[],
+  accessToken?: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new BillingService(request).billingProductSaleAvailability({
+        productId: [...productIds],
+      }),
+    200,
+    accessToken === undefined ? {} : { accessToken },
   );
 }

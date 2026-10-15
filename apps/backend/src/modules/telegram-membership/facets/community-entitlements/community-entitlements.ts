@@ -49,7 +49,9 @@ export interface CommunityEntitlementsDependencies {
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly grants: Pick<
     AccessGrants,
-    "resolveCapabilities" | "readChangedAccounts"
+    | "resolveCapabilities"
+    | "resolveCapabilitiesForAccounts"
+    | "readChangedAccounts"
   >;
   readonly links: Pick<TelegramAccountLinks, "readBinding">;
   readonly provider: CommunityEntitlementProvider;
@@ -106,6 +108,17 @@ export class CommunityEntitlements {
       ...this.dependencies,
       grants: {
         ...this.dependencies.grants,
+        resolveCapabilitiesForAccounts: async (
+          accountIds: readonly string[],
+        ) => {
+          productIds ??= readProductIds();
+          return this.dependencies.grants.resolveCapabilitiesForAccounts(
+            accountIds,
+            {
+              productIds: await productIds,
+            },
+          );
+        },
         resolveCapabilities: async (accountId: string) => {
           productIds ??= readProductIds();
           return this.dependencies.grants.resolveCapabilities(accountId, {
@@ -608,17 +621,24 @@ export class CommunityEntitlements {
             updatedAt: true,
           },
         });
-      const items = [];
+      const candidates = observations
+        .slice(0, MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT)
+        .filter((row) => row.observedMembership === "member");
       const groupDependencies = this.groupDependencies;
+      const accessSet =
+        await groupDependencies.grants.resolveCapabilitiesForAccounts(
+          candidates.map((row) => row.accountId),
+        );
+      if (!accessSet.ok) return { ok: false, error: { code: "unavailable" } };
+      const items = [];
       for (const row of observations.slice(
         0,
         MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
       )) {
         if (row.observedMembership !== "member") continue;
-        const access = await groupDependencies.grants.resolveCapabilities(
-          row.accountId,
-        );
-        if (!access.ok) return { ok: false, error: { code: "unavailable" } };
+        const access = accessSet.accounts.get(row.accountId);
+        if (access === undefined)
+          return { ok: false, error: { code: "unavailable" } };
         if (accessAllows(communityAccessFor(access.capabilities), now))
           continue;
         items.push({

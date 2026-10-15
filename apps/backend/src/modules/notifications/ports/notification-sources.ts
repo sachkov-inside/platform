@@ -20,6 +20,10 @@ export type NotificationSource =
       readonly dueAt?: string;
     };
 export interface NotificationSources {
+  canReadAccounts?(
+    accountIds: readonly string[],
+    sourceRef: string,
+  ): Promise<ReadonlyMap<string, "allowed" | "denied" | "unavailable">>;
   resolve(event: NotificationEvent): Promise<NotificationSource>;
   canRead(
     accountId: string,
@@ -27,6 +31,18 @@ export interface NotificationSources {
   ): Promise<"allowed" | "denied" | "unavailable">;
 }
 export interface NotificationRecipients {
+  bindings?(
+    accountIds: readonly string[],
+    source?: NotificationSource,
+  ): Promise<
+    ReadonlyMap<
+      string,
+      {
+        readonly email: PromiseSettledResult<Binding | null>;
+        readonly telegram: PromiseSettledResult<Binding | null>;
+      }
+    >
+  >;
   enumerate(query: {
     occurredAt: Date;
     after: string | null;

@@ -77,6 +77,22 @@ describe("Platform GET /billing/cohorts contract", () => {
       expect(validResponse(invalid)).toBe(false);
   });
 
+  it.each(fixtures.invalid)(
+    "rejects $name before extracting a welcome date",
+    async (fixture) => {
+      const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+      expect(validResponse(fixture.response)).toBe(false);
+      expect(
+        await adapter(() =>
+          Promise.resolve(Response.json(fixture.response)),
+        ).source.read(),
+      ).toEqual({});
+      expect(stderr).toHaveBeenCalledWith(
+        expect.stringContaining("platform_response_invalid"),
+      );
+    },
+  );
+
   it("rejects the whole response before extracting a date", async () => {
     const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     const { name: _name, ...incomplete } = cohort();

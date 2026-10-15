@@ -29,7 +29,7 @@ export interface LearningTaskDependencies {
   /** Off in production until the owner publishes data policy v4 (#946). */
   readonly submissionsEnabled: boolean;
   readonly clock?: () => Date;
-  readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
+  readonly materialAssets?: Pick<MaterialAssets, "loadPresentationsMany">;
 }
 
 export interface CurrentTask {

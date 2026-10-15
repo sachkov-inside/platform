@@ -1,3 +1,4 @@
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
 import type { Route } from "next";
 
 import {
@@ -10,7 +11,7 @@ import {
 } from "@/shared/routing/library-route";
 
 const CURSOR = /^[A-Za-z0-9_-]+$/u;
-const MAX_CURSOR_LENGTH = 512;
+const MAX_CURSOR_LENGTH = PUBLISHED_CATALOG_CURSOR_MAX_LENGTH;
 
 export type LibraryCatalogSort = LibraryRouteSort;
 

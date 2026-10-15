@@ -23,15 +23,18 @@ notification contract version sent here is denied `effect_conflict`.
 ## Desired state
 
 `CommunityEntitlements.project` reads two public facets and writes neither. Access comes from
-`assembleAccessGrants.resolveCapabilities`, which unions every live paid, manual and legacy reason,
-including a live `product:<id>` right, which opens the shared chat on its own term; the verified link
-comes from `TelegramAccountLinks.readBinding`. A missing community capability is `denied`, an
-unbounded one is `lifetime`, a bounded one is `finite` with its exact end. The tier name, the price,
-the presence of a payment and Telegram membership itself are never the rule.
+`assembleAccessGrants.resolveCapabilities` scoped to the Products configured for the shared group.
+It combines live explicit community rights from paid, manual and legacy reasons, applying Product
+exclusions and the bridge's explicit benefits and coverage. A `product:<id>` right alone does not
+open the shared chat. The verified link comes from `TelegramAccountLinks.readBinding`. A missing
+community capability is `denied`, an unbounded one is `lifetime`, a bounded one is `finite` with its
+exact end. The tier name, the price, the presence of a payment and Telegram membership itself are
+never the rule.
 
 One row per Account holds that desired state with a monotone `entitlementRevision`. The revision
 also increases when the verified link moves, not only when access changes. A stale read never moves
 a projection backwards: a lower access or link revision is ignored and the next pass corrects it.
+The public capability result retains its access revision even when the read names a resource scope.
 
 An unlink or relink produces two separate commands to two separate recipients: a `cleanup` denial
 addressed to the historical binding, and, when a new link exists, an `apply` command addressed to

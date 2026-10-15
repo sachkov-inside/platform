@@ -24,6 +24,9 @@ import type {
 } from "./material-assets.js";
 
 const uuidSchema = z.uuid();
+const canonicalUuidSchema = uuidSchema.transform((value) =>
+  value.toLowerCase(),
+);
 const sha256Schema = z.hash("sha256");
 
 export function assembleMaterialAssets(dependencies: {
@@ -410,41 +413,47 @@ export function assembleMaterialAssets(dependencies: {
           },
           include: { materialAssetVariants: true },
         });
-        return rows.flatMap((asset): readonly MaterialAssetPresentation[] => {
-          if (
-            asset.kind === "image" &&
-            asset.width !== null &&
-            asset.height !== null
-          ) {
-            return [
-              {
-                assetId: asset.id,
-                height: asset.height,
-                kind: "image",
-                variants: asset.materialAssetVariants
-                  .map(({ height, width }) => ({ height, width }))
-                  .toSorted((left, right) => left.width - right.width),
-                width: asset.width,
-              },
-            ];
-          }
-          if (
-            asset.kind === "file" &&
-            asset.actualContentType !== null &&
-            asset.actualSize !== null
-          ) {
-            return [
-              {
-                assetId: asset.id,
-                contentType: asset.actualContentType,
-                filename: asset.originalFilename,
-                kind: "file",
-                size: asset.actualSize,
-              },
-            ];
-          }
-          return [];
-        });
+        return presentationRows(rows);
+      });
+    },
+
+    async loadPresentationsMany(references) {
+      return materialAssetQuery("loadPresentationsMany", async () => {
+        const parsed = z
+          .object({
+            materialId: canonicalUuidSchema,
+            assetId: canonicalUuidSchema,
+          })
+          .strict()
+          .array()
+          .parse(references);
+        const groups = new Map<string, Set<string>>();
+        for (const pair of parsed) {
+          const ids = groups.get(pair.materialId) ?? new Set<string>();
+          ids.add(pair.assetId);
+          groups.set(pair.materialId, ids);
+        }
+        const materialGroups = [...groups].map(([materialId, ids]) => ({
+          materialId,
+          id: { in: [...ids] },
+        }));
+        const presentations: MaterialAssetPresentation[] = [];
+        const groupBatchSize = 100;
+        for (
+          let start = 0;
+          start < materialGroups.length;
+          start += groupBatchSize
+        ) {
+          const rows = await prisma.materialAsset.findMany({
+            where: {
+              state: "ready",
+              OR: materialGroups.slice(start, start + groupBatchSize),
+            },
+            include: { materialAssetVariants: true },
+          });
+          presentations.push(...presentationRows(rows));
+        }
+        return presentations;
       });
     },
 
@@ -839,4 +848,56 @@ function toDto(asset: {
       : {}),
     ...(asset.width === null ? {} : { width: asset.width }),
   };
+}
+
+function presentationRows(
+  rows: readonly {
+    readonly id: string;
+    readonly kind: string;
+    readonly width: number | null;
+    readonly height: number | null;
+    readonly actualContentType: string | null;
+    readonly actualSize: number | null;
+    readonly originalFilename: string;
+    readonly materialAssetVariants: readonly {
+      readonly width: number;
+      readonly height: number;
+    }[];
+  }[],
+): readonly MaterialAssetPresentation[] {
+  return rows.flatMap((asset): readonly MaterialAssetPresentation[] => {
+    if (
+      asset.kind === "image" &&
+      asset.width !== null &&
+      asset.height !== null
+    ) {
+      return [
+        {
+          assetId: asset.id,
+          height: asset.height,
+          kind: "image",
+          variants: asset.materialAssetVariants
+            .map(({ height, width }) => ({ height, width }))
+            .toSorted((left, right) => left.width - right.width),
+          width: asset.width,
+        },
+      ];
+    }
+    if (
+      asset.kind === "file" &&
+      asset.actualContentType !== null &&
+      asset.actualSize !== null
+    ) {
+      return [
+        {
+          assetId: asset.id,
+          contentType: asset.actualContentType,
+          filename: asset.originalFilename,
+          kind: "file",
+          size: asset.actualSize,
+        },
+      ];
+    }
+    return [];
+  });
 }

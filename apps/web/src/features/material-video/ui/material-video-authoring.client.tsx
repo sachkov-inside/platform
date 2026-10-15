@@ -70,6 +70,7 @@ export function MaterialVideoAuthoring({
   readonly unselectedUpload: MaterialAuthoringVideo | null;
 }) {
   const operation = useRef(0);
+  const pendingReconciliations = useRef(new Map<string, Promise<undefined>>());
   const uploadAttempt = useRef<BrowserVideoUploadAttempt | null>(null);
   const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(
     null,
@@ -157,19 +158,35 @@ export function MaterialVideoAuthoring({
   );
 
   const reconcile = useCallback(
-    async (videoId: string) => {
+    async (videoId: string, isCurrent: () => boolean = () => true) => {
       const revision = operation.current;
-      const targetIsDeletion = deletionVideo?.videoId === videoId;
-      if (!targetIsDeletion) setPhase("processing");
-      const result = await reconcileVideo({ videoId });
-      if (revision !== operation.current) return;
-      if (targetIsDeletion) {
-        if (result.kind === "ready" && isDeletionState(result.value.state)) {
-          setDeletionVideo(result.value);
-        }
-        return;
+      // Activity and refreshed server props restart effects without ending an outstanding read.
+      // Wait for the previous lifetime, discard its answer, then make a fresh current read.
+      let previous = pendingReconciliations.current.get(videoId);
+      while (previous !== undefined) {
+        await previous;
+        if (revision !== operation.current || !isCurrent()) return;
+        previous = pendingReconciliations.current.get(videoId);
       }
-      applyVideoResult(result);
+      if (revision !== operation.current || !isCurrent()) return;
+      const completed = Promise.withResolvers<undefined>();
+      pendingReconciliations.current.set(videoId, completed.promise);
+      try {
+        const targetIsDeletion = deletionVideo?.videoId === videoId;
+        if (!targetIsDeletion) setPhase("processing");
+        const result = await reconcileVideo({ videoId });
+        if (revision !== operation.current || !isCurrent()) return;
+        if (targetIsDeletion) {
+          if (result.kind === "ready" && isDeletionState(result.value.state)) {
+            setDeletionVideo(result.value);
+          }
+          return;
+        }
+        applyVideoResult(result);
+      } finally {
+        pendingReconciliations.current.delete(videoId);
+        completed.resolve(undefined);
+      }
     },
     [applyVideoResult, deletionVideo?.videoId, reconcileVideo],
   );
@@ -192,11 +209,21 @@ export function MaterialVideoAuthoring({
         deletionVideo.state !== "deleting")
     )
       return;
-    const timer = window.setInterval(() => {
-      void reconcile(deletionVideo.videoId);
+    let active = true;
+    let timer: number | undefined;
+    const poll = async () => {
+      await reconcile(deletionVideo.videoId, () => active);
+      if (active)
+        timer = window.setTimeout(() => {
+          void poll();
+        }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
+    };
+    timer = window.setTimeout(() => {
+      void poll();
     }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
     return () => {
-      window.clearInterval(timer);
+      active = false;
+      window.clearTimeout(timer);
     };
   }, [deletionVideo, reconcile]);
 

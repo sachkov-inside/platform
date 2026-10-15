@@ -52,6 +52,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { createQueryEventClient } from "./setup/query-events.js";
+
 const ajv = new Ajv({ strict: true, allErrors: true });
 addFormats.default(ajv);
 ajv.addSchema(schema);
@@ -353,6 +355,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         botStartUrl: "https://t.me/inside_test_bot",
         clock: () => now,
         grants: {
+          resolveCapabilitiesForAccounts: (ids) =>
+            localGrants.resolveCapabilitiesForAccounts(ids),
           readChangedAccounts: (query) =>
             localGrants.readChangedAccounts(query),
           resolveCapabilities: (accountId) =>
@@ -478,6 +482,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           botStartUrl: "https://t.me/inside_test_bot",
           clock: () => now,
           grants: {
+            resolveCapabilitiesForAccounts: (ids) =>
+              localGrants.resolveCapabilitiesForAccounts(ids),
             readChangedAccounts: (query) =>
               localGrants.readChangedAccounts(query),
             resolveCapabilities: (accountId) =>
@@ -1437,6 +1443,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       accounts,
       clock: () => now,
       grants: {
+        resolveCapabilitiesForAccounts: (ids) =>
+          grants.resolveCapabilitiesForAccounts(ids),
         readChangedAccounts: (query) => grants.readChangedAccounts(query),
         resolveCapabilities: () =>
           Promise.resolve({
@@ -1776,3 +1784,129 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(denial?.access).toEqual({ kind: "denied" });
   });
 });
+
+describe.each([1, 100, 1000, 1001])(
+  "operator Account-set rights workload: %i members",
+  (size) => {
+    let isolated: TestDatabase;
+    let measured: ReturnType<typeof createQueryEventClient>;
+    let app: CommunityEntitlements;
+    let owner: string;
+    beforeAll(async () => {
+      isolated = await createMigratedTestDatabase();
+      measured = createQueryEventClient(isolated.url);
+      const fixed = new Date(start);
+      const ids = Array.from({ length: size }, () => randomUUID());
+      owner = (
+        await bootstrapOwnerAccount(
+          isolated.prisma,
+          { issuer, subject: "bounded-operator" },
+          "platform:admin",
+        )
+      ).accountId;
+      await isolated.prisma.account.createMany({
+        data: ids.map((id) => ({ id, logtoIssuer: issuer, logtoSubject: id })),
+      });
+      if (size === 1) {
+        const groupProduct = randomUUID();
+        const foreignProduct = randomUUID();
+        await isolated.prisma.productCommunity.create({
+          data: {
+            productId: groupProduct,
+            groupRef: "primary",
+            updatedBy: owner,
+            updatedAt: fixed,
+          },
+        });
+        await isolated.prisma.accessGrant.createMany({
+          data: ids.map((id) => ({
+            id: randomUUID(),
+            accountId: id,
+            source: "paid",
+            sourceRef: randomUUID(),
+            capabilities: ["community"],
+            coverage: { productIds: [foreignProduct], materialIds: [] },
+            startsAt: fixed,
+            validUntil: null,
+            revision: 1,
+            reason:
+              "A foreign Product community right must not authorize the configured group",
+          })),
+        });
+      }
+      await isolated.prisma.telegramCommunityOperation.createMany({
+        data: ids.map((id) => ({
+          operationId: randomUUID(),
+          accountId: id,
+          entitlementRevision: 1,
+          purpose: "apply",
+          linkRef: randomUUID(),
+          linkRevision: 1,
+          accountRef: id,
+          identityRef: `identity-${id}`,
+          access: { kind: "denied" },
+          command: {},
+          payloadDigest: "a".repeat(64),
+          issuedAt: fixed,
+          delivery: "accepted",
+          nextAttemptAt: fixed,
+          observedMembership: "member",
+          resultAt: fixed,
+          createdAt: fixed,
+          updatedAt: fixed,
+        })),
+      });
+      const accounts = assembleAccounts({
+        prisma: measured.prisma,
+        emailFingerprintKey: "bounded-members-query-fixture-fingerprint-key",
+      });
+      const grants = assembleAccessGrants({
+        prisma: measured.prisma,
+        accounts,
+        clock: () => fixed,
+      });
+      app = new CommunityEntitlements({
+        accounts,
+        grants,
+        prisma: measured.prisma,
+        links: new TelegramAccountLinks(measured.prisma),
+        provider: new ProviderDouble(),
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => fixed,
+      });
+    });
+    afterAll(async () => {
+      await measured.prisma.$disconnect();
+      await isolated.dispose();
+    });
+    if (size === 1001)
+      test("a failed Account-set dependency never reports a partial success", async () => {
+        await isolated.prisma
+          .$executeRaw`alter table account_rights.access_grants rename to failed_report_grants`;
+        try {
+          expect(await app.listMembersWithoutRight(owner)).toEqual({
+            ok: false,
+            error: { code: "unavailable" },
+          });
+        } finally {
+          await isolated.prisma
+            .$executeRaw`alter table account_rights.failed_report_grants rename to access_grants`;
+        }
+      });
+    test("reports observed members with bounded owner facts", async () => {
+      const read = await measured.measure(() =>
+        app.listMembersWithoutRight(owner),
+      );
+      expect(read.result.ok && read.result.value.items.length).toBe(
+        Math.min(size, 1000),
+      );
+      expect(read.result.ok && read.result.value.truncated).toBe(size > 1000);
+      const rightsReads = read.statements.filter(
+        (sql) => sql.startsWith("SELECT") && sql.includes('"account_rights"'),
+      );
+      expect(rightsReads.length).toBe(
+        4 * Math.ceil(Math.min(size, 1000) / 500),
+      );
+    });
+  },
+);

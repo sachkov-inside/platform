@@ -47,6 +47,68 @@
         ]
       }
     },
-    { "name": "no-streams", "response": { "items": [] } }
+    {
+      "name": "no-streams",
+      "response": {
+        "items": []
+      }
+    },
+    {
+      "name": "web-exhausted-with-explicit-cursor",
+      "streamStartsOn": "2026-10-20",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": 10000,
+            "guideId": "d693cf76-7b3a-4eb8-84c1-945197271e04"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "name": "web-continuation",
+      "streamStartsOn": "2026-10-20",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": 10000,
+            "guideId": "d693cf76-7b3a-4eb8-84c1-945197271e04"
+          }
+        ],
+        "nextCursor": "0d9e8f7a-6b5c-4d3e-8f1a-2b3c4d5e6f7a"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "web-missing-cursor",
+      "response": {
+        "items": [
+          {
+            "productId": "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f",
+            "revision": 1,
+            "name": "Поток 1",
+            "stage": "preorder",
+            "startsOn": "2026-10-20",
+            "nextEvent": "",
+            "priceAfterStartKopecks": 10000,
+            "guideId": "d693cf76-7b3a-4eb8-84c1-945197271e04"
+          }
+        ]
+      }
+    }
   ]
 }

@@ -1,3 +1,6 @@
+import { internalRoute } from "@/shared/routing/internal-route";
+import Link from "next/link";
+import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import {
   ArrowLeft,
   ArrowRight,
@@ -88,7 +91,9 @@ export function ProductTaskView({
           ["mine", "Мои сдачи"],
         ] as const);
   const latest =
-    submissions.kind === "ready" ? submissions.submissions[0] : undefined;
+    submissions.kind === "ready"
+      ? (submissions.latestSubmittedAt ?? undefined)
+      : undefined;
   const submissionBlock = (
     <section
       aria-labelledby={
@@ -194,6 +199,7 @@ export function ProductTaskView({
       title="Мои сдачи"
     >
       <OwnSubmissions
+        historyAnchor={pageId("task-mine")}
         currentVersion={task.version}
         returnTo={returnTo}
         submissions={submissions}
@@ -225,7 +231,7 @@ export function ProductTaskView({
                   data-task-submitted
                 >
                   <CircleCheck aria-hidden="true" className="size-4" />
-                  Сдано {formatSubmissionDay(latest.submittedAt)}
+                  Сдано {formatSubmissionDay(latest)}
                 </span>
               )}
               <span>Требования: версия {task.version}</span>
@@ -267,7 +273,7 @@ export function ProductTaskView({
                     >
                       {latest === undefined
                         ? "Ещё не сдано"
-                        : `Сдано ${formatSubmissionDay(latest.submittedAt)}`}
+                        : `Сдано ${formatSubmissionDay(latest)}`}
                     </span>
                   )}
                   <a
@@ -683,10 +689,12 @@ function SignIn({
 
 function OwnSubmissions({
   currentVersion,
+  historyAnchor,
   returnTo,
   submissions,
 }: {
   readonly currentVersion: number;
+  readonly historyAnchor: string;
   readonly returnTo: string;
   readonly submissions: OwnSubmissionsView;
 }) {
@@ -700,7 +708,20 @@ function OwnSubmissions({
   if (submissions.kind === "unavailable")
     return (
       <p className="text-sm leading-6 text-muted-foreground" role="status">
-        Сдачи сейчас не загрузились. Обнови страницу чуть позже.
+        Сдачи сейчас не загрузились.
+        <RetryPageButton />
+        <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
+          К новым сдачам
+        </Link>
+      </p>
+    );
+  if (submissions.submissions.length === 0 && submissions.continued === true)
+    return (
+      <p>
+        Более ранних сдач нет.{" "}
+        <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
+          К новым сдачам
+        </Link>
       </p>
     );
   if (submissions.submissions.length === 0)
@@ -714,114 +735,139 @@ function OwnSubmissions({
     submissions.versions.map((version) => [version.version, version.criteria]),
   );
   return (
-    <ol className="grid border-l-2 border-border" data-own-submissions>
-      {submissions.submissions.map((submission) => {
-        const criteria = criteriaOf.get(submission.taskVersion) ?? [];
-        const feedback = submission.authorFeedback;
-        return (
-          <li
-            className="relative pb-8 pl-6 last:pb-0"
-            data-submission={submission.submissionId}
-            key={submission.submissionId}
-          >
-            <span
-              aria-hidden="true"
-              className="absolute -left-[0.45rem] top-2 size-3 rounded-full border-2 border-background bg-accent"
-            />
-            <h3 className="font-semibold">
-              <time dateTime={submission.submittedAt}>
-                {formatSubmissionMoment(submission.submittedAt)}
-              </time>
-            </h3>
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {submission.source === "mcp" ? (
-                <span className="inline-flex items-center gap-1">
-                  <Bot aria-hidden="true" className="size-3.5" />
-                  Через агента
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1">
-                  <FileText aria-hidden="true" className="size-3.5" />
-                  Через форму
-                </span>
-              )}
-              <span>
-                Версия требований {submission.taskVersion}
-                {submission.taskVersion === currentVersion
-                  ? ""
-                  : ` (сейчас ${String(currentVersion)})`}
-              </span>
-              {submission.repositoryUrl === null ? null : (
-                <span className="[overflow-wrap:anywhere]">
-                  {submission.repositoryUrl.replace(/^https?:\/\//u, "")}
-                </span>
-              )}
-            </p>
-            <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-7 text-body-muted [overflow-wrap:anywhere]">
-              {submission.note}
-            </p>
-            <div className="mt-3 grid gap-2">
-              {feedback === null || feedback.reviewedAt === null ? null : (
-                <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--callout-good)]">
-                  <Eye aria-hidden="true" className="size-4" />
-                  Посмотрел автор {formatSubmissionDay(feedback.reviewedAt)}
-                </p>
-              )}
-              {feedback === null || feedback.comment === null ? null : (
-                <figure className="rounded-xl bg-[color-mix(in_srgb,var(--accent)_8%,var(--card))] px-4 py-3 text-[0.9375rem] leading-7">
-                  <figcaption className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-action">
-                    <MessageSquareText
-                      aria-hidden="true"
-                      className="size-3.5"
-                    />
-                    Комментарий автора
-                  </figcaption>
-                  <blockquote className="whitespace-pre-line [overflow-wrap:anywhere]">
-                    {feedback.comment}
-                  </blockquote>
-                </figure>
-              )}
-              {feedback === null ? (
-                <p className="text-sm text-muted-foreground">
-                  Автор ещё не смотрел.
-                </p>
-              ) : null}
-            </div>
-            {submission.reportText === null ? null : (
-              <details className="group mt-2">
-                <InlineSummary>Мой отчёт</InlineSummary>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body-muted [overflow-wrap:anywhere]">
-                  {submission.reportText}
-                </p>
-              </details>
-            )}
-            {criteria.length === 0 ? null : (
-              <details className="group mt-1">
-                <InlineSummary>
-                  Критерии версии {submission.taskVersion}
+    <>
+      <ol className="grid border-l-2 border-border" data-own-submissions>
+        {submissions.submissions.map((submission) => {
+          const criteria = criteriaOf.get(submission.taskVersion) ?? [];
+          const feedback = submission.authorFeedback;
+          return (
+            <li
+              className="relative pb-8 pl-6 last:pb-0"
+              data-submission={submission.submissionId}
+              key={submission.submissionId}
+            >
+              <span
+                aria-hidden="true"
+                className="absolute -left-[0.45rem] top-2 size-3 rounded-full border-2 border-background bg-accent"
+              />
+              <h3 className="font-semibold">
+                <time dateTime={submission.submittedAt}>
+                  {formatSubmissionMoment(submission.submittedAt)}
+                </time>
+              </h3>
+              <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {submission.source === "mcp" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Bot aria-hidden="true" className="size-3.5" />
+                    Через агента
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <FileText aria-hidden="true" className="size-3.5" />
+                    Через форму
+                  </span>
+                )}
+                <span>
+                  Версия требований {submission.taskVersion}
                   {submission.taskVersion === currentVersion
-                    ? " (текущей)"
-                    : ""}
-                </InlineSummary>
-                <div className="mt-2 grid gap-3 text-sm leading-6">
-                  <p className="font-semibold">Обязательно</p>
-                  <CriteriaList compact criteria={criteria} level="required" />
-                  {criteria.some(({ level }) => level === "additional") ? (
-                    <>
-                      <p className="font-semibold">Дополнительно</p>
-                      <CriteriaList
-                        compact
-                        criteria={criteria}
-                        level="additional"
+                    ? ""
+                    : ` (сейчас ${String(currentVersion)})`}
+                </span>
+                {submission.repositoryUrl === null ? null : (
+                  <span className="[overflow-wrap:anywhere]">
+                    {submission.repositoryUrl.replace(/^https?:\/\//u, "")}
+                  </span>
+                )}
+              </p>
+              <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-7 text-body-muted [overflow-wrap:anywhere]">
+                {submission.note}
+              </p>
+              <div className="mt-3 grid gap-2">
+                {feedback === null || feedback.reviewedAt === null ? null : (
+                  <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--callout-good)]">
+                    <Eye aria-hidden="true" className="size-4" />
+                    Посмотрел автор {formatSubmissionDay(feedback.reviewedAt)}
+                  </p>
+                )}
+                {feedback === null || feedback.comment === null ? null : (
+                  <figure className="rounded-xl bg-[color-mix(in_srgb,var(--accent)_8%,var(--card))] px-4 py-3 text-[0.9375rem] leading-7">
+                    <figcaption className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-action">
+                      <MessageSquareText
+                        aria-hidden="true"
+                        className="size-3.5"
                       />
-                    </>
-                  ) : null}
-                </div>
-              </details>
+                      Комментарий автора
+                    </figcaption>
+                    <blockquote className="whitespace-pre-line [overflow-wrap:anywhere]">
+                      {feedback.comment}
+                    </blockquote>
+                  </figure>
+                )}
+                {feedback === null ? (
+                  <p className="text-sm text-muted-foreground">
+                    Автор ещё не смотрел.
+                  </p>
+                ) : null}
+              </div>
+              {submission.reportText === null ? null : (
+                <details className="group mt-2">
+                  <InlineSummary>Мой отчёт</InlineSummary>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body-muted [overflow-wrap:anywhere]">
+                    {submission.reportText}
+                  </p>
+                </details>
+              )}
+              {criteria.length === 0 ? null : (
+                <details className="group mt-1">
+                  <InlineSummary>
+                    Критерии версии {submission.taskVersion}
+                    {submission.taskVersion === currentVersion
+                      ? " (текущей)"
+                      : ""}
+                  </InlineSummary>
+                  <div className="mt-2 grid gap-3 text-sm leading-6">
+                    <p className="font-semibold">Обязательно</p>
+                    <CriteriaList
+                      compact
+                      criteria={criteria}
+                      level="required"
+                    />
+                    {criteria.some(({ level }) => level === "additional") ? (
+                      <>
+                        <p className="font-semibold">Дополнительно</p>
+                        <CriteriaList
+                          compact
+                          criteria={criteria}
+                          level="additional"
+                        />
+                      </>
+                    ) : null}
+                  </div>
+                </details>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <nav
+        aria-label="Страницы моих сдач"
+        className="mt-5 flex flex-wrap gap-4 text-sm"
+      >
+        {submissions.continued === true ? (
+          <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
+            К новым сдачам
+          </Link>
+        ) : null}
+        {submissions.nextCursor === null ? null : (
+          <Link
+            href={internalRoute(
+              `${returnTo}?attemptsAfter=${encodeURIComponent(submissions.nextCursor)}#${historyAnchor}`,
             )}
-          </li>
-        );
-      })}
-    </ol>
+          >
+            Предыдущие сдачи
+          </Link>
+        )}
+      </nav>
+    </>
   );
 }
