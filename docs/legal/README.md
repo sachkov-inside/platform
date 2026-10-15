@@ -343,3 +343,7 @@ The owner selected explicit Product community benefits on 2026-10-14 (#1443). Th
 still describes the common group as part of the Product purchase. [#1464](https://github.com/sachkov-inside/platform/issues/1464)
 tracks a prospective edition and consent mapping. No new edition is published by the buyer-journey
 implementation. Published editions and accepted purchase snapshots remain immutable.
+
+Prospective preparation for #1464: [purchase edition 6 draft](purchase-v6-draft.md) and
+[consent/document mapping](../evidence/issue-1359-commercial/README.md#legal-draft-and-mapping).
+This is unpublished text awaiting owner approval; edition 5 and the runtime catalog remain unchanged.
