@@ -32,6 +32,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
         {text}
       </p>
       <Button
+        aria-label={labels[state]}
         className="min-h-11 rounded-lg bg-accent px-4 text-accent-foreground hover:bg-accent-hover"
         onClick={() => {
           clearTimeout(reset.current);
