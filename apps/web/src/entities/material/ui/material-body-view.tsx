@@ -1,3 +1,4 @@
+import { proseLinkClassName } from "@/shared/ui/prose-link";
 import { Fragment, type ReactNode } from "react";
 
 import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
@@ -22,6 +23,12 @@ export interface MaterialBodyRendering {
     block: Extract<RenderedBlock, { kind: "image" }>,
   ) => ReactNode;
   readonly file: (block: Extract<RenderedBlock, { kind: "file" }>) => ReactNode;
+  /** A surface may enrich a known link; undefined keeps the document link unchanged. */
+  readonly link?: (
+    href: string,
+    children: ReactNode,
+    path: readonly number[],
+  ) => ReactNode | undefined;
   /** Existing surface address retained as an alias unless a Content heading owns it. */
   readonly headingId: (path: readonly number[]) => string;
 }
@@ -35,6 +42,8 @@ interface BodyRendering extends MaterialBodyRendering {
 export function MaterialBodyView(props: {
   readonly blocks: readonly RenderedBlock[];
   readonly rendering: MaterialBodyRendering;
+  /** Display top-level blocks in this order, retaining every original path and anchor. */
+  readonly blockOrder?: readonly number[] | undefined;
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
@@ -65,12 +74,15 @@ function BodyBlocks({
   rendering,
   hint,
   hintAt,
+  blockOrder,
   comparison,
   illustrations,
   path,
 }: {
   readonly blocks: readonly RenderedBlock[];
   readonly rendering: BodyRendering;
+  /** Display top-level blocks in this order, retaining every original path and anchor. */
+  readonly blockOrder?: readonly number[] | undefined;
   readonly hint?: ReactNode;
   readonly hintAt?: number | undefined;
   readonly comparison?: MaterialBodyComparison | undefined;
@@ -78,7 +90,19 @@ function BodyBlocks({
     readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
-  return blocks.map((block, index) => {
+  const positions = new Map(
+    blockOrder?.map((index, position) => [index, position]),
+  );
+  const indices = blocks.map((_, index) => index);
+  if (blockOrder !== undefined)
+    indices.sort(
+      (left, right) =>
+        (positions.get(left) ?? blockOrder.length + left) -
+        (positions.get(right) ?? blockOrder.length + right),
+    );
+  return indices.map((index) => {
+    const block = blocks[index];
+    if (block === undefined) return null;
     const blockPath = [...path, index];
     if (
       comparison !== undefined &&
@@ -145,7 +169,11 @@ function BodyBlockView({
     case "paragraph":
       return (
         <p className="mt-6 min-h-7 first:mt-0">
-          <BodyInline content={block.content} />
+          <BodyInline
+            content={block.content}
+            link={rendering.link}
+            path={path}
+          />
         </p>
       );
     case "heading": {
@@ -170,7 +198,11 @@ function BodyBlockView({
               id={rendering.legacyHeadingId(path)}
             />
           )}
-          <BodyInline content={block.content} />
+          <BodyInline
+            content={block.content}
+            link={rendering.link}
+            path={path}
+          />
         </Heading>
       );
     }
@@ -210,12 +242,15 @@ function BodyBlockView({
       );
     case "code_block":
       return (
-        <pre
-          className="mt-8 overflow-x-auto rounded-xl bg-sidebar p-5 font-mono text-[0.8125rem] leading-6 text-sidebar-foreground [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
-          tabIndex={0}
-        >
-          <code>{block.text}</code>
-        </pre>
+        <div className="mt-8 overflow-hidden rounded-xl bg-sidebar text-sidebar-foreground">
+          <pre
+            className="overflow-x-auto p-5 font-mono text-[0.8125rem] leading-6 [scrollbar-color:var(--sidebar-border)_var(--sidebar)]"
+            data-material-code-scroll
+            tabIndex={0}
+          >
+            <code>{block.text}</code>
+          </pre>
+        </div>
       );
     case "horizontal_rule":
       return <hr className="my-12 border-border" />;
@@ -248,7 +283,9 @@ function BodyBlockView({
                 path={branch === undefined ? path : [...path, branch]}
               />
             ),
-            renderInline: (content) => <BodyInline content={content} />,
+            renderInline: (content) => (
+              <BodyInline content={content} link={rendering.link} path={path} />
+            ),
           }}
         />
       );
@@ -269,11 +306,17 @@ function BodyBlockView({
 
 function BodyInline({
   content,
+  link,
+  path,
 }: {
   readonly content: readonly RenderedText[];
+  readonly path: readonly number[];
+  readonly link?: MaterialBodyRendering["link"];
 }) {
   return content.map((text, index) => (
-    <span key={index}>{applyMarks(text.text, text.marks, index)}</span>
+    <span key={index}>
+      {applyMarks(text.text, text.marks, index, link, path)}
+    </span>
   ));
 }
 
@@ -281,6 +324,8 @@ function applyMarks(
   text: string,
   marks: readonly RenderedMark[],
   key: number,
+  link: MaterialBodyRendering["link"],
+  path: readonly number[],
 ): ReactNode {
   return marks.reduceRight<ReactNode>((child, mark, index) => {
     const markKey = `${String(key)}-${String(index)}`;
@@ -300,16 +345,16 @@ function applyMarks(
         return <em key={markKey}>{child}</em>;
       case "strike":
         return <s key={markKey}>{child}</s>;
-      case "link":
-        return (
-          <a
-            className="underline decoration-border underline-offset-4 hover:decoration-accent"
-            href={mark.href}
-            key={markKey}
-          >
+      case "link": {
+        const custom = link?.(mark.href, child, path);
+        return custom === undefined ? (
+          <a className={proseLinkClassName} href={mark.href} key={markKey}>
             {child}
           </a>
+        ) : (
+          <Fragment key={markKey}>{custom}</Fragment>
         );
+      }
     }
   }, text);
 }

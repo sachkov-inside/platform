@@ -8,6 +8,7 @@ import { z } from "zod";
 export const readerProductArtifactSchema = z
   .object({
     artifactId: z.uuid(),
+    sourceId: z.string().nullable().optional(),
     availability: z.enum(["available", "locked"]),
     content: z.discriminatedUnion("kind", [
       z

@@ -46,6 +46,23 @@ test("production reaches attempt 51 and its feedback; a failed continuation retr
     await expect(
       page.locator("[data-own-submissions] [data-submission]"),
     ).toHaveCount(50);
+    // The completed private RSC stream must not erase the Reader's custom history entry.
+    await page.waitForLoadState("load");
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => {
+              resolve();
+            }),
+          );
+          return (
+            Reflect.get(window.history.state ?? {}, "insideReader") !==
+            undefined
+          );
+        }),
+      )
+      .toBe(true);
     await request.post(`${backend}/__own-history`, {
       data: { unavailable: true, hold: true },
     });
@@ -76,6 +93,15 @@ test("production reaches attempt 51 and its feedback; a failed continuation retr
     await expect(
       page.getByText("Oldest feedback remains reachable"),
     ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            Reflect.get(window.history.state ?? {}, "insideReader") !==
+            undefined,
+        ),
+      )
+      .toBe(true);
     await expect(
       page.getByText("Сдано 2 октября", { exact: true }),
     ).toBeVisible();

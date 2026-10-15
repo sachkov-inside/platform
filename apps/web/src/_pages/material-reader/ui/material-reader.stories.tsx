@@ -1,4 +1,14 @@
-import { courseGuide } from "@/storybook/course-reading.fixtures";
+import {
+  InlineArtifactDownload,
+  readInlineArtifactReference,
+} from "@/features/product-artifacts.reader";
+import {
+  briefArtifact,
+  briefDownloadHref,
+} from "@/storybook/customer-brief.fixtures";
+import { resolveReaderReturnTarget } from "../model/reader-return-target";
+import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
+import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
@@ -611,6 +621,14 @@ export const OrderedListStartMobile: Story = {
 
 export const Mobile: Story = {
   args: {},
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The contents row toggles its outline through the native summary, without a separate action label.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -690,7 +708,9 @@ export const Mobile: Story = {
     await expect(
       canvasElement.querySelector("[data-public-header]"),
     ).not.toBeVisible();
-    const back = canvas.getByRole("link", { name: "Назад на Главную" });
+    const back = within(canvas.getByRole("main")).getByRole("link", {
+      name: "Главная",
+    });
     await expect(
       canvasElement.querySelector('[data-reader-return="top"]')?.contains(back),
     ).toBe(true);
@@ -766,6 +786,14 @@ export const MobileBatchedIntersection: Story = {
 
 export const Desktop: Story = {
   args: { primaryVideo: readyVideo },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The contents row toggles its outline through the native summary, without a separate action label.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -774,7 +802,9 @@ export const Desktop: Story = {
       canvas.getByRole("navigation", { name: "В этом материале" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getAllByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getAllByRole("link", {
+        name: "Главная",
+      }),
     ).toHaveLength(1);
     await expect(
       canvas.getByRole("region", { name: "Таблица в материале" }),
@@ -1099,7 +1129,7 @@ export const NotFound: Story = {
       canvas.getByRole("heading", { name: "Материал не найден" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeInTheDocument();
   },
 };
@@ -1245,7 +1275,7 @@ export const ShortMaterial: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeVisible();
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),
@@ -1810,10 +1840,93 @@ const courseContext = {
   programme: courseGuide,
 };
 export const CourseGuide: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Course Reader: compact mobile heading and actions, floating lesson dock, chapter bottom sheet, course-page return; no taxonomy metadata.",
+      },
+    },
+  },
   args: {
     material: { ...material, slug: "course-intro", title: "Как устроен курс" },
     seriesContext: courseContext,
   },
+};
+export const CourseGuideMobile: Story = {
+  ...CourseGuide,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const supplementaryReturn = parseMaterialReaderReturnTarget(
+  "/products/ai-engineering/programme?at=course-intro",
+);
+const supplementaryMaterial = {
+  ...material,
+  slug: "aie-product-brief",
+  title: "Бриф заказчика",
+  seriesMemberships: [
+    {
+      ordinal: 1,
+      series: { id: "aie", name: "AI Engineering", slug: "ai-engineering" },
+    },
+  ],
+};
+export const SupplementaryMaterial: Story = {
+  args: {
+    material: supplementaryMaterial,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: supplementaryReturn,
+    }),
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    await expect(canvas.queryByLabelText("Текущая глава")).toBeNull();
+    await expect(
+      canvas.queryByRole("navigation", { name: "Навигация по урокам" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: "AI Engineering" }),
+    ).toHaveAttribute("href", supplementaryReturn.href);
+  },
+};
+export const SupplementaryMaterialDirect: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: parseMaterialReaderReturnTarget(undefined),
+      inferCourseReturn: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("link", { name: "AI Engineering" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      within(canvasElement).queryByLabelText("Текущая глава"),
+    ).toBeNull();
+  },
+};
+export const SupplementaryMaterialMobile: Story = {
+  ...SupplementaryMaterial,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const CoursePending: Story = {
   render: () => (
@@ -1836,4 +1949,116 @@ export const CourseLocked: Story = {
       }
     />
   ),
+};
+
+export const CustomerBriefDownload: Story = {
+  args: {
+    material: { ...material, slug: "aie-project", title: "Проект курса" },
+    seriesContext: null,
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Читать бриф",
+            marks: [
+              {
+                kind: "link",
+                href: "/materials/inside-content-aie-product-brief",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Скачать бриф (.md)",
+            marks: [{ kind: "link", href: briefDownloadHref }],
+          },
+        ],
+      },
+    ],
+    renderLink: (href, label) =>
+      readInlineArtifactReference(href) === undefined ? undefined : (
+        <InlineArtifactDownload
+          href={href}
+          label={label}
+          artifact={briefArtifact}
+        />
+      ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Скачать бриф (.md)" }),
+    ).toHaveAttribute("download");
+    await expect(
+      canvas.getByRole("link", { name: "Читать бриф" }),
+    ).toHaveAttribute("href", "/materials/inside-content-aie-product-brief");
+    await expect(canvas.getByText(/customer-brief.md/)).toBeVisible();
+  },
+};
+export const CustomerBriefDownloadMobile: Story = {
+  ...CustomerBriefDownload,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const SupplementaryFromTask: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "task", code: "aie-ch1-onboarding" },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    const crumbs = within(
+      canvas.getByRole("navigation", { name: "Хлебные крошки" }),
+    );
+    await expect(
+      crumbs.getByRole("link", {
+        name: "Онбординг нового разработчика за час",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/products/ai-engineering/tasks/aie-ch1-onboarding",
+    );
+    await expect(
+      canvas.queryByRole("navigation", { name: "Шаги курса" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: /Вернуться к заданию:/u }),
+    ).toBeVisible();
+    const rail = canvas.getByLabelText("Текущая глава");
+    if (rail.getClientRects().length > 0) {
+      await expect(rail).not.toHaveTextContent("Открытый материал");
+      await expect(rail).not.toHaveTextContent("Ваше место в курсе");
+    }
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-step="material:aie-product-brief"]',
+      ),
+    ).toBeNull();
+  },
+};
+export const SupplementaryFromTaskMobile: Story = {
+  ...SupplementaryFromTask,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };

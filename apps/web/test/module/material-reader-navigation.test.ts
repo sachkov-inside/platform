@@ -72,7 +72,7 @@ describe("Material Reader navigation", () => {
     expect(parseMaterialReaderReturnTarget("/")).toEqual({
       href: "/",
       kind: "home",
-      label: "Назад на Главную",
+      label: "Главная",
     });
     expect(parseMaterialReaderReturnTarget("/account")).toEqual({
       href: "/account",
@@ -86,7 +86,7 @@ describe("Material Reader navigation", () => {
     expect(filteredLibrary).toEqual({
       href: "/?q=platform&format=video&sort=title",
       kind: "home",
-      label: "Назад на Главную",
+      label: "Главная",
     });
     const nestedTopic = collectionDiscoveryHref(
       "topic",
@@ -116,7 +116,7 @@ describe("Material Reader navigation", () => {
       expect(parseMaterialReaderReturnTarget(value)).toEqual({
         href: "/",
         kind: "home",
-        label: "Назад на Главную",
+        label: "Главная",
       });
     }
   });

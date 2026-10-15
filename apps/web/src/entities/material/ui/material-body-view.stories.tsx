@@ -152,3 +152,57 @@ export const ModelComparisonMobile: Story = {
   ...ModelComparison,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const ProseLinks: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Перед началом работы прочитай ", marks: [] },
+          {
+            kind: "text",
+            text: "Бриф заказчика",
+            marks: [
+              {
+                kind: "link",
+                href: "/materials/inside-content-aie-product-brief",
+              },
+            ],
+          },
+          {
+            kind: "text",
+            text: ". Вернись к нему, когда будешь уточнять требования.",
+            marks: [],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const link = within(canvasElement).getByRole("link", {
+      name: "Бриф заказчика",
+    });
+    await expect(link).toHaveAttribute(
+      "href",
+      "/materials/inside-content-aie-product-brief",
+    );
+    await expect(link).toHaveStyle({ textDecorationLine: "underline" });
+    await userEvent.tab();
+    await expect(link).toHaveFocus();
+    await expect(getComputedStyle(link).outlineStyle).toBe("solid");
+    await expect(
+      parseFloat(getComputedStyle(link).outlineWidth),
+    ).toBeGreaterThanOrEqual(2);
+  },
+};
+export const ProseLinksDark: Story = {
+  ...ProseLinks,
+  decorators: [
+    (Story) => (
+      <div className="dark bg-background p-6 text-foreground">
+        <Story />
+      </div>
+    ),
+  ],
+};

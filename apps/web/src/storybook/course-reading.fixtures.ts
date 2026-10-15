@@ -29,6 +29,12 @@ export const courseSource = {
       title: "Следующий урок",
       availability: "locked" as const,
     },
+    {
+      materialId: "brief-id",
+      slug: "aie-product-brief",
+      title: "Бриф заказчика",
+      availability: "available" as const,
+    },
   ],
   chapters: [
     {

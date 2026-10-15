@@ -44,6 +44,15 @@ export const ChapterNavigation: Story = {
       selector.getBoundingClientRect().right,
     );
     await userEvent.click(selector);
+    await expect(
+      within(document.body)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
+      "Подготовь проект к разработке с агентом и проверь настройку",
+      "Продолжение",
+      "Следующая глава",
+    ]);
     await userEvent.click(
       within(document.body).getByRole("option", { name: "Продолжение" }),
     );
@@ -123,5 +132,52 @@ export const NavigationUnavailable: Story = {
     children: (
       <p>Задание остаётся доступным, когда состав курса не загрузился.</p>
     ),
+  },
+};
+
+export const TabletProgramme: Story = {
+  ...ChapterNavigation,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelector('nav[aria-label="Навигация по урокам"]'),
+    ).not.toBeVisible();
+    const trigger = canvas.getByRole("button", { name: "Вся программа" });
+    await userEvent.click(trigger);
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getBoundingClientRect().left).toBe(0);
+    await expect(
+      within(dialog).getByRole("link", { current: "step" }),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть программу" }),
+    );
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toHaveFocus();
+  },
+};
+export const PhoneProgramme: Story = {
+  ...ChapterNavigation,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("navigation", { name: "Навигация по урокам" }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog", {
+      name: "Программа: AI Engineering",
+    });
+    await expect(dialog).toBeVisible();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть программу" }),
+    );
+    await expect(dialog).not.toBeVisible();
   },
 };

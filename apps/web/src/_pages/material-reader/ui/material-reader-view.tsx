@@ -9,13 +9,18 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import {
+  type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
   materialSourceAnchors,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
+import {
+  ReaderHistoryTracker,
+  ReaderOriginLink,
+} from "@/shared/ui/reader-history.client";
 import {
   MaterialAssetFile,
   MaterialAssetImage,
@@ -25,7 +30,7 @@ import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { topicPath } from "@/shared/routing/public-page-path";
+import { materialPath, topicPath } from "@/shared/routing/public-page-path";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
 import { projectHarnessIllustrations } from "@/features/project-harness";
@@ -41,6 +46,7 @@ import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
@@ -70,6 +76,7 @@ interface OutlineItem {
 
 /** Client-safe presentation shared by the production RSC route and Storybook. */
 export function MaterialReaderView({
+  renderLink,
   body,
   material,
   primaryVideo,
@@ -93,6 +100,14 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
+      <ReaderHistoryTracker
+        path={materialPath(material.slug)}
+        originHref={
+          seriesContext?.supplementary === true
+            ? seriesContext.programme?.current.href
+            : undefined
+        }
+      />
       <ReaderFrame
         context={seriesContext}
         repeatAtBottom={seriesContext === null}
@@ -100,15 +115,17 @@ export function MaterialReaderView({
         target={returnTarget}
         topNavigation={
           <ReaderTopActions
+            breadcrumbs={
+              seriesContext?.programme == null ? (
+                <MaterialReaderBreadcrumbs
+                  material={material}
+                  target={returnTarget}
+                />
+              ) : undefined
+            }
             context={seriesContext}
             readingAction={topReadingAction}
             bookmarkAction={topBookmarkAction}
-            returnAction={
-              <CatalogBackLink
-                href={returnTarget.href}
-                label={returnTarget.label}
-              />
-            }
           />
         }
       >
@@ -116,6 +133,7 @@ export function MaterialReaderView({
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
+            supplementary={seriesContext?.supplementary ?? false}
             actions={
               <>
                 {topBookmarkAction ?? bookmarkAction}
@@ -135,10 +153,11 @@ export function MaterialReaderView({
           )}
           <ReaderOutline items={outline} />
           <article
-            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3:not([data-comparison-heading])]:text-xl md:[&_h4]:text-lg"
+            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
             data-reader-body
           >
             <ReaderBlocks
+              renderLink={renderLink}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -163,7 +182,7 @@ export function MaterialReaderView({
                   readingAction={topReadingAction ?? readingAction}
                 />
               ) : (
-                <CourseReadingFooter context={seriesContext.programme} />
+                <MaterialReaderFooter seriesContext={seriesContext} />
               )}
               {deferredPracticeActions === undefined ? null : (
                 <div
@@ -255,7 +274,9 @@ export function MaterialReaderHeader({
   material,
   programme,
   actions,
+  supplementary = false,
 }: {
+  readonly supplementary?: boolean;
   readonly material: MaterialReaderMetadata;
   readonly programme?: CourseReadingContext | null | undefined;
   readonly actions?: ReactNode;
@@ -271,18 +292,10 @@ export function MaterialReaderHeader({
     return (
       <CourseReadingHeader
         context={programme}
+        supplementary={supplementary}
         title={material.title}
         actions={actions}
-        metadata={
-          <>
-            <span>{materialTaxonomyLabel(material.format.name)}</span>
-            <span>{programme.name}</span>
-            <IntentPrefetchLink href={topicPath(material.topic.slug)}>
-              {material.topic.name}
-            </IntentPrefetchLink>
-            <time dateTime={material.publishedAt}>{publicationDate}</time>
-          </>
-        }
+        metadata={null}
       />
     );
   return (
@@ -316,6 +329,25 @@ export function MaterialReaderFooter({
   readonly format?: string;
 }) {
   if (seriesContext === null) return null;
+  if (seriesContext.supplementary === true && seriesContext.programme != null)
+    return (
+      <nav
+        aria-label="Возврат к месту в курсе"
+        className="mt-8 border-t border-border pt-4"
+        data-reader-footer
+      >
+        <ReaderOriginLink
+          className="inline-flex min-h-11 items-center gap-2 text-action underline underline-offset-4"
+          href={seriesContext.programme.current.href}
+        >
+          Вернуться{" "}
+          {seriesContext.programme.current.kind === "task"
+            ? "к заданию"
+            : "к уроку"}
+          : {seriesContext.programme.current.title}
+        </ReaderOriginLink>
+      </nav>
+    );
   if (seriesContext.programme != null)
     return <CourseReadingFooter context={seriesContext.programme} />;
 
@@ -348,7 +380,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 
   return (
     <div className="mt-6 border-y border-black/8 py-1 sm:mt-8 sm:py-2">
-      <details className="group">
+      <details>
         <summary
           aria-label={`Содержание: ${String(items.length)}`}
           className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
@@ -356,18 +388,6 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
           <span className="inline-flex items-center gap-2">
             <List aria-hidden="true" className="size-4 text-action" />
             Содержание · {items.length}
-          </span>
-          <span
-            aria-hidden="true"
-            className="text-xs text-muted-foreground group-open:hidden"
-          >
-            Открыть
-          </span>
-          <span
-            aria-hidden="true"
-            className="hidden text-xs text-muted-foreground group-open:inline"
-          >
-            Скрыть
           </span>
         </summary>
         <nav
@@ -384,6 +404,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 }
 
 function ReaderBlocks({
+  renderLink,
   blocks,
   contentVersion,
   hint,
@@ -392,6 +413,7 @@ function ReaderBlocks({
   materialSlug,
   path,
 }: {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly hint?: ReactNode;
@@ -414,6 +436,7 @@ function ReaderBlocks({
       hintAt={hintAt}
       path={path}
       rendering={{
+        ...(renderLink === undefined ? {} : { link: renderLink }),
         headingId,
         image: (block) =>
           harness?.replacesOverview === true ? null : (
@@ -482,8 +505,44 @@ export function ReaderFrame({
   return context?.programme == null ? (
     <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
   ) : (
-    <CourseReadingLayout context={context.programme}>
+    <CourseReadingLayout
+      context={context.programme}
+      supplementaryTitle={
+        context.supplementary === true ? context.displayedTitle : undefined
+      }
+    >
       {children}
     </CourseReadingLayout>
+  );
+}
+
+/** Standalone documents retain their logical collection without inventing a primary chapter. */
+export function MaterialReaderBreadcrumbs({
+  material,
+  target,
+}: {
+  readonly material: MaterialReaderMetadata;
+  readonly target: MaterialReaderReturnTarget;
+}) {
+  const course = material.seriesMemberships.find(
+    (item) => item.series.slug === target.seriesSlug,
+  )?.series;
+  return (
+    <Breadcrumbs
+      items={[
+        { label: "Главная", href: target.kind === "home" ? target.href : "/" },
+        ...(target.kind === "series" && target.seriesSlug !== undefined
+          ? [
+              {
+                label: course?.name ?? "Курс",
+                href: target.href,
+              },
+            ]
+          : target.kind === "topic"
+            ? [{ label: material.topic.name, href: target.href }]
+            : []),
+        { label: material.title },
+      ]}
+    />
   );
 }

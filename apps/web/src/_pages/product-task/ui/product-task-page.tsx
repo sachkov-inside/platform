@@ -1,6 +1,10 @@
 import { courseReadingContext } from "@/features/library-discovery";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
+import {
+  loadPublishedSeries,
+  readPublicSeries,
+} from "@/features/library-discovery.server";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
@@ -12,13 +16,16 @@ import {
   getProductTaskPage,
   loadOwnSubmissions,
 } from "../api/load-product-task.server";
-import { ProductTaskUnavailable } from "./product-task-states";
+import {
+  ProductTaskLoading,
+  ProductTaskPending,
+  ProductTaskUnavailable,
+} from "./product-task-states";
 import { ProductTaskClosed, ProductTaskView } from "./product-task-view";
 
 /**
- * The task page reads the session before it renders, so it is one personal layer under its route
- * skeleton, never cached: access, requirements, own submissions and the submission setting all
- * depend on the reader or change at the same address.
+ * Prefetch only the public course composition. Task access, requirements, submissions and
+ * submission settings remain in the uncached personal boundary, like protected lesson bodies.
  */
 export async function ProductTaskPage({
   params,
@@ -29,13 +36,48 @@ export async function ProductTaskPage({
   }>;
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }) {
-  const [{ slug, code }, query] = await Promise.all([
-    params,
-    searchParams ?? Promise.resolve({ attemptsAfter: undefined }),
-  ]);
+  const { slug, code } = await params;
+  const series = await loadPublicTaskProgramme(slug);
+  const programme =
+    (series?.kind === "ready" || series?.kind === "empty") &&
+    series.reference.slug === slug
+      ? courseReadingContext({ series, current: { kind: "task", code } })
+      : null;
+  return (
+    <Suspense
+      fallback={
+        programme === null ? (
+          <ProductTaskLoading />
+        ) : (
+          <ProductTaskPending programme={programme} />
+        )
+      }
+    >
+      <PersonalProductTask
+        code={code}
+        slug={slug}
+        searchParams={searchParams}
+      />
+    </Suspense>
+  );
+}
+
+async function PersonalProductTask({
+  code,
+  slug,
+  searchParams,
+}: {
+  readonly code: string;
+  readonly slug: string;
+  readonly searchParams:
+    | Promise<{ readonly attemptsAfter?: string | readonly string[] }>
+    | undefined;
+}) {
+  await connection();
+  const query = await (searchParams ??
+    Promise.resolve({ attemptsAfter: undefined }));
   const after =
     typeof query.attemptsAfter === "string" ? query.attemptsAfter : undefined;
-  await connection();
   const accessToken = await getOptionalPlatformAccessToken();
   const [result, submissions, series] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
@@ -66,6 +108,16 @@ export async function ProductTaskPage({
 async function loadTaskProgramme(slug: string, token: string | undefined) {
   try {
     return await loadPublishedSeries(slug, token);
+  } catch (error) {
+    if (error instanceof BackendConnectionError) return null;
+    throw error;
+  }
+}
+
+/** A failed guest composition must not hide an otherwise authorized task. */
+async function loadPublicTaskProgramme(slug: string) {
+  try {
+    return await readPublicSeries(slug);
   } catch (error) {
     if (error instanceof BackendConnectionError) return null;
     throw error;

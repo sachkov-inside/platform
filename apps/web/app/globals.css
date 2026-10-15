@@ -557,6 +557,10 @@ body:has(
   outline-offset: 0.1875rem;
 }
 
+[data-material-code-scroll]:focus-visible {
+  outline-offset: -3px;
+}
+
 .profile-field:user-invalid,
 .profile-field[aria-invalid="true"] {
   border-color: var(--destructive);

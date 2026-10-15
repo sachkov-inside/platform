@@ -29,6 +29,7 @@ export class ProductArtifactsService {
         kind: 'link';
       });
       purpose: string;
+      sourceId: string | null;
       title: string;
       updatedAt: string;
       version: number;

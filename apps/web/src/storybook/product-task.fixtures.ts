@@ -97,11 +97,13 @@ export const openProductTask: OpenProductTask = {
   },
   relatedMaterials: [
     {
+      materialId: "33333333-3333-4333-8333-333333333331",
       slug: "mcp-client-server-tools",
       title: "MCP: клиент, сервер, tools и discovery",
       availability: "available",
     },
     {
+      materialId: "33333333-3333-4333-8333-333333333332",
       slug: "review-onboarding-1",
       title: "Разбор: три решения онбординга",
       availability: "locked",

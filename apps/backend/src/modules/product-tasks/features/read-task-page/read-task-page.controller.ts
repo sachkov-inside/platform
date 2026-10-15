@@ -102,6 +102,7 @@ export const taskPageHttpSchema = z.discriminatedUnion("access", [
       relatedMaterials: z.array(
         z
           .object({
+            materialId: z.uuid(),
             slug: z.string(),
             title: z.string(),
             availability: z.enum(["available", "locked", "unavailable"]),
@@ -246,6 +247,7 @@ export class ReadTaskPageController {
         instructions: [...page.reviewProtocol.instructions],
       },
       relatedMaterials: page.relatedMaterials.map((material) => ({
+        materialId: material.materialId,
         slug: material.slug,
         title: material.title,
         availability: material.availability,

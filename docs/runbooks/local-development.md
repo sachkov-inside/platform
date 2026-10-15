@@ -1356,6 +1356,14 @@ What the transfer applies:
   `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
   as the `cover_removal_pending` notice and taken down in Platform by hand. Material
   artifacts as authoring-owned Product artifacts linked to every declaring Material that is published.
+  Each `materials[].artifacts[]` package entry may carry `filename`, such as `customer-brief.md`;
+  packages without it keep their stored asset basename. Authoring Markdown may reference a declared
+  artifact using `[Скачать бриф (.md)](artifact:aie-customer-brief)`. The importer resolves the
+  package's stable artifact ID into the local protected current-file route. Do not author UUIDs,
+  signed storage URLs, environment addresses or fixed file versions in Content. Keep the ordinary
+  link for reading the Material separate. These artifact declarations require the ordinary reviewed
+  release; the content-only preservation wrapper does not apply Product artifact state.
+
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed

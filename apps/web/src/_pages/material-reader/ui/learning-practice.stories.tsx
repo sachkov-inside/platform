@@ -272,16 +272,13 @@ function delayedPractice(
       await settleStoryFrame(width);
       const canvas = within(canvasElement);
       const sequence = stagedLoadingOf(loaded);
-      const anchors = [
-        "[data-material-actions]",
-        "footer:has(nav[aria-label='Документы Inside'])",
-      ];
+      const anchors = ["[data-material-actions]"];
       await expect(
         canvasElement.querySelector("[data-practice-loading]"),
       ).toBeVisible();
       await expect(
-        canvas.getByRole("navigation", { name: "Документы Inside" }),
-      ).toBeVisible();
+        canvas.queryByRole("navigation", { name: "Документы Inside" }),
+      ).not.toBeInTheDocument();
       const before = anchors.map((selector) => boxOf(canvasElement, selector));
       sequence.deliverPersonalPart();
       await waitFor(() =>

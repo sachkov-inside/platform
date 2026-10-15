@@ -112,6 +112,7 @@ export class ProductTasksService {
     access: 'open';
     relatedMaterials: Array<{
       availability: 'available' | 'locked' | 'unavailable';
+      materialId: string;
       slug: string;
       title: string;
     }>;

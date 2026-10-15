@@ -84,16 +84,22 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     exact: true,
   });
   const mobile = await programmeButton.isVisible();
-  if (mobile) await programmeButton.click();
-  const returnLink = course.getByRole("link", {
-    name: mobile ? "Страница программы" : "Вся программа",
-    exact: true,
-  });
+  if (mobile) {
+    await programmeButton.click();
+    await page.keyboard.press("Escape");
+  }
+  const returnLink = mobile
+    ? course
+        .getByRole("navigation", { name: "Хлебные крошки" })
+        .getByRole("link")
+        .first()
+    : course.getByRole("link", { name: "Вся программа", exact: true });
   await expect(returnLink).toHaveAttribute(
     "href",
     `${programme}?part=materials&at=performance-lesson-1`,
   );
   await returnLink.click();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
   await expect(page).toHaveURL(/part=materials.*at=performance-lesson-1/u);
   await expect(
     page.locator('[data-route-material="performance-lesson-1"]:visible'),

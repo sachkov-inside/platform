@@ -1,9 +1,8 @@
 import type { Route } from "next";
 
-import { materialReaderHref } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
-/** Действие участника: первый вход в программу или продолжение открытого урока. */
+/** Действие участника: вход в программу курса с текущим прогрессом. */
 export function courseLearningAction(
   slug: string,
   continuationMaterialSlug: string | null = null,
@@ -15,10 +14,7 @@ export function courseLearningAction(
   const programme = productProgrammeHref(slug);
   return {
     kind: "programme",
-    href:
-      continuationMaterialSlug === null
-        ? programme
-        : materialReaderHref(continuationMaterialSlug, programme),
+    href: programme,
     label:
       continuationMaterialSlug === null
         ? "Открыть программу"

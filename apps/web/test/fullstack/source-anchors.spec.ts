@@ -5,7 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 async function expectTarget(page: Page, id: string) {
-  const heading = page.locator(`h2[id="${id}"]`);
+  const heading = page.locator(`h2[id="${id}"]`).filter({ visible: true });
   await expect(heading).toBeVisible();
   const top = () =>
     heading.evaluate((node) => {
@@ -43,9 +43,12 @@ test("an imported v2 Task and Material keep source fragments through native navi
   await expectTarget(page, "как-спроектировать-один-этап");
   await here.click();
   await expectTarget(page, "как-спроектировать-один-этап");
-  await expect(page.locator('h2[id="раздел-2"]')).toBeVisible();
+  await expect(
+    page.locator('h2[id="раздел-2"]').filter({ visible: true }),
+  ).toBeVisible();
   const ids = await page
     .locator("[id]")
+    .filter({ visible: true })
     .evaluateAll((nodes) => nodes.map((node) => node.id));
   expect(new Set(ids).size).toBe(ids.length);
   expect(

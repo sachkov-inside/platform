@@ -9,7 +9,7 @@ export interface MaterialReaderReturnTarget {
   readonly href: Route;
   readonly kind: MaterialReaderReturnKind;
   readonly label:
-    | "Назад на Главную"
+    | "Главная"
     | "Назад в профиль"
     | "Назад к материалам"
     | "Назад к продукту"
@@ -25,7 +25,7 @@ export const homeMaterialReaderReturnTarget: MaterialReaderReturnTarget =
   Object.freeze({
     href: internalRoute("/"),
     kind: "home",
-    label: "Назад на Главную",
+    label: "Главная",
   });
 
 export function materialReaderOriginHref(

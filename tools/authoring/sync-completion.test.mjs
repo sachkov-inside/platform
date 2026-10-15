@@ -95,7 +95,12 @@ async function fixture(t) {
         coverAssetId: "cover",
         coverAlt: "Обложка",
         artifacts: [
-          { sourceId: "checklist", title: "Чек-лист", assetId: "checklist" },
+          {
+            sourceId: "checklist",
+            title: "Чек-лист",
+            assetId: "checklist",
+            filename: "customer-brief.md",
+          },
         ],
       }),
       row("video", {
@@ -171,6 +176,7 @@ async function fixture(t) {
  *   sourceId: string;
  *   title: string;
  *   materialIds: string[];
+ *   filename?: string;
  * }} FakeArtifact
  * @typedef {object} FakeProduct
  * @property {string} id
@@ -434,6 +440,8 @@ function applicationApi() {
         assert.ok(body instanceof FormData);
         assert.equal(body.get("productSourceId"), "inside-content:product");
         const sourceId = formText(body, "sourceId");
+        const file = body.get("file");
+        assert.ok(file instanceof File);
         const existing = artifacts.get(sourceId);
         const artifact = existing ?? {
           artifactId: uuid(next++),
@@ -442,6 +450,7 @@ function applicationApi() {
           title: formText(body, "title"),
           materialIds: [],
         };
+        artifact.filename = file.name;
         artifacts.set(artifact.sourceId, artifact);
         return {
           artifactId: artifact.artifactId,
@@ -504,6 +513,10 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
   assert.deepEqual(
     valueAt(api.artifacts, "inside-content:checklist").materialIds,
     [lesson.materialId],
+  );
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "customer-brief.md",
   );
   assert.equal(api.product.name, "Продукт");
   assert.equal(
@@ -1819,4 +1832,54 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
     assert.deepEqual(resumed.operations[key], operation);
   assert.equal(taskWrites, 1);
   assert.equal(api.count(/materials\/apply/u), materialWrites);
+});
+
+test("binds an inline source reference to a current-file route and keeps ordinary reading links", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).markdown =
+    "[Читать бриф](https://example.test/brief)\n\n[Скачать бриф (.md)](artifact:checklist)";
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  const command = api.calls
+    .map((call) => materialApplyRequest(call)?.body)
+    .find((item) => item?.source.id === "inside-content:lesson");
+  assert.ok(command);
+  const body = JSON.stringify(command.body);
+  assert.ok(
+    body.includes(
+      `/api/products/${productId}/artifact-sources/inside-content%3Achecklist/file`,
+    ),
+  );
+  assert.ok(body.includes("https://example.test/brief"));
+  assert.equal(body.includes("artifact:checklist"), false);
+  assert.equal(body.includes("?version="), false);
+});
+test("refuses an undeclared artifact reference", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).markdown = "[Скачать](artifact:missing)";
+  await setup.write();
+  await assert.rejects(
+    run(setup, applicationApi()),
+    /unresolved or ambiguous artifact reference/u,
+  );
+});
+test("keeps old packages valid and reapplies a changed filename without changed bytes", async (t) => {
+  const setup = await fixture(t);
+  const artifact = itemAt(itemAt(setup.manifest.materials, 0).artifacts, 0);
+  delete artifact.filename;
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "checklist.md",
+  );
+  artifact.filename = "customer-brief.md";
+  await setup.write();
+  await run(setup, api);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "customer-brief.md",
+  );
 });

@@ -1,4 +1,4 @@
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import Link from "next/link";
 import type { ProductOnboardingPanel } from "./series-journey-controls.client";
 
@@ -10,7 +10,6 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
@@ -103,13 +102,13 @@ export function ProductProgrammeView({
         className="-mt-3 flex flex-wrap items-center justify-between gap-x-3 sm:mt-0 sm:pt-4"
         data-programme-part="back"
       >
-        <CatalogBackLink href="/" label="Главная" />
-        <IntentPrefetchLink
-          className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-border underline-offset-4"
-          href={productHref}
-        >
-          О продукте
-        </IntentPrefetchLink>
+        <Breadcrumbs
+          items={[
+            { label: "Главная", href: "/" },
+            { label: result.reference.name, href: productHref },
+            { label: "Программа" },
+          ]}
+        />
       </nav>
 
       <header

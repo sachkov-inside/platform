@@ -1,4 +1,6 @@
 import type { Route } from "next";
+import { internalRoute } from "@/shared/routing/internal-route";
+import { productPath } from "@/shared/routing/public-page-path";
 import { placeChapterTasks } from "@/entities/product-task.model";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import {
@@ -20,6 +22,7 @@ export interface CourseReadingStep {
   readonly materialOrdinal?: number;
 }
 export interface CourseReadingChapter {
+  readonly href?: Route;
   readonly id: string;
   readonly name: string;
   readonly ordinal?: number;
@@ -28,6 +31,7 @@ export interface CourseReadingChapter {
 export interface CourseReadingContext {
   readonly name: string;
   readonly href: Route;
+  readonly courseHref: Route;
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
@@ -80,22 +84,25 @@ export function courseReadingContext({
       ? returnTarget.href
       : programmeHref;
   const materialReturn = returnTarget?.href ?? href;
-  const items = series.kind === "ready" ? (series.items ?? []) : [];
+  const publishedItems = series.kind === "ready" ? (series.items ?? []) : [];
   const chapterByMaterial = new Map(
     series.chapters.flatMap((chapter) =>
       chapter.materialIds.map((id) => [id, chapter.id] as const),
     ),
+  );
+  const items = publishedItems.filter(
+    (item) =>
+      item.materialId !== undefined && chapterByMaterial.has(item.materialId),
   );
   const leadingChapters = new Set<string>();
   const chapters = productChapterRuns(items, series.chapters, (item) =>
     item.materialId === undefined
       ? null
       : (chapterByMaterial.get(item.materialId) ?? null),
-  ).map((run, index): CourseReadingChapter => {
-    const placed = placeChapterTasks(
-      run.chapter?.tasks ?? [],
-      run.chapter?.materialIds ?? [],
-    );
+  ).flatMap((run, index): CourseReadingChapter[] => {
+    const chapter = run.chapter;
+    if (chapter === null) return [];
+    const placed = placeChapterTasks(chapter.tasks ?? [], chapter.materialIds);
     const taskSteps = (tasks: typeof placed.leading): CourseReadingStep[] =>
       tasks.map((task) => ({
         id: `task:${task.code}`,
@@ -104,41 +111,39 @@ export function courseReadingContext({
         href: productTaskHref(series.reference.slug, task.code),
         availability: task.availability,
       }));
-    const leading =
-      run.chapter === null || leadingChapters.has(run.chapter.id)
-        ? []
-        : taskSteps(placed.leading);
-    if (run.chapter !== null) leadingChapters.add(run.chapter.id);
-    return {
-      id: `${run.chapter?.id ?? "materials"}:${String(index)}`,
-      name: run.chapter?.name ?? "Материалы",
-      ...(run.chapter === null
-        ? {}
-        : {
-            ordinal:
-              series.chapters.findIndex(
-                (chapter) => chapter.id === run.chapter?.id,
-              ) + 1,
-          }),
-      steps: [
-        ...leading,
-        ...run.items.flatMap((item, itemIndex): CourseReadingStep[] => [
-          {
-            id: `material:${item.slug}`,
-            kind: "material",
-            title: item.title,
-            href: materialReaderHref(item.slug, materialReturn),
-            availability: item.availability ?? "available",
-            materialOrdinal: run.offset + itemIndex + 1,
-          },
-          ...taskSteps(
-            item.materialId === undefined
-              ? []
-              : (placed.after.get(item.materialId) ?? []),
-          ),
-        ]),
-      ],
-    };
+    const leading = leadingChapters.has(chapter.id)
+      ? []
+      : taskSteps(placed.leading);
+    leadingChapters.add(chapter.id);
+    return [
+      {
+        id: `${chapter.id}:${String(index)}`,
+        href: internalRoute(
+          `${programmeHref}${run.items[0] === undefined ? "" : `?${new URLSearchParams({ at: run.items[0].slug }).toString()}`}#chapter-${encodeURIComponent(chapter.id)}`,
+        ),
+        name: chapter.name,
+        ordinal:
+          series.chapters.findIndex((entry) => entry.id === chapter.id) + 1,
+        steps: [
+          ...leading,
+          ...run.items.flatMap((item, itemIndex): CourseReadingStep[] => [
+            {
+              id: `material:${item.slug}`,
+              kind: "material",
+              title: item.title,
+              href: materialReaderHref(item.slug, materialReturn),
+              availability: item.availability ?? "available",
+              materialOrdinal: run.offset + itemIndex + 1,
+            },
+            ...taskSteps(
+              item.materialId === undefined
+                ? []
+                : (placed.after.get(item.materialId) ?? []),
+            ),
+          ]),
+        ],
+      },
+    ];
   });
   const steps = chapters.flatMap((chapter) => chapter.steps);
   const id =
@@ -154,6 +159,7 @@ export function courseReadingContext({
   return {
     name: series.reference.name,
     href,
+    courseHref: productPath(series.reference.slug),
     chapters,
     current: step,
     currentChapterId: chapter.id,

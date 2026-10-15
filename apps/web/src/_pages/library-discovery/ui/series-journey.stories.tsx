@@ -396,7 +396,7 @@ export const Chapters: Story = {
       name: "Разделы продукта",
     });
     await expect(sections).toBeVisible();
-    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
+    await expect(within(sections).getAllByRole("button")).toHaveLength(2);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -414,7 +414,7 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Планируется")).toBeVisible();
+    await expect(canvas.getByText("Материалы готовятся")).toBeVisible();
   },
 };
 export const ChaptersMobile: Story = {
@@ -750,7 +750,7 @@ export const OnlyPlannedChapters: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Планируется")).toHaveLength(5);
+    await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(5);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
@@ -758,7 +758,7 @@ export const OnlyPlannedChapters: Story = {
       name: "Разделы продукта",
     });
     await expect(sections).toBeVisible();
-    await expect(within(sections).getAllByRole("button")).toHaveLength(3);
+    await expect(within(sections).getAllByRole("button")).toHaveLength(2);
   },
 };
 
@@ -1266,23 +1266,24 @@ export const ProductPage: Story = {
     await expect(
       canvas.queryByText(introduction.outcome),
     ).not.toBeInTheDocument();
-    await openPart(canvasElement, /Артефакты/u);
-    const section = within(
-      canvas.getByRole("list", { name: "Артефакты продукта" }),
+    const navigation = within(
+      canvas.getByRole("navigation", { name: "Разделы продукта" }),
     );
+    await expect(navigation.getAllByRole("button")).toHaveLength(2);
     await expect(
-      section.getByRole("link", { name: "Скачать" }),
-    ).toHaveAttribute(
-      "href",
-      `/api/products/${productId}/artifacts/${artifacts[0]?.artifactId ?? ""}/file?version=3`,
-    );
-    await expect(
-      section.getByText("compose.production.yaml · 4.0 КБ"),
-    ).toBeVisible();
-    await expect(section.getByText("Откроется с доступом")).toBeVisible();
-    await expect(
-      section.queryByRole("link", { name: "Открыть" }),
+      navigation.queryByRole("button", { name: /Артефакты/u }),
     ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("list", { name: "Артефакты продукта" }),
+    ).not.toBeInTheDocument();
+    await openPart(canvasElement, /^Материалы/u);
+    await expect(
+      canvas.getByRole("list", { name: "Материалы курса" }),
+    ).toBeVisible();
+    await openPart(canvasElement, /^Программа/u);
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
+    ).toBeVisible();
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
@@ -1294,7 +1295,35 @@ export const ProductPageMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
-export const ArtifactSectionUnavailable: Story = {
+/** Старый адрес раздела безопасно открывает программу, без восстановленной вкладки. */
+export const LegacyArtifactsQueryOpensProgramme: Story = {
+  ...ProductPage,
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("part=artifacts"),
+    );
+    return () => {
+      mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
+      cleanup?.();
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(partButton(canvasElement, /^Программа/u)).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Артефакты/u }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const ProgrammeIgnoresUnavailableArtifacts: Story = {
   args: {
     artifacts: { kind: "unavailable" },
     learning: { kind: "guest" },
@@ -1305,13 +1334,15 @@ export const ArtifactSectionUnavailable: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();
-    await openPart(canvasElement, /Артефакты/u);
-    await expect(canvas.getByRole("status")).toHaveTextContent(
-      "Артефакты сейчас не загрузились",
-    );
-    await openPart(canvasElement, /Программа/u);
     await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
+      canvas.queryByRole("button", { name: /Артефакты/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(/Артефакты сейчас не загрузились/u),
+    ).not.toBeInTheDocument();
+    await openPart(canvasElement, /^Материалы/u);
+    await expect(
+      canvas.getByRole("list", { name: "Материалы курса" }),
     ).toBeVisible();
   },
 };
@@ -1365,16 +1396,12 @@ export const ProgrammeProgress: Story = {
       "aria-current",
       "true",
     );
-    await openPart(canvasElement, /Артефакты/u);
-    await expect(partButton(canvasElement, /Артефакты/u)).toHaveAttribute(
+    await openPart(canvasElement, /^Программа/u);
+    await expect(partButton(canvasElement, /^Программа/u)).toHaveAttribute(
       "aria-current",
       "true",
     );
-    await expect(
-      canvas.getByText(
-        "Здесь появятся файлы, шаблоны и инструменты для работы над проектом.",
-      ),
-    ).toBeVisible();
+    await expect(progress).toHaveAttribute("value", "8");
   },
 };
 

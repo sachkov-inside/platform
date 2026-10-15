@@ -9,8 +9,8 @@ interface ProductTaskRouteProps {
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }
 
-/** Страница читает сессию до отрисовки: доступ, требования и свои сдачи личные (#947). */
-export const instant = false;
+/** Same browser retention window as lessons; successful submissions refresh the route. */
+export const unstable_dynamicStaleTime = 60;
 
 /** Рабочая страница ученика, а не витрина: в поиск она не идёт. */
 export const metadata = hiddenPageMetadata("Задание");

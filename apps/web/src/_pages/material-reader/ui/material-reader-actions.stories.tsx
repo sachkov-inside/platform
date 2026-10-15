@@ -139,7 +139,16 @@ const meta = {
       difficulty: "basic",
       outcomes: [],
       publishedAt: at,
-      seriesMemberships: [],
+      seriesMemberships: [
+        {
+          ordinal: 2,
+          series: {
+            id: "72000000-0000-4000-8000-000000000005",
+            slug: "ai-engineering",
+            name: "AI Engineering",
+          },
+        },
+      ],
       slug: "course-intro",
       title: "Как устроен курс",
       summary: "Путь обучения и задания курса.",
@@ -742,7 +751,9 @@ export const StandaloneActionsMobile: Story = {
       name: "Действия материала",
     });
     await expect(
-      within(toolbar).getByRole("link", { name: "Назад к программе" }),
+      within(canvasElement)
+        .getByRole("navigation", { name: "Хлебные крошки" })
+        .querySelector('a[href="/products/ai-engineering/programme"]'),
     ).toBeVisible();
     await expect(
       within(toolbar).queryByRole("link", { name: "Назад" }),

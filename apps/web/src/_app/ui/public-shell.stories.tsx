@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { LegalDocumentPage } from "@/_pages/legal";
-import { PageNotFound } from "@/_pages/route-states";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import {
   accountPresentationResponse,
@@ -14,7 +13,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const terms = currentLegalEdition("terms");
 
-/** Длинная страница маршрута: на ней видно, что шапка телефона и шапка desktop не уезжают. */
+/** Длинная страница: desktop сохраняет шапку; телефон скрывает её вниз и показывает вверх. */
 function LongPage() {
   return (
     <LegalDocumentPage
@@ -170,7 +169,7 @@ export const MemberWithoutTelegramMobile: Story = {
 
 /**
  * Телефон 320: навигация — шапка сверху (решение владельца 09.10.2026). Логотип ведёт на Главную,
- * значки разделов держат цели не меньше 44px, шапка прилипает к верху при прокрутке и не даёт
+ * значки разделов держат цели не меньше 44px, шапка скрывается вниз и появляется вверх, не давая
  * странице уйти вбок. Нижней панели нет.
  */
 export const MobileTopNavigation: Story = {
@@ -203,8 +202,11 @@ export const MobileTopNavigation: Story = {
     if (scrollRoot === null) throw new Error("Документ не прокручивается");
     scrollRoot.scrollTop = 600;
     await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-    await expect(header.getBoundingClientRect().top).toBe(0);
+    await waitFor(() =>
+      expect(header.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
+    );
     scrollRoot.scrollTop = 0;
+    await waitFor(() => expect(header.getBoundingClientRect().top).toBe(0));
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
   },
 };
@@ -212,11 +214,18 @@ export const MobileTopNavigation: Story = {
 /** Короткая страница: подвал стоит внизу экрана, а не сразу под текстом. */
 function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
   return {
-    ...publicPageEnvironment("/does-not-exist"),
+    ...publicPageEnvironment("/legal/terms"),
     globals: viewport,
-    render: () => <PageNotFound />,
+    render: () => (
+      <LegalDocumentPage
+        blocks={parseLegalText(terms.text).slice(0, 1)}
+        current={terms}
+        edition={terms}
+        superseded={[]}
+      />
+    ),
     play: async ({ canvasElement }) => {
-      const footer = canvasElement.querySelector("footer");
+      const footer = canvasElement.querySelector(".public-footer-slot footer");
       if (footer === null) throw new Error("В оболочке нет подвала");
       const view = canvasElement.ownerDocument.defaultView;
       if (view === null) throw new Error("У story нет окна");

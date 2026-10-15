@@ -432,13 +432,45 @@ stored order or group entity. Current membership owns the label. Published proje
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing return controls. Within a checked Product,
-Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
-previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count;
-the normal application legal footer remains visible. Common navigation rows make no personal access
+Reader and Product Task share Course B: a 272 px chapter rail, one metadata/action row and a named
+previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count.
+A primary Material receives its course frame from explicit membership in an actual Product chapter.
+A supplementary Material opened from a primary lesson or Task keeps that originating step as its course anchor.
+The displayed document, primary course anchor and browser return entry remain distinct values.
+An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existing validated programme `from`.
+The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
+A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
+counts, progress or previous/next. The sidebar selects the originating step; breadcrumbs name the open document.
+A thin dashed orange sidebar line connects chapter markers to the current anchor and stops there.
+Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
+Below 48rem, the floating lesson dock opens the bottom programme sheet.
+From 48rem to below 64rem, a top button opens a left overlay drawer; the bottom dock is absent.
+At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
+The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
+Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
+Direct links without a valid anchor use standalone Reader and retain the confirmed course breadcrumb and return.
+Chapter selection lists actual chapters only, without a synthetic Materials chapter.
+
+Teaching pages use visible hierarchical breadcrumbs: catalogue, Product, programme, Materials and Tasks.
+Long breadcrumb names truncate with an ellipsis; the full name remains available in the title and accessible text.
+A course document shows Product, chapter and current document. A supplementary document also includes its
+originating primary step; intermediate supplementary documents belong to browser history, not to breadcrumbs.
+Breadcrumbs use a named navigation landmark and identify the current page. They wrap on narrow screens.
+Profile, checkout, authoring and Home do not gain breadcrumbs through this change.
+
+Course and anchor survive reload in the URL. Scroll positions, selected sidebar chapter and expanded mobile
+chapters belong to a browser history entry, stored per tab under that entry's opaque identity.
+Back traverses document history. Explicit return opens the originating entry's exact URL and restores its view
+when available. Reload preserves the course anchor; absent history, blocked storage or a new tab use a safe
+route fallback. No global last-course preference or cross-tab navigation state is used.
+The supplementary Materials catalogue, its contents and resource links remain available.
+Standalone Reader keeps the normal application legal footer. Common navigation rows make no personal access
 claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,
 with missing anchors at the chapter start. Empty chapters and task-only products remain visible.
 The sequence preserves authored Material order and keeps Material ordinals, progress and counts independent.
-Reader uses explicit validated `from`; it never guesses one Product from several memberships.
+Reader preserves explicit validated `from` for confirmed Product membership independently of chapter navigation.
+Without an explicit source, a sole Product membership supplies the programme return; multiple memberships never select an arbitrary Product.
+Prose links use the semantic action color, a persistent underline, a stronger hover underline and a visible keyboard focus outline in all themes.
 Task uses its known Product slug; composition/history failures do not hide authorized requirements or close submission.
 Guest composition stays in public cache; personal availability/history stays request-owned.
 Pending/access states reserve the same course frame; standalone fallback, mode variants and protected assets remain intact.
@@ -612,7 +644,7 @@ Account без права получают «не найдено». `ContentAcce
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
 «Открыть программу». После первого открытия урока кнопка становится «Продолжить обучение» и
-ведёт к актуальному продолжению с возвратом в программу. При завершённом курсе или недоступном
+ведёт на учебную страницу программы курса. Текущий урок выбирают внутри программы. При завершённом курсе или недоступном
 продолжении остаётся «Открыть программу». Этап продаж и доступность каталога предложений не
 скрывают действие участника. Доступ и продолжение читаются личной частью вне общего кеша и
 предзагрузки; общий первый экран и гостевой путь сохраняются (#1336).
@@ -663,30 +695,51 @@ MCP `content_collection_update` принимают необязательный 
 показывает только написанные поля, поэтому частично заполненное руководство не выглядит
 завершённым.
 
-Раздел артефактов страница читает отдельным `GET /products/:productId/artifacts`, который уже отдаёт
-`availability` по общему `ContentAccess`. Закрытый артефакт сохраняет название, назначение, версию
-и дату обновления, но не байты и не внешний адрес. Недоступность этого раздела не ломает страницу:
-маршрут и введение остаются, а читателю сказано, что раздел сейчас не открывается. Так же ведёт себя
-и рассогласование, когда каталог руководство нашёл, а раздел артефактов отвечает `404`: страница
-остаётся целой, потому что читателю нечего выиграть от потери всей страницы из-за одного раздела. Файл выдаётся
-через same-origin `/api/products/:productId/artifacts/:artifactId/file`; решение о доступе, protected
-redirect и cache policy остаются за backend.
+Owner correction 2026-10-14: the learner programme no longer displays an artifacts section.
+Artifact data, authoring and file access remain available through their existing contracts.
+`GET /products/:productId/artifacts` reports `availability` through `ContentAccess`.
+Locked artifacts retain metadata without bytes or external addresses. The same-origin
+`/api/products/:productId/artifacts/:artifactId/file` route retains backend access, protected
+redirect and cache policy. Removing learner navigation does not delete these files or contracts.
+
+A Material may place a real file action inline using the authoring Markdown reference
+`[Скачать бриф (.md)](artifact:aie-customer-brief)`. This is an import reference, not a browser
+protocol: the importer requires a declared artifact in the Material's Product, qualifies its source
+ID with the package namespace, and writes a same-origin source download route. Unknown or ambiguous
+references fail validation. Ordinary Material reading links remain separate and keep their targets.
+The Reader displays a file action, original filename and size; locked, loading and unavailable
+states never invent a downloadable address. Personal file availability streams independently of the
+Material body. `GET /products/:productId/artifacts` includes the nullable authoring `sourceId`.
+`/api/products/:productId/artifact-sources/:sourceId/file` resolves that exact source's current
+version and reuses protected artifact delivery. It neither pins an author link to an old version nor
+bypasses ContentAccess, placement, archive or file checks.
+
+Artifact package declarations accept optional `filename`; omitted values retain the previous package
+basename fallback. The filename belongs to each declaration, rather than to a content-addressed asset:
+identical bytes may have different download names. Import fingerprints include the effective filename.
+A filename-only change creates a new file version and an identical repeat remains a no-op. The
+database schema and existing artifact UUID stay unchanged. Each multipart artifact upload sets its
+complete part budget to its allowed scalar fields plus its single file.
+
 
 Шапка программы содержит обложку 3:2, название, приглашение к оплате и прогресс вошедшего
 читателя. Приглашение стоит в одном ряду с названием, а на узком экране — отдельной строкой во
 всю ширину; заготовка на время проверки доступа занимает то же место. Главы показаны без
-порядкового номера и стоят на одной линии пути: у главы с уроками точка залита, у готовящейся —
-пустая, а её описание лежит в пунктирной карточке. Номер урока стоит в квадратной плитке превью:
+порядкового номера: у главы с уроками точка залита, у готовящейся — пустая.
+У готовящейся главы показаны метка «Материалы готовятся» и описание в пунктирной карточке.
+Вертикальных линий между главами нет (решение владельца 14.10.2026), поэтому оформление
+не зависит от постепенной загрузки списка. Номер урока стоит в квадратной плитке превью:
 без обложки он и есть её рисунок, с обложкой — метка в углу (решение владельца 30.09.2026,
 platform#808). Результаты обучения и сложность читателю не показываются,
 но сохраняются в metadata и редакторе (#1362). Отметка
 изученного и действие «Продолжить» относятся к конкретному уроку. Количества и доступ
 берутся из текущих Materials, а не из демонстрационного набора оформления.
 
-Части состава — «Программа», «Дополнительные материалы» и «Артефакты» — следуют решению владельца
-10.09.2026 о переключаемых частях. В принятом виде программы, восстановленном 15.09.2026, все три вкладки видны постоянно;
-пустая часть показывает короткое объяснение. Артефакты не входят в маршрут, поэтому их часть не нумеруется и
-не постранична. Условия доступа и цены на странице не показываются: они приходят из #401/#411.
+Owner correction 2026-10-14 supersedes the former three-part programme layout. The learner
+programme has two parts: «Программа» and «Материалы». Empty parts retain their explanations.
+The mobile bar uses compact inactive icons; its active item expands and shows its label.
+Artifact navigation and its learner panel are removed. Stored artifacts, the editor and
+landing-page promises retain their current owners. Prices and access contracts remain with #401/#411.
 
 ### Режимы прохождения и факты урока
 
@@ -1443,7 +1496,8 @@ version. Task title comes from the definition's YAML; the page heading uses `pag
 
 The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
 «Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and inserts the usual
-submission controls before «Материалы к заданию». The current v2 Reader definition excludes
+related Materials before the authored instructions and keeps submission controls and history
+near the end (owner decision 14.10.2026, #1427). The current v2 Reader definition excludes
 `acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
 Markdown links through the same source map as the page without rewriting stored authored text.
 Source links may target either a Material or a Task. Asset delivery checks access to the Task and
@@ -1473,9 +1527,11 @@ Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); 
 the look by prototype on 05.10.2026: the page is variant A «Документ», the programme places tasks
 in author order (variant 2).
 
-- `/products/<product-slug>/tasks/<code>` reads the session before rendering and is never cached. An
-  open v1 task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
-  «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
+- `/products/<product-slug>/tasks/<code>` prefetches public course composition and keeps session,
+  requirements and submissions in an uncached personal boundary (ADR 0027). The browser retains
+  a visited task for the same 60-second window as lessons; submission writes refresh that route.
+  An open v1 task first shows related Materials with explicit studied progress, then «Ситуация»,
+  «Результат», «Обязательно», «Дополнительно» and «Свобода», followed by «Сдача» and «Мои сдачи». «Сдача» shows the learning MCP
   address, the phrase with the task code and procedure v3, the same text MCP returns, with the
   fallback form folded below. A task the reader cannot open shows only its title and chapter and
   leads to the programme; an unknown code, a code of another Product and a withdrawn task answer 404.
@@ -1575,8 +1631,8 @@ Only applicable subscription and card controls appear. Receipt and refund detail
 
 For a Product with actual community access, incomplete onboarding is the first programme section
 and the default on a new visit. Its steps are Telegram linking, joining that Product's configured
-group and starting learning. Explicit programme return links keep their target. Programme, Materials
-and Artifacts remain available. Completed onboarding disappears from desktop and mobile navigation.
+group and starting learning. Explicit programme return links keep their target. Programme and Materials
+remain available. Completed onboarding disappears from desktop and mobile navigation.
 Learning-start persistence is independent of the current lesson composition.
 
 [The access model](../product/access-model.md#product-community-and-revocation--owner-decision-2026-10-14)

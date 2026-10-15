@@ -85,6 +85,7 @@ export const productTaskPageSchema = z.discriminatedUnion("access", [
       relatedMaterials: z.array(
         z
           .object({
+            materialId: z.uuid(),
             slug: z.string(),
             title: z.string(),
             availability: z.enum(["available", "locked", "unavailable"]),

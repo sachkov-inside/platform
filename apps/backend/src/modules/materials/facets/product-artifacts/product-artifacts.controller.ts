@@ -569,7 +569,12 @@ async function readUpload(
   let part: MultipartFile;
   try {
     const uploaded = await request.file({
-      limits: { fields, fileSize: MATERIAL_ASSET_LIMITS.fileBytes, files: 1 },
+      limits: {
+        fields,
+        fileSize: MATERIAL_ASSET_LIMITS.fileBytes,
+        files: 1,
+        parts: fields + 1,
+      },
     });
     if (uploaded === undefined) throw new Error("missing file");
     part = uploaded;

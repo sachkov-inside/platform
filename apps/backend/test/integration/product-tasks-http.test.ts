@@ -245,7 +245,13 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       access: "open",
       task: { code: freeCode, version: 1, definition: { criteria: [{}, {}] } },
       reviewProtocol: { version: "4" },
-      relatedMaterials: [{ title: "Что строим", availability: "available" }],
+      relatedMaterials: [
+        {
+          materialId: anchorId,
+          title: "Что строим",
+          availability: "available",
+        },
+      ],
       submission: { accepting: true },
     });
     const closed = await server.inject({

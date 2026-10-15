@@ -95,7 +95,9 @@ export function serializeLearningTaskContext(input: {
         ...(input.page === undefined ? {} : { page: input.page }),
       },
       reviewProtocol: taskReviewProtocol,
-      relatedMaterials: input.relatedMaterials,
+      relatedMaterials: input.relatedMaterials.map(
+        ({ slug, title, availability }) => ({ slug, title, availability }),
+      ),
       submission: {
         tool: "learning_task_submit",
         taskVersion: task.version,
