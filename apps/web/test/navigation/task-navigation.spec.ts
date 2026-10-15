@@ -275,6 +275,9 @@ test("free lesson without mode variants reads saved Task state privately", async
   const path =
     "/materials/navigation-lesson-1?from=%2Fproducts%2Fnavigation-saved-tasks%2Fprogramme";
   await page.goto(path);
+  await expect(
+    page.locator('[data-material-reader-state="available"]:visible'),
+  ).toBeVisible();
   if (testInfo.project.name === "mobile-chromium")
     await page
       .getByRole("button", { name: "Вся программа", exact: true })
@@ -284,6 +287,9 @@ test("free lesson without mode variants reads saved Task state privately", async
   ).toHaveCount(0);
   await context.addCookies([await memberCookie(baseURL)]);
   await page.goto(path);
+  await expect(
+    page.locator('[data-material-reader-state="available"]:visible'),
+  ).toBeVisible();
   if (testInfo.project.name === "mobile-chromium")
     await page
       .getByRole("button", { name: "Вся программа", exact: true })
