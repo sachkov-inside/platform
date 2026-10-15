@@ -10,6 +10,7 @@
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
     "dev:video-deletions-worker": "pnpm --filter @inside/backend dev:video-deletions-worker",
     "storybook": "pnpm --filter @inside/web storybook",
+    "design:lab": "node scripts/design-lab.mjs",
     "platform:doctor": "bash scripts/doctor.sh",
     "identity:proof:certs": "node scripts/identity-proof-certificates.mjs",
     "identity:proof:build": "docker compose --env-file infra/identity/logto/compose.env -f infra/identity/logto/compose.yaml build logto",
