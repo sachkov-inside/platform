@@ -21,6 +21,7 @@ import {
   type CommunicationsRequest,
 } from "../../src/modules/communications/communications-contract.js";
 import { required } from "../support/required.js";
+import { destroyTestDatabase } from "../support/destroy-test-database.js";
 
 import { AuthorBroadcastDrafts } from "../../src/modules/communications/author-broadcast-drafts.js";
 import { AuthorFunnelDrafts } from "../../src/modules/communications/author-funnel-drafts.js";
@@ -82,14 +83,14 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   try {
-    if (databaseCreated) await database.destroy();
+    if (databaseCreated)
+      await destroyTestDatabase(
+        database,
+        required(owner),
+        required(ownedDatabaseName),
+      );
   } finally {
-    try {
-      if (ownedDatabaseName !== undefined)
-        await owner?.query(`DROP DATABASE ${ownedDatabaseName} WITH (FORCE)`);
-    } finally {
-      await owner?.end();
-    }
+    await owner?.end();
   }
 });
 
