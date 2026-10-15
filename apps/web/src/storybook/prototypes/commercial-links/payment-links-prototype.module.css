@@ -25,11 +25,11 @@
 .root h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 .root p {
   line-height: 1.65;
-  margin-bottom: 16px;
+  margin-bottom: calc(80px + env(safe-area-inset-bottom));
   max-width: 68ch;
 }
 .workspace {
@@ -201,7 +201,7 @@
     gap: 32px;
   }
   .switcher {
-    bottom: 16px;
+    bottom: calc(80px + env(safe-area-inset-bottom));
     max-width: calc(100% - 24px);
     gap: 4px;
     font-size: 0.8125rem;

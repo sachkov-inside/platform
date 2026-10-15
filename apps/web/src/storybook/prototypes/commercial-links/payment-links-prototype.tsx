@@ -222,7 +222,7 @@ export function PaymentLinksPrototype({
     </form>
   );
   return (
-    <div className={styles["root"]} data-variant={variant}>
+    <main className={styles["root"]} data-variant={variant}>
       <p className={styles["notice"]}>
         Интерактивный прототип · данные вымышлены · реальные платежи отключены
       </p>
@@ -481,6 +481,6 @@ export function PaymentLinksPrototype({
           </Button>
         </nav>
       )}
-    </div>
+    </main>
   );
 }
