@@ -54,6 +54,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0093_product_learning_started",
         "0094_task_review_progress",
         "0095_task_submission_review_run",
+        "0096_material_task",
       ],
     });
     expect(
