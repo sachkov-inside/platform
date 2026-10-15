@@ -15,6 +15,10 @@ export interface CoverageCatalog {
   resolve(scope: unknown): Promise<CoverageEntry[]>;
   /** At most 1000 scopes and 2000 distinct entries; overflow fails explicitly. */
   resolveMany(scopes: readonly unknown[]): Promise<CoverageEntry[][]>;
+  /** Products that existed during bounded whole-platform access periods, including archived ones. */
+  resolveWholePlatformProducts?(
+    periods: readonly { startsAt: Date; endsAt: Date }[],
+  ): Promise<CoverageEntry[]>;
 }
 
 export const COVERAGE_CATALOG = Symbol("COVERAGE_CATALOG");

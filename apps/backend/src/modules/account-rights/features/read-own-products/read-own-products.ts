@@ -55,6 +55,8 @@ export async function readOwnProducts(
       transaction,
       accountId(targetAccountId),
       now,
+      undefined,
+      { includeRevision: false, maximumExclusions: 1000 },
     );
     return { history: history.filter((grant) => grant.startsAt <= now), facts };
   });
@@ -74,15 +76,37 @@ export async function readOwnProducts(
   const productIds = [...new Set(scopes.flatMap((scope) => scope.productIds))];
   if (productIds.length > 1000) return accessFailure("unavailable");
   // Explicit references retain archived Products even beside a whole-platform grant.
-  const entries = await catalog.resolveMany([
-    { productIds, materialIds: [] },
-    ...(scopes.some((scope) => scope.wholePlatform === true)
-      ? [{ ...empty, wholePlatform: true as const }]
-      : []),
-  ]);
+  const periods = history.flatMap((grant, index) =>
+    scopes[index]?.wholePlatform === true
+      ? [
+          {
+            startsAt: grant.startsAt,
+            endsAt: new Date(
+              Math.min(
+                now.getTime(),
+                grant.revokedAt?.getTime() ?? Infinity,
+                grant.validUntil?.getTime() ?? Infinity,
+              ),
+            ),
+          },
+        ]
+      : [],
+  );
+  if (
+    facts.classification?.bridgeCoverage != null &&
+    coverageSchema.parse(facts.classification.bridgeCoverage).wholePlatform ===
+      true
+  )
+    periods.push({ startsAt: facts.classification.verifiedAt, endsAt: now });
+  if (periods.length > 0 && catalog.resolveWholePlatformProducts === undefined)
+    return accessFailure("unavailable");
+  const entries = await catalog.resolveMany([{ productIds, materialIds: [] }]);
+  const historical =
+    periods.length === 0
+      ? []
+      : ((await catalog.resolveWholePlatformProducts?.(periods)) ?? []);
   const products = new Map(
-    entries
-      .flat()
+    [...entries.flat(), ...historical]
       .filter((entry) => entry.kind === "product")
       .map((entry) => [entry.id, entry]),
   );
@@ -108,24 +132,28 @@ export async function readOwnProducts(
           )
             return "available";
           const bridge = facts.classification;
-          if (
+          const bridgeCovers =
             bridge?.bridgeBenefits.includes(capability) === true &&
             scopeIncludesProduct(
               coverageSchema.parse(bridge.bridgeCoverage ?? empty),
               product.id,
-            ) &&
+            );
+          if (
+            bridgeCovers &&
             facts.exclusions.some(
               (entry) => entry.productId === product.id && entry.bridge,
             )
           )
             return "revoked";
           if (
+            bridgeCovers &&
+            bridge.bridgeEnabled &&
+            facts.projection?.decision === "not_member"
+          )
+            return "expired";
+          if (
             bridge?.bridgeEnabled === true &&
-            bridge.bridgeBenefits.includes(capability) &&
-            scopeIncludesProduct(
-              coverageSchema.parse(bridge.bridgeCoverage ?? empty),
-              product.id,
-            ) &&
+            bridgeCovers &&
             (facts.projection === null ||
               facts.projection.decision === "unavailable" ||
               (facts.projection.decision === "member" &&

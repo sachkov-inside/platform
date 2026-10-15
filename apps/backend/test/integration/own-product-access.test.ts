@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { beforeAll, afterAll, expect, test } from "vitest";
+import { beforeEach, afterEach, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   assembleAccessGrants,
@@ -18,7 +18,7 @@ import {
 let db: TestDatabase;
 let grants: AccessGrants;
 const now = new Date("2030-01-15T00:00:00.000Z");
-beforeAll(async () => {
+beforeEach(async () => {
   db = await createMigratedTestDatabase();
   grants = assembleAccessGrants({
     prisma: db.prisma,
@@ -30,7 +30,149 @@ beforeAll(async () => {
     clock: () => now,
   });
 });
-afterAll(async () => db.dispose());
+afterEach(async () => db.dispose());
+
+test("an oversized Product exclusion set fails explicitly instead of reading an unbounded view", async () => {
+  const accountId = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: accountId,
+      logtoIssuer: "https://own-products.test",
+      logtoSubject: accountId,
+    },
+  });
+  await db.prisma.productAccessExclusion.createMany({
+    data: Array.from({ length: 1001 }, () => ({
+      accountId,
+      productId: randomUUID(),
+      grantIds: [],
+      bridge: true,
+      actorId: accountId,
+      reason: "Exclusion boundary fixture",
+      revokedAt: now,
+    })),
+  });
+  expect(await grants.readOwnProducts(accountId)).toMatchObject({
+    ok: false,
+    error: { code: "unavailable" },
+  });
+});
+
+test("a past whole-platform right retains archived Products from its actual period only", async () => {
+  const accountId = randomUUID();
+  const retained = randomUUID();
+  const later = randomUUID();
+  const earlier = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: accountId,
+      logtoIssuer: "https://own-products.test",
+      logtoSubject: accountId,
+    },
+  });
+  await db.prisma.product.createMany({
+    data: [
+      {
+        id: retained,
+        slug: `retained-${retained}`,
+        name: "Retained course",
+        createdAt: new Date("2029-12-01T00:00:00.000Z"),
+        archivedAt: new Date("2030-01-12T00:00:00.000Z"),
+      },
+      {
+        id: later,
+        slug: `later-${later}`,
+        name: "Later course",
+        createdAt: new Date("2030-01-13T00:00:00.000Z"),
+      },
+      {
+        id: earlier,
+        slug: `earlier-${earlier}`,
+        name: "Earlier course",
+        createdAt: new Date("2029-12-01T00:00:00.000Z"),
+        archivedAt: new Date("2029-12-20T00:00:00.000Z"),
+      },
+    ],
+  });
+  await db.prisma.accessGrant.create({
+    data: {
+      id: randomUUID(),
+      accountId,
+      source: "manual",
+      sourceRef: randomUUID(),
+      capabilities: ["materials", "community"],
+      coverage: { productIds: [], materialIds: [], wholePlatform: true },
+      startsAt: new Date("2030-01-01T00:00:00.000Z"),
+      validUntil: new Date("2030-01-10T00:00:00.000Z"),
+      revision: 1,
+      reason: "Past subscription fixture",
+    },
+  });
+  const result = await grants.readOwnProducts(accountId);
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("Expected Product history");
+  expect(result.value.some((product) => product.id === retained)).toBe(true);
+  expect(
+    result.value.some(
+      (product) => product.id === later || product.id === earlier,
+    ),
+  ).toBe(false);
+});
+
+test("confirmed legacy source departure reports ended rights", async () => {
+  const accountId = randomUUID();
+  const productId = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: accountId,
+      logtoIssuer: "https://own-products.test",
+      logtoSubject: accountId,
+    },
+  });
+  await db.prisma.product.create({
+    data: { id: productId, slug: `ended-${productId}`, name: "Ended course" },
+  });
+  await db.prisma.legacyClassification.create({
+    data: {
+      accountId,
+      classification: "confirmed_legacy",
+      sourceRef: randomUUID(),
+      reason: "Legacy course fixture",
+      verifiedAt: now,
+      revision: 1,
+      bridgeEnabled: true,
+      bridgeBenefits: ["materials", "community"],
+      bridgeCoverage: { productIds: [productId], materialIds: [] },
+    },
+  });
+  const principalRef = randomUUID();
+  await db.prisma.membershipBinding.create({
+    data: { accountId, principalRef, linkedAt: now },
+  });
+  await db.prisma.membershipProjection.create({
+    data: {
+      accountId,
+      principalRef,
+      decision: "not_member",
+      evidenceRef: randomUUID(),
+      evidenceVersion: 1n,
+      evidenceFingerprint: "a".repeat(64),
+      checkedAt: now,
+      validUntil: new Date("2030-01-16T00:00:00.000Z"),
+      updatedAt: now,
+    },
+  });
+  expect(await grants.readOwnProducts(accountId)).toMatchObject({
+    ok: true,
+    value: [
+      {
+        id: productId,
+        materials: { state: "expired" },
+        community: { state: "expired" },
+      },
+    ],
+  });
+});
 
 test("an excluded legacy Product reports the confirmed revocation without inventing provider expiry", async () => {
   const accountId = randomUUID();
