@@ -17,7 +17,6 @@ import {
 import styles from "./product-task-view.module.css";
 import { TaskPageBody } from "./task-page-body";
 import { TaskRelatedMaterials } from "./task-related-materials.client";
-import { taskRelatedSectionOrder } from "../model/task-related-section";
 
 import { ProductTaskForm } from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
@@ -210,8 +209,7 @@ export function ProductTaskView({
         )}
 
         <div className={styles["body"]}>
-          {taskRelatedSectionOrder(task.page?.body.blocks ?? []) ===
-          undefined ? (
+          {task.page === undefined ? (
             <TaskRelatedMaterials
               anchor={{ kind: "task", code: task.code }}
               headingId={pageId("task-related-heading")}

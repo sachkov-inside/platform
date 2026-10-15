@@ -896,3 +896,42 @@ export const RequirementsChangedDuringReview: Story = {
     ).toBeVisible();
   },
 };
+
+export const AuthoredWithoutGeneralMaterials: Story = {
+  render: (args) => {
+    const authored = openFormatCTask.task.page;
+    if (authored === undefined)
+      throw new Error("Authored Task fixture missing");
+    return (
+      <ProductTaskView
+        {...args}
+        page={{
+          ...openFormatCTask,
+          task: {
+            ...openFormatCTask.task,
+            page: {
+              ...authored,
+              body: {
+                ...authored.body,
+                blocks: authored.body.blocks.slice(0, -2),
+              },
+            },
+          },
+        }}
+      />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.queryByRole("heading", { name: "Материалы к заданию", exact: true }),
+    ).toBeNull();
+    await expect(
+      page.getByRole("heading", { name: "Что нужно сделать", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /^урок$/u })).toHaveAttribute(
+      "href",
+      "/materials/synthetic-lesson?from=%2Fproducts%2Fai-engineering%2Fprogramme&anchor=task%3Asynthetic-c-task",
+    );
+  },
+};

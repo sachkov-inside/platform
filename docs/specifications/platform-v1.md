@@ -1504,9 +1504,11 @@ MaterialBody and source-reference maps. Page changes advance the Task revision, 
 version. Task title comes from the definition's YAML; the page heading uses `page.title`.
 
 The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
-«Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and inserts the usual
-related Materials before the authored instructions and keeps submission controls and history
-near the end (owner decision 14.10.2026, #1427). The current v2 Reader definition excludes
+«Что нужно сделать», explanations and «Что решаешь сам», folds signed callouts according to their initial state (#1196), and moves
+an explicitly authored «Материалы к заданию» section before the instructions. When that section is
+absent, related metadata alone does not create a general materials block. Inline study links stay
+in the authored document; Tasks without an authored page retain their legacy related-Materials block.
+Submission controls and history stay near the end (owner correction 15.10.2026, #1427). The current v2 Reader definition excludes
 `acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
 Markdown links through the same source map as the page without rewriting stored authored text.
 Source links may target either a Material or a Task. Asset delivery checks access to the Task and
