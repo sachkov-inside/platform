@@ -737,10 +737,18 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
             exact: true,
           });
           const mobile = await allProgramme.isVisible();
-          if (mobile) await allProgramme.click();
+          if (mobile) {
+            await allProgramme.click();
+            const dialog = courseReader.getByRole("dialog");
+            await expect(dialog).toBeVisible();
+            await dialog
+              .getByRole("button", { name: "Закрыть программу", exact: true })
+              .click();
+            await expect(dialog).toHaveCount(0);
+          }
           await courseReader
             .getByRole("link", {
-              name: mobile ? "Страница программы" : "Вся программа",
+              name: mobile ? "К курсу" : "Вся программа",
               exact: true,
             })
             .click();
