@@ -114,6 +114,23 @@ export function TaskSubmissionHistory({
           Обновить
         </Button>
       </div>
+      {submissions.currentVersion === currentVersion ? null : (
+        <div
+          role="status"
+          className="grid justify-items-start gap-2 text-sm leading-6"
+        >
+          <p>Требования обновились. Обнови задание перед следующей сдачей.</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              router.refresh();
+            }}
+          >
+            Обновить задание
+          </Button>
+        </div>
+      )}
       {query.isError ? (
         <p role="status" className="text-sm text-destructive">
           Не удалось получить обновления. Показаны последние загруженные данные.
@@ -140,7 +157,7 @@ export function TaskSubmissionHistory({
             </time>
             . Ещё не отправлено.
           </p>
-          {progress.taskVersion === currentVersion ? null : (
+          {progress.taskVersion === submissions.currentVersion ? null : (
             <p className="text-sm">
               Требования изменились. Попроси агента проверить работу заново.
             </p>
@@ -188,10 +205,11 @@ export function TaskSubmissionHistory({
                       ? "Через агента"
                       : "Через форму"}
                   </span>
-                  {submission.taskVersion === currentVersion ? null : (
+                  {submission.taskVersion ===
+                  submissions.currentVersion ? null : (
                     <span>
                       Версия требований {submission.taskVersion} (сейчас{" "}
-                      {currentVersion})
+                      {submissions.currentVersion})
                     </span>
                   )}
                   {submission.repositoryUrl === null ? null : (

@@ -1,3 +1,4 @@
+import { practiceReviewSetupText } from "@/features/learner-mcp";
 import {
   variantDiagram,
   expectVariantDiagram,
@@ -805,6 +806,71 @@ export const SavedAgentReport: Story = {
     await expect(page.queryByText("Автор ещё не смотрел.")).toBeNull();
     await expect(
       page.getByText("Сдача отправлена", { exact: true }),
+    ).toBeVisible();
+  },
+};
+
+/** The task keeps setup on the same page; the agent receives the identical canonical text. */
+export const ConnectionHelp: Story = {
+  args: { submissions: notSubmittedYet },
+  decorators: [
+    withMutationFetch((input) => {
+      const path = input instanceof Request ? input.url : input.toString();
+      if (path.endsWith("/practice-review-setup.txt"))
+        return Promise.resolve(
+          new Response(
+            practiceReviewSetupText({
+              url: learnerMcpUrl,
+              publicClientId: "storybook_public_client",
+            }),
+            { headers: { "content-type": "text/plain; charset=utf-8" } },
+          ),
+        );
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }),
+  ],
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      page.getByText("Подключить учебный MCP", { exact: true }),
+    );
+    await expect(
+      page.getByRole("button", { name: "Скопировать запрос подключения" }),
+    ).toBeVisible();
+    await userEvent.click(
+      page.getByText("Подробная инструкция и помощь", { exact: true }),
+    );
+    await userEvent.click(await page.findByText("Codex", { exact: true }));
+    await expect(
+      page.getByText(/codex mcp login inside_learning/u),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("link", { name: "Инструкция подключения" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const RequirementsChangedDuringReview: Story = {
+  args: {
+    submissions: {
+      ...reviewHistory,
+      currentVersion: openProductTask.task.version + 1,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByText(
+        "Требования обновились. Обнови задание перед следующей сдачей.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Обновить задание" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Требования изменились. Попроси агента проверить работу заново.",
+      ),
     ).toBeVisible();
   },
 };
