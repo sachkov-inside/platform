@@ -211,12 +211,12 @@ export class SubscriptionActivationIntegrationService {
         };
       } | null;
       rule?: {
-        id: string;
-        product?: {
+        guide?: {
           id: string;
           name: string;
           slug: string;
         };
+        id: string;
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -411,12 +411,12 @@ export class SubscriptionActivationIntegrationService {
         };
       } | null;
       rule?: {
-        id: string;
-        product?: {
+        guide?: {
           id: string;
           name: string;
           slug: string;
         };
+        id: string;
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';

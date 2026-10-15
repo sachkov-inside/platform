@@ -312,14 +312,26 @@ function reachesRequestTimeDependency(specifier) {
  *
  * @param {Program} program
  */
-function readsCookiesOrFetches(program) {
+function readsCookiesOrFetches(program, allowedCookieName = "") {
   let found = false;
+  let cookieAccesses = 0;
+  let allowedCookieAccesses = 0;
   new Visitor({
     MemberExpression(node) {
-      if (memberPropertyName(node) === "cookies") found = true;
+      if (memberPropertyName(node) === "cookies") cookieAccesses += 1;
     },
     CallExpression(node) {
       const callee = node.callee;
+      if (
+        allowedCookieName !== "" &&
+        callee.type === "MemberExpression" &&
+        ["get", "set"].includes(memberPropertyName(callee) ?? "") &&
+        callee.object.type === "MemberExpression" &&
+        memberPropertyName(callee.object) === "cookies" &&
+        node.arguments[0]?.type === "Literal" &&
+        node.arguments[0].value === allowedCookieName
+      )
+        allowedCookieAccesses += 1;
       if (
         (callee.type === "Identifier" && callee.name === "fetch") ||
         (callee.type === "MemberExpression" &&
@@ -329,7 +341,7 @@ function readsCookiesOrFetches(program) {
       }
     },
   }).visit(program);
-  return found;
+  return found || cookieAccesses > allowedCookieAccesses;
 }
 
 /**
@@ -1361,7 +1373,7 @@ for (const entry of [...parsedFiles.keys()].filter(
   for (const { file, program } of reachableModules(entry)) {
     if (
       moduleSpecifiers(program).some(reachesRequestTimeDependency) ||
-      readsCookiesOrFetches(program)
+      readsCookiesOrFetches(program, "inside.logout-return")
     ) {
       findings.push(
         `${scannedPath(entry)}: proxy decides without a backend request; it cannot reach the backend or the session (via ${scannedPath(file)})`,

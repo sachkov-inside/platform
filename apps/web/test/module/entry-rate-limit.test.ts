@@ -61,7 +61,7 @@ function overrunBillingCommand(
 
 /** Раздел документов в том же `matcher` проверяет адрес, а не частоту (ADR 0027). */
 const entryMatcher = proxyConfig.matcher.filter(
-  (path) => path !== "/legal/:path+",
+  (path) => path !== "/legal/:path+" && path !== "/",
 );
 
 /** Сравнивает matcher с перечнем ограничителя; пустой список — совпадение. */

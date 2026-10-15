@@ -148,4 +148,31 @@ export class TelegramMembershipService {
       },
     });
   }
+  /**
+   * Read public Product navigation metadata without identity or access details
+   * @returns any
+   * @throws ApiError
+   */
+  public readTelegramActivationIntent({
+    attemptId,
+  }: {
+    attemptId: string,
+  }): CancelablePromise<({
+    state: 'unavailable';
+  } | {
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+    };
+    state: 'ready' | 'expired';
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/telegram-activation-intents/{attemptId}',
+      path: {
+        'attemptId': attemptId,
+      },
+    });
+  }
 }

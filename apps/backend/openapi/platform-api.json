@@ -117953,12 +117953,7 @@
                                 "rule": {
                                   "additionalProperties": false,
                                   "properties": {
-                                    "id": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "product": {
+                                    "guide": {
                                       "additionalProperties": false,
                                       "properties": {
                                         "id": {
@@ -117979,6 +117974,11 @@
                                         "name"
                                       ],
                                       "type": "object"
+                                    },
+                                    "id": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
                                     },
                                     "revision": {
                                       "exclusiveMinimum": true,
@@ -119193,12 +119193,7 @@
                                 "rule": {
                                   "additionalProperties": false,
                                   "properties": {
-                                    "id": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "product": {
+                                    "guide": {
                                       "additionalProperties": false,
                                       "properties": {
                                         "id": {
@@ -119219,6 +119214,11 @@
                                         "name"
                                       ],
                                       "type": "object"
+                                    },
+                                    "id": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
                                     },
                                     "revision": {
                                       "exclusiveMinimum": true,
@@ -142529,6 +142529,93 @@
         "summary": "Read the aggregated sales funnel of one Product by bot source for the owner",
         "tags": [
           "Sales funnel"
+        ]
+      }
+    },
+    "/telegram-activation-intents/{attemptId}": {
+      "get": {
+        "operationId": "readTelegramActivationIntent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attemptId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "product": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        "state": {
+                          "enum": [
+                            "ready",
+                            "expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "product"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read public Product navigation metadata without identity or access details",
+        "tags": [
+          "Telegram Membership"
         ]
       }
     }
