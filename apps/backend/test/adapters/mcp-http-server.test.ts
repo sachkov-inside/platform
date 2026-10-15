@@ -311,6 +311,8 @@ describe("MCP Streamable HTTP adapter", () => {
 function fakeAccounts(): Accounts {
   return {
     readIdentityForLink: () => Promise.resolve(undefined),
+    readIdentitiesForLink: (ids) =>
+      Promise.resolve(new Map(ids.map((id) => [id, undefined]))),
     establishAccount: () =>
       Promise.resolve({
         ok: false,

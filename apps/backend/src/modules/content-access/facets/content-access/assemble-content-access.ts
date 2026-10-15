@@ -7,6 +7,7 @@ import {
 
 import type {
   AccessAction,
+  AccessAccountsRequest,
   AccessAvailability,
   AccessBatchRequest,
   AccessDecision,
@@ -178,6 +179,147 @@ export function assembleContentAccess(
       };
     },
 
+    async authorizeAccounts(
+      input: AccessAccountsRequest,
+    ): Promise<ReadonlyMap<string, AccessDecision>> {
+      const ids = [...new Set(input.accountIds)];
+      if (ids.length > CONTENT_ACCESS_BATCH_SIZE)
+        throw new RangeError("Content Access Account batch exceeds bound");
+      if (ids.length === 0) return new Map();
+      let facts: ResolvedResourceFacts | null;
+      try {
+        facts = await resolveOneResourceFacts(dependencies, input.resource);
+      } catch (error) {
+        return dependencyFailure(
+          { module: "content-access", operation: "authorizeAccounts" },
+          error,
+          new Map(ids.map((id) => [id, decision("dependency_unavailable")])),
+        );
+      }
+      if (facts === null || facts.resourceKey !== resourceKey(input.resource))
+        return new Map(
+          ids.map((id) => [
+            id,
+            decision(
+              facts === null ? "resource_not_found" : "resource_mismatch",
+            ),
+          ]),
+        );
+      const readerOnly =
+        input.action !== "preview" && facts.archivedOnly === true;
+      let permissions: ReadonlyMap<string, SubjectFacts["permission"]> =
+        new Map(ids.map((id) => [id, "denied"]));
+      if (needsSubjectFacts(facts, input.action) && !readerOnly) {
+        try {
+          permissions =
+            dependencies.accountPermissions.hasMaterialsManageMany === undefined
+              ? new Map(
+                  await Promise.all(
+                    ids.map(
+                      async (id) =>
+                        [
+                          id,
+                          (
+                            await resolveSubjectFacts(
+                              dependencies,
+                              { kind: "account", accountId: id },
+                              false,
+                            )
+                          )?.permission ?? "unavailable",
+                        ] as const,
+                    ),
+                  ),
+                )
+              : await dependencies.accountPermissions.hasMaterialsManageMany(
+                  ids,
+                );
+        } catch (error) {
+          reportDependencyFailure(
+            { module: "content-access", operation: "authorizeAccounts" },
+            error,
+          );
+          permissions = new Map(ids.map((id) => [id, "unavailable"]));
+        }
+      }
+      const readers = needsMembership(facts, input.action)
+        ? ids.filter((id) => permissions.get(id) === "denied")
+        : [];
+      let memberships: ReadonlyMap<string, MembershipAccessState> = new Map();
+      if (readers.length > 0) {
+        const selected = facts;
+        try {
+          memberships =
+            dependencies.accountRights.resolveForAccessAccounts === undefined
+              ? new Map(
+                  await Promise.all(
+                    readers.map(
+                      async (id) =>
+                        [
+                          id,
+                          await dependencies.accountRights.resolveForAccess(
+                            id,
+                            selected.productIds ?? [],
+                            selected.archivedOnly === true
+                              ? undefined
+                              : selected.materialId,
+                          ),
+                        ] as const,
+                    ),
+                  ),
+                )
+              : await dependencies.accountRights.resolveForAccessAccounts(
+                  readers,
+                  selected.productIds ?? [],
+                  selected.archivedOnly === true
+                    ? undefined
+                    : selected.materialId,
+                );
+        } catch (error) {
+          reportDependencyFailure(
+            { module: "content-access", operation: "authorizeAccounts" },
+            error,
+          );
+          memberships = new Map(
+            readers.map((id) => [id, { kind: "unavailable" }]),
+          );
+        }
+      }
+      const selected = facts;
+      return new Map(
+        ids.map((id) => {
+          const membership = memberships.get(id);
+          const subjectFacts: SubjectFacts = {
+            permission: permissions.get(id) ?? "unavailable",
+            ...(membership === undefined ? {} : { membership }),
+          };
+          const reason = evaluate(
+            selected,
+            input.action,
+            { kind: "account", accountId: id },
+            subjectFacts,
+          );
+          const result: AccessDecision =
+            reason === "public_resource" || reason === "materials_manager"
+              ? allow(reason, selected.contentVersion)
+              : reason === "active_membership" &&
+                  subjectFacts.membership?.kind === "active"
+                ? {
+                    ...metadata(),
+                    effect: "allow",
+                    reason,
+                    validUntil: subjectFacts.membership.validUntil,
+                    checkedContentVersion: selected.contentVersion,
+                  }
+                : decision(
+                    reason === "active_membership"
+                      ? "dependency_unavailable"
+                      : reason,
+                  );
+          return [id, result];
+        }),
+      );
+    },
+
     async authorize(input: AccessRequest): Promise<AccessDecision> {
       let facts: ResolvedResourceFacts | null;
       try {
@@ -227,6 +369,58 @@ export function assembleContentAccess(
         };
       }
       return decision(reason);
+    },
+
+    async checkProductAccessMany({
+      subject,
+      productIds,
+    }: {
+      readonly subject: Subject;
+      readonly productIds: readonly string[];
+    }): Promise<readonly ProductAccess[]> {
+      if (productIds.length > CONTENT_ACCESS_BATCH_SIZE)
+        throw new RangeError("Product access batch exceeds its bound");
+      if (productIds.length === 0) return [];
+      if (subject.kind === "anonymous")
+        return productIds.map(() => ({ kind: "closed" as const }));
+      try {
+        const resources = productIds.map((productId) => ({
+          productIds: [productId],
+        }));
+        const states =
+          dependencies.accountRights.resolveManyForAccess === undefined
+            ? await Promise.all(
+                productIds.map((productId) =>
+                  dependencies.accountRights.resolveForAccess(
+                    subject.accountId,
+                    [productId],
+                  ),
+                ),
+              )
+            : await dependencies.accountRights.resolveManyForAccess(
+                subject.accountId,
+                resources,
+              );
+        return productIds.map((_id, index) => {
+          switch (states[index]?.kind) {
+            case "active":
+              return { kind: "open" as const };
+            case "required":
+            case "expired":
+              return { kind: "closed" as const };
+            case "stale":
+            case "unavailable":
+            case undefined:
+              return { kind: "unavailable" as const };
+          }
+        });
+      } catch (error) {
+        reportDependencyFailure(
+          { module: "content-access", operation: "checkProductAccessMany" },
+          error,
+        );
+        return productIds.map(() => ({ kind: "unavailable" as const }));
+      }
     },
 
     // Разрешение автора здесь не читается: оно открывает материалы для работы, а не продукт

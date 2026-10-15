@@ -1,3 +1,7 @@
+import {
+  PAYMENT_AUDIT_PAGE_SIZE,
+  paymentAuditCursorSchema,
+} from "@inside/contracts/payment-audit";
 import type { z } from "zod";
 import type {
   BillingPrisma,
@@ -174,6 +178,7 @@ export async function listPayments(
 export async function readPayment(
   prisma: BillingPrismaClient,
   purchaseRef: string,
+  auditCursor?: z.infer<typeof paymentAuditCursorSchema>,
 ): Promise<
   | Extract<OwnerResult, { ok: false }>
   | {
@@ -181,6 +186,20 @@ export async function readPayment(
       readonly result: Extract<OwnerOutcome, { outcome: "payment" }>;
     }
 > {
+  const cursor =
+    auditCursor === undefined
+      ? undefined
+      : paymentAuditCursorSchema.safeParse(auditCursor);
+  if (
+    cursor !== undefined &&
+    (!cursor.success ||
+      cursor.data.purchaseRef !== purchaseRef.toLowerCase() ||
+      BigInt(cursor.data.afterSequence) > 9223372036854775807n)
+  )
+    return ownerFailure("invalid_request");
+  const afterSequence = cursor?.success
+    ? BigInt(cursor.data.afterSequence)
+    : undefined;
   const row = await prisma.billingPurchase.findUnique({
     where: { id: purchaseRef },
   });
@@ -194,9 +213,14 @@ export async function readPayment(
     refundDecisionViews(prisma, purchaseRef),
     // Аудит читается в порядке записи: одинаковый момент двух команд не меняет их последовательность.
     prisma.billingOwnerCommand.findMany({
-      where: { targetRef: purchaseRef },
+      where: {
+        targetRef: purchaseRef,
+        ...(afterSequence === undefined
+          ? {}
+          : { sequence: { gt: afterSequence } }),
+      },
       orderBy: { sequence: "asc" },
-      take: 100,
+      take: PAYMENT_AUDIT_PAGE_SIZE + 1,
     }),
   ]);
   return {
@@ -213,7 +237,16 @@ export async function readPayment(
         }),
       ),
       decisions,
-      audit: audit.map((entry) =>
+      nextAuditCursor:
+        audit.length > PAYMENT_AUDIT_PAGE_SIZE
+          ? {
+              purchaseRef: row.id,
+              afterSequence: String(
+                audit[PAYMENT_AUDIT_PAGE_SIZE - 1]?.sequence,
+              ),
+            }
+          : null,
+      audit: audit.slice(0, PAYMENT_AUDIT_PAGE_SIZE).map((entry) =>
         auditEntryViewSchema.parse({
           actorId: entry.actorId,
           operationId: entry.operationId,

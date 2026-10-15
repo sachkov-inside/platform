@@ -3,6 +3,9 @@ import type { z } from "zod";
 
 type CoverageEntry = z.infer<typeof coverageEntrySchema>;
 
+export const COVERAGE_CATALOG_ENTRY_LIMIT = 2000;
+export const COVERAGE_CATALOG_SCOPE_LIMIT = 1000;
+
 /**
  * Titles and availability of the Products and Materials an access scope names. Metadata only:
  * knowing a title never authorizes a body. Materials implements it under `COVERAGE_CATALOG`.

@@ -1651,6 +1651,10 @@ export class BillingService {
       operationId: string;
       state?: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | {
+      auditCursor?: {
+        afterSequence: string;
+        purchaseRef: string;
+      };
       operation: 'payments.read';
       operationId: string;
       purchaseRef: string;
@@ -2437,6 +2441,10 @@ export class BillingService {
         occurredAt: string;
         recordedAt: string;
       }>;
+      nextAuditCursor: {
+        afterSequence: string;
+        purchaseRef: string;
+      } | null;
       outcome: 'payment';
       value: {
         access: 'awaiting_payment' | 'preparing' | 'ready';
@@ -2924,11 +2932,17 @@ export class BillingService {
     });
   }
   /**
-   * Read the current cohort of every product: name, sales stage, start date and next event
+   * Read current Product cohorts, optionally scoped to one Product
    * @returns any
    * @throws ApiError
    */
-  public billingProductCohorts(): CancelablePromise<({
+  public billingProductCohorts({
+    cursor,
+    productId,
+  }: {
+    cursor?: string,
+    productId?: string,
+  }): CancelablePromise<({
     items: Array<{
       name: string;
       nextEvent: string;
@@ -2948,10 +2962,15 @@ export class BillingService {
       stage: 'announcement' | 'preorder' | 'running' | 'between';
       startsOn: string | null;
     }>;
+    nextCursor: string | null;
   })> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/billing/cohorts',
+      query: {
+        'cursor': cursor,
+        'productId': productId,
+      },
     });
   }
   /**
@@ -3043,6 +3062,33 @@ export class BillingService {
       url: '/billing/tbank/notification',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read sale admission for a bounded set of Products without programme, cohort or price presentation
+   * @returns any
+   * @throws ApiError
+   */
+  public billingProductSaleAvailability({
+    productId,
+  }: {
+    productId: Array<string>,
+  }): CancelablePromise<{
+    items: Array<{
+      productId: string;
+      sold: boolean;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/products/sale-availability',
+      query: {
+        'productId': productId,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
+      },
     });
   }
 }

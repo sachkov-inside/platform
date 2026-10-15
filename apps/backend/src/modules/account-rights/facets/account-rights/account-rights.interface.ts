@@ -60,6 +60,12 @@ export type MembershipPrincipalBinding =
     }>;
 
 export interface AccountRights {
+  /** Same resource-scoped state as resolveForAccess, for many Accounts in one snapshot. Keys retain requested UUID spelling. */
+  resolveForAccessAccounts?(
+    accountIds: readonly AccountId[],
+    productIds?: readonly string[],
+    materialId?: string,
+  ): Promise<ReadonlyMap<string, MembershipAccessState>>;
   resolveManyForAccess?(
     accountId: AccountId,
     resources: readonly {

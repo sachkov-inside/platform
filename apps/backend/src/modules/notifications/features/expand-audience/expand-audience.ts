@@ -24,7 +24,7 @@ import type {
   NotificationSource,
   QuarantineNotification,
 } from "../../ports/notification-sources.js";
-import { optedIn } from "../change-preferences/change-preferences.js";
+import { optedInMany } from "../change-preferences/change-preferences.js";
 import {
   inboxKey,
   recordRowFailure,
@@ -213,27 +213,55 @@ async function readAudienceFacts(
         ? [recipient]
         : [],
   );
-  for (const accountId of accounts.status === "fulfilled"
-    ? accounts.value
-    : []) {
+  const accountIds = accounts.status === "fulfilled" ? accounts.value : [];
+  const readAccessSet = deps.sources.canReadAccounts?.bind(deps.sources);
+  const batchedAccess =
+    content.category === "material" && readAccessSet !== undefined
+      ? await settle(() => readAccessSet(accountIds, event.sourceRef))
+      : undefined;
+  const eligible: string[] = [];
+  for (const accountId of accountIds) {
     if (content.category === "material") {
-      const decision = await settle(() =>
-        deps.sources.canRead(accountId, event.sourceRef),
-      );
+      const decision: Read<"allowed" | "denied" | "unavailable"> =
+        batchedAccess === undefined
+          ? await settle(() => deps.sources.canRead(accountId, event.sourceRef))
+          : batchedAccess.status === "rejected"
+            ? batchedAccess
+            : {
+                status: "fulfilled",
+                value: batchedAccess.value.get(accountId) ?? "unavailable",
+              };
       access.set(accountId, decision);
-      // The expansion stops at this Account, so the Accounts after it are not asked.
+      // Preserve the first unavailable Account as the retry boundary.
       if (decision.status === "rejected" || decision.value === "unavailable")
         break;
       if (decision.value === "denied") continue;
     }
-    for (const channel of ["email", "telegram"] as const)
-      bindings.set(
-        bindingKey(accountId, channel),
-        await settle(() =>
-          deps.recipients.binding(accountId, channel, source.value),
-        ),
-      );
+    eligible.push(accountId);
   }
+  const readBindingSet = deps.recipients.bindings?.bind(deps.recipients);
+  if (readBindingSet !== undefined && eligible.length > 0) {
+    const batch = await settle(() => readBindingSet(eligible, source.value));
+    for (const id of eligible)
+      for (const channel of ["email", "telegram"] as const)
+        bindings.set(
+          bindingKey(id, channel),
+          batch.status === "rejected"
+            ? batch
+            : (batch.value.get(id)?.[channel] ?? {
+                status: "fulfilled",
+                value: null,
+              }),
+        );
+  } else
+    for (const accountId of eligible)
+      for (const channel of ["email", "telegram"] as const)
+        bindings.set(
+          bindingKey(accountId, channel),
+          await settle(() =>
+            deps.recipients.binding(accountId, channel, source.value),
+          ),
+        );
   return { after, source, accounts, access, bindings };
 }
 function parseCheckpoint(value: unknown): z.infer<typeof checkpointSchema> {
@@ -313,6 +341,18 @@ async function expandRow(
     return { progressed: true };
   }
   const accounts = answer(facts.accounts);
+  const preferenceAccounts =
+    source.content.category === "material"
+      ? accounts.filter((id) => {
+          const access = facts.access.get(id);
+          return access?.status === "fulfilled" && access.value === "allowed";
+        })
+      : [];
+  const preferences = await optedInMany(
+    transaction,
+    preferenceAccounts,
+    occurredAt,
+  );
   let count = checkpoint.recipients;
   for (const accountId of accounts) {
     if (source.content.category === "material") {
@@ -332,7 +372,7 @@ async function expandRow(
     for (const channel of ["email", "telegram"] as const) {
       if (
         source.content.category === "subscription" ||
-        (await optedIn(transaction, accountId, channel, occurredAt))
+        preferences.get(accountId)?.[channel] === true
       )
         channels.push(channel);
     }

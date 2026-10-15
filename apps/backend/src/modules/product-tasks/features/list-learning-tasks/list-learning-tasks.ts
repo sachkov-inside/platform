@@ -1,3 +1,4 @@
+import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
@@ -12,9 +13,19 @@ import {
   type SystemError,
 } from "../../shared/result.js";
 
-// The catalogue holds a few dozen tasks; the bound only stops a runaway list.
-const MAX_TASKS = 500;
+// Bound each persistence read; the catalogue contract remains complete.
+const TASK_PAGE_SIZE = 100;
 const ACCESS_BATCH = 100;
+
+const taskListSelect = {
+  id: true,
+  code: true,
+  title: true,
+  productId: true,
+  chapterId: true,
+  position: true,
+  currentVersion: true,
+} as const;
 
 export const learningTasksQuerySchema = z
   .object({ productSlug: z.string().min(1).max(120).optional() })
@@ -60,15 +71,50 @@ export async function listLearningTasks(
       });
       if (productFilter.length === 0) return { ok: true, value: { tasks: [] } };
     }
-    const rows = await dependencies.prisma.productTask.findMany({
-      where: {
-        publicationState: "published",
-        ...(productFilter === undefined
-          ? {}
-          : { productId: { in: productFilter.map((product) => product.id) } }),
-      },
-      orderBy: [{ position: "asc" }, { code: "asc" }],
-      take: MAX_TASKS,
+    // Keep the same source snapshot across bounded persistence pages; authorize after it closes.
+    const rows = await dependencies.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(
+        Prisma.sql`set transaction isolation level repeatable read`,
+      );
+      let page = await transaction.productTask.findMany({
+        select: taskListSelect,
+        where: {
+          publicationState: "published",
+          ...(productFilter === undefined
+            ? {}
+            : {
+                productId: { in: productFilter.map((product) => product.id) },
+              }),
+        },
+        orderBy: [{ position: "asc" }, { code: "asc" }],
+        take: TASK_PAGE_SIZE,
+      });
+      const rows = [...page];
+      while (page.length === TASK_PAGE_SIZE) {
+        const last = page.at(-1);
+        if (last === undefined) break;
+        page = await transaction.productTask.findMany({
+          select: taskListSelect,
+          where: {
+            publicationState: "published",
+            ...(productFilter === undefined
+              ? {}
+              : {
+                  productId: {
+                    in: productFilter.map((product) => product.id),
+                  },
+                }),
+            OR: [
+              { position: { gt: last.position } },
+              { position: last.position, code: { gt: last.code } },
+            ],
+          },
+          orderBy: [{ position: "asc" }, { code: "asc" }],
+          take: TASK_PAGE_SIZE,
+        });
+        rows.push(...page);
+      }
+      return rows;
     });
     const open = new Set<string>();
     for (let start = 0; start < rows.length; start += ACCESS_BATCH) {

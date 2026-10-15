@@ -1,5 +1,5 @@
 import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
@@ -93,3 +93,25 @@ export async function listBookmarkPage(
 }
 
 export type { BookmarkState };
+
+/** Failed reads never become committed pages or consume their continuation cursor. */
+export class BookmarkListReadError extends Error {
+  constructor(readonly kind: "unauthorized" | "unavailable") {
+    super(kind);
+  }
+}
+
+export function bookmarkListQueryOptions(accountId: string | null) {
+  return infiniteQueryOptions({
+    queryKey: ["bookmarks", accountId, "list"],
+    queryFn: async ({ pageParam }) => {
+      const page = await listBookmarkPage(pageParam);
+      if (page.kind !== "ready") throw new BookmarkListReadError(page.kind);
+      return page;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    retry: false,
+    enabled: accountId !== null,
+  });
+}

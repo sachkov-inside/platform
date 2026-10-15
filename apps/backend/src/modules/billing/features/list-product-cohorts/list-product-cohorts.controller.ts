@@ -1,6 +1,8 @@
-import { Controller, Get, Headers, Inject } from "@nestjs/common";
+import { Controller, Get, Headers, Inject, Query } from "@nestjs/common";
 import {
   ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiQuery,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -17,6 +19,7 @@ import { throwPricingError } from "../../shared/pricing-http.filter.js";
 import {
   cohortListLimit,
   productCohortsSchema,
+  productCohortsQuerySchema,
 } from "./list-product-cohorts.js";
 
 /**
@@ -38,12 +41,26 @@ export class ListProductCohortsController {
     @Inject(BillingPricing) private readonly pricing: BillingPricing,
   ) {}
   @Get()
+  @ApiQuery({
+    name: "productId",
+    required: false,
+    schema: toOpenApiSchema(productCohortsQuerySchema.shape.productId),
+  })
+  @ApiQuery({
+    name: "cursor",
+    required: false,
+    schema: toOpenApiSchema(z.uuid()),
+  })
+  @ApiBadRequestResponse({
+    content: problemDetailsContent(
+      problemDetailsSchema(400, ["invalid_request"]),
+    ),
+  })
   @ApiOperation({
     operationId: "billingProductCohorts",
     // Поток — публичный факт: страница гостя и бот читают его без входа.
     security: [],
-    summary:
-      "Read the current cohort of every product: name, sales stage, start date and next event",
+    summary: "Read current Product cohorts, optionally scoped to one Product",
   })
   @ApiOkResponse({
     schema: toOpenApiSchema(
@@ -52,6 +69,7 @@ export class ListProductCohortsController {
           items: z.array(botCohortSchema).max(cohortListLimit),
         }),
         z.strictObject({
+          nextCursor: z.uuid().nullable(),
           items: z.array(
             productCohortsSchema.shape.items.element.extend({
               guideId: z.uuid(),
@@ -69,30 +87,38 @@ export class ListProductCohortsController {
   })
   async execute(
     @Headers("x-inside-domain-names") domainNames: string | undefined,
+    @Query() input: unknown,
   ) {
-    const result = await this.pricing.cohorts();
+    const parsed = productCohortsQuerySchema.safeParse(input);
+    if (!parsed.success) throwPricingError({ code: "invalid_request" });
+    const result = await this.pricing.cohorts(
+      parsed.data.productId,
+      parsed.data.cursor,
+    );
     if (!result.ok) throwPricingError(result.error);
+    if (domainNames === "products.v1")
+      return {
+        items: result.value.items.map((item) => ({
+          productId: item.productId,
+          revision: item.revision,
+          name: item.name,
+          stage: item.stage,
+          startsOn: item.startsOn,
+          nextEvent: item.nextEvent,
+        })),
+      };
     return {
-      items:
-        domainNames === "products.v1"
-          ? result.value.items.map((item) => ({
-              productId: item.productId,
-              revision: item.revision,
-              name: item.name,
-              stage: item.stage,
-              startsOn: item.startsOn,
-              nextEvent: item.nextEvent,
-            }))
-          : result.value.items.map((item) => ({
-              productId: item.productId,
-              guideId: item.productId,
-              revision: item.revision,
-              name: item.name,
-              stage: item.stage,
-              startsOn: item.startsOn,
-              nextEvent: item.nextEvent,
-              priceAfterStartKopecks: item.priceAfterStartKopecks,
-            })),
+      items: result.value.items.map((item) => ({
+        productId: item.productId,
+        guideId: item.productId,
+        revision: item.revision,
+        name: item.name,
+        stage: item.stage,
+        startsOn: item.startsOn,
+        nextEvent: item.nextEvent,
+        priceAfterStartKopecks: item.priceAfterStartKopecks,
+      })),
+      nextCursor: result.value.nextCursor,
     };
   }
 }

@@ -110,3 +110,57 @@ export async function optedIn(
     (await readPreferences(prisma, accountId))[channel]
   );
 }
+
+/** Current and latest pre-occurrence opt-in for a checkpoint's Account set, on its owning transaction. */
+export async function optedInMany(
+  prisma: NotificationsPrisma,
+  accountIds: readonly string[],
+  occurredAt: Date,
+): Promise<ReadonlyMap<string, { email: boolean; telegram: boolean }>> {
+  const result = new Map<string, { email: boolean; telegram: boolean }>();
+  const requested = z.array(z.uuid()).parse(accountIds);
+  const ids = [...new Set(requested.map((id) => id.toLowerCase()))];
+  for (let offset = 0; offset < ids.length; offset += 500) {
+    const chunk = ids.slice(offset, offset + 500);
+    const current = await prisma.notificationPreference.findMany({
+      where: { accountId: { in: chunk } },
+      select: { accountId: true, email: true, telegram: true },
+    });
+    const latest = await prisma.notificationPreferenceRevision.groupBy({
+      by: ["accountId"],
+      where: { accountId: { in: chunk }, changedAt: { lt: occurredAt } },
+      _max: { revision: true },
+    });
+    const keys = latest.flatMap((row) =>
+      row._max.revision === null
+        ? []
+        : [{ accountId: row.accountId, revision: row._max.revision }],
+    );
+    const historical =
+      keys.length === 0
+        ? []
+        : await prisma.notificationPreferenceRevision.findMany({
+            where: { OR: keys },
+            select: { accountId: true, email: true, telegram: true },
+          });
+    const currentById = new Map(current.map((row) => [row.accountId, row]));
+    const historicalById = new Map(
+      historical.map((row) => [row.accountId, row]),
+    );
+    for (const id of chunk)
+      result.set(id, {
+        email:
+          currentById.get(id)?.email === true &&
+          historicalById.get(id)?.email === true,
+        telegram:
+          currentById.get(id)?.telegram === true &&
+          historicalById.get(id)?.telegram === true,
+      });
+  }
+  return new Map(
+    requested.map((id) => [
+      id,
+      result.get(id.toLowerCase()) ?? { email: false, telegram: false },
+    ]),
+  );
+}

@@ -176,6 +176,7 @@ export class ProductTaskAuthoringService {
   public listAuthorTaskSubmissions({
     limit,
     cursor,
+    productCursor,
     taskCode,
     chapterId,
     productId,
@@ -183,6 +184,7 @@ export class ProductTaskAuthoringService {
   }: {
     limit?: number,
     cursor?: string,
+    productCursor?: string,
     taskCode?: string,
     chapterId?: string,
     productId?: string,
@@ -200,6 +202,7 @@ export class ProductTaskAuthoringService {
       taskVersion: number;
     }>;
     nextCursor: string | null;
+    nextProductCursor: string | null;
     products: Array<{
       chapters: Array<{
         id: string;
@@ -286,6 +289,7 @@ export class ProductTaskAuthoringService {
       query: {
         'limit': limit,
         'cursor': cursor,
+        'productCursor': productCursor,
         'taskCode': taskCode,
         'chapterId': chapterId,
         'productId': productId,

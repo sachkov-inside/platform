@@ -17,7 +17,7 @@ import {
   tributeSavePolicy,
   tributeStatus,
 } from "../api/tribute.browser";
-import { listSubscriptionTiers } from "../api/enrollments.browser";
+import { listAllSubscriptionTiers } from "../api/enrollments.browser";
 import {
   applyTributeImportSchema,
   type tributePreviewSchema,
@@ -54,10 +54,7 @@ export function TributeOperationsPanel() {
   const tiers = useQuery({
     queryKey: ["owner-subscription-tiers"],
     queryFn: async () => {
-      const result = await listSubscriptionTiers({
-        operationId: crypto.randomUUID(),
-        limit: 100,
-      });
+      const result = await listAllSubscriptionTiers();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
       return result.value.result.items;
     },

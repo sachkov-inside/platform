@@ -172,6 +172,10 @@ describe("Learning material reference batches", () => {
           contentAccess: {
             checkAvailabilityMany,
             authorize,
+            checkProductAccessMany: ({ productIds }) =>
+              Promise.resolve(
+                productIds.map(() => ({ kind: "open" as const })),
+              ),
             checkProductAccess: () => Promise.resolve({ kind: "open" }),
           },
         },

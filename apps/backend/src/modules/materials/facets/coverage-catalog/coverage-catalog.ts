@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  COVERAGE_CATALOG_ENTRY_LIMIT as maximumCatalogEntries,
+  COVERAGE_CATALOG_SCOPE_LIMIT,
+} from "../../../account-rights/index.js";
+import {
   coverageEntrySchema,
   coverageSchema,
 } from "@inside/access-capabilities";
@@ -9,7 +13,6 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 
 const entriesSchema = z.array(coverageEntrySchema);
-const maximumCatalogEntries = 2000;
 /** Metadata only. Knowing a title never authorizes its body, media or artifacts. */
 export class CoverageCatalog {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
@@ -35,15 +38,23 @@ export class CoverageCatalog {
 
   /** One bounded metadata read for all scopes in an Account view. */
   async resolveMany(inputs: readonly unknown[]) {
-    if (inputs.length > 1000)
+    if (inputs.length > COVERAGE_CATALOG_SCOPE_LIMIT)
       throw new Error("Content scope batch exceeds supported size");
     const scopes = inputs.map((input) => coverageSchema.parse(input));
     if (scopes.length === 0) return [];
     const productIds = [
-      ...new Set(scopes.flatMap((scope) => scope.productIds)),
+      ...new Set(
+        scopes.flatMap((scope) =>
+          scope.productIds.map((id) => id.toLowerCase()),
+        ),
+      ),
     ];
     const materialIds = [
-      ...new Set(scopes.flatMap((scope) => scope.materialIds)),
+      ...new Set(
+        scopes.flatMap((scope) =>
+          scope.materialIds.map((id) => id.toLowerCase()),
+        ),
+      ),
     ];
     if (productIds.length + materialIds.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
@@ -87,7 +98,7 @@ export class CoverageCatalog {
         ...scope.materialIds.map((id) => ({ id, kind: "material" as const })),
       ].map(
         (item) =>
-          byReference.get(`${item.kind}/${item.id}`) ?? {
+          byReference.get(`${item.kind}/${item.id.toLowerCase()}`) ?? {
             ...item,
             title: "Позиция временно недоступна",
             slug: null,

@@ -7,6 +7,7 @@ import { tierSchema, enrollmentSchema } from "@/entities/subscription";
 const operationId = z.uuid();
 export const listTiersSchema = z.object({
   operationId,
+  cursor: z.uuid().optional(),
   limit: z.int().min(1).max(100).default(100),
 });
 export const readEnrollmentsInputSchema = z.object({

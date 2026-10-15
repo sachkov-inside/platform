@@ -241,5 +241,6 @@
     }
   ],
   "nextCursor": null,
-  "history": []
+  "history": [],
+  "nextProductCursor": null
 }

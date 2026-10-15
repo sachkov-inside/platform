@@ -90,7 +90,34 @@ test("карта сайта перечисляет опубликованные 
   const response = await request.get("/sitemap.xml");
 
   expect(response.status()).toBe(200);
-  const body = await response.text();
+  expect(response.headers()["content-type"]).toContain("application/xml");
+  const index = await response.text();
+  expect(index).toContain(
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+  );
+  const locations = [...index.matchAll(/<loc>([^<]+)<\/loc>/gu)].map(
+    (match) => match[1],
+  );
+  expect(locations.length).toBeGreaterThan(0);
+  expect(new Set(locations).size).toBe(locations.length);
+  const chunks: string[] = [];
+  for (const location of locations) {
+    if (location === undefined) throw new Error("Missing sitemap location");
+    const url = new URL(location);
+    expect(url.origin).toBe(new URL(String(baseURL)).origin);
+    expect(url.pathname).toMatch(/^\/sitemaps\/(0|[1-9][0-9]*)\.xml$/u);
+    expect(url.search).toBe("");
+    expect(url.hash).toBe("");
+    const chunk = await request.get(url.href);
+    expect(chunk.status()).toBe(200);
+    expect(chunk.headers()["content-type"]).toContain("application/xml");
+    const body = await chunk.text();
+    expect(body).toContain(
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    );
+    chunks.push(body);
+  }
+  const body = chunks.join("\n");
   expect(body).toContain(
     `<loc>${String(baseURL)}/products/platform-inside</loc>`,
   );

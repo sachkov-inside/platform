@@ -21,8 +21,10 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
+  ListPublicSiteIndexController,
   ListLearningPracticesController,
   ReadProductAccessController,
+  ReadProductSaleAvailabilityController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
@@ -36,6 +38,7 @@ import { AccountRightsModule } from "../../modules/account-rights/index.js";
 import {
   CoverageCatalogModule,
   MaterialsHttpModule,
+  MaterialContentModule,
   MaterialsModule,
 } from "../../modules/materials/index.js";
 import {
@@ -53,10 +56,12 @@ import { HealthController } from "./health.controller.js";
   controllers: [
     HealthController,
     ListPublishedMaterialsController,
+    ListPublicSiteIndexController,
     ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
     ReadProductAccessController,
+    ReadProductSaleAvailabilityController,
     VideoAuthoringController,
     KinescopeWebhookController,
   ],
@@ -89,6 +94,7 @@ export class ApiModule {
         AccountRightsModule,
         MaterialsModule,
         MaterialsHttpModule,
+        MaterialContentModule,
         ProductTasksHttpModule,
         VideosModule,
         CoverageCatalogModule,

@@ -265,7 +265,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       contact: {
         read: () =>
           Promise.reject(new Error("recover must not request contact")),
-        readConsent: () =>
+        readConsents: () =>
           Promise.reject(new Error("recover must not request consent")),
       },
     });
@@ -486,7 +486,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
       clock: () => now,
       contact: {
         read: () => Promise.resolve({ ok: true, contact: null, documents: [] }),
-        readConsent: () =>
+        readConsents: () =>
           Promise.reject(
             new Error("scheduled change must not request new consent"),
           ),

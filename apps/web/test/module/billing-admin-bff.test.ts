@@ -59,7 +59,7 @@ const problem = (code: string, status: number) => ({
 });
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   fakes.token.mockResolvedValue("owner-token");
   fakes.renderToken.mockResolvedValue("owner-render-token");
 });
@@ -384,6 +384,75 @@ it("читает владельческий каталог, где остают�
   expect(fakes.manage).toHaveBeenCalledWith(
     expect.objectContaining({ operation: "offers.list", limit: 100 }),
     "owner-render-token",
+  );
+});
+
+it("reads payment options beyond the first hundred even when they share one Offer", async () => {
+  const snapshot = (ordinal: number) => ({
+    offer: {
+      id: offerId,
+      revision: 1,
+      name: "Shared Offer",
+      benefits: ["materials"],
+      archived: false,
+    },
+    paymentOption: {
+      id: `40000000-0000-4000-8000-${String(ordinal).padStart(12, "0")}`,
+      revision: 1,
+      offerId,
+      months: 1,
+      priceKopecks: 10000,
+      archived: false,
+    },
+    promotion: null,
+    currency: "RUB",
+    timezone: "Europe/Moscow",
+    firstPriceKopecks: 10000,
+    renewalPriceKopecks: 10000,
+  });
+  const first = Array.from({ length: 100 }, (_, index) => snapshot(index + 1));
+  const oldest = snapshot(101);
+  fakes.manage
+    .mockResolvedValueOnce(
+      ok({
+        operationRef: operationId,
+        result: {
+          outcome: "catalogOffers",
+          items: first,
+          nextCursor: first[99]?.paymentOption.id,
+        },
+      }),
+    )
+    .mockResolvedValueOnce(
+      ok({
+        operationRef: operationId,
+        result: { outcome: "catalogOffers", items: [oldest], nextCursor: null },
+      }),
+    );
+  const result = await loadBillingOffersForOwner();
+  expect(result).toHaveLength(101);
+  expect(result.at(-1)).toEqual(oldest);
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      operation: "offers.list",
+      limit: 100,
+      cursor: first[99]?.paymentOption.id,
+    }),
+    "owner-render-token",
+  );
+});
+
+it("does not report an empty owner catalog when its continuation fails", async () => {
+  fakes.manage
+    .mockResolvedValueOnce(
+      ok({
+        operationRef: operationId,
+        result: { outcome: "catalogOffers", items: [], nextCursor: offerId },
+      }),
+    )
+    .mockResolvedValueOnce(problem("dependency_unavailable", 503));
+  await expect(loadBillingOffersForOwner()).rejects.toThrow(
+    "Owner billing catalog",
   );
 });
 

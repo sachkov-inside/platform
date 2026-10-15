@@ -15,6 +15,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       readPractice: refuse,
       listPractices: refuse,
       listProjections: refuse,
+      listSiteMaterials: refuse,
       discoverProjections: refuse,
       readHomePinnedSeries: refuse,
       readHomeProjections: refuse,
@@ -39,6 +40,8 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
           decidedAt: new Date().toISOString(),
         }),
       checkProductAccess: () => Promise.resolve({ kind: "closed" }),
+      checkProductAccessMany: ({ productIds }) =>
+        Promise.resolve(productIds.map(() => ({ kind: "closed" as const }))),
     },
   };
 }

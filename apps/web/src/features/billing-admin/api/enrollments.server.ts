@@ -37,7 +37,15 @@ export function handleListSubscriptionTiers(
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, (form, accessToken) =>
     executeBillingCommand(form, listTiersSchema, tiersOutcomeSchema, (input) =>
-      requestManageBilling({ ...input, operation: "tiers.list" }, accessToken),
+      requestManageBilling(
+        {
+          operationId: input.operationId,
+          limit: input.limit,
+          operation: "tiers.list",
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+        },
+        accessToken,
+      ),
     ),
   );
 }

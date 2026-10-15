@@ -27,6 +27,77 @@ export interface FactAnnouncement {
   ) => () => void;
 }
 
+interface FactReaders {
+  readonly callbacks: Set<(announcementId: string) => void>;
+  readonly close: () => void;
+}
+
+const readersByChannel = new Map<string, FactReaders>();
+
+/** One receiving transport per fact in this document; surfaces retain independent lifetimes. */
+function subscribeFact(channelName: string, onAnnounced: (id: string) => void) {
+  let readers = readersByChannel.get(channelName);
+  if (readers === undefined) {
+    const callbacks = new Set<(announcementId: string) => void>();
+    const deliver = (value: unknown, legacy: boolean) => {
+      const parsed = announcementIdSchema.safeParse(value);
+      if (!parsed.success && !legacy) return;
+      const identity = parsed.success ? parsed.data : crypto.randomUUID();
+      for (const callback of callbacks) callback(identity);
+    };
+    const channel =
+      typeof BroadcastChannel === "undefined"
+        ? null
+        : new BroadcastChannel(channelName);
+    if (channel === null) {
+      const receive = (event: Event) => {
+        deliver(
+          event instanceof CustomEvent ? (event.detail as unknown) : undefined,
+          true,
+        );
+      };
+      if (typeof window !== "undefined")
+        window.addEventListener(channelName, receive);
+      readers = {
+        callbacks,
+        close: () => {
+          if (typeof window !== "undefined")
+            window.removeEventListener(channelName, receive);
+        },
+      };
+    } else {
+      channel.addEventListener("message", (event: MessageEvent<unknown>) => {
+        deliver(
+          event.data,
+          event.data === "written" || event.data === "changed",
+        );
+      });
+      readers = {
+        callbacks,
+        close: () => {
+          channel.close();
+        },
+      };
+    }
+    readersByChannel.set(channelName, readers);
+  }
+  const owned = readers;
+  const receive = (id: string) => {
+    onAnnounced(id);
+  };
+  owned.callbacks.add(receive);
+  return () => {
+    owned.callbacks.delete(receive);
+    if (
+      owned.callbacks.size === 0 &&
+      readersByChannel.get(channelName) === owned
+    ) {
+      owned.close();
+      readersByChannel.delete(channelName);
+    }
+  };
+}
+
 /**
  * Объявление одного факта. Имя канала принадлежит фичи, которая владеет фактом: у двух фактов
  * не бывает общего имени, иначе запись одного сбрасывала бы чтение другого.
@@ -53,35 +124,6 @@ export function factAnnouncement(channelName: string): FactAnnouncement {
       channel.close();
       return announcementId;
     },
-    subscribe: (onAnnounced) => {
-      const channel = open();
-      if (channel === null) {
-        const receive = (event: Event) => {
-          const detail: unknown =
-            event instanceof CustomEvent ? event.detail : undefined;
-          const parsed = announcementIdSchema.safeParse(detail);
-          // Ordinary window events from an older bundle still announce a write.
-          onAnnounced(parsed.success ? parsed.data : crypto.randomUUID());
-        };
-        if (typeof window !== "undefined")
-          window.addEventListener(channelName, receive);
-        return () => {
-          if (typeof window !== "undefined")
-            window.removeEventListener(channelName, receive);
-        };
-      }
-      channel.addEventListener("message", (event: MessageEvent<unknown>) => {
-        // Previous releases sent this literal; their open tabs keep working during an upgrade.
-        if (event.data === "written" || event.data === "changed") {
-          onAnnounced(crypto.randomUUID());
-          return;
-        }
-        const parsed = announcementIdSchema.safeParse(event.data);
-        if (parsed.success) onAnnounced(parsed.data);
-      });
-      return () => {
-        channel.close();
-      };
-    },
+    subscribe: (onAnnounced) => subscribeFact(channelName, onAnnounced),
   };
 }
