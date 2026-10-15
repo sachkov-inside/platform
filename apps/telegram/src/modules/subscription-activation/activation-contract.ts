@@ -87,6 +87,18 @@ export interface ActivationResponse {
 }
 export interface OwnAccess {
   readonly contractVersion: typeof ACTIVATION_VERSION;
+  readonly products?: readonly {
+    readonly id: string;
+    readonly slug: string | null;
+    readonly name: string;
+    readonly programmeUrl?: string;
+    readonly materials: {
+      readonly state: "available" | "expired" | "revoked" | "unavailable";
+    };
+    readonly community: {
+      readonly state: "available" | "expired" | "revoked" | "unavailable";
+    };
+  }[];
   readonly enrollments: readonly EnrollmentView[];
   readonly grounds: readonly {
     readonly source: string;

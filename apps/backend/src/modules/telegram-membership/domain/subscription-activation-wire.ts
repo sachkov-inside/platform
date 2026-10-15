@@ -8,6 +8,7 @@ import {
   bindingSnapshotSchema,
   ACTIVATION_CONTRACT_VERSION,
   invitationRedemptionOutcomeSchema,
+  ownProductSchema,
 } from "../../account-rights/index.js";
 import { ownAdmissionSchema } from "./community-entitlement.js";
 export const activationFailureSchema = z.strictObject({
@@ -60,6 +61,9 @@ export const ownSubscriptionAccessResponseSchema = z.union([
       enrollments: z.array(botEnrollmentSchema),
       grounds: z.array(botOwnAccessGroundSchema),
       admission: ownAdmissionSchema,
+      products: z
+        .array(ownProductSchema.extend({ programmeUrl: z.url().optional() }))
+        .optional(),
     }),
   }),
   activationFailureSchema,

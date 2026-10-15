@@ -997,5 +997,81 @@
         "code": "identity_conflict"
       }
     }
+  },
+  {
+    "name": "own-products-checked-admission-query",
+    "definition": "ownAccessQuery",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside.subscription-activation.v1",
+      "accountRef": "platform-principal",
+      "identityRef": "identity-course-buyer",
+      "linkRef": "00000000-0000-4000-8000-000000000002",
+      "linkRevision": 1,
+      "includeProducts": true,
+      "prepareCommunity": true
+    }
+  },
+  {
+    "name": "own-retained-products",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [],
+        "admission": {
+          "state": "checking",
+          "admissionRestriction": null
+        },
+        "products": [
+          {
+            "id": "00000000-0000-4000-8000-000000000021",
+            "slug": "engineering",
+            "name": "AI Engineering",
+            "programmeUrl": "https://sachkov.dev/products/engineering/programme",
+            "materials": {
+              "state": "available"
+            },
+            "community": {
+              "state": "expired"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "own-products-reject-queued-as-right",
+    "definition": "ownAccessResponse",
+    "valid": false,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [],
+        "admission": {
+          "state": "checking",
+          "admissionRestriction": null
+        },
+        "products": [
+          {
+            "id": "00000000-0000-4000-8000-000000000021",
+            "slug": "engineering",
+            "name": "AI Engineering",
+            "programmeUrl": "https://sachkov.dev/products/engineering/programme",
+            "materials": {
+              "state": "available"
+            },
+            "community": {
+              "state": "queued"
+            }
+          }
+        ]
+      }
+    }
   }
 ]

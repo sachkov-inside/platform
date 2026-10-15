@@ -8,6 +8,21 @@ Course identity is SHA-256 of UTF-8 JSON array ["course", sourceRef, identityRef
 
 POST /own-access requires the exact current private binding and returns independent grounds, Enrollment snapshots and admission state. A tariff never clears moderation. Responses are private/no-store. Examples contain synthetic identifiers; no provider is enabled by this bundle. Telegram #64 implements the consumer and real source verification.
 
+## Learner Product navigation (#1496)
+
+`POST /own-access` accepts optional `includeProducts: true` to add `products` to its response.
+Calls without this flag retain the previous response shape for the deployed bot.
+Each Product contains `id`, nullable `slug`, `name`, separate `materials.state` and `community.state`,
+and an optional absolute `programmeUrl` on the configured public site.
+Each right is `available`, `expired`, `revoked`, or `unavailable`.
+The bounded projection retains previously available Products after expiry, grant revocation, or Product exclusion.
+It reuses the current resource-scoped capability decision; metadata alone never grants access.
+Missing facts return an explicit unavailable result rather than a false expiry claim.
+
+Optional `prepareCommunity: true` requests synchronous preparation through the existing community boundary.
+Platform checks the exact current binding before preparation and rechecks it before returning.
+Preparation preserves current rights and moderation; the consumer must still complete its checked admission action.
+
 ## Current binding lookup (Platform #627)
 
 `POST /integrations/telegram/v1/subscription-activation/binding` is an additive v1 operation. Portable definitions `bindingQuery` and `bindingResponse` in `schema.json` are authoritative; fixtures exercise both production Zod and JSON Schema. It uses only the existing `TELEGRAM_ACTIVATION_INGRESS_SECRET` bearer credential. Missing, invalid and other integration credentials return HTTP 401. All responses, including errors, carry `Cache-Control: private, no-store`.

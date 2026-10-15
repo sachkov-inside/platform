@@ -35,7 +35,10 @@ export class SubscriptionActivation {
       grants: AccessGrants;
       bindings: ActivationBindings &
         Pick<RecipientLinks, "findCurrentByIdentity">;
-      readAdmission: (accountId: string) => Promise<{
+      readAdmission: (
+        accountId: string,
+        prepareCommunity?: boolean,
+      ) => Promise<{
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
       }>;
@@ -116,12 +119,32 @@ export class SubscriptionActivation {
         error: { code: "identity_conflict" as const },
       };
     const accountId = linked.link.accountId;
-    const [enrollments, access, admission] = await Promise.all([
+    if (query.prepareCommunity === true) {
+      const current = await this.dependencies.bindings.readBinding({
+        accountId,
+      });
+      if (!current.ok)
+        return { ok: false as const, error: { code: "unavailable" as const } };
+      if (
+        current.binding === null ||
+        current.binding.linkRef !== query.linkRef ||
+        current.binding.linkRevision !== query.linkRevision ||
+        current.binding.telegramIdentityRef !== query.identityRef
+      )
+        return {
+          ok: false as const,
+          error: { code: "identity_conflict" as const },
+        };
+    }
+    const [enrollments, access, admission, products] = await Promise.all([
       this.dependencies.grants.readOwnEnrollments(accountId),
       this.dependencies.grants.readOwnAccess(accountId),
-      this.dependencies.readAdmission(accountId),
+      this.dependencies.readAdmission(accountId, query.prepareCommunity),
+      query.includeProducts === true
+        ? this.dependencies.grants.readOwnProducts(accountId)
+        : Promise.resolve(undefined),
     ]);
-    if (!enrollments.ok || !access.ok)
+    if (!enrollments.ok || !access.ok || products?.ok === false)
       return { ok: false as const, error: { code: "unavailable" as const } };
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
@@ -147,6 +170,22 @@ export class SubscriptionActivation {
           enrollments: enrollments.value,
           grounds: access.value.grounds,
           admission,
+          ...(products === undefined
+            ? {}
+            : {
+                products: products.value.map((product) => ({
+                  ...product,
+                  ...(product.slug === null ||
+                  this.dependencies.siteOrigin === undefined
+                    ? {}
+                    : {
+                        programmeUrl: new URL(
+                          `/products/${encodeURIComponent(product.slug)}/programme`,
+                          this.dependencies.siteOrigin,
+                        ).toString(),
+                      }),
+                })),
+              }),
         },
       };
     });

@@ -85,6 +85,7 @@ import {
   type ListAccessGrantsCommand,
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
+import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
 import {
   issueInvitation,
   listInvitations,
@@ -681,6 +682,22 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           return [id, holders.size];
         }),
       );
+    },
+    async readOwnProducts(targetAccountId: string) {
+      try {
+        return await readOwnProducts(
+          prisma,
+          targetAccountId,
+          clock(),
+          dependencies.contentCatalog,
+        );
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "readOwnProducts" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
     },
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
