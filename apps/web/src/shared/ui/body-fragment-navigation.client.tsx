@@ -9,6 +9,7 @@ export function BodyFragmentNavigation() {
     const body = marker.current?.parentElement;
     if (body === undefined || body === null) return;
     const navigate = () => {
+      if (body.getClientRects().length === 0) return;
       if (window.location.hash === "") return;
       let id: string;
       try {
@@ -39,9 +40,42 @@ export function BodyFragmentNavigation() {
         window.scrollTo({ top: 0, behavior: "instant" });
       }
     };
+    let frame: number | undefined;
+    const repeatFragment = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const link =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+      if (
+        link === null ||
+        link.hasAttribute("download") ||
+        (link.target !== "" && link.target !== "_self")
+      )
+        return;
+      const target = new URL(link.href);
+      // A repeated fragment emits no hashchange; native lookup may select a retained hidden page.
+      if (target.hash === "" || target.href !== window.location.href) return;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        navigate();
+      });
+    };
     navigate();
+    body.addEventListener("click", repeatFragment);
     window.addEventListener("hashchange", navigate);
     return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      body.removeEventListener("click", repeatFragment);
       window.removeEventListener("hashchange", navigate);
     };
   }, []);

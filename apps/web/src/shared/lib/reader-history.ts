@@ -177,7 +177,7 @@ export function enterReaderHistory(
   );
 }
 
-/** Capture only an ordinary in-tab transition carrying a validated course anchor. */
+/** Capture ordinary in-tab supplementary and same-document fragment transitions. */
 export function prepareReaderHistory(
   event: MouseEvent,
   originHref?: string,
@@ -204,10 +204,15 @@ export function prepareReaderHistory(
     return;
   saveReaderHistoryView(root);
   const target = new URL(link.href);
+  const fragment =
+    target.hash !== "" &&
+    target.pathname === window.location.pathname &&
+    target.search === window.location.search;
   if (
     target.origin !== window.location.origin ||
-    !target.pathname.startsWith("/materials/") ||
-    !target.searchParams.has("anchor")
+    (!fragment &&
+      (!target.pathname.startsWith("/materials/") ||
+        !target.searchParams.has("anchor")))
   )
     return;
   const current = entry();

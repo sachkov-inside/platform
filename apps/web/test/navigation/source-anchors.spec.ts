@@ -5,7 +5,9 @@ const target = "/materials/navigation-anchor-target";
 const anchor = "как-спроектировать-один-этап";
 
 async function expectHeadingInView(page: Page, fragment = anchor) {
-  const heading = page.locator(`[data-reader-body] h2[id="${fragment}"]`);
+  const heading = page
+    .locator(`[data-reader-body] h2[id="${fragment}"]`)
+    .filter({ visible: true });
   await expect(heading).toBeVisible();
   await expect
     .poll(() => heading.evaluate((node) => node.getBoundingClientRect().top))
@@ -56,6 +58,35 @@ test("same-page links, repeated clicks and legacy fragments keep working", async
     .click();
   await expectHeadingInView(page);
   await page.goto(`${target}#material-section-18`);
+  await expectHeadingInView(page);
+});
+
+test("a repeated fragment selects the visible body instead of a retained hidden page", async ({
+  page,
+}) => {
+  await page.goto(`${target}#${anchor}`);
+  await expectHeadingInView(page);
+  // Retained Activity pages exist after client activation, not during the initial static shell.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Reflect.get(window.history.state ?? {}, "insideReader") !== undefined,
+      ),
+    )
+    .toBe(true);
+  await page.evaluate((id) => {
+    const retained = document.createElement("section");
+    retained.hidden = true;
+    const heading = document.createElement("h2");
+    heading.id = id;
+    heading.textContent = "Retained page heading";
+    retained.append(heading);
+    document.body.prepend(retained);
+  }, anchor);
+  await page
+    .getByRole("link", { name: "grill-with-docs", exact: true })
+    .click();
   await expectHeadingInView(page);
 });
 
