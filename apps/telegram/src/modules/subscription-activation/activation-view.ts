@@ -38,7 +38,8 @@ export function activationMenu(
               text: "Открыть курс",
               url: `https://sachkov.dev/products/${product.slug}/programme`,
             },
-            ...(result.value.enrollment?.tier.benefits.includes("community") === true
+            ...(result.value.enrollment?.tier.benefits.includes("community") ===
+            true
               ? [
                   {
                     text: "Вступить в группу",

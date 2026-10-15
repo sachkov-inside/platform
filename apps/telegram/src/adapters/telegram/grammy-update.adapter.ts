@@ -665,7 +665,9 @@ function accessCallbackAction(
     /^access:(product|community|help|help_missing|help_group|help_signin):([A-Fa-f0-9-]{36})$/.exec(
       data,
     );
-  const contextualAction = ACCESS_ACTIONS.find(value=>value === contextual?.[1]);
+  const contextualAction = ACCESS_ACTIONS.find(
+    (value) => value === contextual?.[1],
+  );
   if (contextualAction !== undefined && contextual?.[2] !== undefined)
     return { action: contextualAction, code: contextual[2] };
   const scoped = /^access:retry:([A-Za-z0-9_-]{1,40})$/.exec(data);

@@ -7,7 +7,10 @@ import {
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { SubscriptionActivation } from "../../src/modules/billing/index.js";
-import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import {
+  CommunityEntitlements,
+  TelegramAccountLinks,
+} from "../../src/modules/telegram-membership/index.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { ownSubscriptionAccessResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import {
@@ -506,4 +509,103 @@ test("own-access explicitly requests Product navigation and preserves the previo
       ],
     },
   });
+});
+
+test("only configured Products expose community access and several Products share the same actual group", async () => {
+  const accountId = randomUUID();
+  const ids = [randomUUID(), randomUUID(), randomUUID()];
+  await db.prisma.account.create({
+    data: {
+      id: accountId,
+      logtoIssuer: "https://own-products.test",
+      logtoSubject: accountId,
+    },
+  });
+  await db.prisma.product.createMany({
+    data: ids.map((id) => ({
+      id,
+      slug: `mapping-${id}`,
+      name: `Product ${id}`,
+    })),
+  });
+  await db.prisma.accessGrant.create({
+    data: {
+      id: randomUUID(),
+      accountId,
+      source: "manual",
+      sourceRef: randomUUID(),
+      capabilities: ["materials", "community"],
+      coverage: { productIds: ids, materialIds: [] },
+      startsAt: now,
+      revision: 1,
+      reason: "Product community mapping fixture",
+    },
+  });
+  await db.prisma.productCommunity.createMany({
+    data: ids
+      .slice(0, 2)
+      .map((productId) => ({
+        productId,
+        groupRef: "primary",
+        updatedBy: accountId,
+        updatedAt: now,
+      })),
+  });
+  const identityRef = `mapping:${randomUUID()}`;
+  const accountRef = await linkTelegramAccount(db.prisma, {
+    accountId,
+    identityRef,
+    now,
+  });
+  const links = new TelegramAccountLinks(db.prisma);
+  const binding = await links.readBinding({ accountId });
+  if (!binding.ok || binding.binding === null)
+    throw new Error("Missing binding");
+  const community = new CommunityEntitlements({
+    prisma: db.prisma,
+    accounts: assembleAccounts({
+      prisma: db.prisma,
+      emailFingerprintKey: "own-product-fixture-fingerprint-key",
+    }),
+    grants,
+    links,
+    botStartUrl: "https://t.me/inside_test_bot",
+    clock: () => now,
+    provider: {
+      set: () => Promise.resolve({ kind: "unavailable" }),
+      status: () => Promise.resolve({ kind: "unavailable" }),
+    },
+  });
+  const activation = new SubscriptionActivation({
+    prisma: db.prisma,
+    grants,
+    bindings: links,
+    siteOrigin: "https://sachkov.dev",
+    readAdmission: () =>
+      Promise.resolve({ state: "ready", admissionRestriction: "none" }),
+    readConfiguredProductIds: (productIds) =>
+      community.readConfiguredProductIds(productIds),
+  });
+  const result = ownSubscriptionAccessResponseSchema.parse(
+    await activation.readOwn({
+      contractVersion: "inside.subscription-activation.v1",
+      accountRef,
+      identityRef,
+      linkRef: binding.binding.linkRef,
+      linkRevision: binding.binding.linkRevision,
+      includeProducts: true,
+    }),
+  );
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error("Missing own access");
+  for (const id of ids.slice(0, 2))
+    expect(
+      result.value.products?.find((product) => product.id === id)?.community
+        .state,
+    ).toBe("available");
+  expect(
+    result.value.products?.find((product) => product.id === ids[2])?.community
+      .state,
+  ).toBe("unavailable");
+  expect(await community.readConfiguredProductIds(ids)).toHaveLength(2);
 });

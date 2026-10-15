@@ -296,8 +296,17 @@ export class StartResponseDeliveryQueue {
     });
   }
 
-  async hasSource(sourceKey:string,database:Database|Transaction<DatabaseSchema>=this.database):Promise<boolean> {
-    return (await database.selectFrom("start_response_deliveries").select("id").where("source_key","=",sourceKey).executeTakeFirst()) !== undefined;
+  async hasSource(
+    sourceKey: string,
+    database: Database | Transaction<DatabaseSchema> = this.database,
+  ): Promise<boolean> {
+    return (
+      (await database
+        .selectFrom("start_response_deliveries")
+        .select("id")
+        .where("source_key", "=", sourceKey)
+        .executeTakeFirst()) !== undefined
+    );
   }
 
   async deliveredMessageId(sourceKey: string): Promise<string | undefined> {

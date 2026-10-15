@@ -42,6 +42,7 @@ export const config = {
     "/auth/sign-in",
     "/callback",
     "/communications/visit",
+    "/telegram/continue",
     "/api/account/billing/purchase",
     "/api/account/billing/payment-method/change",
     "/api/account/billing/subscription/change",

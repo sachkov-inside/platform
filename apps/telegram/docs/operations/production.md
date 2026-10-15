@@ -361,8 +361,9 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 Из корня platform выполните `bash apps/telegram/scripts/production-smoke.sh`.
 Команда строит production image из root context, читает сохранённый legacy `v5` manifest и
 проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
-Проверяются 31 миграция, неизменный ledger, сохранённая synthetic строка, readiness,
-неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
+Smoke сохраняет проверку identity первых 31 миграций legacy `v5`.
+Candidate должен записать точный текущий набор миграций. После rollback этот ledger остаётся неизменным.
+Проверяются сохранённая synthetic строка, readiness, неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
 Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
 Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
 реальный Docker proof отдельно проверяет переход на production images.

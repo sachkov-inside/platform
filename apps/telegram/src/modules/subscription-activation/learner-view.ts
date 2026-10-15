@@ -1,4 +1,4 @@
-import {hasText} from "../../shared/text.js";
+import { hasText } from "../../shared/text.js";
 import type { OwnAccess } from "./activation-contract.js";
 import type { TelegramButton } from "../outbound/telegram-messages.js";
 import type { CommunityAdmission } from "../community/community-provider.js";
@@ -22,9 +22,10 @@ export function productList(
   author: boolean,
 ): LearnerScreen {
   return {
-    text: items.length > 0
-      ? "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу."
-      : "Мои продукты\n\nПока нет доступных продуктов. Посмотрите продукты на платформе. Если у вас есть ссылка для получения доступа, откройте её.",
+    text:
+      items.length > 0
+        ? "Мои продукты\n\nВыберите продукт, чтобы открыть материалы или группу."
+        : "Мои продукты\n\nПока нет доступных продуктов. Посмотрите продукты на платформе. Если у вас есть ссылка для получения доступа, откройте её.",
     buttons: [
       ...items.map((item) => ({
         text: item.name,
@@ -37,7 +38,8 @@ export function productList(
   };
 }
 export function courseButton(product: LearnerProduct): TelegramButton[] {
-  return product.materials.state === "available" && hasText(product.programmeUrl)
+  return product.materials.state === "available" &&
+    hasText(product.programmeUrl)
     ? [{ text: "Открыть курс", url: product.programmeUrl }]
     : [];
 }
@@ -89,7 +91,7 @@ export function helpScreen(
   id?: string,
   programmeUrl?: string,
   continuationUrl?: string,
-  returnAction?:string,
+  returnAction?: string,
 ): LearnerScreen {
   const back: TelegramButton = {
     text: "Назад",
@@ -104,7 +106,10 @@ export function helpScreen(
     url: `${PLATFORM_URL}/account`,
   };
   const selected: TelegramButton = hasText(id)
-    ? { text: "Открыть продукт", callbackData: returnAction ?? `access:product:${id}` }
+    ? {
+        text: "Открыть продукт",
+        callbackData: returnAction ?? `access:product:${id}`,
+      }
     : { text: "Мои продукты", callbackData: "access:own" };
   if (topic === "help_missing")
     return {
@@ -122,7 +127,9 @@ export function helpScreen(
       buttons: [
         {
           text: "Войти на платформу",
-          url: continuationUrl ?? `${PLATFORM_URL}/auth/sign-in?returnTo=${encodeURIComponent(hasText(programmeUrl) ? new URL(programmeUrl).pathname : "/account/access")}`,
+          url:
+            continuationUrl ??
+            `${PLATFORM_URL}/auth/sign-in?returnTo=${encodeURIComponent(hasText(programmeUrl) ? new URL(programmeUrl).pathname : "/account/access")}`,
         },
         support,
         back,
@@ -145,7 +152,10 @@ export function helpScreen(
       },
       support,
       hasText(id)
-        ? { text: "Назад к продукту", callbackData: returnAction ?? `access:product:${id}` }
+        ? {
+            text: "Назад к продукту",
+            callbackData: returnAction ?? `access:product:${id}`,
+          }
         : { text: "Назад", callbackData: "access:own" },
     ],
   };

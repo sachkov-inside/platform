@@ -236,3 +236,19 @@ describe("entry rate limit", () => {
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 });
+
+it("bounds public Telegram Product continuation before resolving its intent", () => {
+  const limiter = createEntryRateLimiter(clock().now);
+  expect(classifyEntryRoute("GET", "/telegram/continue")).toBe("public-link");
+  expect(classifyEntryRoute("HEAD", "/telegram/continue")).toBe("public-link");
+  const results = Array.from(
+    { length: entryRequestsPerWindow["public-link"] + 1 },
+    () =>
+      limitEntryRequest(
+        limiter,
+        request("/telegram/continue?attempt=public-intent", client, "GET"),
+        "production",
+      ),
+  );
+  expect(results.at(-1)?.status).toBe(429);
+});

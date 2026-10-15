@@ -41,10 +41,17 @@ export class SubscriptionActivation {
       grants: AccessGrants;
       bindings: ActivationBindings &
         Pick<RecipientLinks, "findCurrentByIdentity">;
+      readConfiguredProductIds?: (
+        ids: readonly string[],
+      ) => Promise<readonly string[]>;
       readAdmission: (
         accountId: string,
         prepareCommunity?: boolean,
-        expected?: {identityRef:string;linkRef:string;linkRevision:number},
+        expected?: {
+          identityRef: string;
+          linkRef: string;
+          linkRevision: number;
+        },
       ) => Promise<{
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
@@ -215,13 +222,21 @@ export class SubscriptionActivation {
     const [enrollments, access, admission, products] = await Promise.all([
       this.dependencies.grants.readOwnEnrollments(accountId),
       this.dependencies.grants.readOwnAccess(accountId),
-      this.dependencies.readAdmission(accountId, query.prepareCommunity,query),
+      this.dependencies.readAdmission(accountId, query.prepareCommunity, query),
       query.includeProducts === true
         ? this.dependencies.grants.readOwnProducts(accountId)
         : Promise.resolve(undefined),
     ]);
     if (!enrollments.ok || !access.ok || products?.ok === false)
       return { ok: false as const, error: { code: "unavailable" as const } };
+    const configuredProducts = new Set(
+      products?.ok === true &&
+        this.dependencies.readConfiguredProductIds !== undefined
+        ? await this.dependencies.readConfiguredProductIds(
+            products.value.map((product) => product.id),
+          )
+        : [],
+    );
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
       const current = await this.dependencies.bindings.readBinding(
@@ -254,7 +269,11 @@ export class SubscriptionActivation {
                   slug: product.slug,
                   name: product.name,
                   materials: product.materials,
-                  community: product.community,
+                  community:
+                    product.community.state !== "available" ||
+                    configuredProducts.has(product.id)
+                      ? product.community
+                      : { state: "unavailable" as const },
                   ...(product.slug === null ||
                   this.dependencies.siteOrigin === undefined
                     ? {}
@@ -365,11 +384,19 @@ export class SubscriptionActivation {
       if (!result.ok || result.value.rule === undefined) return result;
       const product = await this.activationProduct(result.value.rule.id);
       return {
-        ...result,
+        ok: true as const,
         value: {
-          ...result.value,
+          contractVersion: result.value.contractVersion,
+          attemptId: result.value.attemptId,
+          state: result.value.state,
+          enrollment: result.value.enrollment,
           rule: {
-            ...result.value.rule,
+            id: result.value.rule.id,
+            revision: result.value.rule.revision,
+            sourceRef: result.value.rule.sourceRef,
+            ...(result.value.rule.verificationMode === undefined
+              ? {}
+              : { verificationMode: result.value.rule.verificationMode }),
             ...(product === null ? {} : { product }),
           },
         },

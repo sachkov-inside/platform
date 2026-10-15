@@ -600,6 +600,13 @@ export class CommunityProvider {
         .where("account_ref", "=", link.accountRef)
         .executeTakeFirst();
       if (state) await this.reconcileAccount(link.accountRef, true);
+      else {
+        const observation = await this.observe(telegramUserId);
+        if (observation.kind === "unavailable") return { kind: "preparing" };
+        if (observation.state === "member") return { kind: "member" };
+        if (observation.state === "banned")
+          return { kind: "moderation_blocked" };
+      }
     }
     return this.admissionFor(telegramUserId);
   }

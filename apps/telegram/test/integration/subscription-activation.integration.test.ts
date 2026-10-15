@@ -1,4 +1,16 @@
-import {AUTHOR_AUTHORIZATION} from "../../src/modules/communications/author-authorization.js";
+import { CommunityProvider } from "../../src/modules/community/community-provider.js";
+import {
+  TELEGRAM_COMMUNITY_CHAT,
+  COMMUNITY_DISPATCH_AUTHORIZATION,
+} from "../../src/modules/community/community-ports.js";
+import {
+  COMMUNITY_V2,
+  type CommunitySetCommand,
+  type DispatchAuthorizationRequest,
+} from "../../src/modules/community/community-contract.js";
+import { FakeCommunityChat } from "../support/community-chat.js";
+import { digest } from "../../src/security/payload-digest.js";
+import { AUTHOR_AUTHORIZATION } from "../../src/modules/communications/author-authorization.js";
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -7,10 +19,17 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { describe, expect, test, vi } from "vitest";
-import {TELEGRAM_MESSAGES,type TelegramTextMessage,type TelegramMessageEdit} from "../../src/modules/outbound/telegram-messages.js";
-import {StartResponseDeliveryProcessor} from "../../src/modules/outbound/start-response-delivery-processor.js";
+import {
+  TELEGRAM_MESSAGES,
+  type TelegramTextMessage,
+  type TelegramMessageEdit,
+} from "../../src/modules/outbound/telegram-messages.js";
+import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { AppModule } from "../../src/app.module.js";
-import { loadApplicationConfig } from "../../src/config/application-config.js";
+import {
+  type ApplicationConfig,
+  loadApplicationConfig,
+} from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
 import { CLOCK } from "../../src/shared/clock.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
@@ -55,10 +74,10 @@ async function createFixture() {
       return new Date(this.value);
     },
   };
-  const config = loadApplicationConfig({
+  const parsedConfig = loadApplicationConfig({
     DATABASE_URL: process.env["DATABASE_URL"],
     TELEGRAM_BOT_IDENTITY: bot,
-    TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+    TELEGRAM_CANONICAL_CHAT_ID: "-1001234567890",
     TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
     PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
     TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
@@ -75,6 +94,14 @@ async function createFixture() {
       { sourceRef: "course", chatId: "-1000000000001", policy: "whole_group" },
     ]),
   });
+  const config: ApplicationConfig = {
+    ...parsedConfig,
+    communityMode: "live" as const,
+    communityContractVersion: COMMUNITY_V2,
+    senderRate: { requests: 1000, windowMs: 10000 },
+  };
+  const chat = new FakeCommunityChat();
+  const commands = new Map<string, CommunitySetCommand>();
   const bindings = new Map<string, ActivationBinding>();
   const proofs: ActivationEvidence[] = [];
   const begins: string[] = [];
@@ -88,9 +115,10 @@ async function createFixture() {
     onSourceCheck: undefined as (() => Promise<void>) | undefined,
     source: "member" as "member" | "not_member" | "unavailable",
     bindingUnavailable: false,
-    author:"denied" as "allowed"|"denied"|"unavailable",
-    editRejected:false,
-    onOwn:undefined as (()=>Promise<void>)|undefined,
+    ownUnavailable: false,
+    author: "denied" as "allowed" | "denied" | "unavailable",
+    editRejected: false,
+    onOwn: undefined as (() => Promise<void>) | undefined,
     products: [
       {
         id: "11111111-1111-4111-8111-111111111111",
@@ -102,7 +130,16 @@ async function createFixture() {
       },
     ] as NonNullable<OwnAccess["products"]>,
   };
-  const rule = { id: randomUUID(), revision: 1, sourceRef: "course",product:{id:"11111111-1111-4111-8111-111111111111",slug:"ai-engineering",name:"AI Engineering"} };
+  const rule = {
+    id: randomUUID(),
+    revision: 1,
+    sourceRef: "course",
+    product: {
+      id: "11111111-1111-4111-8111-111111111111",
+      slug: "ai-engineering",
+      name: "AI Engineering",
+    },
+  };
   const platform: ActivationPlatform = {
     redeem: () => Promise.resolve(undefined),
     binding(identityRef) {
@@ -184,8 +221,38 @@ async function createFixture() {
       }
       return Promise.resolve(result);
     },
-    async own() {
+    async own(binding, prepareCommunity) {
       await state.onOwn?.();
+      if (state.ownUnavailable)
+        return { ok: false, error: { code: "unavailable" } };
+      if (
+        prepareCommunity === true &&
+        state.products.some(
+          (product) => product.community.state === "available",
+        ) &&
+        ![...commands.values()].some(
+          (command) => command.binding.accountRef === binding.accountRef,
+        )
+      ) {
+        const command: CommunitySetCommand = {
+          contractVersion: COMMUNITY_V2,
+          operation: "entitlement.set",
+          operationId: randomUUID(),
+          correlationRef: randomUUID(),
+          entitlementRevision: 1,
+          binding: {
+            accountRef: binding.accountRef,
+            telegramIdentityRef: binding.identityRef,
+            linkRef: binding.linkRef,
+            linkRevision: binding.linkRevision,
+          },
+          access: { kind: "lifetime" },
+          issuedAt: clock.now().toISOString(),
+        };
+        commands.set(command.operationId, command);
+        const reply = await app.get(CommunityProvider).handle(command);
+        expect(reply.status).toBe(200);
+      }
       return {
         ok: true,
         value: {
@@ -199,15 +266,55 @@ async function createFixture() {
     },
   };
 
-  const sent:TelegramTextMessage[] = [];
-  const edited:TelegramMessageEdit[] = [];
+  const sent: TelegramTextMessage[] = [];
+  const edited: TelegramMessageEdit[] = [];
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
-    .overrideProvider(AUTHOR_AUTHORIZATION).useValue({authorize:()=>Promise.resolve(state.author)})
-    .overrideProvider(TELEGRAM_MESSAGES).useValue({
-      sendText(message:TelegramTextMessage){sent.push(message);return Promise.resolve({kind:"delivered",providerMessageId:String(sent.length)});},
-      editText(message:TelegramMessageEdit){edited.push(message);return Promise.resolve(state.editRejected ? {kind:"api_rejected",providerErrorCode:400} : {kind:"delivered",providerMessageId:message.messageId});},
+    .overrideProvider(TELEGRAM_COMMUNITY_CHAT)
+    .useValue(chat)
+    .overrideProvider(COMMUNITY_DISPATCH_AUTHORIZATION)
+    .useValue({
+      authorize: (request: DispatchAuthorizationRequest) => {
+        const command = commands.get(request.dispatchId);
+        return Promise.resolve({
+          contractVersion: "inside.billing-dispatch.v1",
+          operation: "dispatch.result",
+          operationId: request.operationId,
+          attemptId: request.attemptId,
+          dispatchId: request.dispatchId,
+          decision:
+            command && digest(command) === request.payloadDigest
+              ? {
+                  status: "allowed",
+                  permitRef: randomUUID(),
+                  validUntil: new Date(
+                    clock.now().getTime() + 5000,
+                  ).toISOString(),
+                }
+              : { status: "denied", reason: "payload_conflict" },
+        });
+      },
+    })
+    .overrideProvider(AUTHOR_AUTHORIZATION)
+    .useValue({ authorize: () => Promise.resolve(state.author) })
+    .overrideProvider(TELEGRAM_MESSAGES)
+    .useValue({
+      sendText(message: TelegramTextMessage) {
+        sent.push(message);
+        return Promise.resolve({
+          kind: "delivered",
+          providerMessageId: String(sent.length),
+        });
+      },
+      editText(message: TelegramMessageEdit) {
+        edited.push(message);
+        return Promise.resolve(
+          state.editRejected
+            ? { kind: "api_rejected", providerErrorCode: 400 }
+            : { kind: "delivered", providerMessageId: message.messageId },
+        );
+      },
     })
     .overrideProvider(CLOCK)
     .useValue(clock)
@@ -247,9 +354,25 @@ async function createFixture() {
     expect(response.statusCode).toBe(202);
     await app.get(TelegramUpdateProcessor).processAvailable();
   }
-  async function callback(user:number,data:string,messageId=42) {
-    const id=++updateId;
-    const response=await app.inject({method:"POST",url:"/webhooks/telegram",headers:{"x-telegram-bot-api-secret-token":config.webhookSecret},payload:{update_id:id,callback_query:{id:String(id),data,from:{id:user,is_bot:false},message:{message_id:messageId,chat:{id:user,type:"private"}}}}});
+  async function callback(user: number, data: string, messageId = 42) {
+    const id = ++updateId;
+    const response = await app.inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
+      payload: {
+        update_id: id,
+        callback_query: {
+          id: String(id),
+          data,
+          from: { id: user, is_bot: false },
+          message: {
+            message_id: messageId,
+            chat: { id: user, type: "private" },
+          },
+        },
+      },
+    });
     expect(response.statusCode).toBe(202);
     await app.get(TelegramUpdateProcessor).processAvailable();
   }
@@ -306,7 +429,10 @@ async function createFixture() {
 
   return {
     app,
-    sent,edited,
+    sent,
+    edited,
+    chat,
+    commands,
     db,
     worker,
     bot,
@@ -327,81 +453,315 @@ async function createFixture() {
 }
 
 describe("durable activation ingress, identity and continuation", () => {
-  it("shows the empty Product menu and reserves management for an authorized author",async({activation:a})=>{
-    await a.ingress(70108,"/start");await a.link(70108);a.state.products=[];
-    const outbound=a.app.get(StartResponseDeliveryProcessor);
-    await a.ingress(70108,"/start");await outbound.processAvailable(10,a.clock.now());
-    expect(a.sent.at(-1)?.text).toContain("Пока нет доступных продуктов");
-    expect(a.sent.at(-1)?.buttons?.some(button=>button.text==="Управление")).toBe(false);
-    a.state.author="allowed";await a.ingress(70108,"/start");await outbound.processAvailable(10,a.clock.now());
-    expect(a.sent.at(-1)?.buttons).toContainEqual({text:"Управление",callbackData:"author:home"});
-  });
-  it("keeps the selected Product through help and edits the current inline message",async({activation:a})=>{
-    await a.ingress(70109,"/start");await a.link(70109);
-    const id=required(a.state.products[0]).id;
-    await a.callback(70109,`access:help:${id}`);
-    await a.callback(70109,`access:help_signin:${id}`);
-    await a.app.get(StartResponseDeliveryProcessor).processAvailable(20,a.clock.now());
-    expect(a.edited.at(-1)?.messageId).toBe("42");
-    expect(a.edited.at(-1)?.buttons).toContainEqual({text:"Войти на платформу",url:"https://sachkov.dev/auth/sign-in?returnTo=%2Fproducts%2Fai-engineering%2Fprogramme"});
-    expect(a.edited.at(-1)?.buttons).toContainEqual({text:"Написать в поддержку",url:"https://t.me/sachkova_mng"});
+  for (const kind of ["binding", "own"] as const)
+    it(`retries the same Product community action after ${kind} failure`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70112, "/start");
+      await a.link(70112);
+      const id = required(a.state.products[0]).id;
+      a.state.bindingUnavailable = kind === "binding";
+      a.state.ownUnavailable = kind === "own";
+      await a.callback(70112, `access:community:${id}`);
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      expect(a.edited.at(-1)?.buttons).toContainEqual({
+        text: "Повторить",
+        callbackData: `access:community:${id}`,
+      });
+      a.state.bindingUnavailable = false;
+      a.state.ownUnavailable = false;
+      await a.callback(70112, `access:community:${id}`);
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      expect(a.edited.at(-1)?.buttons).toContainEqual({
+        text: "Вступить в группу",
+        url: "https://t.me/+synthetic",
+      });
+      expect(a.begins).toEqual([]);
+      expect(a.granted.size).toBe(0);
+    });
+  it("does not expose a canonical group for an unconfigured Product even to an actual member", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70113, "/start");
+    await a.link(70113);
+    a.chat.membership = "member";
+    const product = required(a.state.products[0]);
+    a.state.products = [{ ...product, community: { state: "unavailable" } }];
+    await a.callback(70113, `access:product:${product.id}`);
+    await a.callback(70113, `access:community:${product.id}`);
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(
+      a.edited
+        .at(-1)
+        ?.buttons?.some(
+          (button) =>
+            button.text === "Открыть группу" ||
+            button.text === "Вступить в группу",
+        ),
+    ).toBe(false);
+    expect(a.chat.count("create_invite")).toBe(0);
   });
 
-  it("renders current revoked rights when an old activation link repeats a historical grant",async({activation:a})=>{
-    await a.ingress(70107,"/start");await a.link(70107);await a.ingress(70107,"/start a_course");
-    const product=required(a.state.products[0]);
-    a.state.products=[{...product,materials:{state:"revoked"},community:{state:"revoked"}}];
-    await a.ingress(70107,"/start a_course");
-    const queue=a.app.get(StartResponseDeliveryQueue);let last;
-    for(let i=0;i<10;i++){const reply=await queue.claimNext(a.clock.now());if(!reply)break;last=reply;await queue.recordResult(reply,{kind:"delivered",providerMessageId:String(i+1)},a.clock.now());}
+  it("measures prepared normal admission from accepted bot action to usable delivered result", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70111, "/start");
+    await a.link(70111);
+    const id = required(a.state.products[0]).id;
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await outbound.processAvailable(20, a.clock.now());
+    // Warm the complete ingress, authorization and provider path before measuring prepared requests.
+    await a.callback(70111, `access:community:${id}`);
+    await outbound.processAvailable(20, a.clock.now());
+    const durations: number[] = [];
+    let failures = 0;
+    for (let sample = 0; sample < 100; sample++) {
+      // deterministic-test-allow wall-clock: #1496 measures latency, never domain time or delivery readiness.
+      const started = performance.now();
+      await a.callback(70111, `access:community:${id}`);
+      await outbound.processAvailable(20, a.clock.now());
+      // deterministic-test-allow wall-clock: end of the same prepared bot action and delivered-result measurement.
+      durations.push(performance.now() - started);
+      if (
+        a.edited
+          .at(-1)
+          ?.buttons?.some(
+            (button) => button.url === "https://t.me/+synthetic",
+          ) !== true
+      )
+        failures++;
+    }
+    const sorted = durations.toSorted((left, right) => left - right);
+    const p95 = required(sorted[94]);
+    const report = {
+      record: "learner-admission-latency",
+      samples: durations.length,
+      p95Ms: Math.round(p95 * 100) / 100,
+      failures,
+      excludedOutages: 0,
+      environment:
+        "owned PostgreSQL; real inbox, activation, community and outbound; controlled Platform and Telegram boundaries; warmed TypeScript transform and fixtures",
+      node: process.version,
+    };
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+    expect(failures).toBe(0);
+    expect(p95).toBeLessThanOrEqual(5000);
+    expect(a.chat.count("create_invite")).toBe(1);
+  });
+
+  it("delivers the first usable group invitation in one bot action and opens actual membership", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70110, "/start");
+    await a.link(70110);
+    const id = required(a.state.products[0]).id;
+    await a.callback(70110, `access:community:${id}`);
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.text).toBe(
+      "AI Engineering\n\nМожно вступить в группу курса.",
+    );
+    expect(a.edited.at(-1)?.buttons).toContainEqual({
+      text: "Вступить в группу",
+      url: "https://t.me/+synthetic",
+    });
+    expect(a.chat.count("create_invite")).toBe(1);
+    await Promise.all([
+      a.callback(70110, `access:community:${id}`),
+      a.callback(70110, `access:community:${id}`),
+    ]);
+    expect(a.chat.count("create_invite")).toBe(1);
+    a.chat.membership = "member";
+    await a.callback(70110, `access:product:${id}`);
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.buttons).toContainEqual({
+      text: "Открыть группу",
+      url: "https://t.me/c/1234567890/1",
+    });
+  });
+
+  it("shows the empty Product menu and reserves management for an authorized author", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70108, "/start");
+    await a.link(70108);
+    a.state.products = [];
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await a.ingress(70108, "/start");
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.at(-1)?.text).toContain("Пока нет доступных продуктов");
+    expect(
+      a.sent.at(-1)?.buttons?.some((button) => button.text === "Управление"),
+    ).toBe(false);
+    a.state.author = "allowed";
+    await a.ingress(70108, "/start");
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.at(-1)?.buttons).toContainEqual({
+      text: "Управление",
+      callbackData: "author:home",
+    });
+  });
+  it("keeps the selected Product through help and edits the current inline message", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70109, "/start");
+    await a.link(70109);
+    const id = required(a.state.products[0]).id;
+    await a.callback(70109, `access:help:${id}`);
+    await a.callback(70109, `access:help_signin:${id}`);
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.messageId).toBe("42");
+    expect(a.edited.at(-1)?.buttons).toContainEqual({
+      text: "Войти на платформу",
+      url: "https://sachkov.dev/auth/sign-in?returnTo=%2Fproducts%2Fai-engineering%2Fprogramme",
+    });
+    expect(a.edited.at(-1)?.buttons).toContainEqual({
+      text: "Написать в поддержку",
+      url: "https://t.me/sachkova_mng",
+    });
+  });
+
+  it("renders current revoked rights when an old activation link repeats a historical grant", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70107, "/start");
+    await a.link(70107);
+    await a.ingress(70107, "/start a_course");
+    const product = required(a.state.products[0]);
+    a.state.products = [
+      {
+        ...product,
+        materials: { state: "revoked" },
+        community: { state: "revoked" },
+      },
+    ];
+    await a.ingress(70107, "/start a_course");
+    const queue = a.app.get(StartResponseDeliveryQueue);
+    let last;
+    for (let i = 0; i < 10; i++) {
+      const reply = await queue.claimNext(a.clock.now());
+      if (!reply) break;
+      last = reply;
+      await queue.recordResult(
+        reply,
+        { kind: "delivered", providerMessageId: String(i + 1) },
+        a.clock.now(),
+      );
+    }
     expect(last?.messageText).toContain("Доступ к материалам отозван");
-    expect(last?.buttons?.some(button=>button.text === "Вступить в группу")).toBe(false);
+    expect(
+      last?.buttons?.some((button) => button.text === "Вступить в группу"),
+    ).toBe(false);
     expect(a.granted.size).toBe(1);
   });
 
-  it("returns bounded failure for a stalled community check and permits a fresh checked retry",async ({activation:a})=>{
-    await a.ingress(70106,"/start"); await a.link(70106);
-    let entered!:()=>void;const started=new Promise<void>(resolve=>{entered=resolve;});
-    let release!:()=>void;const stalled=new Promise<void>(resolve=>{release=resolve;});
-    a.state.onOwn=()=>{entered();return stalled;};
-    vi.useFakeTimers({toFake:["setTimeout","clearTimeout"]});
+  it("returns bounded failure for a stalled community check and permits a fresh checked retry", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70106, "/start");
+    await a.link(70106);
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let release!: () => void;
+    const stalled = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    a.state.onOwn = () => {
+      entered();
+      return stalled;
+    };
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-      const action=a.worker.action({botIdentity:a.bot,telegramUserId:"70106",privateChatId:"70106",updateId:"900001",observedAt:a.clock.now()},"community",a.state.products[0]?.id);
+      const action = a.worker.action(
+        {
+          botIdentity: a.bot,
+          telegramUserId: "70106",
+          privateChatId: "70106",
+          updateId: "900001",
+          observedAt: a.clock.now(),
+        },
+        "community",
+        a.state.products[0]?.id,
+      );
       await started;
       await vi.advanceTimersByTimeAsync(10000);
       await action;
-      const queue=a.app.get(StartResponseDeliveryQueue);
-      const texts:string[]=[];
-      for(let i=0;i<5;i++){const reply=await queue.claimNext(a.clock.now());if(!reply)break;texts.push(reply.messageText);await queue.recordResult(reply,{kind:"delivered",providerMessageId:String(i+1)},a.clock.now());}
-      expect(texts).toContain("Не удалось проверить доступ. Попробуйте ещё раз.");
-      a.state.onOwn=undefined;
+      const queue = a.app.get(StartResponseDeliveryQueue);
+      const texts: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const reply = await queue.claimNext(a.clock.now());
+        if (!reply) break;
+        texts.push(reply.messageText);
+        await queue.recordResult(
+          reply,
+          { kind: "delivered", providerMessageId: String(i + 1) },
+          a.clock.now(),
+        );
+      }
+      expect(texts).toContain(
+        "Не удалось проверить доступ. Попробуйте ещё раз.",
+      );
+      a.state.onOwn = undefined;
       release();
-      await a.worker.action({botIdentity:a.bot,telegramUserId:"70106",privateChatId:"70106",updateId:"900002",observedAt:a.clock.now()},"community",a.state.products[0]?.id);
+      await a.worker.action(
+        {
+          botIdentity: a.bot,
+          telegramUserId: "70106",
+          privateChatId: "70106",
+          updateId: "900002",
+          observedAt: a.clock.now(),
+        },
+        "community",
+        a.state.products[0]?.id,
+      );
       expect(a.granted.size).toBe(0);
-    }finally{release();vi.useRealTimers();}
+    } finally {
+      release();
+      vi.useRealTimers();
+    }
   });
 
-  it("edits the original activation card automatically after linking and replaces an uneditable old card once", async ({activation:a})=>{
-    await a.ingress(70104,"/start a_course");
-    const outbound=a.app.get(StartResponseDeliveryProcessor);
-    await outbound.processAvailable(10,a.clock.now());
-    expect(a.sent.at(-1)?.buttons).toContainEqual({text:"Продолжить на платформе",url:`https://sachkov.dev/telegram/continue?attempt=${a.begins[0]}`});
-    const before=a.sent.length;
+  it("edits the original activation card automatically after linking and replaces an uneditable old card once", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70104, "/start a_course");
+    const outbound = a.app.get(StartResponseDeliveryProcessor);
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent.at(-1)?.buttons).toContainEqual({
+      text: "Продолжить на платформе",
+      url: `https://sachkov.dev/telegram/continue?attempt=${a.begins[0]}`,
+    });
+    const before = a.sent.length;
     await a.link(70104);
     await a.worker.processAvailable();
-    a.state.editRejected=true;
-    await outbound.processAvailable(10,a.clock.now());
+    a.state.editRejected = true;
+    await outbound.processAvailable(10, a.clock.now());
     expect(a.edited.at(-1)?.messageId).toBe(String(before));
-    expect(a.sent).toHaveLength(before+1);
+    expect(a.sent).toHaveLength(before + 1);
     expect(a.sent.at(-1)?.text).toContain("Курс доступен");
-    await outbound.processAvailable(10,a.clock.now());
-    expect(a.sent).toHaveLength(before+1);
+    await outbound.processAvailable(10, a.clock.now());
+    expect(a.sent).toHaveLength(before + 1);
   });
 
-  it("keeps a verified source proof's actual time when linking continues",async ({activation:a})=>{
-    const checkedAt=a.clock.now().toISOString();
-    await a.ingress(70105,"/start a_course");
-    a.clock.value=new Date(a.clock.now().getTime()+30000);
+  it("keeps a verified source proof's actual time when linking continues", async ({
+    activation: a,
+  }) => {
+    const checkedAt = a.clock.now().toISOString();
+    await a.ingress(70105, "/start a_course");
+    a.clock.value = new Date(a.clock.now().getTime() + 30000);
     await a.worker.processAvailable();
     await a.link(70105);
     await a.worker.processAvailable();
