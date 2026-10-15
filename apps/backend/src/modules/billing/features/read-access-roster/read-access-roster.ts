@@ -12,7 +12,7 @@ import {
   type OwnerOperation,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
-import { priceSnapshotSchema } from "../../domain/pricing.js";
+import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
 import { MOSCOW_OFFSET_MS } from "../../domain/subscription-period.js";
 
 interface Dependencies {
@@ -40,22 +40,34 @@ export async function listPeople(
   command: PeopleCommand,
 ): Promise<OwnerResult> {
   const { prisma, grants } = dependencies;
-  const offerPurchaseRefs =
-    command.offerId === undefined
-      ? []
-      : (
-          await prisma.billingPurchase.findMany({
-            where: {
-              kind: "one_time",
-              state: "confirmed",
-              snapshot: { path: ["offer", "id"], equals: command.offerId },
-            },
-            select: { id: true },
-          })
-        ).map((row) => row.id);
   const { operation: _operation, ...query } = command;
   const result = await grants.listAccessHolders(actorId, query, {
-    offerPurchaseRefs,
+    offerPurchaseRefs: [],
+    ...(command.offerId === undefined
+      ? {}
+      : {
+          matchOfferPurchaseRefs: async (refs: readonly string[]) => {
+            const offerId = command.offerId;
+            if (offerId === undefined) return [];
+            const matched: string[] = [];
+            const validRefs = refs.filter(
+              (ref) => idSchema.safeParse(ref).success,
+            );
+            for (let offset = 0; offset < validRefs.length; offset += 500) {
+              const rows = await prisma.billingPurchase.findMany({
+                where: {
+                  id: { in: validRefs.slice(offset, offset + 500) },
+                  kind: "one_time",
+                  state: "confirmed",
+                  snapshot: { path: ["offer", "id"], equals: offerId },
+                },
+                select: { id: true },
+              });
+              matched.push(...rows.map((row) => row.id));
+            }
+            return matched;
+          },
+        }),
   });
   if (!result.ok) return ownerAccessFailure(result.error.code);
   const offers = await purchaseOffers(

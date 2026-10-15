@@ -1,5 +1,5 @@
-import { hydrateMaterialAssets } from "../../materials/index.js";
 import type { MaterialAssetPresentation } from "../../assets/index.js";
+import { hydrateMaterialAssets } from "../../materials/index.js";
 import type { Result } from "./result.js";
 import type { RenderedMaterialBody } from "@inside/material-blocks";
 import {
@@ -89,25 +89,18 @@ export async function taskPageView(
       ? (page.resolvedImages[`cover:${page.source.coverAssetId}`] ??
         page.resolvedImages[page.source.coverAssetId])
       : undefined;
-  const groups = new Map<string, Set<string>>();
-  for (const reference of Object.values(page.resolvedImages)) {
-    const ids = groups.get(reference.materialId) ?? new Set<string>();
-    ids.add(reference.assetId);
-    groups.set(reference.materialId, ids);
-  }
-  const presentations: MaterialAssetPresentation[] = [];
-  for (const [materialId, assetIds] of groups) {
-    if (dependencies.materialAssets === undefined)
+  const references = Object.values(page.resolvedImages);
+  let presentations: readonly MaterialAssetPresentation[] = [];
+  if (references.length > 0) {
+    const assets = dependencies.materialAssets;
+    if (assets === undefined)
       return {
         ok: false,
         error: { code: "dependency_unavailable", retryable: true },
       };
-    const loaded = await dependencies.materialAssets.loadPresentations(
-      materialId,
-      [...assetIds],
-    );
+    const loaded = await assets.loadPresentationsMany(references);
     if (!loaded.ok) return loaded;
-    presentations.push(...loaded.value);
+    presentations = loaded.value;
   }
   return {
     ok: true,

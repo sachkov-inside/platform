@@ -3,7 +3,7 @@ import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
 import { SurveyRespondentsPanel } from "./survey-respondents-panel.client";
 import {
-  listSubscriptionTiers,
+  listAllSubscriptionTiers,
   readContentCatalog,
 } from "../api/enrollments.browser";
 import { ActivationRulesPanel } from "./activation-rules-panel.client";
@@ -89,10 +89,7 @@ export function BillingAdminPanel({
   const tiers = useQuery({
     queryKey: ["owner-subscription-tiers"],
     queryFn: async () => {
-      const result = await listSubscriptionTiers({
-        operationId: crypto.randomUUID(),
-        limit: 100,
-      });
+      const result = await listAllSubscriptionTiers();
       if (!result.ok) throw new Error(billingErrorMessage(result.code));
       return result.value.result.items;
     },

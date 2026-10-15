@@ -9,7 +9,10 @@ import {
   subscriptionSaleConfirmed,
   type SubscriptionTerminal,
 } from "../domain/sale-capability.js";
-import { endSubscription, inFlightStates } from "./subscription-outcome.js";
+import {
+  endSubscriptionFromLockedRow,
+  inFlightStates,
+} from "./subscription-outcome.js";
 
 type SubscriptionWhere = NonNullable<
   Parameters<BillingPrisma["billingSubscription"]["findMany"]>[0]
@@ -155,9 +158,9 @@ export async function endLapsedSubscriptions(
     )
       continue;
     if (renewalScheduled(row)) continue;
-    await endSubscription(
+    await endSubscriptionFromLockedRow(
       tx,
-      row.id,
+      row,
       row.state === "canceled"
         ? "canceled_period_ended"
         : "no_usable_payment_method",

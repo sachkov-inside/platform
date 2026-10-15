@@ -1612,3 +1612,73 @@ describe("broadcast authoring in the bot", () => {
     expect(await lastAuthorText()).toContain("Черновик · сообщений: 4");
   });
 });
+it.each(["Воронки", "Рассылки"])(
+  "authorizes the %s list once for the linked author, without per-item replay",
+  async (label) => {
+    await seedLink();
+    const id = "40000000-0000-4000-8000-000000000001";
+    if (label === "Воронки")
+      await database
+        .insertInto("communication_funnels")
+        .values({
+          funnel_id: id,
+          bot_identity: "inside",
+          owner_account_ref: "synthetic-author",
+          revision: 1,
+          published_revision: null,
+          lifecycle: "draft",
+          is_default: false,
+          published: null,
+          draft: JSON.stringify({
+            funnelId: id,
+            name: "Synthetic list",
+            isDefault: false,
+            sources: [],
+            steps: [],
+            entryResponse: { stepId: id, parts: [] },
+          }),
+        })
+        .execute();
+    else
+      await database
+        .insertInto("communication_broadcasts")
+        .values({
+          broadcast_id: id,
+          bot_identity: "inside",
+          owner_account_ref: "synthetic-author",
+          revision: 1,
+          state: "draft",
+          parts: "[]",
+          audience: JSON.stringify({ kind: "all" }),
+          scheduled_at: null,
+          audience_snapshot_id: null,
+          snapshot_size: 0,
+          launched_at: null,
+          launch_operation_id: null,
+          created_at: new Date("2030-01-01T00:00:00Z"),
+        })
+        .execute();
+    await authorMessage(100, "/admin");
+    authorization.subjects = [];
+    const menu = await database
+      .selectFrom("communication_author_outbox")
+      .select("message")
+      .orderBy("sequence_id", "desc")
+      .executeTakeFirstOrThrow();
+    const callback = required(
+      menu.message.authorButtons?.find((button) => button.text === label),
+    );
+    await app.get(AuthorAdmin).handle({
+      botIdentity: "inside",
+      updateId: "1010",
+      telegramUserId: "42",
+      privateChatId: "42",
+      text: "",
+      content: null,
+      callbackData: callback.callbackData,
+      callbackQueryId: "1010",
+    });
+    expect(authorization.subjects).toHaveLength(1);
+    expect(authorization.subjects[0]).toMatchObject({ kind: "telegram" });
+  },
+);

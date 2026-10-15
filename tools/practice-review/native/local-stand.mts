@@ -14,6 +14,8 @@ export async function startLocalStand(learning: LearnerMcpDependencies) {
     learning,
     accounts: {
       readIdentityForLink: () => Promise.resolve(undefined),
+      readIdentitiesForLink: () =>
+        Promise.resolve(new Map<string, undefined>()),
       establishAccount: () =>
         Promise.resolve({
           ok: false,

@@ -62,10 +62,7 @@ test("practice Reader offers pinned requests only to an authorized participant",
   await signInFullStack(context, "MEMBER");
   await page.goto(`/materials/${practiceSlug()}`, { waitUntil: "commit" });
   if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
-    await expect(
-      page.locator('[data-material-reader-state="pending"]'),
-    ).toBeVisible();
-    await expect(page.locator("[data-reader-body]")).toHaveCount(0);
+    await expect(page.locator("[data-reader-body]")).toBeVisible();
   }
   await page
     .getByRole("button", { name: "Закрыть подключение Telegram" })

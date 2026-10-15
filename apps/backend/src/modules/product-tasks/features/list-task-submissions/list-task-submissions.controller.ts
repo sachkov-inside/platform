@@ -3,6 +3,7 @@ import {
   Get,
   Inject,
   Param,
+  Query,
   UseFilters,
   UseGuards,
 } from "@nestjs/common";
@@ -11,6 +12,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -45,10 +47,14 @@ import {
   type LearningTasks,
 } from "../../facets/learning-tasks/learning-tasks.js";
 
+import { ownSubmissionsCursorSchema } from "./list-task-submissions.js";
+
 export const ownTaskSubmissionsHttpSchema = z
   .object({
     code: z.string(),
     currentVersion: z.number().int().positive(),
+    nextCursor: ownSubmissionsCursorSchema.nullable(),
+    latestSubmittedAt: z.iso.datetime().nullable(),
     versions: z.array(
       z
         .object({
@@ -99,6 +105,11 @@ export class ListOwnTaskSubmissionsController {
       "List the current Account's submissions of a Product Task with the criteria of their versions and author feedback",
   })
   @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeSchema) })
+  @ApiQuery({
+    name: "after",
+    required: false,
+    schema: toOpenApiSchema(ownSubmissionsCursorSchema),
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(ownTaskSubmissionsHttpSchema) })
   @ApiResponse({
     status: 400,
@@ -133,10 +144,22 @@ export class ListOwnTaskSubmissionsController {
   async list(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("code") code: string,
+    @Query() input: unknown,
   ): Promise<z.infer<typeof ownTaskSubmissionsHttpSchema>> {
+    const parsed = z
+      .object({ after: ownSubmissionsCursorSchema.optional() })
+      .strict()
+      .safeParse(input);
+    if (!parsed.success)
+      throw problemException(
+        400,
+        "invalid_request_shape",
+        "History cursor is malformed",
+      );
     const result = await this.tasks.submissions({
       subject: learnerSubject(account),
       code,
+      ...(parsed.data.after === undefined ? {} : { after: parsed.data.after }),
     });
     if (!result.ok) {
       const error = result.error;
@@ -154,6 +177,8 @@ export class ListOwnTaskSubmissionsController {
     return {
       code: value.code,
       currentVersion: value.currentVersion,
+      nextCursor: value.nextCursor,
+      latestSubmittedAt: value.latestSubmittedAt,
       versions: value.versions.map((version) => ({
         version: version.version,
         criteria: version.criteria.map(criterionHttp),

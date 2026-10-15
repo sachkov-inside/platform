@@ -5,12 +5,13 @@ import {
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import type { FastifyInstance } from "fastify";
-import { sql } from "kysely";
+import { Kysely, PostgresDialect, sql } from "kysely";
+import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import type { ApplicationConfig } from "../../src/config/application-config.js";
-import { createDatabase } from "../../src/database/create-database.js";
-import type { Database } from "../../src/database/database.js";
+
+import { DATABASE, type Database } from "../../src/database/database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
 import {
@@ -59,16 +60,30 @@ const config: ApplicationConfig = {
 let app: NestFastifyApplication;
 let database: Database;
 let fastify: FastifyInstance;
+let linkStatements: string[] = [];
 const profile =
   vi.fn<(_id: string, _signal: AbortSignal) => Promise<ContactProfileResult>>();
 const url = "/integrations/platform/v1/telegram-contacts";
 const headers = { authorization: "Bearer synthetic_platform_secret" };
 beforeAll(async () => {
-  database = createDatabase(databaseUrl);
+  database = new Kysely({
+    dialect: new PostgresDialect({
+      pool: new Pool({ connectionString: databaseUrl }),
+    }),
+    log(event) {
+      if (
+        event.level === "query" &&
+        event.query.sql.includes('"platform_links"')
+      )
+        linkStatements.push(event.query.sql);
+    },
+  });
   await migrateToLatest(database);
   const testing = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(DATABASE)
+    .useValue(database)
     .overrideProvider(TELEGRAM_CONTACT_PROFILE)
     .useValue({ read: profile })
     .compile();
@@ -81,6 +96,7 @@ beforeAll(async () => {
   await fastify.ready();
 });
 beforeEach(async () => {
+  linkStatements = [];
   profile.mockReset();
   profile.mockResolvedValue({
     kind: "available",
@@ -95,17 +111,17 @@ afterAll(async () => {
   await app.close();
   await database.destroy();
 });
-async function linked() {
+async function linked(index = 0) {
   const linking = new IdentityLinking(
     database,
     { now: () => new Date("2030-01-01T00:00:00.000Z") },
     linkEffects,
   );
   const challenge = await linking.register({
-    accountRef: "account-ref-a",
-    returnCorrelation: "return-ref-a",
+    accountRef: `account-ref-${index}`,
+    returnCorrelation: `return-ref-${index}`,
     tokenDigest: createHash("sha256")
-      .update("synthetic-contact-link")
+      .update(`synthetic-contact-link-${index}`)
       .digest("base64url"),
     expiresAt: new Date("2030-01-01T00:10:00.000Z"),
   });
@@ -116,19 +132,19 @@ async function linked() {
     .executeTakeFirstOrThrow();
   await linking.acceptStart({
     botIdentity: "inside",
-    telegramUserId: "42",
+    telegramUserId: String(42 + index),
     observedAt: new Date("2030-01-01T00:00:00.000Z"),
     linkToken: { kind: "digest", digest: transaction.token_digest },
   });
   const confirmed = await linking.confirm({
-    accountRef: "account-ref-a",
-    returnCorrelation: "return-ref-a",
+    accountRef: `account-ref-${index}`,
+    returnCorrelation: `return-ref-${index}`,
     linkTransactionRef: challenge.linkTransactionRef,
   });
   if (confirmed.status !== "linked")
     throw new Error("Fixture link was not confirmed");
   return {
-    accountRef: "account-ref-a",
+    accountRef: `account-ref-${index}`,
     telegramIdentityRef: confirmed.telegramIdentityRef,
   };
 }
@@ -235,3 +251,69 @@ it("clears the contact after unlink during the Telegram read, and reports upstre
     { ...query, status: "not_found", displayName: null, username: null },
   ]);
 });
+
+it.each([1, 20, 100])(
+  "enriches %i exact contacts with bounded local reads and at most four concurrent provider requests",
+  async (size) => {
+    const queries = [];
+    for (let index = 0; index < size; index++)
+      queries.push(await linked(index));
+    let active = 0;
+    let maximumActive = 0;
+    const signals = new Set<AbortSignal>();
+    profile.mockImplementation(async (_id, signal) => {
+      active++;
+      maximumActive = Math.max(maximumActive, active);
+      signals.add(signal);
+      await Promise.resolve();
+      active--;
+      return { kind: "available", displayName: "Контакт", username: null };
+    });
+    linkStatements = [];
+    const result = await read(queries);
+    expect(result).toEqual(
+      queries.map((query) => ({
+        ...query,
+        status: "available",
+        displayName: "Контакт",
+        username: null,
+      })),
+    );
+    expect(profile).toHaveBeenCalledTimes(size);
+    expect(maximumActive).toBeGreaterThan(0);
+    expect(maximumActive).toBeLessThanOrEqual(4);
+    expect(signals.size).toBe(1);
+    expect(linkStatements).toHaveLength(2);
+  },
+);
+it.each(["account", "confirmation"])(
+  "clears stale provider identity after a concurrent %s replacement",
+  async (replacement) => {
+    const query = await linked();
+    const other = await linked(1);
+    const otherBinding = await database
+      .selectFrom("platform_links")
+      .select("link_transaction_ref")
+      .where("telegram_identity_ref", "=", other.telegramIdentityRef)
+      .executeTakeFirstOrThrow();
+    profile.mockImplementationOnce(async () => {
+      await database
+        .updateTable("platform_links")
+        .set(
+          replacement === "account"
+            ? { account_ref: other.accountRef }
+            : { link_transaction_ref: otherBinding.link_transaction_ref },
+        )
+        .where("telegram_identity_ref", "=", query.telegramIdentityRef)
+        .execute();
+      return {
+        kind: "available",
+        displayName: "Старый контакт",
+        username: null,
+      };
+    });
+    expect(await read([query])).toEqual([
+      { ...query, status: "not_found", displayName: null, username: null },
+    ]);
+  },
+);

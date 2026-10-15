@@ -8,6 +8,7 @@ import {
   type SalePaymentConfiguration,
 } from "../../features/assert-sale-configured/assert-sale-configured.js";
 import { listOffers } from "../../features/list-offers/list-offers.js";
+import { readProductSaleAvailability } from "../../features/read-product-sale-availability/read-product-sale-availability.js";
 import { listProductCohorts } from "../../features/list-product-cohorts/list-product-cohorts.js";
 import {
   reservePurchase,
@@ -63,9 +64,32 @@ export class BillingPricing {
       recurringAllowed: legacy?.recurringAllowed ?? true,
     });
   }
+  async saleAvailability(input: unknown, accountId?: string) {
+    const grounds = await readPurchaseGrounds(
+      this.dependencies.grants,
+      accountId,
+    );
+    if (grounds === null) return failure("dependency_unavailable");
+    const legacy =
+      accountId === undefined || this.dependencies.grants === undefined
+        ? undefined
+        : await this.dependencies.grants.readLegacyClassification(accountId);
+    if (legacy !== undefined && !legacy.ok)
+      return failure("dependency_unavailable");
+    return readProductSaleAvailability(
+      this.dependencies.prisma,
+      input,
+      this.clock,
+      {
+        grounds,
+        sale: this.dependencies.sale,
+        recurringAllowed: legacy?.recurringAllowed ?? true,
+      },
+    );
+  }
   /** Текущие потоки продуктов: публичный факт, одинаковый для гостя, покупателя и владельца. */
-  cohorts() {
-    return listProductCohorts(this.dependencies.prisma);
+  cohorts(productId?: string, cursor?: string) {
+    return listProductCohorts(this.dependencies.prisma, productId, cursor);
   }
   /** Владельческий каталог: весь неархивный каталог вместе с выключенными из продажи предложениями. */
   ownerCatalog(input: unknown) {

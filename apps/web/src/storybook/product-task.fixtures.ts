@@ -135,6 +135,8 @@ export const submittedTwice: OwnSubmissionsView = {
   kind: "ready",
   code: place.code,
   currentVersion: 2,
+  nextCursor: null,
+  latestSubmittedAt: "2026-10-05T13:40:00.000Z",
   versions,
   submissions: [
     {
@@ -169,6 +171,8 @@ export const notSubmittedYet: OwnSubmissionsView = {
   kind: "ready",
   code: place.code,
   currentVersion: 2,
+  nextCursor: null,
+  latestSubmittedAt: null,
   versions: [],
   submissions: [],
 };

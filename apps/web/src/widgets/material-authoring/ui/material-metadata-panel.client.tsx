@@ -406,7 +406,7 @@ function SeriesSelector({
         aria-label="Поиск продуктов"
         type="search"
         placeholder="Найти продукт"
-        className="mb-2 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm"
+        className="mb-2 min-h-11 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-base md:min-h-0 md:text-sm"
         value={search}
         onChange={(event) => {
           setSearch(event.currentTarget.value);
@@ -474,22 +474,40 @@ function TagSelector({
   disabled,
   presentation,
 }: MaterialMetadataPanelProps & { readonly disabled: boolean }) {
+  const [search, setSearch] = useState("");
+  const [limit, setLimit] = useState(20);
+  const matching = presentation.availableTags.filter((tag) =>
+    tag.label
+      .toLocaleLowerCase("ru")
+      .includes(search.trim().toLocaleLowerCase("ru")),
+  );
   return (
     <div className="min-w-0">
       <p className="mb-2 text-sm font-medium" id="material-tags-label">
         Теги
       </p>
+      <input
+        aria-label="Поиск тегов"
+        type="search"
+        placeholder="Найти тег"
+        className="mb-2 min-h-11 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-base md:min-h-0 md:text-sm"
+        value={search}
+        onChange={(event) => {
+          setSearch(event.currentTarget.value);
+          setLimit(20);
+        }}
+      />
       <div
         aria-labelledby="material-tags-label"
         className="flex min-h-12 flex-wrap gap-2 rounded-xl bg-card p-2"
         role="group"
       >
-        {presentation.availableTags.length === 0 ? (
+        {matching.length === 0 ? (
           <span className="px-1 py-1.5 text-sm text-muted-foreground">
-            Нет доступных тегов
+            {search.trim() === "" ? "Нет доступных тегов" : "Теги не найдены"}
           </span>
         ) : (
-          presentation.availableTags.map((tag) => {
+          matching.slice(0, limit).map((tag) => {
             const checked = presentation.draft.tagIds.includes(tag.value);
             return (
               <label
@@ -520,6 +538,17 @@ function TagSelector({
           })
         )}
       </div>
+      {limit < matching.length ? (
+        <button
+          className="mt-2 text-xs text-muted-foreground"
+          type="button"
+          onClick={() => {
+            setLimit((current) => current + 20);
+          }}
+        >
+          Показать ещё теги
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -46,3 +46,5 @@ export * from "./billing.server";
 export { requestCurrentEnrollments } from "./billing.server";
 
 export { requestCurrentCommunityAdmission } from "./billing.server";
+
+export { requestProductSaleAvailability } from "./billing.server";

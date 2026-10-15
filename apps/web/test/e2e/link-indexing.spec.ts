@@ -27,7 +27,13 @@ test("карта сайта остаётся рабочей, когда ката
   const response = await request.get("/sitemap.xml");
 
   expect(response.status()).toBe(200);
-  const body = await response.text();
+  const index = await response.text();
+  expect(index).toContain("<sitemapindex");
+  expect(index).toContain(`<loc>${String(baseURL)}/sitemaps/0.xml</loc>`);
+  const chunk = await request.get("/sitemaps/0.xml");
+  expect(chunk.status()).toBe(200);
+  const body = await chunk.text();
+  expect(body).toContain("<urlset");
   expect(body).toContain(`<loc>${String(baseURL)}/</loc>`);
   expect(body).not.toContain(`<loc>${String(baseURL)}/library</loc>`);
 });

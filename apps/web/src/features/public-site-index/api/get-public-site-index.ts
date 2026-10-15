@@ -1,10 +1,12 @@
 import "server-only";
 
+import { PUBLISHED_CATALOG_CURSOR_MAX_LENGTH } from "@inside/contracts/published-catalog";
+
 import { z } from "zod";
 
 import {
   BackendConnectionError,
-  requestPublishedMaterialCatalog,
+  requestPublicSiteIndex,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
@@ -23,34 +25,29 @@ export type PublicSiteIndex =
     }
   | { readonly kind: "unavailable" };
 
-/** Сто страниц каталога: испорченный курсор не должен превратиться в бесконечный обход. */
-const MAX_CATALOG_PAGES = 100;
-
-/** Предел формата карты сайта. Сторожит случай, когда страница каталога станет крупнее. */
-const MAX_MATERIALS = 50_000;
-
-const collectionFacetSchema = z.object({ slug: z.string().min(1) });
-const catalogPageSchema = z.object({
-  facets: z.object({
-    series: z.array(collectionFacetSchema),
-    topics: z.array(collectionFacetSchema),
-  }),
+const siteIndexPageSchema = z.object({
+  productSlugs: z.array(z.string().min(1)),
+  topicSlugs: z.array(z.string().min(1)),
   items: z.array(
     z.object({
       publishedAt: z.iso.datetime({ offset: true }),
       slug: z.string().min(1),
     }),
   ),
-  nextCursor: z.string().min(1).max(512).nullable(),
+  nextCursor: z
+    .string()
+    .min(1)
+    .max(PUBLISHED_CATALOG_CURSOR_MAX_LENGTH)
+    .nullable(),
 });
 
 /**
- * Карта сайта перечисляет только опубликованное, поэтому каталог запрашивается без подтверждения
+ * Карта сайта перечисляет только опубликованное, поэтому указатель запрашивается без подтверждения
  * доступа: гостевая выдача и есть публичный указатель.
  *
- * Руководства и темы приходят фасетами каталога материалов, то есть указатель видит только те,
+ * Руководства и темы приходят на первой странице указателя, который видит только те,
  * у которых есть хотя бы один опубликованный материал. Пустое руководство остаётся доступным по
- * своему адресу, но в карту сайта не попадает: отдельного перечисления коллекций в контракте нет.
+ * своему адресу, но в карту сайта не попадает: пустые коллекции в контракте указателя не перечисляются.
  */
 export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   const materials: PublicSiteIndexMaterial[] = [];
@@ -58,37 +55,44 @@ export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   let topicSlugs: readonly string[] = [];
   let after: string | undefined;
 
-  for (let page = 0; page < MAX_CATALOG_PAGES; page += 1) {
-    const catalogPage = await readCatalogPage(after);
-    if (catalogPage === undefined) {
+  const continuations = new Set<string>();
+  for (;;) {
+    const siteIndexPage = await readSiteIndexPage(after);
+    if (siteIndexPage === undefined) {
       return { kind: "unavailable" };
     }
-    if (page === 0) {
-      productSlugs = catalogPage.facets.series.map(({ slug }) => slug);
-      topicSlugs = catalogPage.facets.topics.map(({ slug }) => slug);
+    if (after === undefined) {
+      productSlugs = siteIndexPage.productSlugs;
+      topicSlugs = siteIndexPage.topicSlugs;
     }
-    materials.push(...catalogPage.items);
-    if (catalogPage.nextCursor === null || materials.length >= MAX_MATERIALS) {
+    materials.push(...siteIndexPage.items);
+    if (siteIndexPage.nextCursor === null) {
       break;
     }
-    after = catalogPage.nextCursor;
+    if (continuations.has(siteIndexPage.nextCursor)) {
+      throw new BackendConnectionError(
+        "invalid-response",
+        "Content Library repeated a continuation",
+      );
+    }
+    continuations.add(siteIndexPage.nextCursor);
+    after = siteIndexPage.nextCursor;
   }
 
   return {
     productSlugs,
     kind: "ready",
-    materials: materials.slice(0, MAX_MATERIALS),
+    materials,
     topicSlugs,
   };
 }
 
-async function readCatalogPage(
+async function readSiteIndexPage(
   after: string | undefined,
-): Promise<z.infer<typeof catalogPageSchema> | undefined> {
-  let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
+): Promise<z.infer<typeof siteIndexPageSchema> | undefined> {
+  let result: Awaited<ReturnType<typeof requestPublicSiteIndex>>;
   try {
-    result = await requestPublishedMaterialCatalog({
-      sort: "newest",
+    result = await requestPublicSiteIndex({
       ...(after === undefined ? {} : { after }),
     });
   } catch (error) {
@@ -111,7 +115,7 @@ async function readCatalogPage(
     );
   }
 
-  const parsed = catalogPageSchema.safeParse(result.body);
+  const parsed = siteIndexPageSchema.safeParse(result.body);
   if (!parsed.success) {
     throw new BackendConnectionError(
       "invalid-response",

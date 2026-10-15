@@ -29,7 +29,11 @@ import { ProductTaskClosed, ProductTaskView } from "./product-task-view";
  */
 export async function ProductTaskPage({
   params,
+  searchParams,
 }: {
+  readonly searchParams?: Promise<{
+    readonly attemptsAfter?: string | readonly string[];
+  }>;
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }) {
   const { slug, code } = await params;
@@ -49,7 +53,11 @@ export async function ProductTaskPage({
         )
       }
     >
-      <PersonalProductTask code={code} slug={slug} />
+      <PersonalProductTask
+        code={code}
+        slug={slug}
+        searchParams={searchParams}
+      />
     </Suspense>
   );
 }
@@ -57,15 +65,23 @@ export async function ProductTaskPage({
 async function PersonalProductTask({
   code,
   slug,
+  searchParams,
 }: {
   readonly code: string;
   readonly slug: string;
+  readonly searchParams:
+    | Promise<{ readonly attemptsAfter?: string | readonly string[] }>
+    | undefined;
 }) {
   await connection();
+  const query = await (searchParams ??
+    Promise.resolve({ attemptsAfter: undefined }));
+  const after =
+    typeof query.attemptsAfter === "string" ? query.attemptsAfter : undefined;
   const accessToken = await getOptionalPlatformAccessToken();
   const [result, submissions, series] = await Promise.all([
     getProductTaskPage(slug, code, accessToken),
-    loadOwnSubmissions(code, accessToken),
+    loadOwnSubmissions(code, accessToken, after),
     loadTaskProgramme(slug, accessToken),
   ]);
   if (result.kind === "not-found") notFound();

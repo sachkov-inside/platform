@@ -99,6 +99,30 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
                     () => Promise<NotificationSource>
                   >
                 )[event.eventType](),
+              canReadAccounts: async (accountIds, sourceRef) => {
+                if (access.authorizeAccounts === undefined)
+                  throw new Error("notification_account_batch_unavailable");
+                const decisions = await access.authorizeAccounts({
+                  accountIds: accountIds.map(accountId),
+                  resource: {
+                    kind: "material",
+                    materialId: materialId(sourceRef),
+                  },
+                  action: "read",
+                  enforcementPoint: "published_material_read",
+                  correlationId: "notifications",
+                });
+                return new Map(
+                  [...decisions].map(([id, decision]) => [
+                    id,
+                    decision.effect === "allow"
+                      ? ("allowed" as const)
+                      : decision.reason === "dependency_unavailable"
+                        ? ("unavailable" as const)
+                        : ("denied" as const),
+                  ]),
+                );
+              },
               canRead: async (account, sourceRef) => {
                 const decision = await access.authorize({
                   subject: { kind: "account", accountId: accountId(account) },

@@ -1,3 +1,4 @@
+import type { ListPublishedSiteMaterialsOperation } from "../../features/list-published-site-materials/list-published-site-materials.contract.js";
 import type { ReadHomeProjectionsOperation } from "../../features/read-home-projections/read-home-projections.contract.js";
 import type {
   ReadPublishedPracticeOperation,
@@ -9,6 +10,7 @@ import type { DiscoverPublishedMaterialProjectionsOperation } from "../../featur
 import type { ReadPublishedMaterialOperation } from "../../features/read-published-material/read-published-material.contract.js";
 
 export interface PublishedMaterialReader {
+  readonly listSiteMaterials: ListPublishedSiteMaterialsOperation;
   readonly readPractice: ReadPublishedPracticeOperation;
   readonly listPractices: ListPublishedPracticesOperation;
   readonly readHomeProjections: ReadHomeProjectionsOperation;

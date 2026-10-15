@@ -86,6 +86,39 @@ export async function findPlatformLink(
   return row && platformLink(row);
 }
 
+/** Exact contact bindings of one bot, aligned with the requested Account/identity pairs. */
+export async function findPlatformContactLinks(
+  database: Executor,
+  botIdentity: string,
+  contacts: readonly {
+    readonly accountRef: string;
+    readonly telegramIdentityRef: string;
+  }[],
+): Promise<readonly (PlatformLink | undefined)[]> {
+  const links = new Map<string, PlatformLink>();
+  const identities = [
+    ...new Set(contacts.map((contact) => contact.telegramIdentityRef)),
+  ];
+  for (let index = 0; index < identities.length; index += 100) {
+    const rows = await database
+      .selectFrom("platform_links")
+      .selectAll()
+      .where("bot_identity", "=", botIdentity)
+      .where(
+        "telegram_identity_ref",
+        "in",
+        identities.slice(index, index + 100),
+      )
+      .execute();
+    for (const row of rows)
+      links.set(row.telegram_identity_ref, platformLink(row));
+  }
+  return contacts.map((contact) => {
+    const link = links.get(contact.telegramIdentityRef);
+    return link?.accountRef === contact.accountRef ? link : undefined;
+  });
+}
+
 /** Locks an identity's link for a Membership Evidence revision; the link must exist. */
 export async function lockPlatformLink(
   transaction: Transaction<DatabaseSchema>,

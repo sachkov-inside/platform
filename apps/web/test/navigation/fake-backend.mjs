@@ -19,6 +19,9 @@ import {
   navigationTaskRoute,
   waitNavigationTask,
 } from "./task-navigation.fixtures.mjs";
+import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
+import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
+import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -224,6 +227,7 @@ let practiceGate;
 /** @type {(() => void) | undefined} */
 let releasePractice;
 let practiceHeld = false;
+let practiceUnavailable = false;
 
 /**
  * @param {Lesson} lesson
@@ -437,6 +441,40 @@ function route(method, url, entitled) {
       ),
       nextCursor: null,
       totalCount: lessonsOf(products[0]).length,
+    });
+  }
+  if (path === "/library/products/sale-availability") {
+    const parsed = z
+      .array(z.uuid().toLowerCase())
+      .min(1)
+      .max(100)
+      .safeParse(url.searchParams.getAll("productId"));
+    if (!parsed.success) return json({ code: "invalid_request" }, 400);
+    return json({
+      items: [...new Set(parsed.data)].map((id) => {
+        const product = [...products, performanceProduct].find(
+          (candidate) => candidate.id === id,
+        );
+        if (
+          product === undefined ||
+          (product.slug === archivedProductSlug && !entitled)
+        )
+          return { productId: id, sold: false };
+        // The thin fixture uses the same offered-price admission as the existing full sale.
+        const offersUrl = new URL("/billing/offers", url);
+        offersUrl.searchParams.set("capability", "product:" + id);
+        const offers = route("GET", offersUrl, entitled);
+        if (
+          offers === undefined ||
+          offers.contentType !== undefined ||
+          offers.status !== 200
+        )
+          throw new Error("Invalid shared navigation offer fixture");
+        const offered = z
+          .object({ items: z.array(z.unknown()) })
+          .parse(offers.value);
+        return { productId: id, sold: offered.items.length > 0 };
+      }),
     });
   }
   const discovery = /^\/library\/(products|series|topics)\/([^/]+)$/u.exec(
@@ -853,6 +891,49 @@ const server = createServer(async (request, response) => {
     send(200, { hold });
     return;
   }
+  const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
+    baseRoute: route,
+    reader: () => {
+      const template = performanceLessons[0];
+      if (template === undefined)
+        throw new Error("Missing metrics Reader template");
+      return {
+        projection: readerProjection(template),
+        body: body(template, true),
+      };
+    },
+    image,
+  });
+  if (metrics !== null) {
+    if (metrics.contentType === undefined) send(metrics.status, metrics.value);
+    else {
+      if (!Buffer.isBuffer(metrics.value))
+        throw new Error("Expected image bytes");
+      response.writeHead(metrics.status, {
+        "cache-control": "private, no-store",
+        "content-type": metrics.contentType,
+      });
+      response.end(metrics.value);
+    }
+    return;
+  }
+  const readerFixture = lessons[0];
+  if (readerFixture === undefined) throw new Error("Missing reader fixture");
+  const readerSale = await readerSaleAvailabilityRoute(
+    request,
+    url,
+    readBody,
+    readerProjection(readerFixture),
+  );
+  if (readerSale !== null) {
+    send(readerSale.status, readerSale.value);
+    return;
+  }
+  const ownHistory = await productTaskHistoryRoute(request, url, readBody);
+  if (ownHistory !== null) {
+    send(ownHistory.status, ownHistory.value);
+    return;
+  }
   const submissions = await taskSubmissionsRoute(request, url, readBody);
   if (submissions !== null) {
     send(submissions.status, submissions.value);
@@ -865,11 +946,12 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/__practice-hold") {
     if (request.method === "POST") {
-      const { hold } = z
-        .object({ hold: z.boolean() })
+      const { hold, unavailable = false } = z
+        .object({ hold: z.boolean(), unavailable: z.boolean().optional() })
         .strict()
         .parse(JSON.parse(await readBody(request)));
       releasePractice?.();
+      practiceUnavailable = unavailable;
       practiceHeld = false;
       practiceGate = hold
         ? new Promise((resolve) => {
@@ -916,7 +998,12 @@ const server = createServer(async (request, response) => {
       await practiceGate;
       practiceHeld = false;
     }
-    send(200, { practices: [] });
+    send(
+      practiceUnavailable ? 503 : 200,
+      practiceUnavailable
+        ? { code: "dependency_unavailable" }
+        : { practices: [] },
+    );
     return;
   }
   const result = state.unavailable

@@ -4,6 +4,7 @@ import { parseBroadcastDraft, type AuthorBroadcast } from "./author-dialog.js";
 import { authorRequest } from "./author-request.js";
 import { drafts } from "./author-drafts.js";
 import { CommunicationsError } from "./communications-contract.js";
+import { broadcastView } from "./broadcasts.js";
 import type { Funnels } from "./funnels.js";
 
 /** Reads the author's broadcasts, including the unsaved ones that exist only as drafts. */
@@ -62,8 +63,40 @@ export class AuthorBroadcastDrafts {
       empty = empty.where("draft_id", ">", cursor);
     }
     const ids = await published.union(empty).orderBy("id").limit(11).execute();
-    const items = [];
-    for (const { id } of ids.slice(0, 10)) items.push(await this.read(c, id));
+    const pageIds = ids.slice(0, 10).map((row) => row.id);
+    if (pageIds.length === 0) return { items: [], nextCursor: undefined };
+    // Context already contains the linked author authorized by AuthorAdmin.
+    const saved = await c.tx
+      .selectFrom("communication_broadcasts")
+      .selectAll()
+      .where("bot_identity", "=", c.input.botIdentity)
+      .where("owner_account_ref", "=", c.accountRef)
+      .where("broadcast_id", "in", pageIds)
+      .execute();
+    const scratch = await drafts(c)
+      .where("kind", "=", "broadcast")
+      .where("draft_id", "in", pageIds)
+      .execute();
+    const savedById = new Map(saved.map((row) => [row.broadcast_id, row]));
+    const draftsById = new Map(scratch.map((row) => [row.draft_id, row]));
+    const items = pageIds.map((id) => {
+      const draft = draftsById.get(id);
+      const row = savedById.get(id);
+      const snapshot = parseBroadcastDraft(draft?.snapshot);
+      const broadcast = row
+        ? broadcastView(row)
+        : snapshot?.revision === 0
+          ? snapshot
+          : undefined;
+      if (!broadcast) throw new CommunicationsError("not_found");
+      return {
+        broadcast,
+        name:
+          draft?.name ??
+          broadcast.parts[0]?.content.text.slice(0, 128) ??
+          "Рассылка",
+      };
+    });
     return { items, nextCursor: ids.length > 10 ? ids[9]?.id : undefined };
   }
 }

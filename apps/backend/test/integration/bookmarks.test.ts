@@ -277,6 +277,63 @@ describe("Bookmarks on PostgreSQL", () => {
     ).toMatchObject({ ok: true, value: { items: [], nextCursor: null } });
   });
 
+  test("a full raw page of retained unpublished bookmarks continues to a published bookmark without leaking Accounts", async () => {
+    const reader = randomUUID();
+    const otherReader = randomUUID();
+    const visible = await material();
+    const unpublished: string[] = [];
+    for (let index = 0; index < 12; index += 1)
+      unpublished.push(await material());
+    // Prepare all rows before observing the public list operation.
+    for (const [index, id] of [visible, ...unpublished].entries()) {
+      const added = await bookmarks.addBookmark({
+        accountId: reader,
+        materialId: id,
+      });
+      if (!added.ok) throw new Error(added.error.code);
+      await database.prisma.bookmarkedMaterial.update({
+        where: { accountId_materialId: { accountId: reader, materialId: id } },
+        data: { bookmarkedAt: new Date(Date.UTC(2030, 0, 2, 0, 0, index)) },
+      });
+    }
+    for (const id of unpublished) await transition(id, "unpublished");
+    const first = await bookmarks.listBookmarks({
+      accountId: reader,
+      first: 12,
+    });
+    if (!first.ok) throw new Error(first.error.code);
+    expect(first.value.items).toEqual([]);
+    expect(first.value.nextCursor).not.toBeNull();
+    const after = first.value.nextCursor ?? "";
+    expect(
+      await bookmarks.listBookmarks({ accountId: reader, first: 12, after }),
+    ).toMatchObject({
+      ok: true,
+      value: { items: [{ materialId: visible }], nextCursor: null },
+    });
+    expect(
+      await bookmarks.listBookmarks({
+        accountId: otherReader,
+        first: 12,
+        after,
+      }),
+    ).toEqual({
+      ok: true,
+      value: { items: [], nextCursor: null },
+    });
+    // Republishing exposes the retained raw bookmark, not a recreated bookmark.
+    const republished = unpublished.at(-1);
+    if (republished === undefined)
+      throw new Error("Unpublished fixture is required");
+    await transition(republished, "published");
+    expect(
+      await bookmarks.listBookmarks({ accountId: reader, first: 12 }),
+    ).toMatchObject({
+      ok: true,
+      value: { items: [{ materialId: republished }] },
+    });
+  });
+
   test("list hides unpublished Materials, keeps the bookmark, orders newest first and paginates", async () => {
     const firstId = await material();
     const secondId = await material();

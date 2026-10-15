@@ -101,6 +101,7 @@ export const productCohortSchema = z.object({
 });
 export const productCohortsSchema = z.object({
   items: z.array(productCohortSchema),
+  nextCursor: z.uuid().nullable(),
 });
 export type CohortStage = z.infer<typeof cohortStageSchema>;
 export type ProductCohort = z.infer<typeof productCohortSchema>;

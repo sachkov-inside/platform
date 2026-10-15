@@ -2,7 +2,6 @@ import {
   previewProductRevocation,
   revokeProductAccess,
 } from "../../features/revoke-product-access/revoke-product-access.js";
-import { tariffCoverage } from "@inside/access-capabilities";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
 import { coverageSchema, productCapability } from "@inside/access-capabilities";
@@ -12,11 +11,7 @@ import {
 } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
-import {
-  enrollmentView,
-  enrollmentBenefitTerms,
-  enrollmentSourceState,
-} from "../../shared/enrollment-view.js";
+import { assembleEnrollmentViews } from "../../shared/enrollment-views.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import {
@@ -81,6 +76,7 @@ import {
 } from "../../features/classify-legacy-account/classify-legacy-account.js";
 import {
   resolveAccessCapabilities,
+  resolveAccessCapabilitiesForAccounts,
   readAccessCapabilityFacts,
   projectAccessCapabilities,
 } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
@@ -117,7 +113,10 @@ import {
 
 export interface AccessGrantsDependencies {
   readonly prisma: AccountRightsPrismaClient;
-  readonly accounts: Pick<Accounts, "checkPermission" | "readIdentityForLink">;
+  readonly accounts: Pick<
+    Accounts,
+    "checkPermission" | "readIdentityForLink" | "readIdentitiesForLink"
+  >;
   readonly recipientLinks?: RecipientLinks;
   readonly contentCatalog?: CoverageCatalog;
   readonly clock?: () => Date;
@@ -512,28 +511,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         });
         return {
           ok: true as const,
-          value: await Promise.all(
-            rows.map(async (row) => {
-              const view = enrollmentView(row, now);
-              if (row.origin === "tribute" && view.state !== "revoked")
-                view.state =
-                  (await enrollmentSourceState(prisma, row.id, now)) ??
-                  view.state;
-              const benefitGrants = await prisma.accessGrant.findMany({
-                where: { enrollmentId: row.id },
-              });
-              return {
-                ...view,
-                benefitTerms: enrollmentBenefitTerms(benefitGrants),
-                ...(dependencies.contentCatalog === undefined
-                  ? {}
-                  : {
-                      content: await dependencies.contentCatalog.resolve(
-                        tariffCoverage(view.tier.benefits, view.tier.coverage),
-                      ),
-                    }),
-              };
-            }),
+          value: await assembleEnrollmentViews(
+            prisma,
+            rows,
+            now,
+            dependencies.contentCatalog,
+            false,
           ),
         };
       } catch (error) {
@@ -581,41 +564,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         });
         return {
           ok: true as const,
-          value: await Promise.all(
-            rows.map(async (row) => {
-              const view = enrollmentView(row, now);
-              if (row.origin === "tribute" && view.state !== "revoked")
-                view.state =
-                  (await enrollmentSourceState(prisma, row.id, now)) ??
-                  view.state;
-              const benefitGrants = await prisma.accessGrant.findMany({
-                where: { enrollmentId: row.id },
-              });
-              const changes = await prisma.accessChange.findMany({
-                where: {
-                  accountId: targetAccountId,
-                  grantId: { in: benefitGrants.map((grant) => grant.id) },
-                },
-                orderBy: { revision: "desc" },
-                take: 100,
-              });
-              return {
-                ...view,
-                benefitTerms: enrollmentBenefitTerms(benefitGrants),
-                history: changes.map((change) => ({
-                  kind: change.kind,
-                  reason: change.reason,
-                  recordedAt: change.recordedAt.toISOString(),
-                })),
-                ...(dependencies.contentCatalog === undefined
-                  ? {}
-                  : {
-                      content: await dependencies.contentCatalog.resolve(
-                        tariffCoverage(view.tier.benefits, view.tier.coverage),
-                      ),
-                    }),
-              };
-            }),
+          value: await assembleEnrollmentViews(
+            prisma,
+            rows,
+            now,
+            dependencies.contentCatalog,
+            true,
           ),
         };
       }),
@@ -745,6 +699,37 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
+    async resolveCapabilitiesForAccounts(
+      targetAccountIds: readonly string[],
+      resource?: { productIds: readonly string[]; materialId?: string },
+    ) {
+      if (!targetAccountIds.every((id) => z.uuid().safeParse(id).success))
+        return accessFailure("invalid_input");
+      try {
+        const now = clock();
+        const uniqueIds = [...new Set(targetAccountIds)];
+        const accounts = await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          return resolveAccessCapabilitiesForAccounts(
+            transaction,
+            uniqueIds,
+            now,
+            resource,
+          );
+        });
+        return { ok: true as const, accounts };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "account-rights",
+            operation: "resolveCapabilitiesForAccounts",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    /** One Account snapshot, at most 1000 resources, values aligned with input order. */
     async resolveCapabilitiesMany(
       targetAccountId: string,
       resources: readonly {
@@ -796,6 +781,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               accountId(targetAccountId),
               clock(),
               resource,
+              { includeRevision: true },
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
         });

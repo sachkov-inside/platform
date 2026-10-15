@@ -107,6 +107,8 @@ export const ownTaskSubmissionsSchema = z
   .object({
     code: z.string(),
     currentVersion: z.number().int().positive(),
+    nextCursor: z.string().min(1).nullable(),
+    latestSubmittedAt: z.iso.datetime().nullable(),
     versions: z.array(
       z
         .object({
@@ -162,4 +164,7 @@ export type ProductTaskPageResult =
 export type OwnSubmissionsView =
   | { readonly kind: "guest" }
   | { readonly kind: "unavailable" }
-  | ({ readonly kind: "ready" } & OwnTaskSubmissions);
+  | ({
+      readonly kind: "ready";
+      readonly continued?: boolean;
+    } & OwnTaskSubmissions);

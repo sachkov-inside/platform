@@ -220,7 +220,19 @@ export async function endSubscription(
   const current = await tx.billingSubscription.findUnique({
     where: { id: subscriptionRef },
   });
-  if (!current || current.state === "ended") return;
+  if (!current) return;
+  await endSubscriptionFromLockedRow(tx, current, reason, now);
+}
+
+/** Caller holds the subscription lock and read this row in the same transaction, with no intervening mutation. */
+export async function endSubscriptionFromLockedRow(
+  tx: BillingPrisma,
+  current: SubscriptionRow,
+  reason: SubscriptionEndReason,
+  now: Date,
+): Promise<void> {
+  if (current.state === "ended") return;
+  const subscriptionRef = current.id;
   await tx.billingPurchase.updateMany({
     where: { subscriptionRef, kind: "initial", lifecycleActive: true },
     data: { lifecycleActive: false },

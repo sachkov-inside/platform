@@ -18,6 +18,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { createQueryEventClient } from "./setup/query-events.js";
+
 const protection = billingContactProtection(
   Buffer.alloc(32, 42).toString("base64"),
 );
@@ -470,6 +472,51 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     expect(
       await billing.readConsent(owner, result.evidenceRefs[1] ?? ""),
     ).toMatchObject({ ok: true, evidence: { shownTerms } });
+    const measured = createQueryEventClient(database.url);
+    try {
+      const reader = new BillingContact({
+        prisma: measured.prisma,
+        protection,
+        sendCode: undefined,
+        documents: [terms, recurring],
+        now: () => instant,
+      });
+      const missing = randomUUID();
+      const refs = [
+        ...result.evidenceRefs.map((ref) => ref.toUpperCase()),
+        missing,
+        result.evidenceRefs[0] ?? missing,
+      ];
+      expect(
+        await reader.readConsent(
+          owner,
+          result.evidenceRefs[0]?.toUpperCase() ?? missing,
+        ),
+      ).toMatchObject({
+        ok: true,
+        evidence: { evidenceRef: result.evidenceRefs[0] },
+      });
+      const reading = await measured.measure(() =>
+        reader.readConsents(owner, refs),
+      );
+      expect(reading.result.map((entry) => entry.ok)).toEqual([
+        true,
+        true,
+        false,
+        true,
+      ]);
+      expect(
+        reading.statements.filter((sql) => sql.startsWith("SELECT")).length,
+      ).toBe(1);
+      expect(
+        await reader.readConsents(await account(), result.evidenceRefs),
+      ).toEqual([
+        { ok: false, error: { code: "not_found" } },
+        { ok: false, error: { code: "not_found" } },
+      ]);
+    } finally {
+      await measured.prisma.$disconnect();
+    }
   });
 
   test("a first sign-in acceptance never stands in for payment consent evidence", async () => {

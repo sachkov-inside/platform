@@ -75,7 +75,7 @@ export type ApplyGrantBatchResult = z.infer<typeof batchResultSchema>;
 
 export async function applyGrantBatch(
   prisma: AccountRightsPrismaClient,
-  accounts: Pick<Accounts, "readIdentityForLink">,
+  accounts: Pick<Accounts, "readIdentitiesForLink">,
   actorId: string,
   input: ApplyGrantBatchCommand,
   now: Date,
@@ -109,19 +109,26 @@ export async function applyGrantBatch(
     );
     if (rows.length !== command.confirmedRows.length)
       return accessFailure("invalid_input");
+    // Older saved previews also obey one classification per physical Account.
+    const classificationAccounts = rows
+      .filter(isClassificationRow)
+      .map((row) => row.accountId.toLowerCase());
+    if (new Set(classificationAccounts).size !== classificationAccounts.length)
+      return accessFailure("invalid_input");
     // Validate every selected mapping before writing any grant.
+    const identities = await accounts.readIdentitiesForLink(
+      rows.map((row) => row.accountId),
+      transaction,
+    );
     for (const row of rows) {
-      const identity = await accounts.readIdentityForLink(
-        row.accountId,
-        transaction,
-      );
+      const identity = identities.get(row.accountId);
       if (row.identityFingerprint === null || identity === undefined)
         return accessFailure("not_found");
       if (!accessFingerprint(identity).recognizes(row.identityFingerprint))
         return accessFailure("identity_changed");
     }
     for (const accountId of [
-      ...new Set(rows.map((row) => row.accountId)),
+      ...new Set(rows.map((row) => row.accountId.toLowerCase())),
     ].sort()) {
       await lockAccountEntitlementChanges(transaction, accountId);
     }

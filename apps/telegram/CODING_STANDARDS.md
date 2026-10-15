@@ -41,6 +41,8 @@ Its CLI fixtures accept each owner's access and reject foreign access; the test 
 exhaustive against `keyof DatabaseSchema`. This is a syntax check, not proof of every ownership
 boundary.
 
+Collection enrichment uses owner-scoped set reads, bounded by the supported page or explicit chunks. An already authorized author list reads its saved rows and drafts directly through its owner; it does not replay single-item commands or acquire mutation/scheduler locks per item. Dispatch, mutation and authoritative synchronization retain their own authorization and locking checks.
+
 There are no legacy foreign-table exceptions. CLI fixtures retain the former file/table pairs and
 reject every direct access in them. Owner read queries may compose into the caller's SQL statement;
 owner writes execute on the caller's transaction. `src/application/` wires contact and linking

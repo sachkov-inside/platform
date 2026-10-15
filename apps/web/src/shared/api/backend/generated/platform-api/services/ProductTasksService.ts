@@ -14,11 +14,15 @@ export class ProductTasksService {
    */
   public listOwnTaskSubmissions({
     code,
+    after,
   }: {
     code: string,
+    after?: string,
   }): CancelablePromise<{
     code: string;
     currentVersion: number;
+    latestSubmittedAt: string | null;
+    nextCursor: string | null;
     submissions: Array<{
       authorFeedback: {
         comment: string | null;
@@ -53,6 +57,9 @@ export class ProductTasksService {
       url: '/accounts/current/product-tasks/{code}/submissions',
       path: {
         'code': code,
+      },
+      query: {
+        'after': after,
       },
     });
   }

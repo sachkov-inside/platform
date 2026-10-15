@@ -48,11 +48,7 @@ async function readProductSale(
   ]);
   if (catalog.kind === "unavailable") return catalog;
   // Backend решает, что продаётся. Web задаёт лишь стабильный порядок показа цены.
-  const offers = [...catalog.offers].sort((left, right) =>
-    left.firstPriceKopecks !== right.firstPriceKopecks
-      ? left.firstPriceKopecks - right.firstPriceKopecks
-      : left.paymentOption.id.localeCompare(right.paymentOption.id),
-  );
+  const offers = orderedProductOffers(catalog.offers);
   return {
     kind: "ready",
     sold: offers.length > 0,
@@ -77,4 +73,25 @@ export async function readProductAccess(
   } catch {
     return "unknown";
   }
+}
+
+/** Public description placeholders need only the guest's offered periods, not cohort or access. */
+export async function readGuestProductOfferTerms(productId: string) {
+  const catalog = await loadProductOffers(productId);
+  if (catalog.kind === "unavailable") return catalog;
+  const offer = orderedProductOffers(catalog.offers)[0];
+  return {
+    kind: "ready" as const,
+    terms: offer === undefined ? null : oneTimeOfferTerms(offer),
+  };
+}
+
+function orderedProductOffers(
+  values: readonly PriceSnapshot[],
+): readonly PriceSnapshot[] {
+  return [...values].sort((left, right) =>
+    left.firstPriceKopecks !== right.firstPriceKopecks
+      ? left.firstPriceKopecks - right.firstPriceKopecks
+      : left.paymentOption.id.localeCompare(right.paymentOption.id),
+  );
 }

@@ -120,6 +120,12 @@ export interface MaterialAssets {
     materialId: string,
     assetIds: readonly string[],
   ): Promise<MaterialAssetQueryResult<readonly MaterialAssetPresentation[]>>;
+  loadPresentationsMany(
+    references: readonly {
+      readonly materialId: string;
+      readonly assetId: string;
+    }[],
+  ): Promise<MaterialAssetQueryResult<readonly MaterialAssetPresentation[]>>;
   loadDelivery(input: {
     readonly assetId: string;
     readonly materialId: string;

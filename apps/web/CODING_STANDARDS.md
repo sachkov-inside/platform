@@ -73,6 +73,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   `<Suspense>` whose fallback is the same page on shared data. The page reads `params` and
   `searchParams` below the skeleton, never at the top of the route file. The personal part starts
   with `await connection()` before it touches the session, so link prefetch stops in front of it.
+- Optional private Practice reads resolve behind their own Suspense boundary. The authorized
+  lesson body awaits its required mode, body variant and navigation context, then streams without
+  waiting for Practice or its connection setup. Practice failure remains local to that boundary.
 - A loading state is built from the frame of its own page — the same column, return row and
   header — and is at least a screen tall, so the footer waits below the fold instead of jumping
   when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
@@ -129,13 +132,23 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 - Apply the root [collection-read and pagination rules](../../CODING_STANDARDS.md#collection-reads-and-pagination).
   List consumers retain continuation through filtered empty pages and offer retry after a failed page.
+- Bound the initially rendered choices in large authoring selectors and collection editors. Keep the
+  complete choices reachable through search or continuation, and retain unsaved editor state through
+  filtering, continuation and saved-name reordering. A render bound does not shorten the owner list.
 - Keep optional data behind its own completion boundary when it does not determine the primary view.
   A permitted Material body can render while auxiliary Practice data is pending or unavailable.
 - Give each server-state surface one runtime/cache owner. Browser-owned live search, filters, and
   infinite lists use one page-owned TanStack Query factory and feature BFF; RSC renders metadata and
   a hydration-safe shell without reading `searchParams`, prefetching, or dehydrating that query.
+- An infinite list advances its raw cursor even when projection produces no visible rows. An empty
+  state requires exhausted continuation. Failed continuation reads remain query errors, preserve
+  earlier pages and retry the same cursor; an authentication failure remains an authentication
+  outcome instead of an exhausted page.
 - When initial data must be server-rendered and continue in the browser, use one complete path:
   request-isolated `QueryClient`, prefetch, dehydration, and `HydrationBoundary`.
+- A server-rendered private history keeps its bounded-page cursor in the address and preserves
+  that address for retries. Paging history does not replace the independent current/latest fact.
+  A filter-choice continuation stays independent from the row cursor and preserves the selection.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache
   policy; HTTP cache policy belongs to the BFF/backend boundary.
 - A browser-owned fact shown by several surfaces is reset on every open surface at the moment a
@@ -188,6 +201,11 @@ These rules require review. An effect count or a passing dependency linter canno
   use an overlay; layout may change after explicit user actions such as pinning or resizing.
 - Prove layout-sensitive interaction with geometry assertions or Layout Shift API checks when
   visual snapshots cannot establish stability.
+- Authored responsive image variants follow the actual image column and current manual theme;
+  viewport width and the operating system color scheme cannot replace those inputs. Reserve the
+  selected composition geometry before delivery. Advance image discovery only when actual URL,
+  transferred-byte and layout-shift measurements prove the correct variants and preserve delivery
+  authorization and content-version checks.
 - Keep editor and explicit CLI checks on the committed TypeScript project that excludes stale
   `.next/dev` artifacts. Do not re-enable the removed JavaScript compiler API checker.
 - Compare a node with live document state inside one evaluation, `document.activeElement` above all.

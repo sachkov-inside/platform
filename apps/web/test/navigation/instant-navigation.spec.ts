@@ -524,6 +524,37 @@ test.afterEach(async () => {
   await controlBackend({ delayMs: 0, unavailable: false });
 });
 
+test("shared navigation fixture returns complete private Product sale admission for guest and viewer", async ({
+  request,
+}) => {
+  const ids = [
+    "11111111-1111-4111-8111-111111111111",
+    "11111111-1111-4111-8111-111111111112",
+    "11111111-1111-4111-8111-111111111114",
+    "11111111-1111-4111-8111-111111111199",
+  ];
+  const query = new URLSearchParams(ids.map((id) => ["productId", id]));
+  const schema = z.strictObject({
+    items: z.array(z.strictObject({ productId: z.uuid(), sold: z.boolean() })),
+  });
+  for (const viewer of [false, true]) {
+    const response = await request.get(
+      backend + "/library/products/sale-availability?" + query.toString(),
+      viewer
+        ? { headers: { authorization: "Bearer navigation-member-token" } }
+        : {},
+    );
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toBe("private, no-store");
+    expect(schema.parse(await response.json())).toEqual({
+      items: ids.map((productId, index) => ({
+        productId,
+        sold: index === 0 || (viewer && index === 1),
+      })),
+    });
+  }
+});
+
 test("оболочка урока предзагружена даже при незавершённом постороннем запросе", async ({
   page,
   shellPrefetched,

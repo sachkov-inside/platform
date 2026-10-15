@@ -63,7 +63,11 @@ const material = {
   seriesMemberships: [
     {
       ordinal: 5,
-      series: { name: "Создание Platform Inside", slug: "platform-inside" },
+      series: {
+        id: "72000000-0000-4000-8000-000000000005",
+        name: "Создание Platform Inside",
+        slug: "platform-inside",
+      },
     },
   ],
   slug: "agent-first-skills",

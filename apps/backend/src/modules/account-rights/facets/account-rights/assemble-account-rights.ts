@@ -1,3 +1,4 @@
+import { resolveMembershipForAccessAccounts } from "../../features/resolve-membership-for-access/resolve-membership-for-access-accounts.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
@@ -28,6 +29,25 @@ export function assembleAccountRights(
 ): AccountRights {
   const clock = dependencies.clock ?? (() => new Date());
   const accountRights: AccountRights = {
+    async resolveForAccessAccounts(accountIds, productIds, materialId) {
+      try {
+        return await resolveMembershipForAccessAccounts(
+          dependencies.prisma,
+          accountIds,
+          clock(),
+          productIds,
+          materialId,
+        );
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "resolveForAccessAccounts" },
+          error,
+          new Map(
+            accountIds.map((id) => [id, { kind: "unavailable" as const }]),
+          ),
+        );
+      }
+    },
     async bindPrincipal(
       command,
       transaction,

@@ -74,6 +74,9 @@ export interface VideoResourceFactsAdapter {
 }
 
 export interface AccountPermissions {
+  hasMaterialsManageMany?(
+    accountIds: readonly AccountId[],
+  ): Promise<ReadonlyMap<string, "granted" | "denied" | "unavailable">>;
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
 
@@ -84,6 +87,11 @@ export type MembershipAccessState =
 
 /** The Membership decisions Content Access needs. Membership Entitlements implements this port. */
 export interface AccountRights {
+  resolveForAccessAccounts?(
+    accountIds: readonly AccountId[],
+    productIds?: readonly string[],
+    materialId?: string,
+  ): Promise<ReadonlyMap<string, MembershipAccessState>>;
   resolveManyForAccess?(
     accountId: AccountId,
     resources: readonly {
