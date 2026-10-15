@@ -202,7 +202,7 @@ async function fixture(
 }
 
 describe("learner MCP read contract", () => {
-  test("registers only committed tools, writes only through task submission and rejects authoring", async () => {
+  test("registers only committed tools, writes only task review progress and submission and rejects authoring", async () => {
     const f = await fixture();
     try {
       const { tools } = await f.client.listTools();
@@ -212,15 +212,18 @@ describe("learner MCP read contract", () => {
           committedLearnerToolSurfacePath,
         ),
       );
-      expect(tools).toHaveLength(7);
-      // The only writing tool is the learner's own submission (#946).
-      for (const tool of tools.filter(
-        ({ name }) => name !== "learning_task_submit",
-      ))
+      expect(tools).toHaveLength(8);
+      // Learner writes are limited to their own review progress and submission.
+      for (const tool of tools) {
+        const writesOwnTask =
+          tool.name === "learning_task_submit" ||
+          tool.name === "learning_task_review_update";
         expect(tool.annotations).toMatchObject({
-          readOnlyHint: true,
+          readOnlyHint: !writesOwnTask,
           destructiveHint: false,
+          ...(writesOwnTask ? { idempotentHint: true } : {}),
         });
+      }
       await expect(
         f.client.callTool({ name: "material_save", arguments: {} }),
       ).rejects.toThrow("not found");
