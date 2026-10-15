@@ -483,6 +483,28 @@ describe("durable activation ingress, identity and continuation", () => {
       expect(a.begins).toEqual([]);
       expect(a.granted.size).toBe(0);
     });
+  for (const [state, reason] of [
+    ["expired", "Доступ к группе завершён"],
+    ["revoked", "Доступ к группе отозван"],
+    ["unavailable", "Не удалось проверить доступ к группе"],
+  ] as const) {
+    it(`preserves ${state} Product rights for an actual group member`, async ({
+      activation: a,
+    }) => {
+      await a.ingress(70114, "/start");
+      await a.link(70114);
+      a.chat.membership = "member";
+      const product = required(a.state.products[0]);
+      a.state.products = [{ ...product, community: { state } }];
+      await a.callback(70114, `access:product:${product.id}`);
+      await a.app
+        .get(StartResponseDeliveryProcessor)
+        .processAvailable(20, a.clock.now());
+      expect(a.edited.at(-1)?.text).toContain(reason);
+      expect(a.edited.at(-1)?.text).not.toContain("Вы уже в группе курса");
+    });
+  }
+
   it("does not expose a canonical group for an unconfigured Product even to an actual member", async ({
     activation: a,
   }) => {
@@ -492,6 +514,13 @@ describe("durable activation ingress, identity and continuation", () => {
     const product = required(a.state.products[0]);
     a.state.products = [{ ...product, community: { state: "unavailable" } }];
     await a.callback(70113, `access:product:${product.id}`);
+    await a.app
+      .get(StartResponseDeliveryProcessor)
+      .processAvailable(20, a.clock.now());
+    expect(a.edited.at(-1)?.text).toContain(
+      "Не удалось проверить доступ к группе",
+    );
+    expect(a.edited.at(-1)?.text).not.toContain("Вы уже в группе курса");
     await a.callback(70113, `access:community:${product.id}`);
     await a.app
       .get(StartResponseDeliveryProcessor)
@@ -550,6 +579,10 @@ describe("durable activation ingress, identity and continuation", () => {
       samples: durations.length,
       confirmedNewResults: durations.length - failures,
       p95Ms: Math.round(p95 * 100) / 100,
+      measuredTotalMs:
+        Math.round(
+          durations.reduce((total, duration) => total + duration, 0) * 100,
+        ) / 100,
       failures,
       excludedOutages: 0,
       environment:
@@ -560,7 +593,10 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(failures).toBe(0);
     expect(p95).toBeLessThanOrEqual(5000);
     expect(a.chat.count("create_invite")).toBe(1);
-  });
+    // This test runs 100 serial requests plus fixture/warmup work. Vitest's default 5s
+    // limits the entire batch, not the specified 5s request p95. Keep the request
+    // assertion above; allow 30s only for completing the batch and reporting all samples.
+  }, 30_000);
 
   it("delivers the first usable group invitation in one bot action and opens actual membership", async ({
     activation: a,

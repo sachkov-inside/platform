@@ -1,6 +1,5 @@
 import type { InvitationRedeemResponse } from "./activation-contract.js";
 import type { TelegramButton } from "../outbound/telegram-messages.js";
-import { accountPrompt } from "./activation-view.js";
 
 /** One answer to an invitation link; `outcome` names it for reply deduplication. */
 export interface InvitationAnswer {
@@ -26,7 +25,10 @@ export function invitationNeedsAccount(accountUrl: string): InvitationAnswer {
   return {
     outcome: "needs_account",
     text: "Чтобы принять приглашение, войдите в Inside или создайте аккаунт и свяжите Telegram в кабинете. После связывания бот продолжит сам.",
-    buttons: accountPrompt(accountUrl).buttons,
+    buttons: [
+      { text: "Войти на платформу", url: accountUrl },
+      { text: "Проверить доступ", callbackData: "access:retry" },
+    ],
   };
 }
 
