@@ -379,3 +379,70 @@ test("agent progress reaches the open task page and becomes a saved report only 
   });
   await expect(page.locator("[data-task-review-progress]")).toHaveCount(0);
 });
+
+test("a bound practical lesson reaches the agent through complete version-pinned MCP context", async ({
+  request,
+}) => {
+  const code = required("FULLSTACK_EMBEDDED_TASK_CODE");
+  const slug = required("FULLSTACK_TASK_MATERIAL_SLUG");
+  const material = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({
+        complete: z.literal(true),
+        practiceTask: z.object({
+          code: z.string(),
+          readTool: z.literal("learning_task_read"),
+        }),
+      }),
+    })
+    .parse(await callLearningTool(request, "learning_material_read", { slug }));
+  expect(material.value.practiceTask.code).toBe(code);
+  const partSchema = z.object({
+    ok: z.literal(true),
+    value: z.object({
+      contextVersion: z.string(),
+      contentSha256: z.string(),
+      data: z.string(),
+      nextPart: z.number().nullable(),
+      endOfContext: z.boolean(),
+    }),
+  });
+  const first = partSchema.parse(
+    await callLearningTool(request, "learning_task_read", { code }),
+  );
+  let serialized = first.value.data;
+  let part = first.value.nextPart;
+  let end = first.value.endOfContext;
+  while (part !== null) {
+    const next = partSchema.parse(
+      await callLearningTool(request, "learning_task_read", {
+        code,
+        part,
+        expectedContextVersion: first.value.contextVersion,
+        expectedContentSha256: first.value.contentSha256,
+      }),
+    );
+    serialized += next.value.data;
+    part = next.value.nextPart;
+    end = next.value.endOfContext;
+  }
+  expect(end).toBe(true);
+  const context = z
+    .object({
+      payload: z.object({
+        task: z.object({ code: z.string() }),
+        practice: z.object({
+          slug: z.string(),
+          complete: z.literal(true),
+          body: z.object({ blocks: z.array(z.unknown()) }),
+        }),
+      }),
+    })
+    .parse(JSON.parse(serialized));
+  expect(context.payload.task.code).toBe(code);
+  expect(context.payload.practice.slug).toBe(slug);
+  expect(JSON.stringify(context.payload.practice.body)).toContain(
+    "Урок перед заданием.",
+  );
+});
