@@ -231,7 +231,11 @@ export const NumberedAssignments: Story = {
       throw new Error("Numbered task fixture must contain its selected Task");
     return (
       <CourseReadingLayout context={context}>
-        <CourseReadingHeader context={context} title={context.current.title} />
+        <CourseReadingHeader
+          context={context}
+          title={context.current.title}
+          metadata={null}
+        />
         <p className="mt-8">Номера заданий начинаются заново в каждой главе.</p>
       </CourseReadingLayout>
     );
@@ -255,7 +259,7 @@ export const NumberedAssignments: Story = {
       }),
     );
     await expect(
-      canvas.getByRole("link", { name: "Задание 1 Спроектируй MVP" }),
+      await canvas.findByRole("link", { name: "Задание 1 Спроектируй MVP" }),
     ).toBeVisible();
   },
 };
