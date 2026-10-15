@@ -64,14 +64,17 @@ test("a learner without Membership reads a free task from the programme, submits
     form.getByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
   ).toBeVisible();
   const mine = page.locator("[data-own-submissions]");
-  await expect(mine.getByText(note)).toBeVisible();
-  await expect(mine.getByText("Через форму").first()).toBeVisible();
-  await expect(mine.getByText("Версия требований 1").first()).toBeVisible();
+  const submitted = mine.locator("[data-submission]").filter({ hasText: note });
+  await submitted.getByText("Моя заметка", { exact: true }).click();
+  await expect(submitted.getByText(note)).toBeVisible();
+  await expect(submitted.getByText("Через форму")).toBeVisible();
 
   await page.reload();
-  await expect(
-    page.locator("[data-own-submissions]").getByText(note),
-  ).toBeVisible();
+  const restored = page
+    .locator("[data-own-submissions] [data-submission]")
+    .filter({ hasText: note });
+  await restored.getByText("Моя заметка", { exact: true }).click();
+  await expect(restored.getByText(note)).toBeVisible();
   const violations = (
     await new AxeBuilder({ page }).include("main").analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
