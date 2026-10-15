@@ -14,12 +14,18 @@ import {
 } from "../../../../scripts/evidence-path.mjs";
 
 /** Real production route and BFF with synthetic records in the disposable full-stack database. */
-test("individual payment link shows its fixed private price and actual terms, then rejects revocation in the buyer page", async ({
+test("individual payment link shows its fixed price and terms, revokes across open owner tabs and blocks payment", async ({
   page,
   context,
   browser,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
+  await page.addLocatorHandler(
+    page.getByRole("button", { name: "Закрыть подключение Telegram" }),
+    async (button) => {
+      await button.click();
+    },
+  );
   await page.goto("/authoring/billing");
   const content = await fullStackBrowserRequest(
     page,
@@ -144,85 +150,107 @@ test("individual payment link shows its fixed private price and actual terms, th
   const guest = await browser.newContext({
     viewport: page.viewportSize() ?? { width: 1440, height: 1024 },
   });
-  const buyer = await guest.newPage();
-  const path = `/payment/links/${link.id}`;
-  const response = await buyer.goto(path);
-  const storageNotice = buyer.getByRole("button", {
-    name: "Понятно",
-    exact: true,
-  });
-  if (await storageNotice.isVisible()) await storageNotice.click();
-  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
-  expect(response?.headers()["cache-control"]).toContain("no-store");
-  await expect(
-    buyer.getByRole("heading", { name: "Покупка по ссылке" }),
-  ).toBeVisible();
-  await expect(buyer.locator('input[name="returnTo"]')).toHaveValue(path);
-  await expect(
-    buyer.getByRole("button", { name: "Войти для покупки" }),
-  ).toBeVisible();
-  await buyer.getByText("Все условия покупки", { exact: true }).click();
-  await expect(
-    buyer.getByText(/Сопровождение автора — 6 месяцев/),
-  ).toBeVisible();
-  expect(
-    (
-      await new AxeBuilder({ page: buyer })
-        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-        .analyze()
-    ).violations.filter(
-      (item) => item.impact === "serious" || item.impact === "critical",
-    ),
-  ).toEqual([]);
-  expect(
-    await buyer.evaluate(
-      () =>
-        document.documentElement.scrollWidth ===
-        document.documentElement.clientWidth,
-    ),
-  ).toBe(true);
-  if (process.env["CAPTURE_EVIDENCE"] === "1") {
-    await prepareEvidenceDirectory("issue-1450");
-    await screenshotWholePage(buyer, {
-      path: evidencePath("issue-1450", `private-${testInfo.project.name}.png`),
+  try {
+    const buyer = await guest.newPage();
+    await buyer.addLocatorHandler(
+      buyer.getByRole("button", { name: "Закрыть подключение Telegram" }),
+      async (button) => {
+        await button.click();
+      },
+    );
+    const path = `/payment/links/${link.id}`;
+    const response = await buyer.goto(path);
+    const storageNotice = buyer.getByRole("button", {
+      name: "Понятно",
+      exact: true,
     });
+    if (await storageNotice.isVisible()) await storageNotice.click();
+    expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
+    expect(response?.headers()["cache-control"]).toContain("no-store");
+    await expect(
+      buyer.getByRole("heading", { name: "Покупка по ссылке" }),
+    ).toBeVisible();
+    await expect(buyer.locator('input[name="returnTo"]')).toHaveValue(path);
+    await expect(
+      buyer.getByRole("button", { name: "Войти для покупки" }),
+    ).toBeVisible();
+    await buyer.getByText("Все условия покупки", { exact: true }).click();
+    await expect(
+      buyer.getByText(/Сопровождение автора — 6 месяцев/),
+    ).toBeVisible();
+    expect(
+      (
+        await new AxeBuilder({ page: buyer })
+          .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+          .analyze()
+      ).violations.filter(
+        (item) => item.impact === "serious" || item.impact === "critical",
+      ),
+    ).toEqual([]);
+    expect(
+      await buyer.evaluate(
+        () =>
+          document.documentElement.scrollWidth ===
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    if (process.env["CAPTURE_EVIDENCE"] === "1") {
+      await prepareEvidenceDirectory("issue-1450");
+      await screenshotWholePage(buyer, {
+        path: evidencePath(
+          "issue-1450",
+          `private-${testInfo.project.name}.png`,
+        ),
+      });
+    }
+    await signInFullStack(guest, "NON_MEMBER");
+    await buyer.reload();
+    await expect(buyer.getByRole("button", { name: /Оплатить/ })).toBeVisible();
+    await buyer
+      .getByText("Условия и документы покупки", { exact: true })
+      .click();
+    await expect(buyer.getByRole("link", { name: /Оферта/ })).toHaveAttribute(
+      "href",
+      /\/legal\/purchase\/v6/,
+    );
+    const secondOwner = await context.newPage();
+    await secondOwner.addLocatorHandler(
+      secondOwner.getByRole("button", { name: "Закрыть подключение Telegram" }),
+      async (button) => {
+        await button.click();
+      },
+    );
+    await secondOwner.goto("/authoring/billing");
+    const secondRegion = secondOwner.getByRole("region", {
+      name: "Ссылки на оплату",
+      exact: true,
+    });
+    await expect(
+      secondRegion.locator(`input[value$="/${link.id}"]`),
+    ).toHaveCount(1);
+    const region = page.getByRole("region", {
+      name: "Ссылки на оплату",
+      exact: true,
+    });
+    const row = region
+      .locator("section")
+      .filter({ has: page.locator(`input[value$="/${link.id}"]`) });
+    await row
+      .getByRole("button", { name: "Отозвать ссылку", exact: true })
+      .click();
+    const secondRow = secondRegion
+      .locator("section")
+      .filter({ has: secondOwner.locator(`input[value$="/${link.id}"]`) });
+    await expect(secondRow.getByText(/Ссылка отозвана/)).toBeVisible();
+    await secondOwner.close();
+    await buyer.reload();
+    await expect(
+      buyer.getByRole("heading", { name: "Ссылка отозвана" }),
+    ).toBeVisible();
+    await expect(buyer.getByRole("button", { name: /Оплатить/ })).toHaveCount(
+      0,
+    );
+  } finally {
+    await guest.close();
   }
-  await signInFullStack(guest, "NON_MEMBER");
-  await buyer.reload();
-  await expect(buyer.getByRole("button", { name: /Оплатить/ })).toBeVisible();
-  await buyer.getByText("Условия и документы покупки", { exact: true }).click();
-  await expect(buyer.getByRole("link", { name: /Оферта/ })).toHaveAttribute(
-    "href",
-    /\/legal\/purchase\/v6/,
-  );
-  const secondOwner = await context.newPage();
-  await secondOwner.goto("/authoring/billing");
-  const secondRegion = secondOwner.getByRole("region", {
-    name: "Ссылки на оплату",
-    exact: true,
-  });
-  await expect(secondRegion.locator(`input[value$="/${link.id}"]`)).toHaveCount(
-    1,
-  );
-  const region = page.getByRole("region", {
-    name: "Ссылки на оплату",
-    exact: true,
-  });
-  const row = region
-    .locator("section")
-    .filter({ has: page.locator(`input[value$="/${link.id}"]`) });
-  await row
-    .getByRole("button", { name: "Отозвать ссылку", exact: true })
-    .click();
-  const secondRow = secondRegion
-    .locator("section")
-    .filter({ has: secondOwner.locator(`input[value$="/${link.id}"]`) });
-  await expect(secondRow.getByText(/Ссылка отозвана/)).toBeVisible();
-  await secondOwner.close();
-  await buyer.reload();
-  await expect(
-    buyer.getByRole("heading", { name: "Ссылка отозвана" }),
-  ).toBeVisible();
-  await expect(buyer.getByRole("button", { name: /Оплатить/ })).toHaveCount(0);
-  await guest.close();
 });
