@@ -128,6 +128,7 @@ describe("supported toolchain contract", () => {
         /^ARG INSIDE_(RELEASE_VERSION|SOURCE_SHA)/mu,
         "A release identity change must not invalidate backend compilation",
       );
+      /** @type {string | undefined} */
       const parent = stage.split(" AS ")[0];
       stage = stages.find((value) =>
         value.split("\n")[0]?.endsWith(` AS ${parent}`),
