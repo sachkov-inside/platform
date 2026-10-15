@@ -150,11 +150,13 @@ placements; delivery goes through ContentAccess. In Russian product language: «
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
 **Product Task**:
-A large part of a Product Chapter's result that the learner builds and submits. Its requirements
+A checkable part of a Product Chapter's result that the learner builds and submits. Its requirements
 include an introduction or situation, required and additional criteria, and the freedom the learner keeps.
 It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
-access class and a short permanent code. The programme shows it right after the Material of its
-chapter the author names, or at the start of the chapter. It is not a Material and not a step of
+access class and a short permanent code. A standalone Task appears after its authored Material
+anchor or at the chapter's start. Embedded practice binds one Task to one main Material of its
+chapter and renders its submission workspace within that Material. Legacy Tasks keep direct access
+and history without a programme row. It is not a Material and not a step of
 the Product's main path, so it carries no lesson number and Product Progress does not count it. In
 Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task

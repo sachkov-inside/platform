@@ -1,4 +1,8 @@
 import {
+  name as materialTaskName,
+  statement as materialTaskStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0096-material-task.js";
+import {
   name as submissionReviewRunName,
   statement as submissionReviewRunStatement,
 } from "../modules/product-tasks/infrastructure/postgres/migrations/0095-task-submission-review-run.js";
@@ -617,6 +621,7 @@ export const platformMigrations = [
   { name: learningStartedName, statement: learningStartedStatement },
   { name: taskReviewProgressName, statement: taskReviewProgressStatement },
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
+  { name: materialTaskName, statement: materialTaskStatement },
 ] as const;
 
 export function migrateToLatest(

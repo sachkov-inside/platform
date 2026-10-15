@@ -229,3 +229,34 @@ describe("course reading composition", () => {
     expect(context?.next?.href).toBe("/products/course/tasks/a");
   });
 });
+
+it("embedded practice remains one Material step with its saved submission, and legacy has no extra row", () => {
+  const embedded = {
+    ...task("practice"),
+    programmeVisibility: "embedded" as const,
+    embeddedMaterialId: "first-id",
+    lastSubmittedAt: "2026-10-15T12:00:00.000Z",
+  };
+  const context = courseReadingContext({
+    series: {
+      ...series,
+      chapters: [
+        { ...series.chapters[0], tasks: [embedded] },
+        series.chapters[1],
+      ],
+    },
+    current: { kind: "material", slug: "first" },
+  });
+  expect(context?.totalSteps).toBe(2);
+  expect(context?.current).toMatchObject({
+    kind: "material",
+    practiceTaskCode: "practice",
+    taskSubmitted: true,
+  });
+  expect(context?.next?.id).toBe("material:second");
+  expect(
+    context?.chapters
+      .flatMap((chapter) => chapter.steps)
+      .some((step) => step.kind === "task"),
+  ).toBe(false);
+});

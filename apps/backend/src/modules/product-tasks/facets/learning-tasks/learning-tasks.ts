@@ -1,3 +1,4 @@
+import { readMaterialTask } from "../../features/read-task-page/read-material-task.js";
 import { updateTaskReview } from "../../features/update-task-review/update-task-review.js";
 import type { Subject } from "../../../content-access/index.js";
 import { listChapterTasks } from "../../features/list-chapter-tasks/list-chapter-tasks.js";
@@ -28,6 +29,7 @@ export interface LearningTasks {
   readonly submissions: (
     input: Query,
   ) => ReturnType<typeof listTaskSubmissions>;
+  readonly materialTask: (input: Query) => ReturnType<typeof readMaterialTask>;
   readonly page: (input: Query) => ReturnType<typeof readTaskPage>;
   readonly chapterTasks: (input: Query) => ReturnType<typeof listChapterTasks>;
 }
@@ -41,6 +43,7 @@ export function assembleLearningTasks(
     read: (input) => readLearningTask(dependencies, input),
     submit: (input) => submitTask(dependencies, input),
     submissions: (input) => listTaskSubmissions(dependencies, input),
+    materialTask: (input) => readMaterialTask(dependencies, input),
     page: (input) => readTaskPage(dependencies, input),
     chapterTasks: (input) => listChapterTasks(dependencies, input),
   });

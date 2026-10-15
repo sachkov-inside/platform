@@ -28,6 +28,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       updateReview: refuse,
       submissions: refuse,
       page: refuse,
+      materialTask: refuse,
       chapterTasks: refuse,
     },
     contentAccess: {

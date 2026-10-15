@@ -128,6 +128,49 @@ export async function seedFullStackTask(origin, accessToken) {
     },
     expectedRevision: null,
   });
+  const practiceCode = "fullstack-embedded-practice";
+  await request("/authoring/import/tasks/apply", {
+    sourceId: `synthetic:${practiceCode}`,
+    code: practiceCode,
+    productId: product.id,
+    chapterId,
+    position: 2,
+    title: "Внутренняя практика",
+    access: "free",
+    programmeVisibility: "embedded",
+    embeddedMaterialSourceId: source.id,
+    definition: {
+      schemaVersion: 1,
+      situation: "Практика внутри урока.",
+      result: ["Работающий сценарий."],
+      freedom: "Стек выбирает участник.",
+      criteria: [
+        {
+          id: "request",
+          level: "required",
+          requirement: "Участник создаёт заявку.",
+          acceptableEvidence: ["Сценарий создания."],
+        },
+      ],
+    },
+    relatedMaterialSourceIds: [],
+    publicationState: "published",
+    provenance: {
+      repository: "synthetic/fullstack",
+      commit: "b".repeat(40),
+      path: "embedded-task.yaml",
+    },
+    expectedRevision: null,
+  });
+  const material = z
+    .object({ metadata: z.object({ slug: z.string() }) })
+    .parse(await request(`/authoring/materials/${lesson.materialId}`));
   // The lesson comes from a source package: tests that compose Products in the editor skip it.
-  return { productSlug: product.slug, code, materialId: lesson.materialId };
+  return {
+    productSlug: product.slug,
+    code,
+    materialId: lesson.materialId,
+    materialSlug: material.metadata.slug,
+    practiceCode,
+  };
 }

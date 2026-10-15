@@ -110,3 +110,57 @@ test("an unknown task code answers with the task not-found page (#947)", async (
     page.getByRole("heading", { level: 1, name: "Задание не найдено" }),
   ).toBeVisible();
 });
+
+test("a practical Material reuses the real submission workspace without adding a programme Task row", async ({
+  context,
+  page,
+}, testInfo) => {
+  const { productSlug } = taskFixture();
+  const slug = process.env["FULLSTACK_TASK_MATERIAL_SLUG"];
+  const code = process.env["FULLSTACK_EMBEDDED_TASK_CODE"];
+  if (slug === undefined || code === undefined)
+    throw new Error("Missing embedded practice fixture");
+  await signInFullStack(context, "NON_MEMBER");
+  const returnTo = `/materials/${slug}?from=${encodeURIComponent(`/products/${productSlug}/programme`)}`;
+  await page.goto(returnTo);
+  await dismissNotices(page);
+  await expect(page.locator("[data-reader-body]")).toContainText(
+    "Урок перед заданием.",
+  );
+  const workspace = page.locator("#task-submit");
+  await expect(
+    workspace.getByRole("heading", { name: "Сдача задания" }),
+  ).toBeVisible();
+  await expect(workspace.locator("[data-agent-phrase]")).toContainText(code);
+  await workspace.getByText("Нет агента с MCP? Сдать через форму").click();
+  const note = `Embedded practice ${testInfo.project.name}`;
+  const form = workspace.locator("[data-product-task-form]");
+  await form.getByLabel(/Заметка для автора/u).fill(note);
+  await form.getByRole("button", { name: "Отправить сдачу" }).click();
+  const attempt = workspace
+    .locator("[data-submission]")
+    .filter({ hasText: note });
+  await attempt.getByText("Моя заметка", { exact: true }).click();
+  await expect(attempt.getByText(note)).toBeVisible();
+  await expect(page).toHaveURL(returnTo);
+  await page.reload();
+  await expect(page.locator("[data-reader-body]")).toContainText(
+    "Урок перед заданием.",
+  );
+  await expect(page.locator("[data-own-submissions]")).toContainText(note);
+  await expect(
+    page.locator(
+      `[data-course-step="material:${slug}"] [data-task-submitted="true"]`,
+    ),
+  ).toHaveCount(1);
+  await expect(page.locator(`[data-course-step="task:${code}"]`)).toHaveCount(
+    0,
+  );
+  expect(
+    (
+      await new AxeBuilder({ page }).include("main").analyze()
+    ).violations.filter(
+      (v) => v.impact === "serious" || v.impact === "critical",
+    ),
+  ).toEqual([]);
+});

@@ -22,6 +22,7 @@ export interface CourseReadingStep {
   readonly materialOrdinal?: number;
   readonly taskOrdinal?: number;
   readonly taskSubmitted?: boolean;
+  readonly practiceTaskCode?: string;
 }
 export interface CourseReadingChapter {
   readonly href?: Route;
@@ -112,8 +113,9 @@ export function courseReadingContext({
         title: task.title,
         taskSubmitted: task.lastSubmittedAt !== null,
         taskOrdinal:
-          (chapter.tasks ?? []).findIndex((entry) => entry.code === task.code) +
-          1,
+          (chapter.tasks ?? [])
+            .filter((task) => task.programmeVisibility !== "embedded")
+            .findIndex((entry) => entry.code === task.code) + 1,
         href: productTaskHref(series.reference.slug, task.code),
         availability: task.availability,
       }));
@@ -140,6 +142,17 @@ export function courseReadingContext({
               href: materialReaderHref(item.slug, materialReturn),
               availability: item.availability ?? "available",
               materialOrdinal: run.offset + itemIndex + 1,
+              ...(() => {
+                const practice = chapter.tasks?.find(
+                  (task) => task.embeddedMaterialId === item.materialId,
+                );
+                return practice === undefined
+                  ? {}
+                  : {
+                      practiceTaskCode: practice.code,
+                      taskSubmitted: practice.lastSubmittedAt !== null,
+                    };
+              })(),
             },
             ...taskSteps(
               item.materialId === undefined

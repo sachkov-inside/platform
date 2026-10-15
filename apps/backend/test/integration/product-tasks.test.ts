@@ -165,6 +165,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       prisma: db.prisma,
       directory,
       contentAccess,
+      materialReader: materials.publishedMaterialReader,
       submissionsEnabled,
       ...(clock === undefined ? {} : { clock }),
     });
@@ -553,6 +554,186 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       contextVersion: first.value.contextVersion,
     };
   }
+
+  test("embedded practice revisions preserve requirements and reject another chapter or duplicate owner", async () => {
+    const material = await chapterMaterial(chapterId, 99);
+    const task = await imported();
+    const apply = assembleApplySourceTask(importDependencies());
+    const binding = {
+      ...task.body,
+      programmeVisibility: "embedded",
+      embeddedMaterialSourceId: material.sourceId,
+      expectedRevision: 1,
+    };
+    const saved = await apply(binding, {
+      actor: owner,
+      idempotencyKey: randomUUID(),
+    });
+    expect(saved).toMatchObject({
+      ok: true,
+      value: { revision: 2, currentVersion: 1 },
+    });
+    expect(
+      await db.prisma.productTask.findUnique({ where: { id: task.taskId } }),
+    ).toMatchObject({
+      embeddedMaterialId: material.materialId,
+      programmeVisibility: "embedded",
+    });
+    expect(
+      await apply(
+        { ...binding, expectedRevision: 2 },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: true, value: { revision: 2, currentVersion: 1 } });
+    const duplicate = source();
+    expect(
+      await apply(
+        {
+          ...duplicate,
+          programmeVisibility: "embedded",
+          embeddedMaterialSourceId: material.sourceId,
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "source_mismatch" } });
+    expect(
+      await apply(
+        { ...binding, chapterId: otherChapterId, expectedRevision: 2 },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "chapter_not_found" } });
+    const page = await learning().materialTask({
+      subject: { kind: "anonymous" },
+      materialId: material.materialId,
+    });
+    expect(page).toMatchObject({
+      ok: true,
+      value: { access: "open", task: { code: task.code } },
+    });
+    const first = partSchema.parse(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+      }),
+    );
+    const context = await readAll(learning(), { kind: "anonymous" }, task.code);
+    const practice = z
+      .object({
+        payload: z.object({
+          practice: z.object({
+            materialId: z.string(),
+            complete: z.literal(true),
+            body: z.object({ blocks: z.array(z.unknown()) }),
+          }),
+        }),
+      })
+      .parse(JSON.parse(context.context));
+    expect(practice.payload.practice.materialId).toBe(material.materialId);
+    expect(practice.payload.practice.body.blocks.length).toBeGreaterThan(0);
+    const loaded = await materials.authoring.loadMaterial({
+      actor: owner,
+      materialId: material.materialId,
+    });
+    if (!loaded.ok) throw new Error(loaded.error.code);
+    const updated = await materials.authoring.applySourceMaterial({
+      actor: owner,
+      materialId: material.materialId,
+      source: {
+        id: material.sourceId,
+        path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
+        revision: "b".repeat(64),
+        showInFeed: false,
+      },
+      primaryVideoId: null,
+      idempotencyKey: randomUUID(),
+      expectedContentVersion: loaded.value.contentVersion,
+      publicationState: "published",
+      body: representativeDocument("Updated full practical explanation"),
+      metadata: {
+        title: "Updated lesson",
+        summary: "Changed",
+        access: "free",
+        topicId,
+        formatId: "guide",
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds: [productId],
+      },
+    });
+    if (!updated.ok) throw new Error(JSON.stringify(updated.error));
+    expect(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        expectedContextVersion: first.value.contextVersion,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "task_context_version_mismatch" },
+    });
+    const legacy = await apply(
+      { ...task.body, programmeVisibility: "legacy", expectedRevision: 2 },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(legacy).toMatchObject({
+      ok: true,
+      value: { revision: 3, currentVersion: 1 },
+    });
+    expect(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        expectedContextVersion: first.value.contextVersion,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "task_context_version_mismatch" },
+    });
+    expect(
+      await learning().materialTask({
+        subject: { kind: "anonymous" },
+        materialId: material.materialId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "task_not_found" } });
+    expect(
+      await learning().page({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        productSlug,
+      }),
+    ).toMatchObject({ ok: true, value: { access: "open" } });
+  });
+
+  test("concurrent embedded Task imports claim one lesson without partial versions", async () => {
+    const material = await chapterMaterial(chapterId, 98);
+    const commands = [source(), source()];
+    const apply = assembleApplySourceTask(importDependencies());
+    const results = await Promise.all(
+      commands.map((command) =>
+        apply(
+          {
+            ...command,
+            programmeVisibility: "embedded",
+            embeddedMaterialSourceId: material.sourceId,
+            expectedRevision: null,
+          },
+          { actor: owner, idempotencyKey: randomUUID() },
+        ),
+      ),
+    );
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toMatchObject({
+      ok: false,
+      error: { code: "source_mismatch" },
+    });
+    expect(
+      await db.prisma.productTask.count({
+        where: { code: { in: commands.map((command) => command.code) } },
+      }),
+    ).toBe(1);
+  });
 
   test("an import is idempotent; only a changed definition creates a new immutable Task Version", async () => {
     const apply = assembleApplySourceTask(importDependencies());

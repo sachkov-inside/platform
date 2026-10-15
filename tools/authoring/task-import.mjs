@@ -123,6 +123,19 @@ function authoredBody(manifest, task, publicationState) {
     ...(task.afterMaterialId === undefined
       ? {}
       : { afterMaterialSourceId: sourceKey(manifest, task.afterMaterialId) }),
+    ...(task.programmeVisibility === undefined
+      ? {}
+      : { programmeVisibility: task.programmeVisibility }),
+    ...(task.programmeVisibility !== "embedded"
+      ? {}
+      : {
+          embeddedMaterialSourceId: sourceKey(
+            manifest,
+            manifest.materials.find(
+              (material) => material.practiceTaskId === task.sourceId,
+            )?.sourceId ?? "",
+          ),
+        }),
     publicationState,
     provenance: task.provenance,
   };

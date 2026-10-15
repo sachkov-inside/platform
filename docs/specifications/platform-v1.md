@@ -1651,3 +1651,11 @@ Learning-start persistence is independent of the current lesson composition.
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the prospective legal decision is #1464.
+
+
+## Embedded practical lessons
+
+[Material Task v1](material-task-v1.md) extends Product Tasks with an optional primary Material binding
+and programme visibility. Embedded practice reuses the existing submission workspace and MCP protocol;
+it adds no independent programme item. Legacy Task URLs and history remain available. Standalone Tasks
+retain their prior behavior. Task publication/access and Material reading progress remain independent.

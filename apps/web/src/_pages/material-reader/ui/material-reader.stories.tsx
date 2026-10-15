@@ -1,3 +1,9 @@
+import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
+import {
+  openProductTask,
+  submittedTwice,
+  learnerMcpUrl,
+} from "@/storybook/product-task.fixtures";
 import {
   InlineArtifactDownload,
   readInlineArtifactReference,
@@ -2061,4 +2067,45 @@ export const SupplementaryFromTask: Story = {
 export const SupplementaryFromTaskMobile: Story = {
   ...SupplementaryFromTask,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const PracticalLesson: Story = {
+  args: {
+    submissionWorkspace: (
+      <TaskSubmissionWorkspace
+        connectionPrompt="Подключи учебный MCP по инструкции https://inside.example/practice-review-setup.txt"
+        code={openProductTask.task.code}
+        version={openProductTask.task.version}
+        accepting
+        history={submittedTwice}
+        learnerMcpUrl={learnerMcpUrl}
+        liveSubmissions={false}
+        returnTo="/materials/practical-lesson?from=%2Fproducts%2Fai-engineering%2Fprogramme&anchor=material%3Afirst"
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Сдача задания" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Мои сдачи" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Скопировать запрос" }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector("[data-reader-body]"),
+    ).not.toBeNull();
+    await expect(
+      canvas.getByText(
+        "Открой новую сессию агента в папке проекта, где ты выполнил задание.",
+      ),
+    ).toBeVisible();
+  },
+};
+export const PracticalLessonMobile: Story = {
+  ...PracticalLesson,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

@@ -1,3 +1,4 @@
+import type { LearningTasks } from "../../../product-tasks/index.js";
 import { randomUUID } from "node:crypto";
 import {
   materialBlockChildren,
@@ -18,6 +19,7 @@ export async function readLearningMaterial(
   dependencies: {
     readonly reader: Pick<PublishedMaterialReader, "read">;
     readonly contentAccess: ContentAccess;
+    readonly tasks?: Pick<LearningTasks, "materialTask">;
   },
   query: {
     readonly subject: Subject;
@@ -140,9 +142,24 @@ export async function readLearningMaterial(
         currentContentVersion: current.checkedContentVersion,
       },
     };
+  const task = await dependencies.tasks?.materialTask({ subject, materialId });
+  if (task !== undefined && !task.ok && task.error.code !== "task_not_found")
+    return task;
   return {
     ok: true as const,
     value: {
+      ...(task?.ok !== true
+        ? {}
+        : {
+            practiceTask:
+              task.value.access === "open"
+                ? {
+                    code: task.value.task.code,
+                    taskVersion: task.value.task.version,
+                    readTool: "learning_task_read",
+                  }
+                : { availability: "locked" },
+          }),
       materialId,
       slug: material.projection.slug,
       title: material.projection.title,

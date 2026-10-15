@@ -31,6 +31,7 @@ export interface MaterialCardProps {
   readonly seriesOrdinal?: number;
   readonly readingStatus?: React.ReactElement;
   readonly showAccessDetails?: boolean;
+  readonly showFormat?: boolean;
   /**
    * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок или
    * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
@@ -52,6 +53,7 @@ export function MaterialCard({
       format={material.format}
     />
   ),
+  showFormat = true,
   showAccessDetails = false,
   accessPending = false,
   variant,
@@ -62,6 +64,7 @@ export function MaterialCard({
   if (variant === "series") {
     return (
       <SeriesMaterialRow
+        showFormat={showFormat}
         accessPending={accessPending}
         headingLevel={headingLevel}
         material={material}
@@ -344,6 +347,7 @@ function MaterialRow({
  * `SeriesContinuationProvider`.
  */
 function SeriesMaterialRow({
+  showFormat,
   accessPending,
   headingLevel: Heading,
   material,
@@ -351,6 +355,7 @@ function SeriesMaterialRow({
   ordinal,
   readingStatus,
 }: {
+  readonly showFormat: boolean;
   readonly accessPending: boolean;
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
@@ -381,17 +386,19 @@ function SeriesMaterialRow({
             {ordinal}
           </span>
         )}
-        <span
-          aria-hidden="true"
-          className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
-          data-series-format
-        >
-          {material.format}
-        </span>
+        {showFormat ? (
+          <span
+            aria-hidden="true"
+            className="shrink-0 border-r border-border pr-2 text-[0.5625rem] font-semibold uppercase leading-4 tracking-[0.06em] text-muted-foreground sm:pr-3 sm:text-[0.625rem] sm:tracking-[0.08em]"
+            data-series-format
+          >
+            {material.format}
+          </span>
+        ) : null}
         <div className="min-w-0 flex-1">
           <span className="sr-only">
             {ordinal === undefined ? "" : `Урок ${String(ordinal)}. `}
-            {material.format}.{" "}
+            {showFormat ? `${material.format}. ` : ""}
           </span>
           <Heading className="min-w-0 text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
             <IntentPrefetchLink

@@ -123,14 +123,60 @@ export const taskPageHttpSchema = z.discriminatedUnion("access", [
 @ApiTags("Product tasks")
 @PrivateNoStore()
 @OptionalAccountEndpoint()
-@Controller("library/products")
+@Controller("library")
 export class ReadTaskPageController {
   constructor(
     @Inject(LEARNING_TASKS)
-    private readonly tasks: Pick<LearningTasks, "page">,
+    private readonly tasks: Pick<LearningTasks, "page" | "materialTask">,
   ) {}
 
-  @Get(":slug/tasks/:code")
+  @Get("materials/:materialId/task")
+  @ApiOperation({
+    operationId: "readMaterialTaskPage",
+    summary:
+      "Read the independently authorized Task bound to a practical Material",
+  })
+  @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiOkResponse({ schema: toOpenApiSchema(taskPageHttpSchema) })
+  @ApiResponse({
+    status: 400,
+    content: problemDetailsContent(
+      problemDetailsSchema(400, ["invalid_request_shape"]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["task_not_found"]),
+    ),
+  })
+  @ApiResponse({
+    status: 500,
+    content: problemDetailsOneOfContent(
+      learnerTaskFailureProblemSchema,
+      accountProblemSchema,
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsOneOfContent(
+      learnerTaskUnavailableProblemSchema,
+      accountProblemSchema,
+    ),
+  })
+  async material(
+    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
+    @Param("materialId") materialId: string,
+  ): Promise<z.infer<typeof taskPageHttpSchema>> {
+    return taskPageHttp(
+      await this.tasks.materialTask({
+        subject: learnerSubject(account),
+        materialId,
+      }),
+    );
+  }
+
+  @Get("products/:slug/tasks/:code")
   @ApiOperation({
     operationId: "readProductTaskPage",
     summary:
@@ -178,81 +224,87 @@ export class ReadTaskPageController {
       productSlug,
       code,
     });
-    if (!result.ok) {
-      const error = result.error;
-      switch (error.code) {
-        case "invalid_request_shape":
-          throw problemException(400, error.code, "Task address is malformed");
-        case "task_not_found":
-          throw problemException(404, error.code, "Task is not found");
-        case "dependency_unavailable":
-        case "internal_error":
-          throwSystemError(error, "Task page read");
-      }
-    }
-    const page = result.value;
-    const place = {
-      code: page.task.code,
-      title: page.task.title,
-      product: { slug: page.task.product.slug, name: page.task.product.name },
-      chapter: {
-        name: page.task.chapter.name,
-        ordinal: page.task.chapter.ordinal,
-      },
-    };
-    if (page.access === "closed") return { access: "closed", task: place };
-    const definition = page.task.definition;
-    return {
-      access: "open",
-      task: {
-        code: place.code,
-        title: place.title,
-        product: place.product,
-        chapter: place.chapter,
-        access: page.task.access,
-        version: page.task.version,
-        ...(page.task.page === undefined
-          ? {}
-          : {
-              page: {
-                title: page.task.page.title,
-                summary: page.task.page.summary,
-                body: page.task.page.body,
-                cover: page.task.page.cover,
-                artifacts: page.task.page.artifacts.map((item) => ({
-                  sourceId: item.sourceId,
-                  title: item.title,
-                  assetId: item.assetId,
-                })),
-              },
-            }),
-        definition:
-          definition.schemaVersion === 2
-            ? {
-                schemaVersion: 2,
-                format: "c",
-                intro: definition.intro,
-                freedom: definition.freedom,
-                criteria: definition.criteria.map(criterionHttp),
-              }
-            : {
-                situation: definition.situation,
-                result: [...definition.result],
-                freedom: definition.freedom,
-                criteria: definition.criteria.map(criterionHttp),
-              },
-      },
-      reviewProtocol: {
-        version: page.reviewProtocol.version,
-        instructions: [...page.reviewProtocol.instructions],
-      },
-      relatedMaterials: page.relatedMaterials.map((material) => ({
-        materialId: material.materialId,
-        slug: material.slug,
-        title: material.title,
-        availability: material.availability,
-      })),
-      submission: { accepting: page.submission.accepting },
-    };
+    return taskPageHttp(result);
   }
+}
+
+function taskPageHttp(
+  result: Awaited<ReturnType<LearningTasks["page"]>>,
+): z.infer<typeof taskPageHttpSchema> {
+  if (!result.ok) {
+    const error = result.error;
+    switch (error.code) {
+      case "invalid_request_shape":
+        throw problemException(400, error.code, "Task address is malformed");
+      case "task_not_found":
+        throw problemException(404, error.code, "Task is not found");
+      case "dependency_unavailable":
+      case "internal_error":
+        throwSystemError(error, "Task page read");
+    }
+  }
+  const page = result.value;
+  const place = {
+    code: page.task.code,
+    title: page.task.title,
+    product: { slug: page.task.product.slug, name: page.task.product.name },
+    chapter: {
+      name: page.task.chapter.name,
+      ordinal: page.task.chapter.ordinal,
+    },
+  };
+  if (page.access === "closed") return { access: "closed", task: place };
+  const definition = page.task.definition;
+  return {
+    access: "open",
+    task: {
+      code: place.code,
+      title: place.title,
+      product: place.product,
+      chapter: place.chapter,
+      access: page.task.access,
+      version: page.task.version,
+      ...(page.task.page === undefined
+        ? {}
+        : {
+            page: {
+              title: page.task.page.title,
+              summary: page.task.page.summary,
+              body: page.task.page.body,
+              cover: page.task.page.cover,
+              artifacts: page.task.page.artifacts.map((item) => ({
+                sourceId: item.sourceId,
+                title: item.title,
+                assetId: item.assetId,
+              })),
+            },
+          }),
+      definition:
+        definition.schemaVersion === 2
+          ? {
+              schemaVersion: 2,
+              format: "c",
+              intro: definition.intro,
+              freedom: definition.freedom,
+              criteria: definition.criteria.map(criterionHttp),
+            }
+          : {
+              situation: definition.situation,
+              result: [...definition.result],
+              freedom: definition.freedom,
+              criteria: definition.criteria.map(criterionHttp),
+            },
+    },
+    reviewProtocol: {
+      version: page.reviewProtocol.version,
+      instructions: [...page.reviewProtocol.instructions],
+    },
+    relatedMaterials: page.relatedMaterials.map((material) => ({
+      materialId: material.materialId,
+      slug: material.slug,
+      title: material.title,
+      availability: material.availability,
+    })),
+    submission: { accepting: page.submission.accepting },
+  };
 }

@@ -25,6 +25,8 @@ const taskListSelect = {
   position: true,
   access: true,
   afterMaterialSourceId: true,
+  programmeVisibility: true,
+  embeddedMaterialId: true,
 } as const;
 
 export const chapterTasksQuerySchema = z
@@ -42,6 +44,8 @@ export interface ChapterTask {
    * the chapter, also when that Material has left the chapter or is not published.
    */
   readonly afterMaterialId: string | null;
+  readonly programmeVisibility?: "embedded";
+  readonly embeddedMaterialId?: string;
   readonly availability: "available" | "locked" | "unavailable";
   /**
    * The subject's own latest submission; `null` for an anonymous subject and while the task is
@@ -76,7 +80,11 @@ export async function listChapterTasks(
       );
       let page = await transaction.productTask.findMany({
         select: taskListSelect,
-        where: { productId, publicationState: "published" },
+        where: {
+          productId,
+          publicationState: "published",
+          programmeVisibility: { not: "legacy" },
+        },
         orderBy: [{ chapterId: "asc" }, { position: "asc" }, { code: "asc" }],
         take: TASK_PAGE_SIZE,
       });
@@ -89,6 +97,7 @@ export async function listChapterTasks(
           where: {
             productId,
             publicationState: "published",
+            programmeVisibility: { not: "legacy" },
             OR: [
               { chapterId: { gt: last.chapterId } },
               { chapterId: last.chapterId, position: { gt: last.position } },
@@ -173,6 +182,13 @@ export async function listChapterTasks(
               ? undefined
               : placements.get(row.afterMaterialSourceId);
           return {
+            ...(row.programmeVisibility === "embedded" &&
+            row.embeddedMaterialId !== null
+              ? {
+                  programmeVisibility: "embedded" as const,
+                  embeddedMaterialId: row.embeddedMaterialId,
+                }
+              : {}),
             code: row.code,
             title: row.title,
             access: taskAccessSchema.parse(row.access),

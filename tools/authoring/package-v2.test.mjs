@@ -1024,3 +1024,54 @@ for (const scenario of [
     );
   });
 }
+
+test("material-task-v1 validates primary ownership and one-to-one bindings before transfer", async (t) => {
+  const f = await temporary(t);
+  const base = fixture();
+  const page = base.tasks[0]?.page;
+  assert.ok(page);
+  const lesson = { ...page, sourceId: "lesson", practiceTaskId: "task-one" };
+  const product = base.guides[0];
+  assert.ok(product);
+  const chapter = product.chapters[0];
+  assert.ok(chapter);
+  const manifest = {
+    ...base,
+    requiredFeatures: [...base.requiredFeatures, "material-task-v1"],
+    selection: { ...base.selection, materialIds: ["lesson"] },
+    materials: [lesson],
+    guides: [
+      {
+        ...product,
+        materialIds: ["lesson"],
+        chapters: [{ ...chapter, materialIds: ["lesson"] }],
+      },
+    ],
+    tasks: base.tasks.map((task) => ({
+      ...task,
+      programmeVisibility: "embedded",
+    })),
+  };
+  await f.write(manifest);
+  const loaded = await loadPackage(f.path);
+  assert.equal(loaded.manifest.materials[0]?.practiceTaskId, "task-one");
+  for (const invalid of [
+    { ...manifest, requiredFeatures: base.requiredFeatures },
+    { ...manifest, materials: [{ ...lesson, practiceTaskId: "missing" }] },
+    { ...manifest, materials: [lesson, { ...lesson, sourceId: "duplicate" }] },
+    {
+      ...manifest,
+      tasks: manifest.tasks.map((task) => ({
+        ...task,
+        programmeVisibility: "legacy",
+      })),
+    },
+    {
+      ...manifest,
+      guides: [{ ...product, supplementaryMaterialIds: ["lesson"] }],
+    },
+  ]) {
+    await f.write(invalid);
+    await assert.rejects(loadPackage(f.path));
+  }
+});

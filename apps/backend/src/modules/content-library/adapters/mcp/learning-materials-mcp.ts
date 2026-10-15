@@ -96,7 +96,7 @@ export function assembleLearnerMcpServer(
     "learning_material_read",
     {
       description:
-        "Read the entire current published material as structured blocks. expectedContentVersion pins the requested version; mismatch returns an error without the body. Assets remain explicit references with availability, not silently omitted media. No paging or truncation of a successful body.",
+        "Read the entire current published material as structured blocks. expectedContentVersion pins the requested version; mismatch returns an error without the body. Assets remain explicit references with availability, not silently omitted media. No paging or truncation of a successful body. A bound practiceTask identifies its code and current requirements version; read every learning_task_read part for complete review context.",
       inputSchema: z
         .object({
           slug: z.string().min(1).max(120),

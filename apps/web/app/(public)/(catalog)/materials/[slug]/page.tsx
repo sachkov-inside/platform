@@ -17,6 +17,8 @@ interface MaterialPageProps {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[] | undefined;
+    readonly anchor?: string | readonly string[] | undefined;
+    readonly attemptsAfter?: string | readonly string[] | undefined;
   }>;
 }
 

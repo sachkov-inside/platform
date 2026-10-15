@@ -17,7 +17,7 @@ import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 
-import { formatTaskCount } from "./product-counts";
+import { formatTaskCount, formatStepCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -143,7 +143,13 @@ function journeyRun(
     readonly result: SeriesResult;
   },
 ): JourneyRun {
-  const tasks = run.chapter?.tasks ?? [];
+  const tasks = (run.chapter?.tasks ?? []).filter(
+    (task) => task.programmeVisibility !== "embedded",
+  );
+  const unified =
+    run.chapter?.tasks?.some(
+      (task) => task.programmeVisibility === "embedded",
+    ) === true;
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
   const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
@@ -199,7 +205,11 @@ function journeyRun(
                     <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {[
                         run.chapter.materialIds.length > 0
-                          ? formatMaterialCount(run.chapter.materialIds.length)
+                          ? unified
+                            ? formatStepCount(run.chapter.materialIds.length)
+                            : formatMaterialCount(
+                                run.chapter.materialIds.length,
+                              )
                           : undefined,
                         tasks.length > 0
                           ? formatTaskCount(tasks.length)
@@ -250,6 +260,7 @@ function journeyRun(
         available: material.availability === "available",
         card: (
           <MaterialCard
+            showFormat={!unified}
             accessPending={accessPending}
             seriesOrdinal={ordinal}
             readingStatus={

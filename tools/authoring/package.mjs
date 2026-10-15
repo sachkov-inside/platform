@@ -77,6 +77,7 @@ export const materialSchema = z
     sourcePath: relativePath,
     sourceIds: z.array(identifier),
     relatedMaterialIds: z.array(identifier),
+    practiceTaskId: identifier.max(120).optional(),
     readingTimeMinutes: z.number().int().positive().nullable(),
     kind: z.enum(["video", "guide", "note"]),
     title: z.string().min(1),
@@ -174,6 +175,9 @@ export const sourceTaskSchema = z
     definition: z.record(z.string(), z.json()),
     relatedMaterialIds: z.array(identifier).max(50),
     afterMaterialId: identifier.optional(),
+    programmeVisibility: z
+      .enum(["standalone", "embedded", "legacy"])
+      .optional(),
     publicationState: z.enum(["published", "unpublished"]),
     provenance: z
       .object({
@@ -405,7 +409,36 @@ function checkTasks(manifest) {
       throw new Error(
         `${task.sourceId}: a task code repeats a Material identity`,
       );
+  const usesBindings =
+    manifest.materials.some((row) => row.practiceTaskId !== undefined) ||
+    tasks.some((task) => task.programmeVisibility !== undefined);
+  if (
+    usesBindings &&
+    (manifest.schemaVersion !== 2 ||
+      !manifest.requiredFeatures?.includes("material-task-v1"))
+  )
+    throw new Error("Task bindings require material-task-v1");
+  for (const material of manifest.materials) {
+    if (
+      material.practiceTaskId !== undefined &&
+      !tasks.some((task) => task.sourceId === material.practiceTaskId)
+    )
+      throw new Error(`${material.sourceId}: unknown practice Task`);
+  }
   for (const task of tasks) {
+    const bindings = manifest.materials.filter(
+      (row) => row.practiceTaskId === task.sourceId,
+    );
+    const visibility = task.programmeVisibility ?? "standalone";
+    if (
+      (visibility === "embedded" && bindings.length !== 1) ||
+      (visibility !== "embedded" && bindings.length !== 0)
+    )
+      throw new Error(`${task.sourceId}: invalid practice binding cardinality`);
+    if (visibility !== "standalone" && task.afterMaterialId !== undefined)
+      throw new Error(
+        `${task.sourceId}: embedded and legacy Tasks cannot have standalone placement`,
+      );
     const product = manifest.products.find(
       (row) => row.sourceId === task.productId,
     );
@@ -427,6 +460,24 @@ function checkTasks(manifest) {
       throw new Error(
         `${task.sourceId}: the task follows a Material outside its chapter`,
       );
+    const binding = bindings[0];
+    if (binding !== undefined) {
+      const primary = manifest.products.flatMap((product) =>
+        product.chapters.flatMap((chapter) =>
+          chapter.materialIds.includes(binding.sourceId)
+            ? [{ product: product.sourceId, chapter: chapter.sourceId }]
+            : [],
+        ),
+      );
+      if (
+        primary.length !== 1 ||
+        primary[0]?.product !== task.productId ||
+        primary[0]?.chapter !== task.chapterId
+      )
+        throw new Error(
+          `${task.sourceId}: practice Material must belong to its primary chapter`,
+        );
+    }
     unique(task.relatedMaterialIds, `${task.sourceId} related Material`);
   }
 }
@@ -480,6 +531,7 @@ export function checkCapabilities(value) {
   for (const feature of envelope.requiredFeatures ?? [])
     if (
       ![
+        "material-task-v1",
         "task-c-v2",
         "quiz-v1",
         "github-anchors-v1",

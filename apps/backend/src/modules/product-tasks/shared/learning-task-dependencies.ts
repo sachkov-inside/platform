@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { ProductTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../content-access/index.js";
 import { materialId } from "../../../infrastructure/contracts/material-id.js";
+import type { PublishedMaterialReader } from "../../materials/index.js";
 import type { ProductDirectory } from "../../materials/index.js";
 import {
   taskAccessSchema,
@@ -20,7 +21,7 @@ export interface LearningTaskDependencies {
   readonly prisma: ProductTasksPrismaClient;
   readonly directory: Pick<
     ProductDirectory,
-    "products" | "materialsBySource" | "placements"
+    "products" | "materialsBySource" | "placements" | "materialsByIds"
   >;
   readonly contentAccess: Pick<
     ContentAccess,
@@ -28,6 +29,7 @@ export interface LearningTaskDependencies {
   >;
   /** Off in production until the owner publishes data policy v4 (#946). */
   readonly submissionsEnabled: boolean;
+  readonly materialReader?: Pick<PublishedMaterialReader, "read">;
   readonly clock?: () => Date;
   readonly materialAssets?: Pick<MaterialAssets, "loadPresentationsMany">;
 }
@@ -46,6 +48,8 @@ export interface CurrentTask {
   readonly definition: TaskDefinition;
   readonly definitionDigest: string;
   readonly page: StoredTaskPage | null;
+  readonly embeddedMaterialId: string | null;
+  readonly programmeVisibility: string;
 }
 
 /** The task by code with its current Task Version; `null` when no such task exists. */
@@ -61,6 +65,8 @@ export async function findCurrentTask(
     },
   });
   return {
+    embeddedMaterialId: task.embeddedMaterialId,
+    programmeVisibility: task.programmeVisibility,
     id: task.id,
     code: task.code,
     title: task.title,

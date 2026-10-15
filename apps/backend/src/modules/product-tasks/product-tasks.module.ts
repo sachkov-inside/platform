@@ -37,6 +37,8 @@ import {
 } from "../content-access/index.js";
 import {
   ProductDirectory,
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
   MaterialContentModule,
   MaterialsModule,
 } from "../materials/index.js";
@@ -115,6 +117,7 @@ import {
         CONTENT_ACCESS,
         PLATFORM_CONFIG,
         MATERIAL_ASSETS,
+        PUBLISHED_MATERIAL_READER,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -122,12 +125,14 @@ import {
         contentAccess: ContentAccess,
         config: PlatformConfig,
         materialAssets: MaterialAssets,
+        materialReader: PublishedMaterialReader,
       ): LearningTasks =>
         assembleLearningTasks({
           prisma,
           directory,
           contentAccess,
           materialAssets,
+          materialReader,
           submissionsEnabled: config.productTasks.submissionsEnabled,
         }),
     },

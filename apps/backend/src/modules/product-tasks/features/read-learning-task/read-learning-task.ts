@@ -1,3 +1,4 @@
+import type { RenderedMaterialBody } from "@inside/material-blocks";
 import {
   taskPageView,
   type TaskPageView,
@@ -52,9 +53,26 @@ export type ReadLearningTaskError =
   | { readonly code: "invalid_context_part"; readonly partCount: number }
   | SystemError;
 
+interface PracticeContext {
+  readonly materialId: string;
+  readonly contentVersion: number;
+  readonly slug: string;
+  readonly title: string;
+  readonly body: RenderedMaterialBody;
+}
+
 /** The version pin of a read: the task, its requirements and the review procedure. */
-export function learningTaskContextVersion(task: CurrentTask): string {
+export function learningTaskContextVersion(
+  task: CurrentTask,
+  practice?: PracticeContext,
+): string {
   return contractDigest({
+    ...(practice === undefined
+      ? {}
+      : {
+          practiceMaterialId: practice.materialId,
+          practiceContentVersion: practice.contentVersion,
+        }),
     taskId: task.id,
     code: task.code,
     version: task.version,
@@ -78,9 +96,10 @@ export function serializeLearningTaskContext(input: {
   }[];
   readonly submissionsEnabled: boolean;
   readonly page?: TaskPageView;
+  readonly practice?: PracticeContext;
 }): string {
   const { task } = input;
-  const contextVersion = learningTaskContextVersion(task);
+  const contextVersion = learningTaskContextVersion(task, input.practice);
   return canonicalJson({
     contextVersion,
     payload: {
@@ -94,6 +113,9 @@ export function serializeLearningTaskContext(input: {
         definition: task.definition,
         ...(input.page === undefined ? {} : { page: input.page }),
       },
+      ...(input.practice === undefined
+        ? {}
+        : { practice: { ...input.practice, complete: true } }),
       reviewProtocol: taskReviewProtocol,
       relatedMaterials: input.relatedMaterials.map(
         ({ slug, title, availability }) => ({ slug, title, availability }),
@@ -134,7 +156,41 @@ export async function readLearningTask(
     if (access === "unavailable")
       return failure({ code: "dependency_unavailable", retryable: true });
     if (access === "closed") return failure({ code: "task_not_available" });
-    const contextVersion = learningTaskContextVersion(task);
+    let practice: PracticeContext | undefined;
+    if (task.embeddedMaterialId !== null) {
+      if (dependencies.materialReader === undefined)
+        return failure({ code: "dependency_unavailable", retryable: true });
+      const [material] = await dependencies.directory.materialsByIds([
+        task.embeddedMaterialId,
+      ]);
+      if (material?.published == null)
+        return failure({ code: "task_not_available" });
+      const [placement] = await dependencies.directory.placements(
+        task.productId,
+        [material.sourceId],
+      );
+      if (placement?.chapterId !== task.chapterId)
+        return failure({ code: "task_not_available" });
+      const lesson = await dependencies.materialReader.read({
+        subject,
+        slug: material.published.slug,
+      });
+      if (!lesson.ok)
+        return lesson.error.code === "dependency_unavailable"
+          ? failure({ code: "dependency_unavailable", retryable: true })
+          : failure({ code: "task_not_available" });
+      if (lesson.value.kind !== "available")
+        return failure({ code: "task_not_available" });
+      const projection = lesson.value.projection;
+      practice = {
+        materialId: projection.materialId,
+        contentVersion: projection.contentVersion,
+        slug: projection.slug,
+        title: projection.title,
+        body: lesson.value.body,
+      };
+    }
+    const contextVersion = learningTaskContextVersion(task, practice);
     if (
       request.expectedContextVersion !== undefined &&
       request.expectedContextVersion !== contextVersion
@@ -166,6 +222,7 @@ export async function readLearningTask(
       chapter: { name: chapter.name },
       relatedMaterials,
       submissionsEnabled: dependencies.submissionsEnabled,
+      ...(practice === undefined ? {} : { practice }),
     });
     // Title, related Materials or their availability can change without a new Task Version.
     // Never splice two snapshots under one context version.

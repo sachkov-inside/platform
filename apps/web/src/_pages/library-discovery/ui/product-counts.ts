@@ -27,3 +27,7 @@ export function formatArtifactCount(count: number): string {
 export function formatTaskCount(count: number): string {
   return plural(count, "задание", "задания", "заданий");
 }
+
+export function formatStepCount(count: number): string {
+  return plural(count, "шаг", "шага", "шагов");
+}

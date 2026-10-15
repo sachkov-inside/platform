@@ -66,7 +66,7 @@ export function registerLearningTaskTools(
     "learning_task_read",
     {
       description:
-        "Read one open Product Task by code: the current requirements version (situation, result, freedom, required and additional criteria), the review procedure and related materials, in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext. A version change between parts returns an error; read again from part 0. A task without access answers task_not_available.",
+        "Read one open Product Task by code: the current requirements version (situation, result, freedom, required and additional criteria), the review procedure, related materials and complete bound practical lesson when present, in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext. A version change between parts returns an error; read again from part 0. A task without access answers task_not_available.",
       inputSchema: learningTaskQuerySchema,
       annotations: readAnnotations,
     },

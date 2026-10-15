@@ -107,6 +107,8 @@ const productChapterTaskHttpSchema = z
     title: z.string(),
     access: z.enum(["free", "closed"]),
     afterMaterialId: z.uuid().nullable(),
+    programmeVisibility: z.literal("embedded").optional(),
+    embeddedMaterialId: z.uuid().optional(),
     availability: z.enum(["available", "locked", "unavailable"]),
     lastSubmittedAt: z.iso.datetime().nullable(),
   })

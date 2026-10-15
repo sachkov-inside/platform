@@ -1798,6 +1798,8 @@ model ProductTask {
   access                   String
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
   afterMaterialSourceId    String?  @map("after_material_source_id")
+  programmeVisibility      String   @default("standalone") @map("programme_visibility")
+  embeddedMaterialId       String?  @unique(map: "tasks_embedded_material_unique") @map("embedded_material_id") @db.Uuid
   publicationState         String   @map("publication_state")
   page                     Json?
   currentVersion           Int      @map("current_version")

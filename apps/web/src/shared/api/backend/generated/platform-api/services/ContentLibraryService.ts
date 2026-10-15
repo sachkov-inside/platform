@@ -735,7 +735,9 @@ export class ContentLibraryService {
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -930,7 +932,9 @@ export class ContentLibraryService {
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -1126,7 +1130,9 @@ export class ContentLibraryService {
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -1352,7 +1358,9 @@ export class ContentLibraryService {
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;

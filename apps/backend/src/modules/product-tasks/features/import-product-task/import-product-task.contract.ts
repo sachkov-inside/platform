@@ -41,6 +41,10 @@ const sourceTaskFields = z
      * it at the start of the chapter. An older tool that omits it means `null`.
      */
     afterMaterialSourceId: z.string().min(1).max(200).nullable().default(null),
+    programmeVisibility: z
+      .enum(["standalone", "embedded", "legacy"])
+      .optional(),
+    embeddedMaterialSourceId: taskSourceIdSchema.optional(),
     publicationState: taskPublicationSchema,
     provenance: taskProvenanceSchema,
   })
@@ -49,10 +53,29 @@ const sourceTaskFields = z
 function checkSourceTask(
   value: Pick<
     z.infer<typeof sourceTaskFields>,
-    "sourceId" | "code" | "relatedMaterialSourceIds" | "definition" | "page"
+    | "sourceId"
+    | "code"
+    | "relatedMaterialSourceIds"
+    | "definition"
+    | "page"
+    | "programmeVisibility"
+    | "embeddedMaterialSourceId"
+    | "afterMaterialSourceId"
   >,
   context: z.RefinementCtx,
 ): void {
+  const visibility = value.programmeVisibility ?? "standalone";
+  if (
+    (visibility === "embedded") !==
+      (value.embeddedMaterialSourceId !== undefined) ||
+    (visibility !== "standalone" && value.afterMaterialSourceId !== null)
+  )
+    context.addIssue({
+      code: "custom",
+      path: ["programmeVisibility"],
+      message:
+        "Embedded practice requires exactly one Material and no standalone placement",
+    });
   if (value.definition.schemaVersion === 2 && value.page === undefined)
     context.addIssue({
       code: "custom",

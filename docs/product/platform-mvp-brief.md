@@ -803,3 +803,10 @@ Authored related sections move without changing their text, heading anchors, att
 inside the section. The attachment viewer tracked in #1378 remains deferred.
 
 Контекст проверки для агента и обновление сводки задания определяет [agent-led submission contract](../specifications/task-submission-agent-workflow.md).
+
+
+### Практика внутри учебного шага
+
+Практический урок может включать блок сдачи задания прямо под материалом. В программе такой урок
+занимает один шаг. Внутреннее задание хранит критерии, версии требований, проверки агента и сдачи.
+Самостоятельные задания и прежние адреса сохраняются. Контракт: [material-task-v1](../specifications/material-task-v1.md).

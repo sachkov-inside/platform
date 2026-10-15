@@ -18,6 +18,8 @@ export interface ProductChapterTaskDto {
   readonly title: string;
   readonly access: "free" | "closed";
   readonly afterMaterialId: string | null;
+  readonly programmeVisibility?: "embedded";
+  readonly embeddedMaterialId?: string;
   readonly availability: "available" | "locked" | "unavailable";
   /** The viewer's own latest submission; `null` for a guest. */
   readonly lastSubmittedAt: string | null;

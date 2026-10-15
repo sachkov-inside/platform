@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RecursiveSchema2schema0 } from '../models/RecursiveSchema2schema0';
+import type { RecursiveSchema3schema0 } from '../models/RecursiveSchema3schema0';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ProductTasksService {
@@ -126,6 +127,121 @@ export class ProductTasksService {
     });
   }
   /**
+   * Read the independently authorized Task bound to a practical Material
+   * @returns any
+   * @throws ApiError
+   */
+  public readMaterialTaskPage({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<({
+    access: 'open';
+    relatedMaterials: Array<{
+      availability: 'available' | 'locked' | 'unavailable';
+      materialId: string;
+      slug: string;
+      title: string;
+    }>;
+    reviewProtocol: {
+      instructions: Array<string>;
+      version: string;
+    };
+    submission: {
+      accepting: boolean;
+    };
+    task: {
+      access: 'free' | 'closed';
+      chapter: {
+        name: string;
+        ordinal: number;
+      };
+      code: string;
+      definition: ({
+        criteria: Array<({
+          acceptableEvidence: Array<string>;
+          id: string;
+          level: 'required' | 'additional';
+          requirement: string;
+        } | {
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        })>;
+        freedom: string;
+        result: Array<string>;
+        situation: string;
+      } | {
+        criteria: Array<({
+          acceptableEvidence: Array<string>;
+          id: string;
+          level: 'required' | 'additional';
+          requirement: string;
+        } | {
+          advice?: string;
+          explanation: string;
+          id: string;
+          level: 'required' | 'additional';
+          task: string;
+        })>;
+        format: 'c';
+        freedom: string;
+        intro: string;
+        schemaVersion: 2;
+      });
+      page?: {
+        artifacts: Array<{
+          assetId: string;
+          sourceId: string;
+          title: string;
+        }>;
+        body: {
+          blocks: Array<RecursiveSchema2schema0>;
+          schemaVersion: 1;
+        };
+        cover: {
+          alt: string;
+          assetId: string;
+        } | null;
+        summary: string;
+        title: string;
+      };
+      product: {
+        name: string;
+        slug: string;
+      };
+      title: string;
+      version: number;
+    };
+  } | {
+    access: 'closed';
+    task: {
+      chapter: {
+        name: string;
+        ordinal: number;
+      };
+      code: string;
+      product: {
+        name: string;
+        slug: string;
+      };
+      title: string;
+    };
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/materials/{materialId}/task',
+      path: {
+        'materialId': materialId,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+      },
+    });
+  }
+  /**
    * Read a Product Task page: the full current requirements when open, its place when closed
    * @returns any
    * @throws ApiError
@@ -199,7 +315,7 @@ export class ProductTasksService {
           title: string;
         }>;
         body: {
-          blocks: Array<RecursiveSchema2schema0>;
+          blocks: Array<RecursiveSchema3schema0>;
           schemaVersion: 1;
         };
         cover: {

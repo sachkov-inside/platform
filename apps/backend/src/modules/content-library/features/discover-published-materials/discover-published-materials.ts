@@ -91,6 +91,12 @@ export async function discoverPublishedMaterials(
         title: task.title,
         access: task.access,
         afterMaterialId: task.afterMaterialId,
+        ...(task.programmeVisibility === undefined
+          ? {}
+          : {
+              programmeVisibility: task.programmeVisibility,
+              embeddedMaterialId: task.embeddedMaterialId,
+            }),
         availability: task.availability,
         lastSubmittedAt: task.lastSubmittedAt,
       });

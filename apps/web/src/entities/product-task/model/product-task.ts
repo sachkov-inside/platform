@@ -7,6 +7,8 @@ export const productChapterTaskSchema = z
     title: z.string(),
     access: z.enum(["free", "closed"]),
     afterMaterialId: z.string().nullable(),
+    programmeVisibility: z.literal("embedded").optional(),
+    embeddedMaterialId: z.string().optional(),
     availability: z.enum(["available", "locked", "unavailable"]),
     lastSubmittedAt: z.iso.datetime().nullable(),
   })
@@ -30,6 +32,7 @@ export function placeChapterTasks(
   const leading: ProductChapterTask[] = [];
   const after = new Map<string, ProductChapterTask[]>();
   for (const task of tasks) {
+    if (task.programmeVisibility === "embedded") continue;
     const anchor = task.afterMaterialId;
     if (anchor === null || !present.has(anchor)) {
       leading.push(task);

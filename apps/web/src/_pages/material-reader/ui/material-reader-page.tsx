@@ -1,3 +1,6 @@
+import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
+import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.server";
+import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { CourseTaskSubmissionStatuses } from "@/features/library-discovery";
 import { productPath } from "@/shared/routing/public-page-path";
@@ -96,6 +99,7 @@ export async function MaterialReaderPage({
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[] | undefined;
     readonly anchor?: string | readonly string[] | undefined;
+    readonly attemptsAfter?: string | readonly string[] | undefined;
   }>;
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
@@ -118,6 +122,7 @@ export async function MaterialReaderPage({
     return (
       <Suspense fallback={<MaterialReaderLoading />}>
         <PersonalMaterialReader
+          workspaceQuery={query}
           anchor={anchor}
           returnTarget={returnTarget}
           inferCourseReturn={inferCourseReturn}
@@ -144,6 +149,7 @@ export async function MaterialReaderPage({
   ) {
     return (
       <ResolvedMaterialReader
+        workspaceQuery={query}
         productMode={defaultProductMode}
         hintSeen
         deferredPracticeActions={
@@ -177,6 +183,7 @@ export async function MaterialReaderPage({
       }
     >
       <PersonalMaterialReader
+        workspaceQuery={query}
         anchor={anchor}
         sharedMaterial={material}
         inferCourseReturn={inferCourseReturn}
@@ -241,12 +248,14 @@ async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
  * не кешируется и в предзагрузку не попадает.
  */
 async function PersonalMaterialReader({
+  workspaceQuery,
   anchor,
   sharedMaterial,
   inferCourseReturn,
   returnTarget,
   slug,
 }: {
+  readonly workspaceQuery: WorkspaceQuery;
   readonly anchor?: ReaderCourseAnchor | undefined;
   /** Бесплатный урок уже прочитан из общего кеша: личными остаются режим и статусы сдачи в программе. */
   readonly sharedMaterial?: PublicMaterialResult;
@@ -305,6 +314,7 @@ async function PersonalMaterialReader({
   );
   return (
     <ResolvedMaterialReader
+      workspaceQuery={workspaceQuery}
       {...(accessToken === undefined ? {} : { accessToken })}
       {...(guestPurchaseProduct === undefined
         ? {}
@@ -346,7 +356,14 @@ async function PrivateMaterialPractice({
   return <LearningPracticePrompts connection={connection} result={result} />;
 }
 
+interface WorkspaceQuery {
+  readonly from?: string | readonly string[] | undefined;
+  readonly anchor?: string | readonly string[] | undefined;
+  readonly attemptsAfter?: string | readonly string[] | undefined;
+}
+
 async function ResolvedMaterialReader({
+  workspaceQuery,
   accessToken,
   productMode,
   hintSeen,
@@ -358,6 +375,7 @@ async function ResolvedMaterialReader({
   seriesContext,
   slug,
 }: {
+  readonly workspaceQuery: WorkspaceQuery;
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseProduct?: Promise<PurchaseProductResult>;
@@ -482,6 +500,23 @@ async function ResolvedMaterialReader({
               materialId={result.material.materialId}
             />
           }
+          submissionWorkspace={
+            <Suspense fallback={null}>
+              <MaterialTaskWorkspace
+                connection={readerSubmissionConnection()}
+                materialId={result.material.materialId}
+                returnTo={workspaceReturnTo(slug, workspaceQuery)}
+                attemptsAfter={
+                  typeof workspaceQuery.attemptsAfter === "string"
+                    ? workspaceQuery.attemptsAfter
+                    : undefined
+                }
+                conflictingAnchorIds={[
+                  ...materialSourceAnchors(result.body).values(),
+                ]}
+              />
+            </Suspense>
+          }
           practiceActions={practiceActions}
           deferredPracticeActions={deferredPracticeActions}
           body={result.body}
@@ -549,5 +584,23 @@ async function readerLearnerMcp(): Promise<ReaderLearnerMcp> {
       await readPublicSiteOrigin(),
       "/practice-review-setup.txt",
     ),
+  };
+}
+
+/** Keep only validated Reader context; pagination controls own their single cursor parameter. */
+function workspaceReturnTo(slug: string, query: WorkspaceQuery): string {
+  const target = parseMaterialReaderReturnTarget(query.from);
+  const anchor = parseReaderCourseAnchor(query.anchor);
+  const href = materialReaderHref(slug, target.href);
+  return anchor === undefined
+    ? href
+    : (anchoredMaterialHref(href, target.href, anchor) ?? href);
+}
+
+async function readerSubmissionConnection() {
+  const connection = await readerLearnerMcp();
+  return {
+    ...connection,
+    prompt: learnerMcpConnectPrompt(connection.setupUrl),
   };
 }

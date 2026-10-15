@@ -8,6 +8,7 @@ import {
 import {
   Prisma,
   type MaterialsPrismaClient,
+  type MaterialsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 
 // One Product Task request names at most a page of Products or related Materials.
@@ -218,6 +219,67 @@ export class ProductDirectory {
           ]
         : [],
     );
+  }
+
+  /** Serialize a Task binding with Product composition edits, using the caller's transaction. */
+  async lockPrimaryPlacement(
+    transaction: Pick<MaterialsPrisma, "$queryRaw">,
+    productId: string,
+    sourceId: string,
+  ): Promise<DirectoryPlacement | null> {
+    await transaction.$queryRaw(
+      Prisma.sql`select id from materials.series where id = ${productId}::uuid for update`,
+    );
+    const rows = z
+      .array(
+        z.object({
+          material_id: z.uuid(),
+          chapter_id: z.uuid().nullable(),
+          published: z.boolean(),
+        }),
+      )
+      .parse(
+        await transaction.$queryRaw(Prisma.sql`
+        select membership.material_id, membership.chapter_id, material.publication_state = 'published' as published
+        from materials.series_memberships membership
+        join materials.materials material on material.id = membership.material_id
+        where membership.series_id = ${productId}::uuid and material.source_id = ${sourceId}
+      `),
+      );
+    const row = rows[0];
+    return row === undefined
+      ? null
+      : {
+          sourceId,
+          materialId: row.material_id,
+          chapterId: row.chapter_id,
+          published: row.published,
+        };
+  }
+
+  /** Published identity lookup for internal Task practice context; does not grant access. */
+  async materialsByIds(
+    ids: readonly string[],
+  ): Promise<readonly DirectoryMaterial[]> {
+    if (ids.length === 0) return [];
+    if (ids.length > MAX_LOOKUP)
+      throw new RangeError("Material lookup exceeds its bound");
+    const rows = materialRowsSchema.parse(
+      await this.prisma.$queryRaw(Prisma.sql`
+      select material.source_id, material.id as material_id, published.slug, published.title
+      from materials.materials material
+      left join materials.published_materials published on published.material_id = material.id and material.publication_state = 'published'
+      where material.id = any(${[...ids]}::uuid[]) and material.source_id is not null
+    `),
+    );
+    return rows.map((row) => ({
+      sourceId: row.source_id,
+      materialId: row.material_id,
+      published:
+        row.slug === null || row.title === null
+          ? null
+          : { slug: row.slug, title: row.title },
+    }));
   }
 
   /** Materials by their authoring source ID; an unknown source is absent from the answer. */

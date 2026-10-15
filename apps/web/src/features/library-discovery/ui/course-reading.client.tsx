@@ -70,11 +70,13 @@ export function CourseReadingLayout({
           chapters: context.chapters.map((chapter) => ({
             ...chapter,
             steps: chapter.steps.map((step) =>
-              step.kind === "task"
+              step.kind === "task" || step.practiceTaskCode !== undefined
                 ? {
                     ...step,
                     taskSubmitted: submissionOverlay.submittedTaskIds.includes(
-                      step.id,
+                      step.practiceTaskCode === undefined
+                        ? step.id
+                        : `task:${step.practiceTaskCode}`,
                     ),
                   }
                 : step,
@@ -351,15 +353,11 @@ function StepLink({
         ) : null}
         <span
           className={styles["stepTitle"]}
-          data-task-submitted={
-            step.kind === "task" && step.taskSubmitted === true
-              ? true
-              : undefined
-          }
+          data-task-submitted={step.taskSubmitted === true ? true : undefined}
         >
           {step.title}
         </span>
-        {step.kind === "task" && step.taskSubmitted === true ? (
+        {step.taskSubmitted === true ? (
           <span className="sr-only">Сдано</span>
         ) : null}
       </span>

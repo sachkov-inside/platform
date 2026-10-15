@@ -57,6 +57,7 @@ export interface MaterialReaderViewProps {
   readonly topReadingAction?: ReactNode;
   readonly topBookmarkAction?: ReactNode;
   readonly practiceActions?: ReactNode;
+  readonly submissionWorkspace?: ReactNode;
   /** Streaming public-lesson practice shares the action row; an empty result has no extra row. */
   readonly deferredPracticeActions?: ReactNode;
   /**
@@ -87,6 +88,7 @@ export function MaterialReaderView({
   topReadingAction,
   topBookmarkAction,
   practiceActions,
+  submissionWorkspace,
   deferredPracticeActions,
   modeHint,
   modeSwitch,
@@ -169,6 +171,7 @@ export function MaterialReaderView({
             />
           </article>
           {practiceActions}
+          {submissionWorkspace}
           {bookmarkAction === undefined &&
           readingAction === undefined &&
           deferredPracticeActions === undefined &&
