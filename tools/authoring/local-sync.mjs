@@ -1605,10 +1605,12 @@ export async function syncLocal(
           .sort();
         if (canonical(receipt.materialIds) !== canonical(materialIds)) {
           await request(
-            `/authoring/product-artifacts/${receipt.artifactId}/materials`,
-            { materialIds },
-            undefined,
-            { method: "PUT" },
+            `/authoring/import/products/${current.id}/artifacts/${receipt.artifactId}/materials`,
+            {
+              materialIds,
+              productSourceId: productSource,
+              sourceId: sourceId(artifactSourceId),
+            },
           );
           resources[receiptKey] = { ...receipt, materialIds };
           await persist();

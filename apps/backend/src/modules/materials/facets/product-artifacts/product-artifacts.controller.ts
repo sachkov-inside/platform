@@ -46,7 +46,16 @@ import {
   type UploadedArtifactFile,
 } from "./product-artifacts.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
-import { metadataSchema } from "./product-artifact-commands.js";
+import {
+  metadataSchema,
+  importedMaterialsSchema,
+} from "./product-artifact-commands.js";
+
+const importedMaterialsBodySchema = importedMaterialsSchema.omit({
+  actor: true,
+  artifactId: true,
+  productId: true,
+});
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
@@ -444,6 +453,35 @@ export class ProductArtifactAuthoringController {
       actor: account.accountId,
       artifactId,
       materialIds: body.materialIds,
+    });
+    if (!result.ok) throwProductArtifactError(result.error);
+    return result.value;
+  }
+
+  @Post("authoring/import/products/:productId/artifacts/:artifactId/materials")
+  @ApiOperation({
+    operationId: "attachImportedProductArtifactMaterials",
+    summary:
+      "Attach source-declared Materials without deleting existing artifact bindings",
+  })
+  @ApiParam({ name: "productId", schema: { format: "uuid", type: "string" } })
+  @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
+  @ApiBody({ schema: toOpenApiSchema(importedMaterialsBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
+  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiProductArtifactErrors(403, 404, 409, 422, 503)
+  async attachImportedMaterials(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("productId") productId: string,
+    @Param("artifactId") artifactId: string,
+    @Body() input: unknown,
+  ) {
+    const body = parseBody(importedMaterialsBodySchema, input);
+    const result = await this.artifacts.attachImportedMaterials({
+      ...body,
+      actor: account.accountId,
+      productId,
+      artifactId,
     });
     if (!result.ok) throwProductArtifactError(result.error);
     return result.value;

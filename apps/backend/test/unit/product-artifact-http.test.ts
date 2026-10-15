@@ -116,6 +116,45 @@ describe("Product Artifact HTTP controllers", () => {
     }
   });
 
+  test("maps the source-scoped binding and preserves the trusted actor", async () => {
+    const attachImportedMaterials = vi
+      .fn<ProductArtifacts["attachImportedMaterials"]>()
+      .mockResolvedValue({ ok: true, value: artifact });
+    const controller = authoringController({ attachImportedMaterials });
+    const body = {
+      productSourceId: "inside-content:product",
+      sourceId: "inside-content:brief",
+      materialIds: ["30000000-0000-4000-8000-000000000001"],
+    };
+    await expect(
+      controller.attachImportedMaterials(account, productId, artifactId, body),
+    ).resolves.toMatchObject({ artifactId });
+    expect(attachImportedMaterials).toHaveBeenCalledWith({
+      ...body,
+      actor: account.accountId,
+      productId,
+      artifactId,
+    });
+    await expectHttpProblem(
+      controller.attachImportedMaterials(account, productId, artifactId, {
+        ...body,
+        actor: "untrusted",
+      }),
+      422,
+      "invalid_artifact",
+    );
+    expect(attachImportedMaterials).toHaveBeenCalledOnce();
+    attachImportedMaterials.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    await expectHttpProblem(
+      controller.attachImportedMaterials(account, productId, artifactId, body),
+      403,
+      "forbidden",
+    );
+  });
+
   test("passes validated multipart metadata and the trusted actor to the facet", async () => {
     const create = vi
       .fn<ProductArtifacts["create"]>()

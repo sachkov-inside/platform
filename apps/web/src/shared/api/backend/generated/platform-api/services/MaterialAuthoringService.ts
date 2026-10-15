@@ -860,6 +860,56 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Attach source-declared Materials without deleting existing artifact bindings
+   * @returns any
+   * @throws ApiError
+   */
+  public attachImportedProductArtifactMaterials({
+    artifactId,
+    productId,
+    requestBody,
+  }: {
+    artifactId: string,
+    productId: string,
+    requestBody: {
+      materialIds: Array<string>;
+      productSourceId: string;
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/{productId}/artifacts/{artifactId}/materials',
+      path: {
+        'artifactId': artifactId,
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * reorderSourceProduct
    * @returns any
    * @throws ApiError

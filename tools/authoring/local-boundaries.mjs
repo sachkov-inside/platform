@@ -275,7 +275,7 @@ const localResponseSchemas = {
  *   ? "artifactOutcome"
  *   : P extends `/authoring/products/${string}/artifacts`
  *   ? "productArtifacts"
- *   : P extends `/authoring/product-artifacts/${string}/materials`
+ *   : P extends `/authoring/product-artifacts/${string}/materials` | `/authoring/import/products/${string}/artifacts/${string}/materials`
  *   ? "artifact"
  *   : P extends `/authoring/products/${string}/order`
  *   ? "productOrder"
@@ -359,6 +359,12 @@ export function localResponseKind(path) {
         return "artifactOutcome";
       if (/^\/authoring\/products\/[^/]+\/artifacts$/u.test(path))
         return "productArtifacts";
+      if (
+        /^\/authoring\/import\/products\/[^/]+\/artifacts\/[^/]+\/materials$/u.test(
+          path,
+        )
+      )
+        return "artifact";
       if (/^\/authoring\/product-artifacts\/[^/]+\/materials$/u.test(path))
         return "artifact";
       if (/^\/authoring\/products\/[^/]+\/order$/u.test(path))

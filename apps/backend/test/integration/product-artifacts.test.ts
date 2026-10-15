@@ -756,6 +756,212 @@ describe("Product Artifacts", () => {
     );
   });
 
+  test("imports declared Material links with source ownership, preserving shared bindings and replay", async () => {
+    const productIds = [randomUUID(), randomUUID()] as const;
+    const materialIds = [randomUUID(), randomUUID(), randomUUID()] as const;
+    for (const id of productIds)
+      await db.prisma.product.create({
+        data: {
+          id,
+          sourceId: `source-${id}`,
+          slug: id,
+          name: "Imported product",
+        },
+      });
+    for (const [index, id] of materialIds.entries()) {
+      await db.prisma.material.create({
+        data: {
+          id,
+          sourceId: index < 2 ? `source-${id}` : null,
+          sourcePath: index < 2 ? `${id}.md` : null,
+          sourceRevision: index < 2 ? "a".repeat(64) : null,
+          access: "closed",
+          body: {},
+          contentVersion: 1,
+          createdBy: owner,
+          publicationState: "draft",
+          schemaVersion: 1,
+          slug: id,
+          title: "Attachment owner",
+          topicId,
+        },
+      });
+      await db.prisma.productMembership.create({
+        data: {
+          seriesId: index === 1 ? productIds[1] : productIds[0],
+          materialId: id,
+          ordinal: index + 1,
+        },
+      });
+    }
+    const sourceId = `attachment-${randomUUID()}`;
+    const source = {
+      access: "closed" as const,
+      file: fileUpload("customer-brief.md", "# Brief"),
+      purpose: "",
+      sourceId,
+      title: "Brief",
+    };
+    for (const productId of productIds)
+      expect(
+        await artifacts.applyAuthoringImport({
+          actor: owner,
+          artifacts: [source],
+          productId,
+          productSourceId: `source-${productId}`,
+        }),
+      ).toMatchObject({ ok: true });
+    const record = await db.prisma.productArtifact.findUniqueOrThrow({
+      where: { sourceId },
+    });
+    const command = {
+      actor: owner,
+      artifactId: record.id,
+      productId: productIds[0],
+      productSourceId: `source-${productIds[0]}`,
+      sourceId,
+      materialIds: [materialIds[0]],
+    };
+    expect(
+      await artifacts.setMaterials({
+        actor: owner,
+        artifactId: record.id,
+        materialIds: command.materialIds,
+      }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await artifacts.attachImportedMaterials({
+        ...command,
+        productId: productIds[1],
+        productSourceId: `source-${productIds[1]}`,
+        materialIds: [materialIds[1]],
+      }),
+    ).toMatchObject({ ok: true });
+    const attached = await artifacts.attachImportedMaterials(command);
+    expect(attached).toMatchObject({
+      ok: true,
+      value: {
+        version: 1,
+        access: "closed",
+        content: { filename: "customer-brief.md" },
+      },
+    });
+    if (!attached.ok) throw new Error(attached.error.code);
+    expect(attached.value.materialIds.toSorted()).toEqual(
+      materialIds.slice(0, 2).sort(),
+    );
+    const before = await db.prisma.productArtifact.findUniqueOrThrow({
+      where: { id: record.id },
+    });
+    expect(await artifacts.attachImportedMaterials(command)).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await db.prisma.productArtifact.findUniqueOrThrow({
+        where: { id: record.id },
+      }),
+    ).toEqual(before);
+    const unplacedProduct = randomUUID();
+    await db.prisma.product.create({
+      data: {
+        id: unplacedProduct,
+        sourceId: `source-${unplacedProduct}`,
+        slug: unplacedProduct,
+        name: "Unplaced",
+      },
+    });
+    await db.prisma.productMembership.create({
+      data: {
+        seriesId: unplacedProduct,
+        materialId: materialIds[0],
+        ordinal: 1,
+      },
+    });
+    const denied = [
+      {
+        ...command,
+        productId: unplacedProduct,
+        productSourceId: `source-${unplacedProduct}`,
+      },
+      { ...command, actor: member },
+      { ...command, productSourceId: "other-source" },
+      { ...command, sourceId: "other-artifact" },
+      { ...command, productId: productA },
+      { ...command, materialIds: [materialIds[1]] },
+      { ...command, materialIds: [materialIds[2]] },
+    ];
+    for (const input of denied)
+      expect(await artifacts.attachImportedMaterials(input)).toEqual({
+        ok: false,
+        error: { code: "forbidden" },
+      });
+    expect(
+      await artifacts.attachImportedMaterials({
+        ...command,
+        materialIds: [materialIds[0], randomUUID()],
+      }),
+    ).toEqual({ ok: false, error: { code: "material_not_found" } });
+    expect(
+      await db.prisma.productArtifactMaterialLink.findMany({
+        where: { artifactId: record.id },
+        orderBy: { materialId: "asc" },
+        select: { materialId: true },
+      }),
+    ).toEqual(
+      materialIds
+        .slice(0, 2)
+        .sort()
+        .map((materialId) => ({ materialId })),
+    );
+    expect(
+      await db.prisma.productArtifact.findUniqueOrThrow({
+        where: { id: record.id },
+      }),
+    ).toEqual(before);
+    // Composition owns the Product lock. Binding must wait and see the committed removal.
+    const locked = deferredSignal();
+    const release = deferredSignal();
+    const composition = db.prisma.$transaction(async (transaction) => {
+      await transaction.$queryRaw`select id from materials.series where id = ${command.productId}::uuid for update`;
+      await transaction.productMembership.deleteMany({
+        where: { seriesId: command.productId, materialId: materialIds[0] },
+      });
+      locked.resolve();
+      await release.promise;
+    });
+    await locked.promise;
+    const attaching = artifacts.attachImportedMaterials(command);
+    try {
+      await expect
+        .poll(
+          () =>
+            db.prisma
+              .$queryRaw`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%materials.series%') as blocked`,
+        )
+        .toEqual([{ blocked: true }]);
+    } finally {
+      release.resolve();
+      await composition;
+    }
+    expect(await attaching).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    expect(
+      await db.prisma.productArtifact.findUniqueOrThrow({
+        where: { id: record.id },
+      }),
+    ).toEqual(before);
+    await db.prisma.productArtifact.update({
+      where: { id: record.id },
+      data: { revision: { increment: 1 } },
+    });
+    expect(await artifacts.attachImportedMaterials(command)).toEqual({
+      ok: false,
+      error: { code: "source_conflict" },
+    });
+  });
+
   test("stores the Materials one artifact belongs with outside every Material body", async () => {
     const artifactId = await createArtifact(
       "free",
@@ -941,4 +1147,12 @@ function sha256(body: Uint8Array): string {
 
 function storageKey(namespace: ObjectStorageNamespace, key: string): string {
   return `${namespace}:${key}`;
+}
+
+function deferredSignal() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((fulfill) => {
+    resolve = fulfill;
+  });
+  return { promise, resolve };
 }

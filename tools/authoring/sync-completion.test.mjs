@@ -217,9 +217,6 @@ const compositionBodySchema = z
 const attachBodySchema = z
   .object({ providerVideoId: z.string() })
   .passthrough();
-const linkBodySchema = z
-  .object({ materialIds: z.array(z.string()) })
-  .passthrough();
 
 /**
  * @param {FormData} form
@@ -464,12 +461,34 @@ function applicationApi() {
           path,
         ))
       ) {
-        const artifactId = match[1];
+        throw new Error(
+          "403 forbidden: manual artifact writes reject source ownership",
+        );
+      }
+      if (
+        (match =
+          /^\/authoring\/import\/products\/([^/]+)\/artifacts\/([^/]+)\/materials$/u.exec(
+            path,
+          ))
+      ) {
+        assert.equal(match[1], productId);
+        const binding = z
+          .object({
+            productSourceId: z.literal("inside-content:product"),
+            sourceId: z.string(),
+            materialIds: z.array(z.uuid()),
+          })
+          .strict()
+          .parse(body);
+        const artifactId = match[2];
         const artifact = [...artifacts.values()].find(
           (item) => item.artifactId === artifactId,
         );
         assert.ok(artifact);
-        artifact.materialIds = linkBodySchema.parse(body).materialIds;
+        assert.equal(binding.sourceId, artifact.sourceId);
+        artifact.materialIds = [
+          ...new Set([...artifact.materialIds, ...binding.materialIds]),
+        ];
         return structuredClone(artifact);
       }
       if (path === `/authoring/products/${productId}/artifacts`)
@@ -538,6 +557,54 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
     ),
     false,
     repeated.join("\n"),
+  );
+});
+
+test("a fresh reviewed release finishes uploaded artifact binding without reupload or journal edits", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  /** @type {LocalTransport} */
+  const interrupted = (path, body, key, options) => {
+    if (
+      /^\/authoring\/import\/products\/[^/]+\/artifacts\/[^/]+\/materials$/u.test(
+        path,
+      )
+    )
+      throw new Error("binding refused");
+    return api.request(path, body, key, options);
+  };
+  await assert.rejects(
+    run(setup, { request: interrupted }),
+    /binding refused/u,
+  );
+  const uploaded = valueAt(api.artifacts, "inside-content:checklist");
+  assert.deepEqual(uploaded.materialIds, []);
+  const receiptKey = `artifact:${productId}:inside-content:checklist`;
+  const receipt = z
+    .object({ artifactId: z.uuid(), materialIds: z.null() })
+    .passthrough()
+    .parse(resourcesOf(await readJournalFile(setup.state))[receiptKey]);
+  assert.equal(receipt.artifactId, uploaded.artifactId);
+  const uploads = () =>
+    api.calls.filter(
+      ({ path }) =>
+        path === `/authoring/import/products/${productId}/artifacts`,
+    ).length;
+  assert.equal(uploads(), 1);
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: "http://127.0.0.1:4396",
+    publish: "all",
+    request: api.request,
+  });
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.equal(uploads(), 1);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").artifactId,
+    receipt.artifactId,
+  );
+  assert.deepEqual(
+    valueAt(api.artifacts, "inside-content:checklist").materialIds,
+    [valueAt(api.materials, "inside-content:lesson").materialId],
   );
 });
 

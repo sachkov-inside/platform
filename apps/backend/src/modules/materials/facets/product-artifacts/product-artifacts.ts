@@ -108,6 +108,13 @@ export interface SetProductArtifactMaterialsCommand {
   readonly materialIds: readonly string[];
 }
 
+/** Add source-declared links; never erase bindings owned by another Product. */
+export interface AttachImportedProductArtifactMaterialsCommand extends SetProductArtifactMaterialsCommand {
+  readonly productId: string;
+  readonly productSourceId: string;
+  readonly sourceId: string;
+}
+
 export interface RemoveProductArtifactCommand {
   readonly actor: string;
   readonly artifactId: string;
@@ -198,6 +205,9 @@ export interface ProductArtifacts {
   ): Promise<ProductArtifactResult<ProductArtifactDto>>;
   setMaterials(
     command: SetProductArtifactMaterialsCommand,
+  ): Promise<ProductArtifactResult<ProductArtifactDto>>;
+  attachImportedMaterials(
+    command: AttachImportedProductArtifactMaterialsCommand,
   ): Promise<ProductArtifactResult<ProductArtifactDto>>;
   remove(
     command: RemoveProductArtifactCommand,

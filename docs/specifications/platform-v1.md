@@ -725,6 +725,18 @@ Material body. `GET /products/:productId/artifacts` includes the nullable author
 version and reuses protected artifact delivery. It neither pins an author link to an old version nor
 bypasses ContentAccess, placement, archive or file checks.
 
+Source-owned bindings use `POST /authoring/import/products/:productId/artifacts/:artifactId/materials`
+with `{ productSourceId, sourceId, materialIds }`. The manager must name the exact Product and Artifact
+sources; the authoring Artifact must already be placed in that Product. Each Material must be
+source-owned and currently belong to the same Product, including supplementary membership. The
+transaction locks Artifact, Product and Material references before checking facts. It attaches
+links idempotently without changing file versions, source revisions, access, publication or programme
+membership. Existing links are retained because links have no Product provenance; this endpoint does
+not implement declaration removal. A stale/diverged Artifact is refused. The editor's ordinary
+`PUT /authoring/product-artifacts/:artifactId/materials` still refuses source-owned objects.
+The importer calls the scoped path even when the upload already has a journal receipt; a fresh reviewed
+release can therefore complete an interrupted upload/binding sequence without editing that journal.
+
 Artifact package declarations accept optional `filename`; omitted values retain the previous package
 basename fallback. The filename belongs to each declaration, rather than to a content-addressed asset:
 identical bytes may have different download names. Import fingerprints include the effective filename.
