@@ -62,14 +62,22 @@ const stuckTestBudgetMs = 30_000;
  */
 const stuckHookBudgetMs = 60_000;
 
-// CI retains the resource-based budget; two local runs share the machine.
+// Only GitHub-hosted runners own a whole machine; shared and local runners keep the old budget.
+const isolatedRunner =
+  process.env["GITHUB_ACTIONS"] === "true" &&
+  process.env["RUNNER_ENVIRONMENT"] === "github-hosted";
+const resources = {
+  availableCpuCount: availableParallelism(),
+  availableMemoryBytes: process.availableMemory(),
+  isolatedRunner,
+};
 const maxWorkers = Math.min(
-  integrationWorkerBudget({
-    availableCpuCount: availableParallelism(),
-    availableMemoryBytes: process.availableMemory(),
-  }),
+  integrationWorkerBudget(resources),
   (process.env["CI"] ?? "") !== "" ? Number.POSITIVE_INFINITY : 2,
 );
+if ((process.env["CI"] ?? "") !== "") {
+  console.info("Integration worker budget", { ...resources, maxWorkers });
+}
 
 export default defineConfig({
   test: {

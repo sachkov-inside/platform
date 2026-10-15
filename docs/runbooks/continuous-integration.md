@@ -127,7 +127,7 @@ Runner availability and the Production Compose job can still determine total CI 
 
 The material-authoring suite retains upload, replacement, authorization, accessibility and publication assertions.
 It no longer waits for the removed profile-onboarding dialog.
-Historical whole-page captures in authoring and the buyer journey require `CAPTURE_EVIDENCE=1`;
+Historical whole-page captures in authoring, enrollment and the buyer journey require `CAPTURE_EVIDENCE=1`;
 failure screenshots and traces remain automatic.
 The existing buyer journey also checks URL-based payment return after clearing browser storage and after reload,
 replayed bank notifications without additional purchase or changed access terms, and another account's denied access.
@@ -416,16 +416,23 @@ own their own containers.
 The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
 two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
 The smaller limit wins. Local runs additionally cap this budget at two file workers (#1151);
-CI retains the resource-based budget. Each integration project names its worker limit; the serial
+GitHub-hosted runners reserve one CPU slot and 2 GiB of available memory, allow 1 GiB per active
+file, and cap the result at three workers, with a minimum of one (#1510). This policy requires both
+`GITHUB_ACTIONS=true` and `RUNNER_ENVIRONMENT=github-hosted`; self-hosted runners retain the shared
+resource budget. CI logs its CPU, available-memory snapshot and chosen worker limit.
+Each integration project names its worker limit; the serial
 project sets one. The memory input is Node's `process.availableMemory()`: it accounts for Linux
 cgroup memory limits; on macOS, it includes free, inactive and purgeable pages without applying a
-process memory limit. The budget allows
+process memory limit. The shared-runner budget allows
 1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker
 and another session. The #569 local baseline samples on 06.10.2026 reached 402 MiB per fork; 1 GiB also
 allows room for PostgreSQL work. The topology bounds the number of containers; PostgreSQL CPU and
 memory usage still depend on the number of active files.
 This is a startup snapshot, not a reservation against later external load.
-A machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
+A shared machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
+A dedicated GitHub-hosted runner with four CPU slots and at least 5 GiB available runs three.
+Full-stack Playwright disables Git diff capture to avoid fetching a missing PR base; commit metadata
+and source-bound CI evidence remain available. Failure screenshots and traces remain enabled.
 Explicit Vitest `--maxWorkers` overrides the automatic budget; `--no-file-parallelism` runs one file
 at a time for comparison. The separate serial project retains its one-file limit.
 

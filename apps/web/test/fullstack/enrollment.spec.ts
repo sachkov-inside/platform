@@ -180,9 +180,11 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await expect(
     composition.getByRole("link", { name: "Инженерная практика" }),
   ).toHaveAttribute("href", "/products/engineering-practice");
-  await screenshotWholePage(cabinet, {
-    path: info.outputPath("cabinet-enrollment.png"),
-  });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await screenshotWholePage(cabinet, {
+      path: info.outputPath("cabinet-enrollment.png"),
+    });
+  }
   const changes = page
     .getByRole("heading", { name: `Изменить «${tierName}»` })
     .locator("..");
@@ -274,9 +276,11 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await expect(
     cabinet.getByRole("heading", { name: `${tierName} обновлён`, exact: true }),
   ).toBeVisible();
-  await screenshotWholePage(cabinet, {
-    path: info.outputPath("cabinet-enrollment.png"),
-  });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await screenshotWholePage(cabinet, {
+      path: info.outputPath("cabinet-enrollment.png"),
+    });
+  }
   const savedRule = rules
     .getByText(`Правило ${info.project.name} · Опубликовано`, { exact: true })
     .locator("..");
@@ -309,7 +313,11 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       (element) => element.getBoundingClientRect().right <= window.innerWidth,
     ),
   ).toBe(true);
-  await savedRule.screenshot({ path: info.outputPath("activation-rule.png") });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await savedRule.screenshot({
+      path: info.outputPath("activation-rule.png"),
+    });
+  }
   await otherOwner.close();
   const results = await new AxeBuilder({ page: cabinet })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -345,8 +353,10 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       (element) => element.getBoundingClientRect().right <= window.innerWidth,
     ),
   ).toBe(true);
-  await ownerSection.screenshot({
-    path: info.outputPath("owner-enrollment.png"),
-  });
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await ownerSection.screenshot({
+      path: info.outputPath("owner-enrollment.png"),
+    });
+  }
   await cabinet.close();
 });

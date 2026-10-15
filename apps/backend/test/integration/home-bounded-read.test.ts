@@ -139,14 +139,19 @@ for (const size of [90, 9000, 90]) {
     });
   });
 }
-// Each real legacy catalog read gets its own preparation hook. The old Home composition consumes
-// those exact results, so four expensive catalog reads cannot exhaust one hook's budget together.
+// Prepare independent, read-only legacy catalogs in pairs. Keep two hooks so all four
+// expensive reads cannot exhaust one hook budget; Home still consumes every real result.
 for (const index of [0, 1]) {
-  for (const format of [undefined, "video", "guide", "note"] as const) {
+  for (const formats of [
+    [undefined, "video"],
+    ["guide", "note"],
+  ] as const) {
     beforeAll(async () => {
       const corpus = corpora[index];
       if (corpus === undefined) throw new Error("Missing comparison corpus");
-      await corpus.prepareLegacyCatalog(format);
+      await Promise.all(
+        formats.map((format) => corpus.prepareLegacyCatalog(format)),
+      );
     });
   }
   beforeAll(async () => {
