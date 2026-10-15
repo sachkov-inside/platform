@@ -667,7 +667,11 @@ a fix; #1110 remains open until a captured failure establishes the cause.
 
 The full-stack scenario `Billing-only opens billing tools and is denied a Materials mutation
 without a durable effect` (#1136) retains video of the Billing-only context, including the
-first-sign-in helper's page that closes before the scenario continues. The full-stack configuration
+first-sign-in helper's page that closes before the scenario continues. The helper observes the
+open dialog's terms-unavailable alert as a terminal failure and reports it directly, rather than
+waiting for an acceptance button or redirect that this state cannot produce. This does not retry
+the request or prove the cause of backend unavailability; all 15-second wait budgets remain.
+The full-stack configuration
 also writes an HTML report with the error's call log. The manual full-stack job uploads it and `test-results`
 as `nightly-fullstack-diagnostics-<run_attempt>` for seven days. Copy local `test-results` and
 `playwright-report` before another invocation replaces them. At a first-sign-in timeout, inspect

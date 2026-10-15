@@ -87,7 +87,9 @@ export async function signInFullStack(
  * Экран первого входа закрывает кабинет и покупки, пока действующая редакция условий не принята.
  * Сценарии проходят его настоящей кнопкой; уже принятые условия экран сразу пропускает.
  */
-async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
+export async function passFirstSignInScreen(
+  context: BrowserContext,
+): Promise<void> {
   const page = await context.newPage();
   try {
     await page.goto(`${fullStackBaseUrl()}/welcome?returnTo=%2F`);
@@ -95,14 +97,27 @@ async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
     const accept = page
       .locator("dialog:modal")
       .getByRole("button", { name: "Принять условия и продолжить" });
+    const unavailable = page
+      .locator("dialog[open]")
+      .getByRole("alert")
+      .filter({ hasText: "Условия сейчас не удаётся загрузить." });
     // An account that already accepted is redirected away; one still here must be able to accept.
     // The page streams, so the redirect may arrive after `goto` resolves: wait for whichever comes first.
+    // A rendered dependency failure is terminal too, even before the dialog hydrates.
     const outcome = await Promise.race([
       accept.waitFor({ timeout: 15_000 }).then(() => "accept" as const),
+      unavailable
+        .waitFor({ timeout: 15_000 })
+        .then(() => "unavailable" as const),
       page
         .waitForURL((url) => url.pathname !== "/welcome", { timeout: 15_000 })
         .then(() => "left" as const),
     ]);
+    if (outcome === "unavailable") {
+      throw new Error(
+        "First sign-in could not load the terms: the welcome screen reported unavailable terms.",
+      );
+    }
     if (outcome === "accept") {
       await accept.click({ timeout: 15_000 });
       await page.waitForURL((url) => url.pathname !== "/welcome");
