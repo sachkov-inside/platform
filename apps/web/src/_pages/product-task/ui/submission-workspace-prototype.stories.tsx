@@ -113,7 +113,13 @@ function Connection() {
   );
 }
 
-function Request({ start }: { start: () => void }) {
+function Request({
+  start,
+  showExample = true,
+}: {
+  start: () => void;
+  showExample?: boolean;
+}) {
   return (
     <div className={styles["content"]}>
       <p>
@@ -128,10 +134,12 @@ function Request({ start }: { start: () => void }) {
         Работай и обсуждай замечания у агента. Здесь появятся статус проверки и
         краткий отчёт.
       </p>
-      <button className={styles["textButton"]} onClick={start}>
-        <RefreshCw size={16} aria-hidden />
-        Показать пример проверки
-      </button>
+      {showExample && (
+        <button className={styles["textButton"]} onClick={start}>
+          <RefreshCw size={16} aria-hidden />
+          Показать пример проверки
+        </button>
+      )}
     </div>
   );
 }
@@ -321,7 +329,7 @@ function Roadmap({
   phase: Phase;
   setPhase: (phase: Phase) => void;
 }) {
-  const [open, setOpen] = useState(1);
+  const [open, setOpen] = useState(-1);
   return (
     <section className={styles["roadmap"]} aria-label="Сдача задания">
       <header>
@@ -338,27 +346,23 @@ function Roadmap({
             <div className={styles["roadmapStep"]}>
               <div className={styles["roadmapHeading"]}>
                 <h3>{title}</h3>
-                <button
-                  className={styles["disclosureButton"]}
-                  aria-expanded={open === index}
-                  aria-controls={`roadmap-detail-${String(index)}`}
-                  onClick={() => {
-                    setOpen(open === index ? -1 : index);
-                  }}
-                >
-                  {index === 0
-                    ? open === index
-                      ? "Скрыть инструкцию"
-                      : "Настроить подключение"
-                    : open === index
-                      ? "Скрыть запрос"
-                      : "Открыть запрос"}
-                  {open === index ? (
-                    <ChevronUp size={17} aria-hidden />
-                  ) : (
-                    <ChevronDown size={17} aria-hidden />
-                  )}
-                </button>
+                {index === 0 && (
+                  <button
+                    className={styles["disclosureButton"]}
+                    aria-expanded={open === 0}
+                    aria-controls="roadmap-detail-0"
+                    onClick={() => {
+                      setOpen(open === 0 ? -1 : 0);
+                    }}
+                  >
+                    {open === 0 ? "Скрыть инструкцию" : "Настроить подключение"}
+                    {open === 0 ? (
+                      <ChevronUp size={17} aria-hidden />
+                    ) : (
+                      <ChevronDown size={17} aria-hidden />
+                    )}
+                  </button>
+                )}
               </div>
               <p className={styles["stepSummary"]}>
                 {index === 0
@@ -367,12 +371,13 @@ function Roadmap({
               </p>
               <div
                 id={`roadmap-detail-${String(index)}`}
-                hidden={open !== index}
+                hidden={index === 0 && open !== 0}
               >
                 {index === 0 ? (
                   <Connection />
                 ) : (
                   <Request
+                    showExample={false}
                     start={() => {
                       setPhase("reviewing");
                     }}
