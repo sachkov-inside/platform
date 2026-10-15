@@ -88,10 +88,12 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
     await programmeButton.click();
     await page.keyboard.press("Escape");
   }
-  const returnLink = course.getByRole("link", {
-    name: mobile ? "К курсу" : "Вся программа",
-    exact: true,
-  });
+  const returnLink = mobile
+    ? course
+        .getByRole("navigation", { name: "Хлебные крошки" })
+        .getByRole("link")
+        .first()
+    : course.getByRole("link", { name: "Вся программа", exact: true });
   await expect(returnLink).toHaveAttribute(
     "href",
     `${programme}?part=materials&at=performance-lesson-1`,

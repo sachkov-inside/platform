@@ -2,6 +2,8 @@
 
 import { ArrowLeft, ArrowRight, ChevronRight, List, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
+import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
   Select,
@@ -21,7 +23,9 @@ import styles from "./course-reading.module.css";
 export function CourseReadingLayout({
   context,
   children,
+  supplementaryTitle,
 }: {
+  readonly supplementaryTitle?: string | undefined;
   readonly context: CourseReadingContext | null;
   readonly children: ReactNode;
 }) {
@@ -30,9 +34,12 @@ export function CourseReadingLayout({
   return (
     <div className={styles["layout"]} data-course-reading>
       <HidePublicFooter />
-      <CourseRail context={context} />
+      <CourseRail context={context} supplementaryTitle={supplementaryTitle} />
       <div className={styles["document"]}>
-        <ProgrammeDialog context={context} />
+        <ProgrammeDialog
+          context={context}
+          supplementary={supplementaryTitle !== undefined}
+        />
         {children}
       </div>
     </div>
@@ -44,7 +51,9 @@ export function CourseReadingHeader({
   title,
   metadata,
   actions,
+  supplementary = false,
 }: {
+  readonly supplementary?: boolean;
   readonly context: CourseReadingContext;
   readonly title: string;
   readonly metadata: ReactNode;
@@ -55,30 +64,59 @@ export function CourseReadingHeader({
   );
   return (
     <header className={styles["header"]} data-reader-header>
-      <nav aria-label="Действия материала" className={styles["actionPanel"]}>
-        <IntentPrefetchLink
-          className={styles["programmeLink"]}
-          href={context.href}
-        >
-          <ArrowLeft size={16} aria-hidden="true" /> К курсу
-        </IntentPrefetchLink>
-        <div className={styles["actions"]} data-course-actions>
-          {actions}
+      <div className="mb-4 flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <Breadcrumbs
+            items={[
+              { label: context.name, href: context.href },
+              {
+                label:
+                  chapter?.ordinal === undefined
+                    ? "Программа"
+                    : `Глава ${String(chapter.ordinal)}`,
+                fullLabel: chapter?.name,
+                href: chapter?.href ?? context.href,
+              },
+              ...(supplementary
+                ? [
+                    {
+                      label:
+                        context.current.kind === "task" ? "Задание" : "Урок",
+                      fullLabel: context.current.title,
+                      href: context.current.href,
+                      restoreOrigin: true,
+                    },
+                  ]
+                : []),
+              { label: title },
+            ]}
+          />
         </div>
-      </nav>
-      <p className={styles["position"]}>
-        {chapter?.ordinal === undefined
-          ? "Материалы"
-          : `Глава ${String(chapter.ordinal)}`}
-        <span aria-hidden="true">·</span>
-        <span>
-          Шаг{" "}
-          {(chapter?.steps.findIndex(
-            (step) => step.id === context.current.id,
-          ) ?? -1) + 1}{" "}
-          из {chapter?.steps.length ?? 0}
-        </span>
-      </p>
+        {actions == null ? null : (
+          <nav
+            aria-label="Действия материала"
+            className={styles["actions"]}
+            data-course-actions
+          >
+            {actions}
+          </nav>
+        )}
+      </div>
+      {supplementary ? null : (
+        <p className={styles["position"]}>
+          {chapter?.ordinal === undefined
+            ? "Материалы"
+            : `Глава ${String(chapter.ordinal)}`}
+          <span aria-hidden="true">·</span>
+          <span>
+            Шаг{" "}
+            {(chapter?.steps.findIndex(
+              (step) => step.id === context.current.id,
+            ) ?? -1) + 1}{" "}
+            из {chapter?.steps.length ?? 0}
+          </span>
+        </p>
+      )}
       <h1>{title}</h1>
       {metadata == null ? null : (
         <div className={styles["metadataRow"]}>
@@ -123,7 +161,13 @@ export function CourseReadingFooter({
   );
 }
 
-function CourseRail({ context }: { readonly context: CourseReadingContext }) {
+function CourseRail({
+  context,
+  supplementaryTitle,
+}: {
+  readonly context: CourseReadingContext;
+  readonly supplementaryTitle?: string | undefined;
+}) {
   // Next preserves this component between steps; a new server-selected step owns the selection.
   const selectionKey = `${context.current.id}:${context.currentChapterId}`;
   const [selection, setSelection] = useState({
@@ -140,6 +184,21 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
   const chapter = context.chapters.find((entry) => entry.id === chapterId);
   const rail = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const restore = (event: Event) => {
+      if (
+        !(event instanceof CustomEvent) ||
+        typeof event.detail !== "string" ||
+        !context.chapters.some((item) => item.id === event.detail)
+      )
+        return;
+      setSelection({ key: selectionKey, chapter: event.detail });
+    };
+    window.addEventListener(readerHistoryRestoreEvent, restore);
+    return () => {
+      window.removeEventListener(readerHistoryRestoreEvent, restore);
+    };
+  }, [context.chapters, selectionKey]);
+  useEffect(() => {
     const element = rail.current;
     const active = element?.querySelector<HTMLElement>('[aria-current="step"]');
     if (element === null || active === undefined || active === null) return;
@@ -151,7 +210,20 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
       element.scrollTop -= railRect.top - activeStepRect.top + 12;
   }, [context.current.id, chapterId]);
   return (
-    <aside className={styles["rail"]} aria-label="Текущая глава">
+    <aside
+      className={styles["rail"]}
+      aria-label="Текущая глава"
+      data-course-chapter={chapterId}
+    >
+      {supplementaryTitle === undefined ? null : (
+        <div className="mb-4 border-b border-border pb-3 text-sm">
+          <p className="font-semibold">Открытый материал</p>
+          <p className="mt-1 break-words text-muted-foreground">
+            {supplementaryTitle}
+          </p>
+          <p className="mt-3 font-semibold">Ваше место в курсе</p>
+        </div>
+      )}
       <IntentPrefetchLink
         className={styles["programmeLink"]}
         href={context.href}
@@ -183,7 +255,7 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
           ))}
         </SelectContent>
       </Select>
-      <div className={styles["railSteps"]} ref={rail}>
+      <div className={styles["railSteps"]} ref={rail} data-course-rail-scroll>
         {chapter?.steps.length === 0 ? (
           <p className={styles["empty"]}>Глава готовится</p>
         ) : (
@@ -225,7 +297,9 @@ function StepLink({
 
 function ProgrammeDialog({
   context,
+  supplementary,
 }: {
+  readonly supplementary: boolean;
   readonly context: CourseReadingContext;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -255,8 +329,12 @@ function ProgrammeDialog({
   }
   return (
     <div className={styles["mobileProgramme"]}>
-      <nav className={styles["dock"]} aria-label="Навигация по урокам">
-        {context.previous === null ? (
+      <nav
+        className={styles["dock"]}
+        aria-label="Навигация по урокам"
+        data-supplementary={supplementary ? "" : undefined}
+      >
+        {supplementary ? null : context.previous === null ? (
           <button disabled aria-label="Предыдущий шаг">
             <ArrowLeft size={20} />
           </button>
@@ -277,14 +355,20 @@ function ProgrammeDialog({
           aria-label="Вся программа"
         >
           <span>
-            Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
-            {chapter?.steps.length ?? 0}
+            {supplementary ? (
+              "Ваше место в курсе"
+            ) : (
+              <>
+                Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
+                {chapter?.steps.length ?? 0}
+              </>
+            )}
           </span>
           <strong>
             <List size={16} aria-hidden="true" /> Программа
           </strong>
         </button>
-        {context.next === null ? (
+        {supplementary ? null : context.next === null ? (
           <button disabled aria-label="Следующий шаг">
             <ArrowRight size={20} />
           </button>
@@ -337,6 +421,7 @@ function ProgrammeDialog({
           {context.chapters.map((chapter) => (
             <details
               key={chapter.id}
+              data-course-chapter-id={chapter.id}
               open={chapter.id === context.currentChapterId}
             >
               <summary>

@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { internalRoute } from "@/shared/routing/internal-route";
 import { productPath } from "@/shared/routing/public-page-path";
 import { placeChapterTasks } from "@/entities/product-task.model";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
@@ -21,6 +22,7 @@ export interface CourseReadingStep {
   readonly materialOrdinal?: number;
 }
 export interface CourseReadingChapter {
+  readonly href?: Route;
   readonly id: string;
   readonly name: string;
   readonly ordinal?: number;
@@ -116,6 +118,9 @@ export function courseReadingContext({
     return [
       {
         id: `${chapter.id}:${String(index)}`,
+        href: internalRoute(
+          `${programmeHref}${run.items[0] === undefined ? "" : `?${new URLSearchParams({ at: run.items[0].slug }).toString()}`}#chapter-${encodeURIComponent(chapter.id)}`,
+        ),
         name: chapter.name,
         ordinal:
           series.chapters.findIndex((entry) => entry.id === chapter.id) + 1,

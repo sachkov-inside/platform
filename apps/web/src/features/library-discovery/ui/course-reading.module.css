@@ -470,6 +470,12 @@
     text-decoration: none;
     border-radius: 999px;
   }
+  .dock[data-supplementary] {
+    grid-template-columns: minmax(0, 1fr);
+    width: max-content;
+    max-width: calc(100% - 2rem);
+    padding-inline: 1rem;
+  }
   .dock > :is(a, button):hover {
     background: var(--muted);
   }

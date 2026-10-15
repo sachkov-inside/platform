@@ -460,7 +460,10 @@ async function readerProgrammeLink(page: Page) {
     name: "Вся программа",
   });
   if (await button.isVisible()) {
-    return course.getByRole("link", { name: "К курсу", exact: true });
+    return course
+      .getByRole("navigation", { name: "Хлебные крошки" })
+      .getByRole("link")
+      .first();
   } else
     return course.getByRole("link", { exact: true, name: "Вся программа" });
 }

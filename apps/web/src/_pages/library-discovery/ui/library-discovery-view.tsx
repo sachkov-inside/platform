@@ -1,3 +1,4 @@
+import { DiscoveryBreadcrumbs } from "./discovery-breadcrumbs";
 import {
   ArrowLeft,
   LibraryBig,
@@ -22,7 +23,6 @@ import {
 } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { StatusPanel } from "@/shared/ui/status-panel";
@@ -279,7 +279,6 @@ function DiscoveryBreadcrumbPlaceholder() {
 }
 
 function DiscoveryBreadcrumb({
-  kind,
   name,
   returnTarget,
 }: {
@@ -288,22 +287,9 @@ function DiscoveryBreadcrumb({
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   return (
-    <nav aria-label="Хлебные крошки" className={breadcrumbRow}>
-      <ol
-        className={`flex ${breadcrumbRowHeight} flex-wrap items-center gap-2 text-sm text-muted-foreground`}
-      >
-        <li>
-          <CatalogBackLink
-            href={returnTarget.href}
-            label={returnTarget.label}
-          />
-        </li>
-        <li className="sr-only">{kind === "series" ? "Продукт" : "Тема"}</li>
-        <li aria-current="page" className="sr-only">
-          {name}
-        </li>
-      </ol>
-    </nav>
+    <div className={breadcrumbRow}>
+      <DiscoveryBreadcrumbs name={name} returnTarget={returnTarget} />
+    </div>
   );
 }
 

@@ -194,11 +194,13 @@ test("task intent retains the public course frame while personal requirements wa
     Reflect.set(window, "__taskNavigationDocument", true);
   });
   const course = page.locator("[data-course-reading]:visible");
-  const returnLink = course.getByRole("link", {
-    name:
-      testInfo.project.name === "mobile-chromium" ? "К курсу" : "Вся программа",
-    exact: true,
-  });
+  const returnLink =
+    testInfo.project.name === "mobile-chromium"
+      ? course
+          .getByRole("navigation", { name: "Хлебные крошки" })
+          .getByRole("link")
+          .first()
+      : course.getByRole("link", { name: "Вся программа", exact: true });
   await returnLink.click();
   await expect(page).toHaveURL(new RegExp(`${programme}$`, "u"));
   const reopened = page.getByRole("link", {

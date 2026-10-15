@@ -5,6 +5,10 @@ import type { ReactNode } from "react";
 import type { Route } from "next";
 
 import { useMaterialReading } from "@/entities/material";
+import {
+  anchoredMaterialHref,
+  type ReaderCourseAnchor,
+} from "@/shared/routing/reader-course-anchor";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -18,12 +22,21 @@ export function taskRelatedMaterialHref(
   slug: string,
   returnTo: Route,
   authoredHref?: Route,
+  anchor?: ReaderCourseAnchor,
 ): Route {
   const readerHref = materialReaderHref(slug, returnTo);
-  if (authoredHref === undefined) return readerHref;
+  if (authoredHref === undefined)
+    return anchor === undefined
+      ? readerHref
+      : (anchoredMaterialHref(readerHref, returnTo, anchor) ?? readerHref);
   const target = new URL(authoredHref, "https://inside.invalid");
   target.searchParams.set("from", returnTo);
-  return internalRoute(`${target.pathname}${target.search}${target.hash}`);
+  const href = internalRoute(
+    `${target.pathname}${target.search}${target.hash}`,
+  );
+  return anchor === undefined
+    ? href
+    : (anchoredMaterialHref(href, returnTo, anchor) ?? href);
 }
 
 /** Known Material IDs join the existing Account-scoped batch and cache; unknown state stays unknown. */
@@ -31,11 +44,13 @@ export function TaskRelatedMaterialLink({
   material,
   returnTo,
   authoredHref,
+  anchor,
   children,
 }: {
   readonly material: RelatedMaterial;
   readonly returnTo: Route;
   readonly authoredHref?: Route;
+  readonly anchor?: ReaderCourseAnchor | undefined;
   readonly children: ReactNode;
 }) {
   const { state, accountId, resolved, failed } = useMaterialReading(
@@ -46,7 +61,12 @@ export function TaskRelatedMaterialLink({
   return (
     <IntentPrefetchLink
       className="inline-flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-muted/35 px-3 py-2 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-      href={taskRelatedMaterialHref(material.slug, returnTo, authoredHref)}
+      href={taskRelatedMaterialHref(
+        material.slug,
+        returnTo,
+        authoredHref,
+        anchor,
+      )}
       data-task-related-material={material.materialId}
     >
       <span className="min-w-0 flex-1 leading-6 [overflow-wrap:anywhere]">
@@ -93,9 +113,11 @@ export function TaskRelatedMaterials({
   materials,
   returnTo,
   headingId,
+  anchor,
 }: {
   readonly materials: readonly RelatedMaterial[];
   readonly headingId: string;
+  readonly anchor?: ReaderCourseAnchor | undefined;
   readonly returnTo: Route;
 }) {
   return materials.length === 0 ? null : (
@@ -106,7 +128,11 @@ export function TaskRelatedMaterials({
       <ul className="mt-3 grid gap-2">
         {materials.map((material) => (
           <li key={material.materialId}>
-            <TaskRelatedMaterialLink material={material} returnTo={returnTo}>
+            <TaskRelatedMaterialLink
+              material={material}
+              returnTo={returnTo}
+              anchor={anchor}
+            >
               {material.title}
             </TaskRelatedMaterialLink>
           </li>

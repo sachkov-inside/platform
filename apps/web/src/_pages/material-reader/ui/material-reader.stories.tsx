@@ -1901,7 +1901,7 @@ export const SupplementaryMaterial: Story = {
       canvas.queryByRole("navigation", { name: "Навигация по урокам" }),
     ).toBeNull();
     await expect(
-      canvas.getByRole("link", { name: "Назад к программе" }),
+      canvas.getByRole("link", { name: "AI Engineering" }),
     ).toHaveAttribute("href", supplementaryReturn.href);
   },
 };
@@ -1917,7 +1917,7 @@ export const SupplementaryMaterialDirect: Story = {
   },
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByRole("link", { name: "Назад к программе" }),
+      within(canvasElement).getByRole("link", { name: "AI Engineering" }),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(
       within(canvasElement).queryByLabelText("Текущая глава"),
@@ -2004,5 +2004,61 @@ export const CustomerBriefDownload: Story = {
 };
 export const CustomerBriefDownloadMobile: Story = {
   ...CustomerBriefDownload,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const SupplementaryFromTask: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "task", code: "aie-ch1-onboarding" },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    const crumbs = within(
+      canvas.getByRole("navigation", { name: "Хлебные крошки" }),
+    );
+    await expect(
+      crumbs.getByRole("link", {
+        name: "Онбординг нового разработчика за час",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/products/ai-engineering/tasks/aie-ch1-onboarding",
+    );
+    await expect(
+      canvas.queryByRole("navigation", { name: "Шаги курса" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: /Вернуться к заданию:/u }),
+    ).toBeVisible();
+    const rail = canvas.getByLabelText("Текущая глава");
+    if (rail.getClientRects().length > 0) {
+      await expect(rail).toHaveTextContent("Ваше место в курсе");
+      await expect(rail).toHaveTextContent("Открытый материал");
+    }
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-step="material:aie-product-brief"]',
+      ),
+    ).toBeNull();
+  },
+};
+export const SupplementaryFromTaskMobile: Story = {
+  ...SupplementaryFromTask,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };

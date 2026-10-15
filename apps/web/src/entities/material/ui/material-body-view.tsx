@@ -1,3 +1,4 @@
+import { proseLinkClassName } from "@/shared/ui/prose-link";
 import { Fragment, type ReactNode } from "react";
 
 import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
@@ -347,11 +348,7 @@ function applyMarks(
       case "link": {
         const custom = link?.(mark.href, child, path);
         return custom === undefined ? (
-          <a
-            className="text-action underline decoration-current decoration-1 underline-offset-4 hover:text-action-hover hover:decoration-2"
-            href={mark.href}
-            key={markKey}
-          >
+          <a className={proseLinkClassName} href={mark.href} key={markKey}>
             {child}
           </a>
         ) : (

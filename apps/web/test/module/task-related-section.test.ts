@@ -162,10 +162,10 @@ describe("authored task related section", () => {
     expect(html).toContain(`data-task-related-material="${materialId}"`);
     expect(html.match(/data-task-related-material=/gu)).toHaveLength(1);
     expect(html).toContain(
-      "view=detail&amp;tag=one&amp;tag=two&amp;from=%2Fproducts%2Fcourse%2Fprogramme%3Fpart%3Dmaterials%26at%3Dlesson#first-section",
+      "view=detail&amp;tag=one&amp;tag=two&amp;from=%2Fproducts%2Fcourse%2Fprogramme%3Fpart%3Dmaterials%26at%3Dlesson&amp;anchor=task%3Atask#first-section",
     );
     expect(html).toMatch(
-      /href="\/materials\/lesson\?view=detail&amp;tag=one&amp;tag=two#first-section">Обычная ссылка<\/a>/u,
+      /href="\/materials\/lesson\?view=detail&amp;tag=one&amp;tag=two&amp;from=[^"]*&amp;anchor=task%3Atask#first-section">Обычная ссылка<\/a>/u,
     );
   });
 });

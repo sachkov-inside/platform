@@ -1,8 +1,9 @@
+import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { internalRoute } from "@/shared/routing/internal-route";
 import Link from "next/link";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import {
-  ArrowLeft,
   ArrowRight,
   Bot,
   Check,
@@ -36,7 +37,10 @@ import { taskRelatedSectionOrder } from "../model/task-related-section";
 import { ProductTaskForm } from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import {
+  productProgrammeHref,
+  productTaskHref,
+} from "@/shared/routing/subscription-route";
 
 import type {
   ProductTaskPlace,
@@ -208,6 +212,9 @@ export function ProductTaskView({
   );
   return (
     <CourseReadingLayout context={programme}>
+      <ReaderHistoryTracker
+        path={productTaskHref(task.product.slug, task.code)}
+      />
       <div
         className={cn("@container/task", styles["task"])}
         data-product-task={task.code}
@@ -235,6 +242,7 @@ export function ProductTaskView({
           {taskRelatedSectionOrder(task.page?.body.blocks ?? []) ===
           undefined ? (
             <TaskRelatedMaterials
+              anchor={{ kind: "task", code: task.code }}
               headingId={pageId("task-related-heading")}
               materials={page.relatedMaterials}
               returnTo={
@@ -334,6 +342,9 @@ export function ProductTaskClosed({
 }) {
   return (
     <CourseReadingLayout context={programme}>
+      <ReaderHistoryTracker
+        path={productTaskHref(task.product.slug, task.code)}
+      />
       <div
         className={styles["task"]}
         data-product-task={task.code}
@@ -410,15 +421,22 @@ export function ProductTaskClosed({
 
 function TaskBackLink({ task }: { readonly task: ProductTaskPlace }) {
   return (
-    <nav aria-label="Путь навигации" className="pt-4" data-task-return>
-      <IntentPrefetchLink
-        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground"
-        href={productProgrammeHref(task.product.slug)}
-      >
-        <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-        <span>{task.product.name} · программа</span>
-      </IntentPrefetchLink>
-    </nav>
+    <div data-task-return>
+      <Breadcrumbs
+        items={[
+          {
+            label: task.product.name,
+            href: productProgrammeHref(task.product.slug),
+          },
+          {
+            label: `Глава ${String(task.chapter.ordinal)}`,
+            fullLabel: task.chapter.name,
+            href: productProgrammeHref(task.product.slug),
+          },
+          { label: task.title },
+        ]}
+      />
+    </div>
   );
 }
 

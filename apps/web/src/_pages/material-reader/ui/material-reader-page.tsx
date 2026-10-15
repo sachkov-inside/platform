@@ -1,3 +1,10 @@
+import { proseLinkClassName } from "@/shared/ui/prose-link";
+import {
+  anchoredMaterialHref,
+  parseReaderCourseAnchor,
+  type ReaderCourseAnchor,
+} from "@/shared/routing/reader-course-anchor";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { ReaderInlineArtifact } from "@/features/product-artifacts.server";
 import {
   InlineArtifactDownload,
@@ -85,10 +92,12 @@ export async function MaterialReaderPage({
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[] | undefined;
+    readonly anchor?: string | readonly string[] | undefined;
   }>;
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const returnTarget = parseMaterialReaderReturnTarget(query.from);
+  const anchor = parseReaderCourseAnchor(query.anchor);
   const inferCourseReturn = query.from === undefined;
   // Состав нужен только внутри руководства, поэтому вне его за ним никто не ходит.
   const productSlug = productSlugOf(returnTarget);
@@ -106,6 +115,7 @@ export async function MaterialReaderPage({
     return (
       <Suspense fallback={<MaterialReaderLoading />}>
         <PersonalMaterialReader
+          anchor={anchor}
           returnTarget={returnTarget}
           inferCourseReturn={inferCourseReturn}
           slug={slug}
@@ -126,7 +136,8 @@ export async function MaterialReaderPage({
   });
   if (
     material.kind === "available" &&
-    seriesContext?.series.hasModeVariants !== true
+    seriesContext?.series.hasModeVariants !== true &&
+    anchor === undefined
   ) {
     return (
       <ResolvedMaterialReader
@@ -155,6 +166,7 @@ export async function MaterialReaderPage({
       }
     >
       <PersonalMaterialReader
+        anchor={anchor}
         sharedMaterial={material}
         inferCourseReturn={inferCourseReturn}
         returnTarget={returnTarget}
@@ -185,11 +197,13 @@ async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
  * не кешируется и в предзагрузку не попадает.
  */
 async function PersonalMaterialReader({
+  anchor,
   sharedMaterial,
   inferCourseReturn,
   returnTarget,
   slug,
 }: {
+  readonly anchor?: ReaderCourseAnchor | undefined;
   /** Бесплатный урок уже прочитан из общего кеша: личной остаётся только выбор режима. */
   readonly sharedMaterial?: PublicMaterialResult;
   readonly inferCourseReturn: boolean;
@@ -243,6 +257,7 @@ async function PersonalMaterialReader({
     result.material.slug,
     returnTarget,
     seriesResult,
+    anchor,
   );
   return (
     <ResolvedMaterialReader
@@ -344,7 +359,9 @@ async function ResolvedMaterialReader({
       />
     );
   }
-  const showsModes = seriesContext?.series.hasModeVariants === true;
+  const showsModes =
+    seriesContext?.supplementary !== true &&
+    seriesContext?.series.hasModeVariants === true;
   // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
   // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
   const hintAt = result.body.findIndex(
@@ -362,7 +379,25 @@ async function ResolvedMaterialReader({
         <MaterialReaderView
           renderLink={(href, label) => {
             const reference = readInlineArtifactReference(href);
-            return reference === undefined ? undefined : (
+            if (reference === undefined) {
+              const programme = seriesContext?.programme;
+              if (programme == null) return undefined;
+              const current = programme.current;
+              const contextAnchor = parseReaderCourseAnchor(current.id);
+              const target =
+                contextAnchor === undefined
+                  ? undefined
+                  : anchoredMaterialHref(href, programme.href, contextAnchor);
+              return target === undefined ? undefined : (
+                <IntentPrefetchLink
+                  className={proseLinkClassName}
+                  href={target}
+                >
+                  {label}
+                </IntentPrefetchLink>
+              );
+            }
+            return (
               <Suspense
                 fallback={
                   <InlineArtifactDownload href={href} label={label} loading />
@@ -450,9 +485,15 @@ function seriesContextOf(
   currentMaterialSlug: string,
   returnTarget: MaterialReaderReturnTarget,
   series: PublishedSeriesResult | null,
+  anchor?: ReaderCourseAnchor,
 ): SeriesReaderContext | null {
   return series?.kind === "ready"
-    ? resolveSeriesReaderContext({ currentMaterialSlug, returnTarget, series })
+    ? resolveSeriesReaderContext({
+        currentMaterialSlug,
+        returnTarget,
+        series,
+        anchor,
+      })
     : null;
 }
 

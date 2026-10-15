@@ -248,10 +248,12 @@ test("completed intent response renders the guest Reader before navigation respo
     });
     const mobile = await programmeButton.isVisible();
     await expect(
-      reader.getByRole("link", {
-        name: mobile ? "К курсу" : "Вся программа",
-        exact: true,
-      }),
+      mobile
+        ? reader
+            .getByRole("navigation", { name: "Хлебные крошки" })
+            .getByRole("link")
+            .first()
+        : reader.getByRole("link", { name: "Вся программа", exact: true }),
     ).toHaveAttribute("href", `${programme}?page=1&at=navigation-lesson-2`);
     expect(
       await page.evaluate((): unknown => {

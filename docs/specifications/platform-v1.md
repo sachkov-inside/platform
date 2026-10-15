@@ -434,9 +434,29 @@ step metadata. Public cards do not display separate step labels or counts; autho
 Reader outside checked programme context keeps its existing return controls. Within a checked Product,
 Reader and Product Task share Course B: a 240 px chapter rail, one metadata/action row and a named
 previous/next footer. Its header uses the authored chapter ordinal and per-chapter mixed position/count.
-Only explicit membership in an actual Product chapter gives a Material this course frame.
-Supplementary Product membership and programme return context alone do not: these Materials use standalone Reader,
-including links from assignments. Chapter selection lists actual chapters only, without a synthetic Materials chapter.
+A primary Material receives its course frame from explicit membership in an actual Product chapter.
+A supplementary Material opened from a primary lesson or Task keeps that originating step as its course anchor.
+The displayed document, primary course anchor and browser return entry remain distinct values.
+An `anchor=material:<slug>` or `anchor=task:<code>` query accompanies the existing validated programme `from`.
+The server validates the displayed Material's Product membership and the anchor's primary membership and availability.
+A valid anchor supplies the sidebar and mobile programme, without adding the supplementary document to chapters,
+counts, progress or previous/next. The sidebar distinguishes the open document from the learner's course position.
+The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
+Nested supplementary links retain the anchor. Selecting a primary step ends supplementary browsing.
+Direct links without a valid anchor use standalone Reader and retain the confirmed course breadcrumb and return.
+Chapter selection lists actual chapters only, without a synthetic Materials chapter.
+
+Teaching pages use visible hierarchical breadcrumbs: catalogue, Product, programme, Materials and Tasks.
+A course document shows Product, chapter and current document. A supplementary document also includes its
+originating primary step; intermediate supplementary documents belong to browser history, not to breadcrumbs.
+Breadcrumbs use a named navigation landmark and identify the current page. They wrap on narrow screens.
+Profile, checkout, authoring and Home do not gain breadcrumbs through this change.
+
+Course and anchor survive reload in the URL. Scroll positions, selected sidebar chapter and expanded mobile
+chapters belong to a browser history entry, stored per tab under that entry's opaque identity.
+Back traverses document history. Explicit return opens the originating entry's exact URL and restores its view
+when available. Reload preserves the course anchor; absent history, blocked storage or a new tab use a safe
+route fallback. No global last-course preference or cross-tab navigation state is used.
 The supplementary Materials catalogue, its contents and resource links remain available.
 Standalone Reader keeps the normal application legal footer. Common navigation rows make no personal access
 claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,

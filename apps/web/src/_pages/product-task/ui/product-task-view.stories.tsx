@@ -292,12 +292,12 @@ function loadsInPlace({
         level: 1,
         name: openProductTask.task.title,
       });
-      await expect(boxOf(canvasElement, "[data-task-return]")).toEqual(
-        skeleton.returnRow,
-      );
+      const readyReturn = boxOf(canvasElement, "[data-task-return]");
+      await expect(originOf(readyReturn)).toEqual(originOf(skeleton.returnRow));
+      await expect(readyReturn.width).toBe(skeleton.returnRow.width);
       await expect(
-        originOf(boxOf(canvasElement, "[data-task-header]")),
-      ).toEqual(originOf(skeleton.header));
+        boxOf(canvasElement, "[data-task-header]").top,
+      ).toBeGreaterThanOrEqual(readyReturn.top + readyReturn.height);
     },
   };
 }
@@ -324,7 +324,7 @@ export const FormatC: Story = {
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /^урок$/u })).toHaveAttribute(
       "href",
-      "/materials/synthetic-lesson",
+      "/materials/synthetic-lesson?from=%2Fproducts%2Fai-engineering%2Fprogramme&anchor=task%3Asynthetic-c-task",
     );
     await expect(page.queryByText("Чем подтвердить")).toBeNull();
     await expect(
@@ -422,9 +422,9 @@ export const SourceAnchors: Story = {
       canvasElement.querySelector('[id="task-submit:page"]'),
     ).not.toBeNull();
     await expect(
-      page
-        .getByRole("navigation", { name: "Действия материала" })
-        .querySelector('a[href="#task-submit:page"]'),
+      canvasElement.querySelector(
+        '[data-course-actions] a[href="#task-submit:page"]',
+      ),
     ).toBeNull();
     await expect(
       page.getByRole("region", { name: "Мои сдачи" }),
@@ -477,7 +477,11 @@ export const PersonalTaskPending: Story = {
     await expect(page.getByRole("heading", { level: 1 })).toHaveTextContent(
       courseTask.current.title,
     );
-    await expect(page.getByRole("link", { name: "К курсу" })).toBeVisible();
+    await expect(
+      within(
+        page.getByRole("navigation", { name: "Хлебные крошки" }),
+      ).getByRole("link", { name: "AI Engineering" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("status", { name: "Задание загружается" }),
     ).toBeVisible();

@@ -57,6 +57,7 @@ export function ReaderTopActions({
   readingAction,
   bookmarkAction,
   returnAction,
+  breadcrumbs,
   format = "guide",
   position = "top",
 }: {
@@ -64,6 +65,7 @@ export function ReaderTopActions({
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
   readonly returnAction?: ReactNode;
+  readonly breadcrumbs?: ReactNode;
   readonly format?: string;
   readonly position?: "top" | "bottom";
 }) {
@@ -71,7 +73,8 @@ export function ReaderTopActions({
     context === null &&
     readingAction === undefined &&
     bookmarkAction === undefined &&
-    returnAction === undefined
+    returnAction === undefined &&
+    breadcrumbs === undefined
   )
     return null;
   const reading = readingAction ?? (
@@ -92,6 +95,7 @@ export function ReaderTopActions({
   );
   return (
     <div className="@container/reader-actions" data-reader-top-actions-slot>
+      {breadcrumbs}
       <nav
         aria-label={
           position === "top"

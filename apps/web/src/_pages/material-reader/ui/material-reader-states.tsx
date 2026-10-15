@@ -1,3 +1,5 @@
+import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
+import { materialPath } from "@/shared/routing/public-page-path";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,7 +15,6 @@ import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/mate
 import { materialReadingLabels } from "@/entities/material";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
 import {
@@ -23,6 +24,7 @@ import {
 import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
 import {
   MaterialReaderHeader,
+  MaterialReaderBreadcrumbs,
   MaterialReaderFooter,
   ReaderFrame,
 } from "./material-reader-view";
@@ -88,6 +90,14 @@ export function MaterialReaderPending({
       data-material-id={material.materialId}
       data-material-reader-state="pending"
     >
+      <ReaderHistoryTracker
+        path={materialPath(material.slug)}
+        originHref={
+          seriesContext?.supplementary === true
+            ? seriesContext.programme?.current.href
+            : undefined
+        }
+      />
       <ReaderFrame
         context={seriesContext}
         repeatAtBottom={false}
@@ -95,14 +105,16 @@ export function MaterialReaderPending({
         target={returnTarget}
         topNavigation={
           <ReaderTopActions
+            breadcrumbs={
+              seriesContext?.programme == null ? (
+                <MaterialReaderBreadcrumbs
+                  material={material}
+                  target={returnTarget}
+                />
+              ) : undefined
+            }
             context={seriesContext}
             format={material.format.slug}
-            returnAction={
-              <CatalogBackLink
-                href={returnTarget.href}
-                label={returnTarget.label}
-              />
-            }
           />
         }
       >
@@ -110,6 +122,7 @@ export function MaterialReaderPending({
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
+            supplementary={seriesContext?.supplementary ?? false}
             actions={<ReservedReaderActions format={material.format.slug} />}
           />
           <div
@@ -229,6 +242,14 @@ export function MaterialReaderAccess({
   return (
     <div className="@container/material-reader">
       <div data-material-reader-state="access-required">
+        <ReaderHistoryTracker
+          path={materialPath(material.slug)}
+          originHref={
+            seriesContext?.supplementary === true
+              ? seriesContext.programme?.current.href
+              : undefined
+          }
+        />
         <ReaderFrame
           context={seriesContext}
           repeatAtBottom={seriesContext === null}
@@ -236,14 +257,16 @@ export function MaterialReaderAccess({
           target={returnTarget}
           topNavigation={
             <ReaderTopActions
+              breadcrumbs={
+                seriesContext?.programme == null ? (
+                  <MaterialReaderBreadcrumbs
+                    material={material}
+                    target={returnTarget}
+                  />
+                ) : undefined
+              }
               context={seriesContext}
               format={material.format.slug}
-              returnAction={
-                <CatalogBackLink
-                  href={returnTarget.href}
-                  label={returnTarget.label}
-                />
-              }
             />
           }
         >
@@ -251,6 +274,7 @@ export function MaterialReaderAccess({
             <MaterialReaderHeader
               material={material}
               programme={seriesContext?.programme}
+              supplementary={seriesContext?.supplementary ?? false}
               actions={
                 <ReservedReaderActions
                   format={material.format.slug}

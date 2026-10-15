@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import type { ReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import {
   courseReadingContext,
   type CourseReadingContext,
@@ -35,6 +36,9 @@ export interface SeriesReaderContextItem {
 }
 
 export interface SeriesReaderContext {
+  /** Displayed supplementary content stays outside the primary sequence. */
+  readonly supplementary?: boolean;
+  readonly displayedTitle?: string;
   readonly programme?: CourseReadingContext | null;
   readonly currentPosition: number;
   readonly next: SeriesReaderContextItem | null;
@@ -52,10 +56,12 @@ export function resolveSeriesReaderContext({
   currentMaterialSlug,
   returnTarget,
   series,
+  anchor,
 }: {
   readonly currentMaterialSlug: string;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly series: SeriesContextSource;
+  readonly anchor?: ReaderCourseAnchor | undefined;
 }): SeriesReaderContext | null {
   if (
     returnTarget.kind !== "series" ||
@@ -70,7 +76,7 @@ export function resolveSeriesReaderContext({
   );
   if (currentIndex === -1) return null;
   const programmeHref = productProgrammeHref(series.reference.slug);
-  const programme =
+  const primaryProgramme =
     series.chapters === undefined || series.chapters.length === 0
       ? undefined
       : courseReadingContext({
@@ -78,21 +84,46 @@ export function resolveSeriesReaderContext({
           current: { kind: "material", slug: currentMaterialSlug },
           returnTarget,
         });
-  if (programme === null) return null;
+  const supplementary = primaryProgramme === null;
+  const programme =
+    supplementary && anchor !== undefined
+      ? courseReadingContext({
+          series: { ...series, chapters: series.chapters ?? [] },
+          current: anchor,
+          returnTarget,
+        })
+      : primaryProgramme;
+  if (
+    programme === null ||
+    (supplementary && programme?.current.availability !== "available")
+  )
+    return null;
 
   return {
+    ...(supplementary
+      ? {
+          supplementary: true,
+          displayedTitle:
+            series.items[currentIndex]?.title ?? currentMaterialSlug,
+        }
+      : {}),
     ...(programme === undefined ? {} : { programme }),
-    currentPosition: programme?.current.materialOrdinal ?? currentIndex + 1,
-    next:
-      programme?.next ??
-      (programme === undefined
-        ? toContextItem(series.items[currentIndex + 1], returnTarget.href)
-        : null),
-    previous:
-      programme?.previous ??
-      (programme === undefined
-        ? toContextItem(series.items[currentIndex - 1], returnTarget.href)
-        : null),
+    currentPosition:
+      programme?.current.materialOrdinal ??
+      programme?.currentPosition ??
+      currentIndex + 1,
+    next: supplementary
+      ? null
+      : (programme?.next ??
+        (programme === undefined
+          ? toContextItem(series.items[currentIndex + 1], returnTarget.href)
+          : null)),
+    previous: supplementary
+      ? null
+      : (programme?.previous ??
+        (programme === undefined
+          ? toContextItem(series.items[currentIndex - 1], returnTarget.href)
+          : null)),
     series: {
       hasModeVariants: series.reference.hasModeVariants ?? false,
       href:

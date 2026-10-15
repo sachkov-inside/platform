@@ -1,3 +1,4 @@
+import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
 import { RefreshCw, SearchX, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
@@ -119,6 +120,9 @@ export function ProductTaskPending({
 }) {
   return (
     <CourseReadingLayout context={programme}>
+      <ReaderHistoryTracker
+        path={programme.current.href.split("?")[0] ?? programme.current.href}
+      />
       <div className={styles["task"]} data-product-task-state="pending">
         <div data-task-header>
           <CourseReadingHeader

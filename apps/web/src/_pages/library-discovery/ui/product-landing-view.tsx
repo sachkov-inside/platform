@@ -23,7 +23,7 @@ import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
+import { DiscoveryBreadcrumbs } from "./discovery-breadcrumbs";
 
 import { countFreeLessons } from "../model/free-lessons";
 import { AiEngineeringCourseView } from "./ai-engineering-course-view";
@@ -173,24 +173,12 @@ function DefaultProductLandingView({
       {/* Страница продукта — витрина: без шапки телефона, как и её скелет. */}
       <HideMobileNavigation />
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
-        <nav
-          aria-label="Хлебные крошки"
-          className="pt-4"
-          data-product-part="back"
-        >
-          <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <li>
-              <CatalogBackLink
-                href={returnTarget.href}
-                label={returnTarget.label}
-              />
-            </li>
-            <li className="sr-only">Продукт</li>
-            <li aria-current="page" className="sr-only">
-              {reference.name}
-            </li>
-          </ol>
-        </nav>
+        <div className="pt-4" data-product-part="back">
+          <DiscoveryBreadcrumbs
+            name={reference.name}
+            returnTarget={returnTarget}
+          />
+        </div>
 
         <header
           className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white"

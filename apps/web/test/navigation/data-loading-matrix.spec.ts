@@ -746,12 +746,17 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
               .click();
             await expect(dialog).toHaveCount(0);
           }
-          await courseReader
-            .getByRole("link", {
-              name: mobile ? "К курсу" : "Вся программа",
-              exact: true,
-            })
-            .click();
+          await (
+            mobile
+              ? courseReader
+                  .getByRole("navigation", { name: "Хлебные крошки" })
+                  .getByRole("link")
+                  .first()
+              : courseReader.getByRole("link", {
+                  name: "Вся программа",
+                  exact: true,
+                })
+          ).click();
           await expect(
             page.locator(
               '[data-product-programme="performance-course"]:visible',

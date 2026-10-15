@@ -1,3 +1,4 @@
+import { proseLinkClassName } from "@/shared/ui/prose-link";
 import type { ReactNode } from "react";
 import type { Route } from "next";
 
@@ -8,6 +9,8 @@ import {
   type MaterialImageSource,
 } from "@/features/material-assets";
 
+import { anchoredMaterialHref } from "@/shared/routing/reader-course-anchor";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { materialPath } from "@/shared/routing/public-page-path";
 import {
@@ -57,8 +60,17 @@ export function TaskPageBody({
             index === undefined ||
             index < relatedSection.start ||
             index >= relatedSection.end
-          )
-            return undefined;
+          ) {
+            const target = anchoredMaterialHref(href, returnTo, {
+              kind: "task",
+              code,
+            });
+            return target === undefined ? undefined : (
+              <IntentPrefetchLink className={proseLinkClassName} href={target}>
+                {label}
+              </IntentPrefetchLink>
+            );
+          }
           const targetPath = href.split(/[?#]/u)[0];
           const material = relatedMaterials.find(
             (item) => materialPath(item.slug) === targetPath,
@@ -66,6 +78,7 @@ export function TaskPageBody({
           return material === undefined ? undefined : (
             <TaskRelatedMaterialLink
               material={material}
+              anchor={{ kind: "task", code }}
               returnTo={returnTo}
               authoredHref={internalRoute(href)}
             >
