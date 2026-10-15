@@ -1,7 +1,9 @@
 # Reader Task submission marks — design comparison
 
 Owner assignment: 2026-10-15. Prototype only; no production change.
-Owner selected direction A, with the submission date removed. Preserve the strikethrough and «Сдано» label.
+Owner selected direction A. Remove the submission date and visible «Сдано»/«Открыто» labels.
+Keep only the submitted-title strikethrough. Indicate the current Task with slightly heavier title
+weight (500); do not add a selected-row background or border. An accessible submitted label remains.
 Base source: `fa6f153e421d8f48823cba4a3ad24e3e2266f27a`.
 Branch: `prototype/reader-task-completion`.
 
@@ -10,7 +12,7 @@ Branch: `prototype/reader-task-completion`.
 How should the course Reader sidebar show a saved Task submission while retaining a readable title,
 chapter-local Task numbering and an independent current-step indication?
 
-- A: a subtle title strikethrough and «Сдано» label without a submission date.
+- A: a subtle title strikethrough; no visible status/date. The current title uses weight500.
 - B: an outlined check on the left and visible «Сдано» label.
 - C: a checked node on the existing position rail; an accessible «Сдано» label remains available.
 
@@ -30,7 +32,7 @@ and is not a submission. Author `reviewedAt` means viewed, not accepted. The pro
 boundary: opening a page or preparing an unsubmitted report cannot add the mark.
 
 The state controls show a new open Task, an already submitted open Task, and a ready report that
-has not been submitted. Current selection is separate from submission state in every variant.
+has not been submitted. Current selection is separate from submission state in every variant; it does not add a badge or row background.
 
 ## Preview and evidence
 

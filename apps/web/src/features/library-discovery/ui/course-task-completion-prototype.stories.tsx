@@ -97,18 +97,15 @@ function readChoice(name: string, max: number): number {
 function TaskLabel({
   step,
   variant,
-  current,
 }: {
   step: CourseReadingStep;
   variant: number;
-  current: boolean;
 }) {
   const done = submitted.has(step.id);
   return (
     <span className={styles["label"]}>
       <span className={styles["meta"]}>
         <small>Задание {step.taskOrdinal}</small>
-        {current && <span className={styles["current"]}>Открыто</span>}
       </span>
       <span className={styles["title"]}>{step.title}</span>
       {done && (
@@ -258,11 +255,7 @@ function Comparison() {
       </CourseReadingLayout>
       {targets.map(({ element, step }, index) =>
         createPortal(
-          <TaskLabel
-            step={step}
-            variant={variant}
-            current={step.id === context.current.id}
-          />,
+          <TaskLabel step={step} variant={variant} />,
           element,
           `${step.id}:${String(index)}`,
         ),
