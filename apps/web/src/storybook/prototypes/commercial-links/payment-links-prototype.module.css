@@ -128,15 +128,6 @@
 .buyer button {
   min-height: 44px;
 }
-.consent {
-  display: flex;
-  align-items: start;
-  gap: 10px;
-  margin: 20px 0;
-}
-.consent input {
-  margin-top: 4px;
-}
 .simulation {
   border-top: 1px solid var(--border);
   margin-top: 40px;

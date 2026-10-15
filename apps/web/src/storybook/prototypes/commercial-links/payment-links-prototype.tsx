@@ -47,7 +47,6 @@ export function PaymentLinksPrototype({
   const [state, setState] = useState<LinkState>(initialState);
   const [message, setMessage] = useState("");
   const [step, setStep] = useState(1);
-  const [accepted, setAccepted] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   const [copied, setCopied] = useState(false);
   const RootTag = initialBuyer ? "section" : "main";
@@ -283,16 +282,6 @@ export function PaymentLinksPrototype({
                 ) : (
                   <>
                     <p>Покупатель: learner@example.invalid</p>
-                    <label className={styles["consent"]}>
-                      <input
-                        type="checkbox"
-                        checked={accepted}
-                        onChange={(event) => {
-                          setAccepted(event.target.checked);
-                        }}
-                      />{" "}
-                      Принимаю оферту и условия покупки
-                    </label>
                     <details>
                       <summary>Документы и распределение цены</summary>
                       <p>
@@ -302,13 +291,17 @@ export function PaymentLinksPrototype({
                       </p>
                     </details>
                     <Button
-                      disabled={!accepted || !valid}
+                      disabled={!valid}
                       onClick={() => {
                         setState("pending");
                       }}
                     >
                       Перейти к оплате {valid ? money(amount) : ""}
                     </Button>
+                    <p>
+                      Нажимая «Перейти к оплате», вы принимаете оферту и условия
+                      покупки.
+                    </p>
                   </>
                 )}
               </>
