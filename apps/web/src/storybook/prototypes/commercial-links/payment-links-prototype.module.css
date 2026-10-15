@@ -25,11 +25,11 @@
 .root h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: calc(80px + env(safe-area-inset-bottom));
+  margin-bottom: 16px;
 }
 .root p {
   line-height: 1.65;
-  margin-bottom: calc(80px + env(safe-area-inset-bottom));
+  margin-bottom: 16px;
   max-width: 68ch;
 }
 .workspace {

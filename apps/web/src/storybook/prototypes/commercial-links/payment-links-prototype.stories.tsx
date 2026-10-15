@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PaymentLinksPrototype } from "./payment-links-prototype";
-import { authoringPageEnvironment } from "@/storybook/story-environment";
+import {
+  authoringPageEnvironment,
+  publicPageEnvironment,
+} from "@/storybook/story-environment";
 
 const meta = {
   ...authoringPageEnvironment("/authoring/billing"),
@@ -19,22 +22,34 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Owner: Story = {};
-export const Buyer: Story = { args: { initialBuyer: true } };
+const buyerEnvironment = publicPageEnvironment("/products/ai-engineering/buy", {
+  account: "guest",
+});
+export const Buyer: Story = {
+  ...buyerEnvironment,
+  args: { initialBuyer: true },
+};
 export const Pending: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "pending" },
 };
 export const Unknown: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "unknown" },
 };
 export const Paid: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "paid" },
 };
 export const Revoked: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "revoked" },
 };
 export const Expired: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "expired" },
 };
 export const Failed: Story = {
+  ...buyerEnvironment,
   args: { initialBuyer: true, initialState: "failed" },
 };
