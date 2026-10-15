@@ -310,3 +310,11 @@ export function requestProductSaleAvailability(
     accessToken === undefined ? {} : { accessToken },
   );
 }
+
+export function requestBillingPaymentLink(id: string) {
+  return executeGeneratedRequest(
+    (request) => new BillingService(request).readBillingPaymentLink({ id }),
+    200,
+    {},
+  );
+}

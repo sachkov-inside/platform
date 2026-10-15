@@ -1,3 +1,4 @@
+import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 import { z } from "zod";
 import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -101,12 +102,20 @@ export async function reservePurchaseInTransaction(
     return failure("reservation_conflict");
   if (now >= quote.expiresAt) return failure("quote_expired");
   const snapshot = priceSnapshotSchema.parse(quote.snapshot);
-  const current = await selectPrice(
-    tx,
-    snapshot.paymentOption.id,
-    now,
-    quote.promoCode ?? undefined,
-  );
+  const current =
+    quote.paymentLinkId === null
+      ? await selectPrice(
+          tx,
+          snapshot.paymentOption.id,
+          now,
+          quote.promoCode ?? undefined,
+        )
+      : await selectPaymentLinkPrice(
+          tx,
+          quote.paymentLinkId,
+          snapshot.paymentOption.id,
+          now,
+        );
   // Выключенное из продажи или архивное предложение снимает заказ, а не только меняет условия.
   if (!current.ok) return current;
   if (canonicalJson(current.value) !== canonicalJson(snapshot))
@@ -132,6 +141,7 @@ export async function reservePurchaseInTransaction(
       accountId: command.accountId,
       quoteRef: command.quoteRef,
       promotionId: snapshot.promotion?.id ?? null,
+      paymentLinkId: quote.paymentLinkId,
       state: "reserved",
       snapshot,
     },

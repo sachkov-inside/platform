@@ -1,4 +1,4 @@
-export const name = "0094_historical_community_coverage";
+export const name = "0095_historical_community_coverage";
 
 /** Complete 0090 for journaled historical empty scopes without reinterpreting newer decisions. */
 export const statement = `

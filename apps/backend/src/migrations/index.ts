@@ -1,7 +1,11 @@
 import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
-} from "../modules/account-rights/infrastructure/postgres/migrations/0094-historical-community-coverage.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
+import {
+  name as individualPaymentLinksName,
+  statement as individualPaymentLinksStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0094-individual-payment-links.js";
 import {
   name as productExclusionsName,
   statement as productExclusionsStatement,
@@ -611,6 +615,10 @@ export const platformMigrations = [
   { name: productCommunitiesName, statement: productCommunitiesStatement },
   { name: productExclusionsName, statement: productExclusionsStatement },
   { name: learningStartedName, statement: learningStartedStatement },
+  {
+    name: individualPaymentLinksName,
+    statement: individualPaymentLinksStatement,
+  },
   {
     name: historicalCommunityCoverageName,
     statement: historicalCommunityCoverageStatement,

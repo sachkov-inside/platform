@@ -108,7 +108,7 @@ async function historicalGrant(
 }
 async function migrateHistoricalBaseline() {
   const repair = platformMigrations.findIndex(
-    ({ name }) => name === "0094_historical_community_coverage",
+    ({ name }) => name === "0095_historical_community_coverage",
   );
   await runMigrationsToLatest(
     db.url,

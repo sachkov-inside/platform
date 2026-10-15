@@ -366,3 +366,24 @@ it("требует ожидаемую редакцию для отмены пр�
     "trusted-token",
   );
 });
+
+it("private quote forwards only the link authority, never an amount from the browser", async () => {
+  const input = {
+    operationId,
+    paymentOptionId: materialsOffer.paymentOption.id,
+    optionRevision: 1,
+    paymentLinkId: "69000000-0000-4000-8000-000000001450",
+  };
+  fakes.quote.mockResolvedValue(ok(savedQuote));
+  await handleBillingQuote(command("/api/account/billing/quote", input));
+  expect(fakes.quote).toHaveBeenLastCalledWith(input, "trusted-token");
+  fakes.quote.mockClear();
+  const rejected = await handleBillingQuote(
+    command("/api/account/billing/quote", { ...input, firstPriceKopecks: 100 }),
+  );
+  expect(await rejected.json()).toMatchObject({
+    ok: false,
+    code: "invalid_request",
+  });
+  expect(fakes.quote).not.toHaveBeenCalled();
+});

@@ -23,6 +23,7 @@ export const telemetryRouteTemplates = [
   "/legal",
   "/map",
   "/payment/checkout",
+  "/payment/links/[id]",
   "/payment/return",
   "/welcome",
   "/authoring/materials/[materialId]",

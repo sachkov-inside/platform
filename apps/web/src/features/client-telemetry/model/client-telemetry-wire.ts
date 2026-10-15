@@ -28,3 +28,10 @@ export const MAX_WEB_VITALS_PER_REPORT = 20;
 export const RENDER_ERROR_MESSAGE_LENGTH = 500;
 export const REPORT_LABEL_LENGTH = 128;
 export const REPORT_PATH_LENGTH = 512;
+
+/** Bearer payment links are grouped by route; their secret identifier never enters telemetry. */
+export function telemetryRoute(path: string): string {
+  return path
+    .replace(/^\/payment\/links\/[^/]+$/u, "/payment/links/[id]")
+    .slice(0, REPORT_PATH_LENGTH);
+}

@@ -65,6 +65,12 @@ function withoutOperation(shape: z.ZodRawShape): z.ZodObject<z.ZodRawShape> {
 
 function description(operation: string): string {
   switch (operation) {
+    case "paymentLinks.create":
+      return "Create a transferable single-use payment link for a one-time Product using a final RUB amount in kopecks or an integer discount percentage and optional expiration. Public sales may stay closed. Preserves catalog and existing purchases; sends no message and starts no payment. Zero-price access uses manual grants.";
+    case "paymentLinks.revoke":
+      return "Revoke an individual payment link before payment starts, with expectedRevision. A reserved or uncertain payment blocks revocation; successful purchases remain intact.";
+    case "paymentLinks.list":
+      return "List issued individual payment links and current status with cursor and limit. Contains bearer URLs: show only to the authorized owner. Sends nothing.";
     case "refunds.read":
       return "Read refund decisions, their bank attempts and the remaining refundable amount for one payment. Sends nothing.";
     case "payments.reconcile":

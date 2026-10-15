@@ -137,10 +137,12 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       /** Срок общей группы в Offer; без него группа не называется в составе. */
       readonly communityMonths?: number | null;
       readonly terminal?: ReturnType<typeof syntheticTbankConfig>;
+      readonly priceKopecks?: number;
       readonly verifyContact?: boolean;
     } = {},
   ) {
     const terminal = options.terminal ?? config;
+    const scenarioPrice = options.priceKopecks ?? productPrice;
     now = new Date("2030-01-31T10:00:00Z");
     const buyer = randomUUID();
     await db.prisma.account.create({
@@ -212,7 +214,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: productPrice,
+          priceKopecks: scenarioPrice,
         },
       }),
     );
@@ -235,7 +237,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     // Каждая попытка — свой платёж банка: терминал не сопоставляет два заказа одному PaymentId.
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
     // Банк отвечает про ту сумму, которую у него запросили: сверка отвергает чужую.
-    let amountKopecks = productPrice;
+    let amountKopecks = scenarioPrice;
     const event = (state: string, extra = {}) => ({
       TerminalKey: terminal.terminalKey,
       OrderId: orderId,
@@ -295,6 +297,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
       accepted: readonly Consent[] = ["terms"],
       acknowledgeExistingAccess = false,
       paymentOptionId = optionId,
+      paymentLinkId?: string,
     ) {
       const quote = value(
         await pricing.quote(
@@ -303,6 +306,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
             operationId: randomUUID(),
             paymentOptionId,
             optionRevision: 1,
+            ...(paymentLinkId === undefined ? {} : { paymentLinkId }),
           }),
         ),
       );
@@ -419,6 +423,71 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         purchase.purchaseRef,
       ),
     ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  });
+
+  test("private link uses actual quote, consent, bank receipt and grants while public sales stay closed", async () => {
+    const s = await scenario({
+      priceKopecks: 2_900_000,
+      terminal: { ...config, maximumKopecks: 100_000_000 },
+    });
+    value(
+      await pricing.manage(owner, {
+        operation: "offers.unpublish",
+        operationId: randomUUID(),
+        id: s.offerId,
+        expectedRevision: 2,
+      }),
+    );
+    const link = value(
+      await pricing.managePaymentLink(owner, {
+        operation: "paymentLinks.create",
+        operationId: randomUUID(),
+        paymentOptionId: s.optionId,
+        optionRevision: 1,
+        price: { kind: "discount", percent: 10 },
+        expiresAt: null,
+      }),
+    );
+    const command = await s.command(["terms"], false, s.optionId, link.id);
+    const purchase = value(await s.runtime.purchase(s.buyer, command));
+    expect(s.requests()).toHaveLength(1);
+    expect(s.requests()[0]).toMatchObject({
+      Amount: 2610000,
+      Receipt: { Items: [{ Amount: 2610000, Price: 2610000 }] },
+    });
+    expect(s.requests()[0]?.["SuccessURL"]).toContain(
+      `/payment/links/${link.id}?purchaseRef=${purchase.purchaseRef}`,
+    );
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("pending");
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(
+      (await capabilitiesOf(s.buyer)).capabilities.some(
+        (entry) => entry.capability === s.capability,
+      ),
+    ).toBe(true);
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("paid");
+    expect(await s.runtime.notification(s.notify("REFUNDED"))).toMatchObject({
+      ok: true,
+    });
+    expect(await s.runtime.recover()).toMatchObject({ ok: true });
+    expect(value(await pricing.paymentLink(link.id)).state).toBe("paid");
+    expect(
+      await pricing.quote(s.buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: s.optionId,
+        optionRevision: 1,
+        paymentLinkId: link.id,
+      }),
+    ).toEqual({ ok: false, error: { code: "reservation_conflict" } });
+
+    expect(
+      value(await pricing.ownerCatalog({})).items.find(
+        (item) => item.paymentOption.id === s.optionId,
+      )?.firstPriceKopecks,
+    ).toBe(2_900_000);
   });
 
   test("a confirmed bank refund shows lost Product access without a manual revoke", async () => {

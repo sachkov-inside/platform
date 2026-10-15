@@ -31,7 +31,7 @@ community capability is `denied`, an unbounded one is `lifetime`, a bounded one 
 exact end. The tier name, the price, the presence of a payment and Telegram membership itself are
 never the rule.
 
-Migration `0090` preserves historical implicit community benefits. Migration `0094` completes its
+Migration `0090` preserves historical implicit community benefits. Migration `0095` completes its
 scope backfill for the exact empty JSON coverage left by older grant writers. It requires a grant
 journal entry before `0090` and no entry after that boundary. It leaves unjournaled grants and newer
 decisions unchanged.

@@ -46,6 +46,7 @@ export const entryRoutePaths = [
   "/auth/sign-in",
   "/callback",
   "/communications/visit",
+  "/payment/links/:path*",
   "/telegram/continue",
   ...billingCommandPaths,
   ...clientReportPaths,
@@ -65,7 +66,9 @@ export function classifyEntryRoute(
   if (method === "POST" && clientReports.has(pathname)) return "client-report";
   if (
     (method === "GET" || method === "HEAD") &&
-    (pathname === "/communications/visit" || pathname === "/telegram/continue")
+    (pathname === "/communications/visit" ||
+      pathname === "/telegram/continue" ||
+      /^\/payment\/links\/[^/]+$/.test(pathname))
   ) {
     return "public-link";
   }
