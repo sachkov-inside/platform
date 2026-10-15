@@ -19,6 +19,7 @@ import {
   type StagedLoading,
   type StoryViewport,
 } from "@/storybook/loads-in-place";
+import { courseSource } from "@/storybook/course-reading.fixtures";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import {
@@ -31,7 +32,7 @@ import { SavedReadingAction } from "@/features/reading-progress";
 import { MaterialReaderView } from "./material-reader-view";
 
 const material = {
-  materialId: "02000000-0000-4000-8000-000000000670",
+  materialId: "course-intro-id",
   contentVersion: 1,
   access: "closed",
   cover: null,
@@ -48,11 +49,11 @@ const material = {
       series: {
         id: "72000000-0000-4000-8000-000000000005",
         name: "Создание Platform Inside",
-        slug: "platform-inside",
+        slug: "ai-engineering",
       },
     },
   ],
-  slug: "instant-navigation",
+  slug: "course-intro",
   summary:
     "Общая часть урока приходит из кеша сразу, а закрытое тело стримится на своё место.",
   tags: [],
@@ -72,20 +73,17 @@ const body = Array.from({ length: 8 }, (_, index): ReaderBlock => ({
 }));
 
 const returnTarget = parseMaterialReaderReturnTarget(
-  "/products/platform-inside/programme",
+  "/products/ai-engineering/programme",
 );
 const seriesContext = resolveSeriesReaderContext({
   currentMaterialSlug: material.slug,
   returnTarget,
   series: {
-    chapters: [],
-    items: [
-      { slug: "first-lesson", title: "Первый урок" },
-      { slug: material.slug, title: material.title },
-      { slug: "next-lesson", title: "Следующий урок" },
-    ],
-    kind: "ready",
-    reference: { name: "Создание Platform Inside", slug: "platform-inside" },
+    ...courseSource,
+    chapters: courseSource.chapters.map((chapter) => ({
+      ...chapter,
+      summary: "",
+    })),
   },
 });
 
@@ -167,7 +165,7 @@ function PersonalPart({
   ) : (
     <MaterialReaderAccess
       invitation={{
-        href: productPurchaseHref("platform-inside"),
+        href: productPurchaseHref("ai-engineering"),
         kind: "product",
       }}
       material={material}
