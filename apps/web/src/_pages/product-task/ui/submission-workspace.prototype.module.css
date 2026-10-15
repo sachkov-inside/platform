@@ -1,0 +1,475 @@
+.host :global(#task-submit) {
+  display: block;
+  padding: 0;
+  margin-top: 4rem;
+  border: 0;
+  background: transparent;
+}
+.host :global(#task-submit) > :not([data-submission-prototype]) {
+  display: none;
+}
+.prototype {
+  --ink: #232323;
+  --quiet: #626262;
+  --paper: #fff;
+  --surface: #f1f1ef;
+  --soft: #e5e5e2;
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  padding-bottom: 4rem;
+}
+.prototype h2 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.prototype h3 {
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.prototype h4 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.prototype p {
+  margin: 0;
+}
+.prototype header > p {
+  margin-top: 0.75rem;
+  color: var(--quiet);
+}
+.prototype button {
+  cursor: pointer;
+}
+.prototype button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 4px;
+}
+.primary,
+.secondary,
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  border-radius: 0.625rem;
+  padding: 0.625rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.primary:hover {
+  background: #444;
+}
+.secondary {
+  background: var(--soft);
+  color: var(--ink);
+}
+.secondary:hover {
+  background: #d8d8d5;
+}
+.textButton {
+  padding-inline: 0;
+  justify-content: flex-start;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.textButton:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.content {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.content > :is(button, .clientPicker) {
+  justify-self: start;
+}
+.help {
+  color: var(--quiet);
+  font-size: 0.875rem;
+}
+.clientPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.625rem;
+  background: var(--soft);
+}
+.clientPicker button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.4375rem;
+  font-size: 0.875rem;
+}
+.clientPicker button[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--ink);
+}
+.command {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border-radius: 0.75rem;
+}
+.command .primary {
+  justify-self: start;
+}
+.prototype code {
+  font-family: "JetBrains Mono Variable", monospace;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.request {
+  display: grid;
+  gap: 1.25rem;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+.request .primary {
+  background: var(--paper);
+  color: var(--ink);
+  justify-self: start;
+}
+.request .primary:hover {
+  background: var(--soft);
+}
+.expectation {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border-radius: 0.75rem;
+}
+.expectation svg {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+.wizard {
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--surface);
+}
+.wizardHeader {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 1.75rem;
+}
+.prototype .wizardHeader > p {
+  color: #c5c5c5;
+}
+.segments {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+.segments button {
+  display: grid;
+  gap: 0.625rem;
+  text-align: left;
+  color: #bfbfbf;
+  padding-block: 0.5rem;
+}
+.segments button span {
+  height: 0.1875rem;
+  background: #626262;
+  border-radius: 1rem;
+}
+.segments button[aria-current="step"] {
+  color: var(--paper);
+}
+.segments button[aria-current="step"] span {
+  background: var(--paper);
+}
+.segments small {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.wizardBody {
+  padding: 1.75rem;
+}
+.wizardBody .command,
+.wizardBody .expectation {
+  background: var(--paper);
+}
+.wizardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.wizardFooter > span {
+  color: var(--quiet);
+  font-size: 0.75rem;
+}
+.roadmap {
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1.75rem;
+}
+.roadmapList {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  padding: 0;
+  list-style: none;
+}
+.roadmapList > li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  padding: 1rem 0;
+}
+.stepNumber {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 600;
+}
+.stepTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+  text-align: left;
+  min-height: 2rem;
+}
+.stepTitle svg {
+  flex-shrink: 0;
+}
+.stepSummary {
+  color: var(--quiet);
+  margin-top: 0.5rem !important;
+}
+.roadmap .activeRow {
+  padding-block: 1.5rem;
+}
+.roadmap .command {
+  background: var(--paper);
+}
+.workbench {
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 1.75rem;
+}
+.workbenchFlow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.75rem;
+  color: var(--quiet);
+}
+.workbenchFlow > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.workbenchFlow b {
+  color: var(--ink);
+}
+.workbenchColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 1.75rem;
+  margin-top: 2rem;
+}
+.launch {
+  display: grid;
+  gap: 0.875rem;
+}
+.launch code {
+  margin-block: 0.5rem;
+}
+.launch .primary {
+  justify-self: start;
+}
+.next {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: var(--quiet);
+}
+.next h3 {
+  color: var(--ink);
+}
+.next .secondary {
+  margin-top: auto;
+  text-align: left;
+  justify-content: space-between;
+}
+.workbenchSetup {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--paper);
+  border-radius: 0.75rem;
+}
+.history {
+  margin-top: 2.5rem;
+}
+.historyHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.historyHeading > span {
+  font-size: 0.75rem;
+  color: var(--quiet);
+}
+.historySurface {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.historySurface > .secondary {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+.historyTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.statusDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--quiet);
+}
+.pending {
+  font-weight: 600;
+  margin-top: 0.5rem !important;
+}
+.criteria {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.125rem;
+}
+.fallback {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--quiet);
+  margin-top: 1.5rem;
+  text-align: left;
+  min-height: 2.75rem;
+}
+.switcher {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem;
+  border: 1px solid #777;
+  border-radius: 0.875rem;
+  background: #222;
+  color: #fff;
+  box-shadow: 0 8px 30px #0003;
+  max-width: calc(100vw - 1.5rem);
+}
+.switcher > button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.switcher > button:hover {
+  background: #444;
+}
+.switcher button:focus-visible {
+  outline: 2px solid #fff;
+}
+.switcher > div {
+  display: grid;
+  text-align: center;
+  min-width: 12rem;
+}
+.switcher small {
+  color: #ccc;
+  font-size: 0.6875rem;
+}
+.switcher strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+@media (max-width: 39.99rem) {
+  .host :global(#task-submit) {
+    margin-top: 3rem;
+  }
+  .wizardHeader,
+  .wizardBody,
+  .roadmap,
+  .workbench {
+    padding: 1.25rem;
+  }
+  .workbenchColumns {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .historyHeading {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .roadmapList > li {
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .stepNumber {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .roadmap .request {
+    margin-left: -2.5rem;
+    margin-top: 0.5rem;
+  }
+  .request {
+    padding: 1rem;
+  }
+  .request .primary {
+    justify-self: stretch;
+  }
+  .switcher {
+    gap: 0.25rem;
+    bottom: 0.75rem;
+  }
+  .switcher > div {
+    min-width: 11rem;
+  }
+  .switcher .reset {
+    display: none;
+  }
+}
