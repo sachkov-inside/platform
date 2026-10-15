@@ -77,7 +77,7 @@
 }
 .chapterOption[data-highlighted],
 .chapterOption[data-state="checked"] {
-  background: var(--muted);
+  background: transparent;
   color: var(--foreground);
 }
 .chapterOption[data-highlighted] {
@@ -670,7 +670,7 @@
   line-height: 1.5;
 }
 .chapterName {
-  font-weight: 500;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 .chapterOption {
