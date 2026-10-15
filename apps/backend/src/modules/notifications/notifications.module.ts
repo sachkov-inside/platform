@@ -14,7 +14,11 @@ import {
   accountId,
   type Accounts,
 } from "../accounts/index.js";
-import { BillingModule, BillingNotices } from "../billing/index.js";
+import {
+  BillingModule,
+  BillingNotices,
+  BillingPayments,
+} from "../billing/index.js";
 import {
   TelegramAccountLinksModule,
   TelegramAccountLinks,
@@ -33,7 +37,7 @@ import {
   NotificationOperationsController,
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
-import { hasText } from "../../infrastructure/contracts/text.js";
+import { assembleNotificationRecipients } from "./assemble-notification-recipients.js";
 
 @Module({
   imports: [
@@ -59,6 +63,7 @@ import { hasText } from "../../infrastructure/contracts/text.js";
         CONTENT_ACCESS,
         PLATFORM_CONFIG,
         BillingNotices,
+        BillingPayments,
         MaterialAnnouncements,
       ],
       useFactory: (
@@ -69,6 +74,7 @@ import { hasText } from "../../infrastructure/contracts/text.js";
         access: ContentAccess,
         config: PlatformConfig,
         notices: BillingNotices,
+        payments: BillingPayments,
         announcements: MaterialAnnouncements,
       ) =>
         new Notifications(
@@ -111,28 +117,11 @@ import { hasText } from "../../infrastructure/contracts/text.js";
                     : "denied";
               },
             },
-            recipients: {
-              enumerate: (query) => contacts.enumerate(query),
-              exists: (account) => contacts.exists(account),
-              email: (binding) => contacts.email(binding),
-              binding: async (account, channel) => {
-                if (channel === "email") return contacts.binding(account);
-                const result = await telegram.readBinding({
-                  accountId: account,
-                });
-                if (!result.ok)
-                  throw new Error("notification_binding_unavailable");
-                return hasText(result.binding?.telegramIdentityRef) &&
-                  hasText(result.binding.accountRef)
-                  ? {
-                      channel: "telegram",
-                      ...result.binding,
-                      accountRef: result.binding.accountRef,
-                      telegramIdentityRef: result.binding.telegramIdentityRef,
-                    }
-                  : null;
-              },
-            },
+            recipients: assembleNotificationRecipients(
+              contacts,
+              payments,
+              telegram,
+            ),
           },
           accounts,
           config.notifications?.quarantineCapacity,

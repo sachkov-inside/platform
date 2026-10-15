@@ -61,6 +61,23 @@ nearest `AGENTS.md` owns task routing and verification commands.
   millisecond often enough to make the rechecking side reject a correct value at random. The
   delivery-command window owns this shape; `notification-wire.test.ts` is its fitness function.
 
+## Collection reads and pagination
+
+- Read collection facts through owner-scoped sets. Deduplicate and chunk IDs to supported bounds;
+  preserve tenant, account, publication and authorization predicates.
+- Measure repeated work at its I/O boundary: owner calls, SQL statements and provider requests are
+  separate counts. `Promise.all` changes concurrency; ORM batching needs actual statement evidence.
+- Keep required locks, ordered writes, checkpoints and provider effects. Batch reusable reads within
+  their valid snapshot; recheck facts at the boundary that commits or dispatches an action.
+- Declare whether a list is complete, paginated, a recent window or a bounded composition. Enforce
+  composition limits at their owner. An internal safety budget cannot silently truncate a complete list.
+- Bound prerequisite reads as well as the returned page. Apply eligibility before a limit when the
+  contract promises eligible results; otherwise preserve continuation through filtered source rows.
+- A cursor preserves filters and a stable total order, including a unique tie-breaker. Every accepted
+  sort-key value must encode into a cursor accepted by request and response schemas.
+- Report traversal failures separately from exhaustion. A filtered empty page with continuation is
+  still traversable. A failed continuation stays retryable; only exhaustion completes traversal.
+
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an

@@ -5,6 +5,7 @@ import {
   ListOrdered,
   RefreshCw,
   Search,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
@@ -25,6 +26,7 @@ import {
 } from "@/shared/routing/material-reader";
 
 import { SERIES_BATCH_SIZE } from "./series-batch";
+import { useProductOnboardingPresentation } from "./product-programme-onboarding.client";
 import { useSeriesLearning } from "./series-learning.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
@@ -60,6 +62,13 @@ export interface CatalogEntry {
 
 export type JourneyPart =
   | {
+      readonly id: "onboarding";
+      readonly kind: "onboarding";
+      readonly label: string;
+      readonly incomplete: boolean;
+      readonly panel: ReactNode;
+    }
+  | {
       readonly chapterCount: number;
       readonly id: "programme";
       readonly kind: "materials";
@@ -76,6 +85,11 @@ export type JourneyPart =
       readonly label: string;
     };
 
+export type ProductOnboardingPanel = Pick<
+  Extract<JourneyPart, { readonly kind: "onboarding" }>,
+  "panel" | "incomplete"
+>;
+
 /**
  * Управление программой в браузере: выбор части, порционный показ уроков, возврат к уроку, из
  * которого читатель пришёл, и отметка продолжения. Содержимое строк приходит готовым с сервера.
@@ -83,13 +97,30 @@ export type JourneyPart =
 export function SeriesJourneyControls({
   currentHref,
   offersAccessRecheck,
-  parts,
+  parts: suppliedParts,
 }: {
   readonly currentHref: Route;
   /** Доступ к части уроков не проверился: читателю предлагается перепроверить его. */
   readonly offersAccessRecheck: boolean;
   readonly parts: readonly JourneyPart[];
 }) {
+  const onboarding = useProductOnboardingPresentation();
+  const parts: readonly JourneyPart[] =
+    onboarding === undefined
+      ? suppliedParts
+      : [
+          ...(onboarding === null || !onboarding.incomplete
+            ? []
+            : [
+                {
+                  id: "onboarding" as const,
+                  kind: "onboarding" as const,
+                  label: "Онбординг",
+                  ...onboarding,
+                },
+              ]),
+          ...suppliedParts.filter((entry) => entry.kind !== "onboarding"),
+        ];
   const search = useSearchParams();
   const router = useRouter();
   const learning = useSeriesLearning();
@@ -98,18 +129,28 @@ export function SeriesJourneyControls({
   const routeRef = useRef<HTMLElement>(null);
   // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
   const requestedCatalog = search.get("part") === "materials";
+  const defaultPart =
+    parts.find((entry) => entry.kind === "onboarding" && entry.incomplete) ??
+    parts.find((entry) => entry.id === "programme") ??
+    parts[0];
   const [selection, setSelection] = useState(() => ({
     id: requestedCatalog
       ? ("supplementary" as const)
       : ((
           parts.find((entry) =>
             partRows(entry).some((row) => row.slug === requestedMaterial),
-          ) ?? parts[0]
+          ) ?? defaultPart
         )?.id ?? "programme"),
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
   }));
-  const part = parts.find(({ id }) => id === selection.id) ?? parts[0];
+  const part = selection.explicit
+    ? (parts.find(({ id }) => id === selection.id) ?? defaultPart)
+    : requestedCatalog
+      ? (parts.find(({ id }) => id === "supplementary") ?? defaultPart)
+      : (parts.find((entry) =>
+          partRows(entry).some((row) => row.slug === requestedMaterial),
+        ) ?? defaultPart);
   const visible = part === undefined ? [] : partRows(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex(
@@ -233,7 +274,12 @@ export function SeriesJourneyControls({
       </h2>
       {parts.length > 1 ? (
         <p aria-live="polite" className="sr-only">
-          {part?.label}: {formatMaterialCount(visible.length)}
+          {part?.label}:{" "}
+          {part?.kind === "onboarding"
+            ? part.incomplete
+              ? "Не завершён"
+              : "Завершён"
+            : formatMaterialCount(visible.length)}
         </p>
       ) : null}
       <div
@@ -241,7 +287,9 @@ export function SeriesJourneyControls({
         id={`series-part-panel-${part?.id ?? "programme"}`}
         className="focus-visible:outline-2 focus-visible:outline-ring"
       >
-        {part?.kind === "catalog" ? (
+        {part?.kind === "onboarding" ? (
+          part.panel
+        ) : part?.kind === "catalog" ? (
           <MaterialCatalog
             accessPending={part.accessPending}
             currentHref={currentHref}
@@ -423,9 +471,11 @@ function partRows(part: JourneyPart): readonly JourneyRow[] {
 }
 
 function partCount(part: JourneyPart): number {
-  return part.kind === "materials"
-    ? partRows(part).length
-    : part.entries.length;
+  return part.kind === "onboarding"
+    ? 0
+    : part.kind === "materials"
+      ? partRows(part).length
+      : part.entries.length;
 }
 
 /** Заголовок раздела: на странице видно, что открыты «Материалы». */
@@ -632,11 +682,13 @@ function MaterialCatalog({
 }
 
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
+  onboarding: Flag,
   programme: ListOrdered,
   supplementary: LayoutGrid,
 };
 /** Labels identify both parts; only the selected mobile label is visible. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
+  onboarding: "Онбординг",
   programme: "Программа",
   supplementary: "Материалы",
 };

@@ -53,7 +53,7 @@ describe("release contract CLI", () => {
     );
   });
 
-  it("accepts the next ordinal release for the captured current main", () => {
+  it("accepts the next ordinal release for the captured main", () => {
     const result = runReleaseContractWithInput(
       "plan",
       readJson("scripts/fixtures/release/plan-v3.json"),
@@ -93,14 +93,14 @@ describe("release contract CLI", () => {
     assert.match(result.stderr, /requested v2, but the next release is v3/u);
   });
 
-  it("rejects a release after main moved beyond the captured SHA", () => {
+  it("rejects a source that differs from provider-captured main", () => {
     const result = runReleaseContract(
       "plan",
       "scripts/fixtures/release/plan-stale-main.json",
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /captured source SHA is not current main/u);
+    assert.match(result.stderr, /captured source SHA is not captured main/u);
   });
 
   it("rejects ordinal history with a missing retained release", () => {

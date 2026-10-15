@@ -4,6 +4,8 @@ status: accepted
 
 # One access-capability vocabulary behind a workspace package
 
+The implicit Product/Support-to-community rule below is superseded by [ADR 0034](0034-product-community-and-product-revocation.md). The shared vocabulary decision remains accepted.
+
 [ADR 0022](0022-community-delivery-state-in-telegram-membership.md) put community access behind a
 bought Guide. Delivering it left the rule with two owners: the server derived it in
 `membership-entitlements`, and the browser derived it again in the billing contract, because a

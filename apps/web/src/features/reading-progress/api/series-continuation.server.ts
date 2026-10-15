@@ -20,9 +20,10 @@ export async function getSeriesContinuation(
     const parsed = seriesContinuationProjectionSchema.safeParse(response.body);
     if (!parsed.success || parsed.data.collection.slug !== slug)
       return { kind: "unavailable" };
-    const { read, total, continuation } = parsed.data;
+    const { read, total, continuation, started } = parsed.data;
     return {
       kind: "ready",
+      ...(started === undefined ? {} : { started }),
       read,
       total,
       continuation:

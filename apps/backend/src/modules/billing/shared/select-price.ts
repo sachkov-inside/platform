@@ -121,6 +121,7 @@ export async function selectPrice(
             percent: best.percent,
           }
         : null,
+      communityPolicy: "explicit",
       currency: "RUB",
       timezone: "Europe/Moscow",
       firstPriceKopecks,

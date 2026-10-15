@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
+import { z } from "zod";
 import {
   Tbank,
   tbankToken,
@@ -58,6 +59,40 @@ describe("concrete bank boundary", () => {
         initiator: "0",
       }),
     ).resolves.toMatchObject({ PaymentURL: paymentUrl, Status: "NEW" });
+  });
+  test("bank returns identify the purchase without browser storage", async () => {
+    const requests: Record<string, unknown>[] = [];
+    const bank = new Tbank(config, (_url, request) => {
+      requests.push(
+        z.record(z.string(), z.unknown()).parse(JSON.parse(request.body)),
+      );
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            TerminalKey: config.terminalKey,
+            OrderId: "purchase-1442",
+            PaymentId: "payment-1442",
+            Amount: 10000,
+            Status: "NEW",
+            Success: true,
+            ErrorCode: "0",
+            PaymentURL: "https://pay.tbank.ru/test",
+          }),
+      });
+    });
+    await bank.init({
+      orderId: "purchase-1442",
+      accountId: "buyer",
+      amount: 10000,
+      name: "Product",
+      email: "buyer@example.test",
+      initiator: "0",
+    });
+    expect(requests[0]).toMatchObject({
+      SuccessURL: "https://example.test/account?purchaseRef=purchase-1442",
+      FailURL: "https://example.test/account?purchaseRef=purchase-1442",
+    });
   });
   test("signature excludes nested receipt/DATA and Token, but binds all scalar fields", () => {
     const payload = {

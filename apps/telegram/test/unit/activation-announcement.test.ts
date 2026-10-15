@@ -61,7 +61,7 @@ describe("the owner's activation announcement", () => {
       ),
     ).toEqual({ status: "ready", text: ACTIVATION_ANNOUNCEMENT_TEXT, button });
     expect(ACTIVATION_ANNOUNCEMENT_TEXT).toContain(
-      "Все участники курса получают доступ",
+      "Участникам группы доступен курс",
     );
     expect(sent).toEqual([]);
   });

@@ -6,7 +6,8 @@ export const purchaseSubscriptionSchema = z.strictObject({
   operationId: idSchema,
   quoteRef: idSchema,
   // Подписка требует оферты и согласия на списания, разовая покупка — только оферты.
-  contactRevision: z.int().positive(),
+  email: z.string().trim().toLowerCase().pipe(z.email().max(254)).optional(),
+  contactRevision: z.int().positive().optional(),
   consentEvidenceRefs: z.array(idSchema).min(1).max(4),
   acknowledgeExistingAccess: z.boolean(),
 });
@@ -18,7 +19,8 @@ export const purchaseStatusSchema = z.strictObject({
   state: attemptStateSchema,
   paymentUrl: z.url().nullable(),
   snapshot: priceSnapshotSchema,
-  access: z.enum(["awaiting_payment", "preparing", "ready"]),
+  access: z.enum(["awaiting_payment", "preparing", "ready", "unavailable"]),
+  refundedKopecks: z.number().int().nonnegative().optional(),
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),

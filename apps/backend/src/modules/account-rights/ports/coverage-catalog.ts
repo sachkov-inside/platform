@@ -10,6 +10,8 @@ type CoverageEntry = z.infer<typeof coverageEntrySchema>;
 export interface CoverageCatalog {
   list(): Promise<CoverageEntry[]>;
   resolve(scope: unknown): Promise<CoverageEntry[]>;
+  /** At most 1000 scopes and 2000 distinct entries; overflow fails explicitly. */
+  resolveMany(scopes: readonly unknown[]): Promise<CoverageEntry[][]>;
 }
 
 export const COVERAGE_CATALOG = Symbol("COVERAGE_CATALOG");

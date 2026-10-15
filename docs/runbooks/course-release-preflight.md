@@ -12,29 +12,26 @@
    от production и точные версии Platform/Telegram. #855 и #806 уже в main; это не подтверждение
    production-приёмки «Сдач». Принятый Reader `501dc62e` и вариант A прототипа не заменяют её.
 2. Collect final-source coverage under the [verification evidence policy](../agents/release-evidence.md).
-   Reuse successful CI and nightly receipts, including cleanup; fill only named missing coverage.
-   Keep independent Standards/Spec review receipts. Submit v2 evidence below; local aggregate runs
+   Reuse applicable successful trusted CI and manual investigation receipts, including cleanup;
+   fill only named missing coverage.
+   Keep independent Standards/Spec review receipts. Submit v3 evidence below; local aggregate runs
    are fallback choices, not mandatory duplicate executions.
 3. Заполнить [техническую форму](../../config/release/course-launch-inputs.example.json) по разделу
    ниже. Секреты и реальные identities остаются в защищённом хранилище. `credentials://` — условные
    ссылки на записи владельца, не встроенный resolver и не свидетельство существования credential.
    Заменить их на фактические защищённые ссылки. Наличие ссылки не подтверждает настройку процесса.
-4. Проверить доступную память (после выкладки не меньше 1 GiB), свободный диск с запасом для WAL,
-   telemetry до 600 MB и четырёх full backup. Предыдущие ресурсные числа #707 — история измерения,
-   а не proof нового production. `pnpm telemetry:measure` повторяет ограниченный ресурсный прогон.
-   Его успешный exit code на release SHA — обязательный receipt `telemetry-resource-budget`.
+4. Проверить доступную память (после выкладки не меньше 1 GiB), свободный диск с запасом для WAL
+   и четырёх full backup. По принятому решению #1430 автоматические telemetry resource measurements
+   и обязательный receipt `telemetry-resource-budget` исключены из текущего preflight v3.
+   Функциональные telemetry tests остаются частью application coverage.
+   `pnpm telemetry:measure` сохранён как ручная диагностика; его результат не является условием выпуска.
    [Cloud-проверка 11 октября](../verification/web-telemetry-707.md#cloud-verification--11-october-2026)
-   не прошла лимит p75; до успешного повторного замера выпуск остаётся blocked.
-   Integration CI сохраняет `telemetry-resource-*` с raw JSON/log, effective CPU/memory, image ID,
-   Docker driver и фактическим checkout SHA. PR artifact может относиться к synthetic merge SHA;
-   для release receipt нужен успешный замер именно release SHA, без переименования старого proof.
+   не прошла лимит p75. Исключение измерения не исправляет исторический failure #1386.
 
-   Owner exception `owner-2026-10-13-1408-v36` excludes only the telemetry resource measurement for
-   payment-fix release v36. Its receipt must bind the manifest's exact Source SHA and contain
-   `exitCode: null`, `outcome: "owner-excluded"` and the exact `authorizationRef`; it must never claim
-   exit 0. Preflight reports `telemetryResourceBudget: "owner-excluded"`. All other check receipts,
-   publication, assets, backup and restore checks remain mandatory. Other releases require the
-   ordinary successful telemetry receipt. See the [CI exception](continuous-integration.md#bounded-payment-launch-telemetry-exception).
+   Исторические receipts v1/v2 сохраняют прежнюю проверку telemetry budget, включая ограниченное
+   исключение `owner-2026-10-13-1408-v36`. Оно обозначает `exitCode: null`,
+   `outcome: "owner-excluded"`, а не успешный замер. Для новых receipts используется v3;
+   publication, assets, backup и isolated restore остаются обязательными.
 
 ## Backup и изолированная проверка восстановления
 
@@ -116,20 +113,34 @@ Docker CLI. Каждый случай
 ## Проверяемый preflight
 
 `pnpm release:course:preflight <evidence.json> <manifest.json> <runtime.tar.gz> [previous-manifest.json]`
-binds v2 `selectedSourceSha` (frozen before publication), exactly one successful receipt per coverage item,
+binds v3 `selectedSourceSha` (frozen before publication), exactly one successful receipt per coverage item,
 publication run, immutable status, bundle hash, `RepoDigests` скачанных образов и binding предыдущего
 manifest. Перед командой выполнить `git fetch origin main:refs/remotes/origin/main`.
 Она ничего не выкладывает и не заменяет host preflight. Evidence — аттестация оператора с raw logs
 по `evidenceRef`; script не может подтвердить содержимое произвольно заполненного receipt.
 
-Evidence v2 uses coverage receipts. Each CI receipt identifies its workflow and job; local fallback
+Evidence v3 uses coverage receipts without a resource-budget gate; v1/v2 remain historical formats.
+Each CI receipt identifies its workflow and job; local fallback
 receipts use `execution: {"kind":"local"}`, and independent reviews use `{"kind":"review"}`.
 The `check` receipt references all four completion phases; integration references parallel and serial
 jobs; Compose references development and production jobs and their cleanup. Preserve actual logs.
 
+For a synthetic queue commit, preserve the actual checked `checks[].sourceSha`; do not replace it
+with `selectedSourceSha`. V3 can include `sourceCorrespondence: {"candidates": [...]}` using the
+provider run/job/artifact inputs of `selectReleaseEvidence` in `scripts/release-source-evidence.mjs`.
+The operator must obtain and verify these inputs against GitHub; preflight checks the same trust,
+coverage and whole-tree rules as release publication, and binds the receipt's workflow run, actual
+source and exact provider job name to the proved run. Aggregate receipts require their complete
+job coverage in that same run, with `execution.job` naming one of its applicable provider jobs. The CLI obtains the selected commit's tree directly from Git. Missing proof,
+a different tree, an untrusted run or incomplete job coverage fails the receipt. Direct API callers
+must supply `selectedSourceTreeSha` from the selected immutable source, rather than copying the
+candidate's tree. Standards/Spec review receipts still require the selected commit itself.
+This manual receipt remains an operator attestation, not a live GitHub provider query.
+
+
 ```json
 {
-  "schemaVersion": "inside.course-release-preflight.v2",
+  "schemaVersion": "inside.course-release-preflight.v3",
   "selectedSourceSha": "<frozen-release-40-hex>",
   "checks": [
     {"name":"check","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<raw-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
@@ -140,8 +151,7 @@ jobs; Compose references development and production jobs and their cleanup. Pres
     {"name":"standards","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>","execution":{"kind":"review"}},
     {"name":"spec","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<review>","execution":{"kind":"review"}},
     {"name":"ci","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
-    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}},
-    {"name":"telemetry-resource-budget","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<telemetry-measure-log>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}}
+    {"name":"fullstack","sourceSha":"<40-hex>","exitCode":0,"evidenceRef":"<run-url>","execution":{"kind":"ci","workflowRunId":1,"job":"<actual-job>","conclusion":"success"}}
   ],
   "publication": {"sourceSha":"<40-hex>","workflowRunId":1,"immutable":true,"succeeded":true},
   "backup": {"label":"<label>","finishedAt":"<UTC-ISO>","checkExitCode":0},
@@ -201,3 +211,9 @@ Binding key сохраняется между выпусками, иначе р�
 
 RKN #856 и оферта #780 закрыты; повторного согласования цены/юридических решений здесь нет.
 Отчёт отличает подготовленный код, merge, actual deploy, публикацию content и public-sale GO.
+
+Полный CI receipt и receipt `check` используют нормализованные application stage IDs из
+`scripts/ci-coverage-plan.mjs`: Static включает `docs:check`, Unit включает `test:tooling` и
+root `test:contracts` через `check:contracts`. Отдельные focused jobs `docs`/`contracts` не нужны
+вместе с этими stage IDs. Их команды остаются самостоятельными для документационных и
+instruction-only планов; package-command contract проверяет сохранение покрывающих команд.

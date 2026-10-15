@@ -1882,3 +1882,35 @@ model ProductTaskAuthorFeedback {
   @@map("author_feedback")
   @@schema("product_tasks")
 }
+
+model ProductCommunity {
+  productId String @id @map("product_id") @db.Uuid
+  groupRef String? @map("group_ref") @db.VarChar(100)
+  updatedBy String @map("updated_by") @db.Uuid
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("product_communities")
+  @@schema("telegram_membership")
+}
+
+model ProductAccessExclusion {
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  grantIds String[] @map("grant_ids") @db.Uuid
+  bridge Boolean @default(false)
+  actorId String @map("actor_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  revokedAt DateTime @map("revoked_at") @db.Timestamptz
+  @@id([accountId, productId])
+  @@map("product_access_exclusions")
+  @@schema("account_rights")
+}
+
+model ProductLearningStarted {
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  startedAt DateTime @map("started_at") @db.Timestamptz
+  @@id([accountId, productId])
+  @@map("product_learning_started")
+  @@schema("reading_activity")
+}

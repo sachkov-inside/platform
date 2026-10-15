@@ -17,6 +17,30 @@ const event = fixtures.find(
 const command = fixtures.find(
   (fixture) => fixture.valid && fixture.definition === "telegramDelivery",
 )?.value;
+test("order email uses v2 only on the subscription email lane", () => {
+  const email = fixtures.find(
+    (fixture) => fixture.valid && fixture.definition === "emailDelivery",
+  )?.value;
+  const order = {
+    ...email,
+    contractVersion: "inside.notification-delivery.v2",
+    content: { category: "subscription", kind: "payment_succeeded" },
+  };
+  expect(encodeNotification("emailSubscription", order).version).toBe(
+    "inside.notification-delivery.v2",
+  );
+  expect(() => encodeNotification("emailMaterial", order)).toThrow();
+  expect(() => encodeNotification("telegramSubscription", order)).toThrow();
+  expect(() =>
+    encodeNotification("emailSubscription", {
+      ...order,
+      email: "raw@example.test",
+    }),
+  ).toThrow("invalid_notification");
+  expect(encodeNotification("emailMaterial", email).version).toBe(
+    "inside.notification-delivery.v1",
+  );
+});
 test("wire boundary rejects unknown fields and a trusted exchange cannot relabel another source", () => {
   expect(() =>
     encodeNotification("billing", { ...event, unexpected: true }),

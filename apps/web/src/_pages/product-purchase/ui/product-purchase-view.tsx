@@ -36,6 +36,8 @@ export interface ProductPurchaseViewProps {
   readonly preorder?: PreorderTerms | null;
   /** Оформление покупки участника: страница сама его не собирает. */
   readonly children?: ReactNode;
+  readonly progress?: ReactNode;
+  readonly hasPurchase?: boolean;
 }
 
 /**
@@ -54,6 +56,8 @@ export function ProductPurchaseView({
   offerId,
   preorder = null,
   children,
+  progress,
+  hasPurchase = false,
 }: ProductPurchaseViewProps) {
   const programmeHref = productProgrammeHref(slug);
 
@@ -76,6 +80,7 @@ export function ProductPurchaseView({
         </Link>
       </nav>
 
+      <div className="mt-6">{progress}</div>
       <h1
         className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl"
         data-purchase-part="title"
@@ -84,7 +89,9 @@ export function ProductPurchaseView({
       </h1>
 
       <div className="mt-6">
-        {unavailable ? (
+        {hasPurchase ? (
+          children
+        ) : unavailable ? (
           <p
             className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
             role="status"
@@ -148,19 +155,6 @@ function GuestPurchase({
       {preorder === null ? null : (
         <StartCountdownBadge text={preorder.daysLeft} />
       )}
-      <ol
-        aria-label="Шаги покупки"
-        className="grid grid-cols-2 gap-2 text-xs font-semibold"
-      >
-        <li aria-current="step" className="grid gap-1.5">
-          <span aria-hidden="true" className="h-1 rounded-full bg-foreground" />
-          1. Вход
-        </li>
-        <li className="grid gap-1.5 text-muted-foreground">
-          <span aria-hidden="true" className="h-1 rounded-full bg-muted" />
-          2. Оплата
-        </li>
-      </ol>
 
       <div className="mt-6 flex items-center justify-between gap-3 sm:mt-7">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">

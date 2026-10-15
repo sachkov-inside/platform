@@ -860,5 +860,152 @@
       },
       "subject": "Title\r\nBcc: forbidden@example.test"
     }
+  },
+  {
+    "name": "order-email",
+    "definition": "orderEmailDelivery",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v2",
+      "operationId": "00000000-0000-4000-8000-000000000011",
+      "notificationRef": "00000000-0000-4000-8000-000000000009",
+      "deliveryRef": "00000000-0000-4000-8000-000000000012",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000003",
+      "content": {
+        "category": "subscription",
+        "kind": "payment_succeeded"
+      },
+      "templateRef": "new-material",
+      "templateRevision": 1,
+      "text": "Новый материал: https://inside.example/materials/example",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "email",
+        "accountRef": "account-example",
+        "contactRef": "00000000-0000-4000-8000-000000000013",
+        "contactRevision": 1
+      },
+      "subject": "Новый материал Inside"
+    }
+  },
+  {
+    "name": "order-email-material",
+    "definition": "orderEmailDelivery",
+    "valid": false,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v2",
+      "operationId": "00000000-0000-4000-8000-000000000011",
+      "notificationRef": "00000000-0000-4000-8000-000000000009",
+      "deliveryRef": "00000000-0000-4000-8000-000000000012",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000003",
+      "content": {
+        "category": "material",
+        "kind": "material_published"
+      },
+      "templateRef": "new-material",
+      "templateRevision": 1,
+      "text": "Новый материал: https://inside.example/materials/example",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "email",
+        "accountRef": "account-example",
+        "contactRef": "00000000-0000-4000-8000-000000000013",
+        "contactRevision": 1
+      },
+      "subject": "Новый материал Inside"
+    }
+  },
+  {
+    "name": "order-email-raw-address",
+    "definition": "orderEmailDelivery",
+    "valid": false,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v2",
+      "operationId": "00000000-0000-4000-8000-000000000011",
+      "notificationRef": "00000000-0000-4000-8000-000000000009",
+      "deliveryRef": "00000000-0000-4000-8000-000000000012",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000003",
+      "content": {
+        "category": "subscription",
+        "kind": "payment_succeeded"
+      },
+      "templateRef": "new-material",
+      "templateRevision": 1,
+      "text": "Новый материал: https://inside.example/materials/example",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "email",
+        "accountRef": "account-example",
+        "contactRef": "00000000-0000-4000-8000-000000000013",
+        "contactRevision": 1
+      },
+      "subject": "Новый материал Inside",
+      "email": "buyer@example.test"
+    }
+  },
+  {
+    "name": "order-email-telegram",
+    "definition": "orderEmailDelivery",
+    "valid": false,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v2",
+      "operationId": "00000000-0000-4000-8000-000000000011",
+      "notificationRef": "00000000-0000-4000-8000-000000000009",
+      "deliveryRef": "00000000-0000-4000-8000-000000000012",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000003",
+      "content": {
+        "category": "subscription",
+        "kind": "payment_succeeded"
+      },
+      "templateRef": "new-material",
+      "templateRevision": 1,
+      "text": "Новый материал: https://inside.example/materials/example",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "telegram",
+        "accountRef": "account-example",
+        "telegramIdentityRef": "identity-example",
+        "linkRef": "00000000-0000-4000-8000-000000000007",
+        "linkRevision": 1
+      },
+      "subject": "Новый материал Inside"
+    }
+  },
+  {
+    "name": "order-email-mutated-revision",
+    "definition": "orderEmailDelivery",
+    "valid": false,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v2",
+      "operationId": "00000000-0000-4000-8000-000000000011",
+      "notificationRef": "00000000-0000-4000-8000-000000000009",
+      "deliveryRef": "00000000-0000-4000-8000-000000000012",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000003",
+      "content": {
+        "category": "subscription",
+        "kind": "payment_succeeded"
+      },
+      "templateRef": "new-material",
+      "templateRevision": 1,
+      "text": "Новый материал: https://inside.example/materials/example",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "email",
+        "accountRef": "account-example",
+        "contactRef": "00000000-0000-4000-8000-000000000013",
+        "contactRevision": 2
+      },
+      "subject": "Новый материал Inside"
+    }
   }
 ]

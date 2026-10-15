@@ -10,6 +10,8 @@ import {
   type SubscriptionView,
 } from "@/entities/subscription";
 
+import { ProductAccessList } from "./product-access-list";
+import { ProductPurchases } from "./product-purchases";
 import { BillingHistory } from "./billing-history.client";
 import { BillingSectionError } from "./billing-section-error.client";
 import { BillingSignIn } from "./billing-sign-in";
@@ -64,20 +66,35 @@ export function PurchasesSectionView({
 
   return (
     <div className="grid gap-6">
-      <SubscriptionGrounds
-        grounds={grounds}
-        loading={loading}
-        storefrontHref={storefrontHref}
-      />
+      {grounds.some(
+        (ground) =>
+          ground.content?.some((entry) => entry.kind === "product") === true,
+      ) ? (
+        <ProductAccessList grounds={grounds} />
+      ) : (
+        <SubscriptionGrounds
+          grounds={grounds}
+          loading={loading}
+          storefrontHref={storefrontHref}
+        />
+      )}
+      <ProductPurchases payments={payments} />
       {communitySlot}
       {contactSlot}
-      <PaymentMethodCard
-        onChangeMethod={onChangeMethod}
-        onRevokeMethod={onRevokeMethod}
-        pending={pending}
-        subscription={subscription}
-      />
-      <BillingHistory notices={notices} payments={payments} />
+      {subscription === null ? null : (
+        <PaymentMethodCard
+          onChangeMethod={onChangeMethod}
+          onRevokeMethod={onRevokeMethod}
+          pending={pending}
+          subscription={subscription}
+        />
+      )}
+      <details className="text-sm">
+        <summary className="min-h-11 cursor-pointer font-semibold">
+          История оплат, чеки и возвраты
+        </summary>
+        <BillingHistory notices={notices} payments={payments} />
+      </details>
       <p className="text-sm text-muted-foreground">
         Для возврата обратитесь к продавцу:{" "}
         <a className="underline" href={`mailto:${legalSeller.email}`}>

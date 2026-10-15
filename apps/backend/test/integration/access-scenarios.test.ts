@@ -521,6 +521,14 @@ describe("таблица сценариев доступа (реальный Pos
       summary: "",
     });
     if (!created.ok) throw new Error(created.error.code);
+    await db.prisma.productCommunity.create({
+      data: {
+        productId: created.value.id,
+        groupRef: "primary",
+        updatedBy: owner,
+        updatedAt: now,
+      },
+    });
     return created.value.id;
   }
   function metadataFor(
@@ -613,9 +621,10 @@ describe("таблица сценариев доступа (реальный Pos
           name: "Продукт сценариев",
           ...(terms === undefined
             ? {
-                benefits: [capability, "support"],
+                benefits: [capability, "community", "support"],
                 benefitPeriods: [
                   { capability, months: null },
+                  { capability: "community", months: null },
                   { capability: "support", months: 6 },
                 ],
               }
@@ -1054,7 +1063,7 @@ describe("таблица сценариев доступа (реальный Pos
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [productRight],
+            capabilities: [productRight, "community"],
             startsAt: startedAt,
             validUntil: null,
             reason: "Прямое право на продукт",
@@ -1615,10 +1624,10 @@ describe("таблица сценариев доступа (реальный Pos
       bridgeCoverage: { productIds: [], materialIds: [], wholePlatform: true },
       bridgeBenefits: ["materials", "community"],
     });
-    // Мост с сопровождением, но без отдельного `community`: общую группу открывает само сопровождение.
+    // Historical bridge rights include the community capability materialized by migration.
     await db.prisma.legacyClassification.update({
       where: { accountId: member.account },
-      data: { bridgeBenefits: ["materials", "support"] },
+      data: { bridgeBenefits: ["materials", "support", "community"] },
     });
     await observeMembership(member, "member", 1);
     expect(await observe("support", member.account)).toEqual(
@@ -1804,7 +1813,7 @@ describe("таблица сценариев доступа (реальный Pos
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [productRight],
+            capabilities: [productRight, "community"],
             startsAt: startedAt,
             validUntil: null,
             reason: "Покупатель архивного руководства",

@@ -96,7 +96,6 @@ export function decodeNotification(
     message.fields.exchange !== route.exchange ||
     message.fields.routingKey !== route.key ||
     message.properties.contentType !== "application/json" ||
-    message.properties.type !== route.version ||
     message.properties.deliveryMode !== 2
   )
     throw new Error("invalid_transport");
@@ -104,6 +103,8 @@ export function decodeNotification(
     new TextDecoder("utf-8", { fatal: true }).decode(message.content),
   );
   const envelope = encodeNotification(lane, payload);
+  if (message.properties.type !== envelope.version)
+    throw new Error("invalid_transport");
   if (message.properties.messageId !== envelope.messageId)
     throw new Error("message_id_mismatch");
   return envelope;

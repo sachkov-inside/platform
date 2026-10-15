@@ -96,7 +96,7 @@ test("preflight refuses checks from another SHA and a failed Compose shutdown", 
   assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
 });
 
-test("preflight requires the telemetry resource budget before a release", () => {
+test("legacy v1 preflight preserves the historical telemetry resource requirement", () => {
   const missing = fixture();
   missing.evidence.checks = missing.evidence.checks.filter(
     (receipt) => receipt.name !== "telemetry-resource-budget",
@@ -361,4 +361,205 @@ test("v2 freezes selected source while main advances and refuses mismatching pro
   const legacy = fixture();
   legacy.currentMainSha = "c".repeat(40);
   assert.throws(() => assessCourseRelease(legacy, now), /selected source/u);
+});
+
+function activeFixture() {
+  const input = ciFixture();
+  input.evidence.schemaVersion = "inside.course-release-preflight.v3";
+  input.evidence.checks = input.evidence.checks.filter(
+    (receipt) => receipt.name !== "telemetry-resource-budget",
+  );
+  return input;
+}
+
+test("v3 admits complete functional coverage without a telemetry resource measurement", () => {
+  const input = activeFixture();
+  input.currentMainSha = "c".repeat(40);
+  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+});
+
+test("v3 still requires functional coverage, successful cleanup and bound assets", () => {
+  for (const name of [
+    "integration",
+    "enrollment",
+    "buyer-journey",
+    "fullstack",
+  ]) {
+    const input = activeFixture();
+    input.evidence.checks = input.evidence.checks.filter(
+      (check) => check.name !== name,
+    );
+    assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  }
+  const cleanup = activeFixture();
+  const receipt = cleanup.evidence.checks.find(
+    (check) => check.name === "compose-smoke-shutdown",
+  );
+  assert.ok(receipt);
+  receipt.exitCode = 1;
+  assert.throws(() => assessCourseRelease(cleanup, now), /check evidence/u);
+  const image = activeFixture();
+  image.imageDigests.web = [];
+  assert.throws(() => assessCourseRelease(image, now), /image digest/u);
+  const backup = activeFixture();
+  backup.evidence.restore.backupLabel = "another-backup";
+  assert.throws(() => assessCourseRelease(backup, now), /restore evidence/u);
+});
+
+test("v3 cannot reintroduce a resource budget receipt or disguise a stale source", () => {
+  const resource = activeFixture();
+  const historic = ciFixture().evidence.checks.find(
+    (check) => check.name === "telemetry-resource-budget",
+  );
+  assert.ok(historic);
+  resource.evidence.checks.push(historic);
+  assert.throws(
+    () => assessCourseRelease(resource, now),
+    /invalid preflight evidence/u,
+  );
+  const stale = activeFixture();
+  stale.evidence.selectedSourceSha = "c".repeat(40);
+  assert.throws(() => assessCourseRelease(stale, now), /selected source/u);
+});
+
+function correspondenceFixture() {
+  const input = activeFixture();
+  const actualSha = "d".repeat(40);
+  const treeSha = "e".repeat(40);
+  const receipt = input.evidence.checks.find(
+    (check) => check.name === "fullstack",
+  );
+  assert.ok(receipt);
+  receipt.sourceSha = actualSha;
+  receipt.execution.workflowRunId = 567;
+  receipt.execution.job = "Full-stack smoke";
+  const candidate = {
+    provider: {
+      id: 567,
+      run_attempt: 1,
+      repository: { full_name: "sachkov-inside/platform" },
+      path: ".github/workflows/ci.yml",
+      event: "merge_group",
+      head_branch: "gh-readonly-queue/main/pr-1430",
+      head_sha: actualSha,
+      status: "completed",
+      conclusion: "success",
+    },
+    providerArtifactName: "ci-source-evidence-1",
+    providerTreeSha: treeSha,
+    providerJobs: [
+      "Full-stack smoke",
+      "CI Gate",
+      "Coverage plan (isolated reruns)",
+    ].map((name, index) => ({
+      id: index + 1,
+      run_id: 567,
+      run_attempt: 1,
+      head_sha: actualSha,
+      name,
+      status: "completed",
+      conclusion: "success",
+    })),
+    evidence: {
+      schemaVersion: 1,
+      repository: "sachkov-inside/platform",
+      sourceSha: actualSha,
+      treeSha,
+      eventName: "merge_group",
+      runId: 567,
+      runAttempt: 1,
+      selectedCoverage: ["fullstack"],
+      successfulCoverage: ["fullstack"],
+    },
+  };
+  return {
+    ...input,
+    selectedSourceTreeSha: treeSha,
+    evidence: {
+      ...input.evidence,
+      sourceCorrespondence: { candidates: [candidate] },
+    },
+  };
+}
+
+test("v3 preserves actual queue source and accepts verified complete tree correspondence", () => {
+  const input = correspondenceFixture();
+  assert.equal(assessCourseRelease(input, now).sourceSha, sha);
+  assert.equal(
+    input.evidence.checks.find((check) => check.name === "fullstack")
+      ?.sourceSha,
+    "d".repeat(40),
+  );
+});
+
+/** @param {ReturnType<typeof correspondenceFixture>} input */
+function correspondenceCandidate(input) {
+  const candidate = input.evidence.sourceCorrespondence.candidates[0];
+  assert.ok(candidate);
+  return candidate;
+}
+
+test("v3 rejects absent correspondence, wrong tree and untrusted provider facts", () => {
+  const absent = correspondenceFixture();
+  const { sourceCorrespondence: _proof, ...withoutProof } = absent.evidence;
+  assert.throws(
+    () => assessCourseRelease({ ...absent, evidence: withoutProof }, now),
+    /check evidence/u,
+  );
+  const { selectedSourceTreeSha: _tree, ...withoutTree } = absent;
+  assert.throws(() => assessCourseRelease(withoutTree, now), /check evidence/u);
+  /** @type {Array<(input: ReturnType<typeof correspondenceFixture>) => void>} */
+  const mutations = [
+    (input) => {
+      input.selectedSourceTreeSha = "f".repeat(40);
+    },
+    (input) => {
+      correspondenceCandidate(input).provider.event = "pull_request";
+    },
+    (input) => {
+      correspondenceCandidate(input).providerArtifactName =
+        "ci-source-evidence-2";
+    },
+    (input) => {
+      const job = correspondenceCandidate(input).providerJobs[0];
+      assert.ok(job);
+      job.conclusion = "failure";
+    },
+    (input) => {
+      correspondenceCandidate(input).evidence.sourceSha = sha;
+    },
+    (input) => {
+      correspondenceCandidate(input).evidence.successfulCoverage = [];
+    },
+    (input) => {
+      const receipt = input.evidence.checks.find(
+        (check) => check.name === "fullstack",
+      );
+      assert.ok(receipt);
+      receipt.execution.job = "Unit tests";
+    },
+    (input) => {
+      const receipt = input.evidence.checks.find(
+        (check) => check.name === "fullstack",
+      );
+      assert.ok(receipt);
+      receipt.execution.workflowRunId = 999;
+    },
+  ];
+  for (const mutate of mutations) {
+    const input = correspondenceFixture();
+    mutate(input);
+    assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  }
+});
+
+test("v3 cannot use a fullstack proof for aggregate checks or reviews from another source", () => {
+  for (const name of ["check", "standards", "spec"]) {
+    const input = correspondenceFixture();
+    const receipt = input.evidence.checks.find((check) => check.name === name);
+    assert.ok(receipt);
+    receipt.sourceSha = "d".repeat(40);
+    receipt.execution.workflowRunId = 567;
+    assert.throws(() => assessCourseRelease(input, now), /check evidence/u);
+  }
 });

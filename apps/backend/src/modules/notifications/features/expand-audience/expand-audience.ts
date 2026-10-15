@@ -229,7 +229,9 @@ async function readAudienceFacts(
     for (const channel of ["email", "telegram"] as const)
       bindings.set(
         bindingKey(accountId, channel),
-        await settle(() => deps.recipients.binding(accountId, channel)),
+        await settle(() =>
+          deps.recipients.binding(accountId, channel, source.value),
+        ),
       );
   }
   return { after, source, accounts, access, bindings };
@@ -391,7 +393,11 @@ async function expandRow(
       if (!binding) continue;
       const template = renderNotification(source, origin);
       const command = deliverySchema.parse({
-        contractVersion: "inside.notification-delivery.v1",
+        contractVersion:
+          binding.channel === "email" &&
+          binding.contactRef === source.purchaseRef
+            ? "inside.notification-delivery.v2"
+            : "inside.notification-delivery.v1",
         operationId: randomUUID(),
         notificationRef: notification.id,
         deliveryRef: delivery.id,

@@ -111,6 +111,7 @@ export type BillingNoticeSource =
       readonly accountId: string;
       readonly title: string;
       readonly readerPath: string;
+      readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
     };
@@ -166,6 +167,7 @@ export class BillingNotices {
       if (!stored.success) return { status: "superseded" };
       const readerPath = await this.currentReaderPath(notice, now);
       if (readerPath === undefined) return { status: "superseded" };
+      const purchaseRef = await this.purchaseOfNotice(notice);
       return {
         status: "current",
         event: stored.data,
@@ -176,6 +178,7 @@ export class BillingNotices {
         accountId: notice.accountId,
         title: notice.title,
         readerPath,
+        ...(purchaseRef === undefined ? {} : { purchaseRef }),
         ...(notice.amountKopecks === null
           ? {}
           : { amountMinor: Number(notice.amountKopecks) }),
@@ -188,6 +191,33 @@ export class BillingNotices {
         { status: "unavailable" },
       );
     }
+  }
+
+  private async purchaseOfNotice(
+    notice: NoticeRow,
+  ): Promise<string | undefined> {
+    if (notice.sourceRef.startsWith("payment:"))
+      return z.uuid().parse(notice.sourceRef.slice("payment:".length));
+    if (notice.sourceRef.startsWith("refund:")) {
+      const refund = await this.dependencies.prisma.billingRefund.findFirst({
+        where: {
+          id: z.uuid().parse(notice.sourceRef.slice("refund:".length)),
+          decision: { accountId: notice.accountId },
+        },
+        select: { purchaseRef: true },
+      });
+      return refund?.purchaseRef;
+    }
+    if (notice.subscriptionRef === null) return undefined;
+    const purchase = await this.dependencies.prisma.billingPurchase.findFirst({
+      where: {
+        accountId: notice.accountId,
+        subscriptionRef: notice.subscriptionRef,
+        kind: "initial",
+      },
+      select: { id: true },
+    });
+    return purchase?.id;
   }
 
   /**

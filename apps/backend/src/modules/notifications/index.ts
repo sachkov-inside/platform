@@ -12,3 +12,4 @@ export type {
   NotificationSource,
   SendNotificationEmail,
 } from "./ports/notification-sources.js";
+export { assembleNotificationRecipients } from "./assemble-notification-recipients.js";

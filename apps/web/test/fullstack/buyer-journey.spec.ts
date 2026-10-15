@@ -1,7 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { z } from "zod";
 
 import { fullStackBrowserRequest } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import {
+  evidencePath,
+  prepareEvidenceDirectory,
+} from "../../../../scripts/evidence-path.mjs";
 
 /**
  * Путь покупателя курса целиком (Workspace #238, Platform #775): страница продукта, вход через
@@ -66,7 +72,7 @@ test("покупатель курса проходит путь от стран�
 }, info) => {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
-  const { controlUrl, slug } = stand();
+  const { slug } = stand();
   const telegramUserId =
     info.project.name === "mobile-chromium" ? "775000002" : "775000001";
   const email = `buyer-${telegramUserId}@inside.test`;
@@ -94,28 +100,60 @@ test("покупатель курса проходит путь от стран�
   await expect(page.locator(accessRequired).first()).toBeVisible();
   await expect(page.getByText(paidBody)).toHaveCount(0);
 
-  // Покупка на тестовом терминале: чек уходит на подтверждённый email.
+  // Telegram buyer pays with an order email and never starts confirmation.
+  const contactMutations: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      path.endsWith("/billing/contact/start") ||
+      path.endsWith("/billing/contact/confirm")
+    )
+      contactMutations.push(path);
+  });
   await page.goto(`/products/${slug}/buy`);
-  await page.getByRole("link", { name: "Подтвердить его в кабинете" }).click();
-  await page.getByLabel("Email", { exact: true }).fill(email);
-  await page.getByRole("button", { name: "Получить код", exact: true }).click();
-  await page.getByLabel("Код из письма").waitFor();
-  const codeResponse = await page.request.get(
-    `${controlUrl}/control/contact-code?email=${encodeURIComponent(email)}`,
-  );
-  expect(codeResponse.status()).toBe(200);
-  const { code } = z
-    .object({ code: z.string() })
-    .parse(await codeResponse.json());
-  await page.getByLabel("Код из письма").fill(code);
-  await page
-    .getByRole("button", { name: "Подтвердить email", exact: true })
-    .click();
+  const pay = page.getByRole("button", { name: /^Оплатить/u });
+  await expect(pay).toBeEnabled();
+  await pay.click();
+  const emailInput = page.getByRole("textbox", { name: "Email" });
+  await expect(emailInput).toBeFocused();
+  await expect(emailInput).toHaveAttribute("aria-invalid", "true");
+  await emailInput.fill("broken");
+  await pay.click();
   await expect(
-    page.getByText("Email подтверждён.", { exact: true }),
-  ).toBeVisible();
-  await page.goto(`/products/${slug}/buy`);
-  await page.getByRole("button", { name: /^Оплатить/u }).click();
+    page.getByRole("form", { name: "Оплата продукта" }).getByRole("alert"),
+  ).toContainText("Проверьте email");
+  await emailInput.fill(email);
+  await expect(emailInput).toHaveAttribute("aria-invalid", "false");
+  expect(
+    (
+      await new AxeBuilder({ page })
+        .include("form[aria-labelledby]")
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze()
+    ).violations,
+  ).toEqual([]);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth ===
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  await prepareEvidenceDirectory("issue-1401");
+  const cookieNotice = page.getByRole("button", {
+    name: "Понятно",
+    exact: true,
+  });
+  if (await cookieNotice.isVisible()) await cookieNotice.click();
+  await emailInput.blur();
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1401", `${info.project.name}-checkout.png`),
+  });
+  await prepareEvidenceDirectory("issue-1442");
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-checkout.png`),
+  });
+  await pay.click();
   await page.getByRole("button", { name: "Оплата прошла" }).click();
 
   // После оплаты материалы курса открыты.
@@ -132,7 +170,9 @@ test("покупатель курса проходит путь от стран�
 
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
-  await expect(page.getByText("Общий чат").first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Ваши продукты" }),
+  ).toBeVisible();
   const billingResponse = await fullStackBrowserRequest(
     page,
     "/api/account/billing",
@@ -167,5 +207,26 @@ test("покупатель курса проходит путь от стран�
     ),
   ).toBe(true);
   expect(termOf("support")).toEqual(expect.any(String));
+  const contactResponse = await fullStackBrowserRequest(
+    page,
+    "/api/account/billing/contact",
+  );
+  expect(
+    z.object({ contact: z.null() }).parse(await contactResponse.json()).contact,
+  ).toBeNull();
+  await screenshotWholePage(page, {
+    path: evidencePath("issue-1442", `${info.project.name}-live-purchases.png`),
+  });
+  await page.goto(`/products/${slug}/programme`);
+  await expect(
+    page.getByRole("button", { name: "Онбординг", exact: true }).first(),
+  ).toBeVisible();
+  await screenshotWholePage(page, {
+    path: evidencePath(
+      "issue-1442",
+      `${info.project.name}-live-onboarding.png`,
+    ),
+  });
+  expect(contactMutations).toEqual([]);
   expect(browserErrors).toEqual([]);
 });

@@ -925,7 +925,9 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Назад к программе" }),
   ).toHaveCount(0);
-  await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
+  await expect(
+    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
+  ).not.toContainText("· №");
 
   await expect(page).toHaveTitle(
     "Как устроен Inside Platform · Sachkov Inside",

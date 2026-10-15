@@ -2,7 +2,7 @@ import { communityGroupUrlSchema } from "@inside/contracts/community-result";
 import { z } from "zod";
 
 /**
- * Какой переход в сообщество Inside показать покупателю. Правило выбирает сервер: интерфейс
+ * Какой шаг сообщества продукта показать покупателю. Правило выбирает сервер: интерфейс
  * только называет состояние и не выводит его из прав или связи с Telegram сам.
  */
 export const communityEntrySchema = z.discriminatedUnion("kind", [

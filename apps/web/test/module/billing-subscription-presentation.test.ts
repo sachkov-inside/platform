@@ -77,7 +77,7 @@ describe("состав доступа", () => {
     expect(line?.term).toBeNull();
   });
 
-  it("называет общий чат, который открывает сам купленный продукт", () => {
+  it("не добавляет сообщество к продукту и сопровождению", () => {
     expect(
       benefitLines(productWithSupportOffer).map((line) => [
         line.label,
@@ -86,11 +86,10 @@ describe("состав доступа", () => {
     ).toEqual([
       ["Отдельный продукт", null],
       ["Вопросы автору и эфиры", "3 месяца"],
-      ["Общий чат", null],
     ]);
   });
 
-  it("даёт выведенному чату срок самого долгого продукта предложения", () => {
+  it("называет срок продукта без добавления сообщества", () => {
     const lines = benefitLines({
       offer: {
         ...productOnlyOffer.offer,
@@ -98,10 +97,10 @@ describe("состав доступа", () => {
       },
       paymentOption: productOnlyOffer.paymentOption,
     });
-    expect(lines.map((line) => line.term)).toEqual(["6 месяцев", "6 месяцев"]);
+    expect(lines.map((line) => line.term)).toEqual(["6 месяцев"]);
   });
 
-  it("не удваивает объявленный чат и держит его дольше короткого срока состава", () => {
+  it("сохраняет собственный срок явно включённого сообщества", () => {
     const offer = {
       ...productOnlyOffer.offer,
       benefits: [productBenefit, "community" as const],
@@ -122,11 +121,11 @@ describe("состав доступа", () => {
       }).map((line) => [line.label, line.term]),
     ).toEqual([
       ["Отдельный продукт", null],
-      ["Общий чат", null],
+      ["Сообщество продукта", "3 месяца"],
     ]);
   });
 
-  it("держит чат по самому долгому сроку, когда оба основания срочные", () => {
+  it("не продлевает срок сообщества сроком продукта", () => {
     const lines = benefitLines({
       offer: {
         ...productOnlyOffer.offer,
@@ -140,7 +139,7 @@ describe("состав доступа", () => {
     });
     expect(lines.map((line) => [line.label, line.term])).toEqual([
       ["Отдельный продукт", "6 месяцев"],
-      ["Общий чат", "6 месяцев"],
+      ["Сообщество продукта", "3 месяца"],
     ]);
   });
 
@@ -234,7 +233,7 @@ describe("состояния и ошибки", () => {
 describe("состав предложения", () => {
   it("называет продукт с сопровождением по-русски", () => {
     expect(offerCompositionLabel(productWithSupportOffer.offer)).toBe(
-      "Продукт с сопровождением и общим чатом",
+      "Продукт с сопровождением",
     );
   });
 
@@ -243,14 +242,12 @@ describe("состав предложения", () => {
   });
 
   it("называет чат и тогда, когда его открывает сам продукт", () => {
-    expect(offerCompositionLabel(productOnlyOffer.offer)).toBe(
-      "Продукт с общим чатом",
-    );
+    expect(offerCompositionLabel(productOnlyOffer.offer)).toBe("Продукт");
   });
 
   it("перечисление разделяет запятой, а союз ставит только перед последним", () => {
     expect(offerCompositionLabel(supportOffer.offer)).toBe(
-      "Все материалы с сопровождением и общим чатом",
+      "Все материалы с сопровождением и сообществом продукта",
     );
   });
 
@@ -263,7 +260,7 @@ describe("состав предложения", () => {
       ],
     };
     expect(offerCompositionLabel(offer)).toBe(
-      "Продукт со всеми материалами, сопровождением и общим чатом",
+      "Продукт со всеми материалами и сопровождением",
     );
   });
 

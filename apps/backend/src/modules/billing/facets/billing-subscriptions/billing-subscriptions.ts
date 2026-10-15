@@ -100,7 +100,10 @@ interface Dependencies {
     AccessGrants,
     "readLegacyClassification" | "readOwnAccess" | "readPurchaseGrounds"
   >;
-  readonly payments: Pick<BillingPayments, "dispatch" | "status" | "history">;
+  readonly payments: Pick<
+    BillingPayments,
+    "dispatch" | "status" | "history" | "subscriptionEmail"
+  >;
   readonly notices: Pick<BillingNotices, "readNotices">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
@@ -213,7 +216,6 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const contact = await this.dependencies.contact.read(accountId);
     if (!contact.ok) return paymentFailure("dependency_unavailable");
-    if (!contact.contact) return paymentFailure("contact_required");
     const accepted = await acceptRecurringConsent(
       this.dependencies.contact,
       accountId,
@@ -373,7 +375,6 @@ export class BillingSubscriptions {
     const { prisma, bank, payments } = this.dependencies;
     // Контакт чека и основания допуска читаются до открытия транзакции: замки не удерживаются
     // на чужом чтении.
-    const verified = await this.dependencies.contact.read(accountId);
     const grounds = await readPurchaseGrounds(
       this.dependencies.grants,
       accountId,
@@ -397,6 +398,14 @@ export class BillingSubscriptions {
           return paymentFailure("operation_conflict");
         accepted = changeReceiptSchema.parse(previous.result);
       }
+      const quoted = await prisma.billingChangeQuote.findFirst({
+        where: { id: command.changeQuoteRef, accountId },
+        select: { subscriptionRef: true },
+      });
+      const email =
+        quoted === null
+          ? { ok: true as const, value: null }
+          : await payments.subscriptionEmail(accountId, quoted.subscriptionRef);
       accepted ??= await prisma.$transaction(async (tx) => {
         const now = this.clock();
         await lockBillingPricing(tx);
@@ -493,8 +502,8 @@ export class BillingSubscriptions {
           })) > 0
         )
           throw new CommandFailure("payment_in_progress");
-        if (!verified.ok) throw new CommandFailure("dependency_unavailable");
-        if (!verified.contact) throw new CommandFailure("contact_required");
+        if (!email.ok) throw new CommandFailure("dependency_unavailable");
+        if (email.value === null) throw new CommandFailure("contact_required");
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
           data: {
@@ -518,11 +527,10 @@ export class BillingSubscriptions {
               bank.openBinding(row.bindingRef, row.bindingCiphertext),
             ),
             contact: {
-              revision: verified.contact.revision,
-              verifiedAt: verified.contact.verifiedAt,
+              source: "subscription",
               emailCiphertext: bank.sealBinding(
                 `${attemptRef}:contact`,
-                verified.contact.email,
+                email.value,
               ),
             },
             fiscalization: "pending",

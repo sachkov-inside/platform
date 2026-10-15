@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { resolve } from "node:path";
 
 import {
@@ -12,6 +12,7 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { expectCourseProgrammeReturn } from "../support/course-programme";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
@@ -33,24 +34,6 @@ async function expectNoGlobalProgrammeContinue(programme: Locator) {
       .and(programme.locator("a:not([data-series-continuation])")),
   ).toHaveCount(0);
   return header;
-}
-
-async function expectReaderProgrammeReturn(
-  page: Page,
-  lowerPanelName: string,
-  href: string,
-) {
-  for (const name of ["Действия материала", lowerPanelName]) {
-    const action = page
-      .getByRole("navigation", { name, exact: true })
-      .getByRole("link", { name: "Открыть программу", exact: true });
-    await expect(action).toHaveCount(1);
-    await expect(action).toBeVisible();
-    await expect(action).toHaveAttribute("href", href);
-  }
-  return page
-    .getByRole("navigation", { name: "Действия материала", exact: true })
-    .getByRole("link", { name: "Открыть программу", exact: true });
 }
 
 test("product product leads to the programme and the programme keeps the Reader return position", async ({
@@ -106,11 +89,9 @@ test("product product leads to the programme and the programme keeps the Reader 
   expect((await opened).status()).toBe(200);
   const programmeReturnHref =
     "/products/demo-series-harness/programme?page=1&at=demo-295-finalnyy-gayd";
-  const programmeReturn = await expectReaderProgrammeReturn(
+  const programmeReturn = await expectCourseProgrammeReturn(
     page,
-    testInfo.project.name === "mobile-chromium"
-      ? "Действия в конце материала"
-      : "Навигация по продукту «Demo #295 · основная серия»",
+    testInfo.project.name === "mobile-chromium",
     programmeReturnHref,
   );
   await programmeReturn.click();
@@ -349,11 +330,9 @@ test("product programme appends a real composition and restores Reader return po
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     const programmeReturnHref = `/products/${slug}/programme?page=2&at=${String(materialSlug)}`;
-    const programmeReturn = await expectReaderProgrammeReturn(
+    const programmeReturn = await expectCourseProgrammeReturn(
       page,
-      testInfo.project.name === "mobile-chromium"
-        ? "Действия в конце материала"
-        : "Навигация по продукту «Demo #426 · Длинный маршрут»",
+      testInfo.project.name === "mobile-chromium",
       programmeReturnHref,
     );
     await programmeReturn.click();

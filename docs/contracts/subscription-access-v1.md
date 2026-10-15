@@ -135,9 +135,9 @@ Platform с симметричной Telegram specification. До их прин�
 ## Уведомления и контакты
 
 Основной внешний канал — email, Telegram — дополнительный. Telegram sign-in не доказывает
-наличие email; fingerprint не является адресом для отправки. До банковской покупки нужен
-подтверждённый контакт и безопасный способ его использования для фоновых писем и чеков.
-Изменение адреса подтверждается заново, не меняет Account и не перенаправляет чужую историю.
+наличие email; fingerprint не является адресом для отправки. Purchase requires a valid Order Email without a confirmation code.
+The [#1401 product policy](../product/subscription-billing-v1.md#purchase-email--1401) owns receipt snapshots, confirmed-contact precedence and renewal fallback.
+Matching an email never changes the purchasing Account or transfers its history.
 
 Напоминание за три дня, успех, отказ, отмена, окончание и результат возврата создаются из
 подтверждённых lifecycle событий. Намерение уведомить сохраняется вместе с изменением;

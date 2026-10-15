@@ -31,29 +31,19 @@ git log --oneline "$current"..origin/main
 
 Номер следующего выпуска — `current` + 1. Выпускается ровно выбранный `main`.
 
-For source selection and merge serialization through publication, use the
-[verification evidence policy](../agents/release-evidence.md). The existing planner and finalizer
-both require current main; v2 deployment evidence retains the published source after main advances.
+Команда владельца фиксирует commit `main` через `workflow_dispatch`. Оба release workflow
+проверяют эту привязку по GitHub run и сохраняют SHA до публикации и выкладки. Последующие
+изменения `main` относятся к следующему выпуску; останавливать merge до публикации не нужно.
 
-Use the [verification evidence policy](../agents/release-evidence.md) to reuse exact-source CI
-coverage and fill only missing checks. Release CI checks its actual selected source.
+[Политика evidence](../agents/release-evidence.md) задаёт проверку доверенного CI: provider run,
+actual source, значимые входы и покрытие. Для synthetic merge queue совпадение полных Git trees
+проверяется по API; одно ancestry не подходит. Release сохраняет `release-source-receipt-<producing attempt>` с
+выбранным source, reused runs и gaps и запускает только недостающие source checks на фиксированном
+SHA. Platform требует full-stack smoke вместе с integration и Compose; Telegram — свою полную
+suite. Неудавшийся missing check останавливает публикацию. Истёкший или недоступный artifact
+означает gap. Ручные диагностические workflows остаются доступны.
 
-Release CI does not run the full-stack smoke. That smoke verifies access through the real Web/BFF
-with separate identities (#904). Follow the [verification evidence policy](../agents/release-evidence.md)
-for required final-source coverage and local fallbacks. Inspect existing successful
-[nightly full-stack smoke](continuous-integration.md#nightly-full-stack-smoke) receipts on the selected source:
-
-```bash
-release_sha=$(git rev-parse origin/main)
-gh run list --repo sachkov-inside/platform -w nightly-fullstack.yml --branch main --limit 100 \
-  --json headSha,conclusion,url \
-  -q ".[] | select(.headSha == \"$release_sha\" and .conclusion == \"success\")"
-```
-
-If full-stack coverage is missing, fill that gap under the policy. To obtain a nightly receipt,
-run `gh workflow run nightly-fullstack.yml --repo sachkov-inside/platform --ref main` while main
-remains the selected source, and require success on that source. A failed check requires diagnosis
-before release.
+Build и проверка digest/revision/schema образов выполняются независимо от source-test reuse.
 
 ## 2. Нужен ли разовый шаг на сервере
 
@@ -85,7 +75,7 @@ gh run watch --repo sachkov-inside/platform "$(gh run list --repo sachkov-inside
 gh release view vN --repo sachkov-inside/platform --json isImmutable,targetCommitish
 ```
 
-Публикация ничего не меняет на сервере. Отказ `plan` означает: номер не следующий, `main` сдвинулся
+Публикация ничего не меняет на сервере. Отказ `plan` означает: номер не следующий, source не соответствует captured main
 или истёк `RELEASE_SETTINGS_READ_TOKEN` (продлить токен, см. [production delivery](production-delivery.md#publish-the-next-ordinal-release)).
 
 ## 4. Выложить Platform

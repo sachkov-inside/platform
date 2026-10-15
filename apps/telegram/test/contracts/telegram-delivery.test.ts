@@ -13,7 +13,7 @@ const legacyReleases = [1, 2, 3, 4, 5].map((ordinal) => ({
 const planInput = {
   requestedVersion: "v6",
   sourceSha,
-  currentMainSha: sourceSha,
+  capturedMainSha: sourceSha,
   legacyTags: ["v1", "v2", "v3", "v4", "v5"],
   legacyReleases,
   existingTags: ["v1", "v27", "unrelated"],
@@ -59,8 +59,8 @@ describe("Telegram delivery across the repository transition", () => {
   it.each([
     [
       "stale captured SHA",
-      { currentMainSha: "b".repeat(40) },
-      /not the current main/,
+      { capturedMainSha: "b".repeat(40) },
+      /not the captured main/,
     ],
     ["duplicate ordinal", { requestedVersion: "v5" }, /next release is v6/],
     ["skipped ordinal", { requestedVersion: "v7" }, /next release is v6/],

@@ -1,4 +1,6 @@
 import { ContentCoverEditor } from "@/features/content-covers";
+import { ProductCommunitySettings } from "@/features/product-community-settings";
+import { announceProductCommunityChange } from "@/features/community-entry";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { hasText } from "@/shared/lib/text";
@@ -88,6 +90,10 @@ export function ImportedProductPage({
         )}
       </header>
       <HomeSeriesPin seriesId={collection.id} archived={collection.archived} />
+      <ProductCommunitySettings
+        productId={collection.id}
+        onSaved={announceProductCommunityChange}
+      />
       <SeriesOrderPanel
         seriesId={collection.id}
         archived={collection.archived}

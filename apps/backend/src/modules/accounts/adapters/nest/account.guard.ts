@@ -20,10 +20,14 @@ import {
   throwAccountError,
   throwProofError,
 } from "./account-http.js";
-import { currentAccountRequestProperty } from "./current-account.js";
+import {
+  currentAccountRequestProperty,
+  currentReceiptEmailProperty,
+} from "./current-account.js";
 
 export type AuthenticatedRequest = FastifyRequest & {
   [currentAccountRequestProperty]?: AuthenticatedAccount;
+  [currentReceiptEmailProperty]?: string;
 };
 
 @Injectable()
@@ -73,6 +77,8 @@ export async function authenticateRequest(
   if (!result.ok) throwAccountError(result.error);
 
   request[currentAccountRequestProperty] = result.account;
+  if (proof.receiptEmail !== undefined)
+    request[currentReceiptEmailProperty] = proof.receiptEmail;
   return result.account;
 }
 

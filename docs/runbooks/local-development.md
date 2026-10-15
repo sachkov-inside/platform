@@ -428,6 +428,13 @@ refuses to start while a stack is already running: stop the running one with
 a bare `docker compose --profile identity up` starts Logto without the bootstrap that configures
 it, and sign-in then fails at the token exchange.
 
+For `Inside Web`, bootstrap always registers the configured web callback and logout return
+(defaults: `http://127.0.0.1:3000/callback` and `http://127.0.0.1:3000/`). It also retains
+already registered owner preview returns at `http://127.0.0.1:4300/callback` and
+`http://127.0.0.1:4300/`, including their `localhost` equivalents, on repeated runs.
+It does not register these preview returns for a new application or retain other extra origins,
+paths or wildcards. The authoring stand application keeps its separate bootstrap policy.
+
 Sign-in ports are fixed at 3301 and 3302 on purpose. OIDC compares the issuer as an exact string,
 so the address must be the same for the browser and for the application inside the Compose network.
 
@@ -787,17 +794,18 @@ Keep the disposable project's `COMPOSE_PROJECT_NAME` and port variables exported
 PostgreSQL. Do not export the owner's database URL. The host smoke rejects a running API with
 a production release identity instead of treating another stand as its own.
 For release candidates, use the [verification evidence policy](../agents/release-evidence.md).
-This host-process smoke fills missing coverage or diagnoses failures; CI runs it nightly on `main`. Pull requests into `main` run
-the four-job application and Docker Compose gate on clean GitHub-hosted runners; see
-[Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
-failure-diagnostics contract.
+This host-process smoke fills missing release coverage or diagnoses failures. PR pushes, including
+drafts, run automatically selected affected checks. The merge queue runs complete coverage for every affected application, including full-stack
+for Platform; shared or unknown inputs cover both applications. See [Continuous integration](continuous-integration.md) for the selected plan,
+CI Gate and failure diagnostics. Scheduled full-stack runs are removed; the manual full-stack
+workflow remains available for investigation.
 
 `FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. After
 `@playwright/test` changes version, install its browsers on the host before a run with
 `pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`; `pnpm check`
 also runs the WebKit browser-engine checks, which fail with `Executable doesn't exist` until `webkit`
-is installed the same way. The nightly
-full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
+is installed the same way. A manual full-stack investigation on the baseline source can show
+whether a failing test also fails without your change. On macOS a
 sleeping Mac stalls a long host suite for minutes and fails it with `net::ERR_NETWORK_IO_SUSPENDED`,
 which is not a product defect; the #745 run passed under `caffeinate -i`.
 
@@ -1303,6 +1311,9 @@ images on its page and its files load again.
 The former volume stays until the owner decides to delete it; the transfer does not change it.
 
 ### Local Obsidian authoring preview (#468)
+
+For content-only updates that must preserve existing stand access/publication and prove affected images,
+use [the preservation and image-evidence procedure](authoring-preservation.md).
 
 Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:

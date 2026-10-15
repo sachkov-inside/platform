@@ -6,9 +6,9 @@ on:
     types: [completed]
 
 # #1085: GitHub completed runs 37642003271 and 37654894560 (PR), and
-# 37654788372 (merge_group), with failure despite nine successful jobs and no
+# 37654788372 (merge_group), with failure despite successful prerequisites and no
 # CI Gate. Full reruns on unchanged SHAs created the gate. ci.yml already uses
-# always() with all nine needs. Both pull_request and merge_group reproduced it.
+# always() with all selected-plan needs. Both pull_request and merge_group reproduced it.
 # This workflow runs from the default branch and never executes candidate code.
 # It requests a real CI rerun; it cannot publish a replacement check or merge.
 permissions:
@@ -45,19 +45,23 @@ jobs:
               { ...request, attempt_number: 1, per_page: 100 },
             );
             const requiredNames = [
-              // The static job name marks ci.yml's isolated-rerun contract.
-              // Old workflow revisions keep their original concurrency on rerun.
+              // This name marks the selected-plan and isolated-rerun contract.
+              'Coverage plan (isolated reruns)', 'Documentation contracts', 'Tooling contracts',
               'Static checks (isolated reruns)', 'Unit tests', 'UI components', 'Web E2E',
               'Integration', 'Integration serial', 'Development Compose',
-              'Production Compose', 'Telegram full checks',
+              'Production Compose', 'Telegram full checks', 'Full-stack smoke',
             ];
             if (jobs.length !== requiredNames.length ||
                 !requiredNames.every(name => jobs.filter(job =>
                   job.name === name && job.status === 'completed' &&
-                  job.conclusion === 'success').length === 1)) {
-              core.info('A gate exists, or prerequisites are not exactly nine successful jobs.');
+                  (name === 'Coverage plan (isolated reruns)' ?
+                    job.conclusion === 'success' :
+                    ['success', 'skipped'].includes(job.conclusion))).length === 1)) {
+              core.info('A gate exists, or the selected-plan prerequisites are incomplete or unsuccessful.');
               return;
             }
+            // Skipped siblings may be exclusions. Only the real gate in the rerun
+            // validates them against the plan; recovery publishes no successful check.
 
             // Avoid wasting CI on a branch that already has a newer run.
             // ci.yml also isolates reruns, closing the read-to-POST cancellation race.

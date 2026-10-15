@@ -1,4 +1,5 @@
 "use client";
+import { ProductRevocationPanel } from "./product-revocation-panel.client";
 import { useEffect, useRef, useState } from "react";
 import {
   useInfiniteQuery,
@@ -263,6 +264,16 @@ export function PeoplePanel({
 
   return (
     <PeopleView
+      renderProductActions={(accountId) => (
+        <ProductRevocationPanel
+          accountId={accountId}
+          onRevoked={() => {
+            announceEnrollmentChange();
+            void people.refetch();
+            void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+          }}
+        />
+      )}
       assignable={assignable.map((row) => ({
         id: row.tier.id,
         name: row.tier.name,

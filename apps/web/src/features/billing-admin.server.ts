@@ -67,3 +67,8 @@ export {
   handleAccessSummary,
   handleListPeople,
 } from "./billing-admin/api/access.server";
+
+export {
+  handlePreviewProductRevocation,
+  handleRevokeProductAccess,
+} from "./billing-admin/api/product-revocation.server";

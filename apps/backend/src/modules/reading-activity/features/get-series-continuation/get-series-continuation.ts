@@ -19,6 +19,7 @@ import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
 export interface SeriesContinuation {
   readonly collection: PublishedMaterialCatalogFacetDto;
   readonly read: number;
+  readonly started: boolean;
   readonly total: number;
   readonly continuation: {
     readonly materialSlug: string;
@@ -111,6 +112,16 @@ export async function getSeriesContinuation(
         select: { materialId: true },
       }),
     ]);
+    const started = await dependencies.prisma.productLearningStarted.findUnique(
+      {
+        where: {
+          accountId_productId: {
+            accountId: account,
+            productId: series.value.reference.id,
+          },
+        },
+      },
+    );
     const read = new Set(states.map((item) => item.materialId));
     const lastIndex = items.findIndex(
       (item) => item.materialId === visited?.materialId,
@@ -176,6 +187,7 @@ export async function getSeriesContinuation(
           slug: collectionSlug,
           summary,
         },
+        started: started !== null,
         read: read.size,
         total: items.length,
         continuation:

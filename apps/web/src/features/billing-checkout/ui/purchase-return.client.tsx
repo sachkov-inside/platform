@@ -1,7 +1,7 @@
 "use client";
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -12,24 +12,19 @@ import {
   formatBillingDate,
   formatKopecks,
   paymentMode,
-  type AttemptState,
   type PurchaseStatus,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
 import { readBillingPurchaseStatus } from "../api/billing-checkout.browser";
 import {
+  purchaseRefSchema,
   purchaseConfirmationRemembered,
   recallPurchase,
   rememberConfirmedPurchase,
 } from "../model/checkout";
 
-/** Банк ответил окончательно: дальше состояние меняет только сверка, а не опрос страницы. */
-const settledStates: ReadonlySet<AttemptState> = new Set([
-  "confirmed",
-  "failed",
-]);
-/** Пока банк не ответил окончательно, страница переспрашивает сервер раз в три секунды. */
+/** Payment, fulfillment and receipt each settle independently. */
 const purchaseStatusPollMs = 3_000;
 
 export interface PurchaseReturnViewProps {
@@ -186,11 +181,16 @@ export function PurchaseReturnPanel({
   // sessionStorage существует только в браузере: снимок сервера пуст, поэтому гидратация
   // не расходится, а ссылка на покупку появляется сразу после неё.
   const hydrated = useSyncExternalStore(subscribeToNothing, always, never);
-  const purchaseRef = useSyncExternalStore(
+  const rememberedPurchaseRef = useSyncExternalStore(
     subscribeToNothing,
     readRememberedPurchase,
     readNoPurchase,
   );
+  const search = useSearchParams();
+  const reference = purchaseRefSchema.safeParse(search.get("purchaseRef"));
+  const purchaseRef = reference.success
+    ? reference.data
+    : rememberedPurchaseRef;
   const query = useQuery({
     queryKey: ["account", "billing-purchase", purchaseRef],
     queryFn: () => readBillingPurchaseStatus(purchaseRef ?? ""),
@@ -199,13 +199,24 @@ export function PurchaseReturnPanel({
     staleTime: 0,
     refetchInterval: (query) => {
       const result = query.state.data;
-      return result?.ok === true && !settledStates.has(result.value.state)
+      if (result === undefined) return purchaseStatusPollMs;
+      if (!result.ok)
+        return result.code === "unauthorized" || result.code === "not_found"
+          ? false
+          : purchaseStatusPollMs;
+      return result.value.state !== "failed" &&
+        (result.value.state !== "confirmed" ||
+          result.value.access === "preparing" ||
+          result.value.fiscalization === "pending")
         ? purchaseStatusPollMs
         : false;
     },
   });
   const result = query.data;
-  const confirmed = result?.ok === true && result.value.state === "confirmed";
+  const confirmed =
+    result?.ok === true &&
+    result.value.state === "confirmed" &&
+    result.value.access === "ready";
   const router = useRouter();
   // Подтверждённая оплата открывает уроки, а страницы, открытые в этой вкладке и в соседних, пока
   // банк ещё думал, браузер помнит с замками. Соседние вкладки узнают о покупке из объявления.

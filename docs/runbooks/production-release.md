@@ -49,7 +49,7 @@ sudo env \
 
 | Значение | Файлы Platform | Пара на стороне Telegram |
 |---|---|---|
-| `TBANK_CONFIG_JSON` | `api.env`, `mcp.env`, `billing-worker.env` | — |
+| `TBANK_CONFIG_JSON` | `api.env`, `mcp.env`, `billing-worker.env`, `notifications-worker.env` | — |
 | `BILLING_CONTACT_*` | `api.env`, `mcp.env`, `billing-worker.env`, `notifications-worker.env` | — |
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
@@ -150,7 +150,10 @@ AMQPS на `5671`. Топологию он читает из определен�
 
 Настройки терминала приходят одним `TBANK_CONFIG_JSON`; схема — `apps/backend/src/config/tbank-config.ts`,
 проверенные факты терминала — [issue-402](../verification/issue-402-tbank-terminal-capability.md).
-Одинаковое значение задаётся в `api.env`, `mcp.env` и `billing-worker.env`.
+Одинаковое значение задаётся в `api.env`, `mcp.env`, `billing-worker.env` и `notifications-worker.env`.
+Воркер уведомлений использует `bindingEncryptionKey`, чтобы прочитать email покупки, когда отдельный
+подтверждённый контакт отсутствует. При смене терминала пересоздайте все четыре процесса с образами
+текущего выпуска. Сохраните ключ шифрования существующих покупок.
 
 | Поле | Значение для выпуска | Основание |
 |---|---|---|
@@ -615,3 +618,26 @@ CPU в покое этим smoke не измерен: снимок сделан 
 - Память и CPU оценены по локальному smoke; реальный запас сервера не измерен.
 - Служебные маршруты выпускаются с проверкой по секретам без ограничения адреса отправителя; `remote_ip` добавится позже.
 - Проверки этого runbook и production-smoke локальные; production-сервер они не трогают.
+
+## Зафиксированный source и итог выпуска (#1430)
+
+Команда владельца на выпуск фиксирует один commit `main`; release workflow проверяет GitHub
+`workflow_dispatch` binding и сохраняет source при последующих изменениях main. Публикация
+использует только trusted source evidence с доказанным совпадением полного дерева и исполняет
+missing checks. Receipt `release-source-receipt-<producing attempt>` содержит source/tree, provider runs и gaps;
+source checks не заменяют проверку image revision/digest и immutable ordinal manifest.
+
+Разрешение на выпуск охватывает публикацию, выкладку и проверку production как один результат.
+Перед downtime сообщите ожидаемый перерыв. Сохраняйте обязательные fresh backup и isolated
+restore; успешная restore proof не разрешает восстановление production. После выкладки проверьте
+выбранную версию, доступность и применимые критические сценарии (login, права, ключевые страницы)
+на безопасных тестовых данных. Реальные платежи, outbound messages, продажи и публикация
+контента/юридических документов требуют прежних отдельных разрешений.
+
+Итоговый receipt отдельно фиксирует publication, deployment, version/availability и каждый
+production scenario: passed, failed или deferred с причиной и evidence. Недоступная тестовая
+учётная запись оставляет явный gap. Required verification failure исключает успешный итог,
+даже если серверная выкладка завершилась. При отказе запишите фактический deployed state и
+подготовьте проверенный recovery plan с совместимостью и допустимым rollback window.
+Rollback или repair-forward выполняется только по новой команде владельца; автоматические
+down-migrations и restore production database не разрешены.

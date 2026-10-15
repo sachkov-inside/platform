@@ -28,7 +28,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(releaseWorkflow, /^ {2}group: platform-release$/mu);
     assert.match(releaseWorkflow, /^ {2}cancel-in-progress: false$/mu);
     assert.match(plan, /bash scripts\/plan-release\.sh/u);
-    assert.match(planScript, /git\/ref\/heads\/main/u);
+    assert.match(planScript, /captured-release-main\.sh/u);
+    assert.match(
+      ci,
+      /coverage_json: \$\{\{ needs\.plan\.outputs\.missing_coverage \}\}/u,
+    );
     assert.match(planScript, /bash scripts\/check-release-immutability\.sh/u);
     assert.match(
       read("scripts/check-release-immutability.sh"),
@@ -114,6 +118,83 @@ describe("ordinal release workflow contract", () => {
     );
   });
 
+  /** @type {Array<[string, string]>} */
+  const receiptWorkflows = [
+    [".github/workflows/release.yml", "finalize"],
+    [".github/workflows/telegram-release.yml", "publish"],
+  ];
+  for (const [workflowPath, finalJob] of receiptWorkflows) {
+    it(`keeps full and partial rerun receipts bound to their producing plan (${finalJob})`, () => {
+      const workflow = read(workflowPath);
+      assertReceiptAttempts(workflow, finalJob);
+      // A full rerun uploads a distinct plan artifact. A partial rerun keeps the
+      // original successful plan output; it must not select by the final job's attempt.
+      for (const scenario of [
+        { producingAttempt: 1, currentAttempt: 1, artifactId: 101 },
+        { producingAttempt: 2, currentAttempt: 2, artifactId: 202 },
+        { producingAttempt: 1, currentAttempt: 2, artifactId: 101 },
+      ]) {
+        const producingName =
+          "release-source-receipt-" + scenario.producingAttempt;
+        const finalName = "release-source-complete-" + scenario.currentAttempt;
+        assert.equal(
+          jobBlock(workflow, "plan")
+            .match(/name: (release-source-receipt-.*)/u)?.[1]
+            ?.replace(
+              "${{ github.run_attempt }}",
+              String(scenario.producingAttempt),
+            ),
+          producingName,
+        );
+        assert.equal(
+          jobBlock(workflow, finalJob)
+            .match(/name: (release-source-complete-.*)/u)?.[1]
+            ?.replace(
+              "${{ github.run_attempt }}",
+              String(scenario.currentAttempt),
+            ),
+          finalName,
+        );
+        assert.equal(
+          jobBlock(workflow, finalJob)
+            .match(/artifact-ids: (.*)/u)?.[1]
+            ?.replace(
+              "${{ needs.plan.outputs.source_receipt_artifact_id }}",
+              String(scenario.artifactId),
+            ),
+          String(scenario.artifactId),
+        );
+      }
+      assert.throws(() =>
+        assertReceiptAttempts(
+          workflow.replace(
+            "name: release-source-receipt-${{ github.run_attempt }}",
+            "name: release-source-receipt",
+          ),
+          finalJob,
+        ),
+      );
+      assert.throws(() =>
+        assertReceiptAttempts(
+          workflow.replace(
+            "name: release-source-complete-${{ github.run_attempt }}",
+            "name: release-source-complete",
+          ),
+          finalJob,
+        ),
+      );
+      assert.throws(() =>
+        assertReceiptAttempts(
+          workflow.replace(
+            "artifact-ids: ${{ needs.plan.outputs.source_receipt_artifact_id }}",
+            "name: release-source-receipt-${{ github.run_attempt }}",
+          ),
+          finalJob,
+        ),
+      );
+    });
+  }
+
   it("keeps permissions at the owning job", () => {
     assertReleasePermissions(releaseWorkflow);
     assert.throws(
@@ -172,7 +253,7 @@ function jobPermissions(workflow, job) {
 /** @param {string} workflow */
 function assertReleasePermissions(workflow) {
   const expected = {
-    plan: { contents: "read" },
+    plan: { contents: "read", actions: "read" },
     ci: { contents: "read" },
     "build-images": { contents: "read", packages: "write" },
     finalize: { actions: "read", contents: "write" },
@@ -182,4 +263,30 @@ function assertReleasePermissions(workflow) {
       throw new Error(`${job} permissions differ from the release policy`);
     }
   }
+}
+
+/** @param {string} workflow @param {string} finalJob */
+function assertReceiptAttempts(workflow, finalJob) {
+  const plan = jobBlock(workflow, "plan");
+  const final = jobBlock(workflow, finalJob);
+  assert.match(
+    plan,
+    /source_receipt_artifact_id: \$\{\{ steps\.source_receipt\.outputs\.artifact-id \}\}/u,
+  );
+  assert.match(
+    plan,
+    /Retain selected source and evidence receipt\n {8}id: source_receipt\n {8}uses: actions\/upload-artifact@/u,
+  );
+  assert.match(
+    plan,
+    /name: release-source-receipt-\$\{\{ github\.run_attempt \}\}/u,
+  );
+  assert.match(
+    final,
+    /artifact-ids: \$\{\{ needs\.plan\.outputs\.source_receipt_artifact_id \}\}\n {10}path: source-receipt\n {10}merge-multiple: true/u,
+  );
+  assert.match(
+    final,
+    /name: release-source-complete-\$\{\{ github\.run_attempt \}\}/u,
+  );
 }

@@ -64,12 +64,25 @@ Telegram предоставляет сообщество. Покупатели �
 основания Account, разрешение регулярных списаний и границы суммы терминала. Разовая оплата
 проверяет только первую сумму. Подписка проверяет первую сумму и сумму продления; купить её
 можно только после погашения приглашения на этот Offer. Состав прав не определяет способ оплаты.
-Расчёт цены ещё не требует подтверждённого контакта и согласий: покупатель предоставляет их перед оплатой.
+The price quote needs neither an email nor consents. Before payment, the buyer supplies a valid, editable Order Email and accepts the applicable documents.
+Email confirmation is optional for both one-time purchases and subscriptions (#1401).
 
 Смена варианта проверяет допуск к новому Offer. Возобновление и продление принятой подписки
 проверяют способ оплаты, регулярные списания и сумму по принятому снимку; новое приглашение
-и повторная публикация Offer им не нужны. Проверки контакта, согласий и привязки карты остаются
+и повторная публикация Offer им не нужны. Проверки согласий и привязки карты остаются
 обязательными для действий, которые их используют. Выключение продажи не отзывает оплаченные права.
+
+### Purchase email — #1401
+
+The initial receipt uses the Order Email saved with that purchase. This address does not verify ownership, create a sign-in identity, or select another Account.
+The authenticated Account keeps its purchase and access, even when the email belongs to another Account.
+Account email prefills checkout when available; the buyer can edit it.
+
+Service messages prefer the current confirmed Billing Contact. Without one, they use the relevant Order Email.
+Subscription renewals and paid upgrades use the current Billing Contact, or fall back to the initial purchase email.
+Confirming a Billing Contact later changes future messages and subsequent receipts; it never rewrites earlier receipts or transfers a purchase.
+This optional confirmation is separate from identity-provider email linkage and does not add a sign-in method.
+Marketing and material announcements still require their existing verified-contact and opt-in rules.
 
 Состояние продажи продукта читает серверный модуль с отдельными входами для гостя и читателя.
 Он возвращает варианты в порядке цены, поток, сроки и доступ читателя. Общий кеш получает

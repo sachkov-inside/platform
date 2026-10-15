@@ -36,7 +36,7 @@ import {
 const unlimitedTerm = "без ограничения срока";
 
 /**
- * Расчётный срок части цены «материалы и общий чат», когда материалы или чат даны без ограничения
+ * Расчётный срок части цены «материалы и сообщество продукта», когда материалы или чат даны без ограничения
  * срока: 12 месяцев из оферты, но не короче срока другой составляющей, названного в месяцах
  * (оферта, раздел 4).
  */
@@ -111,22 +111,33 @@ export function oneTimeTermsSummary(
   const sameTerm = terms.materialsMonths === terms.chatMonths;
   // У части цены без срока окончания оферта считает возврат по расчётному сроку (раздел 4).
   const elapsed =
-    longestTerm([terms.materialsMonths, terms.chatMonths]) !== null
+    longestTerm(
+      terms.chatMonths === undefined
+        ? [terms.materialsMonths]
+        : [terms.materialsMonths, terms.chatMonths],
+    ) !== null
       ? "за вычетом истекшего времени"
       : terms.supportMonths === undefined
         ? `за вычетом истекшего времени из расчётного срока ${calculationTerm(terms)}`
-        : `за вычетом истекшего времени: сопровождение — из его срока, материалы и чат — из расчётного срока ${calculationTerm(terms)}`;
+        : `за вычетом истекшего времени: сопровождение — из его срока, ${terms.chatMonths === undefined ? "материалы" : "материалы и сообщество продукта"} — из расчётного срока ${calculationTerm(terms)}`;
   return [
     ...(sameTerm
-      ? [guaranteedTermLine("Материалы и чат", terms.materialsMonths)]
+      ? [
+          guaranteedTermLine(
+            "Материалы и сообщество продукта",
+            terms.materialsMonths,
+          ),
+        ]
       : [
           guaranteedTermLine("Материалы", terms.materialsMonths),
-          guaranteedTermLine("Общий чат", terms.chatMonths),
+          ...(terms.chatMonths === undefined
+            ? []
+            : [guaranteedTermLine("Сообщество продукта", terms.chatMonths)]),
         ]),
     ...(terms.supportMonths === undefined
       ? []
       : [
-          `Сопровождение — ${termLabel(terms.supportMonths)}: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
+          `Сопровождение — ${termLabel(terms.supportMonths)}: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
         ]),
     `Отказ в первые ${String(oneTimePurchaseTerms.fullRefundDays)} дней или до открытия доступа — полный возврат. Позже — ${elapsed}, но не меньше положенного по закону.`,
     "После отказа доступ по этой покупке закрывается.",
@@ -143,9 +154,11 @@ export function oneTimePriceSharesLine(
   terms: OneTimeOfferTerms,
 ): string {
   if (terms.supportMonths === undefined)
-    return "Вся цена относится к материалам и чату";
+    return terms.chatMonths === undefined
+      ? "Вся цена относится к материалам"
+      : "Вся цена относится к материалам и сообществу продукта";
   const shares = oneTimePriceShares(totalKopecks);
-  return `Из них поровну: материалы и чат — ${formatKopecks(shares.materialsAndChatKopecks)}, сопровождение — ${formatKopecks(shares.supportKopecks)}`;
+  return `Из них поровну: ${terms.chatMonths === undefined ? "материалы" : "материалы и сообщество продукта"} — ${formatKopecks(shares.materialsAndChatKopecks)}, сопровождение — ${formatKopecks(shares.supportKopecks)}`;
 }
 
 function termInclusion(
@@ -179,13 +192,15 @@ export function oneTimePurchaseInclusions(
       ? [
           termInclusion(
             "materials",
-            "Материалы и общий чат",
+            "Материалы и сообщество продукта",
             terms.materialsMonths,
           ),
         ]
       : [
           termInclusion("materials", "Материалы", terms.materialsMonths),
-          termInclusion("chat", "Общий чат", terms.chatMonths),
+          ...(terms.chatMonths === undefined
+            ? []
+            : [termInclusion("chat", "Сообщество продукта", terms.chatMonths)]),
         ]),
     ...(terms.supportMonths === undefined
       ? []

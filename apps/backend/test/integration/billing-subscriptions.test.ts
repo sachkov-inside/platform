@@ -147,6 +147,7 @@ describe("подписка: продление, отмена, смена вар�
     options: {
       readonly startedAt?: string;
       readonly priceKopecks?: number;
+      readonly verifyContact?: boolean;
     } = {},
   ) {
     now = new Date(options.startedAt ?? "2030-01-31T10:00:00Z");
@@ -188,19 +189,21 @@ describe("подписка: продление, отмена, смена вар�
         tributeStopped: false,
       }),
     ).toMatchObject({ ok: true });
-    const start = await contact.start(buyer, {
-      operationId: randomUUID(),
-      email: `${buyer}@example.test`,
-      expectedRevision: 0,
-    });
-    if (!start.ok) throw new Error(start.error.code);
-    expect(
-      await contact.confirm(buyer, {
+    if (options.verifyContact !== false) {
+      const start = await contact.start(buyer, {
         operationId: randomUUID(),
-        challengeRef: start.challengeRef,
-        code: codes.get(start.challengeRef),
-      }),
-    ).toMatchObject({ ok: true });
+        email: `${buyer}@example.test`,
+        expectedRevision: 0,
+      });
+      if (!start.ok) throw new Error(start.error.code);
+      expect(
+        await contact.confirm(buyer, {
+          operationId: randomUUID(),
+          challengeRef: start.challengeRef,
+          code: codes.get(start.challengeRef),
+        }),
+      ).toMatchObject({ ok: true });
+    }
     const offerId = randomUUID(),
       optionId = randomUUID();
     value(
@@ -304,6 +307,9 @@ describe("подписка: продление, отмена, смена вар�
           operationId: randomUUID(),
           quoteRef: quote.quoteRef,
           contactRevision: 1,
+          ...(options.verifyContact === false
+            ? { email: "subscription-order@example.test" }
+            : {}),
           consentEvidenceRefs: await consentFor(quote.quoteRef, {
             snapshot: quote.snapshot,
           }),
@@ -594,7 +600,7 @@ describe("подписка: продление, отмена, смена вар�
         active: true,
       },
     ]);
-    expect(cabinet.payments).toEqual([
+    expect(cabinet.payments).toMatchObject([
       {
         purchaseRef,
         kind: "initial",
@@ -689,6 +695,52 @@ describe("подписка: продление, отмена, смена вар�
         active: true,
       },
     ]);
+  });
+
+  test("подписка без контакта продлевается с email заказа, затем использует подтверждённый контакт", async () => {
+    const s = await scenario({ verifyContact: false });
+    const initial = await s.buy();
+    expect(value(await s.payments.purchaseEmail(s.buyer, initial))).toBe(
+      "subscription-order@example.test",
+    );
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await s.payments.renew())).toMatchObject({
+      started: 1,
+      blocked: 0,
+    });
+    const renewal = await db.prisma.billingPurchase.findFirstOrThrow({
+      where: { accountId: s.buyer, kind: "renewal", periodIndex: 2 },
+    });
+    expect(value(await s.payments.purchaseEmail(s.buyer, renewal.id))).toBe(
+      "subscription-order@example.test",
+    );
+    const started = await contact.start(s.buyer, {
+      operationId: randomUUID(),
+      email: "linked@example.test",
+      expectedRevision: 0,
+    });
+    if (!started.ok) throw new Error(started.error.code);
+    expect(
+      await contact.confirm(s.buyer, {
+        operationId: randomUUID(),
+        challengeRef: started.challengeRef,
+        code: codes.get(started.challengeRef),
+      }),
+    ).toMatchObject({ ok: true });
+    now = new Date("2030-03-31T10:00:00Z");
+    expect(value(await s.payments.renew())).toMatchObject({
+      started: 1,
+      blocked: 0,
+    });
+    const linkedRenewal = await db.prisma.billingPurchase.findFirstOrThrow({
+      where: { accountId: s.buyer, kind: "renewal", periodIndex: 3 },
+    });
+    expect(
+      value(await s.payments.purchaseEmail(s.buyer, linkedRenewal.id)),
+    ).toBe("linked@example.test");
+    expect(value(await s.payments.purchaseEmail(s.buyer, initial))).toBe(
+      "subscription-order@example.test",
+    );
   });
 
   test("продление считает срок от исходного anchor и продолжает права без перерыва", async () => {
@@ -1159,7 +1211,10 @@ describe("подписка: продление, отмена, смена вар�
   });
 
   test("повышение доплачивает остаток срока, а понижение и другая длительность ждут следующего периода", async () => {
-    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    const s = await scenario({
+      startedAt: "2030-01-01T00:00:00Z",
+      verifyContact: false,
+    });
     await s.buy();
     const higher = await s.offer(
       "Материалы и сопровождение",
@@ -1198,6 +1253,9 @@ describe("подписка: продление, отмена, смена вар�
     expect(
       await s.payments.notification(s.bank.notify(attemptRef, "CONFIRMED")),
     ).toMatchObject({ ok: true });
+    expect(value(await s.payments.purchaseEmail(s.buyer, attemptRef))).toBe(
+      "subscription-order@example.test",
+    );
     const upgraded = await s.view();
     expect(upgraded).toMatchObject({
       paidUntil: "2030-02-01T00:00:00.000Z",
@@ -2074,7 +2132,7 @@ describe("подписка: продление, отмена, смена вар�
   });
 
   test("возобновление отличает отказ чтения согласия от его отсутствия", async () => {
-    const s = await scenario();
+    const s = await scenario({ verifyContact: false });
     await s.buy();
     const active = await s.view();
     const canceled = value(

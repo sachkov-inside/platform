@@ -69,7 +69,7 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|docker\\.io/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
@@ -864,6 +864,41 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("configures purchase email decryption in the production notification worker", () => {
+    /** @param {string} path */
+    const terminal = (path) =>
+      read(path).match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
+    const apiTerminal = terminal("config/compose/production/api.env.example");
+    assert.ok(
+      apiTerminal,
+      "the API template must declare its payment terminal",
+    );
+    assert.equal(
+      terminal("config/compose/production/notifications-worker.env.example"),
+      apiTerminal,
+      "purchase notification email must use the same terminal binding key as the API",
+    );
+    const smokeFilter = read("scripts/production-compose-smoke.sh").match(
+      /grep -E '([^']+)' "\$runtime_config_dir\/api.env"\n\s+\} >"\$runtime_config_dir\/notifications-worker.env"/u,
+    )?.[1];
+    assert.ok(
+      smokeFilter,
+      "the production smoke must derive its worker configuration",
+    );
+    const generated = spawnSync("grep", ["-E", smokeFilter], {
+      input: read("config/compose/production/api.env.example"),
+      encoding: "utf8",
+      timeout: 5_000,
+      killSignal: "SIGKILL",
+    });
+    assert.equal(generated.status, 0);
+    assert.equal(
+      generated.stdout.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1],
+      apiTerminal,
+      "the generated production smoke worker must also decrypt purchase email",
+    );
+  });
+
   it("keeps the local sale on the stand contour", () => {
     // Контур приложения не виден живым ответом: открытых endpoint с ним нет, а покупка требует
     // входа. Поэтому его держит конфигурация, и она проверяется здесь, а не смоуком стенда.
@@ -1070,7 +1105,7 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
     assert.match(
       base,
       new RegExp(
-        `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|public\\.ecr\\.aws/docker/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64}$`,
+        `^FROM (?:ghcr\\.io/sachkov-inside/node:${escapeRegExp(nodeVersion)}-alpine3\\.24|docker\\.io/library/node:${escapeRegExp(nodeVersion)}-bookworm-slim)@sha256:[a-f0-9]{64}$`,
         "u",
       ),
       `${path}: ${base}`,

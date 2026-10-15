@@ -158,6 +158,7 @@ export class PersonalHomeService {
         });
       } | null;
       read: number;
+      started: boolean;
       total: number;
     } | null;
     video: {
@@ -335,6 +336,7 @@ export class PersonalHomeService {
       });
     } | null;
     read: number;
+    started: boolean;
     total: number;
   }> {
     return this.httpRequest.request({
@@ -431,6 +433,7 @@ export class PersonalHomeService {
       });
     } | null;
     read: number;
+    started: boolean;
     total: number;
   }> {
     return this.httpRequest.request({

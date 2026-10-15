@@ -336,3 +336,10 @@ cookies и локальное хранение, реквизиты и обращ
 Изменены только документы. Нужны ограниченный просмотр diff, проверка ссылок, сопоставление
 с #128/#149 и явный перечень неподтверждённых фактов. Тесты приложения, браузерный сценарий,
 реальные письма, платёж, возврат, подача уведомлений, merge и деплой этим комплектом не выполнены.
+
+## Prospective Product community decision — #1464
+
+The owner selected explicit Product community benefits on 2026-10-14 (#1443). The current edition 5
+still describes the common group as part of the Product purchase. [#1464](https://github.com/sachkov-inside/platform/issues/1464)
+tracks a prospective edition and consent mapping. No new edition is published by the buyer-journey
+implementation. Published editions and accepted purchase snapshots remain immutable.

@@ -111,6 +111,16 @@ Product and does not sell it by itself; only a Product with a Cohort names the s
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**ProductOnboarding**:
+The Product's initial learner path through Telegram linking, community joining and starting learning.
+It applies only when the Product's community is part of the learner's actual access.
+_Avoid_: Global community setup, payment confirmation
+
+**ProductAccessRevocation**:
+An operator's withdrawal of one Account's access to a selected Product across its existing grounds.
+It preserves other Products, financial history and learning progress.
+_Avoid_: Refund, selecting one grant source, Account ban
+
 **Product Page Description**:
 The author-written description of a Product, kept in its Inside Content original and transferred to
 Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
@@ -263,9 +273,14 @@ is independent of profile presentation and Account Rights.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
 **Billing Contact**:
-An Account-owned verified email for receipts and subscription notifications, independent of its
-sign-in identity. A pending replacement becomes the contact only after verification.
+An optional Account-owned verified email for service notifications and subsequent subscription receipts, independent of its sign-in identity.
+A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
+
+**Order Email**:
+The email chosen for one purchase and its receipt, without proof of ownership or a change to the purchasing Account.
+It is the fallback for purchase messages and subscription renewals when the Account has no Billing Contact.
+_Avoid_: Billing Contact, login email, verified identity
 
 **Legal Edition**:
 One published version of a legal document, identified by its document key, version number,
@@ -459,9 +474,8 @@ Payment, an owner's manual decision and a confirmed prior entitlement are distin
 _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
-An Account's effective right to participate in the single shared community chat, distinct from
-actual presence in Telegram. Live AccessGrants covering Support, the chat or any Product establish
-the right; its term follows the accepted grants independently of the payment period.
+An Account's effective right to participate in a Product's configured community, distinct from
+actual Telegram membership. Several Products can share one group; their valid community rights combine.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:
@@ -501,8 +515,8 @@ _Avoid_: Current chat roster, all new members, Cohort
 _Avoid_: Событие продукта, рассылка, попытка отправки
 
 **Notification Delivery**:
-Доставка одного Notification по выбранному каналу подтверждённому получателю. Результат одного
-канала не определяет результат другого и не означает прочтения.
+Delivery of one Notification through one channel to an eligible recipient: a verified channel contact or the Order Email for purchase messages.
+One channel result neither determines another channel result nor proves that the recipient read the message.
 _Avoid_: Notification, broker acknowledgement, прочтение
 
 **Publication Announcement**:

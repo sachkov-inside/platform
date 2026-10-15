@@ -272,7 +272,7 @@ describe("invitation link in the bot", () => {
     const prompt = (await replies(81001)).at(-1);
     expect(prompt?.message_text).toContain("свяжите Telegram");
     expect(prompt?.buttons).toContainEqual({
-      text: "Я связал Telegram — проверить",
+      text: "Проверить доступ",
       callbackData: "access:retry",
     });
 
