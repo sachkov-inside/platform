@@ -41,9 +41,7 @@ export class SubscriptionActivation {
       grants: AccessGrants;
       bindings: ActivationBindings &
         Pick<RecipientLinks, "findCurrentByIdentity">;
-      readConfiguredProductIds?: (
-        ids: readonly string[],
-      ) => Promise<
+      readConfiguredProductIds?: (ids: readonly string[]) => Promise<
         | { readonly ok: true; readonly value: readonly string[] }
         | {
             readonly ok: false;
