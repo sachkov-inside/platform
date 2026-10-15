@@ -63,7 +63,7 @@ export function TaskRelatedMaterialLink({
             data-task-related-read={isRead}
           >
             <ProgressIcon aria-hidden="true" className="size-4" />
-            {isRead ? "Изучено" : "Не изучено"}
+            <span className="sr-only">{isRead ? "Изучено" : "Не изучено"}</span>
           </span>
         )
       ) : null}

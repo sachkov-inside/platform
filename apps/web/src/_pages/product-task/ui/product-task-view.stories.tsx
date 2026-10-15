@@ -595,10 +595,10 @@ export const RelatedMaterialsProgress: Story = {
     if (related === null) throw new Error("Missing related Materials");
     await expect(
       within(related).getByText("Изучено", { exact: true }),
-    ).toBeVisible();
+    ).toBeInTheDocument();
     await expect(
       within(related).getByText("Не изучено", { exact: true }),
-    ).toBeVisible();
+    ).toBeInTheDocument();
     const condition = page.getByRole("heading", {
       name: "Ситуация",
     });
