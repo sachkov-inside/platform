@@ -81,9 +81,9 @@ Before writing an issue assignment, check remote branches and linked open PRs; W
 Branch `<type>/<issue>-<slug>` from `origin/main`; untracked tasks use `<type>/<slug>`.
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
 Keep each writing context in its assigned worktree. Reuse that worktree for local iteration.
-Use an environment-provided isolated worktree when one is assigned. For CLI sessions without one,
-create `<parent>/<repo>.worktrees/<task>` as a fallback. Keep one owner per writing worktree.
-`REPOSITORIES.md` owns the canonical Inside layout; existing worktrees keep their locations.
+Use the assigned environment-provided isolated worktree, with one owner per writing worktree.
+For CLI sessions without one, create `<parent>/<repo>.worktrees/<task>` as a fallback.
+`REPOSITORIES.md` owns the canonical layout; existing worktrees keep their locations.
 
 The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
 or absolute paths. Update it only when the owner assigns that action.

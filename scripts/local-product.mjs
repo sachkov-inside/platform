@@ -26,10 +26,13 @@ const { values } = parseArgs({
 const { email } = await standIdentity(values["owner-email"]);
 // Authoring lives in Materials independently of the primary checkout or assigned worktree.
 const content = resolve(
-  values.content ?? resolve(homedir(), "Work", "Materials", "engineering-content"),
+  values.content ??
+    resolve(homedir(), "Work", "Materials", "engineering-content"),
 );
 if (!existsSync(resolve(content, "tools/content.py")))
-  throw new Error(`Engineering Content is not at ${content}; pass --content PATH`);
+  throw new Error(
+    `Engineering Content is not at ${content}; pass --content PATH`,
+  );
 const receipt = await withStandGateway(email, (origin) =>
   syncGitLocal(
     content,
