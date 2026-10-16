@@ -122,7 +122,11 @@ test("product product leads to the programme and the programme keeps the Reader 
     "data-series-continuation",
     "true",
   );
-  const continuationHref = `/materials/demo-295-finalnyy-gayd?from=${encodeURIComponent(programmeReturnHref)}`;
+  const placementId = new URL(programmeReturnHref, page.url()).searchParams.get(
+    "atPlacement",
+  );
+  if (placementId === null) throw new Error("Missing programme placement");
+  const continuationHref = `/materials/demo-295-finalnyy-gayd?from=${encodeURIComponent(programmeReturnHref)}&placement=${placementId}`;
   await expect(continuation).toHaveAttribute("href", continuationHref);
   const continuationUrl = new URL(
     (await continuation.getAttribute("href")) ?? "",

@@ -222,9 +222,13 @@ test("profile continuation opens the real series, persists marks and reconciles 
   );
   expect(videoTarget.pathname).toBe(`/materials/${materialSlugs[1]}`);
   expect(videoTarget.searchParams.get("from")).toBe(programmeReturnHref);
+  const placementId = new URL(programmeReturnHref, page.url()).searchParams.get(
+    "atPlacement",
+  );
+  if (placementId === null) throw new Error("Missing programme placement");
   await expect(videoTitle).toHaveAttribute(
     "href",
-    `/materials/${materialSlugs[1]}?from=${encodeURIComponent(programmeReturnHref)}`,
+    `/materials/${materialSlugs[1]}?from=${encodeURIComponent(programmeReturnHref)}&placement=${placementId}`,
   );
   await videoTitle.click();
   const mobile = testInfo.project.name === "mobile-chromium";
