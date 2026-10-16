@@ -122,7 +122,7 @@ It preserves other Products, financial history and learning progress.
 _Avoid_: Refund, selecting one grant source, Account ban
 
 **Product Page Description**:
-The author-written description of a Product, kept in its Inside Content original and transferred to
+The author-written description of a Product, kept in its Engineering Content original and transferred to
 Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
 list, an invitation to the free lessons — plus an optional Home-card caption. The Product's own
 `presentation` field names which set of page and Home-card components draws the description; access
@@ -144,7 +144,7 @@ _Avoid_: Summary, marketing page, access condition, price
 A standalone practical result a reader takes away — a template, configuration or checklist — with
 a permanent identity, a version history and either stored bytes or one explicitly external
 address. It lives outside every MaterialBody, is reused across Products through separate placements
-rather than copies, and its `origin` says whether the Platform editor or the Inside Content
+rather than copies, and its `origin` says whether the Platform editor or the Engineering Content
 authoring base owns the record. Replacement opens a new version and keeps the identity and the
 placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover

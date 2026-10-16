@@ -1328,7 +1328,7 @@ The former volume stays until the owner decides to delete it; the transfer does 
 For content-only updates that must preserve existing stand access/publication and prove affected images,
 use [the preservation and image-evidence procedure](authoring-preservation.md).
 
-Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
+Originals from Engineering Content reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
 | Target | Runtime | Gateway |
@@ -1377,7 +1377,7 @@ What the transfer applies:
   page description before the transfer's first write, and its refusal names the product.
   The optional `products[].introduction` imports all four introduction fields; omitting it preserves
   the stored introduction. The source owns this text for imported Products (#845).
-  Editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+  Editing the page text is a commit in Engineering Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
 private draft: its author previews it through the authoring preview, while guests, other accounts,
