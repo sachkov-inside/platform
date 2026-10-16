@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { readerBlocksSchema } from "@inside/material-blocks";
-import { convertMarkdown } from "../../../../tools/authoring/markdown.mjs";
 import {
   fullStackBrowserRequest,
   signInFullStack,
@@ -13,6 +11,9 @@ test("multiple-answer quiz survives real document admission, published Reader an
   context,
   page,
 }) => {
+  const { readerBlocksSchema } = await import("@inside/material-blocks");
+  const { convertMarkdown } =
+    await import("../../../../tools/authoring/markdown.mjs");
   await signInFullStack(context, "OWNER");
   await page.goto("/account");
   const suffix = randomUUID();
