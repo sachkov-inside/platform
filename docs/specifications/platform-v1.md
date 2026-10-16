@@ -432,8 +432,8 @@ stored order or group entity. Current membership owns the label. Published proje
 published memberships with that current label; draft-only labels and entries never enter public
 step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing collection return controls. Available
-Materials keep the bookmark in the header and place the study action beside the contents disclosure.
-Both actions repeat at the end and share saved state, pending commands and failure handling.
+Materials show matching return, bookmark and study panels before the title and after the text.
+The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.
