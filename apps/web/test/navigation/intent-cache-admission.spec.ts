@@ -242,7 +242,8 @@ test("completed intent response renders the guest Reader before navigation respo
         .getByText(/Открытый текст/u)
         .first(),
     ).toBeVisible();
-    const programmeButton = reader.getByRole("button", {
+    const course = page.locator("[data-course-reading-host]");
+    const programmeButton = course.getByRole("button", {
       name: "Вся программа",
       exact: true,
     });
@@ -253,7 +254,7 @@ test("completed intent response renders the guest Reader before navigation respo
             .getByRole("navigation", { name: "Хлебные крошки" })
             .getByRole("link")
             .first()
-        : reader.getByRole("link", { name: "Вся программа", exact: true }),
+        : course.getByRole("link", { name: "Вся программа", exact: true }),
     ).toHaveAttribute("href", `${programme}?page=1&at=navigation-lesson-2`);
     expect(
       await page.evaluate((): unknown => {

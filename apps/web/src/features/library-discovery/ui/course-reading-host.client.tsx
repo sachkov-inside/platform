@@ -88,7 +88,7 @@ export function CourseReadingHost({
         <CourseLocationObserver onChange={setLocation} />
       </Suspense>
       <div
-        className={active ? styles["layout"] : undefined}
+        className={active ? styles["host"] : undefined}
         data-course-reading-host={active ? "" : undefined}
         data-course-reading={active ? "" : undefined}
       >
@@ -98,7 +98,7 @@ export function CourseReadingHost({
             <CourseRail context={context} />
           </>
         ) : null}
-        <div className={active ? styles["document"] : undefined}>
+        <div className={styles["hostDocument"]}>
           {active ? (
             <ProgrammeDialog
               context={context}

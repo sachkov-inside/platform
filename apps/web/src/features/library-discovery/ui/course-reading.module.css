@@ -353,7 +353,9 @@
   font-weight: 600;
 }
 .layout a:focus-visible,
-.layout button:focus-visible {
+.layout button:focus-visible,
+.host a:focus-visible,
+.host button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
@@ -751,17 +753,44 @@
   color: var(--foreground);
 }
 
-/* The server page keeps its standalone frame until the persistent client host adopts it. */
-[data-course-reading-host] .layout[data-course-local-frame],
-[data-course-reading-host] [data-course-local-frame] > .document {
-  display: contents;
+/* Keep the page's full-width box stable while the persistent rail shares its grid row. */
+.host {
+  --course-host-gap: 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem var(--course-host-gap) minmax(
+      0,
+      43rem
+    ) minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
 }
-[data-course-reading-host] [data-course-local-frame] > .rail,
-[data-course-reading-host]
-  [data-course-local-frame]
-  > .document
-  > .mobileProgramme {
-  display: none;
+.host > .rail {
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 1;
+}
+.hostDocument {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+}
+.host [data-course-local-frame] > .document {
+  grid-column: 2;
+}
+@media (max-width: 74rem) {
+  .host {
+    --course-host-gap: 1.75rem;
+  }
+}
+@media (max-width: 63.99rem) {
+  .host {
+    display: block;
+  }
+}
+@media (48rem <= width < 64rem) {
+  .hostDocument > .mobileProgramme > .tabletTrigger {
+    margin-inline-start: max(0px, calc((100% - 43rem) / 2));
+  }
 }
 .content {
   min-width: 0;
