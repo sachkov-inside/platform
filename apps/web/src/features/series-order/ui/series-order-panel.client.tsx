@@ -57,7 +57,8 @@ export function SeriesOrderPanel({
             orderVersion={order.orderVersion}
             onRefresh={async () => {
               const refreshed = await query.refetch();
-              if (refreshed.isError || refreshed.data?.kind !== "ready") return null;
+              if (refreshed.isError || refreshed.data?.kind !== "ready")
+                return null;
               const freshChapter = refreshed.data.order.chapters.find(
                 (entry) => entry.id === chapter.id,
               );
