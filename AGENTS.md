@@ -18,6 +18,8 @@ historical sources.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
 - Before review, read `CODING_STANDARDS.md` and the standards for each changed surface.
   Nested `AGENTS.md` files supply implementation context and verification.
+- For implementation or durable integration, apply [change classification](docs/agents/change-risk.md)
+  through the installed `classify-change` skill, including ordinary assignments outside manual skills.
 - After an explicit owner correction, follow [owner corrections](docs/agents/owner-corrections.md)
   to fix the work and preserve the applicable requirement.
 - When a change alters durable product behaviour, domain language, architecture, public contracts,

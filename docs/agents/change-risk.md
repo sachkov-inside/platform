@@ -1,7 +1,5 @@
 # Platform change risk
 
-Classification: enabled; policy: docs/agents/change-risk.md
-
 Use this policy for changes prepared for durable integration, including ordinary implementation
 assignments and coordinated specifications. The shared classification skill owns the assessment
 procedure; this document owns Platform facts and owner-participation conditions.
@@ -52,6 +50,8 @@ publication, credential changes, release, or deployment.
 - Medium risk: agreed product behavior with bounded effects and no high-risk condition above.
   Verify acceptance criteria and affected existing scenarios; include failure/empty/access states
   and applicable browser evidence for UI changes under [frontend delivery](frontend-delivery.md).
+- Preserve frontend owner-acceptance gates and temporary semantic UI exceptions from that contract.
+  A medium-risk label does not waive required visual acceptance.
 - Assign security review when the change affects authorization, external input handling, secrets,
   a trust boundary, or when security relevance remains uncertain. Explain why it applies or does not.
 - Risk may decrease if the actual change is narrower than planned. Tests alone do not waive a

@@ -178,7 +178,7 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   const failures = [];
   const entryPoint = ".agents/skills/implement-spec/SKILL.md";
   if (!existsSync(resolve(repositoryRoot, entryPoint))) {
-    failures.push(`${entryPoint}: original specification skill is missing`);
+    failures.push(`${entryPoint}: specification skill is missing`);
   }
   if (existsSync(resolve(repositoryRoot, ".agents/skills/orchestrate"))) {
     failures.push(
@@ -186,7 +186,15 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
     );
   }
   const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
-  for (const skill of ["implement-spec", "ask-matt", "tdd"]) {
+  for (const skill of [
+    "implement-spec",
+    "ask-matt",
+    "tdd",
+    "classify-change",
+    "code-review",
+    "implement",
+    "setup-matt-pocock-skills",
+  ]) {
     walk(resolve(repositoryRoot, ".agents/skills", skill), (path, name) => {
       if (name.endsWith(".md")) files.push(relative(repositoryRoot, path));
     });
@@ -249,7 +257,7 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         path,
         content,
         entryPoint,
-        "point to the owner-invoked original specification skill",
+        "point to the owner-invoked specification skill",
       );
     }
   }
