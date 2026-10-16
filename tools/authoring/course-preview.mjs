@@ -18,12 +18,15 @@ export function coursePreviewManifest(original) {
   );
   if (product === undefined || manifest.products.length !== 1)
     throw new Error("Course preview requires only Inside AI Engineering");
-  // Explicit local acceptance choice for Content #56 / Platform #1284.
+  // Eight-chapter programme accepted 2026-10-16; the first-chapter access policy is unchanged.
   const chapterIds = [
     "project-setup",
     "mvp-platform",
+    "production-release",
     "team-agent-infrastructure",
     "business-agent",
+    "agent-rag",
+    "agent-security",
     "quality-and-production",
   ];
   if (

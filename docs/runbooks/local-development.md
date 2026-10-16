@@ -1345,6 +1345,11 @@ not modified; no commit, push, Git hook or file watcher is involved. Immutable p
 report. After an error, rerun the same commit: the journal resumes partial application.
 Refresh the browser after a transfer; report links point at the reader origin of the target.
 
+The opt-in `--course-preview` profile validates the current eight-chapter AI Engineering outline
+before applying the existing local access policy: first-chapter Materials free, other Materials closed.
+It preserves Task access and the original immutable package. Programme-only updates use the shell
+scope described below and do not invoke this access profile.
+
 What the transfer applies:
 
 - Material text, images, links, access, topic, feed choice and product membership. Editorial SVG
