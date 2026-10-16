@@ -635,7 +635,6 @@
     opacity: 0;
   }
   to {
-    transform: translateY(0);
     opacity: 1;
   }
 }
@@ -750,4 +749,35 @@
 
 .dock[data-supplementary] .dockProgramme > span {
   color: var(--foreground);
+}
+
+/* The server page keeps its standalone frame until the persistent client host adopts it. */
+[data-course-reading-host] .layout[data-course-local-frame],
+[data-course-reading-host] [data-course-local-frame] > .document {
+  display: contents;
+}
+[data-course-reading-host] [data-course-local-frame] > .rail,
+[data-course-reading-host]
+  [data-course-local-frame]
+  > .document
+  > .mobileProgramme {
+  display: none;
+}
+.content {
+  min-width: 0;
+  animation: course-content-arrive var(--motion-duration-fast)
+    var(--motion-ease-out);
+}
+@keyframes course-content-arrive {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content {
+    animation: none;
+  }
 }

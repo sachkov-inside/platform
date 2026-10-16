@@ -447,7 +447,9 @@ export function ReaderFrame({
   readonly context: SeriesReaderContext | null;
 }) {
   return context?.programme == null ? (
-    <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
+    <CourseReadingLayout context={null}>
+      <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
+    </CourseReadingLayout>
   ) : (
     <CourseReadingLayout
       context={context.programme}

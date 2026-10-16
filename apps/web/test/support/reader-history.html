@@ -7,6 +7,7 @@
   <body>
     <script type="module">
       import {
+        readerHistoryRoot,
         enterReaderHistory,
         prepareReaderHistory,
         prepareReaderOriginReturn,
@@ -18,10 +19,10 @@
         "?from=%2Fproducts%2Fcourse%2Fprogramme&anchor=task%3Astart";
       function render() {
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><details data-course-chapter-id="stale"><summary>Stale chapter</summary></details><div data-course-rail-scroll></div></aside></section><div data-reader-history-root><h1>${location.pathname}</h1><aside data-course-chapter="second"><details data-course-chapter-id="second"><summary>Second chapter</summary><p>Expanded chapter</p></details><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main></div>`;
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><details data-course-chapter-id="stale"><summary>Stale chapter</summary></details><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside data-course-chapter="second"><details data-course-chapter-id="second"><summary>Second chapter</summary><p>Expanded chapter</p></details><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main></div>`;
         enterReaderHistory(
           supplementary ? source : undefined,
-          document.querySelector("[data-reader-history-root]"),
+          readerHistoryRoot(document.querySelector("#project")),
         );
         // Completing a streamed page or refreshing it replaces the router's state at the same URL.
         history.replaceState({ __NA: true }, "", location.href);
@@ -31,7 +32,7 @@
           .querySelector("main")
           .addEventListener("scroll", () =>
             saveReaderHistoryView(
-              document.querySelector("[data-reader-history-root]"),
+              readerHistoryRoot(document.querySelector("#project")),
             ),
           );
       }
@@ -39,7 +40,7 @@
         prepareReaderHistory(
           event,
           location.pathname.startsWith("/materials/") ? source : undefined,
-          document.querySelector("[data-reader-history-root]"),
+          readerHistoryRoot(document.querySelector("#project")),
         );
         const link = event.target.closest("a");
         if (
@@ -53,7 +54,7 @@
         if (link.id === "return")
           prepareReaderOriginReturn(
             link.href,
-            document.querySelector("[data-reader-history-root]"),
+            readerHistoryRoot(document.querySelector("#project")),
           );
         event.preventDefault();
         history.pushState({ __NA: true }, "", link.href);
@@ -62,7 +63,7 @@
       window.addEventListener("popstate", render);
       window.addEventListener("pagehide", () =>
         saveReaderHistoryView(
-          document.querySelector("[data-reader-history-root]"),
+          readerHistoryRoot(document.querySelector("#project")),
         ),
       );
       render();

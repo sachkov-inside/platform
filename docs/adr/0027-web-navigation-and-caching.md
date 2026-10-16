@@ -321,3 +321,12 @@ uncached. A delayed personal read replaces the task body while the course shell 
 Public composition failure or a missing task retains the personal fallback; it cannot decide 404.
 Task routes use the same 60-second browser retention window as lessons. Submission success and
 version-conflict recovery retain `router.refresh()`; authentication changes reset the route cache.
+
+## Persistent course navigation, 16 October 2026
+
+The account-scoped application shell hosts the course rail and mobile programme across page changes.
+Reader and Task pages publish validated Product composition to that host. Only known course targets
+retain the frame; standalone Material URLs keep their standalone view. Page loading and entry motion
+stay inside the document column. Reduced-motion preferences disable entry animation.
+Reader history includes the host so return navigation restores rail position and expanded chapters.
+Reference links use existing Product members and preserve their imported Material URLs.

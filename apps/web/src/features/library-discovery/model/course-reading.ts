@@ -41,6 +41,8 @@ export interface CourseReferenceMaterial {
 
 export interface CourseReadingContext {
   readonly references?: readonly CourseReferenceMaterial[];
+  /** Published membership supplies navigation targets, independently of chapter composition. */
+  readonly materialHrefs?: readonly Route[];
   readonly activeReferenceId?: string;
   readonly name: string;
   readonly href: Route;
@@ -210,6 +212,9 @@ export function courseReadingContext({
     courseHref: productPath(series.reference.slug),
     chapters,
     references,
+    materialHrefs: publishedItems.map((item) =>
+      materialReaderHref(item.slug, href),
+    ),
     ...(reference === undefined ? {} : { activeReferenceId: reference.id }),
     current: step,
     currentChapterId: chapter.id,

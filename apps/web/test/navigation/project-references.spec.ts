@@ -60,12 +60,15 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect(
     page.getByRole("heading", { name: "Описание проекта", exact: true }),
   ).toBeVisible();
-  const rail = page.locator('[aria-label="Текущая глава"]');
-  await expect(rail.locator("[data-course-step]")).toHaveCount(9);
-  await expect(
-    rail.locator('[data-course-step="material:reference-lesson-5"]'),
-  ).toHaveAttribute("aria-current", "step");
   const group = await referenceGroup(page);
+  const navigation =
+    page.viewportSize()?.width === 390
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Текущая глава" });
+  await expect(navigation.locator("[data-course-step]")).toHaveCount(9);
+  await expect(
+    navigation.locator('[data-course-step="material:reference-lesson-5"]'),
+  ).toHaveAttribute("aria-current", "step");
   await expect(
     group.getByRole("link", { name: "Описание проекта" }),
   ).toHaveAttribute("aria-current", "page");
@@ -92,12 +95,18 @@ test("programme references keep course navigation without adding a numbered step
   await expect(
     page.getByRole("heading", { name: "Описание проекта", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.locator('[aria-label="Текущая глава"] [data-course-step]'),
-  ).toHaveCount(9);
-  await expect(
-    page.locator('[aria-label="Текущая глава"] [aria-current="step"]'),
-  ).toHaveCount(0);
+  await referenceGroup(page);
+  const navigation =
+    page.viewportSize()?.width === 390
+      ? page.getByRole("dialog")
+      : page.getByRole("complementary", { name: "Текущая глава" });
+  await expect(navigation.locator("[data-course-step]")).toHaveCount(9);
+  await expect(navigation.locator('[aria-current="step"]')).toHaveCount(0);
+  if (page.viewportSize()?.width === 390)
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Закрыть" })
+      .click();
   await expect(
     page.getByRole("link", { name: "К программе", exact: true }),
   ).toHaveAttribute("href", programme);

@@ -64,6 +64,7 @@ function path(href: string) {
 
 export function readerHistoryRoot(element: Element): Element {
   return (
+    element.closest("[data-course-reading-host]") ??
     element.closest(
       "[data-material-id], [data-course-reading], [data-product-task]",
     ) ??

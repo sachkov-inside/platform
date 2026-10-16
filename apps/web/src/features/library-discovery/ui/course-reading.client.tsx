@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import { CourseReferenceNavigation } from "./course-reference-navigation";
 
@@ -8,6 +9,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -30,6 +33,7 @@ import type {
 } from "../model/course-reading";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import styles from "./course-reading.module.css";
+import { CourseReadingHostContext } from "./course-reading-host-context.client";
 
 interface TaskSubmissionOverlay {
   readonly courseHref: string;
@@ -64,40 +68,77 @@ export function CourseReadingLayout({
 }) {
   const [submissionOverlay, setSubmissionOverlay] =
     useState<TaskSubmissionOverlay | null>(null);
-  if (context === null)
-    return <div className={styles["standalone"]}>{children}</div>;
-  const displayedContext =
-    submissionOverlay?.courseHref === context.courseHref
-      ? {
-          ...context,
-          chapters: context.chapters.map((chapter) => ({
-            ...chapter,
-            steps: chapter.steps.map((step) =>
-              step.kind === "task" || step.practiceTaskCode !== undefined
-                ? {
-                    ...step,
-                    taskSubmitted: submissionOverlay.submittedTaskIds.includes(
-                      step.practiceTaskCode === undefined
-                        ? step.id
-                        : `task:${step.practiceTaskCode}`,
-                    ),
-                  }
-                : step,
-            ),
-          })),
-        }
-      : context;
+  const host = useContext(CourseReadingHostContext);
+  const publish = host?.publish;
+  const content = useRef<HTMLDivElement>(null);
+  const displayedContext = useMemo(
+    () =>
+      context !== null && submissionOverlay?.courseHref === context.courseHref
+        ? {
+            ...context,
+            chapters: context.chapters.map((chapter) => ({
+              ...chapter,
+              steps: chapter.steps.map((step) =>
+                step.kind === "task" || step.practiceTaskCode !== undefined
+                  ? {
+                      ...step,
+                      taskSubmitted:
+                        submissionOverlay.submittedTaskIds.includes(
+                          step.practiceTaskCode === undefined
+                            ? step.id
+                            : `task:${step.practiceTaskCode}`,
+                        ),
+                    }
+                  : step,
+              ),
+            })),
+          }
+        : context,
+    [context, submissionOverlay],
+  );
+  useLayoutEffect(() => {
+    if (
+      content.current === null ||
+      content.current.getClientRects().length === 0
+    )
+      return;
+    publish?.({
+      context: displayedContext,
+      supplementaryTitle,
+      pathname: window.location.pathname,
+    });
+  }, [displayedContext, publish, supplementaryTitle]);
+  if (displayedContext === null)
+    return (
+      <div ref={content} className={styles["standalone"]}>
+        {children}
+      </div>
+    );
   return (
     <TaskSubmissionStatusContext.Provider value={setSubmissionOverlay}>
-      <div className={styles["layout"]} data-course-reading>
+      <div
+        className={styles["layout"]}
+        data-course-reading={host?.active === true ? undefined : ""}
+        data-course-local-frame
+      >
         <HidePublicFooter />
-        <CourseRail context={displayedContext} />
+        {host?.active === true ? null : (
+          <CourseRail context={displayedContext} />
+        )}
         <div className={styles["document"]}>
-          <ProgrammeDialog
-            context={displayedContext}
-            supplementary={supplementaryTitle !== undefined}
-          />
-          {children}
+          {host?.active === true ? null : (
+            <ProgrammeDialog
+              context={displayedContext}
+              supplementary={supplementaryTitle !== undefined}
+            />
+          )}
+          <div
+            ref={content}
+            className={styles["content"]}
+            data-course-step-content
+          >
+            {children}
+          </div>
         </div>
       </div>
     </TaskSubmissionStatusContext.Provider>
@@ -222,7 +263,11 @@ export function CourseReadingFooter({
   );
 }
 
-function CourseRail({ context }: { readonly context: CourseReadingContext }) {
+export function CourseRail({
+  context,
+}: {
+  readonly context: CourseReadingContext;
+}) {
   // Next preserves this component between steps; a new server-selected step owns the selection.
   const selectionKey = `${context.current.id}:${context.currentChapterId}`;
   const [selection, setSelection] = useState({
@@ -389,7 +434,7 @@ function StepLink({
   );
 }
 
-function ProgrammeDialog({
+export function ProgrammeDialog({
   context,
   supplementary,
 }: {
@@ -397,6 +442,7 @@ function ProgrammeDialog({
   readonly context: CourseReadingContext;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const pathname = usePathname();
   useEffect(() => {
     const element = dialog.current;
     const desktop = window.matchMedia("(width >= 64rem)");
@@ -408,7 +454,7 @@ function ProgrammeDialog({
       desktop.removeEventListener("change", closeOnDesktop);
       element?.close();
     };
-  }, [context.current.id]);
+  }, [pathname]);
   const chapter = context.chapters.find(
     (entry) => entry.id === context.currentChapterId,
   );
