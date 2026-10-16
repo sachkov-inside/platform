@@ -207,8 +207,8 @@ Account является приватной surface владельца: комп
 внешнего адреса покупки у inactive state нет, а вход на внутреннюю витрину кабинет показывает только
 при включённой продаже (#529, #540). Coarse состояния остаются независимыми, но не
 выводятся как техническая диагностическая таблица. Linked Telegram не обещает access; Membership
-timestamps, evidence, provider identity и internal identifiers не показываются. Плавающий островок
-под шапкой предлагает подключить Telegram и исчезает после подтверждения связи;
+timestamps, evidence, provider identity и internal identifiers не показываются. Кнопка в шапке
+рядом с аватаркой предлагает подключить Telegram и исчезает после подтверждения связи;
 Membership state и acquisition action остаются только в Account и на закрытых материалах. Истёкшую обычную попытку
 можно начать заново, а conflict или recovery с риском silent
 transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и

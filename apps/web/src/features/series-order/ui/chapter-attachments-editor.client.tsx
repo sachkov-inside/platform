@@ -1,6 +1,6 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { updateChapterAttachments } from "../api/chapter-attachments.browser";
@@ -23,6 +23,7 @@ export function ChapterAttachmentsEditor({
   readonly orderVersion: string;
   readonly onRefresh: () => void;
 }) {
+  const version = useRef(orderVersion);
   const [selected, setSelected] = useState([
     ...(chapter.supplementaryMaterialIds ?? []),
   ]);
@@ -171,12 +172,15 @@ export function ChapterAttachmentsEditor({
               {
                 productId,
                 chapterId: chapter.id,
-                expectedOrderVersion: orderVersion,
+                expectedOrderVersion: version.current,
                 materialIds: selected,
               },
               {
                 onSuccess: (result) => {
-                  if (result.kind === "saved") onRefresh();
+                  if (result.kind === "saved") {
+                    version.current = result.orderVersion;
+                    onRefresh();
+                  }
                 },
               },
             );
@@ -190,7 +194,16 @@ export function ChapterAttachmentsEditor({
             {mutation.data?.kind === "conflict"
               ? "Состав изменился. Обновите список перед сохранением."
               : "Не удалось сохранить привязки."}{" "}
-            <Button type="button" variant="link" onClick={onRefresh}>
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => {
+                setSelected([...(chapter.supplementaryMaterialIds ?? [])]);
+                version.current = orderVersion;
+                mutation.reset();
+                onRefresh();
+              }}
+            >
               Обновить
             </Button>
           </p>

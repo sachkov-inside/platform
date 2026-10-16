@@ -185,9 +185,11 @@ export function assembleReorderSeries(
         const nextProgramme =
           command.programmePlacements ??
           (snapshot.programmeExplicit && nextChapters.length === 0
-            ? snapshot.programmePlacements.filter((entry) =>
-                command.orderedMaterialIds.includes(entry.materialId),
-              )
+            ? snapshot.programmePlacements
+                .filter((entry) =>
+                  command.orderedMaterialIds.includes(entry.materialId),
+                )
+                .map((entry) => ({ ...entry, chapterId: null }))
             : legacyProgrammePlacements(
                 snapshot.programmePlacements,
                 snapshot.items.map((item) => item.materialId),

@@ -1515,9 +1515,16 @@ export async function syncLocal(
         const programmePlacements =
           product.chapters.length === 0
             ? product.materialIds.map((id) => ({
-                id: sourceUuid(
-                  `${sourceKey(pkg.manifest, product.sourceId)}:programme:${id}`,
-                ),
+                id:
+                  order.programmePlacements?.find(
+                    (entry) =>
+                      entry.materialId ===
+                        valueAt(currentMaterials, id).materialId &&
+                      entry.chapterId === null,
+                  )?.id ??
+                  sourceUuid(
+                    `${sourceKey(pkg.manifest, product.sourceId)}:programme:${id}`,
+                  ),
                 materialId: valueAt(currentMaterials, id).materialId,
                 chapterId: null,
                 stepGroup: null,
@@ -1529,9 +1536,17 @@ export async function syncLocal(
                   const count = (occurrence.get(id) ?? 0) + 1;
                   occurrence.set(id, count);
                   return {
-                    id: sourceUuid(
-                      `${sourceKey(pkg.manifest, product.sourceId)}:chapter:${chapter.sourceId}:placement:${id}:${String(count)}`,
-                    ),
+                    id:
+                      order.programmePlacements?.filter(
+                        (entry) =>
+                          entry.materialId ===
+                            valueAt(currentMaterials, id).materialId &&
+                          entry.chapterId ===
+                            (chapters[chapterIndex]?.id ?? null),
+                      )[count - 1]?.id ??
+                      sourceUuid(
+                        `${sourceKey(pkg.manifest, product.sourceId)}:chapter:${chapter.sourceId}:placement:${id}:${String(count)}`,
+                      ),
                     materialId: valueAt(currentMaterials, id).materialId,
                     chapterId: chapters[chapterIndex]?.id ?? null,
                     stepGroup: null,

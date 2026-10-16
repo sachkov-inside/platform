@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { canonical, loadPackage } from "./package.mjs";
 import { taskPageBody } from "./task-page.mjs";
-import { syncLocal } from "./local-sync.mjs";
+import { productChapters, syncLocal } from "./local-sync.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 
 /** Synthetic exporter envelope, never real course content. */
@@ -357,6 +357,15 @@ test("applyRelease sends rendered Task pages and both source link directions wit
       },
     ],
   });
+  const normalized = await loadPackage(f.path);
+  const normalizedProduct = normalized.manifest.products[0];
+  assert.ok(normalizedProduct);
+  const migratedChapter = productChapters(
+    normalized.manifest,
+    normalizedProduct,
+  )[0];
+  assert.ok(migratedChapter);
+  const migratedPlacementId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const productId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   /** @type {Record<string,unknown>[]} */
@@ -398,11 +407,36 @@ test("applyRelease sends rendered Task pages and both source link directions wit
         version: 1,
       };
     if (path === `/authoring/products/${productId}/order`)
-      return { orderVersion: "a".repeat(64), items: [], chapters: [] };
+      return {
+        orderVersion: "a".repeat(64),
+        items: [],
+        chapters: [],
+        programmePlacements: [
+          {
+            id: migratedPlacementId,
+            materialId,
+            chapterId: migratedChapter.id,
+            stepGroup: null,
+          },
+        ],
+      };
     if (path === `/authoring/products/${productId}/artifacts`)
       return { artifacts: [] };
-    if (path === "/authoring/import/products/composition")
+    if (path === "/authoring/import/products/composition") {
+      assert.deepEqual(
+        Reflect.get(object(body), "programmePlacements"),
+        [
+          {
+            id: migratedPlacementId,
+            materialId,
+            chapterId: migratedChapter.id,
+            stepGroup: null,
+          },
+        ],
+        "A Content import preserves the migrated placement address",
+      );
       return { orderVersion: "b".repeat(64) };
+    }
     if (path === "/authoring/import/materials/apply") {
       applied.push({ path, ...object(body) });
       return { materialId, contentVersion: 2 };

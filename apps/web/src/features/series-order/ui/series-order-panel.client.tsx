@@ -50,7 +50,7 @@ export function SeriesOrderPanel({
         />
         {order.chapters.map((chapter) => (
           <ChapterAttachmentsEditor
-            key={`${order.orderVersion}:${chapter.id}`}
+            key={chapter.id}
             chapter={chapter}
             items={order.items}
             productId={seriesId}

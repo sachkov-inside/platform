@@ -305,6 +305,39 @@ describe("Product chapters", () => {
     );
   });
 
+  test("removing the final chapter retains explicit placement identities in a flat programme", async () => {
+    const productId = await product("chapter-to-flat");
+    const lesson = await material("Flat conversion", [productId]);
+    const chapterId = randomUUID();
+    const initial = await load(productId);
+    const placement = {
+      id: randomUUID(),
+      materialId: lesson,
+      chapterId,
+      stepGroup: null,
+    };
+    const saved = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: initial.orderVersion,
+      orderedMaterialIds: [lesson],
+      chapters: [{ id: chapterId, name: "Only chapter", summary: "" }],
+      programmePlacements: [placement],
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+    const removed = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: saved.value.orderVersion,
+      orderedMaterialIds: [lesson],
+      chapters: [],
+    });
+    expect(removed.ok).toBe(true);
+    expect((await load(productId)).programmePlacements).toEqual([
+      { ...placement, chapterId: null },
+    ]);
+  });
+
   test("reorders chapters, moves a Material between them and keeps every Material", async () => {
     const productId = await product("working-with-agents");
     const first = await material("Основы", [productId]);
