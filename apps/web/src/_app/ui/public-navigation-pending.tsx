@@ -1,6 +1,6 @@
 import type { Route } from "next";
 import { AccountLoading } from "@/_pages/account";
-import { BookmarksLoading } from "@/_pages/bookmarks";
+import { BookmarksLoading, BookmarksPage } from "@/_pages/bookmarks";
 import { HomeLoading } from "@/_pages/home";
 import { NavigationPendingFrame } from "@/widgets/application-shell";
 
@@ -12,7 +12,9 @@ export function PublicNavigationPending({ href }: { readonly href: Route }) {
       {path === "/account" ? (
         <AccountLoading />
       ) : path === "/bookmarks" ? (
-        <BookmarksLoading />
+        <BookmarksPage>
+          <BookmarksLoading />
+        </BookmarksPage>
       ) : (
         <HomeLoading />
       )}

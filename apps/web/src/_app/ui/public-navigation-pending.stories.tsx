@@ -63,7 +63,7 @@ export const BookmarksMobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Закладки", exact: true }),
+      canvas.getByRole("heading", { name: "Закладки" }),
     ).toBeVisible();
     await expect(canvas.queryByRole("heading", { name: "Главная" })).toBeNull();
   },
