@@ -27,12 +27,13 @@ export function readerCourseAnchorValue(anchor: ReaderCourseAnchor): string {
 export function anchoredMaterialHref(
   href: string,
   courseHref: Route,
-  anchor: ReaderCourseAnchor,
+  anchor?: ReaderCourseAnchor,
 ): Route | undefined {
   if (!/^\/materials\/[a-z0-9]+(?:-[a-z0-9]+)*(?:[?#]|$)/u.test(href))
     return undefined;
   const url = new URL(href, "https://inside.local");
   url.searchParams.set("from", courseHref);
-  url.searchParams.set("anchor", readerCourseAnchorValue(anchor));
+  if (anchor === undefined) url.searchParams.delete("anchor");
+  else url.searchParams.set("anchor", readerCourseAnchorValue(anchor));
   return internalRoute(`${url.pathname}${url.search}${url.hash}`);
 }

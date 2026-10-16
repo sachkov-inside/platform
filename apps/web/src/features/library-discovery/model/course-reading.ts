@@ -11,6 +11,7 @@ import {
   productProgrammeHref,
   productTaskHref,
 } from "@/shared/routing/subscription-route";
+import { projectReferenceMaterials } from "./project-reference-materials";
 import type { ProductChapter } from "./library-discovery-view";
 
 export interface CourseReadingStep {
@@ -31,14 +32,23 @@ export interface CourseReadingChapter {
   readonly ordinal?: number;
   readonly steps: readonly CourseReadingStep[];
 }
+export interface CourseReferenceMaterial {
+  readonly id: string;
+  readonly slug: string;
+  readonly title: string;
+  readonly href: Route;
+}
+
 export interface CourseReadingContext {
+  readonly references?: readonly CourseReferenceMaterial[];
+  readonly activeReferenceId?: string;
   readonly name: string;
   readonly href: Route;
   readonly courseHref: Route;
   readonly chapters: readonly CourseReadingChapter[];
   readonly current: CourseReadingStep;
   readonly currentChapterId: string;
-  /** Position in the displayed mixed sequence; never a stored Material ordinal. */
+  /** Position in the mixed sequence; zero for a reference opened without an originating step. */
   readonly currentPosition: number;
   readonly totalSteps: number;
   readonly totalMaterials: number;
@@ -164,22 +174,43 @@ export function courseReadingContext({
       },
     ];
   });
+  const references = projectReferenceMaterials(publishedItems).map((item) => ({
+    id: `material:${item.slug}`,
+    slug: item.slug,
+    title: item.title,
+    href: materialReaderHref(item.slug, href),
+  }));
   const steps = chapters.flatMap((chapter) => chapter.steps);
   const id =
     current.kind === "material"
       ? `material:${current.slug}`
       : `task:${current.code}`;
   const position = steps.findIndex((step) => step.id === id);
-  const step = steps[position];
-  const chapter = chapters.find((entry) =>
-    entry.steps.some((entryStep) => entryStep.id === id),
+  const reference = references.find((item) => item.id === id);
+  const referenceItem = publishedItems.find(
+    (item) => `material:${item.slug}` === reference?.id,
   );
+  const step =
+    steps[position] ??
+    (reference === undefined
+      ? undefined
+      : {
+          ...reference,
+          kind: "material" as const,
+          availability: referenceItem?.availability ?? "available",
+        });
+  const chapter =
+    chapters.find((entry) =>
+      entry.steps.some((entryStep) => entryStep.id === id),
+    ) ?? (reference === undefined ? undefined : chapters[0]);
   if (step === undefined || chapter === undefined) return null;
   return {
     name: series.reference.name,
     href,
     courseHref: productPath(series.reference.slug),
     chapters,
+    references,
+    ...(reference === undefined ? {} : { activeReferenceId: reference.id }),
     current: step,
     currentChapterId: chapter.id,
     currentPosition: position + 1,
@@ -187,6 +218,6 @@ export function courseReadingContext({
     totalMaterials: items.length,
     hasModeVariants: series.reference.hasModeVariants ?? false,
     previous: steps[position - 1] ?? null,
-    next: steps[position + 1] ?? null,
+    next: position < 0 ? null : (steps[position + 1] ?? null),
   };
 }

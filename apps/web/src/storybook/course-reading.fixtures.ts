@@ -12,6 +12,12 @@ export const courseSource = {
   },
   items: [
     {
+      materialId: "project-id",
+      slug: "aie-project",
+      title: "Описание проекта",
+      availability: "available" as const,
+    },
+    {
       materialId: "first-id",
       slug: "first",
       title: "Первый урок",

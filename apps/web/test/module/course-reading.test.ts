@@ -67,7 +67,7 @@ describe("course reading composition", () => {
     expect(context?.next?.id).toBe("task:only");
   });
 
-  it.each(["aie-project", "aie-product-brief", "aie-ch1-project-setup"])(
+  it.each(["aie-ch1-project-setup"])(
     "keeps supplementary %s standalone despite a programme return target",
     (slug) => {
       expect(
@@ -259,4 +259,60 @@ it("embedded practice remains one Material step with its saved submission, and l
       .flatMap((chapter) => chapter.steps)
       .some((step) => step.kind === "task"),
   ).toBe(false);
+});
+
+describe("project reference navigation", () => {
+  const referenceSeries = {
+    ...series,
+    items: [
+      ...series.items,
+      { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
+      { materialId: "project", slug: "aie-project", title: "Описание проекта" },
+      { materialId: "extra", slug: "extra", title: "Другой материал" },
+    ],
+  };
+
+  it("lists the existing project documents separately without changing chapter steps or neighbours", () => {
+    const current = { kind: "material" as const, slug: "first" };
+    const before = courseReadingContext({ series, current });
+    const context = courseReadingContext({ series: referenceSeries, current });
+    expect(context?.references?.map(({ slug }) => slug)).toEqual([
+      "aie-project",
+      "aie-product-brief",
+    ]);
+    expect(context?.chapters).toEqual(before?.chapters);
+    expect(context?.totalSteps).toBe(before?.totalSteps);
+    expect(context?.totalMaterials).toBe(before?.totalMaterials);
+    expect(context?.next).toEqual(before?.next);
+  });
+
+  it("opens a reference from the programme without claiming a curricular position", () => {
+    const context = courseReadingContext({
+      series: referenceSeries,
+      current: { kind: "material", slug: "aie-project" },
+      returnTarget: parseMaterialReaderReturnTarget(
+        "/products/course/programme",
+      ),
+    });
+    expect(context).toMatchObject({
+      activeReferenceId: "material:aie-project",
+      currentPosition: 0,
+      totalMaterials: 2,
+      previous: null,
+      next: null,
+    });
+    expect(
+      context?.chapters
+        .flatMap(({ steps }) => steps)
+        .some(({ id }) => id === "material:aie-project"),
+    ).toBe(false);
+  });
+
+  it("does not invent a reference missing from published Product membership", () => {
+    const context = courseReadingContext({
+      series,
+      current: { kind: "material", slug: "first" },
+    });
+    expect(context?.references).toEqual([]);
+  });
 });

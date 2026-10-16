@@ -707,3 +707,47 @@
 .chapterOption {
   padding-block: 0.625rem;
 }
+
+.references {
+  flex-shrink: 0;
+  min-width: 0;
+  margin-block: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.references h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.references ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.references a {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding-block: 0.5rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.references svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.references a:hover,
+.references a[aria-current="page"] {
+  color: var(--action);
+}
+.references a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dock[data-supplementary] .dockProgramme > span {
+  color: var(--foreground);
+}

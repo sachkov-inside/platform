@@ -1,5 +1,8 @@
 "use client";
 
+import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
+import { CourseReferenceNavigation } from "./course-reference-navigation";
+
 import { ArrowLeft, ArrowRight, ChevronRight, List, X } from "lucide-react";
 import {
   createContext,
@@ -124,14 +127,18 @@ export function CourseReadingHeader({
           <Breadcrumbs
             items={[
               { label: context.name, href: context.href },
-              {
-                label:
-                  chapter?.ordinal === undefined
-                    ? "Программа"
-                    : `Глава ${String(chapter.ordinal)}`,
-                fullLabel: chapter?.name,
-                href: chapter?.href ?? context.href,
-              },
+              ...(supplementary && context.currentPosition === 0
+                ? [{ label: "О проекте" }]
+                : [
+                    {
+                      label:
+                        chapter?.ordinal === undefined
+                          ? "Программа"
+                          : `Глава ${String(chapter.ordinal)}`,
+                      fullLabel: chapter?.name,
+                      href: chapter?.href ?? context.href,
+                    },
+                  ]),
               ...(supplementary && context.current.kind === "task"
                 ? [
                     {
@@ -330,6 +337,16 @@ function CourseRail({ context }: { readonly context: CourseReadingContext }) {
           </ol>
         )}
       </div>
+      <CourseReferenceNavigation
+        references={context.references ?? []}
+        activeReferenceId={context.activeReferenceId}
+        courseHref={context.href}
+        anchor={
+          context.currentPosition > 0
+            ? parseReaderCourseAnchor(context.current.id)
+            : undefined
+        }
+      />
     </aside>
   );
 }
@@ -442,7 +459,11 @@ function ProgrammeDialog({
         >
           <span>
             {supplementary ? (
-              "Ваше место в курсе"
+              context.currentPosition === 0 ? (
+                "О проекте"
+              ) : (
+                "Ваше место в курсе"
+              )
             ) : (
               <>
                 Глава {chapter?.ordinal ?? 1} · Шаг {chapterStep} из{" "}
@@ -504,6 +525,16 @@ function ProgrammeDialog({
           </button>
         </div>
         <nav aria-label="Вся программа">
+          <CourseReferenceNavigation
+            references={context.references ?? []}
+            activeReferenceId={context.activeReferenceId}
+            courseHref={context.href}
+            anchor={
+              context.currentPosition > 0
+                ? parseReaderCourseAnchor(context.current.id)
+                : undefined
+            }
+          />
           {context.chapters.map((chapter) => (
             <details
               key={chapter.id}

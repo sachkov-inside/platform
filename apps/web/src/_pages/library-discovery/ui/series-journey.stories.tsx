@@ -1616,3 +1616,47 @@ export const VideoSummaryIsNotShown: Story = {
     ).toHaveLength(0);
   },
 };
+
+const referenceTemplate = result.items[0];
+if (referenceTemplate === undefined)
+  throw new Error("Reference story requires a Material");
+
+export const ProjectReferenceGroup: Story = {
+  args: {
+    result: {
+      ...chapteredResult,
+      items: [
+        ...result.items,
+        {
+          ...referenceTemplate,
+          materialId: "project-reference",
+          slug: "aie-project",
+          title: "Описание проекта",
+        },
+        {
+          ...referenceTemplate,
+          materialId: "brief-reference",
+          slug: "aie-product-brief",
+          title: "Бриф заказчика",
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const group = within(canvasElement).getByRole("navigation", {
+      name: "О проекте",
+    });
+    await expect(within(group).getAllByRole("link")).toHaveLength(2);
+    await expect(
+      within(group).getByRole("link", { name: "Описание проекта" }),
+    ).toHaveAttribute(
+      "href",
+      `/materials/aie-project?from=${encodeURIComponent(`/products/${result.reference.slug}/programme`)}`,
+    );
+    await expect(group.querySelector("[data-course-step]")).toBeNull();
+  },
+};
+export const ProjectReferenceGroupMobile: Story = {
+  ...ProjectReferenceGroup,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};

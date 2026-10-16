@@ -469,6 +469,13 @@ chapters belong to a browser history entry, stored per tab under that entry's op
 Back traverses document history. Explicit return opens the originating entry's exact URL and restores its view
 when available. Reload preserves the course anchor; absent history, blocked storage or a new tab use a safe
 route fallback. No global last-course preference or cross-tab navigation state is used.
+The separate “О проекте” reference group selects the published Product members `aie-project` and
+`aie-product-brief` by existing identity. It appears in the chapter rail, mobile programme and programme page.
+References do not enter chapter composition, curricular positions, counts or required progress.
+An anchored reference keeps the originating chapter and step, highlights the active document separately,
+and restores the originating lesson through its return links. A programme entry without an origin
+retains the course frame without claiming a curricular position. A standalone Material URL without
+course context remains standalone; authored read links and artifact download links remain valid.
 The supplementary Materials catalogue, its contents and resource links remain available.
 Standalone Reader keeps the normal application legal footer. Common navigation rows make no personal access
 claims from guest composition; target-page access gates remain authoritative. The mixed reading sequence places chapter tasks after their MaterialId anchors,

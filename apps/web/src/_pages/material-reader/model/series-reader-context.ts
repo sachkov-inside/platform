@@ -84,8 +84,10 @@ export function resolveSeriesReaderContext({
           current: { kind: "material", slug: currentMaterialSlug },
           returnTarget,
         });
-  const supplementary = primaryProgramme === null;
-  const programme =
+  const supplementary =
+    primaryProgramme === null ||
+    primaryProgramme?.activeReferenceId !== undefined;
+  const anchoredProgramme =
     supplementary && anchor !== undefined
       ? courseReadingContext({
           series: { ...series, chapters: series.chapters ?? [] },
@@ -93,9 +95,22 @@ export function resolveSeriesReaderContext({
           returnTarget,
         })
       : primaryProgramme;
+  const reference = primaryProgramme?.references?.find(
+    (item) => item.id === `material:${currentMaterialSlug}`,
+  );
+  const programme =
+    anchoredProgramme == null || reference === undefined
+      ? anchoredProgramme
+      : {
+          ...anchoredProgramme,
+          activeReferenceId: reference.id,
+        };
   if (
     programme === null ||
-    (supplementary && programme?.current.availability !== "available")
+    (supplementary &&
+      anchor !== undefined &&
+      (programme?.current.availability !== "available" ||
+        programme.currentPosition === 0))
   )
     return null;
 

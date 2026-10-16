@@ -445,11 +445,15 @@ async function ResolvedMaterialReader({
               const programme = seriesContext?.programme;
               if (programme == null) return undefined;
               const current = programme.current;
-              const contextAnchor = parseReaderCourseAnchor(current.id);
-              const target =
-                contextAnchor === undefined
+              const contextAnchor =
+                programme.currentPosition === 0
                   ? undefined
-                  : anchoredMaterialHref(href, programme.href, contextAnchor);
+                  : parseReaderCourseAnchor(current.id);
+              const target = anchoredMaterialHref(
+                href,
+                programme.href,
+                contextAnchor,
+              );
               return target === undefined ? undefined : (
                 <IntentPrefetchLink
                   className={proseLinkClassName}

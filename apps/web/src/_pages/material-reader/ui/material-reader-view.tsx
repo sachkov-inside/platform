@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type {
@@ -88,9 +88,23 @@ export function MaterialReaderView({
 }: MaterialReaderViewProps) {
   const endReadingAction = readingAction ?? topReadingAction;
   const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
-  const returnAction = (
-    <CatalogBackLink href={returnTarget.href} label="Назад" />
-  );
+  const origin =
+    seriesContext?.supplementary === true &&
+    (seriesContext.programme?.currentPosition ?? 0) > 0
+      ? seriesContext.programme?.current
+      : undefined;
+  const returnAction =
+    origin === undefined ? (
+      <CatalogBackLink href={returnTarget.href} label="Назад" />
+    ) : (
+      <ReaderOriginLink
+        href={origin.href}
+        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
+        {origin.kind === "task" ? "К заданию" : "К уроку"}
+      </ReaderOriginLink>
+    );
   const topActions = (
     <ReaderTopActions
       context={seriesContext?.programme == null ? seriesContext : null}
@@ -109,7 +123,8 @@ export function MaterialReaderView({
       <ReaderHistoryTracker
         path={materialPath(material.slug)}
         originHref={
-          seriesContext?.supplementary === true
+          seriesContext?.supplementary === true &&
+          (seriesContext.programme?.currentPosition ?? 0) > 0
             ? seriesContext.programme?.current.href
             : undefined
         }
@@ -174,7 +189,7 @@ export function MaterialReaderView({
               {deferredPracticeActions}
             </div>
           )}
-          <div className="mt-8" data-material-actions data-reader-footer>
+          <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
               position="bottom"
               context={seriesContext?.programme == null ? seriesContext : null}
@@ -322,7 +337,17 @@ export function MaterialReaderFooter({
 }) {
   if (seriesContext === null) return null;
   if (seriesContext.supplementary === true && seriesContext.programme != null)
-    return (
+    return seriesContext.programme.currentPosition === 0 ? (
+      <nav
+        aria-label="Возврат к программе"
+        className="mt-8 border-t border-border pt-4"
+      >
+        <CatalogBackLink
+          href={seriesContext.programme.href}
+          label="К программе"
+        />
+      </nav>
+    ) : (
       <nav
         aria-label="Возврат к месту в курсе"
         className="mt-8 border-t border-border pt-4"

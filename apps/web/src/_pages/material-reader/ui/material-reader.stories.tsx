@@ -1863,12 +1863,19 @@ export const SupplementaryMaterial: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Бриф заказчика" }),
     ).toBeVisible();
-    await expect(canvas.queryByLabelText("Текущая глава")).toBeNull();
+    await expect(canvas.getByLabelText("Текущая глава")).toBeInTheDocument();
     await expect(
-      canvas.queryByRole("navigation", { name: "Навигация по урокам" }),
+      canvasElement.querySelector(
+        '[data-course-reference="aie-product-brief"][aria-current="page"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-step="material:aie-product-brief"]',
+      ),
     ).toBeNull();
     await expect(
-      canvas.getByRole("link", { name: "AI Engineering" }),
+      canvas.getByRole("link", { name: "К программе" }),
     ).toHaveAttribute("href", supplementaryReturn.href);
   },
 };
@@ -1876,6 +1883,7 @@ export const SupplementaryMaterialDirect: Story = {
   ...SupplementaryMaterial,
   args: {
     ...SupplementaryMaterial.args,
+    seriesContext: null,
     returnTarget: resolveReaderReturnTarget({
       material: supplementaryMaterial,
       returnTarget: parseMaterialReaderReturnTarget(undefined),
@@ -2069,4 +2077,79 @@ export const PracticalLesson: Story = {
 export const PracticalLessonMobile: Story = {
   ...PracticalLesson,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ProjectReferenceFromLesson: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "material", slug: "course-intro" },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const rail = canvas.getByLabelText("Текущая глава");
+    const references = within(rail).getByRole("navigation", {
+      name: "О проекте",
+    });
+    await expect(
+      within(references).getByRole("link", { name: "Бриф заказчика" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(references).getByRole("link", { name: "Описание проекта" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/aie-project?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro&anchor=material%3Acourse-intro",
+    );
+    await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
+      "data-course-step",
+      "material:course-intro",
+    );
+    await expect(canvas.getAllByRole("link", { name: "К уроку" })).toHaveLength(
+      2,
+    );
+    await expect(
+      canvas.getByRole("link", { name: /Вернуться к уроку:/u }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro",
+    );
+  },
+};
+export const ProjectReferenceFromLessonMobile: Story = {
+  ...ProjectReferenceFromLesson,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog");
+    const references = within(dialog).getByRole("navigation", {
+      name: "О проекте",
+    });
+    await expect(
+      within(references).getByRole("link", { name: "Бриф заказчика" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(dialog).getByRole("link", { name: "Как устроен курс" }),
+    ).toHaveAttribute("aria-current", "step");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть программу" }),
+    );
+    await expect(dialog).not.toBeVisible();
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+  },
 };

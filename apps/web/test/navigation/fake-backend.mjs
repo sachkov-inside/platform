@@ -206,13 +206,36 @@ const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
     },
   ],
 }));
+const referenceProduct = {
+  ...performanceProduct,
+  id: "11111111-1111-4111-8111-111111111116",
+  name: "Курс со справочными документами",
+  slug: "reference-course",
+};
+const referenceLessons = [
+  ...Array.from({ length: 9 }, (_, index) => ({
+    slug: `reference-lesson-${String(index + 1)}`,
+    title: `Урок ${String(index + 1)}`,
+  })),
+  { slug: "aie-project", title: "Описание проекта" },
+  { slug: "aie-product-brief", title: "Бриф заказчика" },
+].map((item, index) => ({
+  ...performanceTemplate,
+  ...item,
+  materialId: `33333333-3333-4333-8333-${String(index + 801).padStart(12, "0")}`,
+  seriesMemberships: [
+    { ordinal: index + 1, series: referenceProduct, stepGroup: null },
+  ],
+}));
 /** @param {Product} product */
 const lessonsOf = (product) =>
   product.slug === performanceProduct.slug
     ? performanceLessons
-    : lessons.filter(
-        (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
-      );
+    : product.slug === referenceProduct.slug
+      ? referenceLessons
+      : lessons.filter(
+          (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
+        );
 
 /**
  * @type {{
@@ -545,7 +568,9 @@ function route(method, url, entitled) {
     const product =
       slug === performanceProduct.slug
         ? performanceProduct
-        : products.find((candidate) => candidate.slug === slug);
+        : slug === referenceProduct.slug
+          ? referenceProduct
+          : products.find((candidate) => candidate.slug === slug);
     if (
       product === undefined ||
       (product.slug === archivedProductSlug && !entitled)
@@ -553,8 +578,15 @@ function route(method, url, entitled) {
       return discoveryNotFound();
     const items = lessonsOf(product);
     const chapterItems =
-      product.slug === performanceProduct.slug ? items.slice(0, 108) : items;
-    const half = Math.ceil(chapterItems.length / 2);
+      product.slug === performanceProduct.slug
+        ? items.slice(0, 108)
+        : product.slug === referenceProduct.slug
+          ? items.slice(0, 9)
+          : items;
+    const half =
+      product.slug === referenceProduct.slug
+        ? chapterItems.length
+        : Math.ceil(chapterItems.length / 2);
     return json({
       chapters: [
         {
@@ -677,9 +709,11 @@ function route(method, url, entitled) {
     });
   }
   if (material !== null) {
-    const lesson = [...lessons, ...performanceLessons].find(
-      (candidate) => candidate.slug === material[1],
-    );
+    const lesson = [
+      ...lessons,
+      ...performanceLessons,
+      ...referenceLessons,
+    ].find((candidate) => candidate.slug === material[1]);
     if (
       lesson === undefined ||
       (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&

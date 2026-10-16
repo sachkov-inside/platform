@@ -69,12 +69,7 @@ describe("Supplementary reading anchored to a primary course step", () => {
       ).toBe(false);
     },
   );
-  it.each([
-    undefined,
-    "task:absent",
-    "material:next",
-    "material:aie-product-brief",
-  ])(
+  it.each(["task:absent", "material:next", "material:aie-product-brief"])(
     "uses standalone fallback for inaccessible or missing anchor %s",
     (value) => {
       expect(
@@ -116,4 +111,15 @@ describe("Supplementary reading anchored to a primary course step", () => {
       })?.supplementary,
     ).toBeUndefined();
   });
+});
+
+it("keeps course context without inventing an origin for programme reference links", () => {
+  expect(
+    anchoredMaterialHref(
+      "/materials/aie-product-brief#download",
+      parseMaterialReaderReturnTarget("/products/course/programme").href,
+    ),
+  ).toBe(
+    "/materials/aie-product-brief?from=%2Fproducts%2Fcourse%2Fprogramme#download",
+  );
 });

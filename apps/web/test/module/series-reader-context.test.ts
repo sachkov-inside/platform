@@ -8,7 +8,7 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
-  it("does not turn supplementary membership into course navigation", () => {
+  it("keeps project references outside curricular positions", () => {
     const series = {
       kind: "ready" as const,
       reference: { name: "Course", slug: "platform-inside" },
@@ -26,7 +26,14 @@ describe("Series Reader context", () => {
         returnTarget: selectedSeries,
         series,
       }),
-    ).toBeNull();
+    ).toMatchObject({
+      supplementary: true,
+      programme: {
+        activeReferenceId: "material:aie-product-brief",
+        currentPosition: 0,
+        totalMaterials: 1,
+      },
+    });
     expect(
       resolveSeriesReaderContext({
         currentMaterialSlug: "lesson",
@@ -219,5 +226,38 @@ describe("Series Reader context", () => {
         },
       }),
     ).toBeNull();
+  });
+});
+
+it("retains the originating lesson and marks the reference outside the step sequence", () => {
+  const context = resolveSeriesReaderContext({
+    currentMaterialSlug: "aie-product-brief",
+    returnTarget: parseMaterialReaderReturnTarget(
+      "/products/course/programme?at=lesson",
+    ),
+    anchor: { kind: "material", slug: "lesson" },
+    series: {
+      kind: "ready",
+      reference: { slug: "course", name: "Курс" },
+      chapters: [
+        { id: "one", name: "Глава", summary: "", materialIds: ["lesson-id"] },
+      ],
+      items: [
+        { materialId: "brief-id", slug: "aie-product-brief", title: "Бриф" },
+        { materialId: "lesson-id", slug: "lesson", title: "Урок" },
+      ],
+    },
+  });
+  expect(context).toMatchObject({
+    supplementary: true,
+    next: null,
+    previous: null,
+    totalMaterials: 1,
+    programme: {
+      current: { id: "material:lesson" },
+      currentPosition: 1,
+      totalSteps: 1,
+      activeReferenceId: "material:aie-product-brief",
+    },
   });
 });
