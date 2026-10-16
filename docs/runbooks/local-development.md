@@ -725,7 +725,7 @@ took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cac
 18.8 s.
 
 Storybook import failures retain primary evidence in
-`apps/web/test-results/storybook-imports/run-<pid>/imports.jsonl`. The Node-side provider observes
+`apps/web/test-results/storybook-imports/run-<pid>-<process-start>/imports.jsonl`. The Node-side provider observes
 failed script HTTP responses and transport failures before any setup import. Vite records the
 original error response body and server error, even when Chromium discards the failed body.
 No request is replayed. Successful script responses are not recorded. Each process retains up to

@@ -24,7 +24,10 @@ export function storybookImportDiagnostics(
     try {
       if (report === undefined) {
         mkdirSync(directory, { recursive: true });
-        const runDirectory = join(directory, `run-${String(process.pid)}`);
+        const runDirectory = join(
+          directory,
+          `run-${String(process.pid)}-${String(Math.trunc(performance.timeOrigin))}`,
+        );
         mkdirSync(runDirectory, { recursive: true });
         report = join(runDirectory, "imports.jsonl");
         console.error(`[storybook-imports] ${report}`);
