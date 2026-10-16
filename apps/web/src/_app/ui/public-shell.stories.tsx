@@ -1,6 +1,6 @@
 import { currentLegalEdition, parseLegalText } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import { LegalDocumentPage } from "@/_pages/legal";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
@@ -58,7 +58,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Публичная оболочка в том составе, который надевает `PublicShell`: шапка на desktop, шапка с логотипом и значками разделов на телефоне, напоминание о Telegram, окно подключения и подвал. Разделы шапки зависят от прав: «Редактор» видит только тот, кто ведёт материалы. Страницы внутри — настоящие маршруты.",
+          "Публичная оболочка в том составе, который надевает `PublicShell`: шапка на desktop, шапка с логотипом и значками разделов на телефоне, кнопка подключения Telegram рядом с аватаркой и подвал. Разделы шапки зависят от прав: «Редактор» видит только тот, кто ведёт материалы. Страницы внутри — настоящие маршруты.",
       },
     },
   },
@@ -120,10 +120,7 @@ export const AuthorDesktop: Story = {
   },
 };
 
-/**
- * Участник без Telegram закрыл окно подключения: в шапке остаётся тихое напоминание, и оно же
- * открывает окно снова.
- */
+/** Участник без Telegram: кнопка подключения находится в шапке рядом с аватаркой, без окна. */
 export const MemberWithoutTelegramDesktop: Story = {
   ...memberWithoutTelegram(),
   globals: desktop,
@@ -132,26 +129,16 @@ export const MemberWithoutTelegramDesktop: Story = {
     const canvas = within(canvasElement);
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
-    const reminder = await canvas.findByRole("button", {
-      name: "Telegram не подключён. Подключить",
-    });
-    await userEvent.click(reminder);
-    const dialog = await body.findByRole("dialog");
+    const header = within(canvas.getByRole("banner"));
     await expect(
-      within(dialog).getByRole("heading", { name: "Подключите Telegram" }),
+      await header.findByRole("button", { name: "Подключить Telegram" }),
     ).toBeVisible();
-    await userEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Закрыть подключение Telegram",
-      }),
-    );
-    await waitFor(() =>
-      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
+    await expect(header.getByRole("button", { name: "Аккаунт" })).toBeVisible();
+    await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
   },
 };
 
-/** На телефоне то же напоминание — точка у «Профиля» в шапке телефона. */
+/** На телефоне Telegram и аватарка сохраняют отдельные доступные кнопки в шапке. */
 export const MemberWithoutTelegramMobile: Story = {
   ...memberWithoutTelegram(),
   globals: mobile,
@@ -160,10 +147,16 @@ export const MemberWithoutTelegramMobile: Story = {
     const navigation = within(canvasElement).getByRole("navigation", {
       name: "Мобильная навигация",
     });
-    const profile = within(navigation).getByRole("link", { name: "Профиль" });
-    await waitFor(() =>
-      expect(profile.querySelector("span[aria-hidden='true']")).not.toBeNull(),
-    );
+    const controls = within(navigation);
+    await expect(
+      await controls.findByRole("button", { name: "Подключить Telegram" }),
+    ).toBeVisible();
+    await expect(
+      controls.getByRole("button", { name: "Аккаунт" }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("dialog"),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -192,8 +185,12 @@ export const MobileTopNavigation: Story = {
     const links = within(navigation).getAllByRole("link");
     await expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
       "Закладки",
-      "Профиль",
     ]);
+    const signIn = within(navigation).getByRole("button", { name: "Войти" });
+    await expect(signIn).toBeVisible();
+    await expect(signIn.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      44,
+    );
     await expect(
       links.every((link) => link.getBoundingClientRect().height >= 44),
     ).toBe(true);
