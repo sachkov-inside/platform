@@ -10,6 +10,7 @@ Scaffold the per-repo configuration that the engineering skills assume:
 
 - **Issue tracker**: where issues live (GitHub by default; local markdown is also supported out of the box)
 - **Triage labels**: the strings used for the five canonical triage roles
+- **Change classification**: optional project-owned risk policy and implementation routing
 - **Domain docs**: where `GLOSSARY.md` and ADRs live, and the consumer rules for reading them
 
 This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
@@ -60,11 +61,20 @@ The defaults are the five canonical roles, each label string equal to its name: 
 
 Offer **multi-context** (a root `GLOSSARY-MAP.md` pointing to per-context `GLOSSARY.md` files) only when exploration found monorepo signals. Then confirm which layout they want.
 
+**Section D: Change classification.**
+
+For assigned classification onboarding, read [classification setup](classification-setup.md).
+Research existing behavior and agreed design. Propose factual content and owner participation/authority rules separately.
+Honor already approved choices; obtain owner decisions for genuinely new authority rules.
+For an empty project without meaningful behavior or agreed design, defer classification instead of inventing policy.
+Unconfigured projects retain their current route.
+
 ### 3. Confirm and edit
 
 Show the user a draft of:
 
 - The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
+- For classification onboarding, the risk policy and its explicit routing declaration, using [classification setup](classification-setup.md).
 - The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
 
 Let them edit before writing.
@@ -110,6 +120,8 @@ Then write the docs files using the seed templates in this skill folder as a sta
 - [domain.md](./domain.md): domain doc consumer rules + layout
 
 For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
+
+For classification onboarding, write the accepted risk document and declaration using [classification setup](classification-setup.md).
 
 ### 5. Done
 

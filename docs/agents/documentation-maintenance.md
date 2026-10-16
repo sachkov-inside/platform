@@ -24,6 +24,7 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Development process: assignments, completion, branches, review, merge, handoff | `WORKFLOW.md` |
 | Agent trigger, routing, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
+| Project risk facts, sensitive behavior, verification or owner-participation conditions | [Change risk](change-risk.md); update affected facts in the implementation PR and obtain owner approval for changed participation, permissions or mandatory checks |
 | Pipeline skill | The workspace pipeline; `sync-pipeline` brings it here and records the version in `.agents/skills/PIPELINE.md` |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local

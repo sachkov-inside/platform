@@ -198,11 +198,49 @@ describe("harness routing contract", () => {
     }
   });
 
-  it("accepts original specification discovery and native manual-skill policy", () => {
+  it("accepts specification discovery and native manual-skill policy", () => {
     assert.deepEqual(checkHarnessRouting(repositoryRoot), []);
   });
 
-  it("rejects a missing original skill and broken workflow pointers", () => {
+  it("rejects a missing classifier worker reference without rejecting a valid reference", () => {
+    const root = mkdtempSync(join(tmpdir(), "classification-routing-"));
+    try {
+      for (const name of readdirSync(repositoryRoot)) {
+        if (name !== ".agents") {
+          symlinkSync(join(repositoryRoot, name), join(root, name));
+        }
+      }
+      const skills = join(root, ".agents/skills");
+      mkdirSync(skills, { recursive: true });
+      for (const name of readdirSync(join(repositoryRoot, ".agents/skills"))) {
+        if (name !== "classify-change") {
+          symlinkSync(
+            join(repositoryRoot, ".agents/skills", name),
+            join(skills, name),
+          );
+        }
+      }
+      const classifier = join(skills, "classify-change");
+      mkdirSync(join(classifier, "references"), { recursive: true });
+      writeFileSync(
+        join(classifier, "SKILL.md"),
+        "[Risk worker](references/risk.md)\n",
+      );
+      const failure =
+        ".agents/skills/classify-change/SKILL.md: local pointer does not resolve: references/risk.md";
+      assert.ok(checkHarnessRouting(root).includes(failure));
+
+      writeFileSync(
+        join(classifier, "references/risk.md"),
+        "Risk assessment\n",
+      );
+      assert.deepEqual(checkHarnessRouting(root), []);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a missing specification skill and broken workflow pointers", () => {
     const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
     try {
       writeFileSync(
@@ -216,7 +254,7 @@ describe("harness routing contract", () => {
       const failures = checkHarnessRouting(root);
       assert.ok(
         failures.some((failure) =>
-          failure.includes("original specification skill is missing"),
+          failure.includes("specification skill is missing"),
         ),
       );
       assert.ok(
