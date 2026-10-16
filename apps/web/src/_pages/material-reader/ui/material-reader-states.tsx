@@ -1,3 +1,4 @@
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
 import { materialPath } from "@/shared/routing/public-page-path";
 import {
@@ -30,7 +31,6 @@ import {
 } from "./material-reader-view";
 
 import { ReaderTopActions } from "./reader-top-actions.client";
-import { ReaderOutline } from "./reader-outline.client";
 
 /**
  * Скелет маршрута: об уроке ещё ничего не известно. Он собран из рамки самого ридера — кнопка
@@ -85,6 +85,14 @@ export function MaterialReaderPending({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
+      bookmarkAction={<ReservedBookmarkAction />}
+      readingAction={<ReservedReadingAction format={material.format.slug} />}
+    />
+  );
   return (
     <div
       className="@container/material-reader min-h-svh"
@@ -97,33 +105,23 @@ export function MaterialReaderPending({
         hideReturn={seriesContext !== null}
         target={returnTarget}
         topNavigation={
-          <ReaderTopActions
-            breadcrumbs={
-              seriesContext?.programme == null ? (
-                <MaterialReaderBreadcrumbs
-                  material={material}
-                  target={returnTarget}
-                />
-              ) : undefined
-            }
-            context={seriesContext}
-            readingAction={null}
-            format={material.format.slug}
-          />
+          <>
+            <MaterialReaderBreadcrumbs
+              material={material}
+              target={returnTarget}
+            />
+            {topActions}
+          </>
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
+          {seriesContext?.programme == null ? null : (
+            <div className="mb-4">{topActions}</div>
+          )}
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
-            actions={<ReservedBookmarkAction />}
-          />
-          <ReaderOutline
-            items={[]}
-            readingAction={
-              <ReservedReadingAction format={material.format.slug} />
-            }
           />
           <div
             aria-busy="true"
@@ -239,6 +237,16 @@ export function MaterialReaderAccess({
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
   const copy = accessCopy[invitation?.kind ?? "none"];
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
+      bookmarkAction={<ReservedBookmarkAction />}
+      readingAction={
+        readingAction ?? <ReservedReadingAction format={material.format.slug} />
+      }
+    />
+  );
   return (
     <div className="@container/material-reader">
       <div data-material-reader-state="access-required">
@@ -252,39 +260,27 @@ export function MaterialReaderAccess({
         />
         <ReaderFrame
           context={seriesContext}
-          repeatAtBottom={seriesContext === null}
+          repeatAtBottom={false}
           hideReturn={seriesContext !== null}
           target={returnTarget}
           topNavigation={
-            <ReaderTopActions
-              breadcrumbs={
-                seriesContext?.programme == null ? (
-                  <MaterialReaderBreadcrumbs
-                    material={material}
-                    target={returnTarget}
-                  />
-                ) : undefined
-              }
-              context={seriesContext}
-              readingAction={null}
-              format={material.format.slug}
-            />
+            <>
+              <MaterialReaderBreadcrumbs
+                material={material}
+                target={returnTarget}
+              />
+              {topActions}
+            </>
           }
         >
           <div className="mx-auto max-w-[43rem]">
+            {seriesContext?.programme == null ? null : (
+              <div className="mb-4">{topActions}</div>
+            )}
             <MaterialReaderHeader
               material={material}
               programme={seriesContext?.programme}
               supplementary={seriesContext?.supplementary ?? false}
-              actions={<ReservedBookmarkAction />}
-            />
-            <ReaderOutline
-              items={[]}
-              readingAction={
-                readingAction ?? (
-                  <ReservedReadingAction format={material.format.slug} />
-                )
-              }
             />
             <section
               className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
@@ -353,7 +349,7 @@ function ReservedBookmarkAction() {
     <Button
       disabled
       variant="ghost"
-      className="size-9 shrink-0 p-0"
+      className="size-11 shrink-0 rounded-lg p-0"
       aria-label="Закладка недоступна"
     >
       <Bookmark aria-hidden="true" />
@@ -363,7 +359,7 @@ function ReservedBookmarkAction() {
 
 function ReservedReadingAction({ format }: { readonly format: string }) {
   return (
-    <Button disabled variant="ghost" className="h-9 px-3">
+    <Button disabled variant="ghost" className="h-11 shrink-0 rounded-lg px-3">
       <Circle aria-hidden="true" />
       {materialReadingLabels(format).complete}
     </Button>

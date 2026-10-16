@@ -185,9 +185,9 @@ const meta = {
       },
     },
     readingAction: (
-      <SavedReadingAction format="guide" materialId={materialId} />
+      <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
-    bookmarkAction: <SavedBookmarkAction materialId={materialId} />,
+    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
     topReadingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
@@ -297,14 +297,11 @@ export const CourseStudyActions: Story = {
       name: "Действия материала",
     });
     await expect(
-      within(header).queryByRole("button", { name: "Изучено" }),
-    ).toBeNull();
-    const outline = canvas.getByRole("button", { name: "Содержание: 1" });
-    await expect(outline).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(outline);
-    await expect(
-      canvas.getByRole("navigation", { name: "В этом материале" }),
+      within(header).getByRole("button", { name: "Изучено" }),
     ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Содержание:/u }),
+    ).toBeNull();
     await expect(
       canvas.getAllByRole("button", { name: "Изучено" }),
     ).toHaveLength(2);
@@ -367,8 +364,8 @@ export const MobileActionPanels: Story = {
         actions.getByRole("button", { name: /^В закладки$/u }),
       ).toBeVisible();
       const mark = actions.queryByRole("button", { name: "Изучено" });
-      if (name === "Действия материала") await expect(mark).toBeNull();
-      else await expect(mark).toBeVisible();
+      await expect(mark).not.toBeNull();
+      await expect(mark).toBeVisible();
       await expect(
         actions.getByRole("link", { name: "Предыдущий урок" }),
       ).toHaveAttribute("href", materialReaderHref("first", programme));
@@ -478,7 +475,7 @@ export const InitialReadFailureKeepsHeaderPlace: Story = {
     );
     if (study === null) throw new Error("Study controls missing");
     await waitFor(async () => {
-      await expect(within(top).getAllByRole("alert")).toHaveLength(1);
+      await expect(within(top).getAllByRole("alert")).toHaveLength(2);
       await expect(within(study).getAllByRole("alert")).toHaveLength(1);
     });
     await expect(
@@ -822,8 +819,8 @@ export const StandaloneActionsMobile: Story = {
         .querySelector('a[href="/products/ai-engineering/programme"]'),
     ).toBeVisible();
     await expect(
-      within(toolbar).queryByRole("link", { name: "Назад" }),
-    ).toBeNull();
+      within(toolbar).getByRole("link", { name: "Назад" }),
+    ).toBeVisible();
     await expect(toolbar.getBoundingClientRect().height).toBeLessThanOrEqual(
       104,
     );

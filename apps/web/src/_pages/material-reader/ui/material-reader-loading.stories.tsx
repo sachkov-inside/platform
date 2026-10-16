@@ -177,7 +177,7 @@ function PersonalPart({
 
 const measure = (canvasElement: HTMLElement) => ({
   header: boxOf(canvasElement, "[data-reader-header]"),
-  actions: boxOf(canvasElement, "[data-course-actions]"),
+  actions: boxOf(canvasElement, "[data-reader-top-actions]"),
 });
 
 const environment = publicPageEnvironment("/materials/instant-navigation");
@@ -236,7 +236,7 @@ function loadsInPlace(
           name: "Действия материала",
         });
         await expect(within(headerActions).getAllByRole("button")).toHaveLength(
-          1,
+          2,
         );
         await expect(
           canvas.getByRole("group", { name: "Отметка изучения" }),

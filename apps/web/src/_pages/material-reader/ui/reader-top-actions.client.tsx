@@ -114,12 +114,18 @@ export function ReaderTopActions({
       >
         {context === null ? (
           <>
-            <div className="flex min-h-9 min-w-0 flex-1 items-center px-1 sm:min-h-11">
+            <div className="flex min-h-9 min-w-0 items-center px-2 sm:min-h-11">
               {returnAction}
             </div>
-            <div className="ml-auto flex max-w-full flex-wrap items-start justify-end gap-1">
+            <div className="flex max-w-full flex-wrap items-start gap-1">
               {bookmark}
-              {reading}
+              <div
+                role="group"
+                aria-label="Отметка изучения"
+                data-reader-study-controls
+              >
+                {reading}
+              </div>
             </div>
           </>
         ) : (
@@ -141,7 +147,9 @@ export function ReaderTopActions({
               </IntentPrefetchLink>
             </div>
             {reading == null ? null : (
-              <div className={cn(styles["reading"])}>{reading}</div>
+              <div className={cn(styles["reading"])} data-reader-study-controls>
+                {reading}
+              </div>
             )}
             <div className={cn(styles["bookmark"])}>{bookmark}</div>
             <div className={cn(styles["next"])}>

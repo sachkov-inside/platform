@@ -438,13 +438,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
 
-  const outline = page.getByRole("navigation", { name: "В этом материале" });
-  if (!(await outline.isVisible())) {
-    await page.getByLabel(/Содержание:/u).click();
-  }
-  await expect(outline).toBeVisible();
-  await page.getByRole("link", { name: "Проверяемый результат" }).click();
-  await expect(page).toHaveURL(/#.+/u);
+  await expect(
+    page.getByRole("navigation", { name: "В этом материале" }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .locator("[data-reader-body] h2")
+      .filter({ hasText: "Проверяемый результат" }),
+  ).toBeVisible();
   await framesPresented(page);
 
   const accessibility = await new AxeBuilder({ page })

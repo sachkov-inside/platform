@@ -631,7 +631,7 @@ export const Mobile: Story = {
     docs: {
       description: {
         story:
-          "The contents disclosure and study action use separate keyboard controls.",
+          "Matching action panels frame the material; the article has no contents disclosure.",
       },
     },
   },
@@ -648,7 +648,9 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("navigation", { name: "Мобильная навигация" }),
     ).toBeVisible();
-    await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
+    await expect(
+      canvas.queryByLabelText("Содержание: 2"),
+    ).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
@@ -672,8 +674,7 @@ export const Mobile: Story = {
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
       const mark = within(panel).queryByRole("link", { name: "Изучено" });
-      if (name === "Действия материала") await expect(mark).toBeNull();
-      else {
+      {
         if (mark === null) throw new Error("Bottom study action missing");
         await expect(getComputedStyle(mark).fontSize).toBe("12px");
         await expect(mark.getBoundingClientRect().height).toBe(36);
@@ -718,9 +719,9 @@ export const Mobile: Story = {
     await expect(
       canvasElement.querySelector("[data-public-header]"),
     ).not.toBeVisible();
-    const back = within(canvas.getByRole("main")).getByRole("link", {
-      name: "Главная",
-    });
+    const back = within(
+      canvas.getByRole("navigation", { name: "Действия материала" }),
+    ).getByRole("link", { name: "Назад" });
     await expect(
       canvasElement.querySelector('[data-reader-return="top"]')?.contains(back),
     ).toBe(true);
@@ -736,61 +737,17 @@ export const Mobile: Story = {
       document.documentElement.style.fontSize = originalFontSize;
       scrollRoot.scrollTop = 0;
     }
+    const bottom = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
     await expect(
-      canvasElement.querySelector('[data-reader-return="bottom"]'),
-    ).toBeNull();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+      within(bottom).getByRole("link", { name: "Назад" }),
+    ).toBeInTheDocument();
     scrollRoot.scrollTop = scrollRoot.scrollHeight;
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelector('[data-reader-return="bottom"]'),
-      ).not.toBeNull();
-    });
-    await expect(back.getBoundingClientRect().bottom).toBeLessThan(0);
+    await expect(
+      within(bottom).getByRole("link", { name: "Назад" }),
+    ).toBeVisible();
     scrollRoot.scrollTop = 0;
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelector('[data-reader-return="bottom"]'),
-      ).toBeNull();
-    });
-  },
-};
-
-/** Replays an initial visible entry queued together with the first scroll-out entry. */
-export const MobileBatchedIntersection: Story = {
-  ...Mobile,
-  name: "Mobile · batched intersections",
-  beforeEach: () => {
-    const NativeObserver = window.IntersectionObserver;
-    window.IntersectionObserver = class extends NativeObserver {
-      constructor(
-        callback: IntersectionObserverCallback,
-        options?: IntersectionObserverInit,
-      ) {
-        let delivered = false;
-        let pending: IntersectionObserverEntry[] = [];
-        super((entries, observer) => {
-          if (
-            delivered ||
-            !entries.some((entry) =>
-              entry.target.hasAttribute("data-reader-return"),
-            )
-          ) {
-            callback(entries, observer);
-            return;
-          }
-          pending.push(...entries);
-          if (!entries.some((entry) => !entry.isIntersecting)) return;
-          delivered = true;
-          callback(pending, observer);
-          pending = [];
-        }, options);
-      }
-    };
-    return () => {
-      window.IntersectionObserver = NativeObserver;
-    };
   },
 };
 
@@ -800,7 +757,7 @@ export const Desktop: Story = {
     docs: {
       description: {
         story:
-          "The contents disclosure and study action use separate keyboard controls.",
+          "Matching action panels frame the material; the article has no contents disclosure.",
       },
     },
   },
@@ -808,10 +765,9 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByLabelText("Содержание: 2"));
     await expect(
-      canvas.getByRole("navigation", { name: "В этом материале" }),
-    ).toBeVisible();
+      canvas.queryByRole("navigation", { name: "В этом материале" }),
+    ).toBeNull();
     await expect(
       within(canvas.getByRole("main")).getAllByRole("link", {
         name: "Главная",

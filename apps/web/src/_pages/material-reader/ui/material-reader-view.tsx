@@ -4,7 +4,6 @@ import { type ReactNode } from "react";
 import type {
   MaterialReaderMetadata,
   ReaderBlock,
-  ReaderText,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
@@ -12,10 +11,10 @@ import {
   type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
-  materialSourceAnchors,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import {
   ReaderHistoryTracker,
@@ -43,10 +42,6 @@ import {
   type CourseReadingContext,
 } from "@/features/library-discovery";
 import { ReaderTopActions } from "./reader-top-actions.client";
-import {
-  ReaderOutline,
-  type ReaderOutlineItem as OutlineItem,
-} from "./reader-outline.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
@@ -91,10 +86,19 @@ export function MaterialReaderView({
   modeHint,
   modeSwitch,
 }: MaterialReaderViewProps) {
-  const anchors = materialSourceAnchors(body);
-  const outline = collectOutline(body, [], anchors);
   const endReadingAction = readingAction ?? topReadingAction;
   const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
+  const returnAction = (
+    <CatalogBackLink href={returnTarget.href} label="Назад" />
+  );
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      returnAction={returnAction}
+      readingAction={topReadingAction ?? readingAction}
+      bookmarkAction={topBookmarkAction ?? bookmarkAction}
+    />
+  );
 
   return (
     <div
@@ -112,31 +116,27 @@ export function MaterialReaderView({
       />
       <ReaderFrame
         context={seriesContext}
-        repeatAtBottom={seriesContext === null}
+        repeatAtBottom={false}
         hideReturn={seriesContext !== null}
         target={returnTarget}
         topNavigation={
-          <ReaderTopActions
-            breadcrumbs={
-              seriesContext?.programme == null ? (
-                <MaterialReaderBreadcrumbs
-                  material={material}
-                  target={returnTarget}
-                />
-              ) : undefined
-            }
-            context={seriesContext}
-            readingAction={null}
-            bookmarkAction={topBookmarkAction ?? bookmarkAction}
-          />
+          <>
+            <MaterialReaderBreadcrumbs
+              material={material}
+              target={returnTarget}
+            />
+            {topActions}
+          </>
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
+          {seriesContext?.programme == null ? null : (
+            <div className="mb-4">{topActions}</div>
+          )}
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
-            actions={topBookmarkAction ?? bookmarkAction}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -148,10 +148,6 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          <ReaderOutline
-            items={outline}
-            readingAction={topReadingAction ?? readingAction}
-          />
           <article
             className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
             data-reader-body
@@ -178,36 +174,18 @@ export function MaterialReaderView({
               {deferredPracticeActions}
             </div>
           )}
-          {bookmarkAction === undefined &&
-          readingAction === undefined &&
-          deferredPracticeActions === undefined &&
-          seriesContext === null ? null : (
-            <div className="mt-5" data-material-actions data-reader-footer>
-              {seriesContext?.programme == null ? (
-                <ReaderTopActions
-                  position="bottom"
-                  context={seriesContext}
-                  bookmarkAction={topBookmarkAction ?? bookmarkAction}
-                  readingAction={topReadingAction ?? readingAction}
-                />
-              ) : (
-                <>
-                  {endReadingAction == null &&
-                  endBookmarkAction == null ? null : (
-                    <nav
-                      aria-label="Действия в конце материала"
-                      className="mt-8 flex flex-wrap items-start justify-end gap-2 border-t border-border pt-4"
-                      data-reader-completion-actions
-                    >
-                      {endBookmarkAction}
-                      {endReadingAction}
-                    </nav>
-                  )}
-                  <MaterialReaderFooter seriesContext={seriesContext} />
-                </>
-              )}
-            </div>
-          )}
+          <div className="mt-8" data-material-actions data-reader-footer>
+            <ReaderTopActions
+              position="bottom"
+              context={seriesContext?.programme == null ? seriesContext : null}
+              returnAction={returnAction}
+              bookmarkAction={endBookmarkAction}
+              readingAction={endReadingAction}
+            />
+            {seriesContext?.programme == null ? null : (
+              <MaterialReaderFooter seriesContext={seriesContext} />
+            )}
+          </div>
         </div>
       </ReaderFrame>
       <SeriesReaderBar context={seriesContext} />
@@ -431,40 +409,8 @@ function ReaderBlocks({
   );
 }
 
-function collectOutline(
-  blocks: readonly ReaderBlock[],
-  path: readonly number[] = [],
-  anchors: ReadonlyMap<string, string> = materialSourceAnchors(blocks),
-): OutlineItem[] {
-  return blocks.flatMap((block, index): OutlineItem[] => {
-    const blockPath = [...path, index];
-    if (block.kind === "heading") {
-      return [
-        {
-          id: anchors.get(blockPath.join("-")) ?? headingId(blockPath),
-          label: textContent(block.content),
-          level: block.level,
-        },
-      ];
-    }
-    if (block.kind === "blockquote" || block.kind === "callout") {
-      return collectOutline(block.content, blockPath, anchors);
-    }
-    if (block.kind === "bullet_list" || block.kind === "ordered_list") {
-      return block.items.flatMap((item, itemIndex) =>
-        collectOutline(item, [...blockPath, itemIndex], anchors),
-      );
-    }
-    return [];
-  });
-}
-
 function headingId(path: readonly number[]): string {
   return `material-section-${path.join("-")}`;
-}
-
-function textContent(content: readonly ReaderText[]): string {
-  return content.map(({ text }) => text).join("");
 }
 
 /** Course pages share the accepted frame; independent Materials keep their original return controls. */
