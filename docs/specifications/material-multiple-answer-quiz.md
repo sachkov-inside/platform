@@ -25,3 +25,5 @@ Answers stay in component state. This change adds no persisted quiz attempt, gra
 ## Verification
 
 Focused cases cover both schemas, package feature admission, Markdown conversion, accepted document/editor roundtrip, legacy choices and multiple-answer interaction. Storybook covers empty, exact, partial, extra, explanation, reselection, keyboard and phone states. Production route proof belongs to the subsequent deployed-source verification.
+
+The generated Web transport represents the forbidden legacy `selectionMode` property as optional `any`. This is a client-generator limitation for JSON Schema `not: {}`. The public OpenAPI schema and runtime validator reject every supplied JSON value for that legacy property. Internal rendering uses the validated `RenderedQuiz` union rather than trusting the generated transport type.

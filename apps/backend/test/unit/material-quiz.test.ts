@@ -264,3 +264,27 @@ describe("multiple-answer quiz", () => {
     expect(materialBodyOperations.accept(invalid)).toMatchObject({ ok: false });
   });
 });
+
+test("legacy single-answer quiz rejects a supplied multiple mode without its key set", () => {
+  const source = fixture();
+  const node = source.doc.content[1];
+  const quiz = node?.attrs.quiz;
+  if (node === undefined || quiz === undefined) throw new Error("Missing quiz");
+  const invalid = {
+    ...source,
+    doc: {
+      ...source.doc,
+      content: [
+        source.doc.content[0],
+        {
+          ...node,
+          attrs: {
+            ...node.attrs,
+            quiz: { ...quiz, selectionMode: "multiple" },
+          },
+        },
+      ],
+    },
+  };
+  expect(materialBodyOperations.accept(invalid)).toMatchObject({ ok: false });
+});

@@ -152,7 +152,7 @@ export type RecursiveSchema2schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
-} | {
+} | ({
   correctOptionId: string;
   dontKnow: {
     explanation: Array<RecursiveSchema2schema0>;
@@ -166,4 +166,20 @@ export type RecursiveSchema2schema0 = ({
     id: string;
   }>;
   prompt: Array<RecursiveSchema2schema0>;
-});
+  selectionMode?: any;
+} | {
+  correctOptionIds: Array<string>;
+  dontKnow: {
+    explanation: Array<RecursiveSchema2schema0>;
+    reviewLinks: Array<string>;
+  };
+  id: string;
+  kind: 'quiz';
+  options: Array<{
+    content: Array<RecursiveSchema2schema0>;
+    explanation: Array<RecursiveSchema2schema0>;
+    id: string;
+  }>;
+  prompt: Array<RecursiveSchema2schema0>;
+  selectionMode: 'multiple';
+}));

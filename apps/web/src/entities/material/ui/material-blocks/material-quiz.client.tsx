@@ -240,6 +240,7 @@ function MultipleAnswerQuiz({
       </fieldset>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
+          type="button"
           disabled={selectedIds.length === 0}
           onClick={() => {
             setResult(
@@ -253,6 +254,7 @@ function MultipleAnswerQuiz({
           Проверить
         </Button>
         <Button
+          type="button"
           variant="ghost"
           aria-pressed={result === "dontKnow"}
           onClick={() => {
