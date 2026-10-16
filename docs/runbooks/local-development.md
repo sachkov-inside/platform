@@ -724,6 +724,19 @@ The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` 
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
 
+Storybook import failures retain primary evidence in
+`apps/web/test-results/storybook-imports/run-<pid>-<process-start>/imports.jsonl`. The Node-side provider observes
+failed script HTTP responses and transport failures before any setup import. Vite records the
+original error response body and server error, even when Chromium discards the failed body.
+Premature response closure retains the partial body with `complete: false`; browser transport
+errors retain an already observed HTTP status. Server messages and stacks identify truncation too.
+No request is replayed. Successful script responses are not recorded. Each process retains up to
+1 MiB of events, with at most 64 KiB per response body; truncation is explicit. Logs retain the
+request path and Vite cache/import query values, but omit arbitrary URL query values and authentication headers.
+Error bodies and server messages can contain local source, so inspect them before sharing.
+The UI CI job uploads this directory with browser-engine diagnostics on failure for seven days.
+A later successful run does not establish the cause of an earlier import failure (#1429).
+
 Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
 the run. Storybook loads two large modules lazily: the React renderer imports
 `@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`

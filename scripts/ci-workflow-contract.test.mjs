@@ -553,7 +553,7 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(upload, /overwrite: true/u);
   });
 
-  it("uploads WebKit browser-engine diagnostics separately for each CI attempt", () => {
+  it("uploads browser-engine and Storybook import diagnostics for each CI attempt", () => {
     const job = jobBlock("ui");
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
@@ -561,7 +561,8 @@ describe("application CI workflow contract", () => {
       job,
       /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
     );
-    assert.match(job, /path: apps\/web\/test-results\/browser-engines/u);
+    assert.match(job, /^ {12}apps\/web\/test-results\/browser-engines$/mu);
+    assert.match(job, /^ {12}apps\/web\/test-results\/storybook-imports$/mu);
     assert.match(job, /if-no-files-found: ignore/u);
     assert.match(job, /retention-days: 7/u);
   });

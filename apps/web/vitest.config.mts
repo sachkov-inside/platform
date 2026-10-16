@@ -1,10 +1,14 @@
 import { fileURLToPath } from "node:url";
 
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
-import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
+import { storybookImportDiagnostics } from "./test/support/storybook-import-diagnostics.mjs";
 import { runScopedViteCache } from "./test/support/run-scoped-vite-cache.mjs";
+
+const importDiagnostics = storybookImportDiagnostics(
+  fileURLToPath(new URL("./test-results/storybook-imports", import.meta.url)),
+);
 
 export default defineConfig({
   optimizeDeps: {
@@ -73,6 +77,7 @@ export default defineConfig({
             configDir: fileURLToPath(new URL("./.storybook", import.meta.url)),
           }),
           runScopedViteCache(),
+          importDiagnostics.plugin,
         ],
         test: {
           name: "storybook",
@@ -81,9 +86,7 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({
-              contextOptions: { reducedMotion: "reduce" },
-            }),
+            provider: importDiagnostics.provider,
             instances: [{ browser: "chromium" }],
           },
         },
