@@ -57,7 +57,7 @@ export const MultipleEmpty: Story = {
     await expect(
       quiz.getByRole("button", { name: "Проверить" }),
     ).toBeDisabled();
-    await expect(quiz.queryByText("Разбор ответов:")).toBeNull();
+    await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
     await expect(quiz.getAllByRole("checkbox")).toHaveLength(6);
   },
 };
@@ -79,7 +79,9 @@ export const MultiplePartial: Story = {
     await userEvent.click(first);
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
-    await expect(quiz.getByText("Разбор ответов:")).toBeVisible();
+    await expect(
+      quiz.getAllByText("Не подходит", { exact: true }),
+    ).toHaveLength(2);
   },
 };
 export const MultipleExtra: Story = {
@@ -96,7 +98,9 @@ export const MultipleDontKnow: Story = {
     const quiz = within(canvasElement);
     await userEvent.click(quiz.getByRole("button", { name: "Не знаю" }));
     await expect(quiz.getByText("Не знаю · без оценки")).toBeVisible();
-    await expect(quiz.getByText("Разбор ответов:")).toBeVisible();
+    await expect(
+      quiz.getAllByText("Не подходит", { exact: true }),
+    ).toHaveLength(2);
     await expect(quiz.getAllByText("Входит в первую версию.")).toHaveLength(4);
     await expect(
       quiz.getByRole("link", { name: "Повторить раздел" }),
@@ -110,7 +114,7 @@ export const MultipleReselection: Story = {
     const first = quiz.getAllByRole("checkbox")[0];
     if (first === undefined) throw new Error("Missing checkbox");
     await userEvent.click(first);
-    await expect(quiz.queryByText("Разбор ответов:")).toBeNull();
+    await expect(quiz.queryByText("Не подходит", { exact: true })).toBeNull();
     await expect(quiz.queryByText("Не знаю · без оценки")).toBeNull();
     await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
     await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();

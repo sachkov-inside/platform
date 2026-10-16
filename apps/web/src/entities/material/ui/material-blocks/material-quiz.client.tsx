@@ -205,16 +205,22 @@ function MultipleAnswerQuiz({
           Выбери все подходящие варианты.
         </legend>
         {options.map((option, index) => (
-          <div
+          <label
             key={option.id}
+            htmlFor={`${quizId}-option-${String(index)}`}
             data-quiz-option
-            className="relative flex min-h-11 w-full items-start gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
+            className="relative flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
           >
             <input
               type="checkbox"
               id={`${quizId}-option-${String(index)}`}
               checked={selectedIds.includes(option.id)}
               aria-labelledby={`${quizId}-label-${String(index)}`}
+              aria-describedby={
+                result === null
+                  ? undefined
+                  : `${quizId}-explanation-${String(index)}`
+              }
               className="relative mt-1 size-4 shrink-0 accent-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               onChange={(event) => {
                 setSelectedIds(
@@ -225,17 +231,30 @@ function MultipleAnswerQuiz({
                 setResult(null);
               }}
             />
-            <label
-              htmlFor={`${quizId}-option-${String(index)}`}
-              className="absolute inset-0 cursor-pointer rounded-lg hover:bg-secondary/50"
-            />
-            <div
-              id={`${quizId}-label-${String(index)}`}
-              className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto"
-            >
-              {option.content}
+            <div className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto">
+              <div id={`${quizId}-label-${String(index)}`}>
+                {option.content}
+              </div>
+              {result === null ? null : (
+                <div
+                  id={`${quizId}-explanation-${String(index)}`}
+                  className="mt-2 text-sm"
+                >
+                  <p className="flex items-center gap-1 font-semibold">
+                    {correctOptionIds.includes(option.id) ? (
+                      <Check aria-hidden="true" className="size-4" />
+                    ) : (
+                      <X aria-hidden="true" className="size-4" />
+                    )}
+                    {correctOptionIds.includes(option.id)
+                      ? "Подходит"
+                      : "Не подходит"}
+                  </p>
+                  <div className="mt-1">{option.explanation}</div>
+                </div>
+              )}
             </div>
-          </div>
+          </label>
         ))}
       </fieldset>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -291,28 +310,6 @@ function MultipleAnswerQuiz({
                   ? "Правильно"
                   : "Пока неверно"}
             </p>
-            <p className="mt-2 text-sm font-semibold">Разбор ответов:</p>
-            <ul className="mt-2 space-y-3">
-              {options.map((option) => (
-                <li key={option.id}>
-                  <div className="flex items-start gap-2">
-                    {correctOptionIds.includes(option.id) ? (
-                      <Check
-                        aria-label="Подходит"
-                        className="mt-1 size-4 shrink-0"
-                      />
-                    ) : (
-                      <X
-                        aria-label="Не подходит"
-                        className="mt-1 size-4 shrink-0"
-                      />
-                    )}
-                    <div className="min-w-0">{option.content}</div>
-                  </div>
-                  <div className="mt-1 pl-6">{option.explanation}</div>
-                </li>
-              ))}
-            </ul>
             <div className="mt-3">{dontKnow.explanation}</div>
             {dontKnow.reviewLinks.map((href, index) => (
               <a
