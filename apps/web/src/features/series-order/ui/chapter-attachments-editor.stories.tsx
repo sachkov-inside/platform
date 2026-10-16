@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { ComponentProps } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { SeriesOrderPanel } from "./series-order-panel.client";
 import { ChapterAttachmentsEditor } from "./chapter-attachments-editor.client";
@@ -6,6 +7,9 @@ import { authoringPageEnvironment } from "@/storybook/story-environment";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 
 const materialId = "95000000-0000-4000-8000-000000000001";
+const refreshNothing: ComponentProps<
+  typeof ChapterAttachmentsEditor
+>["onRefresh"] = () => Promise.resolve(null);
 const meta = {
   ...authoringPageEnvironment(
     "/authoring/products/95000000-0000-4000-8000-000000000010",
@@ -24,7 +28,7 @@ const meta = {
     items: [
       { materialId, title: "Описание проекта", publicationState: "published" },
     ],
-    onRefresh: () => Promise.resolve(null),
+    onRefresh: refreshNothing,
   },
   beforeEach: fetchBeforeRender(() =>
     Promise.resolve(
