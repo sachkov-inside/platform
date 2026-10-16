@@ -36,7 +36,7 @@ function quizSchema(block: z.ZodType<RenderedBlock>) {
       z
         .object({
           ...common,
-          selectionMode: z.literal(undefined).optional(),
+          selectionMode: z.never().optional(),
           correctOptionId: id,
           options: z.array(option).min(2).max(5),
         })
