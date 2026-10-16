@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { renderedBlockSchema } from "@inside/material-blocks";
 import { describe, expect, test } from "vitest";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
@@ -287,4 +289,33 @@ test("legacy single-answer quiz rejects a supplied multiple mode without its key
     },
   };
   expect(materialBodyOperations.accept(invalid)).toMatchObject({ ok: false });
+});
+
+test("quiz runtime dispatch and generated JSON contract agree on the legacy absent mode", () => {
+  const single = fixture().doc.content[1]?.attrs.quiz;
+  if (single === undefined) throw new Error("Missing quiz");
+  const { correctOptionId: _legacy, ...common } = single;
+  const multiple = {
+    ...common,
+    selectionMode: "multiple",
+    correctOptionIds: ["second"],
+  };
+  expect(renderedBlockSchema.parse(single)).toEqual(single);
+  expect(renderedBlockSchema.parse(multiple)).toEqual(multiple);
+  expect(
+    renderedBlockSchema.safeParse({ ...single, selectionMode: "multiple" })
+      .success,
+  ).toBe(false);
+  expect(
+    renderedBlockSchema.safeParse({ ...single, selectionMode: "single" })
+      .success,
+  ).toBe(false);
+  const contract = JSON.stringify(
+    z.toJSONSchema(renderedBlockSchema, {
+      unrepresentable: "any",
+      io: "input",
+    }),
+  );
+  expect(contract).toContain('"selectionMode":{"not":{}}');
+  expect(contract).not.toContain('"selectionMode":{}');
 });
