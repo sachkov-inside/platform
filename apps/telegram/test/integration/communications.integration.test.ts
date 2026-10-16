@@ -19,6 +19,7 @@ import { parseAuthorState } from "../../src/modules/communications/author-dialog
 import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
 import { translateAuthorInput } from "../../src/adapters/telegram/grammy-author-admin.adapter.js";
 import { randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   FastifyAdapter,
   type NestFastifyApplication,
@@ -28,6 +29,7 @@ import { sql } from "kysely";
 import {
   afterAll,
   afterEach,
+  aroundEach,
   beforeAll,
   beforeEach,
   describe,
@@ -37,7 +39,9 @@ import {
 } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
-import { createDatabase } from "../../src/database/create-database.js";
+import { createFixtureDatabase } from "../support/fixture-database.js";
+import { DATABASE } from "../../src/database/database.js";
+import type { AuthorInput } from "../../src/modules/communications/author-input.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 import {
   AUTHOR_AUTHORIZATION,
@@ -62,7 +66,96 @@ registerFixedClock();
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) throw new Error("DATABASE_URL is required");
-const database = createDatabase(databaseUrl);
+const fixtureName = `communications_${randomUUID().replaceAll("-", "")}`;
+interface CaseWork {
+  readonly abort: AbortController;
+  readonly pending: Set<Promise<unknown>>;
+  cancellation?: Promise<unknown>;
+  step: string;
+  stepStarted: number;
+  resetFinished?: number;
+}
+const caseScope = new AsyncLocalStorage<CaseWork>();
+let activeCase: CaseWork | undefined;
+const database = createFixtureDatabase(
+  databaseUrl,
+  fixtureName,
+  () => activeCase?.abort.signal.aborted === true,
+);
+const applicationDatabase = createFixtureDatabase(
+  databaseUrl,
+  fixtureName,
+  () => activeCase?.abort.signal.aborted === true,
+);
+const fixtureOwner = createFixtureDatabase(
+  databaseUrl,
+  `${fixtureName}_cleanup`,
+);
+function currentCase(): CaseWork {
+  return required(caseScope.getStore());
+}
+function setAuthorStep(step: string) {
+  const owned = currentCase();
+  owned.step = step;
+  owned.stepStarted = performance.now();
+}
+function trackCaseWork<Result>(work: () => Promise<Result>): Promise<Result> {
+  const owned = currentCase();
+  owned.abort.signal.throwIfAborted();
+  const promise = (async () => {
+    const result = await work();
+    owned.abort.signal.throwIfAborted();
+    return result;
+  })();
+  owned.pending.add(promise);
+  void promise
+    .finally(() => owned.pending.delete(promise))
+    .catch(() => undefined);
+  return promise;
+}
+function cancelCaseWork(owned: CaseWork, reason: unknown) {
+  const observedAt = performance.now();
+  const progress = {
+    authorStep: owned.step,
+    stepElapsedMilliseconds: observedAt - owned.stepStarted,
+    elapsedSinceFixtureResetMilliseconds:
+      owned.resetFinished === undefined
+        ? undefined
+        : observedAt - owned.resetFinished,
+  };
+  owned.abort.abort(reason);
+  owned.cancellation ??= (async () => {
+    const activity = await fixtureActivity();
+    console.error("communications fixture post-cancel activity", {
+      ...progress,
+      activity,
+    });
+    await sql`select pg_terminate_backend(pid) from pg_stat_activity
+      where application_name = ${fixtureName} and state <> 'idle'
+        and pid <> pg_backend_pid()`.execute(fixtureOwner);
+  })();
+  void owned.cancellation.catch(() => undefined);
+}
+aroundEach(async (runTest, { signal }) => {
+  const owned: CaseWork = {
+    abort: new AbortController(),
+    pending: new Set(),
+    step: "setup",
+    stepStarted: performance.now(),
+  };
+  activeCase = owned;
+  await caseScope.run(owned, async () => {
+    const cancel = () => cancelCaseWork(owned, signal.reason);
+    signal.addEventListener("abort", cancel, { once: true });
+    try {
+      await runTest();
+    } finally {
+      signal.removeEventListener("abort", cancel);
+      await owned.cancellation;
+      await Promise.allSettled([...owned.pending]);
+    }
+  });
+});
 const config = {
   ...loadApplicationConfig({
     DATABASE_URL: databaseUrl,
@@ -90,11 +183,13 @@ class FakeAuthorization implements AuthorAuthorization {
   result: "allowed" | "denied" | "unavailable" = "allowed";
   subjects: AuthorSubject[] = [];
   openTransactions: number[] = [];
+  observeTransactions = false;
   /** While set, every answer waits for it: a slow Platform. */
   slow?: Promise<void> | undefined;
   async authorize(subject: AuthorSubject) {
     this.subjects.push(subject);
-    this.openTransactions.push(await openTransactions());
+    if (this.observeTransactions)
+      this.openTransactions.push(await openTransactions());
     await this.slow;
     return this.result;
   }
@@ -124,6 +219,8 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(DATABASE)
+    .useValue(applicationDatabase)
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue(authorization)
     .overrideProvider(AUTHOR_CONTENT_VALIDATION)
@@ -145,6 +242,7 @@ beforeAll(async () => {
   communications = app.get(Communications);
 });
 beforeEach(async () => {
+  setAuthorStep("reset fixture");
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_funnels, communication_intro, communication_sources, communication_author_sessions, communication_author_receipts, communication_author_outbox, communication_broadcasts, telegram_transport_slots, communication_intake_receipts, communication_operations, communication_templates, communication_author_modes,
     link_transactions, platform_links, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries restart identity cascade`.execute(
     database,
@@ -153,15 +251,26 @@ beforeEach(async () => {
   contentValidation.snapshots = [];
   authorization.result = "allowed";
   authorization.subjects = [];
+  authorization.openTransactions = [];
+  authorization.observeTransactions = false;
   authorization.slow = undefined;
   sent.length = 0;
+  setAuthorStep("setup");
+  currentCase().resetFinished = currentCase().stepStarted;
 });
 afterAll(async () => {
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_broadcasts cascade`.execute(
     database,
   );
-  await closeIfStarted(app);
-  await database.destroy();
+  try {
+    await closeIfStarted(app);
+  } finally {
+    await Promise.all([
+      database.destroy(),
+      applicationDatabase.destroy(),
+      fixtureOwner.destroy(),
+    ]);
+  }
 });
 const content = {
   type: "text" as const,
@@ -183,15 +292,17 @@ function http(
   body: unknown,
   secret: string | undefined = config.communicationsSecret,
 ) {
-  return app.inject({
-    method: "POST",
-    url: "/integrations/platform/v1/communications",
-    payload: JSON.stringify(body),
-    headers: {
-      "content-type": "application/json",
-      ...(hasText(secret) ? { authorization: `Bearer ${secret}` } : {}),
-    },
-  });
+  return trackCaseWork(() =>
+    app.inject({
+      method: "POST",
+      url: "/integrations/platform/v1/communications",
+      payload: JSON.stringify(body),
+      headers: {
+        "content-type": "application/json",
+        ...(hasText(secret) ? { authorization: `Bearer ${secret}` } : {}),
+      },
+    }),
+  );
 }
 async function seedLink() {
   // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
@@ -240,13 +351,25 @@ function update(id: number, body: Record<string, unknown>) {
   };
 }
 async function intake(id: number, body: Record<string, unknown>) {
-  await communications.intake(
-    required(translateTemplateIntake("inside", String(id), update(id, body))),
+  await trackCaseWork(() =>
+    communications.intake(
+      required(translateTemplateIntake("inside", String(id), update(id, body))),
+    ),
   );
 }
 function slowPlatform() {
   let answer!: () => void;
-  authorization.slow = new Promise((resolve) => (answer = resolve));
+  const signal = currentCase().abort.signal;
+  authorization.slow = new Promise<void>((resolve, reject) => {
+    const abort = () =>
+      reject(new Error("Author fixture canceled", { cause: signal.reason }));
+    signal.addEventListener("abort", abort, { once: true });
+    answer = () => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    };
+  });
+  void authorization.slow.catch(() => undefined);
   return { answer };
 }
 async function updateState(updateId: string) {
@@ -300,22 +423,26 @@ describe("versioned HTTP scenarios shared with consumer", () => {
     const command = request();
     const independent = new Communications(database, config, authorization);
     const results = await Promise.all([
-      communications.execute(command),
-      independent.execute(command),
+      trackCaseWork(() => communications.execute(command)),
+      trackCaseWork(() => independent.execute(command)),
     ]);
     expect(results[0]).toEqual(results[1]);
     expect(await rows()).toHaveLength(1);
     const edits = await Promise.allSettled([
-      communications.execute({
-        ...command,
-        operationId: randomUUID(),
-        expectedRevision: 1,
-      }),
-      independent.execute({
-        ...command,
-        operationId: randomUUID(),
-        expectedRevision: 1,
-      }),
+      trackCaseWork(() =>
+        communications.execute({
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+        }),
+      ),
+      trackCaseWork(() =>
+        independent.execute({
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+        }),
+      ),
     ]);
     expect(edits.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(edits.filter((r) => r.status === "rejected")).toHaveLength(1);
@@ -334,18 +461,21 @@ describe("versioned HTTP scenarios shared with consumer", () => {
   });
   it("keeps a saved operation result through lost commit acknowledgement and later edits", async () => {
     const command = request();
-    await communications.execute(command); // caller loses this committed response
-    await communications.execute({
-      ...command,
-      operationId: randomUUID(),
-      expectedRevision: 1,
-      payload: { ...command.payload, content: { ...content, text: "edited" } },
-    });
-    const recovered = await new Communications(
-      database,
-      config,
-      authorization,
-    ).execute(command);
+    await trackCaseWork(() => communications.execute(command)); // caller loses this committed response
+    await trackCaseWork(() =>
+      communications.execute({
+        ...command,
+        operationId: randomUUID(),
+        expectedRevision: 1,
+        payload: {
+          ...command.payload,
+          content: { ...content, text: "edited" },
+        },
+      }),
+    );
+    const recovered = await trackCaseWork(() =>
+      new Communications(database, config, authorization).execute(command),
+    );
     expect(recovered.revision).toBe(1);
     expect(recovered.content.text).toBe(content.text);
     expect((await rows())[0]?.revision).toBe(2);
@@ -369,7 +499,7 @@ describe("versioned HTTP scenarios shared with consumer", () => {
 describe("durable author intake", () => {
   it("asks Platform for permission with no transaction open", async () => {
     await seedLink();
-    authorization.openTransactions = [];
+    authorization.observeTransactions = true;
     await intake(1, { text: "/template" });
     await authorMessage(2, "/admin");
 
@@ -438,17 +568,21 @@ describe("durable author intake", () => {
       const saved = await rows();
       expect(saved).toHaveLength(1);
       const inbox = app.get(TelegramUpdateInbox);
-      await inbox.accept(
-        "inside",
-        "3",
-        {
-          update_id: 3,
-          edited_message: { ...update(2, message).message, text: "changed" },
-        },
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-        new Date(),
+      await trackCaseWork(() =>
+        inbox.accept(
+          "inside",
+          "3",
+          {
+            update_id: 3,
+            edited_message: { ...update(2, message).message, text: "changed" },
+          },
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+          new Date(),
+        ),
       );
-      await app.get(TelegramUpdateProcessor).processAvailable();
+      await trackCaseWork(() =>
+        app.get(TelegramUpdateProcessor).processAvailable(),
+      );
       expect(await rows()).toEqual(saved);
       const read = await http({
         ...request(),
@@ -498,20 +632,26 @@ describe("durable author intake", () => {
       for (let attempt = 0; attempt < 2; attempt++)
         expect(
           (
-            await app.inject({
-              method: "POST",
-              url: "/webhooks/telegram",
-              headers: {
-                "x-telegram-bot-api-secret-token": config.webhookSecret,
-              },
-              payload: update(id, { text }),
-            })
+            await trackCaseWork(() =>
+              app.inject({
+                method: "POST",
+                url: "/webhooks/telegram",
+                headers: {
+                  "x-telegram-bot-api-secret-token": config.webhookSecret,
+                },
+                payload: update(id, { text }),
+              }),
+            )
           ).statusCode,
         ).toBe(202);
-      await app.get(TelegramUpdateProcessor).processAvailable();
+      await trackCaseWork(() =>
+        app.get(TelegramUpdateProcessor).processAvailable(),
+      );
     }
     expect(await rows()).toHaveLength(1);
-    await app.get(StartResponseDeliveryProcessor).processAvailable();
+    await trackCaseWork(() =>
+      app.get(StartResponseDeliveryProcessor).processAvailable(),
+    );
     expect(sent).toHaveLength(2);
     expect(JSON.stringify(sent)).toContain(
       required((await rows())[0]).template_id,
@@ -529,26 +669,30 @@ describe("durable author intake", () => {
     const platform = slowPlatform();
     const inbox = app.get(TelegramUpdateInbox);
     const processor = app.get(TelegramUpdateProcessor);
-    await inbox.accept(
-      "inside",
-      "1",
-      update(1, { text: "/template" }),
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      new Date(),
+    await trackCaseWork(() =>
+      inbox.accept(
+        "inside",
+        "1",
+        update(1, { text: "/template" }),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+        new Date(),
+      ),
     );
-    await inbox.accept(
-      "inside",
-      "2",
-      update(2, { text: "Synthetic ordered capture" }),
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      new Date(),
+    await trackCaseWork(() =>
+      inbox.accept(
+        "inside",
+        "2",
+        update(2, { text: "Synthetic ordered capture" }),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+        new Date(),
+      ),
     );
 
-    const first = processor.processAvailable();
+    const first = trackCaseWork(() => processor.processAvailable());
     await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
       timeout: 5000,
     });
-    await processor.processAvailable();
+    await trackCaseWork(() => processor.processAvailable());
     expect(await updateState("2")).toBe("pending");
 
     platform.answer();
@@ -562,35 +706,41 @@ describe("durable author intake", () => {
     const platform = slowPlatform();
     const inbox = app.get(TelegramUpdateInbox);
     const processor = app.get(TelegramUpdateProcessor);
-    await inbox.accept(
-      "inside",
-      "1",
-      update(1, { text: "/template" }),
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      new Date(),
+    await trackCaseWork(() =>
+      inbox.accept(
+        "inside",
+        "1",
+        update(1, { text: "/template" }),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+        new Date(),
+      ),
     );
-    const slow = processor.processAvailable();
+    const slow = trackCaseWork(() => processor.processAvailable());
     await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
       timeout: 5000,
     });
 
-    await inbox.accept(
-      "inside",
-      "2",
-      {
-        update_id: 2,
-        message: {
-          message_id: 2,
-          date: 1788696000,
-          chat: { id: 43, type: "private" },
-          from: { id: 43, is_bot: false },
-          text: "/start",
+    await trackCaseWork(() =>
+      inbox.accept(
+        "inside",
+        "2",
+        {
+          update_id: 2,
+          message: {
+            message_id: 2,
+            date: 1788696000,
+            chat: { id: 43, type: "private" },
+            from: { id: 43, is_bot: false },
+            text: "/start",
+          },
         },
-      },
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      new Date(),
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+        new Date(),
+      ),
     );
-    await expect(processor.processAvailable()).resolves.toBe(1);
+    await expect(
+      trackCaseWork(() => processor.processAvailable()),
+    ).resolves.toBe(1);
     expect(await updateState("2")).toBe("processed");
     expect(await updateState("1")).toBe("processing");
 
@@ -615,23 +765,55 @@ describe("durable author intake", () => {
   });
 });
 
-afterEach(async () => {
+async function fixtureActivity() {
+  const activity = await sql<{
+    pid: number;
+    blocking_pids: number[];
+    state: string;
+    wait_event_type: string | null;
+    wait_event: string | null;
+    query: string;
+  }>`select pid, pg_blocking_pids(pid) as blocking_pids, state, wait_event_type, wait_event, left(query, 240) as query
+    from pg_stat_activity where application_name = ${fixtureName}
+      and state <> 'idle'`.execute(fixtureOwner);
+  return activity.rows;
+}
+afterEach(async ({ task }) => {
+  const owned = currentCase();
+  if (task.result?.state === "fail")
+    cancelCaseWork(owned, new Error("Author fixture failed"));
+  await owned.cancellation;
+  await Promise.allSettled([...owned.pending]);
   await sql`truncate communication_author_sessions, communication_author_receipts, communication_author_outbox`.execute(
     database,
   );
 });
-async function authorMessage(
+function authorMessage(
   id: number,
   text: string,
   extra: Record<string, unknown> = {},
 ) {
+  return trackCaseWork(() => performAuthorMessage(id, text, extra));
+}
+async function performAuthorMessage(
+  id: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+) {
+  setAuthorStep(`message ${id}`);
   id = Math.round(id * 10);
   const payload = update(id, { text, ...extra });
-  await app
-    .get(TelegramUpdateInbox)
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    .accept("inside", String(id), payload, new Date());
-  await app.get(TelegramUpdateProcessor).processAvailable();
+  await trackCaseWork(() =>
+    app
+      .get(TelegramUpdateInbox)
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+      .accept("inside", String(id), payload, new Date()),
+  );
+  currentCase().abort.signal.throwIfAborted();
+  await trackCaseWork(() =>
+    app.get(TelegramUpdateProcessor).processAvailable(),
+  );
+  currentCase().abort.signal.throwIfAborted();
   expect(
     (
       await database
@@ -647,7 +829,19 @@ let navigationId = 1000000;
  * Clicks a button of the latest menu. A button that is not on screen is reached through «Ещё →» or
  * «Настройки», so paging never fails a test: assert on-screen labels in the unit tests instead.
  */
-async function authorClick(id: number, label: string, depth = 0) {
+function authorClick(
+  id: number,
+  label: string,
+  depth = 0,
+): Promise<AuthorInput> {
+  return trackCaseWork(() => performAuthorClick(id, label, depth));
+}
+async function performAuthorClick(
+  id: number,
+  label: string,
+  depth = 0,
+): Promise<AuthorInput> {
+  setAuthorStep(`click ${id}: ${label}`);
   id = Math.round(id * 10);
   const messages = await database
     .selectFrom("communication_author_outbox")
@@ -689,10 +883,13 @@ async function authorClick(id: number, label: string, depth = 0) {
     },
   };
   const input = required(translateAuthorInput("inside", String(id), payload));
-  await Promise.all([
-    app.get(AuthorAdmin).handle(input),
-    app.get(AuthorAdmin).handle(input),
+  currentCase().abort.signal.throwIfAborted();
+  const outcomes = await Promise.allSettled([
+    trackCaseWork(() => app.get(AuthorAdmin).handle(input)),
+    trackCaseWork(() => app.get(AuthorAdmin).handle(input)),
   ]);
+  for (const outcome of outcomes)
+    if (outcome.status === "rejected") throw outcome.reason;
   return input;
 }
 async function lastAuthorText() {
@@ -723,11 +920,13 @@ function broadcastRows() {
 describe("author transport and API", () => {
   it("lists only the current bot owner and checks current authorization before replay", async () => {
     const own = request();
-    await communications.execute(own);
-    await communications.execute({
-      ...request(),
-      actor: { accountRef: "another-author" },
-    });
+    await trackCaseWork(() => communications.execute(own));
+    await trackCaseWork(() =>
+      communications.execute({
+        ...request(),
+        actor: { accountRef: "another-author" },
+      }),
+    );
     const response = await http({
       ...request(),
       operation: "templates.list",
@@ -756,18 +955,20 @@ describe("author transport and API", () => {
   it("author 403 blocks the private contact and /start restores it without replaying the rejected sample", async () => {
     await seedLink();
     const time = new Date(fixedTestInstant());
-    await app.get(BotContacts).observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: "42",
-        privateChatId: "42",
-        updateId: "100",
-        observedAt: time,
-      },
-      "none",
+    await trackCaseWork(() =>
+      app.get(BotContacts).observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: "42",
+          privateChatId: "42",
+          updateId: "100",
+          observedAt: time,
+        },
+        "none",
+      ),
     );
     const post = request();
-    await communications.execute(post);
+    await trackCaseWork(() => communications.execute(post));
     await http({
       ...request(),
       operation: "templates.testSend",
@@ -789,7 +990,7 @@ describe("author transport and API", () => {
         },
       },
     );
-    expect(await worker.processAvailable(time)).toBe(1);
+    expect(await trackCaseWork(() => worker.processAvailable(time))).toBe(1);
     expect(
       await database
         .selectFrom("bot_contacts")
@@ -797,15 +998,17 @@ describe("author transport and API", () => {
         .where("telegram_user_id", "=", "42")
         .executeTakeFirstOrThrow(),
     ).toEqual({ contactability: "blocked" });
-    await app.get(BotContacts).observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: "42",
-        privateChatId: "42",
-        updateId: "101",
-        observedAt: new Date(time.getTime() + 1000),
-      },
-      "none",
+    await trackCaseWork(() =>
+      app.get(BotContacts).observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: "42",
+          privateChatId: "42",
+          updateId: "101",
+          observedAt: new Date(time.getTime() + 1000),
+        },
+        "none",
+      ),
     );
     expect(
       await database
@@ -814,15 +1017,17 @@ describe("author transport and API", () => {
         .where("telegram_user_id", "=", "42")
         .executeTakeFirstOrThrow(),
     ).toEqual({ contactability: "reachable" });
-    expect(await worker.processAvailable(new Date(time.getTime() + 2000))).toBe(
-      0,
-    );
+    expect(
+      await trackCaseWork(() =>
+        worker.processAvailable(new Date(time.getTime() + 2000)),
+      ),
+    ).toBe(0);
     expect(calls).toBe(1);
   });
   it("does not resend unknown author samples after worker restart and rejects revoked recipients", async () => {
     await seedLink();
     const post = request();
-    await communications.execute(post);
+    await trackCaseWork(() => communications.execute(post));
     const sample = {
       ...request(),
       operation: "templates.testSend",
@@ -843,9 +1048,11 @@ describe("author transport and API", () => {
           },
         },
       );
-    await worker().processAvailable();
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    await worker().processAvailable(new Date(Date.now() + 120_000));
+    await trackCaseWork(() => worker().processAvailable());
+    await trackCaseWork(() =>
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+      worker().processAvailable(new Date(Date.now() + 120_000)),
+    );
     expect(calls).toBe(1);
     expect(
       (
@@ -857,8 +1064,10 @@ describe("author transport and API", () => {
     ).toBe("unknown");
     await http({ ...sample, operationId: randomUUID() });
     authorization.result = "denied";
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-    await worker().processAvailable(new Date(Date.now() + 240_000));
+    await trackCaseWork(() =>
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+      worker().processAvailable(new Date(Date.now() + 240_000)),
+    );
     expect(calls).toBe(1);
     expect(
       await database
@@ -871,7 +1080,7 @@ describe("author transport and API", () => {
   it("honors known retry_after and keeps samples for one chat ordered across workers", async () => {
     await seedLink();
     const post = request();
-    await communications.execute(post);
+    await trackCaseWork(() => communications.execute(post));
     const sample = {
       ...request(),
       operation: "templates.testSend",
@@ -903,15 +1112,21 @@ describe("author transport and API", () => {
       },
     );
     await Promise.all([
-      worker.processAvailable(time),
-      worker.processAvailable(time),
+      trackCaseWork(() => worker.processAvailable(time)),
+      trackCaseWork(() => worker.processAvailable(time)),
     ]);
     expect(calls).toBe(1);
-    await worker.processAvailable(new Date(time.getTime() + 19_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 19_000)),
+    );
     expect(calls).toBe(1);
-    await worker.processAvailable(new Date(time.getTime() + 20_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 20_000)),
+    );
     expect(calls).toBe(2);
-    await worker.processAvailable(new Date(time.getTime() + 21_000));
+    await trackCaseWork(() =>
+      worker.processAvailable(new Date(time.getTime() + 21_000)),
+    );
     expect(calls).toBe(3);
     const states = await database
       .selectFrom("communication_author_outbox")
@@ -944,13 +1159,15 @@ describe("author transport and API", () => {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const time = Date.now() + 1000;
     await authorMessage(100, "/admin");
-    await worker.processAvailable(new Date(time));
+    await trackCaseWork(() => worker.processAvailable(new Date(time)));
     const stale = await authorClick(101, "Рассылки");
-    await worker.processAvailable(new Date(time + 2000));
+    await trackCaseWork(() => worker.processAvailable(new Date(time + 2000)));
     expect(required(sent[1]).editMessageId).toBe("1");
     // The author retries an old visible button after the edit response was lost.
-    await app.get(AuthorAdmin).handle({ ...stale, updateId: "1020" });
-    await worker.processAvailable(new Date(time + 4000));
+    await trackCaseWork(() =>
+      app.get(AuthorAdmin).handle({ ...stale, updateId: "1020" }),
+    );
+    await trackCaseWork(() => worker.processAvailable(new Date(time + 4000)));
     expect(required(sent[2]).editMessageId).toBeUndefined();
     // A late edit of message 1 cannot modify the newly sent message 3.
     expect(required(sent[2]).authorMenu).toBe(true);
@@ -1190,16 +1407,18 @@ describe("simple sequential authoring", () => {
 it("restores the author menu below the delivered broadcast messages and never exposes it to subscribers", async () => {
   await beginSequence("Рассылки");
   for (const user of ["42", "43"])
-    await app.get(BotContacts).observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: user,
-        privateChatId: user,
-        updateId: "99",
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-        observedAt: new Date(),
-      },
-      "none",
+    await trackCaseWork(() =>
+      app.get(BotContacts).observeStart(
+        {
+          botIdentity: "inside",
+          telegramUserId: user,
+          privateChatId: user,
+          updateId: "99",
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
+          observedAt: new Date(),
+        },
+        "none",
+      ),
     );
   await acceptPost(103, "First delivered post", "сразу");
   await acceptPost(104, "Second delivered post", "сразу");
@@ -1232,13 +1451,13 @@ it("restores the author menu below the delivered broadcast messages and never ex
     signInReplyEligibility,
   );
   for (let i = 0; i < 20; i++)
-    await author.processAvailable(new Date((now += 2000)));
+    await trackCaseWork(() => author.processAvailable(new Date((now += 2000))));
   for (let i = 0; i < 4; i++) {
     now += 2000;
-    await marketing.processAvailable(1);
+    await trackCaseWork(() => marketing.processAvailable(1));
   }
   for (let i = 0; i < 5; i++)
-    await author.processAvailable(new Date((now += 2000)));
+    await trackCaseWork(() => author.processAvailable(new Date((now += 2000))));
   const own = observed.filter((m) => m.chatId === "42");
   expect(
     own.filter((m) => !isTruthy(m.authorMenu)).map((m) => m.content.text),
@@ -1259,7 +1478,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
       },
     }),
   );
-  await app.get(AuthorAdmin).handle(input);
+  await trackCaseWork(() => app.get(AuthorAdmin).handle(input));
   expect(required((await sessionState()).broadcast).state).toBe("completed");
 });
 
