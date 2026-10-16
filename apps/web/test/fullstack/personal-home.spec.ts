@@ -7,7 +7,10 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
-import { expectLinearProgrammeReturn } from "../support/linear-programme";
+import {
+  expectLinearProgrammeReturn,
+  expectProgrammeReturnTarget,
+} from "../support/linear-programme";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 async function dismissOnboarding(page: Page) {
@@ -213,7 +216,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await expect(videoTitle).toBeVisible();
   const videoHref = await videoTitle.getAttribute("href");
   const videoTarget = new URL(videoHref ?? "", page.url());
-  const programmeReturnHref = `/products/${seriesSlug}/programme?page=1&at=${materialSlugs[1]}`;
+  const programmeReturnHref = expectProgrammeReturnTarget(
+    videoTarget.searchParams.get("from"),
+    `/products/${seriesSlug}/programme?page=1&at=${materialSlugs[1]}`,
+  );
   expect(videoTarget.pathname).toBe(`/materials/${materialSlugs[1]}`);
   expect(videoTarget.searchParams.get("from")).toBe(programmeReturnHref);
   await expect(videoTitle).toHaveAttribute(

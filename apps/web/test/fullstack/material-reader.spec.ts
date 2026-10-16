@@ -8,7 +8,10 @@ import {
 } from "@playwright/test";
 import { resolve } from "node:path";
 
-import { expectLinearProgrammeReturn } from "../support/linear-programme";
+import {
+  expectLinearProgrammeReturn,
+  expectProgrammeReturnTarget,
+} from "../support/linear-programme";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
@@ -161,11 +164,12 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       }),
     ),
     nextCursor: z.string().nullable(),
-    totalCount: z.literal(30),
+    totalCount: z.number().int().min(30),
   });
   const slugs: string[] = [];
   let response = await firstPageResponse;
-  for (const pageSize of [12, 12, 6]) {
+  let totalCount: number | undefined;
+  for (;;) {
     expect(response.status()).toBe(200);
     expect(response.headers()["cache-control"]).toBe(
       "public, max-age=30, stale-while-revalidate=60",
@@ -173,7 +177,11 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
     const body = await response.text();
     expect(body).not.toContain("Закрытое содержимое для участников");
     const catalogPage = pageSchema.parse(JSON.parse(body));
-    expect(catalogPage.items).toHaveLength(pageSize);
+    totalCount ??= catalogPage.totalCount;
+    expect(catalogPage.totalCount).toBe(totalCount);
+    expect(catalogPage.items).toHaveLength(
+      Math.min(12, totalCount - slugs.length),
+    );
     slugs.push(...catalogPage.items.map((item) => item.slug));
     await expect(articles).toHaveCount(slugs.length);
     expect(
@@ -184,7 +192,7 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
     expect(await articles.first().getAttribute("data-material-slug")).toBe(
       firstSlug,
     );
-    if (slugs.length < 30) {
+    if (slugs.length < totalCount) {
       expect(catalogPage.nextCursor).not.toBeNull();
       const nextPageResponse = page.waitForResponse((nextResponse) => {
         const url = new URL(nextResponse.url());
@@ -197,9 +205,11 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       response = await nextPageResponse;
     } else {
       expect(catalogPage.nextCursor).toBeNull();
+      break;
     }
   }
-  expect(new Set(slugs).size).toBe(30);
+  expect(new Set(slugs).size).toBe(totalCount);
+  expect(slugs).toContain("demo-295-samostoyatelnaya-zametka");
   expect(slugs).not.toContain("developer-pipeline-bez-poteri-konteksta");
   await expect(
     feed.getByText("Все материалы загружены", { exact: true }),
@@ -885,11 +895,10 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
-  expect(new URL(page.url()).searchParams.get("from")).toBe(
+  const programmeReturnHref = expectProgrammeReturnTarget(
+    new URL(page.url()).searchParams.get("from"),
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
-  const programmeReturnHref =
-    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
   const programmeAction = await expectLinearProgrammeReturn(
     page,
     testInfo.project.name === "mobile-chromium",
@@ -937,12 +946,11 @@ test("uses the selected Series order for a shared Material and leaves standalone
   );
   await expect(harnessNext).toHaveCount(1);
   await expect(harnessNext).toBeVisible();
-  expect(
+  expectProgrammeReturnTarget(
     new URL(
       (await harnessNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe(
     "/products/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await page.goBack();
@@ -961,12 +969,11 @@ test("uses the selected Series order for a shared Material and leaves standalone
   );
   await expect(mixedNext).toHaveCount(1);
   await expect(mixedNext).toBeVisible();
-  expect(
+  expectProgrammeReturnTarget(
     new URL(
       (await mixedNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe(
     "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();

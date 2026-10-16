@@ -1,4 +1,25 @@
 import { expect, type Page } from "@playwright/test";
+import { z } from "zod";
+
+/** An authored programme return keeps its occurrence identity as well as its page and Material. */
+export function expectProgrammeReturnTarget(
+  actual: string | null,
+  expected: string,
+): string {
+  if (actual === null) throw new Error("Missing programme return target");
+  const target = new URL(actual, "https://inside.test");
+  const wanted = new URL(expected, "https://inside.test");
+  expect(target.origin).toBe(wanted.origin);
+  expect(target.pathname).toBe(wanted.pathname);
+  expect(target.hash).toBe(wanted.hash);
+  z.uuid().parse(target.searchParams.get("atPlacement"));
+  if (!wanted.searchParams.has("atPlacement"))
+    target.searchParams.delete("atPlacement");
+  target.searchParams.sort();
+  wanted.searchParams.sort();
+  expect(target.search).toBe(wanted.search);
+  return actual;
+}
 
 /** Flat legacy Products keep linear navigation without a course chapter frame. */
 export async function expectLinearProgrammeReturn(

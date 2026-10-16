@@ -297,11 +297,8 @@ test("reading progress appears on Home and Topic for video and other formats", a
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
     );
-    // Новая вкладка ещё не закрывала Telegram. Каталог монтируется раньше настоящего ответа о входе.
+    // The catalogue mounts before authentication resolves; its marks must update afterward.
     const topic = await context.newPage();
-    const dismiss = topic.getByRole("button", {
-      name: "Закрыть подключение Telegram",
-    });
     let releaseAuth = (): void => undefined;
     const authReleased = new Promise<void>((resolve) => {
       releaseAuth = resolve;
@@ -320,11 +317,11 @@ test("reading progress appears on Home and Topic for video and other formats", a
       await topic.goto("/topics/platform");
       await catalogRead;
       releaseAuth();
-      const modal = topic.locator("dialog:modal").filter({ has: dismiss });
-      await expect(modal).toBeVisible();
+      await expect(
+        topic.getByRole("button", { name: "Подключить Telegram", exact: true }),
+      ).toBeVisible();
+      await expect(topic.getByRole("dialog")).toHaveCount(0);
       const search = topic.getByRole("searchbox");
-      await dismiss.click();
-      await expect(modal).toHaveCount(0);
       const filteredCatalog = topic.waitForResponse((response) => {
         const url = new URL(response.url());
         return (
