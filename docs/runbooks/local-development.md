@@ -728,6 +728,8 @@ Storybook import failures retain primary evidence in
 `apps/web/test-results/storybook-imports/run-<pid>-<process-start>/imports.jsonl`. The Node-side provider observes
 failed script HTTP responses and transport failures before any setup import. Vite records the
 original error response body and server error, even when Chromium discards the failed body.
+Premature response closure retains the partial body with `complete: false`; browser transport
+errors retain an already observed HTTP status. Server messages and stacks identify truncation too.
 No request is replayed. Successful script responses are not recorded. Each process retains up to
 1 MiB of events, with at most 64 KiB per response body; truncation is explicit. Logs retain the
 request path and Vite cache/import query values, but omit arbitrary URL query values and authentication headers.

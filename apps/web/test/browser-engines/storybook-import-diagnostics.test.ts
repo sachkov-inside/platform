@@ -17,6 +17,9 @@ const eventSchema = z.object({
   error: z.string().optional(),
   bodyBytes: z.number().optional(),
   truncated: z.boolean().optional(),
+  complete: z.boolean().optional(),
+  messageTruncated: z.boolean().optional(),
+  errorTruncated: z.boolean().optional(),
 });
 
 for (const mode of [
@@ -24,6 +27,8 @@ for (const mode of [
   "transport",
   "http-story",
   "http-large",
+  "http-partial",
+  "http-utf8",
   "http-unwritable",
   "success",
 ]) {
@@ -97,9 +102,43 @@ for (const mode of [
       .trim()
       .split("\n")
       .map((line) => eventSchema.parse(JSON.parse(line)));
+    if (mode === "http-partial") {
+      expect(
+        events.some(
+          (event) =>
+            event.kind === "http-body" &&
+            event.complete === false &&
+            event.body === "controlled-partial-body",
+        ),
+      ).toBe(true);
+      expect(
+        events.some(
+          (event) =>
+            event.kind === "transport-failure" &&
+            event.status === 500 &&
+            (event.error?.includes("net::") ?? false),
+        ),
+      ).toBe(true);
+      return;
+    }
+    if (mode === "http-utf8") {
+      const body = events.find((event) => event.kind === "http-body");
+      expect(body?.bodyBytes).toBe(65538);
+      expect(body?.body).toBe("a".repeat(65535));
+      expect(body?.truncated).toBe(true);
+      return;
+    }
     if (mode === "http-large") {
       const body = events.find((event) => event.kind === "http-body");
       expect(body?.truncated).toBe(true);
+      expect(
+        events.some(
+          (event) =>
+            event.kind === "server-error" &&
+            event.messageTruncated === true &&
+            event.errorTruncated === true,
+        ),
+      ).toBe(true);
       expect(body?.bodyBytes).toBeGreaterThan(65536);
       expect(Buffer.byteLength(body?.body ?? "")).toBeLessThanOrEqual(65536);
     }

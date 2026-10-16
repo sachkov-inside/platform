@@ -12,6 +12,18 @@ import { createLogger, type Logger, type Plugin } from "vite";
 const bodyByteLimit = 64 * 1024;
 const reportByteLimit = 1024 * 1024;
 
+/** Bound decoded UTF-8 too: an incomplete code point otherwise expands into a replacement character. */
+function limitedText(value: string) {
+  const bytes = Buffer.from(value);
+  let text = bytes.subarray(0, bodyByteLimit).toString("utf8");
+  if (Buffer.byteLength(text) > bodyByteLimit) text = text.slice(0, -1);
+  return {
+    text,
+    originalBytes: bytes.length,
+    truncated: bytes.length > Buffer.byteLength(text),
+  };
+}
+
 /** Node-side capture also covers imports that prevent all browser setup files from running. */
 export function storybookImportDiagnostics(
   directory = resolve("test-results/storybook-imports"),
@@ -54,7 +66,7 @@ export function storybookImportDiagnostics(
   }
 
   function observe(page: Page, origin: string, sessionId: string) {
-    const failedResponses = new WeakSet<Request>();
+    const failedResponses = new WeakMap<Request, number>();
     function localScript(request: Request) {
       const url = new URL(request.url());
       return url.origin === origin && request.resourceType() === "script";
@@ -76,7 +88,7 @@ export function storybookImportDiagnostics(
     page.on("response", (response) => {
       const request = response.request();
       if (!localScript(request) || response.status() < 400) return;
-      failedResponses.add(request);
+      failedResponses.set(request, response.status());
       record({
         kind: "http-response",
         sessionId,
@@ -86,9 +98,10 @@ export function storybookImportDiagnostics(
       });
     });
     page.on("requestfailed", (request) => {
-      if (!localScript(request) || failedResponses.has(request)) return;
+      if (!localScript(request)) return;
       record({
         kind: "transport-failure",
+        status: failedResponses.get(request),
         sessionId,
         url: requestUrl(request),
         error: request.failure()?.errorText ?? "unknown transport failure",
@@ -113,10 +126,18 @@ export function storybookImportDiagnostics(
           logger.hasWarned = value;
         },
         error(message, options) {
+          const capturedMessage = limitedText(message);
+          const stack = options?.error?.stack;
+          const capturedStack =
+            stack === undefined ? undefined : limitedText(stack);
           record({
             kind: "server-error",
-            message: message.slice(0, bodyByteLimit),
-            error: options?.error?.stack?.slice(0, bodyByteLimit),
+            message: capturedMessage.text,
+            messageBytes: capturedMessage.originalBytes,
+            messageTruncated: capturedMessage.truncated,
+            error: capturedStack?.text,
+            errorBytes: capturedStack?.originalBytes,
+            errorTruncated: capturedStack?.truncated,
           });
           logger.error(message, options);
         },
@@ -184,18 +205,28 @@ export function storybookImportDiagnostics(
               ? end(chunk, callback)
               : end(chunk, encodingOrCallback, callback);
         };
-        response.once("finish", () => {
-          if (response.statusCode < 400) return;
+        let reportedResponse = false;
+        function retainResponse(complete: boolean) {
+          if (reportedResponse || response.statusCode < 400) return;
+          reportedResponse = true;
+          const body = limitedText(Buffer.concat(chunks).toString("utf8"));
           const url = new URL(request.url ?? "/", "http://localhost");
           url.search = "";
           record({
             kind: "http-body",
             path: url.pathname,
             status: response.statusCode,
-            body: Buffer.concat(chunks).toString("utf8"),
+            body: body.text,
+            complete,
             bodyBytes,
-            truncated: bodyBytes > retainedBytes,
+            truncated: bodyBytes > retainedBytes || body.truncated,
           });
+        }
+        response.once("finish", () => {
+          retainResponse(true);
+        });
+        response.once("close", () => {
+          retainResponse(response.writableFinished);
         });
         next();
       });

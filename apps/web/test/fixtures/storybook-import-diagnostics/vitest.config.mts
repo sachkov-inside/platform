@@ -18,7 +18,24 @@ export default defineConfig({
     {
       name: "controlled-import-failure",
       configureServer(server) {
-        server.middlewares.use((request, _response, next) => {
+        server.middlewares.use((request, response, next) => {
+          if (
+            (mode === "http-partial" || mode === "http-utf8") &&
+            (request.url?.includes("setup-dependency.ts") ?? false)
+          ) {
+            response.statusCode = 500;
+            response.setHeader("Content-Type", "text/javascript");
+            if (mode === "http-utf8") {
+              response.end("a".repeat(65535) + "€");
+            } else {
+              response.setHeader("Content-Length", "100000");
+              response.flushHeaders();
+              response.write("controlled-partial-body", () => {
+                response.destroy();
+              });
+            }
+            return;
+          }
           if (
             mode === "transport" &&
             (request.url?.includes("setup-dependency.ts") ?? false)
@@ -32,7 +49,12 @@ export default defineConfig({
       transform(_source, id) {
         const target =
           mode === "http-story" ? "story-dependency.ts" : "setup-dependency.ts";
-        if ((mode?.startsWith("http") ?? false) && id.endsWith(target)) {
+        if (
+          (mode?.startsWith("http") ?? false) &&
+          mode !== "http-partial" &&
+          mode !== "http-utf8" &&
+          id.endsWith(target)
+        ) {
           throw new Error(
             `controlled-vite-transform-failure${mode === "http-large" ? "x".repeat(100000) : ""}`,
           );
