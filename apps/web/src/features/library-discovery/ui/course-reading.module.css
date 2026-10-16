@@ -757,10 +757,9 @@
 .host {
   --course-host-gap: 2rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 17rem var(--course-host-gap) minmax(
-      0,
-      43rem
-    ) minmax(0, 1fr);
+  grid-template-columns:
+    minmax(0, 1fr) 17rem var(--course-host-gap) minmax(0, 43rem)
+    minmax(0, 1fr);
   align-items: start;
   min-width: 0;
 }
