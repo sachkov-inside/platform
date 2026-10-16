@@ -2,19 +2,19 @@
 
 Общее название программы — **продукт**; курс, практикум и руководство могут оставаться её
 авторским названием. Следовать [общему словарю](../../GLOSSARY.md#language) и локальным правилам
-совместимости Inside Content: новое слово не является поручением переименовать `product.yaml`,
+совместимости Engineering Content: новое слово не является поручением переименовать `product.yaml`,
 папки или постоянные ID. Упоминания руководства ниже относятся к тому же продукту.
 
-Этот handoff направляет новую редакционную сессию в Inside Content. Он не задаёт программу обучения
+Этот handoff направляет новую редакционную сессию в Engineering Content. Он не задаёт программу обучения
 и не подтверждает готовность реальных записей. Общая модель продукта находится в
 [brief руководств и материалов](content-series-authoring-brief.md); определения — в [словаре](../../GLOSSARY.md).
 
 ## 1. Восстановить исходное состояние
 
-Выбрать owning repository [Inside Content](https://github.com/sachkov-inside/inside-content) и прочитать
+Выбрать owning repository [Engineering Content](https://github.com/sachkov-inside/engineering-content) и прочитать
 его `AGENTS.md`, затем `docs/editorial-workflow.md`. Для переноса публикации читать
 `docs/publishing.md`, для написания — `docs/style.md`. Перед правками проверить состояние Git,
-активные worktrees и handoff сессии, которой принадлежат записи. Inside Content использует свой основной локальный каталог на `main` по действующему
+активные worktrees и handoff сессии, которой принадлежат записи. Engineering Content использует свой основной локальный каталог на `main` по действующему
 `AGENTS.md`; новые worktrees для редакционной работы не создаются.
 
 Завершение шага: известны цель этой сессии, разрешённые исходники и рабочее дерево. Неизвестная
@@ -36,7 +36,7 @@
 
 ## 3. Сохранить план и подготовить материал
 
-Использовать текущие шаблоны и процесс Inside Content. До выполнения
+Использовать текущие шаблоны и процесс Engineering Content. До выполнения
 [platform #448](https://github.com/sachkov-inside/platform/issues/448) действующие имена
 `series.yaml` и полей сохраняются; не переименовывать их вручную по одному новому термину. Он определяет единый смешанный порядок,
 явные связи шагов, описание пользы видео, работу с источниками и карту обратных связей.
@@ -52,21 +52,21 @@
 
 Передать ID подготовленных материалов, состав руководства, локальные ресурсы, проверки и открытые вопросы.
 Правила преобразования полей и согласования ручных правок Platform принадлежат
-[публикационному контракту Inside Content](https://github.com/sachkov-inside/inside-content/blob/main/docs/publishing.md).
+[публикационному контракту Engineering Content](https://github.com/sachkov-inside/engineering-content/blob/main/docs/publishing.md).
 Редакционное планирование не расширяет schema приложения.
 
 Поддержка серий, выбранного Reader context и связей шагов уже поставлена в Platform через
 [PR #297](https://github.com/sachkov-inside/platform/pull/297) и
 [PR #300](https://github.com/sachkov-inside/platform/pull/300). Подготовка состава и связей в Git
-поставлена через [Content PR #3](https://github.com/sachkov-inside/inside-content/pull/3) и
-[PR #5](https://github.com/sachkov-inside/inside-content/pull/5).
+поставлена через [Content PR #3](https://github.com/sachkov-inside/engineering-content/pull/3) и
+[PR #5](https://github.com/sachkov-inside/engineering-content/pull/5).
 
 Эти поставки отражают прежнюю Series-модель. Переход на руководства выполняется по
 [общему плану](guides-delivery-plan.md), полноценный перенос — в
 [platform #449](https://github.com/sachkov-inside/platform/issues/449).
 Это не готовый автоматический импорт: проверка переноса остаётся
 [Platform #289](https://github.com/sachkov-inside/platform/issues/289). Текущее состояние реального
-[пилота Content #1](https://github.com/sachkov-inside/inside-content/issues/1) восстанавливается из
+[пилота Content #1](https://github.com/sachkov-inside/engineering-content/issues/1) восстанавливается из
 его фактических файлов и handoff автора; старые записи о состоянии не заменяют эту проверку.
 
 Завершение редакционной сессии: конкретный пакет для следующего шага и понятная граница готовности.

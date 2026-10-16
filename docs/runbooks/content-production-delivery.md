@@ -59,7 +59,7 @@ Keychain, и следующие переносы входа не требуют.
 
    ```bash
    pnpm authoring:release preview --target production \
-     --content ../inside-content --product inside-ai-engineering [--ref COMMIT] \
+     --content ~/Work/Materials/engineering-content --product inside-ai-engineering [--ref COMMIT] \
      --state ~/.inside-authoring/production [--publish SOURCE_ID]... \
      [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...
    ```
