@@ -316,3 +316,43 @@ describe("project reference navigation", () => {
     expect(context?.references).toEqual([]);
   });
 });
+
+it.each([8, 9])(
+  "derives %i chapter steps from current Product composition independently of project references",
+  (count) => {
+    const items = Array.from({ length: count }, (_, index) => ({
+      materialId: `lesson-${String(index + 1)}`,
+      slug: `lesson-${String(index + 1)}`,
+      title: `Урок ${String(index + 1)}`,
+    }));
+    const context = courseReadingContext({
+      series: {
+        kind: "ready",
+        reference: { slug: "course", name: "Курс" },
+        chapters: [
+          {
+            id: "first",
+            name: "Глава",
+            materialIds: items.map(({ materialId }) => materialId),
+          },
+        ],
+        items: [
+          ...items,
+          {
+            materialId: "project",
+            slug: "aie-project",
+            title: "Описание проекта",
+          },
+          { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
+        ],
+      },
+      current: { kind: "material", slug: "lesson-1" },
+    });
+    expect(context?.totalSteps).toBe(count);
+    expect(context?.totalMaterials).toBe(count);
+    expect(context?.chapters[0]?.steps.map(({ id }) => id)).toEqual(
+      items.map(({ slug }) => `material:${slug}`),
+    );
+    expect(context?.references).toHaveLength(2);
+  },
+);
