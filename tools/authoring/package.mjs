@@ -534,6 +534,7 @@ export function checkCapabilities(value) {
         "material-task-v1",
         "task-c-v2",
         "quiz-v1",
+        "quiz-multiple-v1",
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
@@ -598,6 +599,13 @@ export async function loadPackage(path) {
     ),
   ]) {
     if (material.readerBlocks !== undefined) {
+      if (
+        material.readerBlocks.some(
+          (block) => block.kind === "quiz" && "selectionMode" in block,
+        ) &&
+        !manifest.requiredFeatures?.includes("quiz-multiple-v1")
+      )
+        throw new Error("Multiple-answer quizzes require quiz-multiple-v1");
       if (
         manifest.schemaVersion !== 2 ||
         !manifest.requiredFeatures?.includes("quiz-v1") ||

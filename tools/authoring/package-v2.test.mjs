@@ -1075,3 +1075,46 @@ test("material-task-v1 validates primary ownership and one-to-one bindings befor
     await assert.rejects(loadPackage(f.path));
   }
 });
+
+test("multiple-answer quiz requires its feature marker and preserves the complete set", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  assert.ok(task.page);
+  const quiz = {
+    kind: "quiz",
+    id: "features",
+    selectionMode: "multiple",
+    promptMarkdown: "Select the initial features.",
+    correctOptionIds: ["a", "b", "c", "d"],
+    options: ["a", "b", "c", "d", "e", "f"].map((id) => ({
+      id,
+      markdown: id,
+      explanationMarkdown: `Reason ${id}`,
+    })),
+    dontKnow: { explanationMarkdown: "Review scope.", reviewLinks: ["#scope"] },
+  };
+  const page = {
+    ...task.page,
+    readerBlocks: [{ kind: "markdown", markdown: "## Scope" }, quiz],
+  };
+  const envelope = { ...manifest, tasks: [{ ...task, page }] };
+  await f.write(envelope);
+  await assert.rejects(loadPackage(f.path), /quiz-multiple-v1/u);
+  manifest.requiredFeatures.push("quiz-multiple-v1");
+  await f.write(envelope);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(pkg.manifest.tasks?.[0]?.page?.readerBlocks?.[1], quiz);
+  for (const patch of [
+    { correctOptionIds: [] },
+    { correctOptionIds: ["a", "a"] },
+    { correctOptionIds: ["missing"] },
+    { correctOptionId: "a" },
+  ]) {
+    page.readerBlocks[1] = { ...quiz, ...patch };
+    await f.write(envelope);
+    await assert.rejects(loadPackage(f.path));
+  }
+});

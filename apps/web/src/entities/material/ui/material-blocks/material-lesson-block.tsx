@@ -57,8 +57,8 @@ export function MaterialLessonBlock({
       return (
         <MaterialQuiz
           key={block.id}
+          {...block}
           prompt={rendering.renderBlocks(block.prompt, 0)}
-          correctOptionId={block.correctOptionId}
           options={block.options.map((option, index) => ({
             id: option.id,
             content: rendering.renderBlocks(option.content, index * 2 + 1),

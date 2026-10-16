@@ -194,3 +194,73 @@ test.each(["/relative", "#section", "https://example.com/resource"])(
     );
   },
 );
+
+describe("multiple-answer quiz", () => {
+  function multipleFixture() {
+    const source = fixture();
+    const existing = source.doc.content[1]?.attrs.quiz;
+    if (existing === undefined) throw new Error("Missing quiz");
+    const { correctOptionId: _legacy, ...common } = existing;
+    const quiz = {
+      ...common,
+      selectionMode: "multiple",
+      correctOptionIds: ["feature-0", "feature-1", "feature-2", "feature-3"],
+      options: Array.from({ length: 6 }, (_, index) => ({
+        id: `feature-${String(index)}`,
+        content: existing.options[0]?.content ?? [],
+        explanation: existing.options[0]?.explanation ?? [],
+      })),
+    };
+    const node = source.doc.content[1];
+    if (node === undefined) throw new Error("Missing node");
+    return {
+      source: {
+        ...source,
+        doc: {
+          ...source.doc,
+          content: [
+            source.doc.content[0],
+            { ...node, attrs: { ...node.attrs, quiz } },
+          ],
+        },
+      },
+      quiz,
+    };
+  }
+  test("keeps six options and four keys through accepted editor/render roundtrip", () => {
+    const { source, quiz } = multipleFixture();
+    const accepted = materialBodyOperations.accept(source);
+    expect(accepted.ok).toBe(true);
+    if (!accepted.ok) throw new Error("Must accept multiple answers");
+    const rendered = materialBodyOperations.render(accepted.value);
+    expect(rendered).toMatchObject({
+      ok: true,
+      value: { blocks: [expect.anything(), quiz] },
+    });
+    expect(materialDocumentSchemaV1.nodeFromJSON(source.doc).toJSON()).toEqual(
+      source.doc,
+    );
+  });
+  test.each([
+    { correctOptionIds: [] },
+    { correctOptionIds: ["feature-0", "feature-0"] },
+    { correctOptionIds: ["missing"] },
+    { correctOptionId: "feature-0" },
+    { selectionMode: "unknown" },
+  ])("rejects invalid key shape %j", (patch) => {
+    const { source, quiz } = multipleFixture();
+    const node = source.doc.content[1];
+    if (node?.attrs === undefined) throw new Error("Missing node");
+    const invalid = {
+      ...source,
+      doc: {
+        ...source.doc,
+        content: [
+          source.doc.content[0],
+          { ...node, attrs: { ...node.attrs, quiz: { ...quiz, ...patch } } },
+        ],
+      },
+    };
+    expect(materialBodyOperations.accept(invalid)).toMatchObject({ ok: false });
+  });
+});

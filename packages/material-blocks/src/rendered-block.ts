@@ -42,11 +42,10 @@ export interface ImageAssetPresentation {
     readonly { readonly height: number; readonly width: number }[] | undefined;
 }
 
-export interface RenderedQuiz {
+interface RenderedQuizContent {
   readonly kind: "quiz";
   readonly id: string;
   readonly prompt: readonly RenderedBlock[];
-  readonly correctOptionId: string;
   readonly options: readonly {
     readonly id: string;
     readonly content: readonly RenderedBlock[];
@@ -57,6 +56,20 @@ export interface RenderedQuiz {
     readonly reviewLinks: readonly string[];
   };
 }
+
+export type RenderedQuiz = RenderedQuizContent &
+  (
+    | {
+        readonly correctOptionId: string;
+        readonly selectionMode?: undefined;
+        readonly correctOptionIds?: never;
+      }
+    | {
+        readonly selectionMode: "multiple";
+        readonly correctOptionIds: readonly string[];
+        readonly correctOptionId?: never;
+      }
+  );
 
 export type RenderedBlock =
   | RenderedQuiz
