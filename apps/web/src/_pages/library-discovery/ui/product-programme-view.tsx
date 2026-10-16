@@ -1,4 +1,3 @@
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import Link from "next/link";
 import type { ProductOnboardingPanel } from "./series-journey-controls.client";
 
@@ -10,7 +9,6 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
@@ -22,7 +20,7 @@ import {
   purchaseInvitation,
   type PurchaseInvitation,
 } from "@/shared/routing/subscription-route";
-import "./product-programme-view.css";
+import { ProductProgrammeFrame } from "./product-programme-frame";
 
 import { formatChapterCount } from "./product-counts";
 import {
@@ -33,9 +31,7 @@ import { SeriesJourney } from "./series-journey";
 import {
   PendingPurchaseRow,
   PendingSeriesLearning,
-  ProgrammeProgress,
 } from "./series-learning.client";
-import { CourseMark } from "@/features/ai-engineering-course";
 
 type ResolvedSeriesResult = Extract<
   PublishedSeriesResult,
@@ -92,77 +88,43 @@ export function ProductProgrammeView({
   ].filter((value): value is string => value !== undefined);
 
   return (
-    <div
-      className="programme-frame @container/programme mx-auto min-w-0 w-full max-w-[46rem]"
-      data-product-programme={slug}
-    >
-      {/* Выход из прохождения — вверху слева, на Главную: снизу у программы свои разделы,
-          и случайно уйти на Главную нельзя. Страница продукта — справа, для тех, кто его изучает. */}
-      <nav
-        aria-label="Путь навигации"
-        className="-mt-3 flex flex-wrap items-center justify-between gap-x-3 sm:mt-0 sm:pt-4"
-        data-programme-part="back"
-      >
-        <CatalogBackLink href="/" label="Главная" />
-        <IntentPrefetchLink
-          className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline decoration-border underline-offset-4"
-          href={productHref}
-        >
-          О продукте
-        </IntentPrefetchLink>
-      </nav>
-
-      <header
-        className="relative mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
-        data-programme-part="header"
-      >
-        {preorder === null || accessPending ? null : (
-          <StartCountdownBadge text={preorder.daysLeft} />
-        )}
-        {/* Название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит под
-            название. Обложки в шапке программы нет (решение владельца 09.10.2026): это рабочий
-            экран курса, картинка в маленьком размере ничего не сообщает. */}
-        <div className="grid grid-cols-1 items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[minmax(0,1fr)_auto]">
-          <div className="flex min-w-0 items-center gap-3 [overflow-wrap:anywhere]">
-            {/* У курса AI Engineering рядом с названием его знак (решение владельца 09.10.2026). */}
-            {result.reference.productPage?.presentation ===
-            "ai-engineering-course" ? (
-              <CourseMark className="size-10 shrink-0 sm:size-12" />
-            ) : null}
-            <div className="min-w-0">
-              <h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">
-                {result.reference.name}
-              </h1>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
-                {meta.join(" · ")}
-              </p>
-            </div>
-          </div>
-          {accessPending ? (
-            <PendingPurchaseRow
-              lockedForGuest={hasLockedItems(result)}
-              slug={slug}
+    <ProductProgrammeFrame
+      courseMark={
+        result.reference.productPage?.presentation === "ai-engineering-course"
+      }
+      meta={meta.join(" · ")}
+      name={result.reference.name}
+      productHref={productHref}
+      purchase={
+        accessPending ? (
+          <PendingPurchaseRow
+            lockedForGuest={hasLockedItems(result)}
+            slug={slug}
+          />
+        ) : purchase === null ? null : (
+          <div
+            className={
+              preorder === null
+                ? programmePurchaseRowClass
+                : programmePreorderRowClass
+            }
+            data-programme-purchase-row
+          >
+            <ProgrammePurchase
+              invitation={purchase}
+              offer={productOffer}
+              preorder={preorder}
             />
-          ) : purchase === null ? null : (
-            <div
-              className={
-                preorder === null
-                  ? programmePurchaseRowClass
-                  : programmePreorderRowClass
-              }
-              data-programme-purchase-row
-            >
-              <ProgrammePurchase
-                invitation={purchase}
-                offer={productOffer}
-                preorder={preorder}
-              />
-            </div>
-          )}
-        </div>
-        <ProgrammeProgress />
-      </header>
-
+          </div>
+        )
+      }
+      slug={slug}
+      startBadge={
+        preorder === null || accessPending ? null : (
+          <StartCountdownBadge text={preorder.daysLeft} />
+        )
+      }
+    >
       <SeriesJourney
         {...(onboarding === undefined ? {} : { onboarding })}
         accessPending={accessPending}
@@ -170,7 +132,7 @@ export function ProductProgrammeView({
         currentHref={currentHref}
         result={{ ...result, discoveryKind: "series" }}
       />
-    </div>
+    </ProductProgrammeFrame>
   );
 }
 
