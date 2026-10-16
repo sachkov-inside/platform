@@ -22,8 +22,8 @@ export function CourseReferenceNavigation({
 }) {
   if (references.length === 0) return null;
   return (
-    <nav aria-label="О проекте" className={styles["references"]}>
-      <h2>О проекте</h2>
+    <nav aria-label="Дополнительные материалы" className={styles["references"]}>
+      <h2>Дополнительные материалы</h2>
       <ul>
         {references.map((reference) => (
           <li key={reference.id}>

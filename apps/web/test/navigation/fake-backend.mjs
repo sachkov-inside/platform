@@ -599,6 +599,17 @@ function route(method, url, entitled) {
       chapters: [
         {
           id: `44444444-4444-4444-8444-44444444${product.id.slice(-4)}`,
+          supplementaryMaterialIds:
+            product.slug === referenceProduct.slug
+              ? items
+                  .filter(
+                    (item) =>
+                      !chapterItems.some(
+                        (step) => step.materialId === item.materialId,
+                      ),
+                  )
+                  .map((item) => item.materialId)
+              : [],
           materialIds: chapterItems
             .slice(0, half)
             .map((lesson) => lesson.materialId),

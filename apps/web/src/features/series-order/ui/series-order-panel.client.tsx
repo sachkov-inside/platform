@@ -1,4 +1,6 @@
 "use client";
+
+import { ChapterAttachmentsEditor } from "./chapter-attachments-editor.client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { seriesOrderQueryOptions } from "../api/read-series-order.browser";
@@ -39,11 +41,26 @@ export function SeriesOrderPanel({
   const order = query.data.order;
   if (readOnly)
     return (
-      <SeriesOrderReadOnly
-        chapters={order.chapters}
-        items={order.items}
-        productId={seriesId}
-      />
+      <div className="grid gap-6">
+        <SeriesOrderReadOnly
+          chapters={order.chapters}
+          items={order.items}
+          productId={seriesId}
+          programmePlacements={order.programmePlacements}
+        />
+        {order.chapters.map((chapter) => (
+          <ChapterAttachmentsEditor
+            key={`${order.orderVersion}:${chapter.id}`}
+            chapter={chapter}
+            items={order.items}
+            productId={seriesId}
+            orderVersion={order.orderVersion}
+            onRefresh={() => {
+              void query.refetch();
+            }}
+          />
+        ))}
+      </div>
     );
   return (
     <SeriesOrderManager

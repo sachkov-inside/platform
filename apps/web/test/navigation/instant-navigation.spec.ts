@@ -465,7 +465,10 @@ async function readerProgrammeLink(page: Page) {
       .getByRole("link")
       .first();
   } else
-    return course.getByRole("link", { exact: true, name: "Вся программа" });
+    return course
+      .getByRole("navigation", { name: "Хлебные крошки" })
+      .getByRole("link")
+      .first();
 }
 
 const lessonReady = (page: Page, slug: string) => async () => {

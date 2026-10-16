@@ -2100,7 +2100,7 @@ export const ProjectReferenceFromLesson: Story = {
     const canvas = within(canvasElement);
     const rail = canvas.getByLabelText("Текущая глава");
     const references = within(rail).getByRole("navigation", {
-      name: "О проекте",
+      name: "Дополнительные материалы",
     });
     await expect(
       within(references).getByRole("link", { name: "Бриф заказчика" }),
@@ -2109,7 +2109,7 @@ export const ProjectReferenceFromLesson: Story = {
       within(references).getByRole("link", { name: "Описание проекта" }),
     ).toHaveAttribute(
       "href",
-      "/materials/aie-project?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro&anchor=material%3Acourse-intro",
+      "/materials/aie-project?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro&view=reference&anchor=material%3Acourse-intro",
     );
     await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
       "data-course-step",
@@ -2136,7 +2136,7 @@ export const ProjectReferenceFromLessonMobile: Story = {
     );
     const dialog = canvas.getByRole("dialog");
     const references = within(dialog).getByRole("navigation", {
-      name: "О проекте",
+      name: "Дополнительные материалы",
     });
     await expect(
       within(references).getByRole("link", { name: "Бриф заказчика" }),

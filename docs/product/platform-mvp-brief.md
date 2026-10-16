@@ -178,11 +178,13 @@ legacy-группы. Юридические тексты/реквизиты и �
   «Принять условия и продолжить»; до этого кабинет, покупки и связка с ботом закрыты, а новая
   редакция условий снова открывает экран. Оферты и автопродление принимаются кнопкой оплаты со
   строкой о принятии, без отметок; принятые документы видны в разделе «Аккаунт» (#658);
-- после каждого входа, пока Telegram не связан, один раз за authenticated browser session видит
-  центрированное onboarding-окно; может закрыть его и продолжить с бесплатным контентом;
-- связывает Telegram целиком в onboarding-окне либо позже из Account: Platform выдаёт short-lived
-  bot link, первое действие сразу открывает Telegram, участник отправляет `/start`, а после возврата
-  Platform автоматически подтверждает связь и показывает явный success result;
+- после входа без связанного Telegram видит компактную кнопку Telegram в шапке рядом с аватаркой;
+  автоматическое окно не открывается, гостям и связанным аккаунтам кнопка не показывается;
+- подключает Telegram кнопкой в шапке либо позже из Account: Platform выдаёт short-lived
+  bot link и открывает Telegram; после `/start` и возврата Platform подтверждает связь;
+  кнопка исчезает после подтверждения;
+- открывает меню Account аватаркой в шапке; без фотографии видит значок пользователя,
+  а без входа — кнопку «Войти»;
 - получает доступ из объединения действующих paid/manual/legacy оснований Account;
 - открывает закрытые материалы по возможности `materials`; тарифный checkout поставляется отдельно;
 - после окончания всех оснований доступа сохраняет Account, Member Profile, историю и статусы
@@ -205,8 +207,8 @@ Account является приватной surface владельца: комп
 внешнего адреса покупки у inactive state нет, а вход на внутреннюю витрину кабинет показывает только
 при включённой продаже (#529, #540). Coarse состояния остаются независимыми, но не
 выводятся как техническая диагностическая таблица. Linked Telegram не обещает access; Membership
-timestamps, evidence, provider identity и internal identifiers не показываются. Компактное
-onboarding-окно посвящено только подключению Telegram и после успеха показывает результат связи;
+timestamps, evidence, provider identity и internal identifiers не показываются. Плавающий островок
+под шапкой предлагает подключить Telegram и исчезает после подтверждения связи;
 Membership state и acquisition action остаются только в Account и на закрытых материалах. Истёкшую обычную попытку
 можно начать заново, а conflict или recovery с риском silent
 transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
@@ -237,7 +239,7 @@ The Product checkout restores the Account's latest purchase from the server on e
 A bank return carries the purchase reference and cannot itself confirm payment. Payment,
 fulfillment and receipt status settle independently. Once access is ready, the buyer opens the Product.
 
-Product onboarding is the first programme section while incomplete. It guides Telegram linking,
+Product onboarding is the first programme section while incomplete only for buyers with active paid access to that Product. It guides Telegram linking,
 joining the Product's configured community and starting the first lesson. Other sections remain
 usable. The Onboarding item disappears from desktop and mobile navigation after completion;
 the default section becomes Programme. Products without community rights show no invitation.
@@ -376,9 +378,13 @@ Platform через API/MCP; импорт не архивирует и не во
 Учебные страницы показывают видимые breadcrumbs по структуре курса, а не по истории переходов.
 Позиция чтения и раскрытые главы принадлежат записи истории вкладки; URL сохраняет курс и исходный шаг.
 Селектор глав содержит только реальные главы, без дополнительного пункта «Материалы».
-Группа «О проекте» отдельно показывает существующие `aie-project` и `aie-product-brief` в боковой программе, мобильной программе и на странице программы.
-Эти документы используют состав Product, но не добавляют обязательных шагов и не меняют нумерацию или счётчики глав.
-Существующие отметки и общий прогресс по материалам Product сохраняются; группа меняет только навигацию.
+Продукт содержит каталог ссылок на общие Material. Программа и дополнительные материалы глав ссылаются на этот каталог.
+Один Material можно разместить несколько раз; текст и отметка «Изучено» остаются общими.
+Глава показывает прикреплённые дополнительные материалы отдельно от обязательных шагов.
+Проект и Бриф прикреплены к первой главе без специальных правил по slug.
+Каталог показывает все материалы продукта, включая материалы вне программы и вложений глав.
+Счётчики шагов учитывают размещения программы; прогресс учитывает уникальные материалы программы.
+Открытый опубликованный Material всегда показывается в ленте.
 При открытии из урока группа сохраняет исходную главу и место чтения; активный документ выделен отдельно от исходного шага.
 Возврат «К уроку» восстанавливает исходное место. При открытии из программы документ сохраняет навигацию курса без номера шага.
 Прямой адрес Material без контекста курса остаётся самостоятельным; ссылки чтения и скачивания сохраняются.

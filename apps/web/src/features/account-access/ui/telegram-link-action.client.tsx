@@ -13,10 +13,11 @@ import { useTelegramLinkFlow } from "../model/use-telegram-link-flow.client";
 const accessHref: Route = "/account/access";
 
 export interface TelegramLinkActionProps {
-  readonly label?: "Подключить Telegram" | "Привязать Telegram";
+  readonly label?: "Подключить Telegram" | "Привязать Telegram" | "Подключить";
   /** Перечитывает состояние, которое показывает кнопку, после каждого шага привязки. */
   readonly onRefresh: () => Promise<void>;
   readonly className?: string;
+  readonly compact?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export interface TelegramLinkActionProps {
  */
 export function TelegramLinkAction({
   className,
+  compact = false,
   label = "Подключить Telegram",
   onRefresh,
 }: TelegramLinkActionProps) {
@@ -37,15 +39,28 @@ export function TelegramLinkAction({
   if (flow.deepLink !== null) {
     return (
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Button asChild className={className}>
-          <a href={flow.deepLink} rel="noopener noreferrer" target="_blank">
+        <Button
+          asChild
+          className={className}
+          variant={compact ? "ghost" : "default"}
+        >
+          <a
+            aria-label={compact ? "Открыть Telegram" : undefined}
+            href={flow.deepLink}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
             <Send aria-hidden="true" />
-            Открыть Telegram
+            <span className={compact ? "hidden sm:inline" : undefined}>
+              Открыть Telegram
+            </span>
           </a>
         </Button>
-        <p className="text-xs leading-5 text-muted-foreground" role="status">
-          Нажмите Start в боте — он сам пришлёт личную ссылку в группу.
-        </p>
+        {compact ? null : (
+          <p className="text-xs leading-5 text-muted-foreground" role="status">
+            Нажмите Start в боте — он сам пришлёт личную ссылку в группу.
+          </p>
+        )}
       </div>
     );
   }
@@ -57,6 +72,8 @@ export function TelegramLinkAction({
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <Button
         className={className}
+        variant={compact ? "ghost" : "default"}
+        aria-label={compact ? label : undefined}
         disabled={flow.pending}
         onClick={() => {
           void flow.begin().finally(() => {
@@ -73,7 +90,9 @@ export function TelegramLinkAction({
         ) : (
           <Send aria-hidden="true" />
         )}
-        {label}
+        <span className={compact ? "hidden sm:inline" : undefined}>
+          {label}
+        </span>
       </Button>
       {detour ? (
         <p className="text-xs leading-5 text-muted-foreground" role="alert">

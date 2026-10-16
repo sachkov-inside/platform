@@ -1,5 +1,11 @@
+import { productCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
+import {
+  accessGrounds,
+  currentBillingResponse,
+} from "@/storybook/billing.fixtures";
+import { respondByPath } from "@/storybook/account.fixtures";
 import type { CommunityEntry } from "@/features/community-entry";
 import { getQueryClient } from "@/shared/api/query-client";
 import {
@@ -61,12 +67,26 @@ function Programme({ started = false }: { readonly started?: boolean }) {
     </MaterialReadingScope>
   );
 }
-function entryState(entry: CommunityEntry) {
+function entryState(entry: CommunityEntry, paid = true) {
   return () => {
     environment.beforeEach();
     getQueryClient().removeQueries({ queryKey: ["account"] });
-    return fetchBeforeRender(() =>
-      Promise.resolve(Response.json({ ok: true, value: entry })),
+    return fetchBeforeRender(
+      respondByPath({
+        "/api/account/billing": () =>
+          currentBillingResponse(null, {
+            grounds: paid
+              ? accessGrounds
+                  .filter((ground) => ground.source === "paid")
+                  .map((ground) => ({
+                    ...ground,
+                    capabilities: [productCapability(buyerProductId)],
+                  }))
+              : [],
+          }),
+        "/api/account/community-entry": () =>
+          Response.json({ ok: true, value: entry }),
+      }),
     )();
   };
 }
@@ -147,4 +167,10 @@ export const WithoutCommunity: Story = {
   ...Completed,
   args: { started: false },
   beforeEach: entryState({ kind: "none" }),
+};
+
+export const WithoutPurchase: Story = {
+  ...Completed,
+  args: { started: false },
+  beforeEach: entryState({ kind: "link_telegram" }, false),
 };

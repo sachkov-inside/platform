@@ -93,7 +93,10 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
         .getByRole("navigation", { name: "Хлебные крошки" })
         .getByRole("link")
         .first()
-    : course.getByRole("link", { name: "Вся программа", exact: true });
+    : course
+        .getByRole("navigation", { name: "Хлебные крошки" })
+        .getByRole("link")
+        .first();
   await expect(returnLink).toHaveAttribute(
     "href",
     `${programme}?part=materials&at=performance-lesson-1`,

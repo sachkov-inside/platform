@@ -1,3 +1,4 @@
+import { assembleUpdateChapterAttachments } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
 import {
   assembleApplySourcePractice,
   assembleValidateSourcePractice,
@@ -60,6 +61,7 @@ export function assembleMaterialAuthoring(
     listContentCollections: assembleListContentCollections(dependencies),
     previewMaterial: assemblePreviewMaterial(dependencies),
     reorderSeries: assembleReorderSeries(dependencies),
+    updateChapterAttachments: assembleUpdateChapterAttachments(dependencies),
     saveMaterial,
     setContentCollectionArchive:
       assembleSetContentCollectionArchive(dependencies),

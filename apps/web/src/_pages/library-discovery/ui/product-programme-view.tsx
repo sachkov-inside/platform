@@ -1,4 +1,3 @@
-import { materialReaderHref } from "@/shared/routing/material-reader";
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import Link from "next/link";
 import type { ProductOnboardingPanel } from "./series-journey-controls.client";
@@ -13,8 +12,6 @@ import {
 import { Button } from "@/shared/ui/button";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
-  CourseReferenceNavigation,
-  projectReferenceMaterials,
   formatMaterialCount,
   type PublishedSeriesResult,
 } from "@/features/library-discovery";
@@ -165,15 +162,6 @@ export function ProductProgrammeView({
         <ProgrammeProgress />
       </header>
 
-      <CourseReferenceNavigation
-        courseHref={currentHref}
-        references={projectReferenceMaterials(items).map((item) => ({
-          id: `material:${item.slug}`,
-          slug: item.slug,
-          title: item.title,
-          href: materialReaderHref(item.slug, currentHref),
-        }))}
-      />
       <SeriesJourney
         {...(onboarding === undefined ? {} : { onboarding })}
         accessPending={accessPending}

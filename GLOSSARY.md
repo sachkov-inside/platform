@@ -111,9 +111,17 @@ Product and does not sell it by itself; only a Product with a Cohort names the s
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**ProgrammePlacement**:
+One position of a Material in a Product's programme. Repeated positions share the same Material and studied mark.
+_Avoid_: Material copy, catalogue membership
+
+**ChapterAttachment**:
+An additional Material linked to a Product chapter outside its mandatory programme.
+_Avoid_: Mandatory step, additional chapter
+
 **ProductOnboarding**:
 The Product's initial learner path through Telegram linking, community joining and starting learning.
-It applies only when the Product's community is part of the learner's actual access.
+It applies only to a buyer with current paid access to that Product and its community.
 _Avoid_: Global community setup, payment confirmation
 
 **ProductAccessRevocation**:

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Bookmark,
   ChevronLeft,
   ChevronRight,
@@ -58,6 +59,7 @@ export function ReaderTopActions({
   bookmarkAction,
   returnAction,
   breadcrumbs,
+  nextStep,
   format = "guide",
   position = "top",
 }: {
@@ -66,6 +68,8 @@ export function ReaderTopActions({
   readonly bookmarkAction?: ReactNode;
   readonly returnAction?: ReactNode;
   readonly breadcrumbs?: ReactNode;
+  readonly nextStep?:
+    Pick<SeriesReaderContextItem, "href" | "title"> | null | undefined;
   readonly format?: string;
   readonly position?: "top" | "bottom";
 }) {
@@ -127,6 +131,21 @@ export function ReaderTopActions({
                 {reading}
               </div>
             </div>
+            {nextStep == null ? null : (
+              <div className={styles["forward"]}>
+                <Button
+                  asChild
+                  className="h-9 gap-1.5 rounded-full px-3 sm:h-11"
+                >
+                  <IntentPrefetchLink
+                    href={nextStep.href}
+                    title={nextStep.title}
+                  >
+                    Дальше <ArrowRight aria-hidden="true" className="size-4" />
+                  </IntentPrefetchLink>
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           <>

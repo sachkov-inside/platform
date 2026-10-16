@@ -164,9 +164,28 @@ function platform({ stored = true } = {}) {
           orderVersion: version(),
           items: structuredClone(state.items),
           chapters: structuredClone(state.chapters),
+          programmePlacements: [
+            {
+              id: uuid(10),
+              materialId: uuid(1),
+              chapterId: preparation,
+              stepGroup: null,
+            },
+            {
+              id: uuid(11),
+              materialId: uuid(1),
+              chapterId: preparation,
+              stepGroup: null,
+            },
+          ],
         };
       if (path === "/authoring/import/products/composition") {
         const command = compositionSchema.parse(body);
+        assert.equal(
+          Object.hasOwn(command, "programmePlacements"),
+          false,
+          "A Product shell must retain existing programme placements",
+        );
         const chapters = command.chapters ?? state.chapters;
         const ids = new Set(chapters.map((chapter) => chapter.id));
         const kept = Object.fromEntries(

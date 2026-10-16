@@ -8,17 +8,18 @@ import {
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
-  formatMaterialCount,
+  CourseReferenceNavigation,
   type ProductChapter,
   type PublishedSeriesResult,
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
+import { materialReaderHref } from "@/shared/routing/material-reader";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 import { ChapterSummary } from "./course-programme-overview";
 
-import { formatTaskCount, formatStepCount } from "./product-counts";
+import { formatStepCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -52,6 +53,23 @@ export function SeriesJourney({
 }) {
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
+  const programmeItems =
+    result.programmePlacements === undefined
+      ? items
+      : result.programmePlacements.flatMap((placement) => {
+          const material = items.find(
+            (item) => item.materialId === placement.materialId,
+          );
+          return material === undefined
+            ? []
+            : [
+                {
+                  ...material,
+                  programmePlacementId: placement.id,
+                  programmeChapterId: placement.chapterId,
+                },
+              ];
+        });
   // A chapter split into several runs shows its opening tasks once, before its first run.
   const ledChapters = new Set<string>();
   // Chapters are the Product programme; anything the author has not placed in one is supplementary.
@@ -69,8 +87,8 @@ export function SeriesJourney({
       chapters: result.chapters,
       items:
         result.chapters.length === 0
-          ? items
-          : items.filter((item) => chapterOf(item) !== null),
+          ? programmeItems
+          : programmeItems.filter((item) => chapterOf(item) !== null),
     },
   ];
   const parts: readonly JourneyPart[] = [
@@ -104,7 +122,11 @@ export function SeriesJourney({
       entries: items.map((material) => ({
         material,
         inProgramme:
-          result.chapters.length === 0 || chapterOf(material) !== null,
+          result.programmePlacements === undefined
+            ? result.chapters.length === 0 || chapterOf(material) !== null
+            : result.programmePlacements.some(
+                (entry) => entry.materialId === material.materialId,
+              ),
       })),
       id: "supplementary",
       kind: "catalog",
@@ -177,6 +199,7 @@ function journeyRun(
       : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
   const preparing = run.items.length === 0 && tasks.length === 0;
+  const visitedMaterials = new Set<string>();
   return {
     chapter:
       run.chapter === null
@@ -204,20 +227,9 @@ function journeyRun(
                     </span>
                   ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
                     <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      {[
-                        run.chapter.materialIds.length > 0
-                          ? unified
-                            ? formatStepCount(run.chapter.materialIds.length)
-                            : formatMaterialCount(
-                                run.chapter.materialIds.length,
-                              )
-                          : undefined,
-                        tasks.length > 0
-                          ? formatTaskCount(tasks.length)
-                          : undefined,
-                      ]
-                        .filter((part) => part !== undefined)
-                        .join(" · ")}
+                      {formatStepCount(
+                        run.chapter.materialIds.length + tasks.length,
+                      )}
                     </span>
                   ) : null}
                 </div>
@@ -232,11 +244,42 @@ function journeyRun(
             name: run.chapter.name,
           },
     ...(leading === undefined ? {} : { leading }),
+    supplementary:
+      run.chapter == null ? null : (
+        <CourseReferenceNavigation
+          courseHref={currentHref}
+          references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
+            (id) => {
+              const material =
+                result.kind === "ready"
+                  ? result.items.find((item) => item.materialId === id)
+                  : undefined;
+              return material === undefined
+                ? []
+                : [
+                    {
+                      id: `material:${material.slug}`,
+                      slug: material.slug,
+                      title: material.title,
+                      href: materialReaderHref(material.slug, currentHref, {
+                        referenceView: true,
+                      }),
+                    },
+                  ];
+            },
+          )}
+        />
+      ),
     offset: run.offset,
     rows: run.items.map((material, index) => {
+      const placementId =
+        "programmePlacementId" in material &&
+        typeof material.programmePlacementId === "string"
+          ? material.programmePlacementId
+          : undefined;
       // Splitting the route into parts renumbers each part; a flat Product keeps its stored order.
       const ordinal =
-        result.chapters.length > 0
+        result.chapters.length > 0 || result.programmePlacements !== undefined
           ? run.offset + index + 1
           : (material.seriesMemberships.find(
               ({ slug }) => slug === result.reference.slug,
@@ -245,19 +288,25 @@ function journeyRun(
         currentHref,
         Math.floor((run.offset + index) / SERIES_BATCH_SIZE) + 1,
         material.slug,
+        placementId,
       );
       const after =
-        material.materialId === undefined
+        material.materialId === undefined ||
+        visitedMaterials.has(material.materialId)
           ? undefined
           : taskList(
               placed.after.get(material.materialId) ?? [],
               `Задания после урока «${material.title}»`,
             );
+      if (material.materialId !== undefined)
+        visitedMaterials.add(material.materialId);
       return {
+        ...(placementId === undefined ? {} : { id: placementId }),
         ...(after === undefined ? {} : { after }),
         available: material.availability === "available",
         card: (
           <MaterialCard
+            readerContext={{ placementId }}
             showFormat={!unified}
             accessPending={accessPending}
             seriesOrdinal={ordinal}
@@ -295,7 +344,11 @@ function chapterLookup(
     ),
   );
   return (material) =>
-    material.materialId === undefined
-      ? null
-      : (byMaterial.get(material.materialId) ?? null);
+    "programmeChapterId" in material
+      ? typeof material.programmeChapterId === "string"
+        ? material.programmeChapterId
+        : null
+      : material.materialId === undefined
+        ? null
+        : (byMaterial.get(material.materialId) ?? null);
 }

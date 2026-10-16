@@ -7,3 +7,4 @@ export {
 } from "./series-order/api/home-pin-route.server";
 
 export { handleSeriesOrderRequest } from "./series-order/api/series-order-route.server";
+export { handleChapterAttachmentsRequest } from "./series-order/api/chapter-attachments.server";

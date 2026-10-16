@@ -200,6 +200,7 @@ model Tag {
 }
 
 model Product {
+  programmeExplicit Boolean @default(false) @map("programme_explicit")
   sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
   slug          String    @unique(map: "series_slug_unique")
@@ -310,6 +311,31 @@ model ProductChapter {
   @@unique([id, productId], map: "product_chapters_identity_unique")
   @@unique([productId, ordinal], map: "product_chapters_ordinal_unique")
   @@map("product_chapters")
+  @@schema("materials")
+}
+
+model ProductProgrammePlacement {
+  id String @id @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  chapterId String? @map("chapter_id") @db.Uuid
+  ordinal Int
+  stepGroup String? @map("step_group")
+  @@unique([productId, ordinal])
+  @@map("product_programme_placements")
+  @@schema("materials")
+}
+
+model ProductChapterSupplementaryMaterial {
+  chapterId String @map("chapter_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  ordinal Int
+
+  @@id([chapterId, materialId])
+  @@unique([chapterId, ordinal])
+  @@index([productId], map: "product_chapter_supplementary_materials_product_idx")
+  @@map("product_chapter_supplementary_materials")
   @@schema("materials")
 }
 

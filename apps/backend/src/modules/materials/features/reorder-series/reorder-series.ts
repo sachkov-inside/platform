@@ -2,6 +2,7 @@ import {
   checkContentWrite,
   contentWriter,
 } from "../../domain/content-write-policy.js";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import {
@@ -27,6 +28,8 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import {
+  productProgrammePlacementsSchema,
+  type ProductProgrammePlacement,
   productChapterAssignmentsSchema,
   productChapterDraftsSchema,
   type ProductChapterDraft,
@@ -52,6 +55,7 @@ import type {
 export const reorderSeriesCommandSchema = z
   .object({
     actor: accountId,
+    programmePlacements: productProgrammePlacementsSchema.optional(),
     chapters: productChapterDraftsSchema.optional(),
     chapterAssignments: productChapterAssignmentsSchema.optional(),
     expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
@@ -150,8 +154,16 @@ export function assembleReorderSeries(
           })),
         ]);
         if (sourceError !== null) return rollback(sourceError);
-        const nextChapters: readonly ProductChapterEntry[] =
-          command.chapters ?? snapshot.chapters;
+        const nextChapters: readonly ProductChapterEntry[] = (
+          command.chapters ?? snapshot.chapters
+        ).map((chapter) => ({
+          ...chapter,
+          supplementaryMaterialIds:
+            chapter.supplementaryMaterialIds ??
+            snapshot.chapters.find((entry) => entry.id === chapter.id)
+              ?.supplementaryMaterialIds ??
+            [],
+        }));
         const chapterIds = new Set(nextChapters.map(({ id }) => id));
         const nextGroups =
           command.stepGroups ??
@@ -170,17 +182,55 @@ export function assembleReorderSeries(
               ),
           ).filter(([, chapterId]) => chapterIds.has(chapterId)),
         );
+        const nextProgramme =
+          command.programmePlacements ??
+          (snapshot.programmeExplicit && nextChapters.length === 0
+            ? snapshot.programmePlacements.filter((entry) =>
+                command.orderedMaterialIds.includes(entry.materialId),
+              )
+            : legacyProgrammePlacements(
+                snapshot.programmePlacements,
+                snapshot.items.map((item) => item.materialId),
+                command.orderedMaterialIds,
+                nextAssignments,
+                nextGroups,
+                nextChapters.map((chapter) => chapter.id),
+              ));
+        const programmeAssignments = Object.fromEntries(
+          nextProgramme
+            .slice()
+            .reverse()
+            .flatMap((entry) =>
+              entry.chapterId === null
+                ? []
+                : [[entry.materialId, entry.chapterId]],
+            ),
+        );
         const nextEntries = command.orderedMaterialIds.map((materialId) => ({
-          chapterId: nextAssignments[materialId] ?? null,
+          chapterId: programmeAssignments[materialId] ?? null,
           materialId,
           stepGroup: nextGroups[materialId] ?? null,
         }));
         const currentOrderVersion = productOrderVersion(
           snapshot.items,
           snapshot.chapters,
+          snapshot.programmePlacements,
         );
-        const nextOrderVersion = productOrderVersion(nextEntries, nextChapters);
+        const nextOrderVersion = productOrderVersion(
+          nextEntries,
+          nextChapters,
+          nextProgramme,
+        );
         if (currentOrderVersion === nextOrderVersion) {
+          if (
+            command.programmePlacements !== undefined &&
+            !snapshot.programmeExplicit
+          ) {
+            await transaction.product.update({
+              where: { id: command.seriesId },
+              data: { programmeExplicit: true },
+            });
+          }
           return {
             seriesId: command.seriesId,
             orderVersion: currentOrderVersion,
@@ -255,18 +305,66 @@ export function assembleReorderSeries(
             ],
           });
         }
+        const claimedPlacements =
+          nextProgramme.length === 0
+            ? []
+            : await transaction.productProgrammePlacement.findMany({
+                where: {
+                  id: { in: nextProgramme.map((entry) => entry.id) },
+                  productId: { not: command.seriesId },
+                },
+                select: { id: true },
+              });
         const chapterIssues = [
+          ...claimedPlacements.map((entry) => ({
+            code: "programme_placement_claimed",
+            path: `/programmePlacements/${String(nextProgramme.findIndex((placement) => placement.id === entry.id))}/id`,
+          })),
+          ...nextProgramme.flatMap((entry, index) =>
+            !command.orderedMaterialIds.includes(entry.materialId) ||
+            (entry.chapterId !== null && !chapterIds.has(entry.chapterId))
+              ? [
+                  {
+                    code: "invalid_programme_placement",
+                    path: `/programmePlacements/${String(index)}`,
+                  },
+                ]
+              : [],
+          ),
+          ...productChapterPlacementIssues(
+            nextProgramme.map((entry) => entry.id),
+            Object.fromEntries(
+              nextProgramme.flatMap((entry) =>
+                entry.chapterId === null ? [] : [[entry.id, entry.chapterId]],
+              ),
+            ),
+            nextChapters.map((chapter) => chapter.id),
+          ),
+          ...nextChapters.flatMap((chapter, index) =>
+            (chapter.supplementaryMaterialIds ?? []).flatMap((id) =>
+              !command.orderedMaterialIds.includes(id)
+                ? [
+                    {
+                      code: "supplementary_material_not_in_product",
+                      path: `/chapters/${String(index)}/supplementaryMaterialIds`,
+                    },
+                  ]
+                : [],
+            ),
+          ),
           ...(await claimedChapterIssues(
             transaction,
             command.seriesId,
             command.chapters,
           )),
           ...unknownChapterIssues(command.chapterAssignments, chapterIds),
-          ...productChapterPlacementIssues(
-            command.orderedMaterialIds,
-            nextAssignments,
-            nextChapters.map(({ id }) => id),
-          ),
+          ...(command.programmePlacements === undefined
+            ? productChapterPlacementIssues(
+                command.orderedMaterialIds,
+                nextAssignments,
+                nextChapters.map(({ id }) => id),
+              )
+            : []),
         ];
         if (chapterIssues.length > 0) {
           return rollback({ code: "invalid_reference", issues: chapterIssues });
@@ -300,12 +398,22 @@ export function assembleReorderSeries(
             products: unconfirmed,
           });
         }
+        if (
+          command.programmePlacements !== undefined &&
+          !snapshot.programmeExplicit
+        ) {
+          await transaction.product.update({
+            where: { id: command.seriesId },
+            data: { programmeExplicit: true },
+          });
+        }
         await replaceProductComposition(transaction, {
-          chapterAssignments: nextAssignments,
+          chapterAssignments: programmeAssignments,
           chapters: nextChapters,
           productId: command.seriesId,
           orderedMaterialIds: command.orderedMaterialIds,
           stepGroups: nextGroups,
+          programmePlacements: nextProgramme,
         });
         await recordProductRemovals(transaction, {
           actor: command.actor,
@@ -387,4 +495,74 @@ async function claimedChapterIssues(
         ]
       : [],
   );
+}
+
+/** Legacy commands replace primary slots while keeping repeat slots in their authored positions. */
+function legacyProgrammePlacements(
+  current: readonly ProductProgrammePlacement[],
+  currentMaterialIds: readonly string[],
+  materialIds: readonly string[],
+  assignments: Readonly<Record<string, string>>,
+  groups: Readonly<Record<string, string>>,
+  chapterIds: readonly string[],
+): readonly ProductProgrammePlacement[] {
+  const primary = new Map<string, ProductProgrammePlacement>();
+  for (const entry of current) {
+    if (!primary.has(entry.materialId)) primary.set(entry.materialId, entry);
+  }
+  const main = materialIds.flatMap((materialId) => {
+    const chapterId = assignments[materialId] ?? null;
+    if (chapterIds.length > 0 && chapterId === null) return [];
+    return [
+      {
+        id: primary.get(materialId)?.id ?? randomUUID(),
+        materialId,
+        chapterId,
+        stepGroup: groups[materialId] ?? null,
+      },
+    ];
+  });
+  const catalogueUnchanged =
+    materialIds.length === currentMaterialIds.length &&
+    materialIds.every((id, index) => id === currentMaterialIds[index]);
+  const primaryUnchanged =
+    main.length === primary.size &&
+    main.every((entry) => {
+      const previous = primary.get(entry.materialId);
+      return (
+        previous?.chapterId === entry.chapterId &&
+        previous.stepGroup === entry.stepGroup
+      );
+    });
+  if (catalogueUnchanged && primaryUnchanged) {
+    return [...current]
+      .filter((entry) =>
+        chapterIds.length === 0
+          ? entry.chapterId === null
+          : chapterIds.includes(entry.chapterId ?? ""),
+      )
+      .sort(
+        (left, right) =>
+          chapterIds.indexOf(left.chapterId ?? "") -
+          chapterIds.indexOf(right.chapterId ?? ""),
+      );
+  }
+  const retainedMembers = new Set(materialIds);
+  const chapters: readonly (string | null)[] =
+    chapterIds.length === 0 ? [null] : chapterIds;
+  return chapters.flatMap((chapterId) => {
+    const desiredPrimary = main.filter(
+      (entry) => entry.chapterId === chapterId,
+    );
+    let primaryIndex = 0;
+    const entries = current.flatMap((entry) => {
+      if (entry.chapterId !== chapterId) return [];
+      if (entry.id === primary.get(entry.materialId)?.id) {
+        const replacement = desiredPrimary[primaryIndex++];
+        return replacement === undefined ? [] : [replacement];
+      }
+      return retainedMembers.has(entry.materialId) ? [entry] : [];
+    });
+    return [...entries, ...desiredPrimary.slice(primaryIndex)];
+  });
 }

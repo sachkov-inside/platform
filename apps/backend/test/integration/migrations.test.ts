@@ -37,6 +37,8 @@ const materialTables = [
   "product_artifact_versions",
   "product_artifacts",
   "product_chapters",
+  "product_chapter_supplementary_materials",
+  "product_programme_placements",
   "product_material_removals",
   "home_series_pin",
   "material_related_pins",
@@ -261,6 +263,7 @@ describe("Platform migrations", () => {
         "0094_task_review_progress",
         "0095_task_submission_review_run",
         "0096_material_task",
+        "0097_chapter_supplementary_materials",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -950,6 +953,7 @@ describe("Platform migrations", () => {
           "0094_task_review_progress",
           "0095_task_submission_review_run",
           "0096_material_task",
+          "0097_chapter_supplementary_materials",
         ],
       });
 

@@ -18,11 +18,37 @@ export function SeriesOrderReadOnly({
   chapters,
   items,
   productId,
+  programmePlacements,
 }: {
   readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
+  readonly programmePlacements?:
+    | readonly {
+        readonly id: string;
+        readonly materialId: string;
+        readonly chapterId: string | null;
+      }[]
+    | undefined;
   readonly productId: string;
 }) {
+  const programme =
+    programmePlacements === undefined
+      ? items
+      : programmePlacements.flatMap((placement) => {
+          const item = items.find(
+            (entry) => entry.materialId === placement.materialId,
+          );
+          return item === undefined
+            ? []
+            : [{ ...item, chapterId: placement.chapterId }];
+        });
+  const memberIds = new Set(programme.map((item) => item.materialId));
+  const displayed = [
+    ...programme,
+    ...items
+      .filter((item) => !memberIds.has(item.materialId))
+      .map((item) => ({ ...item, chapterId: null })),
+  ];
   return (
     <section className="text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-y border-border py-4">
@@ -43,7 +69,7 @@ export function SeriesOrderReadOnly({
       ) : (
         <div className="mt-2 grid gap-8">
           {productChapterRuns(
-            items,
+            displayed,
             chapters,
             ({ chapterId }) => chapterId ?? null,
           ).map((section) => (
@@ -174,7 +200,7 @@ function MaterialList({
         return (
           <li
             className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-start gap-x-2 py-4 sm:gap-x-3"
-            key={item.materialId}
+            key={`${item.materialId}:${String(offset + index)}`}
           >
             <span className="w-6 text-center text-sm leading-6 tabular-nums text-muted-foreground">
               {offset + index + 1}

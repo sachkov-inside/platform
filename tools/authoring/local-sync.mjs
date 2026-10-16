@@ -1482,7 +1482,20 @@ export async function syncLocal(
       try {
         const current = valueAt(products, product.sourceId);
         const order = await request(`/authoring/products/${current.id}/order`);
-        const chapters = productChapters(pkg.manifest, product);
+        const chapters = productChapters(pkg.manifest, product).map(
+          (chapter, index) => {
+            const supplementary =
+              product.chapters[index]?.supplementaryMaterialIds;
+            return supplementary === undefined
+              ? chapter
+              : {
+                  ...chapter,
+                  supplementaryMaterialIds: supplementary.map(
+                    (id) => valueAt(currentMaterials, id).materialId,
+                  ),
+                };
+          },
+        );
         const chapterAssignments = Object.fromEntries(
           product.chapters.flatMap((chapter, index) => {
             // productChapters keeps the order of product.chapters.
@@ -1499,7 +1512,34 @@ export async function syncLocal(
           ...product.materialIds,
           ...product.supplementaryMaterialIds,
         ].map((id) => valueAt(currentMaterials, id).materialId);
+        const programmePlacements =
+          product.chapters.length === 0
+            ? product.materialIds.map((id) => ({
+                id: sourceUuid(
+                  `${sourceKey(pkg.manifest, product.sourceId)}:programme:${id}`,
+                ),
+                materialId: valueAt(currentMaterials, id).materialId,
+                chapterId: null,
+                stepGroup: null,
+              }))
+            : product.chapters.flatMap((chapter, chapterIndex) => {
+                /** @type {Map<string, number>} */
+                const occurrence = new Map();
+                return chapter.materialIds.map((id) => {
+                  const count = (occurrence.get(id) ?? 0) + 1;
+                  occurrence.set(id, count);
+                  return {
+                    id: sourceUuid(
+                      `${sourceKey(pkg.manifest, product.sourceId)}:chapter:${chapter.sourceId}:placement:${id}:${String(count)}`,
+                    ),
+                    materialId: valueAt(currentMaterials, id).materialId,
+                    chapterId: chapters[chapterIndex]?.id ?? null,
+                    stepGroup: null,
+                  };
+                });
+              });
         await applyComposition({
+          programmePlacements,
           sourceId: sourceId(product.sourceId),
           seriesId: current.id,
           ...(confirmedProductRemovals.includes(current.id)

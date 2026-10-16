@@ -13,6 +13,11 @@ export async function reorderSeries(
   formData.set("expectedOrderVersion", input.expectedOrderVersion);
   formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
   formData.set("seriesId", input.seriesId);
+  if (input.programmePlacements !== undefined)
+    formData.set(
+      "programmePlacements",
+      JSON.stringify(input.programmePlacements),
+    );
   if (input.stepGroups !== undefined)
     formData.set("stepGroups", JSON.stringify(input.stepGroups));
   if (input.chapters !== undefined)

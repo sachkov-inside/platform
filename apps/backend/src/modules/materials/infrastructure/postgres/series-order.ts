@@ -3,6 +3,7 @@ import {
   type MaterialsPrisma,
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
+import type { ProductProgrammePlacement } from "../../shared/product-chapters.js";
 import { z } from "zod";
 import type { ProductMembership } from "../../domain/material-metadata.js";
 import type { ProductChapterEntry } from "../../shared/product-order-version.js";
@@ -12,6 +13,7 @@ import { refreshPublishedMaterialSearchProjections } from "./published-material-
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface ProductChapterSnapshot {
+  readonly supplementaryMaterialIds?: readonly string[];
   readonly id: string;
   readonly name: string;
   readonly ordinal: number;
@@ -19,6 +21,8 @@ export interface ProductChapterSnapshot {
 }
 
 export interface SeriesOrderSnapshot {
+  readonly programmeExplicit: boolean;
+  readonly programmePlacements: readonly ProductProgrammePlacement[];
   readonly archived: boolean;
   readonly chapters: readonly ProductChapterSnapshot[];
   readonly items: readonly {
@@ -40,7 +44,12 @@ export async function loadSeriesOrderSnapshot(
   const [series, memberships, chapters] = await Promise.all([
     prisma.product.findUnique({
       where: { id: seriesId },
-      select: { archivedAt: true, id: true, name: true },
+      select: {
+        archivedAt: true,
+        id: true,
+        name: true,
+        programmeExplicit: true,
+      },
     }),
     prisma.productMembership.findMany({
       where: { seriesId },
@@ -73,9 +82,26 @@ export async function loadSeriesOrderSnapshot(
   const materialById = new Map(
     materials.map((material) => [material.id, material]),
   );
+  const programmePlacements = await prisma.productProgrammePlacement.findMany({
+    where: { productId: seriesId },
+    orderBy: { ordinal: "asc" },
+    select: { id: true, materialId: true, chapterId: true, stepGroup: true },
+  });
+  const supplements = await prisma.productChapterSupplementaryMaterial.findMany(
+    { where: { productId: seriesId }, orderBy: { ordinal: "asc" } },
+  );
   return {
+    programmeExplicit: series.programmeExplicit,
+    programmePlacements,
     archived: series.archivedAt !== null,
-    chapters,
+    chapters: chapters.map((chapter) => {
+      const ids = supplements
+        .filter((entry) => entry.chapterId === chapter.id)
+        .map((entry) => entry.materialId);
+      return ids.length === 0
+        ? chapter
+        : { ...chapter, supplementaryMaterialIds: ids };
+    }),
     items: memberships.map(({ chapterId, materialId, ordinal, stepGroup }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
@@ -189,12 +215,14 @@ export async function replaceProductComposition(
     productId,
     orderedMaterialIds,
     stepGroups,
+    programmePlacements,
   }: {
     readonly chapterAssignments: Readonly<Record<string, string>>;
     readonly chapters: readonly ProductChapterEntry[];
     readonly productId: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups: Readonly<Record<string, string>>;
+    readonly programmePlacements: readonly ProductProgrammePlacement[];
   },
 ): Promise<void> {
   const previousMemberships = await transaction.productMembership.findMany({
@@ -216,6 +244,34 @@ export async function replaceProductComposition(
       })),
     });
   }
+
+  await transaction.productProgrammePlacement.deleteMany({
+    where: { productId },
+  });
+  if (programmePlacements.length > 0)
+    await transaction.productProgrammePlacement.createMany({
+      data: programmePlacements.map((placement, index) => ({
+        ...placement,
+        productId,
+        ordinal: index + 1,
+      })),
+    });
+  await transaction.productChapterSupplementaryMaterial.deleteMany({
+    where: { productId },
+  });
+
+  const supplements = chapters.flatMap((chapter) =>
+    (chapter.supplementaryMaterialIds ?? []).map((materialId, index) => ({
+      chapterId: chapter.id,
+      productId,
+      materialId,
+      ordinal: index + 1,
+    })),
+  );
+  if (supplements.length > 0)
+    await transaction.productChapterSupplementaryMaterial.createMany({
+      data: supplements,
+    });
 
   await transaction.publishedMaterialProductMembership.deleteMany({
     where: { seriesId: productId },

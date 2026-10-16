@@ -4,11 +4,17 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Suspense,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import {
+  reconcileCourseNavigation,
+  selectCourseNavigation,
+  type CourseNavigationIntent,
+} from "../model/course-navigation-selection";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 import { CourseRail, ProgrammeDialog } from "./course-reading.client";
@@ -50,8 +56,20 @@ export function CourseReadingHost({
   readonly pathname: string;
 }) {
   const [frame, setFrame] = useState<CourseFramePublication | null>(null);
+  const [intent, setIntent] = useState<CourseNavigationIntent | null>(null);
+  const selectedId = intent?.id ?? null;
+  useEffect(() => {
+    const clear = () => {
+      setIntent(null);
+    };
+    window.addEventListener("popstate", clear);
+    return () => {
+      window.removeEventListener("popstate", clear);
+    };
+  }, []);
   const [location, setLocation] = useState<CourseLocation | null>(null);
   const publish = useCallback((next: CourseFramePublication) => {
+    setIntent((previous) => reconcileCourseNavigation(previous, next.context));
     setFrame((previous) =>
       previous?.context === next.context &&
       previous.supplementaryTitle === next.supplementaryTitle &&
@@ -61,6 +79,8 @@ export function CourseReadingHost({
     );
   }, []);
   const context = frame?.context;
+  const navigation =
+    context == null ? null : selectCourseNavigation(context, selectedId);
   const courseSlug =
     context == null
       ? undefined
@@ -77,7 +97,7 @@ export function CourseReadingHost({
         ];
   const knownStep = targets.some((href) => href.split("?")[0] === pathname);
   const active =
-    context != null &&
+    navigation != null &&
     knownStep &&
     (!pathname.startsWith("/materials/") ||
       location?.courseSlug === courseSlug);
@@ -91,18 +111,69 @@ export function CourseReadingHost({
         className={active ? styles["host"] : undefined}
         data-course-reading-host={active ? "" : undefined}
         data-course-reading={active ? "" : undefined}
+        onClickCapture={(event) => {
+          if (
+            !active ||
+            context == null ||
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          const link =
+            event.target instanceof Element
+              ? event.target.closest<HTMLAnchorElement>("a[href]")
+              : null;
+          if (
+            link === null ||
+            link.hasAttribute("download") ||
+            (link.target !== "" && link.target !== "_self")
+          )
+            return;
+          const target = new URL(link.href);
+          if (target.origin !== window.location.origin) return;
+          if (
+            target.pathname.startsWith("/materials/") &&
+            parseMaterialReaderReturnTarget(
+              target.searchParams.get("from") ?? undefined,
+            ).seriesSlug !== courseSlug
+          )
+            return;
+          const destination = [
+            ...context.chapters.flatMap((chapter) => chapter.steps),
+            ...(context.references ?? []),
+          ].find((item) => {
+            const candidate = new URL(item.href, window.location.origin);
+            return (
+              candidate.pathname === target.pathname &&
+              candidate.searchParams.get("placement") ===
+                target.searchParams.get("placement") &&
+              candidate.searchParams.get("view") ===
+                target.searchParams.get("view")
+            );
+          });
+          if (destination !== undefined)
+            setIntent({ id: destination.id, courseHref: context.courseHref });
+        }}
       >
         {active ? (
           <>
             <HidePublicFooter />
-            <CourseRail context={context} />
+            <CourseRail context={navigation} />
           </>
         ) : null}
         <div className={styles["hostDocument"]}>
           {active ? (
             <ProgrammeDialog
-              context={context}
-              supplementary={frame?.supplementaryTitle !== undefined}
+              context={navigation}
+              supplementary={
+                selectedId === null
+                  ? frame?.supplementaryTitle !== undefined
+                  : navigation.activeReferenceId !== undefined
+              }
             />
           ) : null}
           {children}

@@ -409,8 +409,12 @@ async function checkPlacement(
     }
     const after = command.afterMaterialSourceId;
     if (after !== null) {
-      const [placement] = await directory.placements(product.id, [after]);
-      if (placement?.chapterId !== command.chapterId)
+      const placements = await directory.placements(product.id, [after]);
+      if (
+        !placements.some(
+          (placement) => placement.chapterId === command.chapterId,
+        )
+      )
         return {
           ok: false,
           error: { code: "after_material_not_in_chapter", sourceId: after },

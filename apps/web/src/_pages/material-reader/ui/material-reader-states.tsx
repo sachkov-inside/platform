@@ -88,6 +88,11 @@ export function MaterialReaderPending({
   const topActions = (
     <ReaderTopActions
       context={seriesContext?.programme == null ? seriesContext : null}
+      nextStep={
+        seriesContext?.supplementary === true
+          ? null
+          : seriesContext?.programme?.next
+      }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
       readingAction={<ReservedReadingAction format={material.format.slug} />}
@@ -240,6 +245,11 @@ export function MaterialReaderAccess({
   const topActions = (
     <ReaderTopActions
       context={seriesContext?.programme == null ? seriesContext : null}
+      nextStep={
+        seriesContext?.supplementary === true
+          ? null
+          : seriesContext?.programme?.next
+      }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
       readingAction={

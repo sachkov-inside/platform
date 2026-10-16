@@ -24,6 +24,10 @@ import {
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3" | "h4";
+  readonly readerContext?: {
+    readonly placementId?: string | undefined;
+    readonly referenceView?: boolean | undefined;
+  };
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
@@ -45,6 +49,7 @@ export function MaterialCard({
   headingLevel = "h2",
   material,
   returnHref,
+  readerContext,
   rowAnnotation,
   seriesOrdinal,
   readingStatus = material.materialId === undefined ? undefined : (
@@ -59,7 +64,11 @@ export function MaterialCard({
   variant,
 }: MaterialCardProps) {
   const Heading = headingLevel;
-  const readerHref = materialReaderHref(material.slug, returnHref);
+  const readerHref = materialReaderHref(
+    material.slug,
+    returnHref,
+    readerContext,
+  );
 
   if (variant === "series") {
     return (

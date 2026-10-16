@@ -330,3 +330,10 @@ retain the frame; standalone Material URLs keep their standalone view. Page load
 stay inside the document column. Reduced-motion preferences disable entry animation.
 Reader history includes the host so return navigation restores rail position and expanded chapters.
 Reference links use existing Product members and preserve their imported Material URLs.
+
+Course navigation marks an ordinary in-tab click immediately while the destination loads.
+This optimistic presentation never writes reading progress. The visible destination publishes
+its authoritative frame, including after browser back/forward navigation.
+The rail's “Страница курса” link opens the course overview; breadcrumbs retain programme return URLs.
+Reader's top action panel offers “Дальше” when the authored course composition has a next step.
+The current marker emits three short pulses, then stays static; reduced motion disables the pulses.

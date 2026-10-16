@@ -1,13 +1,21 @@
 "use client";
 
-import { CircleUserRound, LogIn, LogOut, ShieldAlert } from "lucide-react";
+import {
+  CircleUserRound,
+  UserRound,
+  LogIn,
+  LogOut,
+  ShieldAlert,
+} from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { DropdownMenu } from "radix-ui";
 
 export type AuthControlState = "authenticated" | "guest" | "unavailable";
 
 interface AuthControlStateProps {
   readonly state: AuthControlState;
+  readonly avatar?: ReactNode;
 }
 
 const triggerClass =
@@ -16,7 +24,7 @@ const menuItemClass =
   "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium no-underline outline-none hover:bg-muted focus:bg-muted data-[highlighted]:bg-muted";
 
 /** Desktop identity actions; state remains owned by the app adapter. */
-export function HeaderAuthControl({ state }: AuthControlStateProps) {
+export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
   if (state === "guest")
     return (
       <form action="/auth/sign-in" method="post">
@@ -31,12 +39,19 @@ export function HeaderAuthControl({ state }: AuthControlStateProps) {
     );
 
   const authenticated = state === "authenticated";
-  const Icon = authenticated ? CircleUserRound : ShieldAlert;
+  const Icon = authenticated ? UserRound : ShieldAlert;
   return (
     <DropdownMenu.Root modal={false}>
-      <DropdownMenu.Trigger className={triggerClass}>
-        {authenticated ? "Аккаунт" : "Сессия"}
-        <Icon aria-hidden="true" className="hidden size-4 shrink-0 sm:block" />
+      <DropdownMenu.Trigger
+        aria-label={authenticated ? "Аккаунт" : "Сессия"}
+        title={authenticated ? "Аккаунт" : "Сессия"}
+        className="inline-flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-foreground transition-colors hover:bg-accent/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+      >
+        {authenticated && avatar != null ? (
+          avatar
+        ) : (
+          <Icon aria-hidden="true" className="size-6" />
+        )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

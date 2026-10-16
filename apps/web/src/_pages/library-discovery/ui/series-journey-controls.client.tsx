@@ -32,6 +32,7 @@ import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
+  readonly id?: string;
   /** Задания, которые автор поставил сразу после этого урока (#947); номера уроков они не меняют. */
   readonly after?: ReactNode;
   readonly available: boolean;
@@ -43,6 +44,7 @@ export interface JourneyRow {
 
 /** Непрерывный отрезок части: глава или уроки вне глав. Заголовок главы тоже нарисовал сервер. */
 export interface JourneyRun {
+  readonly supplementary?: ReactNode;
   readonly chapter: {
     readonly header: ReactNode;
     readonly id: string;
@@ -126,6 +128,11 @@ export function SeriesJourneyControls({
   const learning = useSeriesLearning();
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
+  const requestedPlacement = search.get("atPlacement");
+  const requestedRow = (row: JourneyRow) =>
+    requestedPlacement === null
+      ? row.slug === requestedMaterial
+      : row.id === requestedPlacement;
   const routeRef = useRef<HTMLElement>(null);
   // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
   const requestedCatalog = search.get("part") === "materials";
@@ -137,9 +144,8 @@ export function SeriesJourneyControls({
     id: requestedCatalog
       ? ("supplementary" as const)
       : ((
-          parts.find((entry) =>
-            partRows(entry).some((row) => row.slug === requestedMaterial),
-          ) ?? defaultPart
+          parts.find((entry) => partRows(entry).some(requestedRow)) ??
+          defaultPart
         )?.id ?? "programme"),
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
@@ -148,17 +154,14 @@ export function SeriesJourneyControls({
     ? (parts.find(({ id }) => id === selection.id) ?? defaultPart)
     : requestedCatalog
       ? (parts.find(({ id }) => id === "supplementary") ?? defaultPart)
-      : (parts.find((entry) =>
-          partRows(entry).some((row) => row.slug === requestedMaterial),
-        ) ?? defaultPart);
+      : (parts.find((entry) => partRows(entry).some(requestedRow)) ??
+        defaultPart);
   const visible = part === undefined ? [] : partRows(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex(
     (row) => row.slug === continuation?.materialSlug && row.available,
   );
-  const restoredIndex = visible.findIndex(
-    (row) => row.slug === requestedMaterial,
-  );
+  const restoredIndex = visible.findIndex(requestedRow);
   const restoredCount = selection.explicit
     ? 0
     : restoredIndex >= 0
@@ -401,8 +404,9 @@ export function SeriesJourneyControls({
                               }
                               className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
                               data-route-material={row.slug}
+                              data-programme-placement={row.id}
                               data-series-ordinal={row.ordinal}
-                              key={row.slug}
+                              key={row.id ?? row.slug}
                               tabIndex={-1}
                             >
                               {row.card}
@@ -411,6 +415,7 @@ export function SeriesJourneyControls({
                           ))}
                         </ol>
                       )}
+                      {run.supplementary ?? null}
                     </section>
                   );
                 })}
@@ -643,6 +648,7 @@ function MaterialCatalog({
                 accessPending={accessPending}
                 headingLevel="h3"
                 material={entry.material}
+                readerContext={{ referenceView: true }}
                 returnHref={catalogReaderReturnHref(
                   currentHref,
                   entry.material.slug,

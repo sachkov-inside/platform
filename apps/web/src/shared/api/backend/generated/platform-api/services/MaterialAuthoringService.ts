@@ -918,15 +918,22 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      chapterAssignments?: Record<string, string>;
+      chapterAssignments?: Record<string, any>;
       chapters?: Array<{
-        id: string;
+        id: any;
         name: string;
         summary: string;
+        supplementaryMaterialIds?: Array<any>;
       }>;
       confirmedProductRemovals: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<any>;
+      programmePlacements?: Array<{
+        chapterId: any;
+        id: any;
+        materialId: any;
+        stepGroup: string | null;
+      }>;
       seriesId: any;
       sourceId: string;
       stepGroups?: Record<string, string>;
@@ -2205,6 +2212,37 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Replace chapter reference links without changing the Product catalogue or programme
+   * @returns any
+   * @throws ApiError
+   */
+  public updateAuthoringChapterAttachments({
+    chapterId,
+    productId,
+    requestBody,
+  }: {
+    chapterId: string,
+    productId: string,
+    requestBody: {
+      expectedOrderVersion: string;
+      materialIds: Array<any>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/products/{productId}/chapters/{chapterId}/attachments',
+      path: {
+        'chapterId': chapterId,
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Load the current Material order for a Product
    * @returns any
    * @throws ApiError
@@ -2220,6 +2258,7 @@ export class MaterialAuthoringService {
       name: string;
       ordinal: number;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
     }>;
     items: Array<{
       chapterId: string | null;
@@ -2231,6 +2270,12 @@ export class MaterialAuthoringService {
     }>;
     name: string;
     orderVersion: string;
+    programmePlacements: Array<{
+      chapterId: any;
+      id: any;
+      materialId: any;
+      stepGroup: string | null;
+    }>;
     seriesId: string;
   }> {
     return this.httpRequest.request({
@@ -2252,15 +2297,22 @@ export class MaterialAuthoringService {
   }: {
     productId: string,
     requestBody: {
-      chapterAssignments?: Record<string, string>;
+      chapterAssignments?: Record<string, any>;
       chapters?: Array<{
-        id: string;
+        id: any;
         name: string;
         summary: string;
+        supplementaryMaterialIds?: Array<any>;
       }>;
       confirmedProductRemovals?: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
+      programmePlacements?: Array<{
+        chapterId: any;
+        id: any;
+        materialId: any;
+        stepGroup: string | null;
+      }>;
       stepGroups?: Record<string, string>;
     },
   }): CancelablePromise<{
@@ -2294,6 +2346,7 @@ export class MaterialAuthoringService {
       name: string;
       ordinal: number;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
     }>;
     items: Array<{
       chapterId: string | null;
@@ -2305,6 +2358,12 @@ export class MaterialAuthoringService {
     }>;
     name: string;
     orderVersion: string;
+    programmePlacements: Array<{
+      chapterId: any;
+      id: any;
+      materialId: any;
+      stepGroup: string | null;
+    }>;
     seriesId: string;
   }> {
     return this.httpRequest.request({
@@ -2327,15 +2386,22 @@ export class MaterialAuthoringService {
   }: {
     seriesId: string,
     requestBody: {
-      chapterAssignments?: Record<string, string>;
+      chapterAssignments?: Record<string, any>;
       chapters?: Array<{
-        id: string;
+        id: any;
         name: string;
         summary: string;
+        supplementaryMaterialIds?: Array<any>;
       }>;
       confirmedProductRemovals?: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
+      programmePlacements?: Array<{
+        chapterId: any;
+        id: any;
+        materialId: any;
+        stepGroup: string | null;
+      }>;
       stepGroups?: Record<string, string>;
     },
   }): CancelablePromise<{

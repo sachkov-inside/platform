@@ -48,7 +48,11 @@ export class PublishedSeriesComposition {
         return { ok: false, error: { code: "series_too_large" } };
       return {
         ok: true,
-        value: product.materials.map((material) => material.materialId),
+        value: [
+          ...new Set(
+            product.publishedProgramme.map((placement) => placement.materialId),
+          ),
+        ],
       };
     } catch (error) {
       return dependencyFailure(

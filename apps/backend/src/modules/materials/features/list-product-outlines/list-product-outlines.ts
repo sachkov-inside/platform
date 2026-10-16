@@ -52,7 +52,11 @@ export class ProductOutlines {
           id: product.id,
           name: product.name,
           chapters: productCompositionChapters(product).map(
-            ({ id, name, materialIds }) => ({ id, name, materialIds }),
+            ({ id, name, materialIds }) => ({
+              id,
+              name,
+              materialIds: [...new Set(materialIds)],
+            }),
           ),
         })),
       );

@@ -68,6 +68,7 @@ const productChapterSchema = z
   .object({
     id: z.string(),
     materialIds: z.array(z.string()),
+    supplementaryMaterialIds: z.array(z.string()).optional(),
     name: z.string(),
     // Прежние ответы без описания читаются: страница просто не показывает его.
     summary: z.string().default(""),
@@ -114,6 +115,18 @@ export function mapLibraryDiscoveryResult<
   const responseSchema = z
     .object({
       chapters: z.array(productChapterSchema).default([]),
+      programmePlacements: z
+        .array(
+          z
+            .object({
+              id: z.uuid(),
+              materialId: z.uuid(),
+              chapterId: z.uuid().nullable(),
+              stepGroup: z.string().nullable(),
+            })
+            .strict(),
+        )
+        .optional(),
       hasNext: z.boolean(),
       items: z.array(publishedMaterialProjectionSchema),
       kind: z.literal(discoveryKind),
@@ -151,6 +164,7 @@ export function mapLibraryDiscoveryResult<
   };
   if (parsed.data.items.length === 0 && discoveryKind !== "topic") {
     return {
+      programmePlacements: parsed.data.programmePlacements,
       chapters: parsed.data.chapters,
       discoveryKind,
       kind: "empty",
@@ -160,6 +174,7 @@ export function mapLibraryDiscoveryResult<
     };
   }
   return {
+    programmePlacements: parsed.data.programmePlacements,
     chapters: parsed.data.chapters,
     discoveryKind,
     hasNext: parsed.data.hasNext,

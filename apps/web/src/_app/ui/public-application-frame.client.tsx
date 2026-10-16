@@ -1,5 +1,6 @@
 "use client";
 
+import { ProfileAvatar } from "@/entities/member-profile";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -12,12 +13,10 @@ import {
 import {
   type AuthControlState,
   HeaderAuthControl,
-  TelegramReminder,
 } from "@/widgets/auth-control";
 import {
   accountPresentationBrowserQueryOptions,
-  AccountTelegramOnboarding,
-  openTelegramOnboarding,
+  AccountTelegramNotice,
 } from "@/features/account-access";
 
 export interface PublicApplicationFrameProps {
@@ -34,7 +33,7 @@ export interface PublicApplicationFrameProps {
 
 /**
  * Состав публичной оболочки при известном статусе входа: шапка с напоминанием о Telegram и
- * контролом аккаунта, навигация по правам, окно подключения Telegram. Его надевает `AppShell` на
+ * контролом аккаунта и навигация по правам. Его надевает `AppShell` на
  * маршруте и окружение Storybook, поэтому каталог показывает ту же оболочку.
  */
 export function PublicApplicationFrame({
@@ -53,35 +52,46 @@ export function PublicApplicationFrame({
   });
   // Пока Telegram не подключён, напоминание висит в оболочке, а не только в кабинете.
   const telegramPending =
+    authResolved &&
+    authState === "authenticated" &&
     presentation.data?.kind === "ready" &&
     presentation.data.presentation.telegramMembership.link.kind !== "linked";
 
+  const profile =
+    presentation.data?.kind === "ready" &&
+    presentation.data.presentation.profile.kind === "profile"
+      ? presentation.data.presentation.profile.profile
+      : null;
   return (
     <ApplicationShell
       currentPath={currentPath}
       accountSlot={
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 sm:gap-3">
           {telegramPending ? (
-            <TelegramReminder onOpen={openTelegramOnboarding} />
+            <AccountTelegramNotice
+              onRefresh={() => presentation.refetch().then(() => undefined)}
+            />
           ) : null}
-          <HeaderAuthControl state={authState} />
+          <HeaderAuthControl
+            state={authState}
+            avatar={
+              <ProfileAvatar
+                avatar={profile?.avatar ?? null}
+                displayName={profile?.displayName ?? ""}
+                size="header"
+                fallback="icon"
+              />
+            }
+          />
         </div>
       }
       navigationItems={navigationItems}
       mobileNavigationItems={publicMobileNavigationItems.map((item) =>
-        item.href === "/"
-          ? { ...item, href: homeHref }
-          : item.href === "/account" && telegramPending
-            ? { ...item, badge: true }
-            : item,
+        item.href === "/" ? { ...item, href: homeHref } : item,
       )}
       {...(onMobileNavigate === undefined ? {} : { onMobileNavigate })}
     >
       {children}
-      <AccountTelegramOnboarding
-        authenticated={authState === "authenticated"}
-        authResolved={authResolved}
-      />
     </ApplicationShell>
   );
 }

@@ -105,10 +105,15 @@ export function MaterialReaderView({
         {origin.kind === "task" ? "К заданию" : "К уроку"}
       </ReaderOriginLink>
     );
+  const nextStep =
+    seriesContext?.supplementary === true
+      ? null
+      : seriesContext?.programme?.next;
   const topActions = (
     <ReaderTopActions
       context={seriesContext?.programme == null ? seriesContext : null}
       returnAction={returnAction}
+      nextStep={nextStep}
       readingAction={topReadingAction ?? readingAction}
       bookmarkAction={topBookmarkAction ?? bookmarkAction}
     />

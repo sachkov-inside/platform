@@ -250,6 +250,10 @@ export const manifestSchema = z
                 title: z.string().min(1),
                 summary: z.string(),
                 materialIds: z.array(identifier),
+                supplementaryMaterialIds: z
+                  .array(identifier)
+                  .max(200)
+                  .optional(),
               })
               .strict(),
           ),
@@ -384,7 +388,11 @@ function checkSelectionScope(manifest) {
     !product.complete ||
     product.materialIds.length ||
     product.supplementaryMaterialIds.length ||
-    product.chapters.some((chapter) => chapter.materialIds.length)
+    product.chapters.some(
+      (chapter) =>
+        chapter.materialIds.length ||
+        (chapter.supplementaryMaterialIds?.length ?? 0) > 0,
+    )
   )
     throw new Error(
       "A Product shell release carries the complete chapter list without Material placement",
@@ -674,10 +682,29 @@ export async function loadPackage(path) {
       )
     )
       throw new Error("Incomplete Product contents");
+    for (const chapter of product.chapters) {
+      unique(
+        chapter.supplementaryMaterialIds ?? [],
+        "chapter supplementary Material",
+      );
+      if (
+        (chapter.supplementaryMaterialIds ?? []).some(
+          (id) =>
+            ![
+              ...product.materialIds,
+              ...product.supplementaryMaterialIds,
+            ].includes(id),
+        )
+      )
+        throw new Error(
+          "Chapter supplementary Materials must belong to the Product",
+        );
+    }
     if (
       product.chapters.length &&
-      canonical(product.chapters.flatMap((chapter) => chapter.materialIds)) !==
-        canonical(product.materialIds)
+      canonical([
+        ...new Set(product.chapters.flatMap((chapter) => chapter.materialIds)),
+      ]) !== canonical(product.materialIds)
     )
       throw new Error("Chapter order does not match Product order");
   }

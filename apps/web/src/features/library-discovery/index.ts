@@ -31,7 +31,6 @@ export {
   CourseReadingFooter,
 } from "./ui/course-reading.client";
 
-export { projectReferenceMaterials } from "./model/project-reference-materials";
 export { CourseReferenceNavigation } from "./ui/course-reference-navigation";
 
 export { CourseReadingHost } from "./ui/course-reading-host.client";

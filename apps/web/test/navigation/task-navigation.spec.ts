@@ -200,7 +200,10 @@ test("task intent retains the public course frame while personal requirements wa
           .getByRole("navigation", { name: "Хлебные крошки" })
           .getByRole("link")
           .first()
-      : course.getByRole("link", { name: "Вся программа", exact: true });
+      : course
+          .getByRole("navigation", { name: "Хлебные крошки" })
+          .getByRole("link")
+          .first();
   await returnLink.click();
   await expect(page).toHaveURL(new RegExp(`${programme}$`, "u"));
   const reopened = page.getByRole("link", {

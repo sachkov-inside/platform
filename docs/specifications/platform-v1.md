@@ -469,10 +469,20 @@ chapters belong to a browser history entry, stored per tab under that entry's op
 Back traverses document history. Explicit return opens the originating entry's exact URL and restores its view
 when available. Reload preserves the course anchor; absent history, blocked storage or a new tab use a safe
 route fallback. No global last-course preference or cross-tab navigation state is used.
-The separate “О проекте” reference group selects the published Product members `aie-project` and
-`aie-product-brief` by existing identity. It appears in the chapter rail, mobile programme and programme page.
-References do not add mandatory chapter steps or change chapter composition, positions or step counts.
-Existing reading-state records and the aggregate progress across Product members remain unchanged.
+Each Product has a catalogue of references to global Materials. Catalogue membership grants no additional
+access by itself. Programme placements independently reference catalogue members with stable placement IDs.
+The same Material may appear multiple times within or across chapters; its body and studied mark remain shared.
+Chapter attachments are ordered references to catalogue members outside the mandatory programme. They can also
+reference programme Materials. The sidebar shows the current chapter's “Дополнительные материалы”, not the
+entire catalogue. An active reference remains reachable while retaining its originating lesson context.
+The programme shows attachments beside their chapter, and its Materials tab shows the complete catalogue.
+No navigation rule selects Materials by slug. Project and Brief are ordinary first-chapter attachments.
+Counts derive from programme placements; progress counts distinct programme Materials. Attachments do not
+add mandatory steps. Existing reading-state records remain intact.
+Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
+attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
+only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
+Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
@@ -671,6 +681,8 @@ create an empty disclosure. Preparing chapters retain «Материалы го�
 matrix, release action or delivery date is invented for a planned chapter.
 All chapter headings remain visible while lesson rows are progressively revealed; pagination must
 not hide the future course roadmap or mark a populated chapter as preparing.
+Chapter counters consistently show the total number of steps: published Material entries plus standalone
+Tasks. Embedded Tasks are already represented by their Material entry and are not counted again.
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
 «Открыть программу». После первого открытия урока кнопка становится «Продолжить обучение» и
@@ -970,14 +982,15 @@ landing-page promises retain their current owners. Prices and access contracts r
 
 ### Membership linking и projection
 
-1. После каждого sign-in с принятыми условиями, пока Telegram не связан, Platform один раз за authenticated
-   browser session открывает центрированное skippable onboarding-окно поверх текущей public
-   surface. Первый begin CTA сразу открывает short-lived Telegram `/start`; после возврата browser
-   автоматически вызывает confirm. Компактное окно остаётся открытым после успеха, чтобы показать
-   result с галочкой без второго обязательного user action. Membership state и acquisition
-   action в onboarding не выводятся: они остаются в Account и на закрытых материалах. Закрытие
-   сохраняется при navigation и reload текущей session, но logout или подтверждённый guest state
-   сбрасывает его; тот же flow остаётся доступен позже из Account. Locked Material не создаёт
+1. После sign-in с принятыми условиями, пока Telegram не связан, Platform показывает компактный
+   Telegram CTA в шапке рядом с аватаркой Account.
+   Он не открывает автоматическое окно.
+   Гость и связанный Account не видят CTA. Явный begin CTA открывает short-lived Telegram
+   `/start`; после возврата browser автоматически вызывает confirm. При подтверждённой связи
+   CTA исчезает. Меню Account открывает аватарка либо значок пользователя без фотографии;
+   гость видит «Войти». Это одинаково работает в desktop и mobile шапках.
+   Membership state и acquisition action остаются в Account и на закрытых материалах.
+   Тот же flow доступен позже из Account. Locked Material не создаёт
    второй linking/recovery flow. Там, где настроено направление community, API сам подтверждает
    ожидающие attempts: через 5 секунд после конца предыдущего прохода, до 20 за проход и только
    до expiry. Поэтому покупатель из блока сообщества (#1037) не возвращается на сайт, и бот сам
@@ -1676,7 +1689,7 @@ The purchases surface names Products, amounts and payment/access states. It link
 Product programme or its ongoing checkout. Current access remains separate from financial history.
 Only applicable subscription and card controls appear. Receipt and refund details remain available.
 
-For a Product with actual community access, incomplete onboarding is the first programme section
+For a buyer with active paid access to this specific Product and its community, incomplete onboarding is the first programme section
 and the default on a new visit. Its steps are Telegram linking, joining that Product's configured
 group and starting learning. Explicit programme return links keep their target. Programme and Materials
 remain available. Completed onboarding disappears from desktop and mobile navigation.

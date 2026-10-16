@@ -1,4 +1,8 @@
 import {
+  name as chapterSupplementaryName,
+  statement as chapterSupplementaryStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0097-chapter-supplementary-materials.js";
+import {
   name as materialTaskName,
   statement as materialTaskStatement,
 } from "../modules/product-tasks/infrastructure/postgres/migrations/0096-material-task.js";
@@ -622,6 +626,7 @@ export const platformMigrations = [
   { name: taskReviewProgressName, statement: taskReviewProgressStatement },
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
   { name: materialTaskName, statement: materialTaskStatement },
+  { name: chapterSupplementaryName, statement: chapterSupplementaryStatement },
 ] as const;
 
 export function migrateToLatest(

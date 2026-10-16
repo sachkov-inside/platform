@@ -182,6 +182,129 @@ describe("Product chapters", () => {
     expect(afterRename.items[0]?.chapterId).toBe(projectChapter);
   });
 
+  test("a legacy chapter rename preserves repeated programme positions and identities", async () => {
+    const productId = await product("repeated-programme");
+    const first = await material("Repeated A", [productId]);
+    const second = await material("Repeated B", [productId]);
+    const third = await material("Repeated C", [productId]);
+    const chapterId = randomUUID();
+    const initial = await load(productId);
+    const programmePlacements = [first, second, first, third].map(
+      (materialId) => ({
+        id: randomUUID(),
+        materialId,
+        chapterId,
+        stepGroup: null,
+      }),
+    );
+    const saved = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: initial.orderVersion,
+      orderedMaterialIds: [first, second, third],
+      chapters: [{ id: chapterId, name: "Original", summary: "" }],
+      programmePlacements,
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+    const renamed = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: saved.value.orderVersion,
+      orderedMaterialIds: [first, second, third],
+      chapters: [{ id: chapterId, name: "Renamed", summary: "" }],
+    });
+    if (!renamed.ok) throw new Error(renamed.error.code);
+    expect((await load(productId)).programmePlacements).toEqual(
+      programmePlacements,
+    );
+  });
+
+  test("chapter attachment writes preserve programme and reject stale or foreign references", async () => {
+    const productId = await product("independent-attachments");
+    const lesson = await material("Lesson for attachments", [productId]);
+    const reference = await material("Attached reference", [productId]);
+    const foreign = await material("Foreign reference", [
+      await product("foreign-attachments"),
+    ]);
+    const chapterId = randomUUID();
+    const initial = await load(productId);
+    const saved = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: initial.orderVersion,
+      orderedMaterialIds: [lesson, reference],
+      chapters: [{ id: chapterId, name: "Chapter", summary: "" }],
+      chapterAssignments: { [lesson]: chapterId },
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+    const before = await load(productId);
+    const attached = await materials.authoring.updateChapterAttachments({
+      actor,
+      productId,
+      chapterId,
+      expectedOrderVersion: before.orderVersion,
+      materialIds: [reference, lesson],
+    });
+    expect(attached.ok).toBe(true);
+    const after = await load(productId);
+    expect(after.items).toEqual(before.items);
+    expect(after.programmePlacements).toEqual(before.programmePlacements);
+    expect(after.chapters[0]?.supplementaryMaterialIds).toEqual([
+      reference,
+      lesson,
+    ]);
+    expect(
+      await materials.authoring.updateChapterAttachments({
+        actor,
+        productId,
+        chapterId,
+        expectedOrderVersion: before.orderVersion,
+        materialIds: [],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "stale_series_order" } });
+    expect(
+      await materials.authoring.updateChapterAttachments({
+        actor,
+        productId,
+        chapterId,
+        expectedOrderVersion: after.orderVersion,
+        materialIds: [foreign],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
+    expect((await load(productId)).orderVersion).toBe(after.orderVersion);
+  });
+
+  test("catalogue edits cannot restore removed positions in an explicitly authored flat programme", async () => {
+    const productId = await product("independent-flat-programme");
+    const first = await material("Flat A", [productId]);
+    const second = await material("Flat B", [productId]);
+    const initial = await load(productId);
+    const programmePlacements = [
+      { id: randomUUID(), materialId: first, chapterId: null, stepGroup: null },
+    ];
+    const saved = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: initial.orderVersion,
+      orderedMaterialIds: [first, second],
+      programmePlacements,
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+    const third = await material("Flat C", [productId]);
+    const before = await load(productId);
+    expect(before.programmePlacements).toEqual(programmePlacements);
+    const reordered = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: before.orderVersion,
+      orderedMaterialIds: [third, second, first],
+    });
+    expect(reordered.ok).toBe(true);
+    expect((await load(productId)).programmePlacements).toEqual(
+      programmePlacements,
+    );
+  });
+
   test("reorders chapters, moves a Material between them and keeps every Material", async () => {
     const productId = await product("working-with-agents");
     const first = await material("Основы", [productId]);
@@ -820,5 +943,155 @@ describe("Product chapters", () => {
         error: { code: "invalid_content" },
       });
     }
+  });
+  test("attaches supplementary Product members without adding curricular steps and preserves omitted attachments", async () => {
+    const productId = await product("chapter-supplements");
+    const lesson = await material("Урок", [productId]);
+    const reference = await material("Справочник", [productId]);
+    const draft = await material("Черновик справочника", [productId], false);
+    const foreign = await material("Чужой материал", []);
+    const chapterId = randomUUID();
+    const secondChapter = randomUUID();
+    const initial = await load(productId);
+    const input = {
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: initial.orderVersion,
+      orderedMaterialIds: [lesson, reference, draft],
+      chapterAssignments: { [lesson]: chapterId },
+      chapters: [
+        {
+          id: chapterId,
+          name: "Глава",
+          summary: "",
+          supplementaryMaterialIds: [reference, draft],
+        },
+        {
+          id: secondChapter,
+          name: "Вторая",
+          summary: "",
+          supplementaryMaterialIds: [reference],
+        },
+      ],
+    };
+    const saved = await materials.authoring.reorderSeries(input);
+    if (!saved.ok) throw new Error(saved.error.code);
+    const loaded = await load(productId);
+    expect(loaded.chapters[0]?.supplementaryMaterialIds).toEqual([
+      reference,
+      draft,
+    ]);
+    const programme =
+      await materials.publishedMaterialReader.discoverProjections({
+        kind: "series",
+        slug: "chapter-supplements",
+        first: null,
+      });
+    if (!programme.ok) throw new Error(programme.error.code);
+    expect(programme.value.chapters[0]?.materialIds).toEqual([lesson]);
+    expect(programme.value.chapters[0]?.supplementaryMaterialIds).toEqual([
+      reference,
+    ]);
+    expect(programme.value.chapters[1]?.supplementaryMaterialIds).toEqual([
+      reference,
+    ]);
+    for (const invalid of [foreign]) {
+      await expect(
+        materials.authoring.reorderSeries({
+          ...input,
+          expectedOrderVersion: loaded.orderVersion,
+          chapters: [
+            {
+              id: chapterId,
+              name: "Глава",
+              summary: "",
+              supplementaryMaterialIds: [invalid],
+            },
+          ],
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        error: { code: "invalid_reference" },
+      });
+      expect((await load(productId)).orderVersion).toBe(loaded.orderVersion);
+    }
+    const retained = await materials.authoring.reorderSeries({
+      ...input,
+      expectedOrderVersion: loaded.orderVersion,
+      chapters: [
+        { id: chapterId, name: "Переименована", summary: "" },
+        { id: secondChapter, name: "Вторая", summary: "" },
+      ],
+    });
+    expect(retained.ok).toBe(true);
+    const renamed = await load(productId);
+    expect(renamed.chapters[0]?.supplementaryMaterialIds).toEqual([
+      reference,
+      draft,
+    ]);
+    const cleared = await materials.authoring.reorderSeries({
+      ...input,
+      expectedOrderVersion: renamed.orderVersion,
+      chapters: [
+        {
+          id: chapterId,
+          name: "Переименована",
+          summary: "",
+          supplementaryMaterialIds: [],
+        },
+        { id: secondChapter, name: "Вторая", summary: "" },
+      ],
+    });
+    expect(cleared.ok).toBe(true);
+    expect(
+      (await load(productId)).chapters[0]?.supplementaryMaterialIds,
+    ).toBeUndefined();
+    expect(
+      (await load(productId)).items.map((item) => item.materialId),
+    ).toEqual([lesson, reference, draft]);
+    for (const retained of [true, false]) {
+      const before = await materials.authoring.loadMaterial({
+        actor,
+        materialId: reference,
+      });
+      if (!before.ok) throw new Error(before.error.code);
+      const save = await materials.authoring.saveMaterial({
+        actor,
+        idempotencyKey: `supplement-save-${String(retained)}`,
+        materialId: reference,
+        expectedContentVersion: before.value.contentVersion,
+        publicationState: "published",
+        metadata: {
+          access: "free",
+          formatId,
+          difficulty: null,
+          outcomes: [],
+          seriesIds: retained ? [productId] : [],
+          summary: "Справочник",
+          tagIds: [],
+          title: "Справочник",
+          topicId,
+        },
+        body: representativeDocument("Справочник"),
+      });
+      expect(save.ok).toBe(true);
+      expect(
+        (await load(productId)).chapters[1]?.supplementaryMaterialIds,
+      ).toEqual(retained ? [reference] : undefined);
+    }
+    const detached = await load(productId);
+    await expect(
+      materials.authoring.reorderSeries({
+        actor,
+        seriesId: productId,
+        expectedOrderVersion: detached.orderVersion,
+        orderedMaterialIds: detached.items.map((item) => item.materialId),
+        chapters: detached.chapters.map((chapter) => ({
+          id: chapter.id,
+          name: `${chapter.name} снова`,
+          summary: chapter.summary,
+        })),
+      }),
+    ).resolves.toMatchObject({ ok: true });
   });
 });

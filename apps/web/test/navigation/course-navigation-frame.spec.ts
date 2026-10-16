@@ -19,6 +19,17 @@ test("the course sidebar stays mounted while only the material changes", async (
   await expect(page.locator("[data-course-reading-host]")).toBeVisible();
   const rail = page.getByRole("complementary", { name: "Текущая глава" });
   await expect(rail).toBeVisible();
+  await expect(
+    rail.getByRole("link", { name: "Страница курса", exact: true }),
+  ).toHaveAttribute("href", "/products/reference-course");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("link", { name: "Дальше", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    `/materials/reference-lesson-6?from=${encodeURIComponent(programme)}`,
+  );
   await rail.evaluate((node) => {
     node.setAttribute("data-retained-probe", "true");
     const observer = new MutationObserver(() => {
@@ -33,6 +44,9 @@ test("the course sidebar stays mounted while only the material changes", async (
       '[data-material-reader-state="loading"]:visible',
     );
     await expect(loading).toBeVisible();
+    await expect(
+      rail.getByRole("link", { name: "Урок 6", exact: true }),
+    ).toHaveAttribute("aria-current", "step");
     const railBox = await rail.boundingBox();
     const loadingBox = await loading.boundingBox();
     expect(railBox).not.toBeNull();
@@ -45,6 +59,13 @@ test("the course sidebar stays mounted while only the material changes", async (
     ).toBeVisible();
     await expect(rail).toBeVisible();
     await expect(rail).toHaveAttribute("data-retained-probe", "true");
+    await page.goBack();
+    await expect(
+      page.getByRole("heading", { name: "Урок 5", exact: true }),
+    ).toBeVisible();
+    await expect(
+      rail.getByRole("link", { name: "Урок 5", exact: true }),
+    ).toHaveAttribute("aria-current", "step");
   } finally {
     await request.post(control, { data: { delayMs: 0 } });
   }

@@ -20,6 +20,14 @@ interface SeriesContextMaterial {
 }
 
 interface SeriesContextSource {
+  readonly programmePlacements?:
+    | readonly {
+        readonly id: string;
+        readonly materialId: string;
+        readonly chapterId: string | null;
+        readonly stepGroup: string | null;
+      }[]
+    | undefined;
   readonly chapters?: readonly ProductChapter[];
   readonly items: readonly SeriesContextMaterial[];
   readonly kind: "ready";
@@ -57,7 +65,11 @@ export function resolveSeriesReaderContext({
   returnTarget,
   series,
   anchor,
+  placementId,
+  referenceView = false,
 }: {
+  readonly placementId?: string | undefined;
+  readonly referenceView?: boolean;
   readonly currentMaterialSlug: string;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly series: SeriesContextSource;
@@ -75,16 +87,35 @@ export function resolveSeriesReaderContext({
     ({ slug }) => slug === currentMaterialSlug,
   );
   if (currentIndex === -1) return null;
+  const flatProgramme =
+    series.programmePlacements === undefined
+      ? series.items.map((item) => ({ item, placementId: undefined }))
+      : series.programmePlacements.flatMap((placement) => {
+          const item = series.items.find(
+            (entry) => entry.materialId === placement.materialId,
+          );
+          return item === undefined
+            ? []
+            : [{ item, placementId: placement.id }];
+        });
+  const flatIndex = flatProgramme.findIndex(
+    (entry) =>
+      entry.item.slug === currentMaterialSlug &&
+      (placementId === undefined || entry.placementId === placementId),
+  );
   const programmeHref = productProgrammeHref(series.reference.slug);
   const primaryProgramme =
     series.chapters === undefined || series.chapters.length === 0
       ? undefined
       : courseReadingContext({
           series: { ...series, chapters: series.chapters },
-          current: { kind: "material", slug: currentMaterialSlug },
+          current: { kind: "material", slug: currentMaterialSlug, placementId },
+          referenceView,
           returnTarget,
         });
   const supplementary =
+    referenceView ||
+    (primaryProgramme === undefined && flatIndex < 0) ||
     primaryProgramme === null ||
     primaryProgramme?.activeReferenceId !== undefined;
   const anchoredProgramme =
@@ -95,9 +126,11 @@ export function resolveSeriesReaderContext({
           returnTarget,
         })
       : primaryProgramme;
-  const reference = primaryProgramme?.references?.find(
-    (item) => item.id === `material:${currentMaterialSlug}`,
-  );
+  const reference = supplementary
+    ? primaryProgramme?.references?.find(
+        (item) => item.slug === currentMaterialSlug,
+      )
+    : undefined;
   const programme =
     anchoredProgramme == null || reference === undefined
       ? anchoredProgramme
@@ -126,18 +159,26 @@ export function resolveSeriesReaderContext({
     currentPosition:
       programme?.current.materialOrdinal ??
       programme?.currentPosition ??
-      currentIndex + 1,
+      flatIndex + 1,
     next: supplementary
       ? null
       : (programme?.next ??
         (programme === undefined
-          ? toContextItem(series.items[currentIndex + 1], returnTarget.href)
+          ? toContextItem(
+              flatProgramme[flatIndex + 1]?.item,
+              returnTarget.href,
+              flatProgramme[flatIndex + 1]?.placementId,
+            )
           : null)),
     previous: supplementary
       ? null
       : (programme?.previous ??
         (programme === undefined
-          ? toContextItem(series.items[currentIndex - 1], returnTarget.href)
+          ? toContextItem(
+              flatProgramme[flatIndex - 1]?.item,
+              returnTarget.href,
+              flatProgramme[flatIndex - 1]?.placementId,
+            )
           : null)),
     series: {
       hasModeVariants: series.reference.hasModeVariants ?? false,
@@ -147,18 +188,21 @@ export function resolveSeriesReaderContext({
           : programmeHref,
       name: series.reference.name,
     },
-    totalMaterials: programme?.totalMaterials ?? series.items.length,
+    totalMaterials:
+      programme?.totalMaterials ??
+      new Set(flatProgramme.map((entry) => entry.item.slug)).size,
   };
 }
 
 function toContextItem(
   material: SeriesContextMaterial | undefined,
   seriesHref: Route,
+  placementId?: string,
 ): SeriesReaderContextItem | null {
   return material === undefined
     ? null
     : {
-        href: materialReaderHref(material.slug, seriesHref),
+        href: materialReaderHref(material.slug, seriesHref, { placementId }),
         title: material.title,
       };
 }

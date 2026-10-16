@@ -19,7 +19,10 @@
   top: 1.5rem;
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 8rem - var(--storage-notice-space, 0px));
+  max-height: calc(
+    100dvh - 8rem - var(--storage-notice-space, 0px) -
+      var(--application-notice-space, 0px)
+  );
   min-width: 0;
   font-size: 1rem;
   line-height: 1.6;
@@ -101,6 +104,9 @@
   }
 }
 .railSteps {
+  /* Keep the halo inside the scroll viewport without moving the marker or text. */
+  padding-inline-start: 1rem;
+  margin-inline-start: -1rem;
   min-height: 0;
   padding-bottom: 2rem;
   overflow-y: auto;
@@ -175,6 +181,7 @@
   font-weight: 400;
 }
 .mark {
+  position: relative;
   display: block;
   width: 0.375rem;
   height: 0.375rem;
@@ -182,10 +189,41 @@
   border-radius: 50%;
   background: var(--border);
 }
+.step[aria-current="step"] .stepTitle {
+  /* Paint-only emphasis preserves glyph advances and the existing line breaks. */
+  -webkit-text-stroke: 0.22px currentColor;
+}
 .step[aria-current="step"] .mark {
   background: var(--action);
-  box-shadow: 0 0 0.5rem 0.125rem
-    color-mix(in srgb, var(--action) 25%, transparent);
+  box-shadow:
+    0 0 0 0.1875rem color-mix(in srgb, var(--action) 16%, transparent),
+    0 0.125rem 0.625rem 0.125rem
+      color-mix(in srgb, var(--action) 40%, transparent);
+}
+.step[aria-current="step"] .mark::after {
+  content: "";
+  position: absolute;
+  inset: -0.1875rem;
+  border: 1px solid color-mix(in srgb, var(--action) 60%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  animation: current-step-pulse 1.3s ease-out 3;
+}
+@keyframes current-step-pulse {
+  from {
+    opacity: 0.8;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step[aria-current="step"] .mark::after {
+    animation: none;
+  }
 }
 .step small {
   display: flex;

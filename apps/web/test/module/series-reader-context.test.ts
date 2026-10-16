@@ -29,7 +29,7 @@ describe("Series Reader context", () => {
     ).toMatchObject({
       supplementary: true,
       programme: {
-        activeReferenceId: "material:aie-product-brief",
+        activeReferenceId: "reference:aie-product-brief",
         currentPosition: 0,
         totalMaterials: 1,
       },
@@ -257,7 +257,45 @@ it("retains the originating lesson and marks the reference outside the step sequ
       current: { id: "material:lesson" },
       currentPosition: 1,
       totalSteps: 1,
-      activeReferenceId: "material:aie-product-brief",
+      activeReferenceId: "reference:aie-product-brief",
     },
   });
+});
+
+it("follows repeated flat programme positions while excluding catalogue-only documents", () => {
+  const series = {
+    kind: "ready" as const,
+    reference: { name: "Flat", slug: "flat" },
+    chapters: [],
+    items: [
+      { materialId: "a", slug: "a", title: "A" },
+      { materialId: "b", slug: "b", title: "B" },
+      { materialId: "extra", slug: "extra", title: "Extra" },
+    ],
+    programmePlacements: [
+      { id: "a1", materialId: "a", chapterId: null, stepGroup: null },
+      { id: "b1", materialId: "b", chapterId: null, stepGroup: null },
+      { id: "a2", materialId: "a", chapterId: null, stepGroup: null },
+    ],
+  };
+  const context = resolveSeriesReaderContext({
+    series,
+    currentMaterialSlug: "a",
+    placementId: "a2",
+    returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
+  });
+  expect(context).toMatchObject({
+    currentPosition: 3,
+    totalMaterials: 2,
+    next: null,
+    previous: { title: "B" },
+  });
+  expect(context?.previous?.href).toContain("placement=b1");
+  expect(
+    resolveSeriesReaderContext({
+      series,
+      currentMaterialSlug: "extra",
+      returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
+    }),
+  ).toMatchObject({ supplementary: true, next: null, previous: null });
 });

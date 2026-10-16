@@ -68,7 +68,7 @@ describe("course reading composition", () => {
   });
 
   it.each(["aie-ch1-project-setup"])(
-    "keeps supplementary %s standalone despite a programme return target",
+    "keeps arbitrary supplementary %s in its course context",
     (slug) => {
       expect(
         courseReadingContext({
@@ -80,8 +80,8 @@ describe("course reading composition", () => {
           returnTarget: parseMaterialReaderReturnTarget(
             "/products/course/programme?at=first",
           ),
-        }),
-      ).toBeNull();
+        })?.activeReferenceId,
+      ).toBe(`reference:${slug}`);
     },
   );
 
@@ -261,7 +261,7 @@ it("embedded practice remains one Material step with its saved submission, and l
   ).toBe(false);
 });
 
-describe("project reference navigation", () => {
+describe("supplementary Material navigation", () => {
   const referenceSeries = {
     ...series,
     items: [
@@ -272,13 +272,16 @@ describe("project reference navigation", () => {
     ],
   };
 
-  it("lists the existing project documents separately without changing chapter steps or neighbours", () => {
+  it("lists every non-programme Product member in Product order without changing chapter steps", () => {
     const current = { kind: "material" as const, slug: "first" };
     const before = courseReadingContext({ series, current });
     const context = courseReadingContext({ series: referenceSeries, current });
     expect(context?.references?.map(({ slug }) => slug)).toEqual([
-      "aie-project",
+      "first",
+      "second",
       "aie-product-brief",
+      "aie-project",
+      "extra",
     ]);
     expect(context?.chapters).toEqual(before?.chapters);
     expect(context?.totalSteps).toBe(before?.totalSteps);
@@ -295,7 +298,7 @@ describe("project reference navigation", () => {
       ),
     });
     expect(context).toMatchObject({
-      activeReferenceId: "material:aie-project",
+      activeReferenceId: "reference:aie-project",
       currentPosition: 0,
       totalMaterials: 2,
       previous: null,
@@ -304,7 +307,7 @@ describe("project reference navigation", () => {
     expect(
       context?.chapters
         .flatMap(({ steps }) => steps)
-        .some(({ id }) => id === "material:aie-project"),
+        .some(({ id }) => id === "reference:aie-project"),
     ).toBe(false);
   });
 
@@ -313,7 +316,9 @@ describe("project reference navigation", () => {
       series,
       current: { kind: "material", slug: "first" },
     });
-    expect(context?.references).toEqual([]);
+    expect(
+      context?.references?.some((entry) => entry.slug === "aie-project"),
+    ).toBe(false);
   });
 });
 
@@ -353,6 +358,61 @@ it.each([8, 9])(
     expect(context?.chapters[0]?.steps.map(({ id }) => id)).toEqual(
       items.map(({ slug }) => `material:${slug}`),
     );
-    expect(context?.references).toHaveLength(2);
+    expect(context?.references).toHaveLength(count + 2);
   },
 );
+
+it("uses authored chapter attachments without slug conventions or extra steps", () => {
+  const context = courseReadingContext({
+    series: {
+      ...series,
+      chapters: series.chapters.map((chapter, index) => ({
+        ...chapter,
+        supplementaryMaterialIds: index === 1 ? ["reference-id"] : [],
+      })),
+      items: [
+        ...series.items,
+        {
+          materialId: "reference-id",
+          slug: "arbitrary-customer-document",
+          title: "Документ",
+        },
+      ],
+    },
+    current: { kind: "material", slug: "arbitrary-customer-document" },
+  });
+  expect(context?.currentChapterId).toBe("two:1");
+  expect(context?.chapters[1]?.references?.map((entry) => entry.slug)).toEqual([
+    "arbitrary-customer-document",
+  ]);
+  expect(context?.totalMaterials).toBe(2);
+  expect(context?.currentPosition).toBe(0);
+  expect(context?.next).toBeNull();
+});
+
+it("keeps repeated Material positions distinct with a single shared Material identity", () => {
+  const repeated = {
+    ...series,
+    chapters: [
+      {
+        ...series.chapters[0],
+        materialIds: ["first-id", "second-id", "first-id"],
+      },
+    ],
+    programmePlacements: [
+      { id: "a1", materialId: "first-id", chapterId: "one", stepGroup: null },
+      { id: "b1", materialId: "second-id", chapterId: "one", stepGroup: null },
+      { id: "a2", materialId: "first-id", chapterId: "one", stepGroup: null },
+    ],
+  };
+  const context = courseReadingContext({
+    series: repeated,
+    current: { kind: "material", slug: "first", placementId: "a2" },
+  });
+  expect(context?.current.id).toBe("material:first:a2");
+  expect(context?.totalMaterials).toBe(2);
+  expect(context?.current.href).toContain("placement=a2");
+  expect(
+    context?.chapters[0]?.steps.filter((step) => step.id === "task:a"),
+  ).toHaveLength(1);
+});

@@ -254,7 +254,10 @@ test("completed intent response renders the guest Reader before navigation respo
             .getByRole("navigation", { name: "Хлебные крошки" })
             .getByRole("link")
             .first()
-        : course.getByRole("link", { name: "Вся программа", exact: true }),
+        : course
+            .getByRole("navigation", { name: "Хлебные крошки" })
+            .getByRole("link")
+            .first(),
     ).toHaveAttribute("href", `${programme}?page=1&at=navigation-lesson-2`);
     expect(
       await page.evaluate((): unknown => {

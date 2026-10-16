@@ -207,18 +207,25 @@ export class ProductDirectory {
     )
       throw new RangeError("Product composition exceeds its bound");
     const sources = new Set(sourceIds);
-    return (product?.placements ?? []).flatMap((placement) =>
-      placement.sourceId !== null && sources.has(placement.sourceId)
-        ? [
-            {
-              sourceId: placement.sourceId,
-              materialId: placement.materialId,
-              chapterId: placement.chapterId,
-              published: placement.published,
-            },
-          ]
-        : [],
-    );
+    return (product?.placements ?? []).flatMap((membership) => {
+      if (membership.sourceId === null || !sources.has(membership.sourceId))
+        return [];
+      const sourceId = membership.sourceId;
+      const placements =
+        product?.programmePlacements.filter(
+          (placement) => placement.materialId === membership.materialId,
+        ) ?? [];
+      const chapterIds =
+        placements.length === 0
+          ? [null]
+          : [...new Set(placements.map((placement) => placement.chapterId))];
+      return chapterIds.map((chapterId) => ({
+        sourceId,
+        materialId: membership.materialId,
+        chapterId,
+        published: membership.published,
+      }));
+    });
   }
 
   /** Serialize a Task binding with Product composition edits, using the caller's transaction. */

@@ -500,7 +500,7 @@ export const ChapterTasks: Story = {
       .closest("header");
     if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
     await expect(
-      within(chapterHeader).getByText("6 материалов · 2 задания"),
+      within(chapterHeader).getByText("8 шагов"),
     ).toBeVisible();
     const unavailable = canvasElement.querySelector(
       '[data-programme-task="access-unavailable"]',
@@ -606,7 +606,7 @@ export const LargeMaterialCatalogue: Story = {
       canvas.getByRole("list", { name: "Материалы курса" });
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(12);
     await expect(
-      canvas.getByText("120 материалов", { exact: true }),
+      canvas.getByText("120 шагов", { exact: true }),
     ).toBeVisible();
     const search = canvas.getByRole("searchbox", {
       name: "Поиск по материалам курса",
@@ -1643,17 +1643,25 @@ export const ProjectReferenceGroup: Story = {
     },
   },
   play: async ({ canvasElement }) => {
-    const group = within(canvasElement).getByRole("navigation", {
-      name: "О проекте",
-    });
-    await expect(within(group).getAllByRole("link")).toHaveLength(2);
+    const canvas = within(canvasElement);
     await expect(
-      within(group).getByRole("link", { name: "Описание проекта" }),
-    ).toHaveAttribute(
-      "href",
-      `/materials/aie-project?from=${encodeURIComponent(`/products/${result.reference.slug}/programme`)}`,
-    );
-    await expect(group.querySelector("[data-course-step]")).toBeNull();
+      canvas.queryByRole("navigation", { name: "Дополнительные материалы" }),
+    ).toBeNull();
+    await openPart(canvasElement, /^Материалы/u);
+    const search = canvas.getByRole("searchbox", {
+      name: "Поиск по материалам курса",
+    });
+    await userEvent.type(search, "Описание проекта");
+    await expect(
+      await canvas.findByRole("link", {
+        name: "Описание проекта",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.clear(search);
+    await userEvent.type(search, "Бриф заказчика");
+    await expect(
+      await canvas.findByRole("link", { name: "Бриф заказчика" }),
+    ).toBeInTheDocument();
   },
 };
 export const ProjectReferenceGroupMobile: Story = {

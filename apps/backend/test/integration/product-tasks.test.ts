@@ -1565,6 +1565,15 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     await db.prisma.publishedMaterialProductMembership.create({
       data: { seriesId: productId, materialId: material.materialId, ordinal },
     });
+    await db.prisma.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId: material.materialId,
+        chapterId: chapter,
+        ordinal,
+      },
+    });
     return material;
   }
 

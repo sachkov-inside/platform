@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   productChapterAssignmentsSchema,
   productChapterDraftsSchema,
+  productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
@@ -335,10 +336,11 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Legacy chapterAssignments remain supported. Each chapter must stay one continuous programme run.",
       inputSchema: z
         .object({
           chapters: productChapterDraftsSchema.optional(),
+          programmePlacements: productProgrammePlacementsSchema.optional(),
           chapterAssignments: productChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
@@ -355,6 +357,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     ({
       chapterAssignments,
       chapters,
+      programmePlacements,
       expectedOrderVersion,
       orderedMaterialIds,
       seriesId,
@@ -365,6 +368,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           actor: dependencies.accountId,
           chapterAssignments,
           chapters,
+          programmePlacements,
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId,
@@ -400,10 +404,11 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until confirmedProductRemovals lists this productId after the owner confirms; the removal is journaled.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Legacy chapterAssignments remain supported. Each chapter must stay one continuous programme run. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until confirmedProductRemovals lists this productId after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           chapters: productChapterDraftsSchema.optional(),
+          programmePlacements: productProgrammePlacementsSchema.optional(),
           chapterAssignments: productChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
@@ -421,6 +426,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     ({
       chapterAssignments,
       chapters,
+      programmePlacements,
       expectedOrderVersion,
       orderedMaterialIds,
       productId,
@@ -432,11 +438,41 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           actor: dependencies.accountId,
           chapterAssignments,
           chapters,
+          programmePlacements,
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId: productId,
           stepGroups,
           confirmedProductRemovals: confirmedProductRemovals ?? [],
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "product_set_chapter_attachments",
+    {
+      title: "Set chapter attachments",
+      description:
+        "Replace ordered chapter reference links using existing Product catalogue Materials. Does not change the programme, source originals, or progress. Available for imported Products.",
+      inputSchema: z
+        .object({
+          productId: collectionIdSchema,
+          chapterId: collectionIdSchema,
+          expectedOrderVersion: seriesOrderVersionSchema,
+          materialIds: z.array(materialIdWireSchema).max(200),
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    (input) =>
+      toToolResult(
+        dependencies.authoring.updateChapterAttachments({
+          ...input,
+          actor: dependencies.accountId,
         }),
       ),
   );

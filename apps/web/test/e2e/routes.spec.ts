@@ -307,102 +307,61 @@ for (const state of ["authenticated", "unavailable"] as const) {
   });
 }
 
-const onboardingReloadTest = test.extend({ video: "retain-on-failure" });
+test("unlinked authenticated account sees a quiet header action; guests and linked accounts do not", async ({
+  page,
+}) => {
+  let authenticated = true;
+  let linked = false;
+  let begins = 0;
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      json: {
+        canManageMaterials: false,
+        state: authenticated ? "authenticated" : "guest",
+      },
+    }),
+  );
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      json: linked
+        ? linkedAccountPresentation()
+        : unlinkedAccountPresentation(),
+    }),
+  );
+  await page.route("**/api/account/telegram-link/begin", (route) => {
+    begins++;
+    return route.fulfill({ status: 503 });
+  });
+  await page.goto("/");
+  const notice = page.getByRole("region", { name: "Подключение Telegram" });
+  await expect(
+    notice.getByRole("button", { name: "Подключить Telegram" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  await expect(notice.locator("xpath=ancestor::header")).toBeVisible();
+  expect(begins).toBe(0);
+  await page.reload();
+  await expect(notice).toBeVisible();
+  authenticated = false;
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Войти", exact: true }),
+  ).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  authenticated = true;
+  linked = true;
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  await expect(notice).toHaveCount(0);
+  expect(begins).toBe(0);
+});
 
-onboardingReloadTest(
-  "unlinked Account sees centered onboarding once per authenticated session",
-  async ({ page }, testInfo) => {
-    let authenticated = true;
-    await page.route("**/auth/status", (route) =>
-      route.fulfill({
-        body: JSON.stringify({
-          canManageMaterials: false,
-          state: authenticated ? "authenticated" : "guest",
-        }),
-        contentType: "application/json",
-        status: 200,
-      }),
-    );
-    await page.route("**/api/account", (route) =>
-      route.fulfill({
-        body: JSON.stringify(unlinkedAccountPresentation()),
-        contentType: "application/json",
-        status: 200,
-      }),
-    );
-
-    await page.goto("/");
-    const dialog = page.getByRole("dialog", { name: "Подключите Telegram" });
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Доступ не активен")).toHaveCount(0);
-    await expect(dialog.getByText("Получить доступ")).toHaveCount(0);
-    await expect(dialog).not.toContainText("Membership");
-    const [dialogBox, viewport] = await Promise.all([
-      dialog.boundingBox(),
-      page.evaluate(() => ({
-        height: window.innerHeight,
-        width: window.innerWidth,
-      })),
-    ]);
-    expect(dialogBox).not.toBeNull();
-    expect(dialogBox?.width).toBeLessThanOrEqual(480);
-    expect(
-      Math.abs(
-        (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2,
-      ),
-    ).toBeLessThanOrEqual(1);
-    expect(
-      Math.abs(
-        (dialogBox?.y ?? 0) +
-          (dialogBox?.height ?? 0) / 2 -
-          viewport.height / 2,
-      ),
-    ).toBeLessThanOrEqual(1);
-
-    await dialog
-      .getByRole("button", { name: "Закрыть подключение Telegram" })
-      .click();
-    await expect(dialog).toHaveCount(0);
-    // Закрытый <dialog> исчезает из дерева доступности сразу, а отметку о закрытии пишет его событие
-    // `close`, которое приходит следующей задачей. Перезагрузка раньше неё проверяла бы не то.
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
-        ),
-      )
-      .toBe("true");
-    await page.reload();
-    await expect(dialog).toHaveCount(0);
-
-    authenticated = false;
-    await page.reload();
-    if (navigationMode(testInfo.project.name) === "mobile") {
-      await expect(
-        page
-          .getByRole("navigation", { name: "Мобильная навигация" })
-          .getByRole("link", { name: "Профиль" }),
-      ).toBeVisible();
-    } else {
-      await expect(
-        page.getByRole("button", { name: "Войти", exact: true }),
-      ).toBeEnabled();
-    }
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
-        ),
-      )
-      .toBeNull();
-
-    authenticated = true;
-    await page.reload();
-    await expect(dialog).toBeVisible();
-  },
-);
-
-test("Telegram onboarding keeps the final linked result visible without Membership", async ({
+test("Telegram header action opens the bot explicitly and disappears after confirmation", async ({
   page,
 }) => {
   const linkRef = "62000000-0000-4000-8000-000000000001";
@@ -478,32 +437,26 @@ test("Telegram onboarding keeps the final linked result visible without Membersh
   });
 
   await page.goto("/");
-  const dialog = page.locator(
-    "dialog[aria-labelledby='telegram-onboarding-heading']",
-  );
-  await expect(dialog).toHaveAccessibleName("Подключите Telegram");
-  await dialog.getByRole("button", { name: "Подключить Telegram" }).click();
+  const notice = page.getByRole("region", { name: "Подключение Telegram" });
+  await notice.getByRole("button", { name: "Подключить Telegram" }).click();
   await expect
     .poll(() =>
       page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
     )
     .toBe("https://t.me/inside_test_bot?start=opaque");
   await expect(
-    dialog.getByRole("button", { name: "Проверить связь" }),
-  ).toHaveCount(0);
+    notice.getByRole("link", { name: "Открыть Telegram" }),
+  ).toBeVisible();
   await page.evaluate(() => {
     window.dispatchEvent(new Event("focus"));
   });
-  await expect(dialog.getByText("Telegram подключён")).toBeVisible();
-  await expect(dialog).not.toContainText("Доступ активен");
-  await expect(dialog).not.toContainText("Membership");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Продолжить" }).click();
-  await page.evaluate(() => {
-    sessionStorage.removeItem("inside.telegram-onboarding.dismissed");
-  });
+  await expect(notice).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.reload();
-  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeVisible();
+  await expect(notice).toHaveCount(0);
 });
 
 test("manager shell preserves desktop editor access and the four-item mobile dock", async ({
@@ -620,7 +573,7 @@ test("auth control hydrates without a server-client mismatch", async ({
     await expect(
       page
         .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("link", { name: "Профиль" }),
+        .getByRole("button", { name: "Войти", exact: true }),
     ).toBeVisible();
   } else {
     await expect(

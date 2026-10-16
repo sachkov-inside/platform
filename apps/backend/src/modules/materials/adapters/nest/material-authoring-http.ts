@@ -13,6 +13,7 @@ import {
   PRODUCT_CHAPTER_SUMMARY_MAX,
   productChapterAssignmentsSchema,
   productChapterDraftsSchema,
+  productProgrammePlacementsSchema,
 } from "../../shared/product-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
@@ -122,6 +123,7 @@ export const deleteDraftBodySchema = z
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 export const productChapterSchema = z
   .object({
+    supplementaryMaterialIds: z.array(z.uuid()).optional(),
     id: z.uuid(),
     name: z.string().min(1).max(PRODUCT_CHAPTER_NAME_MAX),
     ordinal: z.number().int().positive(),
@@ -131,6 +133,7 @@ export const productChapterSchema = z
 export const seriesOrderSchema = z
   .object({
     archived: z.boolean(),
+    programmePlacements: productProgrammePlacementsSchema,
     chapters: z.array(productChapterSchema),
     items: z.array(
       z
@@ -152,6 +155,7 @@ export const seriesOrderSchema = z
 export const reorderSeriesBodySchema = z
   .object({
     chapters: productChapterDraftsSchema.optional(),
+    programmePlacements: productProgrammePlacementsSchema.optional(),
     chapterAssignments: productChapterAssignmentsSchema.optional(),
     expectedOrderVersion: seriesOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),

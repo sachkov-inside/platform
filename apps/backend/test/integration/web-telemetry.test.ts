@@ -84,6 +84,7 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
         "0094_task_review_progress",
         "0095_task_submission_review_run",
         "0096_material_task",
+        "0097_chapter_supplementary_materials",
       ],
     });
     expect(await existing.summary("owner", 30)).toMatchObject({

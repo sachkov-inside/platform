@@ -1,8 +1,6 @@
 import type { Route } from "next";
 import { internalRoute } from "@/shared/routing/internal-route";
-import { productPath } from "@/shared/routing/public-page-path";
 import { placeChapterTasks } from "@/entities/product-task.model";
-import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import {
   materialReaderHref,
   type MaterialReaderReturnTarget,
@@ -11,7 +9,6 @@ import {
   productProgrammeHref,
   productTaskHref,
 } from "@/shared/routing/subscription-route";
-import { projectReferenceMaterials } from "./project-reference-materials";
 import type { ProductChapter } from "./library-discovery-view";
 
 export interface CourseReadingStep {
@@ -19,6 +16,7 @@ export interface CourseReadingStep {
   readonly title: string;
   readonly href: Route;
   readonly kind: "material" | "task";
+  readonly placementId?: string;
   readonly availability: "available" | "locked" | "unavailable";
   readonly materialOrdinal?: number;
   readonly taskOrdinal?: number;
@@ -26,6 +24,7 @@ export interface CourseReadingStep {
   readonly practiceTaskCode?: string;
 }
 export interface CourseReadingChapter {
+  readonly references?: readonly CourseReferenceMaterial[];
   readonly href?: Route;
   readonly id: string;
   readonly name: string;
@@ -60,6 +59,14 @@ export interface CourseReadingContext {
 }
 
 interface CourseSource {
+  readonly programmePlacements?:
+    | readonly {
+        readonly id: string;
+        readonly materialId: string;
+        readonly chapterId: string | null;
+        readonly stepGroup: string | null;
+      }[]
+    | undefined;
   readonly kind: "ready" | "empty";
   readonly reference: {
     readonly slug: string;
@@ -68,7 +75,7 @@ interface CourseSource {
   };
   readonly chapters: readonly Pick<
     ProductChapter,
-    "id" | "name" | "materialIds" | "tasks"
+    "id" | "name" | "materialIds" | "tasks" | "supplementaryMaterialIds"
   >[];
   readonly items?:
     | readonly {
@@ -86,12 +93,18 @@ export function courseReadingContext({
   series,
   current,
   returnTarget,
+  referenceView = false,
 }: {
   readonly series: CourseSource;
   readonly current:
-    | { readonly kind: "material"; readonly slug: string }
+    | {
+        readonly kind: "material";
+        readonly slug: string;
+        readonly placementId?: string | undefined;
+      }
     | { readonly kind: "task"; readonly code: string };
   readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly referenceView?: boolean;
 }): CourseReadingContext | null {
   const programmeHref = productProgrammeHref(series.reference.slug);
   const href =
@@ -100,97 +113,138 @@ export function courseReadingContext({
       : programmeHref;
   const materialReturn = returnTarget?.href ?? href;
   const publishedItems = series.kind === "ready" ? (series.items ?? []) : [];
-  const chapterByMaterial = new Map(
+  const referenceHref = (slug: string) => {
+    const url = new URL(materialReaderHref(slug, href), "https://inside.local");
+    url.searchParams.set("view", "reference");
+    return internalRoute(`${url.pathname}${url.search}`);
+  };
+  const references = publishedItems.map((item) => ({
+    id: `reference:${item.slug}`,
+    slug: item.slug,
+    title: item.title,
+    href: referenceHref(item.slug),
+  }));
+  const placements =
+    series.programmePlacements ??
     series.chapters.flatMap((chapter) =>
-      chapter.materialIds.map((id) => [id, chapter.id] as const),
-    ),
-  );
-  const items = publishedItems.filter(
-    (item) =>
-      item.materialId !== undefined && chapterByMaterial.has(item.materialId),
-  );
-  const leadingChapters = new Set<string>();
-  const chapters = productChapterRuns(items, series.chapters, (item) =>
-    item.materialId === undefined
-      ? null
-      : (chapterByMaterial.get(item.materialId) ?? null),
-  ).flatMap((run, index): CourseReadingChapter[] => {
-    const chapter = run.chapter;
-    if (chapter === null) return [];
-    const placed = placeChapterTasks(chapter.tasks ?? [], chapter.materialIds);
-    const taskSteps = (tasks: typeof placed.leading): CourseReadingStep[] =>
-      tasks.map((task) => ({
-        id: `task:${task.code}`,
-        kind: "task",
-        title: task.title,
-        taskSubmitted: task.lastSubmittedAt !== null,
-        taskOrdinal:
-          (chapter.tasks ?? [])
-            .filter((task) => task.programmeVisibility !== "embedded")
-            .findIndex((entry) => entry.code === task.code) + 1,
-        href: productTaskHref(series.reference.slug, task.code),
-        availability: task.availability,
-      }));
-    const leading = leadingChapters.has(chapter.id)
-      ? []
-      : taskSteps(placed.leading);
-    leadingChapters.add(chapter.id);
-    return [
-      {
+      chapter.materialIds.map((materialId, index) => ({
+        id: `${chapter.id}-${String(index)}`,
+        materialId,
+        chapterId: chapter.id,
+        stepGroup: null,
+      })),
+    );
+  const repetitions = new Map<string, number>();
+  for (const entry of placements)
+    repetitions.set(
+      entry.materialId,
+      (repetitions.get(entry.materialId) ?? 0) + 1,
+    );
+  const chapters = series.chapters.map(
+    (chapter, index): CourseReadingChapter => {
+      const placed = placeChapterTasks(
+        chapter.tasks ?? [],
+        chapter.materialIds,
+      );
+      const taskSteps = (tasks: typeof placed.leading): CourseReadingStep[] =>
+        tasks.map((task) => ({
+          id: `task:${task.code}`,
+          kind: "task",
+          title: task.title,
+          taskSubmitted: task.lastSubmittedAt !== null,
+          taskOrdinal:
+            (chapter.tasks ?? [])
+              .filter((entry) => entry.programmeVisibility !== "embedded")
+              .findIndex((entry) => entry.code === task.code) + 1,
+          href: productTaskHref(series.reference.slug, task.code),
+          availability: task.availability,
+        }));
+      const visited = new Set<string>();
+      const chapterPlacements = placements.filter(
+        (entry) => entry.chapterId === chapter.id,
+      );
+      return {
         id: `${chapter.id}:${String(index)}`,
-        href: internalRoute(
-          `${programmeHref}${run.items[0] === undefined ? "" : `?${new URLSearchParams({ at: run.items[0].slug }).toString()}`}#chapter-${encodeURIComponent(chapter.id)}`,
-        ),
         name: chapter.name,
-        ordinal:
-          series.chapters.findIndex((entry) => entry.id === chapter.id) + 1,
+        ordinal: index + 1,
+        href: internalRoute(
+          `${programmeHref}#chapter-${encodeURIComponent(chapter.id)}`,
+        ),
+        references: (chapter.supplementaryMaterialIds ?? []).flatMap((id) => {
+          const item = publishedItems.find((entry) => entry.materialId === id);
+          const reference = references.find(
+            (entry) => entry.slug === item?.slug,
+          );
+          return reference === undefined ? [] : [reference];
+        }),
         steps: [
-          ...leading,
-          ...run.items.flatMap((item, itemIndex): CourseReadingStep[] => [
-            {
-              id: `material:${item.slug}`,
-              kind: "material",
-              title: item.title,
-              href: materialReaderHref(item.slug, materialReturn),
-              availability: item.availability ?? "available",
-              materialOrdinal: run.offset + itemIndex + 1,
-              ...(() => {
-                const practice = chapter.tasks?.find(
-                  (task) => task.embeddedMaterialId === item.materialId,
-                );
-                return practice === undefined
+          ...taskSteps(placed.leading),
+          ...chapterPlacements.flatMap((placement): CourseReadingStep[] => {
+            const item = publishedItems.find(
+              (entry) => entry.materialId === placement.materialId,
+            );
+            if (item === undefined) return [];
+            const repeated = (repetitions.get(placement.materialId) ?? 0) > 1;
+            const url = new URL(
+              materialReaderHref(item.slug, materialReturn),
+              "https://inside.local",
+            );
+            if (repeated) url.searchParams.set("placement", placement.id);
+            const practice = chapter.tasks?.find(
+              (task) => task.embeddedMaterialId === item.materialId,
+            );
+            const first = !visited.has(placement.materialId);
+            visited.add(placement.materialId);
+            return [
+              {
+                id: `material:${item.slug}${repeated ? `:${placement.id}` : ""}`,
+                kind: "material",
+                title: item.title,
+                ...(series.programmePlacements === undefined
+                  ? {}
+                  : { placementId: placement.id }),
+                href: internalRoute(`${url.pathname}${url.search}`),
+                availability: item.availability ?? "available",
+                materialOrdinal:
+                  placements.findIndex((entry) => entry.id === placement.id) +
+                  1,
+                ...(practice === undefined
                   ? {}
                   : {
                       practiceTaskCode: practice.code,
                       taskSubmitted: practice.lastSubmittedAt !== null,
-                    };
-              })(),
-            },
-            ...taskSteps(
-              item.materialId === undefined
-                ? []
-                : (placed.after.get(item.materialId) ?? []),
-            ),
-          ]),
+                    }),
+              },
+              ...(first
+                ? taskSteps(placed.after.get(placement.materialId) ?? [])
+                : []),
+            ];
+          }),
         ],
-      },
-    ];
-  });
-  const references = projectReferenceMaterials(publishedItems).map((item) => ({
-    id: `material:${item.slug}`,
-    slug: item.slug,
-    title: item.title,
-    href: materialReaderHref(item.slug, href),
-  }));
+      };
+    },
+  );
   const steps = chapters.flatMap((chapter) => chapter.steps);
   const id =
     current.kind === "material"
       ? `material:${current.slug}`
       : `task:${current.code}`;
-  const position = steps.findIndex((step) => step.id === id);
-  const reference = references.find((item) => item.id === id);
+  const position = referenceView
+    ? -1
+    : steps.findIndex((step) =>
+        current.kind === "material"
+          ? step.kind === "material" &&
+            (step.id === id || step.id.startsWith(`${id}:`)) &&
+            (current.placementId === undefined ||
+              step.placementId === current.placementId)
+          : step.id === id,
+      );
+  const reference =
+    position >= 0 || current.kind !== "material"
+      ? undefined
+      : references.find((item) => item.id === `reference:${current.slug}`);
   const referenceItem = publishedItems.find(
-    (item) => `material:${item.slug}` === reference?.id,
+    (item) => item.slug === reference?.slug,
   );
   const step =
     steps[position] ??
@@ -203,13 +257,19 @@ export function courseReadingContext({
         });
   const chapter =
     chapters.find((entry) =>
-      entry.steps.some((entryStep) => entryStep.id === id),
-    ) ?? (reference === undefined ? undefined : chapters[0]);
+      entry.steps.some((entryStep) => entryStep.id === steps[position]?.id),
+    ) ??
+    (reference === undefined
+      ? undefined
+      : (chapters.find(
+          (entry) =>
+            entry.references?.some((item) => item.id === reference.id) === true,
+        ) ?? chapters[0]));
   if (step === undefined || chapter === undefined) return null;
   return {
     name: series.reference.name,
     href,
-    courseHref: productPath(series.reference.slug),
+    courseHref: programmeHref,
     chapters,
     references,
     materialHrefs: publishedItems.map((item) =>
@@ -220,7 +280,7 @@ export function courseReadingContext({
     currentChapterId: chapter.id,
     currentPosition: position + 1,
     totalSteps: steps.length,
-    totalMaterials: items.length,
+    totalMaterials: new Set(placements.map((entry) => entry.materialId)).size,
     hasModeVariants: series.reference.hasModeVariants ?? false,
     previous: steps[position - 1] ?? null,
     next: position < 0 ? null : (steps[position + 1] ?? null),

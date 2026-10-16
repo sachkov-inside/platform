@@ -43,6 +43,7 @@ export interface RelatedPlaylist {
 }
 
 export interface ProductChapter {
+  readonly supplementaryMaterialIds?: readonly string[] | undefined;
   readonly id: string;
   readonly materialIds: readonly string[];
   readonly name: string;
@@ -62,10 +63,18 @@ export interface DiscoveryTopic {
   readonly slug: string;
 }
 
+export interface ProgrammePlacement {
+  readonly id: string;
+  readonly materialId: string;
+  readonly chapterId: string | null;
+  readonly stepGroup: string | null;
+}
+
 export type LibraryDiscoveryResult<
   DiscoveryKind extends LibraryDiscoveryKind = LibraryDiscoveryKind,
 > =
   | {
+      readonly programmePlacements?: readonly ProgrammePlacement[] | undefined;
       readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly hasNext: boolean;
@@ -76,6 +85,7 @@ export type LibraryDiscoveryResult<
       readonly topics: readonly DiscoveryTopic[];
     }
   | {
+      readonly programmePlacements?: readonly ProgrammePlacement[] | undefined;
       readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";

@@ -752,10 +752,10 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
                   .getByRole("navigation", { name: "Хлебные крошки" })
                   .getByRole("link")
                   .first()
-              : courseReader.getByRole("link", {
-                  name: "Вся программа",
-                  exact: true,
-                })
+              : courseReader
+                  .getByRole("navigation", { name: "Хлебные крошки" })
+                  .getByRole("link")
+                  .first()
           ).click();
           await expect(
             page.locator(

@@ -97,6 +97,8 @@ export async function MaterialReaderPage({
 }: {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{
+    readonly view?: string | readonly string[] | undefined;
+    readonly placement?: string | readonly string[] | undefined;
     readonly from?: string | readonly string[] | undefined;
     readonly anchor?: string | readonly string[] | undefined;
     readonly attemptsAfter?: string | readonly string[] | undefined;
@@ -135,6 +137,8 @@ export async function MaterialReaderPage({
     material.material.slug,
     returnTarget,
     series,
+    anchor,
+    query,
   );
   const effectiveReturnTarget = resolveReaderReturnTarget({
     returnTarget,
@@ -311,6 +315,7 @@ async function PersonalMaterialReader({
     returnTarget,
     seriesResult,
     anchor,
+    workspaceQuery,
   );
   return (
     <ResolvedMaterialReader
@@ -357,6 +362,8 @@ async function PrivateMaterialPractice({
 }
 
 interface WorkspaceQuery {
+  readonly view?: string | readonly string[] | undefined;
+  readonly placement?: string | readonly string[] | undefined;
   readonly from?: string | readonly string[] | undefined;
   readonly anchor?: string | readonly string[] | undefined;
   readonly attemptsAfter?: string | readonly string[] | undefined;
@@ -453,6 +460,7 @@ async function ResolvedMaterialReader({
                 href,
                 programme.href,
                 contextAnchor,
+                true,
               );
               return target === undefined ? undefined : (
                 <IntentPrefetchLink
@@ -569,10 +577,14 @@ function seriesContextOf(
   returnTarget: MaterialReaderReturnTarget,
   series: PublishedSeriesResult | null,
   anchor?: ReaderCourseAnchor,
+  query?: WorkspaceQuery,
 ): SeriesReaderContext | null {
   return series?.kind === "ready"
     ? resolveSeriesReaderContext({
         currentMaterialSlug,
+        placementId:
+          typeof query?.placement === "string" ? query.placement : undefined,
+        referenceView: query?.view === "reference",
         returnTarget,
         series,
         anchor,
@@ -596,9 +608,21 @@ function workspaceReturnTo(slug: string, query: WorkspaceQuery): string {
   const target = parseMaterialReaderReturnTarget(query.from);
   const anchor = parseReaderCourseAnchor(query.anchor);
   const href = materialReaderHref(slug, target.href);
-  return anchor === undefined
-    ? href
-    : (anchoredMaterialHref(href, target.href, anchor) ?? href);
+  const url = new URL(
+    anchoredMaterialHref(
+      href,
+      target.href,
+      anchor,
+      query.view === "reference",
+    ) ?? href,
+    "https://inside.local",
+  );
+  if (
+    typeof query.placement === "string" &&
+    /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(query.placement)
+  )
+    url.searchParams.set("placement", query.placement);
+  return `${url.pathname}${url.search}`;
 }
 
 async function readerSubmissionConnection() {

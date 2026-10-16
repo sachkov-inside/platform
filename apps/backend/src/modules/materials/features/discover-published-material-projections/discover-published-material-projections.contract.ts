@@ -17,10 +17,17 @@ export interface DiscoverPublishedMaterialProjectionsQuery {
 }
 
 export interface PublishedMaterialDiscoveryPageDto {
+  readonly programmePlacements?: readonly {
+    readonly id: string;
+    readonly materialId: string;
+    readonly chapterId: string | null;
+    readonly stepGroup: string | null;
+  }[];
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
+    readonly supplementaryMaterialIds?: readonly string[];
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;

@@ -8,11 +8,11 @@ async function referenceGroup(page: Page) {
     await page.getByRole("button", { name: "Вся программа" }).click();
     return page
       .getByRole("dialog")
-      .getByRole("navigation", { name: "О проекте" });
+      .getByRole("navigation", { name: "Дополнительные материалы" });
   }
   return page
     .getByRole("complementary", { name: "Текущая глава" })
-    .getByRole("navigation", { name: "О проекте" });
+    .getByRole("navigation", { name: "Дополнительные материалы" });
 }
 
 async function scrollPosition(page: Page) {
@@ -87,11 +87,9 @@ test("reference navigation preserves nine steps and restores the originating les
 test("programme references keep course navigation without adding a numbered step; standalone links remain standalone", async ({
   page,
 }) => {
-  await page.goto(programme);
-  await page
-    .getByRole("navigation", { name: "О проекте" })
-    .getByRole("link", { name: "Описание проекта" })
-    .click();
+  await page.goto(
+    `/materials/aie-project?from=${encodeURIComponent(programme)}`,
+  );
   await expect(
     page.getByRole("heading", { name: "Описание проекта", exact: true }),
   ).toBeVisible();

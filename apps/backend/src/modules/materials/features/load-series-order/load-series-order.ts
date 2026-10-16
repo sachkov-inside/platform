@@ -43,7 +43,11 @@ export function assembleLoadSeriesOrder(
         ok: true,
         value: {
           ...snapshot,
-          orderVersion: productOrderVersion(snapshot.items, snapshot.chapters),
+          orderVersion: productOrderVersion(
+            snapshot.items,
+            snapshot.chapters,
+            snapshot.programmePlacements,
+          ),
         },
       };
     } catch (error) {

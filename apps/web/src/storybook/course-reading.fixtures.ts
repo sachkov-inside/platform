@@ -44,6 +44,7 @@ export const courseSource = {
   ],
   chapters: [
     {
+      supplementaryMaterialIds: ["project-id", "brief-id"],
       id: "start",
       name: "Подготовь проект к разработке с агентом и проверь настройку",
       materialIds: ["first-id", "course-intro-id"],

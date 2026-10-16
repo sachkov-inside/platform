@@ -1,5 +1,6 @@
 "use client";
 
+import { UserRound } from "lucide-react";
 import { useState } from "react";
 
 import type { MemberProfileAvatar } from "../model/member-profile";
@@ -9,16 +10,20 @@ export function ProfileAvatar({
   avatar,
   displayName,
   size = "large",
+  fallback = "initials",
 }: {
   readonly avatar: MemberProfileAvatar | null;
   readonly displayName: string;
-  readonly size?: "large" | "small";
+  readonly size?: "large" | "small" | "header";
+  readonly fallback?: "initials" | "icon";
 }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const className =
     size === "large"
       ? "size-20 shrink-0 text-xl sm:size-24 sm:text-2xl"
-      : "size-12 shrink-0 text-sm";
+      : size === "header"
+        ? "size-11 shrink-0 text-sm"
+        : "size-12 shrink-0 text-sm";
   // Аватар видит только владелец профиля, поэтому картинка идёт через его собственный адрес.
   const imageUrl =
     avatar === null
@@ -48,7 +53,11 @@ export function ProfileAvatar({
       className={`${className} grid place-items-center rounded-full bg-accent/14 font-bold tracking-[-0.03em] text-foreground`}
       role="img"
     >
-      {profileInitials(displayName)}
+      {fallback === "icon" ? (
+        <UserRound aria-hidden="true" className="size-6" strokeWidth={1.75} />
+      ) : (
+        profileInitials(displayName)
+      )}
     </div>
   );
 }

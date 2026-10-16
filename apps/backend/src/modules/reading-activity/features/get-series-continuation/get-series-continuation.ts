@@ -88,7 +88,6 @@ export async function getSeriesContinuation(
     );
     if (!projected.ok)
       return { ok: false, error: { code: "dependency_unavailable" } };
-    const items = projected.items;
 
     if (series.value.hasNext)
       return { ok: false, error: { code: "dependency_unavailable" } };
@@ -106,6 +105,10 @@ export async function getSeriesContinuation(
               : "dependency_unavailable",
         },
       };
+    const items = composition.value.flatMap((id) => {
+      const item = projected.items.find((entry) => entry.materialId === id);
+      return item === undefined ? [] : [item];
+    });
     const ids = items.map((item) => item.materialId);
     const [states, visited] = await Promise.all([
       dependencies.prisma.readingMaterialState.findMany({

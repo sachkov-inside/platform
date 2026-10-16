@@ -1,3 +1,4 @@
+import type { ProductProgrammePlacement } from "../../shared/product-chapters.js";
 import type { PublicationState } from "../../domain/material.js";
 import type {
   ForbiddenError,
@@ -6,6 +7,7 @@ import type {
 import type { Result } from "../../result.js";
 
 export interface ProductChapterDto {
+  readonly supplementaryMaterialIds?: readonly string[];
   readonly id: string;
   readonly name: string;
   readonly ordinal: number;
@@ -22,6 +24,7 @@ export interface SeriesOrderMaterialDto {
 }
 
 export interface SeriesOrderDto {
+  readonly programmePlacements: readonly ProductProgrammePlacement[];
   readonly archived: boolean;
   readonly chapters: readonly ProductChapterDto[];
   readonly items: readonly SeriesOrderMaterialDto[];

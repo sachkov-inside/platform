@@ -1,5 +1,6 @@
 "use client";
 
+import { ProgrammePlacementsEditor } from "./programme-placements-editor.client";
 import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 import type { ReactNode } from "react";
 
@@ -74,6 +75,7 @@ export function SeriesOrderManager({
   readonly onSelectPlaylist: (seriesId: string) => void;
   readonly presentation: SeriesOrderPresentation;
 }) {
+  const [editingProgramme, setEditingProgramme] = useState(false);
   const [chapters, setChapters] = useState(presentation.chapters);
   const [items, setItems] = useState(presentation.items);
   const version = useRef(presentation.orderVersion);
@@ -192,6 +194,7 @@ export function SeriesOrderManager({
   };
   const assign = (materialId: string, chapterId: string | null) => {
     mutation.reset();
+
     setItems((current) => {
       const source = current.findIndex(
         (entry) => entry.materialId === materialId,
@@ -248,6 +251,14 @@ export function SeriesOrderManager({
   };
   const removeItem = (materialId: string) => {
     mutation.reset();
+    setChapters((current) =>
+      current.map((chapter) => ({
+        ...chapter,
+        supplementaryMaterialIds: (
+          chapter.supplementaryMaterialIds ?? []
+        ).filter((id) => id !== materialId),
+      })),
+    );
     setItems((current) =>
       current.filter((entry) => entry.materialId !== materialId),
     );
@@ -285,6 +296,16 @@ export function SeriesOrderManager({
     pickerRef.current?.showModal();
   };
 
+  if (editingProgramme)
+    return (
+      <ProgrammePlacementsEditor
+        productId={presentation.seriesId}
+        onClose={() => {
+          setEditingProgramme(false);
+          onRefresh();
+        }}
+      />
+    );
   const Container = embedded ? "section" : "main";
   return (
     <Container
@@ -411,6 +432,19 @@ export function SeriesOrderManager({
             </div>
           </header>
         )}
+        <Button
+          type="button"
+          variant="outline"
+          className="my-4"
+          disabled={pending}
+          onClick={() => {
+            void autosave.flush().then((ok) => {
+              if (ok) setEditingProgramme(true);
+            });
+          }}
+        >
+          Размещения в программе
+        </Button>
         {homePin}
         <p className="sr-only" role="status">
           {positionNotice}
@@ -511,6 +545,7 @@ export function SeriesOrderManager({
                       : chapters.indexOf(section.chapter) + 1
                   }
                   productId={presentation.seriesId}
+                  supplementaryOptions={items}
                   total={items.length}
                 />
               ))}
@@ -837,6 +872,7 @@ interface CompositionActions {
 }
 
 interface ChapterSectionProps {
+  readonly supplementaryOptions: readonly SeriesOrderItemPresentation[];
   readonly actions: CompositionActions;
   readonly archived: boolean;
   readonly chapter: ProductChapterPresentation | null;
@@ -854,6 +890,7 @@ interface ChapterSectionProps {
 
 /** One chapter of the main path, or the Materials the author has not grouped yet. */
 function ChapterSection({
+  supplementaryOptions,
   actions,
   archived,
   chapter,
@@ -990,6 +1027,51 @@ function ChapterSection({
             </label>
           </details>
         </div>
+      )}
+      {chapter === null ? null : (
+        <details className="my-3 text-sm">
+          <summary className="w-fit cursor-pointer rounded-md py-2 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            Дополнительные материалы
+          </summary>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Ссылки вне шагов программы. Состав и прогресс главы не изменяются.
+          </p>
+          {supplementaryOptions.length === 0 ? (
+            <p className="text-muted-foreground">
+              Добавьте материал в продукт.
+            </p>
+          ) : (
+            supplementaryOptions.map((item) => (
+              <label
+                className="flex min-h-11 items-center gap-3"
+                key={item.materialId}
+              >
+                <input
+                  type="checkbox"
+                  className="size-4 accent-current"
+                  checked={
+                    chapter.supplementaryMaterialIds?.includes(
+                      item.materialId,
+                    ) ?? false
+                  }
+                  onChange={(event) => {
+                    actions.editChapter(chapter.id, {
+                      supplementaryMaterialIds: event.currentTarget.checked
+                        ? [
+                            ...(chapter.supplementaryMaterialIds ?? []),
+                            item.materialId,
+                          ]
+                        : (chapter.supplementaryMaterialIds ?? []).filter(
+                            (id) => id !== item.materialId,
+                          ),
+                    });
+                  }}
+                />
+                <span>{item.title}</span>
+              </label>
+            ))
+          )}
+        </details>
       )}
       {entries.length === 0 ? (
         <p className="px-2 py-5 text-sm text-muted-foreground">
@@ -1324,11 +1406,16 @@ function composition(
   }[];
 } {
   return {
-    chapters: chapters.map(({ id, name, summary }) => ({
-      id,
-      name: name.trim(),
-      summary: summary.trim(),
-    })),
+    chapters: chapters.map(
+      ({ id, name, summary, supplementaryMaterialIds }) => ({
+        ...(supplementaryMaterialIds === undefined
+          ? {}
+          : { supplementaryMaterialIds }),
+        id,
+        name: name.trim(),
+        summary: summary.trim(),
+      }),
+    ),
     entries: items.map(({ chapterId, materialId, stepGroup }) => ({
       chapterId: chapterId ?? null,
       materialId,

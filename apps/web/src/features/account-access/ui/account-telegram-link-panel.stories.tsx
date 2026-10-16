@@ -12,20 +12,18 @@ import type { AccountTelegramMembership } from "../model/account-telegram-member
 
 const linkRef = "62000000-0000-4000-8000-000000000001";
 
-/** Участник только что вошёл: окно ещё не закрывали в этой сессии. */
 const environment = publicPageEnvironment("/account", {
   account: "authenticated",
-  telegramOnboarding: "shown",
 });
 
 const meta = {
-  title: "Patterns/Account access/Telegram onboarding",
+  title: "Patterns/Account access/Telegram notice",
   render: () => <></>,
   parameters: {
     docs: {
       description: {
         component:
-          "Окно подключения Telegram после входа. Его открывает сама публичная оболочка, пока Telegram не подключён и окно не закрыли в этой сессии. Состояние связи приходит из `/api/account`; статус доступа и покупки в окно не входят.",
+          "Небольшой островок в шапке рядом с аватаркой для вошедшего пользователя без Telegram. Подключение начинается только после нажатия кнопки.",
       },
     },
   },
@@ -35,8 +33,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Участник только что вошёл: оболочка читает `/api/account` и сама открывает окно. Ответы идут по
- * очереди, последний повторяется: так видно, как окно меняется, когда человек вернулся из Telegram.
+ * Оболочка читает `/api/account` и показывает островок для неподключённого Telegram. Ответы идут по
+ * очереди, последний повторяется: так проверяем возврат из Telegram.
  */
 function onboarding(
   ...links: readonly [
@@ -63,24 +61,23 @@ function onboarding(
   };
 }
 
-async function onboardingDialog(canvasElement: HTMLElement) {
+async function noticeRegion(canvasElement: HTMLElement) {
   return within(
-    await within(canvasElement.ownerDocument.body).findByRole("dialog"),
+    await within(canvasElement.ownerDocument.body).findByRole("region", {
+      name: "Подключение Telegram",
+    }),
   );
 }
 
 export const Unlinked: Story = {
   ...onboarding({ kind: "unlinked" }),
   play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
+    const notice = await noticeRegion(canvasElement);
     await expect(
-      dialog.getByRole("heading", { name: "Подключите Telegram" }),
+      notice.getByRole("button", { name: /^Подключить Telegram$/u }),
     ).toBeVisible();
     await expect(
-      dialog.getByRole("button", { name: "Подключить Telegram" }),
-    ).toBeInTheDocument();
-    await expect(
-      dialog.queryByText(/Доступ|Membership|Получить доступ/u),
+      within(canvasElement.ownerDocument.body).queryByRole("dialog"),
     ).not.toBeInTheDocument();
   },
 };
@@ -90,26 +87,6 @@ export const UnlinkedMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
-export const Linking: Story = {
-  ...onboarding({
-    expiresAt: "2030-01-01T00:05:00.000Z",
-    kind: "linking",
-    linkRef,
-  }),
-  play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
-    await expect(dialog.getByText("Подключаем Telegram")).toBeInTheDocument();
-    await expect(
-      dialog.getByRole("button", { name: "Проверить связь" }),
-    ).toBeInTheDocument();
-    await expect(dialog.queryByText(/2030|00:05/iu)).not.toBeInTheDocument();
-  },
-};
-
-/**
- * Весь путь подключения на настоящих командах: «Подключить Telegram» открывает бота, а когда
- * человек вернулся во вкладку, окно само подтверждает связь и показывает, что Telegram подключён.
- */
 export const Linked: Story = {
   ...environment,
   beforeEach: [
@@ -148,7 +125,7 @@ export const Linked: Story = {
     },
   ],
   play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
+    const notice = await noticeRegion(canvasElement);
     const storyWindow = canvasElement.ownerDocument.defaultView;
     if (storyWindow === null) throw new Error("У story нет окна");
     const originalOpen = storyWindow.open;
@@ -163,7 +140,7 @@ export const Linked: Story = {
     });
     try {
       await userEvent.click(
-        dialog.getByRole("button", { name: "Подключить Telegram" }),
+        notice.getByRole("button", { name: /^Подключить Telegram$/u }),
       );
       await waitFor(() =>
         expect(openedTelegram).toHaveBeenCalledWith(
@@ -171,15 +148,16 @@ export const Linked: Story = {
         ),
       );
       await expect(
-        await dialog.findByText("Подключаем Telegram"),
+        await notice.findByRole("link", { name: "Открыть Telegram" }),
       ).toBeInTheDocument();
       storyWindow.dispatchEvent(new Event("focus"));
-      await expect(
-        await dialog.findByText("Telegram подключён"),
-      ).toBeInTheDocument();
-      await expect(
-        dialog.getByRole("button", { name: "Продолжить" }),
-      ).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          within(canvasElement.ownerDocument.body).queryByRole("region", {
+            name: "Подключение Telegram",
+          }),
+        ).not.toBeInTheDocument(),
+      );
     } finally {
       Object.defineProperty(storyWindow, "open", {
         configurable: true,
@@ -189,67 +167,23 @@ export const Linked: Story = {
   },
 };
 
-export const Conflict: Story = {
-  ...onboarding({
-    kind: "conflict",
-    supportUrl: "https://t.me/inside_support",
-  }),
+export const AlreadyLinked: Story = {
+  ...onboarding({ kind: "linked" }),
   play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
     await expect(
-      dialog.getByText("Не получилось подключить"),
-    ).toBeInTheDocument();
+      await within(canvasElement.ownerDocument.body).findAllByRole("button", {
+        name: "Аккаунт",
+      }),
+    ).not.toHaveLength(0);
     await expect(
-      dialog.getByRole("link", { name: "Написать в поддержку" }),
-    ).toHaveAttribute("href", "https://t.me/inside_support");
+      within(canvasElement.ownerDocument.body).queryByRole("region", {
+        name: "Подключение Telegram",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 
 export const ExpiredAttempt: Story = {
+  ...Unlinked,
   ...onboarding({ kind: "retryable", reason: "expired" }),
-  play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
-    await expect(
-      dialog.getByText("Подключите Telegram заново"),
-    ).toBeInTheDocument();
-    await expect(
-      dialog.getByRole("button", { name: "Попробовать снова" }),
-    ).toBeInTheDocument();
-  },
-};
-
-export const ConfirmationUnavailable: Story = {
-  ...onboarding({ kind: "unavailable", retry: { kind: "confirm", linkRef } }),
-  play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
-    await expect(
-      dialog.getByRole("button", { name: "Повторить проверку" }),
-    ).toBeInTheDocument();
-  },
-};
-
-export const RefreshUnavailable: Story = {
-  ...onboarding({ kind: "unavailable", retry: { kind: "refresh" } }),
-  play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
-    await expect(
-      dialog.getByRole("button", { name: "Обновить состояние" }),
-    ).toBeInTheDocument();
-  },
-};
-
-export const RecoveryRequired: Story = {
-  ...onboarding({
-    kind: "recovery-required",
-    recovery: { kind: "support", url: "https://t.me/inside_support" },
-  }),
-  play: async ({ canvasElement }) => {
-    const dialog = await onboardingDialog(canvasElement);
-    await expect(
-      dialog.getByText("Нужна помощь с подключением"),
-    ).toBeInTheDocument();
-    await expect(
-      dialog.getByRole("link", { name: "Написать в поддержку" }),
-    ).toHaveAttribute("href", "https://t.me/inside_support");
-  },
 };

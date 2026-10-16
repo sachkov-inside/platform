@@ -35,7 +35,7 @@ export interface ApplicationShellProps {
   readonly navigationItems: readonly ApplicationNavigationItem[];
   readonly mobileNavigationItems: readonly ApplicationNavigationItem[];
   readonly onMobileNavigate?: (href: Route) => void;
-  /** Desktop identity presentation supplied by the app adapter. */
+  /** Header identity presentation supplied by the app adapter. */
   readonly accountSlot?: ReactNode;
 }
 
@@ -140,6 +140,7 @@ export function ApplicationShell({
       </header>
       <MobileTopNavigation
         currentPath={currentPath}
+        accountSlot={accountSlot}
         items={mobileNavigationItems}
         onNavigate={onMobileNavigate}
       />
@@ -199,11 +200,13 @@ function NavigationLink({
  */
 function MobileTopNavigation({
   currentPath,
+  accountSlot,
   items,
   onNavigate,
 }: {
   readonly currentPath: string;
   readonly items: readonly ApplicationNavigationItem[];
+  readonly accountSlot?: ReactNode;
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
   const [hidden, setHidden] = useState(false);
@@ -221,7 +224,10 @@ function MobileTopNavigation({
     };
   }, []);
   const home = items.find((item) => item.icon === "home");
-  const sections = items.filter((item) => item.icon !== "home");
+  const sections = items.filter(
+    (item) =>
+      item.icon !== "home" && !(accountSlot != null && item.icon === "profile"),
+  );
   const navigate =
     onNavigate === undefined
       ? undefined
@@ -300,6 +306,7 @@ function MobileTopNavigation({
                 </li>
               );
             })}
+            {accountSlot == null ? null : <li>{accountSlot}</li>}
           </ul>
         </nav>
       </div>

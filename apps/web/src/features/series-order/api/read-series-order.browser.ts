@@ -5,6 +5,16 @@ const schema = z.discriminatedUnion("kind", [
     kind: z.literal("ready"),
     order: z.object({
       archived: z.boolean(),
+      programmePlacements: z
+        .array(
+          z.object({
+            id: z.uuid(),
+            materialId: z.uuid(),
+            chapterId: z.uuid().nullable(),
+            stepGroup: z.string().nullable(),
+          }),
+        )
+        .optional(),
       seriesId: z.uuid(),
       name: z.string(),
       orderVersion: z.string(),
@@ -14,6 +24,7 @@ const schema = z.discriminatedUnion("kind", [
             id: z.uuid(),
             name: z.string(),
             summary: z.string(),
+            supplementaryMaterialIds: z.array(z.uuid()).optional(),
           }),
         )
         .default([]),

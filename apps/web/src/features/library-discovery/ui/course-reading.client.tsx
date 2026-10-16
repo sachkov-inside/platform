@@ -4,7 +4,14 @@ import { usePathname } from "next/navigation";
 import { parseReaderCourseAnchor } from "@/shared/routing/reader-course-anchor";
 import { CourseReferenceNavigation } from "./course-reference-navigation";
 
-import { ArrowLeft, ArrowRight, ChevronRight, List, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  ChevronRight,
+  List,
+  X,
+} from "lucide-react";
 import {
   createContext,
   useContext,
@@ -169,7 +176,7 @@ export function CourseReadingHeader({
             items={[
               { label: context.name, href: context.href },
               ...(supplementary && context.currentPosition === 0
-                ? [{ label: "О проекте" }]
+                ? [{ label: "Дополнительный материал" }]
                 : [
                     {
                       label:
@@ -319,10 +326,10 @@ export function CourseRail({
     >
       <IntentPrefetchLink
         className={styles["programmeLink"]}
-        href={context.href}
+        href={context.courseHref}
       >
-        <List size={16} aria-hidden="true" />
-        Вся программа
+        <BookOpen size={16} aria-hidden="true" />
+        Страница курса
       </IntentPrefetchLink>
       <Select
         value={chapterId}
@@ -381,17 +388,26 @@ export function CourseRail({
             ))}
           </ol>
         )}
+        <CourseReferenceNavigation
+          references={[
+            ...(chapter?.references ?? []),
+            ...(context.references ?? []).filter(
+              (reference) =>
+                reference.id === context.activeReferenceId &&
+                chapter?.references?.some(
+                  (item) => item.id === reference.id,
+                ) !== true,
+            ),
+          ]}
+          activeReferenceId={context.activeReferenceId}
+          courseHref={context.href}
+          anchor={
+            context.currentPosition > 0
+              ? parseReaderCourseAnchor(context.current.id)
+              : undefined
+          }
+        />
       </div>
-      <CourseReferenceNavigation
-        references={context.references ?? []}
-        activeReferenceId={context.activeReferenceId}
-        courseHref={context.href}
-        anchor={
-          context.currentPosition > 0
-            ? parseReaderCourseAnchor(context.current.id)
-            : undefined
-        }
-      />
     </aside>
   );
 }
@@ -454,7 +470,7 @@ export function ProgrammeDialog({
       desktop.removeEventListener("change", closeOnDesktop);
       element?.close();
     };
-  }, [pathname]);
+  }, [pathname, context.current.id]);
   const chapter = context.chapters.find(
     (entry) => entry.id === context.currentChapterId,
   );
@@ -506,7 +522,7 @@ export function ProgrammeDialog({
           <span>
             {supplementary ? (
               context.currentPosition === 0 ? (
-                "О проекте"
+                "Дополнительный материал"
               ) : (
                 "Ваше место в курсе"
               )
@@ -571,21 +587,16 @@ export function ProgrammeDialog({
           </button>
         </div>
         <nav aria-label="Вся программа">
-          <CourseReferenceNavigation
-            references={context.references ?? []}
-            activeReferenceId={context.activeReferenceId}
-            courseHref={context.href}
-            anchor={
-              context.currentPosition > 0
-                ? parseReaderCourseAnchor(context.current.id)
-                : undefined
-            }
-          />
           {context.chapters.map((chapter) => (
             <details
               key={chapter.id}
               data-course-chapter-id={chapter.id}
-              open={chapter.id === context.currentChapterId}
+              open={
+                chapter.id === context.currentChapterId ||
+                chapter.references?.some(
+                  (reference) => reference.id === context.activeReferenceId,
+                )
+              }
             >
               <summary>
                 <span className={styles["chapterLabel"]}>
@@ -601,11 +612,40 @@ export function ProgrammeDialog({
                   </li>
                 ))}
               </ol>
+              <CourseReferenceNavigation
+                references={chapter.references ?? []}
+                activeReferenceId={context.activeReferenceId}
+                courseHref={context.href}
+                anchor={
+                  context.currentPosition > 0
+                    ? parseReaderCourseAnchor(context.current.id)
+                    : undefined
+                }
+              />
               {chapter.steps.length === 0 ? (
                 <p className={styles["empty"]}>Глава готовится</p>
               ) : null}
             </details>
           ))}
+          <CourseReferenceNavigation
+            references={(context.references ?? []).filter(
+              (reference) =>
+                reference.id === context.activeReferenceId &&
+                !context.chapters.some(
+                  (chapter) =>
+                    chapter.references?.some(
+                      (item) => item.id === reference.id,
+                    ) === true,
+                ),
+            )}
+            activeReferenceId={context.activeReferenceId}
+            courseHref={context.href}
+            anchor={
+              context.currentPosition > 0
+                ? parseReaderCourseAnchor(context.current.id)
+                : undefined
+            }
+          />
         </nav>
       </dialog>
     </div>
