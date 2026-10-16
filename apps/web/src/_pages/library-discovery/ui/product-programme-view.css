@@ -96,7 +96,8 @@
 /* Метка будущей главы сразу за её заголовком, в строке текста. */
 .programme-chapter-soon {
   display: inline-flex;
-  white-space: nowrap;
+  max-width: calc(100% - 0.5rem);
+  white-space: normal;
   align-items: center;
   gap: 0.4rem;
   border-radius: 999px;

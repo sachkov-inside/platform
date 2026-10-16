@@ -652,14 +652,26 @@ Account без права получают «не найдено». `ContentAcce
 спецификация, фичи, CI и мониторинг) без кнопки паузы; при reduced motion — неподвижный итоговый кадр.
 Известные блоки (`mentoring`, `topics`, `value`, `format`, `practice`, `agents`, `audience`, `faq`,
 `status`) получают свои значки и иллюстрации, остальные рисуются по виду. Разделы проявляются при
-прокрутке средствами CSS. Весь текст — ключ `page` в `products/02. Inside AI Engineering/product.yaml`;
-обложка продукта оттуда же показывается в программе и каталоге. Программа и прохождение остаются на
-странице программы: туда ведут все кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
+прокрутке средствами CSS. Весь текст — ключ `page` в `guides/02. Inside AI Engineering/guide.yaml`;
+обложка продукта оттуда же показывается в программе и каталоге. Прохождение остаётся на
+странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
 над ней стоит плашка потока, а сама она ведёт по этапу продаж
 ([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814). Глава без опубликованных уроков показывает там своё описание и
 пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Большая карточка курса на
 Главной повторяет первый экран страницы курса тем же модулем, вместе с анимацией: ответ Главной отдаёт
 для закреплённого продукта `hero` (метка, вводная фраза, пункты) из того же сохранённого описания.
+
+The owner-approved programme presentation from 2026-10-16 also shows chapter overviews on the
+course landing page. The authored `programme-practice` list block places this overview and explains
+cross-cutting development practice. The programme route shows the same practice block above its
+chapters. Both surfaces use the actual Product chapters; Storybook fixtures never supply production copy.
+The first paragraph of each chapter's `summary` remains visible as its outcome. Remaining paragraphs
+and plain `- ` bullet lists appear in a native disclosure labelled «Темы и практика». A single-paragraph
+summary remains fully visible without an empty disclosure. Available and preparing chapters both
+show their authored summaries; preparing chapters retain «Материалы готовятся». No lesson list,
+role matrix, release action or delivery date is invented for a planned chapter.
+All chapter headings and outcomes remain visible while lesson rows are progressively revealed;
+pagination must not hide the future course roadmap or mark a populated chapter as preparing.
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
 «Открыть программу». После первого открытия урока кнопка становится «Продолжить обучение» и

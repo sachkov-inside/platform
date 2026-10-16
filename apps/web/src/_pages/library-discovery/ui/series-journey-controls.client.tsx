@@ -332,85 +332,84 @@ export function SeriesJourneyControls({
               }
             >
               <div className="mt-5 grid gap-6">
-                {visibleRuns(
-                  part?.kind === "materials" ? part.runs : [],
-                  visible.length,
-                  count,
-                ).map((run) => (
-                  <section
-                    aria-labelledby={
-                      run.chapter === null
-                        ? undefined
-                        : `chapter-${run.chapter.id}`
-                    }
-                    className={
-                      run.chapter === null ? undefined : "programme-chapter"
-                    }
-                    data-chapter-state={
-                      run.chapter === null
-                        ? undefined
-                        : run.rows.length === 0
-                          ? "preparing"
-                          : "open"
-                    }
-                    key={run.chapter?.id ?? `open-${String(run.offset)}`}
-                  >
-                    {run.chapter?.header ?? null}
-                    {run.leading ?? null}
-                    {run.rows.length === 0 ? null : (
-                      <ol
-                        aria-label={
-                          run.chapter === null
-                            ? "Материалы продукта"
-                            : `Материалы главы «${run.chapter.name}»`
-                        }
-                        className={cn(
-                          "grid gap-2",
-                          run.chapter === null ? "" : "mt-3",
-                        )}
-                        data-series-order
-                        start={run.offset + 1}
-                      >
-                        {run.rows.map((row) => (
-                          <li
-                            onClickCapture={(event) => {
-                              if (
-                                event.button !== 0 ||
-                                event.metaKey ||
-                                event.ctrlKey ||
-                                event.shiftKey ||
-                                event.altKey ||
-                                !(event.target instanceof Element) ||
-                                event.target.closest("a") === null
-                              )
-                                return;
-                              if (
-                                window.location.pathname ===
-                                new URL(currentHref, window.location.origin)
-                                  .pathname
-                              )
-                                window.history.replaceState(
-                                  window.history.state,
-                                  "",
-                                  row.returnHref,
-                                );
-                            }}
-                            aria-current={
-                              next?.slug === row.slug ? "step" : undefined
-                            }
-                            className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                            data-route-material={row.slug}
-                            data-series-ordinal={row.ordinal}
-                            key={row.slug}
-                            tabIndex={-1}
-                          >
-                            {row.card}
-                            {row.after ?? null}
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </section>
+                {(part?.kind === "materials" ? part.runs : []).map((run) => {
+                  const rows = run.rows.slice(0, Math.max(0, count - run.offset));
+                  return (
+                    <section
+                      aria-labelledby={
+                        run.chapter === null
+                          ? undefined
+                          : `chapter-${run.chapter.id}`
+                      }
+                      className={
+                        run.chapter === null ? undefined : "programme-chapter"
+                      }
+                      data-chapter-state={
+                        run.chapter === null
+                          ? undefined
+                          : run.rows.length === 0
+                            ? "preparing"
+                            : "open"
+                      }
+                      key={run.chapter?.id ?? `open-${String(run.offset)}`}
+                    >
+                      {run.chapter?.header ?? null}
+                      {run.leading ?? null}
+                      {rows.length === 0 ? null : (
+                        <ol
+                          aria-label={
+                            run.chapter === null
+                              ? "Материалы продукта"
+                              : `Материалы главы «${run.chapter.name}»`
+                          }
+                          className={cn(
+                            "grid gap-2",
+                            run.chapter === null ? "" : "mt-3",
+                          )}
+                          data-series-order
+                          start={run.offset + 1}
+                        >
+                          {rows.map((row) => (
+                            <li
+                              onClickCapture={(event) => {
+                                if (
+                                  event.button !== 0 ||
+                                  event.metaKey ||
+                                  event.ctrlKey ||
+                                  event.shiftKey ||
+                                  event.altKey ||
+                                  !(event.target instanceof Element) ||
+                                  event.target.closest("a") === null
+                                )
+                                  return;
+                                if (
+                                  window.location.pathname ===
+                                  new URL(currentHref, window.location.origin)
+                                    .pathname
+                                )
+                                  window.history.replaceState(
+                                    window.history.state,
+                                    "",
+                                    row.returnHref,
+                                  );
+                              }}
+                              aria-current={
+                                next?.slug === row.slug ? "step" : undefined
+                              }
+                              className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+                              data-route-material={row.slug}
+                              data-series-ordinal={row.ordinal}
+                              key={row.slug}
+                              tabIndex={-1}
+                            >
+                              {row.card}
+                              {row.after ?? null}
+                            </li>
+                            );
+                })}
+                        </ol>
+                      )}
+                    </section>
                 ))}
               </div>
             </SeriesContinuationProvider>
@@ -448,21 +447,6 @@ export function SeriesJourneyControls({
       ) : null}
     </section>
   );
-}
-
-/** Preserve complete chapter runs while progressively extending the visible prefix. */
-function visibleRuns(
-  runs: readonly JourneyRun[],
-  total: number,
-  count: number,
-): readonly JourneyRun[] {
-  return runs.flatMap((run) => {
-    if (run.rows.length === 0)
-      return run.offset < count || count === total ? [run] : [];
-    return run.offset < count
-      ? [{ ...run, rows: run.rows.slice(0, count - run.offset) }]
-      : [];
-  });
 }
 
 /** Only programme rows are progressively revealed and numbered. */

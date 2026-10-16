@@ -32,6 +32,7 @@ import {
   programmePurchaseRowClass,
 } from "./programme-purchase-row";
 import { SeriesJourney } from "./series-journey";
+import { ProgrammePractice } from "./course-programme-overview";
 import {
   PendingPurchaseRow,
   PendingSeriesLearning,
@@ -174,6 +175,12 @@ export function ProductProgrammeView({
           href: materialReaderHref(item.slug, currentHref),
         }))}
       />
+      {result.reference.productPage?.page?.blocks.map((block) =>
+        block.id === "programme-practice" && block.kind === "list" ? (
+          <ProgrammePractice block={block} headingLevel="h2" key={block.id} />
+        ) : null,
+      )}
+
       <SeriesJourney
         {...(onboarding === undefined ? {} : { onboarding })}
         accessPending={accessPending}

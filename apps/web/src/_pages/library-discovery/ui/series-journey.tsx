@@ -16,6 +16,7 @@ import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
+import { ChapterSummary } from "./course-programme-overview";
 
 import { formatTaskCount, formatStepCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
@@ -220,14 +221,10 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы, но коротко: метка «Материалы готовятся» и первая
-                    фраза описания (решение владельца 09.10.2026). С первым уроком глава
-                    становится обычной и её можно проходить. */}
-                {preparing && run.chapter.summary !== "" ? (
-                  <p className="mt-1 line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:text-sm">
-                    {firstSentence(run.chapter.summary)}
-                  </p>
-                ) : null}
+                <ChapterSummary
+                  name={run.chapter.name}
+                  summary={run.chapter.summary}
+                />
               </header>
             ),
             id: run.chapter.id,
@@ -300,10 +297,4 @@ function chapterLookup(
     material.materialId === undefined
       ? null
       : (byMaterial.get(material.materialId) ?? null);
-}
-
-/** Первая фраза описания главы: будущая глава в программе называется одной мыслью. */
-function firstSentence(text: string): string {
-  const match = /^.+?[.!?…](?=\s|$)/su.exec(text.trim());
-  return match === null ? text.trim() : match[0];
 }
