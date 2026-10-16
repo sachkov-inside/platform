@@ -1,6 +1,6 @@
 // @ts-check
 // Restores the production-like product view on the local stand from the committed Engineering Content
-// originals: the AI-first product with its page, programme, files and videos, featured on Home. It is
+// originals: the AI Engineering product with its page, programme, files and videos, featured on Home. It is
 // safe to repeat on any branch; the stand data lives in the shared Compose volumes.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
@@ -18,7 +18,7 @@ const { values } = parseArgs({
   options: {
     "owner-email": { type: "string" },
     content: { type: "string" },
-    product: { type: "string", default: "working-with-agents" },
+    product: { type: "string", default: "inside-ai-engineering" },
     ref: { type: "string", default: "HEAD" },
     "course-preview": { type: "boolean", default: false },
   },
