@@ -337,30 +337,16 @@ telegramReminderTest(
 
     await page.goto(mode === "desktop" ? "/account/purchases" : "/");
 
-    if (mode === "desktop") {
-      const reminder = page.getByRole("button", {
-        name: "Telegram не подключён. Подключить",
-      });
-      await expect(reminder).toBeVisible();
-
-      // Окно открывается поверх текущей страницы: маршрут не меняется.
-      await page
-        .getByRole("button", { name: "Закрыть подключение Telegram" })
-        .click();
-      await reminder.click();
-
-      await expect(
-        page.getByRole("heading", { name: "Подключите Telegram" }),
-      ).toBeVisible();
-      await expect(page).toHaveURL(/\/account\/purchases$/u);
-    } else {
-      await expect(
-        page
-          .getByRole("navigation", { name: "Мобильная навигация" })
-          .getByRole("link", { name: "Профиль" })
-          .locator("span[aria-hidden='true']"),
-      ).toHaveCount(1);
-    }
+    const header = page.locator(
+      mode === "desktop" ? "[data-public-header]" : "[data-mobile-header]",
+    );
+    await expect(
+      header.getByRole("button", { name: "Подключить Telegram" }),
+    ).toBeVisible();
+    await expect(
+      header.getByRole("button", { name: "Аккаунт", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   },
 );
 
@@ -374,7 +360,7 @@ test("подключённый Telegram не оставляет напомина
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
 
   await expect(
-    page.getByRole("button", { name: "Telegram не подключён. Подключить" }),
+    page.getByRole("button", { name: "Подключить Telegram" }),
   ).toHaveCount(0);
 });
 

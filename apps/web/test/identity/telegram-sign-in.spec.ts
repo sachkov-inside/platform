@@ -40,8 +40,6 @@ function nextUpdateId() {
 
 async function start(page: Page) {
   await page.goto("/");
-  if ((page.viewportSize()?.width ?? 1440) < 768)
-    await page.getByRole("link", { name: "Профиль", exact: true }).click();
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await page.getByRole("button", { name: /Telegram/u }).click();
   await expect(page.locator("#bot")).toBeVisible();
@@ -248,8 +246,6 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   const userId = 29910000 + randomInt(1_000_000);
   const email = `telegram-${String(userId)}@example.test`;
   await page.goto("/");
-  if ((page.viewportSize()?.width ?? 1440) < 768)
-    await page.getByRole("link", { name: "Профиль", exact: true }).click();
   await page.getByRole("button", { name: "Войти", exact: true }).click();
   await page.locator('input[type="email"]').fill(email);
   await page.locator('button[type="submit"]').click();

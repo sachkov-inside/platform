@@ -377,12 +377,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await invalidSession.close();
 
     await recovery.goto(webBaseUrl);
-    await recovery
-      .getByRole("button", {
-        name: "Закрыть подключение Telegram",
-        exact: true,
-      })
-      .click();
+    await expect(
+      recovery.getByRole("dialog", { name: "Подключите Telegram" }),
+    ).toHaveCount(0);
     await recovery
       .getByRole("button", { name: "Аккаунт", exact: true })
       .click();

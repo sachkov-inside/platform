@@ -84,9 +84,7 @@ for (const destination of destinations) {
     );
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
-    await expect(navigation.getByRole("link")).toHaveCount(
-      navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
-    );
+    await expect(navigation.getByRole("link")).toHaveCount(2);
     await expect(
       navigation.getByRole("link", { name: destination.label, exact: true }),
     ).toHaveAttribute("aria-current", "page");
@@ -229,23 +227,16 @@ test("map remains available by direct URL without a primary navigation item", as
     "Карта Inside",
   );
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
-  await expect(navigation.getByRole("link")).toHaveCount(
-    navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
-  );
+  await expect(navigation.getByRole("link")).toHaveCount(2);
   await expect(navigation.getByRole("link", { name: "Карта" })).toHaveCount(0);
 });
 
-test("guest signs in through the desktop header or mobile Profile", async ({
+test("guest signs in through the desktop or mobile header", async ({
   page,
 }, testInfo) => {
   await page.goto("/");
   if (navigationMode(testInfo.project.name) === "mobile") {
     await expect(page.locator("[data-public-header]")).toBeHidden();
-    await page
-      .getByRole("navigation", { name: "Мобильная навигация" })
-      .getByRole("link", { name: "Профиль" })
-      .click();
-    await expect(page).toHaveURL(/\/account$/u);
   }
   const signIn = page.getByRole("button", { name: "Войти", exact: true });
   await expect(signIn).toBeEnabled();
