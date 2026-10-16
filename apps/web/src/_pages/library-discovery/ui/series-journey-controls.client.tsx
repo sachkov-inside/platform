@@ -405,12 +405,12 @@ export function SeriesJourneyControls({
                               {row.card}
                               {row.after ?? null}
                             </li>
-                            );
-                })}
+                          ))}
                         </ol>
                       )}
                     </section>
-                ))}
+                  );
+                })}
               </div>
             </SeriesContinuationProvider>
           </>
