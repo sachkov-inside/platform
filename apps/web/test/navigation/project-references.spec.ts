@@ -32,6 +32,14 @@ test("reference navigation preserves nine steps and restores the originating les
   await expect(
     page.getByRole("heading", { name: "Урок 5", exact: true }),
   ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Reflect.get(window.history.state ?? {}, "insideReader") !== undefined,
+      ),
+    )
+    .toBe(true);
   await page.evaluate(() => {
     const root = document.querySelector<HTMLElement>(
       "[data-application-content]",

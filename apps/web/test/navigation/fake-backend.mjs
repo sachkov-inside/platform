@@ -224,7 +224,15 @@ const referenceLessons = [
   ...item,
   materialId: `33333333-3333-4333-8333-${String(index + 801).padStart(12, "0")}`,
   seriesMemberships: [
-    { ordinal: index + 1, series: referenceProduct, stepGroup: null },
+    {
+      ordinal: index + 1,
+      series: {
+        id: referenceProduct.id,
+        name: referenceProduct.name,
+        slug: referenceProduct.slug,
+      },
+      stepGroup: null,
+    },
   ],
 }));
 /** @param {Product} product */

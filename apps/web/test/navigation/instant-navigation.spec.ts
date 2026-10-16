@@ -1019,7 +1019,7 @@ test("снимки перехода «программа → урок → про
   await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
-  const lessonAnchors = ["[data-course-actions]", "[data-reader-header]"];
+  const lessonAnchors = ["[data-reader-top-actions]", "[data-reader-header]"];
   await page
     .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
