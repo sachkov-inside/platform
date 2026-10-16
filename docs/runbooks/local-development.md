@@ -1222,8 +1222,8 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 
 - `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
   one set of sign-in keys whatever branch starts it.
-- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
-  sibling `inside-content` checkout and features that product on Home. It starts the authoring
+- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI Engineering originals from the
+  `~/Work/Materials/engineering-content` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
   approves the publication of every transferred original, as `--publish-all` does; see the publication
   policy below.
@@ -1255,8 +1255,7 @@ Compose project.
 `pnpm local:stand --production-web` starts the full local environment. Use the production web build
 for manual reading and navigation checks; the development server compiles routes on demand.
 Then run `pnpm local:course` (optionally `--owner-email EMAIL` on first use). It uses the same
-owner sign-in/bootstrap and persistent journal as `local:product`, but selects `inside-ai-engineering`
-and an explicit **local preview**. The Platform command retains `--product`; its Content subprocess calls `export-platform --guide`.
+owner sign-in/bootstrap and persistent journal as `local:product`, and selects an explicit **local preview** for `inside-ai-engineering`. The Platform command retains `--product`; its Content subprocess calls `export-platform --guide`.
 The source repository can be selected with `--content PATH`;
 `--ref COMMIT` pins the chosen content revision.
 
@@ -1328,7 +1327,7 @@ The former volume stays until the owner decides to delete it; the transfer does 
 For content-only updates that must preserve existing stand access/publication and prove affected images,
 use [the preservation and image-evidence procedure](authoring-preservation.md).
 
-Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
+Originals from Engineering Content reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
 | Target | Runtime | Gateway |
@@ -1365,19 +1364,19 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
-  cover (`product.yaml` keys `cover` and `cover_alt`) through
+  cover (`guide.yaml` keys `cover` and `cover_alt`) through
   `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
   as the `cover_removal_pending` notice and taken down in Platform by hand. Material
   artifacts as authoring-owned Product artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed
-  product page description (`product.yaml`, key `page`; see
+  product page description (`guide.yaml`, key `page`; see
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
   page description before the transfer's first write, and its refusal names the product.
   The optional `products[].introduction` imports all four introduction fields; omitting it preserves
   the stored introduction. The source owns this text for imported Products (#845).
-  Editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+  Editing the page text is a commit in Engineering Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
 private draft: its author previews it through the authoring preview, while guests, other accounts,

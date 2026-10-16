@@ -32,7 +32,7 @@ entire command; a historical receipt never means that state is still current. Th
 replays an uncertain request with the same key before reading current state, detects foreign changes,
 and does not republish a withdrawn definition. Omission from a package is not deletion.
 
-Real authored originals stay in Inside Content. Provenance records a repository, commit and relative
+Real authored originals stay in Engineering Content. Provenance records a repository, commit and relative
 path, but is an author assertion, not independent cryptographic attestation of Git history. The
 current Content exporter needs a follow-up to emit this optional metadata. Synthetic packages already
 exercise the seam; that follow-up and the first chapter do not block the technical practice cycle.

@@ -1,9 +1,10 @@
 // @ts-check
-// Restores the production-like product view on the local stand from the committed Inside Content
-// originals: the AI-first product with its page, programme, files and videos, featured on Home. It is
+// Restores the production-like product view on the local stand from the committed Engineering Content
+// originals: the AI Engineering product with its page, programme, files and videos, featured on Home. It is
 // safe to repeat on any branch; the stand data lives in the shared Compose volumes.
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
 
@@ -17,18 +18,21 @@ const { values } = parseArgs({
   options: {
     "owner-email": { type: "string" },
     content: { type: "string" },
-    product: { type: "string", default: "working-with-agents" },
+    product: { type: "string", default: "inside-ai-engineering" },
     ref: { type: "string", default: "HEAD" },
     "course-preview": { type: "boolean", default: false },
   },
 });
-const { identity, email } = await standIdentity(values["owner-email"]);
-// Linked worktrees sit elsewhere, so the originals are found next to the primary checkout.
+const { email } = await standIdentity(values["owner-email"]);
+// Authoring lives in Materials independently of the primary checkout or assigned worktree.
 const content = resolve(
-  values.content ?? resolve(dirname(identity), "..", "inside-content"),
+  values.content ??
+    resolve(homedir(), "Work", "Materials", "engineering-content"),
 );
 if (!existsSync(resolve(content, "tools/content.py")))
-  throw new Error(`Inside Content is not at ${content}; pass --content PATH`);
+  throw new Error(
+    `Engineering Content is not at ${content}; pass --content PATH`,
+  );
 const receipt = await withStandGateway(email, (origin) =>
   syncGitLocal(
     content,
