@@ -196,7 +196,9 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   });
   await cropDialog.getByRole("button", { name: "Сохранить аватар" }).click();
   await expect(cropDialog).toBeHidden();
-  const renderedAvatar = page.getByAltText(`Аватар: ${displayName}`).first();
+  const renderedAvatar = page
+    .getByRole("main")
+    .getByAltText(`Аватар: ${displayName}`);
   await expect(renderedAvatar).toBeVisible();
   await expect
     .poll(() =>
@@ -282,7 +284,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   ).toBeVisible();
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(
-    page.getByRole("img", { name: `Аватар: ${displayName}` }).first(),
+    page.getByRole("main").getByRole("img", { name: `Аватар: ${displayName}` }),
   ).toBeVisible();
 
   const removedExportRoute = await (

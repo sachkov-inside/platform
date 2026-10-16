@@ -13,7 +13,7 @@ export function AccountTelegramNotice({
       <TelegramLinkAction
         compact
         label="Подключить Telegram"
-        className="min-h-11 rounded-full bg-muted px-3 text-sm text-action hover:bg-action/8 hover:text-action"
+        className="min-h-11 min-w-11 rounded-full bg-muted px-3 text-sm text-action hover:bg-action/8 hover:text-action"
         onRefresh={onRefresh}
       />
     </section>
