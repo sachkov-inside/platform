@@ -471,7 +471,8 @@ when available. Reload preserves the course anchor; absent history, blocked stor
 route fallback. No global last-course preference or cross-tab navigation state is used.
 The separate “О проекте” reference group selects the published Product members `aie-project` and
 `aie-product-brief` by existing identity. It appears in the chapter rail, mobile programme and programme page.
-References do not enter chapter composition, curricular positions, counts or required progress.
+References do not add mandatory chapter steps or change chapter composition, positions or step counts.
+Existing reading-state records and the aggregate progress across Product members remain unchanged.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without

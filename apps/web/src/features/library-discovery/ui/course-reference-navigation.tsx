@@ -8,7 +8,7 @@ import {
 import type { CourseReferenceMaterial } from "../model/course-reading";
 import styles from "./course-reading.module.css";
 
-/** Reference documents remain outside chapter steps and their progress. */
+/** Reference documents remain outside chapter step navigation. */
 export function CourseReferenceNavigation({
   references,
   activeReferenceId,
