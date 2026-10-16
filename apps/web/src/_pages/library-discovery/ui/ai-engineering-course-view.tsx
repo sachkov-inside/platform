@@ -22,7 +22,7 @@ import {
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import type {
   ProductPage,
@@ -113,23 +113,21 @@ export function AiEngineeringCourseView({
         />
       </header>
 
-      {page.blocks.map((block) =>
-        block.id === "programme-practice" && block.kind === "list" ? (
-          <CourseProgrammeOverview
-            chapters={result.chapters}
-            practice={block}
-            key={block.id}
-          />
-        ) : (
-          <CourseBlock
-            statusCall={statusCall}
-            block={block}
-            hasFreeLessons={hasFreeLessons}
-            key={block.id}
-            programme={programme}
-          />
-        ),
-      )}
+      {page.blocks
+        .filter((block) => block.id !== "programme-practice")
+        .map((block) => (
+          <Fragment key={block.id}>
+            {block.id === "status" ? (
+              <CourseProgrammeOverview chapters={result.chapters} />
+            ) : null}
+            <CourseBlock
+              statusCall={statusCall}
+              block={block}
+              hasFreeLessons={hasFreeLessons}
+              programme={programme}
+            />
+          </Fragment>
+        ))}
 
       <div className="ai-product-sticky">
         <IntentPrefetchLink className="ai-product-button" href={programme}>

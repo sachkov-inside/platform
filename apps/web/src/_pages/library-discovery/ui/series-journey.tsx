@@ -224,6 +224,7 @@ function journeyRun(
                 <ChapterSummary
                   name={run.chapter.name}
                   summary={run.chapter.summary}
+                  showOutcome={run.chapter.materialIds.length === 0}
                 />
               </header>
             ),

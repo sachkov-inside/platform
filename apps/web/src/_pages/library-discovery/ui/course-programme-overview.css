@@ -2,37 +2,11 @@
   margin-block: 4rem;
 }
 
-.course-programme-practice {
-  margin-block: 1.5rem;
-  max-width: 70ch;
-}
-
-.course-programme-practice :is(h2, h3) {
-  margin-bottom: 0.75rem;
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
-
-.course-programme-practice p,
 .course-chapter-summary {
   color: var(--muted-foreground);
   font-size: 1rem;
   line-height: 1.7;
   overflow-wrap: anywhere;
-}
-
-.course-programme-practice ul {
-  margin-block: 1rem 0;
-  padding-left: 1.25rem;
-  list-style: disc;
-  color: var(--foreground);
-  font-size: 1rem;
-  line-height: 1.7;
-}
-
-.course-programme-practice li + li {
-  margin-top: 0.5rem;
 }
 
 .course-programme-chapters {

@@ -41,10 +41,10 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", {
+      canvas.queryByRole("heading", {
         name: /Разработка с агентами через весь курс/u,
       }),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
     await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(8);
     await expect(
       canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
@@ -116,5 +116,18 @@ export const WithPublishedLessons: Story = {
     await expect(
       canvasElement.querySelectorAll(".programme-chapter"),
     ).toHaveLength(8);
+    const chapters = canvasElement.querySelectorAll(".programme-chapter");
+    await expect(
+      chapters[0]?.querySelector(".course-chapter-outcome"),
+    ).toBeNull();
+    await expect(
+      chapters[1]?.querySelector(".course-chapter-outcome"),
+    ).toBeNull();
+    await expect(
+      chapters[2]?.querySelector(".course-chapter-outcome"),
+    ).toBeVisible();
+    await expect(
+      chapters[0]?.querySelector(".course-chapter-details > summary"),
+    ).toBeVisible();
   },
 };
