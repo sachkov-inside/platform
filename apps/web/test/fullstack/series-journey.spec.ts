@@ -173,7 +173,7 @@ test("product programme marks the last opened material as the place to continue"
     await page.goto(`/materials/${slug}`);
     expect((await opened).ok()).toBe(true);
     const button = page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .getByRole("button", { name: "Изучено", exact: true });
     const lowerButton = page
       .getByRole("navigation", {

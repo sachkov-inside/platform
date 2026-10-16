@@ -18,49 +18,36 @@ async function dismissOnboarding(page: Page) {
     await dismiss.click();
   });
 }
-async function unmark(
-  page: Page,
-  label: string,
-  context: "standalone" | "course" = "standalone",
-) {
+async function unmark(page: Page, label: string) {
   for (const panel of [
-    page.getByRole("group", { name: "Отметка изучения", exact: true }),
-    context === "course"
-      ? page.locator("[data-reader-completion-actions]")
-      : page.getByRole("navigation", {
-          name: "Действия в конце материала",
-          exact: true,
-        }),
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
     const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveCount(1);
     await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   }
   const button = page
-    .getByRole("group", { name: "Отметка изучения", exact: true })
+    .getByRole("navigation", { name: "Действия материала", exact: true })
     .getByRole("button", { name: label, exact: true });
   if ((await button.getAttribute("aria-pressed")) === "true") {
-    await expectReadingMark(page, label, true, context);
+    await expectReadingMark(page, label, true);
     await button.click();
   }
-  await expectReadingMark(page, label, false, context);
+  await expectReadingMark(page, label, false);
   return button;
 }
 
-async function expectReadingMark(
-  page: Page,
-  label: string,
-  pressed: boolean,
-  context: "standalone" | "course" = "standalone",
-) {
+async function expectReadingMark(page: Page, label: string, pressed: boolean) {
   for (const panel of [
-    page.getByRole("group", { name: "Отметка изучения", exact: true }),
-    context === "course"
-      ? page.locator("[data-reader-completion-actions]")
-      : page.getByRole("navigation", {
-          name: "Действия в конце материала",
-          exact: true,
-        }),
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
     const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveCount(1);

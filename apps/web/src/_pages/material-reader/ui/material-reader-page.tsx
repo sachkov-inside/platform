@@ -3,7 +3,7 @@ import { MaterialTaskWorkspace } from "@/features/product-task-submission/index.
 import { materialSourceAnchors } from "@/entities/material";
 import { BackendConnectionError } from "@/shared/api/backend/index.server";
 import { CourseTaskSubmissionStatuses } from "@/features/library-discovery";
-import { productPath } from "@/shared/routing/public-page-path";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
@@ -217,7 +217,7 @@ async function PublicCourseTaskStatuses({
   if (series.kind !== "ready" && series.kind !== "empty") return null;
   return (
     <CourseTaskSubmissionStatuses
-      courseHref={productPath(productSlug)}
+      courseHref={productProgrammeHref(productSlug)}
       submittedTaskIds={series.chapters.flatMap((chapter) =>
         (chapter.tasks ?? [])
           .filter(

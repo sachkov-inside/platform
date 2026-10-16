@@ -808,17 +808,17 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     // This fixture is a Product containing Video: the saved completion belongs to the Material.
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
     await page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible")
       .getByRole("button", { name: "Изучено", exact: true })
       .click();
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible")
         .getByRole("button", { name: "Изучено", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -829,7 +829,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     await expect(page.getByText("Не удалось загрузить видео")).toBeVisible();
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible")
         .getByRole("button", { name: "Изучено", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");

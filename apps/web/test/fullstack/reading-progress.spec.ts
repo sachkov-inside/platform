@@ -43,8 +43,8 @@ async function openReader(
   const reader = page.locator(
     `[data-material-reader-state='${readerState}']:visible`,
   );
-  const actionScope = reader.getByRole("group", {
-    name: "Отметка изучения",
+  const actionScope = reader.getByRole("navigation", {
+    name: "Действия материала",
     exact: true,
   });
   const action = actionScope.locator("[data-reading-action-state]:visible");
@@ -78,7 +78,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await button.click();
   await expect(
     page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible")
       .getByRole("alert"),
   ).toContainText("Не сохранено");
@@ -94,7 +94,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   const directory = await prepareEvidenceDirectory("issue-329");
   await expect(
     page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "ready");
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -133,7 +133,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await second.reload();
     await expect(
       second
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "anonymous");
     expect(await second.locator("[data-material-reading-status]").count()).toBe(
@@ -166,17 +166,17 @@ test("reading progress reconciles stale windows and account changes without relo
     await button.click();
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "conflict");
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .getByRole("button", { name: "Обновить статус", exact: true })
       .click();
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
     // Another authenticated identity, in the SAME page and QueryClient.
@@ -185,7 +185,7 @@ test("reading progress reconciles stale windows and account changes without relo
     );
     await expect(
       page
-        .getByRole("group", { name: "Отметка изучения", exact: true })
+        .getByRole("navigation", { name: "Действия материала", exact: true })
         .locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
     if ((await button.getAttribute("aria-pressed")) === "true") {
@@ -224,7 +224,7 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect.poll(() => statusChecks).toBeGreaterThanOrEqual(2);
     await recheckAnswered;
     const readingState = page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible");
     await expect(readingState).toHaveAttribute(
       "data-reading-action-state",
@@ -438,7 +438,7 @@ test("reading progress supports Note and lets an expired member remove a protect
   await page.goto("/materials/tekst-dlya-proverki-progressa");
   await expect(
     page
-      .getByRole("group", { name: "Отметка изучения", exact: true })
+      .getByRole("navigation", { name: "Действия материала", exact: true })
       .locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "anonymous");
 });

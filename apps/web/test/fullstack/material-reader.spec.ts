@@ -411,7 +411,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
   for (const panel of [
-    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
     page.getByRole("navigation", {
       name: "Действия в конце материала",
       exact: true,
@@ -508,7 +508,7 @@ test("requires sign-in to save a video reading mark and does not create anonymou
   });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
   for (const panel of [
-    page.getByRole("group", { name: "Отметка изучения", exact: true }),
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
     page.getByRole("navigation", {
       name: "Действия в конце материала",
       exact: true,
@@ -531,7 +531,7 @@ test("requires sign-in to save a video reading mark and does not create anonymou
     ).toHaveCount(0);
   }
   const signIn = page
-    .getByRole("group", { name: "Отметка изучения", exact: true })
+    .getByRole("navigation", { name: "Действия материала", exact: true })
     .getByRole("link", { name: "Просмотрено", exact: true });
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
@@ -616,7 +616,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     page.getByRole("dialog", { name: "Подключите Telegram" }),
   ).toHaveCount(0);
   const markWatched = page
-    .getByRole("group", { name: "Отметка изучения", exact: true })
+    .getByRole("navigation", { name: "Действия материала", exact: true })
     .getByRole("button", { name: "Просмотрено", exact: true });
   const watchedAtBottom = page
     .getByRole("navigation", {

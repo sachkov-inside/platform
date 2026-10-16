@@ -21,7 +21,7 @@ test("the course sidebar stays mounted while only the material changes", async (
   await expect(rail).toBeVisible();
   await expect(
     rail.getByRole("link", { name: "Страница курса", exact: true }),
-  ).toHaveAttribute("href", "/products/reference-course");
+  ).toHaveAttribute("href", programme);
   await expect(
     page
       .getByRole("navigation", { name: "Действия материала", exact: true })

@@ -84,9 +84,13 @@ test("production reaches attempt 51 and its feedback; a failed continuation retr
       "older-history",
     );
     await request.post(`${backend}/__own-history`, {
-      data: { unavailable: false },
+      data: { unavailable: false, hold: true },
     });
+    // Keep polling from replacing the retry button before the explicit retry reaches it.
     await page.getByRole("button", { name: "Повторить" }).click();
+    await request.post(`${backend}/__own-history`, {
+      data: { unavailable: false, hold: false },
+    });
     await expect(
       page.locator("[data-own-submissions] [data-submission]"),
     ).toHaveCount(1);
