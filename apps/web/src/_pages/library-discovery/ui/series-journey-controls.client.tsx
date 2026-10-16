@@ -333,7 +333,10 @@ export function SeriesJourneyControls({
             >
               <div className="mt-5 grid gap-6">
                 {(part?.kind === "materials" ? part.runs : []).map((run) => {
-                  const rows = run.rows.slice(0, Math.max(0, count - run.offset));
+                  const rows = run.rows.slice(
+                    0,
+                    Math.max(0, count - run.offset),
+                  );
                   return (
                     <section
                       aria-labelledby={
