@@ -36,7 +36,8 @@ function quizSchema(block: z.ZodType<RenderedBlock>) {
       z
         .object({
           ...common,
-          selectionMode: z.never().optional(),
+          // Zod needs a literal undefined discriminator; the accepted legacy input stays unchanged.
+          selectionMode: z.literal(undefined).optional(),
           correctOptionId: id,
           options: z.array(option).min(2).max(5),
         })

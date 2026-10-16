@@ -55,8 +55,18 @@ export function SeriesOrderPanel({
             items={order.items}
             productId={seriesId}
             orderVersion={order.orderVersion}
-            onRefresh={() => {
-              void query.refetch();
+            onRefresh={async () => {
+              const refreshed = await query.refetch();
+              if (refreshed.data?.kind !== "ready") return null;
+              const freshChapter = refreshed.data.order.chapters.find(
+                (entry) => entry.id === chapter.id,
+              );
+              return freshChapter === undefined
+                ? null
+                : {
+                    orderVersion: refreshed.data.order.orderVersion,
+                    materialIds: freshChapter.supplementaryMaterialIds ?? [],
+                  };
             }}
           />
         ))}

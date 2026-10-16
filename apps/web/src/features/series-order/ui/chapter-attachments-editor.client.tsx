@@ -21,7 +21,10 @@ export function ChapterAttachmentsEditor({
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly productId: string;
   readonly orderVersion: string;
-  readonly onRefresh: () => void;
+  readonly onRefresh: () => Promise<{
+    readonly orderVersion: string;
+    readonly materialIds: readonly string[];
+  } | null>;
 }) {
   const version = useRef(orderVersion);
   const [selected, setSelected] = useState([
@@ -39,6 +42,8 @@ export function ChapterAttachmentsEditor({
     Math.max(0, Math.ceil(candidates.length / 20) - 1),
   );
   const mutation = useMutation({ mutationFn: updateChapterAttachments });
+  const refresh = useMutation({ mutationFn: onRefresh });
+  const pending = mutation.isPending || refresh.isPending;
   const dirty =
     JSON.stringify(selected) !==
     JSON.stringify(chapter.supplementaryMaterialIds ?? []);
@@ -68,7 +73,7 @@ export function ChapterAttachmentsEditor({
               type="button"
               size="icon"
               variant="ghost"
-              disabled={mutation.isPending || index === 0}
+              disabled={pending || index === 0}
               aria-label="Поднять материал"
               onClick={() => {
                 move(index, -1);
@@ -80,7 +85,7 @@ export function ChapterAttachmentsEditor({
               type="button"
               size="icon"
               variant="ghost"
-              disabled={mutation.isPending || index === selected.length - 1}
+              disabled={pending || index === selected.length - 1}
               aria-label="Опустить материал"
               onClick={() => {
                 move(index, 1);
@@ -92,7 +97,7 @@ export function ChapterAttachmentsEditor({
               type="button"
               size="icon"
               variant="ghost"
-              disabled={mutation.isPending}
+              disabled={pending}
               aria-label="Убрать привязку"
               onClick={() => {
                 setSelected(selected.filter((entry) => entry !== id));
@@ -124,7 +129,7 @@ export function ChapterAttachmentsEditor({
                 type="button"
                 variant="ghost"
                 className="min-h-11 h-auto w-full justify-start whitespace-normal text-left"
-                disabled={mutation.isPending || selected.length >= 200}
+                disabled={pending || selected.length >= 200}
                 onClick={() => {
                   setSelected([...selected, item.materialId]);
                 }}
@@ -166,7 +171,7 @@ export function ChapterAttachmentsEditor({
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button
           type="button"
-          disabled={!dirty || mutation.isPending}
+          disabled={!dirty || pending}
           onClick={() => {
             mutation.mutate(
               {
@@ -179,7 +184,7 @@ export function ChapterAttachmentsEditor({
                 onSuccess: (result) => {
                   if (result.kind === "saved") {
                     version.current = result.orderVersion;
-                    onRefresh();
+                    void onRefresh();
                   }
                 },
               },
@@ -197,11 +202,16 @@ export function ChapterAttachmentsEditor({
             <Button
               type="button"
               variant="link"
+              disabled={pending}
               onClick={() => {
-                setSelected([...(chapter.supplementaryMaterialIds ?? [])]);
-                version.current = orderVersion;
-                mutation.reset();
-                onRefresh();
+                refresh.mutate(undefined, {
+                  onSuccess: (fresh) => {
+                    if (fresh === null) return;
+                    setSelected([...fresh.materialIds]);
+                    version.current = fresh.orderVersion;
+                    mutation.reset();
+                  },
+                });
               }}
             >
               Обновить

@@ -162,6 +162,15 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       },
       data: { chapterId },
     });
+    await database.prisma.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId: anchorId,
+        chapterId,
+        ordinal: 1,
+      },
+    });
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
       directory: new ProductDirectory(database.prisma),

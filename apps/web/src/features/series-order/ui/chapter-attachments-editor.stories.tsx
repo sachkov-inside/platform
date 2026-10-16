@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { SeriesOrderPanel } from "./series-order-panel.client";
 import { ChapterAttachmentsEditor } from "./chapter-attachments-editor.client";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
@@ -24,7 +24,7 @@ const meta = {
     items: [
       { materialId, title: "Описание проекта", publicationState: "published" },
     ],
-    onRefresh: () => undefined,
+    onRefresh: () => Promise.resolve(null),
   },
   beforeEach: fetchBeforeRender(() =>
     Promise.resolve(
@@ -140,3 +140,66 @@ export const IndependentDrafts: Story = {
     ).toBeEnabled();
   },
 };
+
+export const RefreshAfterExternalConflict: Story = {
+  args: {
+    items: [
+      { materialId, title: "Описание проекта", publicationState: "published" },
+      {
+        materialId: "95000000-0000-4000-8000-000000000002",
+        title: "Новый бриф",
+        publicationState: "published",
+      },
+    ],
+    onRefresh: () =>
+      Promise.resolve({
+        orderVersion: "b".repeat(64),
+        materialIds: ["95000000-0000-4000-8000-000000000002"],
+      }),
+  },
+  beforeEach: () => {
+    conflictSave.mockClear();
+    return fetchBeforeRender(conflictSave)();
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByText("Дополнительные материалы · Первая глава"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать привязку" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сохранить привязки" }),
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Обновить" }),
+    );
+    await canvas.findByText("Новый бриф", { selector: "span" });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать привязку" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сохранить привязки" }),
+    );
+    await waitFor(() => expect(conflictSave).toHaveBeenCalledTimes(2));
+    const secondBody = conflictSave.mock.calls[1]?.[1]?.body;
+    if (!(secondBody instanceof FormData))
+      throw new Error("Missing refreshed attachment command");
+    await expect(secondBody.get("expectedOrderVersion")).toBe("b".repeat(64));
+    await waitFor(() => expect(canvas.queryByRole("alert")).toBeNull());
+  },
+};
+const conflictSave = fn((_input: RequestInfo | URL, init?: RequestInit) => {
+  const version =
+    init?.body instanceof FormData
+      ? init.body.get("expectedOrderVersion")
+      : null;
+  return Promise.resolve(
+    Response.json(
+      version === "b".repeat(64)
+        ? { kind: "saved", orderVersion: "c".repeat(64) }
+        : { kind: "conflict" },
+    ),
+  );
+});
