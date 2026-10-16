@@ -612,11 +612,9 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await signInFullStack(context, "OWNER");
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const onboardingDismiss = page.getByRole("button", {
-    name: "Закрыть подключение Telegram",
-  });
-  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
-  await onboardingDismiss.click();
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
   const markWatched = page
     .getByRole("group", { name: "Отметка изучения", exact: true })
     .getByRole("button", { name: "Просмотрено", exact: true });
@@ -708,7 +706,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(
     page.getByRole("heading", { name: "Редактор Базы знаний" }),
   ).toHaveCount(0);
-  await closeTelegramOnboardingIfPresent(page);
+  await expectNoTelegramOnboarding(page);
   await captureIssue271Evidence(page, testInfo, "account");
   if (testInfo.project.name === "mobile-chromium") {
     await page.goto("/authoring/materials");
@@ -1083,17 +1081,10 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 }
 
-async function closeTelegramOnboardingIfPresent(page: Page) {
-  const dismiss = page.getByRole("button", {
-    name: "Закрыть подключение Telegram",
-  });
-  const visible = await dismiss
-    .waitFor({ state: "visible", timeout: 3_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!visible) return;
-  await dismiss.click();
-  await expect(dismiss).toBeHidden();
+async function expectNoTelegramOnboarding(page: Page) {
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
 }
 
 async function captureIssue93Evidence(

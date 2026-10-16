@@ -17,11 +17,11 @@ function taskFixture(): {
   return { productSlug, code };
 }
 
-/** The member session greets with the Telegram and storage notices; they cover the page. */
+/** Only the storage notice covers the page; Telegram stays in the header. */
 async function dismissNotices(page: Page) {
-  await page
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
