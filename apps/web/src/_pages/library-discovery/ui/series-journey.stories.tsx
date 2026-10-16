@@ -499,9 +499,7 @@ export const ChapterTasks: Story = {
       .getByRole("heading", { level: 3, name: "Основа продукта" })
       .closest("header");
     if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
-    await expect(
-      within(chapterHeader).getByText("8 шагов"),
-    ).toBeVisible();
+    await expect(within(chapterHeader).getByText("8 шагов")).toBeVisible();
     const unavailable = canvasElement.querySelector(
       '[data-programme-task="access-unavailable"]',
     );
@@ -606,7 +604,7 @@ export const LargeMaterialCatalogue: Story = {
       canvas.getByRole("list", { name: "Материалы курса" });
     await expect(within(catalogue()).getAllByRole("listitem")).toHaveLength(12);
     await expect(
-      canvas.getByText("120 шагов", { exact: true }),
+      canvas.getByText("120 материалов", { exact: true }),
     ).toBeVisible();
     const search = canvas.getByRole("searchbox", {
       name: "Поиск по материалам курса",
