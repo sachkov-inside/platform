@@ -776,6 +776,18 @@
 .host [data-course-local-frame] > .document {
   grid-column: 2;
 }
+@media (min-width: 64rem) {
+  .host [data-material-reader-state="loading"],
+  .host [data-product-task-state="loading"] {
+    width: calc(100% - 17rem - var(--course-host-gap));
+    max-width: 43rem;
+    margin-inline-start: max(
+      calc(17rem + var(--course-host-gap)),
+      calc((100% + 17rem + var(--course-host-gap) - 43rem) / 2)
+    );
+    margin-inline-end: 0;
+  }
+}
 @media (max-width: 74rem) {
   .host {
     --course-host-gap: 1.75rem;

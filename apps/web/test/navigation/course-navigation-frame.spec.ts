@@ -29,6 +29,17 @@ test("the course sidebar stays mounted while only the material changes", async (
   await request.post(control, { data: { delayMs: 1500 } });
   try {
     await rail.getByRole("link", { name: "Урок 6", exact: true }).click();
+    const loading = page.locator(
+      '[data-material-reader-state="loading"]:visible',
+    );
+    await expect(loading).toBeVisible();
+    const railBox = await rail.boundingBox();
+    const loadingBox = await loading.boundingBox();
+    expect(railBox).not.toBeNull();
+    expect(loadingBox).not.toBeNull();
+    if (railBox === null || loadingBox === null)
+      throw new Error("Missing course frame geometry");
+    expect(loadingBox.x).toBeGreaterThanOrEqual(railBox.x + railBox.width);
     await expect(
       page.getByRole("heading", { name: "Урок 6", exact: true }),
     ).toBeVisible();
