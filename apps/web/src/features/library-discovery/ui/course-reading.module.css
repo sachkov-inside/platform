@@ -60,6 +60,12 @@
 .chapterTrigger > svg {
   flex: 0 0 1rem;
 }
+.chapterTrigger .chapterName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .chapterTrigger:hover,
 .chapterTrigger[data-state="open"] {
   background: transparent;
