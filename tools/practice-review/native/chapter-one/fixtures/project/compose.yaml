@@ -1,0 +1,58 @@
+services:
+  database:
+    image: ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: learner
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -h 127.0.0.1 -U postgres -d learner]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  backend:
+    build: .
+    command: [node, apps/backend/server.mjs]
+    environment:
+      DATABASE_URL: postgresql://postgres@database:5432/learner
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8081/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+  frontend:
+    build: .
+    command: [node, apps/frontend/server.mjs]
+    environment:
+      BACKEND_URL: http://backend:8081
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [default, edge]
+    ports:
+      - "127.0.0.1::8080"
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8080/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 40
+networks:
+  edge: {}
+  default:
+    internal: true

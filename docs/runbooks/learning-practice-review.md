@@ -195,6 +195,10 @@ and token verifier. It is distinct from production Logto onboarding and from syn
 
 ## Synthetic fixtures and evidence
 
+For the frozen three-Task first-chapter matrix with disposable PostgreSQL and containerized Codex,
+use the [chapter-one review lab](chapter-one-review-lab.md). It is separate from the shared local
+stand and from native Logto/production acceptance.
+
 `tools/practice-review/fixtures.mjs` builds three full reference materials, assignments and neutrally
 named project directories. The expected outcomes and scenario labels remain outside the learner's
 selected project and prompt. Brief/spec alternatives use different formats and a serialized file
