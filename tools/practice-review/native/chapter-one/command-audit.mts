@@ -36,8 +36,7 @@ function audit(line: string, depth: number): string[] {
     const token = tokens[index];
     if (typeof token === "string") words.push(token);
     else if (token !== undefined && "comment" in token) continue;
-    else if (token !== undefined && token.op === "glob")
-      words.push(token.pattern);
+    else if (token?.op === "glob") words.push(token.pattern);
     else if (
       token !== undefined &&
       [";", "&&", "||", "|", "|&", "&"].includes(token.op)
@@ -46,7 +45,8 @@ function audit(line: string, depth: number): string[] {
     else if (
       token !== undefined &&
       ((token.op === ">" && tokens[index + 1] === "/dev/null") ||
-        (token.op === ">&" && ["1", "2"].includes(String(tokens[index + 1]))))
+        (token.op === ">&" &&
+          (tokens[index + 1] === "1" || tokens[index + 1] === "2")))
     ) {
       // Diagnostic-only redirects; project/file redirection remains unconsented.
       if (["1", "2"].includes(words.at(-1) ?? "")) words.pop();
