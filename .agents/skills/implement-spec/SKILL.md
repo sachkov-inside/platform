@@ -19,7 +19,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 ## Steps
 
 1. Read the spec and tickets to understand the task graph.
-   For a project enabling classification in `AGENTS.md` or `WORKFLOW.md`, invoke `classify-change` for provisional assessment.
+   For a project enabling classification in root `WORKFLOW.md`, invoke `classify-change` for provisional assessment.
    Preserve the owner-approved ticket graph; unconfigured projects keep their existing route.
 
 2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.

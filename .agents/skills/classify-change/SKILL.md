@@ -9,13 +9,15 @@ Assess an assigned change through two independent native read-only workers. This
 
 ## Project routing
 
-Read root `AGENTS.md` and `WORKFLOW.md` when present. The explicit opt-in is:
+Read root `AGENTS.md` for scope and root `WORKFLOW.md` for classification configuration. The explicit opt-in in `WORKFLOW.md` is:
 
 ```text
 Classification: enabled; policy: docs/agents/change-risk.md
 ```
 
-The path is repository-relative; one declaration is sufficient. Conflicting declarations require resolution before automatic completion.
+The path is repository-relative. `WORKFLOW.md` owns the single declaration; `AGENTS.md` routes to it.
+A legacy declaration in `AGENTS.md` requires explicit migration before automatic completion; it is not a second opt-in source.
+Duplicate or conflicting declarations require resolution before automatic completion.
 Unconfigured projects retain their existing route. An explicit assessment may report advisory results without inventing project authority.
 An enabled project with a missing policy, unavailable trusted revision, or unavailable worker has unresolved configuration uncertainty.
 Continue independent preparation, but keep automatic merge pending until resolved or decided by the owner.

@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 Implement the work described by the user in the spec or tickets.
 
-For a project with classification enabled in `AGENTS.md` or `WORKFLOW.md`, invoke `classify-change` provisionally before implementation.
+For a project with classification enabled in root `WORKFLOW.md`, invoke `classify-change` provisionally before implementation.
 A missing configured policy leaves automatic completion pending; unconfigured projects keep their existing route.
 
 Call the Skill tool with "tdd" where possible, at pre-agreed seams.
