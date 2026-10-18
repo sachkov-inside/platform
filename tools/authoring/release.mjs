@@ -50,6 +50,7 @@ import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
 import { preflightTaskPages } from "./task-page.mjs";
 import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
+import { previewRetirement, applyRetirement } from "./retirement.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -624,6 +625,18 @@ export async function applyRelease(
   stateDirectory,
   { archive = [], request: transport, accessToken } = {},
 ) {
+  const envelope = z
+    .object({ scope: z.string().optional() })
+    .passthrough()
+    .parse(JSON.parse(await readFile(previewPath, "utf8")));
+  if (envelope.scope === "material-retirement") {
+    if (archive.length > 0)
+      throw new Error("Retirement apply uses only its reviewed UUID targets");
+    return applyRetirement(previewPath, stateDirectory, {
+      request: transport,
+      accessToken,
+    });
+  }
   const preview = previewSchema.parse(
     JSON.parse(await readFile(previewPath, "utf8")),
   );
@@ -708,6 +721,7 @@ if (
       state: { type: "string" },
       preview: { type: "string" },
       archive: { type: "string", multiple: true, default: [] },
+      material: { type: "string", multiple: true, default: [] },
       publish: { type: "string", multiple: true, default: [] },
       "publish-all": { type: "boolean", default: false },
       "task-access": { type: "string", multiple: true, default: [] },
@@ -719,6 +733,8 @@ if (
     },
   });
   const [command] = positionals;
+  if (command !== "retirement-preview" && values.material.length > 0)
+    throw new Error("--material is a retirement-preview choice");
   if (command !== "preview" && values["task-access"].length > 0)
     throw new Error(
       "--task-access is a preview choice; apply uses the reviewed choices",
@@ -735,6 +751,24 @@ if (
       : undefined;
   };
   if (
+    command === "retirement-preview" &&
+    values.package &&
+    values.target &&
+    values.state
+  ) {
+    const { path, preview } = await previewRetirement(
+      values.package,
+      values.state,
+      {
+        origin: values.target,
+        materialIds: values.material,
+        accessToken: sessionFor(values.target),
+      },
+    );
+    process.stdout.write(
+      `${JSON.stringify({ preview: path, packageId: preview.packageId, fingerprint: preview.fingerprint, protectedMaterials: preview.protected.length, retirements: preview.materials.map((row) => ({ materialId: row.materialId, sourceId: row.source.id, title: row.metadata.title, from: row.publicationState, to: "unpublished" })) }, null, 2)}\n`,
+    );
+  } else if (
     command === "preview" &&
     (values.package || (values.content && values.product)) &&
     values.target &&
@@ -780,7 +814,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

@@ -1,35 +1,7 @@
-.course-programme-overview {
-  margin-block: 4rem;
-}
-
 .course-chapter-summary {
   color: var(--muted-foreground);
   font-size: 1rem;
   line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-
-.course-programme-chapters {
-  margin: 2rem 0 0;
-  padding-left: 1.75rem;
-  list-style: decimal;
-}
-
-.course-programme-chapters > li {
-  padding: 1.5rem 0 1.5rem 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.course-programme-chapters > li::marker {
-  color: var(--muted-foreground);
-  font-variant-numeric: tabular-nums;
-}
-
-.course-programme-chapters h3 {
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
@@ -93,14 +65,4 @@
 
 .course-chapter-content li + li {
   margin-top: 0.5rem;
-}
-
-@media (max-width: 39.999rem) {
-  .course-programme-overview {
-    margin-block: 2.5rem;
-  }
-
-  .course-programme-chapters h3 {
-    font-size: 1rem;
-  }
 }

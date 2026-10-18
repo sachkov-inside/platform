@@ -671,9 +671,9 @@ Account без права получают «не найдено». `ContentAcce
 Главной повторяет первый экран страницы курса тем же модулем, вместе с анимацией: ответ Главной отдаёт
 для закреплённого продукта `hero` (метка, вводная фраза, пункты) из того же сохранённого описания.
 
-The owner-approved programme presentation from 2026-10-16 shows compact chapter overviews on the
-course landing page. Both surfaces use actual Product chapters; Storybook fixtures never supply
-production copy. There is no separate cross-cutting development practice section.
+The course landing page links to the dedicated programme page without repeating its chapter
+overview (owner decision, 2026-10-18). The programme uses actual Product chapters; Storybook
+fixtures never supply production copy. There is no separate cross-cutting development practice section.
 The first paragraph of a chapter's `summary` is visible only when the chapter has no published
 materials. Remaining paragraphs and plain `- ` bullet lists appear in a native disclosure labelled
 «Темы и практика» for both available and preparing chapters. A single-paragraph summary does not
