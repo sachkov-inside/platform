@@ -27,6 +27,7 @@ test("source deletion uses the authenticated actor and header key; body cannot o
   expect(deleteSourceDraft).toHaveBeenCalledWith({
     ...body,
     actor: account.accountId,
+    expectedLegacyPractices: [],
     idempotencyKey: "delete-original-1",
   });
   await expect(

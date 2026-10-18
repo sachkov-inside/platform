@@ -94,6 +94,8 @@ async function fixture(t) {
     showInFeed: true,
   };
   const old = {
+    legacyPractices:
+      /** @type {{practiceId:string;practiceVersion:number;definitionDigest:string}[]} */ ([]),
     materialId: oldId,
     contentVersion: 2,
     publicationState: "published",
@@ -152,6 +154,7 @@ async function fixture(t) {
     if (receipts.has(key)) return receipts.get(key);
     if (path === "/authoring/import/materials/delete-draft") {
       assert.deepEqual(body, {
+        expectedLegacyPractices: old.legacyPractices,
         sourceId: old.source.id,
         materialId: oldId,
         expectedContentVersion: 2,
@@ -335,6 +338,35 @@ test("draft deletion refuses published history, Product membership, videos and f
   setup.old.source.id = "inside-task-page:foreign:old";
   await assert.rejects(
     previewRetirement(setup.packagePath, setup.state, options),
+  );
+  assert.equal(setup.writes.length, 0);
+});
+
+test("legacy practice drift stops deletion before writing even when Material version is unchanged", async (t) => {
+  const setup = await fixture(t);
+  setup.old.publicationState = "draft";
+  setup.old.firstPublishedAt = null;
+  setup.old.legacyPractices = [
+    {
+      practiceId: "inside-content:old",
+      practiceVersion: 1,
+      definitionDigest: "a".repeat(64),
+    },
+  ];
+  const { path } = await previewRetirement(setup.packagePath, setup.state, {
+    ...setup.options,
+    deleteDrafts: true,
+  });
+  setup.old.legacyPractices = [
+    {
+      practiceId: "inside-content:old",
+      practiceVersion: 2,
+      definitionDigest: "b".repeat(64),
+    },
+  ];
+  await assert.rejects(
+    applyRelease(path, setup.state, { request: setup.options.request }),
+    /changed after preview/u,
   );
   assert.equal(setup.writes.length, 0);
 });

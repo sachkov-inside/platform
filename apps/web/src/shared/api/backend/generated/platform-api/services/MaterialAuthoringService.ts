@@ -640,6 +640,11 @@ export class MaterialAuthoringService {
     idempotencyKey: string,
     requestBody: {
       expectedContentVersion: number;
+      expectedLegacyPractices: Array<{
+        definitionDigest: string;
+        practiceId: string;
+        practiceVersion: number;
+      }>;
       materialId: string;
       sourceId: string;
     },
@@ -1480,6 +1485,11 @@ export class MaterialAuthoringService {
       title: string;
       videoId: string;
     } | null;
+    legacyPractices?: Array<{
+      definitionDigest: string;
+      practiceId: string;
+      practiceVersion: number;
+    }>;
     materialId: string;
     metadata: {
       access: 'free' | 'closed';

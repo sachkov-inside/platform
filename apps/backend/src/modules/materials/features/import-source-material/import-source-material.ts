@@ -52,8 +52,12 @@ export function assembleDeleteSourceDraft(
       input,
     );
     if (!parsed.ok) return parsed;
-    const { sourceId, ...command } = parsed.value;
-    return assembleDeleteDraft(dependencies, sourceId)(command);
+    const { sourceId, expectedLegacyPractices, ...command } = parsed.value;
+    return assembleDeleteDraft(
+      dependencies,
+      sourceId,
+      expectedLegacyPractices,
+    )(command);
   };
 }
 

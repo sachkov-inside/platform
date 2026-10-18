@@ -28,8 +28,16 @@ const sourceSchema = z
     showInFeed: z.boolean(),
   })
   .strict();
+const legacyPracticeSchema = z
+  .object({
+    practiceId: z.string().min(1),
+    practiceVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    definitionDigest: z.hash("sha256"),
+  })
+  .strict();
 const snapshotSchema = z
   .object({
+    legacyPractices: z.array(legacyPracticeSchema).max(100).optional(),
     materialId: z.uuid(),
     contentVersion: z.number().int().positive(),
     publicationState: z.enum(["published", "unpublished", "draft"]),
@@ -91,7 +99,8 @@ function eligible(row, namespace, deleting) {
   return (
     owned &&
     (deleting
-      ? row.publicationState === "draft" &&
+      ? row.legacyPractices !== undefined &&
+        row.publicationState === "draft" &&
         row.firstPublishedAt === null &&
         row.primaryVideoId === null &&
         row.metadata.seriesMemberships.length === 0
@@ -221,6 +230,7 @@ function operation(preview, material) {
       reviewedRetirement: preview.fingerprint,
       path: "/authoring/import/materials/delete-draft",
       body: {
+        expectedLegacyPractices: material.legacyPractices ?? [],
         sourceId: material.source.id,
         materialId: material.materialId,
         expectedContentVersion: material.contentVersion,

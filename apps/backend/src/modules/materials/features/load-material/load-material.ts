@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { legacyPracticeSelectionSchema } from "../../domain/practice-definition.js";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
@@ -81,11 +82,29 @@ export function assembleLoadMaterial(
       }
       return {
         ok: true,
-        value: toMaterialDto(material.value, {
-          primaryVideo: primaryVideo.value,
-          latestVideoDeletion: latestVideoDeletion.value,
-          unselectedVideoUpload: unselectedVideoUpload.value,
-        }),
+        value: {
+          ...toMaterialDto(material.value, {
+            primaryVideo: primaryVideo.value,
+            latestVideoDeletion: latestVideoDeletion.value,
+            unselectedVideoUpload: unselectedVideoUpload.value,
+          }),
+          legacyPractices: z.array(legacyPracticeSelectionSchema).parse(
+            (
+              await dependencies.prisma.practiceDefinition.findMany({
+                where: { materialId: parsed.value.materialId },
+                orderBy: { practiceId: "asc" },
+                select: {
+                  practiceId: true,
+                  practiceVersion: true,
+                  definitionDigest: true,
+                },
+              })
+            ).map((row) => ({
+              ...row,
+              practiceVersion: Number(row.practiceVersion),
+            })),
+          ),
+        },
       };
     } catch (error) {
       return failure(

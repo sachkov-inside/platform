@@ -665,4 +665,153 @@ describe("authoring source Material", () => {
       value: { items: [{ materialId: reserved.value.materialId }] },
     });
   });
+
+  test("source deletion removes only explicitly confirmed unchanged unpublished legacy practices", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
+    const draftSource = { ...source, id: "obsolete-practice-owner" };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor,
+      source: draftSource,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const practice = {
+      actor,
+      practiceId: "inside-content:obsolete-practice",
+      materialId: reserved.value.materialId,
+      expectedContentVersion: 1,
+      expectedPracticeVersion: null,
+      idempotencyKey: "obsolete-practice-import",
+      publicationState: "unpublished" as const,
+      sourceReference: {
+        materialSourceId: draftSource.id,
+        materialSourceRevision: draftSource.revision,
+      },
+      provenance: {
+        repository: "synthetic/fixtures",
+        commit: "b".repeat(40),
+        path: "obsolete.json",
+      },
+      definition: {
+        schemaVersion: 1 as const,
+        title: "Obsolete",
+        businessInputs: "Private draft",
+        expectedOutcome: "Private practice",
+        allowedFreedom: "Any",
+        criteria: [
+          {
+            id: "one",
+            requirement: "Explain",
+            acceptableEvidence: ["Explanation"],
+          },
+        ],
+      },
+    };
+    const imported = await authoring.applySourcePractice(practice);
+    if (!imported.ok) throw new Error(imported.error.code);
+    const selection = [
+      {
+        practiceId: imported.value.practiceId,
+        practiceVersion: imported.value.practiceVersion,
+        definitionDigest: imported.value.definitionDigest,
+      },
+    ];
+    expect(
+      await authoring.loadMaterial({
+        actor,
+        materialId: reserved.value.materialId,
+      }),
+    ).toMatchObject({ ok: true, value: { legacyPractices: selection } });
+    const command = {
+      actor,
+      sourceId: draftSource.id,
+      materialId: reserved.value.materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "obsolete-practice-delete",
+    };
+    expect(await authoring.deleteSourceDraft(command)).toMatchObject({
+      ok: false,
+      error: { code: "invalid_reference" },
+    });
+    expect(
+      await authoring.deleteSourceDraft({
+        ...command,
+        expectedLegacyPractices: [
+          {
+            ...selection[0],
+            practiceId: imported.value.practiceId,
+            practiceVersion: 2,
+            definitionDigest: imported.value.definitionDigest,
+          },
+        ],
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
+    const selected = { ...command, expectedLegacyPractices: selection };
+    const deleted = await authoring.deleteSourceDraft(selected);
+    expect(deleted).toEqual({
+      ok: true,
+      value: { materialId: reserved.value.materialId },
+    });
+    expect(await authoring.deleteSourceDraft(selected)).toEqual(deleted);
+    expect(await authoring.applySourcePractice(practice)).toEqual(imported);
+
+    const ownerSource = { ...source, id: "obsolete-rebind-owner" };
+    const replacementSource = { ...source, id: "replacement-rebind-owner" };
+    const owner = await authoring.reserveSourceMaterial({
+      actor,
+      source: ownerSource,
+    });
+    const replacement = await authoring.reserveSourceMaterial({
+      actor,
+      source: replacementSource,
+    });
+    if (!owner.ok || !replacement.ok) throw new Error("Missing rebind fixture");
+    const originalPractice = {
+      ...practice,
+      practiceId: "inside-content:obsolete-rebind",
+      materialId: owner.value.materialId,
+      sourceReference: {
+        materialSourceId: ownerSource.id,
+        materialSourceRevision: ownerSource.revision,
+      },
+      idempotencyKey: "create-rebind-practice",
+    };
+    const before = await authoring.applySourcePractice(originalPractice);
+    if (!before.ok) throw new Error(before.error.code);
+    const results = await Promise.all([
+      authoring.deleteSourceDraft({
+        actor,
+        materialId: owner.value.materialId,
+        sourceId: ownerSource.id,
+        expectedContentVersion: 1,
+        idempotencyKey: "delete-rebind-owner",
+        expectedLegacyPractices: [
+          {
+            practiceId: before.value.practiceId,
+            practiceVersion: before.value.practiceVersion,
+            definitionDigest: before.value.definitionDigest,
+          },
+        ],
+      }),
+      authoring.applySourcePractice({
+        ...originalPractice,
+        materialId: replacement.value.materialId,
+        expectedPracticeVersion: before.value.practiceVersion,
+        sourceReference: {
+          materialSourceId: replacementSource.id,
+          materialSourceRevision: replacementSource.revision,
+        },
+        idempotencyKey: "move-practice-to-replacement",
+      }),
+    ]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(
+      await authoring.loadMaterial({
+        actor,
+        materialId: replacement.value.materialId,
+      }),
+    ).toMatchObject({ ok: true });
+  });
 });

@@ -41227,6 +41227,39 @@
                     "minimum": 0,
                     "type": "integer"
                   },
+                  "expectedLegacyPractices": {
+                    "default": [],
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "definitionDigest": {
+                          "format": "sha256_hex",
+                          "pattern": "^[0-9a-fA-F]{64}$",
+                          "type": "string"
+                        },
+                        "practiceId": {
+                          "maxLength": 200,
+                          "minLength": 1,
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$",
+                          "type": "string"
+                        },
+                        "practiceVersion": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "practiceId",
+                        "practiceVersion",
+                        "definitionDigest"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
                   "materialId": {
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -41239,6 +41272,7 @@
                   }
                 },
                 "required": [
+                  "expectedLegacyPractices",
                   "sourceId",
                   "materialId",
                   "expectedContentVersion"
@@ -58514,6 +58548,37 @@
                         "origin"
                       ],
                       "type": "object"
+                    },
+                    "legacyPractices": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "definitionDigest": {
+                            "format": "sha256_hex",
+                            "pattern": "^[0-9a-fA-F]{64}$",
+                            "type": "string"
+                          },
+                          "practiceId": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$",
+                            "type": "string"
+                          },
+                          "practiceVersion": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "practiceId",
+                          "practiceVersion",
+                          "definitionDigest"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "materialId": {
                       "format": "uuid",

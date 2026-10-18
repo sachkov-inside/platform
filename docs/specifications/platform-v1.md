@@ -397,6 +397,11 @@ Never-published source-owned drafts can be removed only through the manager-auth
 source-owned records. Source deletion refuses Product membership and a primary Video; it never
 requests external video deletion. Existing lifecycle, reference locks and database constraints
 remain in force. Repeating the same successful delete returns its receipt after the row is gone.
+The authoring Material response includes legacy practice IDs, versions and definition digests.
+Deleting a draft with such dependencies requires the exact `expectedLegacyPractices` selection;
+omitted, extra or changed definitions reject the transaction. Only unpublished current definitions
+bound to that exact source are removed with the Material. Practice identity locks precede the
+Material lock, matching the import/rebind order. Import receipts and Product Task histories remain.
 Published or previously published Materials keep their identity and can only be unpublished.
 This operation permanently retires a source identity; reimporting a deleted source is not a
 recovery path. Recovery requires the verified database backup, not an automatic reader restore.

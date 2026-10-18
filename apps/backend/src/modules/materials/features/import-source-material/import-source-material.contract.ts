@@ -14,16 +14,20 @@ import type {
 } from "../save-material/save-material.contract.js";
 import type { Result } from "../../result.js";
 import type { DeleteDraftOperation } from "../delete-draft/delete-draft.contract.js";
+import { legacyPracticeSelectionsSchema } from "../../domain/practice-definition.js";
 
 export const deleteSourceDraftBodySchema = z
   .object({
+    expectedLegacyPractices: legacyPracticeSelectionsSchema
+      .optional()
+      .default([]),
     sourceId: authoringSourceIdSchema,
     materialId: z.uuid(),
     expectedContentVersion: z.number().int().positive(),
   })
   .strict();
 export type DeleteSourceDraftOperation = (
-  command: z.infer<typeof deleteSourceDraftBodySchema> & {
+  command: z.input<typeof deleteSourceDraftBodySchema> & {
     readonly actor: string;
     readonly idempotencyKey: string;
   },
