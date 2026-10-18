@@ -513,7 +513,8 @@ describe("initial Membership Evidence", () => {
       diagnostic_code: "platform_http_410",
       attempt_count: 2,
     });
-    expect(JSON.stringify(stored.envelope)).toBe(requests[0]?.body);
+    const deliveredEnvelope: unknown = JSON.parse(String(requests[0]?.body));
+    expect(stored.envelope).toEqual(deliveredEnvelope);
     await expect(
       database
         .selectFrom("membership_check_results")
