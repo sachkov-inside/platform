@@ -293,5 +293,5 @@ if (
       trial.failures.length > 0,
   )
 )
-  process.exitCode = 1;
+  process.exitCode ??= 1;
 console.log(`Evidence: ${join(output, "summary.json")}`);
