@@ -14,9 +14,9 @@ describe("production access pass MCP answers", () => {
     const content = { type: "text", text: JSON.stringify(denial) };
     const rpc = (result: unknown) =>
       JSON.stringify({ jsonrpc: "2.0", id: 1, result });
-    expect(() =>
-      assertMcpDenial(rpc({ content: [content] }), "practice_not_available"),
-    ).not.toThrow();
+    expect(() => {
+      assertMcpDenial(rpc({ content: [content] }), "practice_not_available");
+    }).not.toThrow();
     const leaking = [
       { content: [content, { type: "text", text: "protected context" }] },
       {
@@ -38,9 +38,9 @@ describe("production access pass MCP answers", () => {
       { content: [content], context: "protected context" },
     ];
     for (const result of leaking)
-      expect(() =>
-        assertMcpDenial(rpc(result), "practice_not_available"),
-      ).toThrow();
+      expect(() => {
+        assertMcpDenial(rpc(result), "practice_not_available");
+      }).toThrow();
   });
   it("reads the owner MCP result, which has no value field", () => {
     expect(
