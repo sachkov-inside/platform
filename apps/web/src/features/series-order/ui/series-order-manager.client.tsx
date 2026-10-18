@@ -1029,49 +1029,11 @@ function ChapterSection({
         </div>
       )}
       {chapter === null ? null : (
-        <details className="my-3 text-sm">
-          <summary className="w-fit cursor-pointer rounded-md py-2 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
-            Дополнительные материалы
-          </summary>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Ссылки вне шагов программы. Состав и прогресс главы не изменяются.
-          </p>
-          {supplementaryOptions.length === 0 ? (
-            <p className="text-muted-foreground">
-              Добавьте материал в продукт.
-            </p>
-          ) : (
-            supplementaryOptions.map((item) => (
-              <label
-                className="flex min-h-11 items-center gap-3"
-                key={item.materialId}
-              >
-                <input
-                  type="checkbox"
-                  className="size-4 accent-current"
-                  checked={
-                    chapter.supplementaryMaterialIds?.includes(
-                      item.materialId,
-                    ) ?? false
-                  }
-                  onChange={(event) => {
-                    actions.editChapter(chapter.id, {
-                      supplementaryMaterialIds: event.currentTarget.checked
-                        ? [
-                            ...(chapter.supplementaryMaterialIds ?? []),
-                            item.materialId,
-                          ]
-                        : (chapter.supplementaryMaterialIds ?? []).filter(
-                            (id) => id !== item.materialId,
-                          ),
-                    });
-                  }}
-                />
-                <span>{item.title}</span>
-              </label>
-            ))
-          )}
-        </details>
+        <SupplementaryMaterialChoices
+          chapter={chapter}
+          items={supplementaryOptions}
+          actions={actions}
+        />
       )}
       {entries.length === 0 ? (
         <p className="px-2 py-5 text-sm text-muted-foreground">
@@ -1422,4 +1384,123 @@ function composition(
       stepGroup: presentText(stepGroup?.trim()) ?? null,
     })),
   };
+}
+
+function SupplementaryMaterialChoices({
+  chapter,
+  items,
+  actions,
+}: {
+  readonly chapter: ProductChapterPresentation;
+  readonly items: readonly SeriesOrderItemPresentation[];
+  readonly actions: CompositionActions;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const matching = expanded
+    ? items.filter((item) =>
+        item.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+      )
+    : [];
+  const currentPage = Math.min(
+    page,
+    Math.max(0, Math.ceil(matching.length / 20) - 1),
+  );
+  return (
+    <details
+      className="my-3 text-sm"
+      onToggle={(event) => {
+        setExpanded(event.currentTarget.open);
+      }}
+    >
+      <summary className="w-fit cursor-pointer rounded-md py-2 text-muted-foreground focus-visible:outline-2 focus-visible:outline-ring">
+        Дополнительные материалы
+      </summary>
+      {expanded ? (
+        <>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Ссылки вне шагов программы. Состав и прогресс главы не изменяются.
+          </p>
+          {items.length === 0 ? (
+            <p className="text-muted-foreground">
+              Добавьте материал в продукт.
+            </p>
+          ) : (
+            <>
+              <label className="block text-sm">
+                Поиск дополнительных материалов
+                <input
+                  className="mt-1 block min-h-11 w-full rounded-lg border border-input bg-background px-3"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.currentTarget.value);
+                    setPage(0);
+                  }}
+                />
+              </label>
+              {matching
+                .slice(currentPage * 20, (currentPage + 1) * 20)
+                .map((item) => (
+                  <label
+                    className="flex min-h-11 items-center gap-3"
+                    key={item.materialId}
+                  >
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-current"
+                      checked={
+                        chapter.supplementaryMaterialIds?.includes(
+                          item.materialId,
+                        ) ?? false
+                      }
+                      onChange={(event) => {
+                        actions.editChapter(chapter.id, {
+                          supplementaryMaterialIds: event.currentTarget.checked
+                            ? [
+                                ...(chapter.supplementaryMaterialIds ?? []),
+                                item.materialId,
+                              ]
+                            : (chapter.supplementaryMaterialIds ?? []).filter(
+                                (id) => id !== item.materialId,
+                              ),
+                        });
+                      }}
+                    />
+                    <span>{item.title}</span>
+                  </label>
+                ))}
+              <div className="my-2 flex flex-wrap items-center gap-2 text-sm">
+                <span>
+                  {matching.length === 0
+                    ? "Материалы не найдены"
+                    : `${String(currentPage * 20 + 1)}–${String(Math.min((currentPage + 1) * 20, matching.length))} из ${String(matching.length)}`}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={currentPage === 0}
+                  onClick={() => {
+                    setPage(currentPage - 1);
+                  }}
+                >
+                  Назад по списку
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={(currentPage + 1) * 20 >= matching.length}
+                  onClick={() => {
+                    setPage(currentPage + 1);
+                  }}
+                >
+                  Дальше по списку
+                </Button>
+              </div>
+            </>
+          )}
+        </>
+      ) : null}
+    </details>
+  );
 }

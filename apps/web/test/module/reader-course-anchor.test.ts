@@ -123,3 +123,22 @@ it("keeps course context without inventing an origin for programme reference lin
     "/materials/aie-product-brief?from=%2Fproducts%2Fcourse%2Fprogramme#download",
   );
 });
+
+describe("placement identity validation", () => {
+  it("normalizes a valid uppercase placement and rejects an invalid UUID variant", () => {
+    expect(
+      parseReaderCourseAnchor(
+        "material:lesson:95000000-0000-4000-A000-000000000001",
+      ),
+    ).toEqual({
+      kind: "material",
+      slug: "lesson",
+      placementId: "95000000-0000-4000-a000-000000000001",
+    });
+    expect(
+      parseReaderCourseAnchor(
+        "material:lesson:95000000-0000-4000-0000-000000000001",
+      ),
+    ).toBeUndefined();
+  });
+});

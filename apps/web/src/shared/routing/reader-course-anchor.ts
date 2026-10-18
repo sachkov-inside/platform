@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 
@@ -15,17 +16,24 @@ export function parseReaderCourseAnchor(
 ): ReaderCourseAnchor | undefined {
   if (typeof value !== "string" || value.length > 200) return undefined;
   const match =
-    /^(material|task):([a-z0-9]+(?:-[a-z0-9]+)*)(?::([a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}))?$/u.exec(
-      value,
-    );
+    /^(material|task):([a-z0-9]+(?:-[a-z0-9]+)*)(?::([^:]+))?$/u.exec(value);
   if (match?.[2] === undefined) return undefined;
+  const placementId = parseReaderPlacementId(match[3]);
+  if (match[3] !== undefined && placementId === undefined) return undefined;
   return match[1] === "task"
     ? { kind: "task", code: match[2] }
     : {
         kind: "material",
         slug: match[2],
-        ...(match[3] === undefined ? {} : { placementId: match[3] }),
+        ...(placementId === undefined ? {} : { placementId }),
       };
+}
+
+/** Normalize only a validated placement identity supplied by a Reader URL. */
+export function parseReaderPlacementId(value: unknown): string | undefined {
+  return typeof value === "string"
+    ? z.uuid().safeParse(value.toLowerCase()).data
+    : undefined;
 }
 
 export function readerCourseAnchorValue(anchor: ReaderCourseAnchor): string {

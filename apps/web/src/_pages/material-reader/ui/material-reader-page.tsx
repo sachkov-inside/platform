@@ -8,6 +8,7 @@ import { proseLinkClassName } from "@/shared/ui/prose-link";
 import {
   anchoredMaterialHref,
   parseReaderCourseAnchor,
+  parseReaderPlacementId,
   type ReaderCourseAnchor,
 } from "@/shared/routing/reader-course-anchor";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -617,11 +618,8 @@ function workspaceReturnTo(slug: string, query: WorkspaceQuery): string {
     ) ?? href,
     "https://inside.local",
   );
-  if (
-    typeof query.placement === "string" &&
-    /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(query.placement)
-  )
-    url.searchParams.set("placement", query.placement);
+  const placementId = parseReaderPlacementId(query.placement);
+  if (placementId !== undefined) url.searchParams.set("placement", placementId);
   return `${url.pathname}${url.search}`;
 }
 
