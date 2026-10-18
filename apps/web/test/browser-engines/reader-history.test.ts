@@ -126,3 +126,45 @@ for (const engine of [chromium, webkit])
       await browser?.close();
     }
   }, 30_000);
+
+for (const engine of [chromium, webkit])
+  test(`${engine.name()} retains the origin when an intermediate reference has not activated its Tracker`, async () => {
+    const browser = await engine.launch();
+    try {
+      const page = await browser.newPage();
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page.locator("#project").evaluate((element) => {
+        if (element instanceof HTMLAnchorElement)
+          element.href += "&deferHistory=1";
+      });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await browserExpect(page.getByRole("heading")).toHaveText(
+        "/materials/project",
+      );
+      browserExpect(
+        await page.evaluate(
+          () =>
+            Reflect.get(window.history.state ?? {}, "insideReader") !==
+            undefined,
+        ),
+      ).toBe(false);
+      await page.locator("#brief").click();
+      await browserExpect(page.getByRole("heading")).toHaveText(
+        "/materials/brief",
+      );
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+    } finally {
+      await browser.close();
+    }
+  }, 30_000);

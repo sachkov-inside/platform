@@ -40,6 +40,21 @@ function state() {
 function preserveReaderHistoryEntry() {
   if (preservationInstalled) return;
   preservationInstalled = true;
+  // Reference links can be usable before their streamed page installs its Tracker.
+  // Keep the existing origin across that gap without creating a new identity or view.
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (entry()?.href === window.location.href) return;
+      const link =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+      if (link !== null)
+        prepareReaderHistory(event, undefined, readerHistoryRoot(link));
+    },
+    true,
+  );
   const replace = window.history.replaceState.bind(window.history);
   window.history.replaceState = (data: unknown, unused, url) => {
     const current = entry();
@@ -83,7 +98,7 @@ function contentScroller(root: ParentNode): Element | null {
 /** Positions belong to an individual browser history entry, never a last-course preference. */
 export function saveReaderHistoryView(root: ParentNode = document) {
   const current = entry();
-  if (current === undefined) return;
+  if (current === undefined || current.href !== window.location.href) return;
   const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
@@ -217,7 +232,12 @@ export function prepareReaderHistory(
   )
     return;
   const current = entry();
-  if (current === undefined) return;
+  if (current?.href !== window.location.href) {
+    const origin =
+      pending?.target === window.location.href ? pending.origin : undefined;
+    if (origin !== undefined) pending = { target: target.href, origin };
+    return;
+  }
   const inherited = originHref === undefined ? undefined : current.origin;
   pending = {
     target: target.href,

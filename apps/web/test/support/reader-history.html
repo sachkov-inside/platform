@@ -20,10 +20,15 @@
       function render() {
         const supplementary = location.pathname.startsWith("/materials/");
         document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><details data-course-chapter-id="stale"><summary>Stale chapter</summary></details><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside data-course-chapter="second"><details data-course-chapter-id="second"><summary>Second chapter</summary><p>Expanded chapter</p></details><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main></div>`;
-        enterReaderHistory(
-          supplementary ? source : undefined,
-          readerHistoryRoot(document.querySelector("#project")),
-        );
+        // Model a streamed intermediate document whose links arrive before its Tracker.
+        if (!(
+          location.pathname === "/materials/project" &&
+          location.search.includes("deferHistory=1")
+        ))
+          enterReaderHistory(
+            supplementary ? source : undefined,
+            readerHistoryRoot(document.querySelector("#project")),
+          );
         // Completing a streamed page or refreshing it replaces the router's state at the same URL.
         history.replaceState({ __NA: true }, "", location.href);
         document.querySelector("#return").href =
