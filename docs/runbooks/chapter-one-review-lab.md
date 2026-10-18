@@ -94,6 +94,14 @@ Only after seeing a conforming exact report does the runner send an explicit scr
 It confirms code, reviewed version, report, note and the nullable service mark. Submitted fields must match exactly (null mark fields are omitted from the request). A successful receipt must identify the same task/version; history must contain that exact submission ID and content. The runner also retries the same submission. The
 contract-only run separately covers history isolation, author feedback and obsolete versions.
 
+The command audit is a conservative recognizer of recorded events, not an isolation boundary.
+Unknown syntax needs inspection of `unconsentedCommands` and the transcript before concluding that
+the agent executed the project. `run-claim-needs-review` also blocks automatic confirmation:
+read-only Git commands can expose an ambiguity in the protocol's `obtainedByRun` wording.
+
+See the [first chapter-one experiment](../verification/chapter-one-review-lab.md) for preserved
+machine outcomes, semantic findings and corrected-fixture reruns.
+
 Machine results do not establish pedagogical quality. Inspect the full reports for specific,
 actionable comments, acceptance of permitted alternatives, unsupported success claims and the
 distinction between absent evidence and an observed defect. Preserve failures and invalid harness
