@@ -311,6 +311,7 @@ void test("quoted search alternatives and readonly Git options stay reading; exe
   assert.deepEqual(
     unconsentedReviewCommands([
       `/bin/bash -c "rg -n 'DATABASE_URL|SELECT|Pool' apps; git --no-optional-locks status --porcelain=v1; rg --files | sort"`,
+      `/bin/bash -c 'pwd\ncat AGENTS.md\ngit status --porcelain=v1'`,
       `git config --local --get-regexp '^remote\\..*\\.url$'`,
     ]),
     [],
@@ -321,6 +322,8 @@ void test("quoted search alternatives and readonly Git options stay reading; exe
     "cat $(node scripts/check.mjs)",
     "git config --local user.name learner",
     "/project/cat AGENTS.md",
+    "cat AGENTS.md\nnode scripts/check.mjs",
+    "cat AGENTS.md # quoted comment '\nnode scripts/check.mjs",
   ]) {
     assert.ok(unconsentedReviewCommands([command]).length > 0, command);
   }

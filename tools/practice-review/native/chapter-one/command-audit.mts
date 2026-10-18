@@ -15,9 +15,9 @@ export function unconsentedReviewCommands(
 }
 
 function audit(line: string, depth: number): string[] {
-  if (depth > 3 || /[\n\r]|\$\(|`/u.test(line)) return [line];
+  if (depth > 3 || /\$\(|`/u.test(line)) return [line];
   // Empty environment avoids consulting host values while parsing untrusted command text.
-  const tokens = parse(line, {});
+  const tokens = parse(delimitLines(line), {});
   if (
     tokens.length === 3 &&
     typeof tokens[0] === "string" &&
@@ -55,6 +55,50 @@ function audit(line: string, depth: number): string[] {
   }
   flush();
   return units.filter((unit) => !reading(unit)).map((unit) => quote(unit));
+}
+
+/** shell-quote treats line breaks as whitespace; shell command boundaries must survive. */
+function delimitLines(line: string) {
+  let quoted: "'" | '"' | undefined;
+  let comment = false;
+  let result = "";
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    const next = line[index + 1];
+    if (comment) {
+      if (character === "\n" || character === "\r") {
+        comment = false;
+        result += ";";
+      }
+      continue;
+    }
+    if (character === "\\" && quoted !== "'") {
+      if (next !== "\n" && next !== "\r") result += character + (next ?? "");
+      index += 1;
+      continue;
+    }
+    if (
+      (character === "'" || character === '"') &&
+      (quoted === undefined || quoted === character)
+    )
+      quoted = quoted === undefined ? character : undefined;
+    else if (quoted === undefined) {
+      if (
+        character === "#" &&
+        (index === 0 || /[\s;|&()<>]/u.test(line[index - 1] ?? ""))
+      ) {
+        comment = true;
+        continue;
+      }
+      if (character === "\n" || character === "\r") {
+        result += ";";
+        continue;
+      }
+    }
+    result += character;
+  }
+  if (quoted !== undefined) throw Error("Unterminated shell quote");
+  return result;
 }
 
 function reading(input: readonly string[]) {
