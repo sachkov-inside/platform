@@ -16,10 +16,7 @@ import {
   isDeferredTelegramSignInReceipt,
   readConfirmedTelegramLink,
 } from "../../infrastructure/persistence/confirmed-telegram-link.js";
-import type {
-  AccountRights,
-  MembershipEvidenceAcceptance,
-} from "../../../account-rights/index.js";
+import type { AccountRights } from "../../../account-rights/index.js";
 import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
@@ -31,6 +28,7 @@ import type {
   AccountTelegramLinkState,
   AccountTelegramMembershipResult,
   PendingLinkConfirmationReport,
+  TelegramEvidenceAcceptance,
   TelegramLinkResult,
   TelegramLinkState,
   TelegramMembership,
@@ -40,6 +38,7 @@ const principalEnvelopeSchema = z.looseObject({
   principalRef: z.string().min(1).max(256),
 });
 const linkRefSchema = z.uuid();
+const unfinishedLinkStatuses = ["pending", "registering", "unavailable"];
 
 export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
@@ -106,7 +105,7 @@ export function assembleTelegramMembership(
     },
     async acceptEvidence(command) {
       try {
-        return await acceptEvidence(dependencies, command);
+        return await acceptEvidence(dependencies, command, clock());
       } catch (error) {
         return dependencyFailure(
           { module: "telegram-membership", operation: "acceptEvidence" },
@@ -530,23 +529,48 @@ async function confirmPendingLinks(
 async function acceptEvidence(
   dependencies: TelegramMembershipDependencies,
   command: AcceptTelegramEvidenceCommand,
-): Promise<MembershipEvidenceAcceptance> {
+  now: Date,
+): Promise<TelegramEvidenceAcceptance> {
   const envelope = principalEnvelopeSchema.safeParse(command.evidence);
   if (!envelope.success) {
     return { ok: false, error: { code: "invalid_evidence" } };
   }
-  const link = await dependencies.prisma.telegramLinkTransaction.findUnique({
-    where: { principalRef: envelope.data.principalRef },
-  });
+  const candidate =
+    await dependencies.prisma.telegramLinkTransaction.findUnique({
+      where: { principalRef: envelope.data.principalRef },
+    });
+  if (candidate === null) {
+    return { ok: false, error: { code: "principal_mismatch" } };
+  }
+  let link = candidate;
   if (
-    link !== null &&
-    (link.status === "pending" ||
-      link.status === "registering" ||
-      link.status === "unavailable")
+    unfinishedLinkStatuses.includes(candidate.status) &&
+    candidate.expiresAt <= now
   ) {
+    // Serialize expiry with finalization: a stale registering read must never expire a linked receipt.
+    link = await dependencies.prisma.$transaction(async (prisma) => {
+      await lockTelegramMembershipLink(prisma, candidate.accountId);
+      await prisma.telegramLinkTransaction.updateMany({
+        where: {
+          linkRef: candidate.linkRef,
+          status: { in: unfinishedLinkStatuses },
+          expiresAt: { lte: now },
+        },
+        data: { status: "expired", updatedAt: now },
+      });
+      return prisma.telegramLinkTransaction.findUniqueOrThrow({
+        where: { linkRef: candidate.linkRef },
+      });
+    });
+  }
+  if (link.status === "expired") {
+    // The provider receipt remains resumable after personal terms acceptance; only this delivery stops.
+    return { ok: false, error: { code: "link_expired" } };
+  }
+  if (unfinishedLinkStatuses.includes(link.status)) {
     return { ok: false, error: { code: "unavailable" } };
   }
-  if (link?.status !== "linked") {
+  if (link.status !== "linked") {
     return { ok: false, error: { code: "principal_mismatch" } };
   }
   return dependencies.accountRights.acceptEvidence({

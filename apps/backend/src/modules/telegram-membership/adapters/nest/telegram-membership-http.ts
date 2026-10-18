@@ -2,11 +2,11 @@ import { z } from "zod";
 
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
-import {
-  membershipEvidenceSchema,
-  type MembershipEvidenceAcceptance,
-} from "../../../account-rights/index.js";
-import type { TelegramLinkResult } from "../../facets/telegram-membership/telegram-membership.interface.js";
+import { membershipEvidenceSchema } from "../../../account-rights/index.js";
+import type {
+  TelegramEvidenceAcceptance,
+  TelegramLinkResult,
+} from "../../facets/telegram-membership/telegram-membership.interface.js";
 
 export const evidenceDeliveryIdSchema = z.string().trim().min(1).max(256);
 export const evidenceSourceSchema = z.enum([
@@ -137,7 +137,7 @@ export function throwTelegramAccountPresentationError(): never {
 }
 
 export function throwEvidenceError(
-  result: Extract<MembershipEvidenceAcceptance, { readonly ok: false }>,
+  result: Extract<TelegramEvidenceAcceptance, { readonly ok: false }>,
 ): never {
   const status = evidenceFailureStatus(result.error.code);
   throw problemException(
@@ -165,7 +165,7 @@ export function throwEvidenceAuthenticationRequired(): never {
 
 function evidenceFailureStatus(
   code: Extract<
-    MembershipEvidenceAcceptance,
+    TelegramEvidenceAcceptance,
     { readonly ok: false }
   >["error"]["code"],
 ): number {
@@ -173,6 +173,8 @@ function evidenceFailureStatus(
     case "unsupported_contract":
     case "invalid_evidence":
       return 400;
+    case "link_expired":
+      return 410;
     case "expired_evidence":
       return 422;
     case "principal_mismatch":

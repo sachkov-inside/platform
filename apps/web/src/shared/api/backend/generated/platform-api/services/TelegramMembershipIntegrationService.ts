@@ -83,6 +83,7 @@ export class TelegramMembershipIntegrationService {
         400: `Envelope or contract version is invalid`,
         401: `Integration credential is invalid`,
         409: `Principal or evidence revision conflicts`,
+        410: `Unfinished Telegram link expired; stop this evidence delivery`,
         422: `Evidence is expired`,
         503: `Evidence application is unavailable`,
       },

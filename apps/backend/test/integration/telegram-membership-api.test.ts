@@ -11,7 +11,7 @@ import {
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -279,6 +279,52 @@ describe("Telegram Membership API", () => {
         typeof value === "bigint" ? value.toString() : value,
     );
     expect(serializedReceipts).not.toContain("telegramUserId");
+  });
+
+  test("returns terminal 410 for an expired registration, including fresh observations", async () => {
+    const ownerToken = await signToken("abandoned-link-owner");
+    await establish(ownerToken);
+    const begun = await authenticated(
+      "POST",
+      "/accounts/current/telegram-link",
+      ownerToken,
+    );
+    const pending = readPendingLink(begun.json<unknown>());
+    const registration = provider.registrations.at(-1)?.body["accountRef"];
+    if (typeof registration !== "string") throw new Error("Missing principal");
+    await database.prisma.telegramLinkTransaction.update({
+      where: { linkRef: pending.linkRef },
+      data: {
+        status: "registering",
+        providerIdentityRef: "telegram-abandoned-identity",
+      },
+    });
+    const headers = {
+      authorization: `Bearer ${evidenceSecret}`,
+      deliveryId: "abandoned-api-evidence",
+      source: "reconciliation",
+    };
+    // deterministic-test-allow wall-clock: registerFixedClock owns Date for this case.
+    const now = new Date();
+    expect(
+      (await deliver(evidence(registration, now), headers)).statusCode,
+    ).toBe(503);
+    vi.setSystemTime(new Date(now.getTime() + 300000));
+    for (const deliveryId of [
+      headers.deliveryId,
+      "fresh-abandoned-api-evidence",
+    ]) {
+      const response = await deliver(
+        evidence(registration, new Date(now.getTime() + 300000)),
+        {
+          ...headers,
+          deliveryId,
+        },
+      );
+      expect(response.statusCode).toBe(410);
+      expect(response.json()).toMatchObject({ code: "link_expired" });
+      expect(response.headers["cache-control"]).toBe("private, no-store");
+    }
   });
 
   function authenticated(method: "GET" | "POST", url: string, token: string) {

@@ -245,6 +245,20 @@ a short waiting status, and explicit “Подтвердить вход” / “
 returns the original browser to Platform. The screen omits account/recovery explanations and
 number matching; this changes presentation, not browser binding or one-time proof checks.
 
+Unfinished Platform link transactions (`registering`, `pending`, `unavailable`) have a bounded
+membership-evidence delivery window: on ingress at or after `expiresAt`, Platform records `expired`
+under the same Account lock as link finalization and returns HTTP `410 link_expired`. Before that
+deadline it returns retryable `503 unavailable`. A linked transaction does not expire with the
+start-token window. Telegram treats 410 as terminal `rejected`, keeping the original delivery key,
+envelope, attempt counter and retained check history; transport failures and 5xx remain retryable.
+This is an unfinished sign-in outcome, not a payment failure or a provider-wide outage.
+
+Expiry does not erase the verified provider receipt or its principal. Personal acceptance of the
+current terms can still complete or resume that same sign-in; expiry itself never accepts terms,
+finalizes an Account binding or grants rights. Once linked, subsequent fresh observations can be
+accepted normally. Terminal outbox entries are not replayed automatically; reconciliation supplies
+fresh evidence rather than reviving expired observations.
+
 `TELEGRAM_SIGN_IN_ENABLED` defaults off in Platform, connector provisioning and the provider.
 Disabling blocks start, waiting, proof consumption and callback completion, including returning
 Accounts. Ordinary session resolution and email remain unchanged. The local setup and synthetic
