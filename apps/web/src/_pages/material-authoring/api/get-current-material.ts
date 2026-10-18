@@ -45,6 +45,19 @@ const currentMaterialSchema = z
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     materialId: z.uuid(),
     latestVideoDeletion: authoringVideoSchema.nullable(),
+    legacyPractices: z
+      .array(
+        z.strictObject({
+          practiceId: z.string().min(1),
+          practiceVersion: z
+            .number()
+            .int()
+            .positive()
+            .max(Number.MAX_SAFE_INTEGER),
+          definitionDigest: z.hash("sha256"),
+        }),
+      )
+      .optional(),
     metadata: z
       .object({
         access: z.enum(["free", "closed"]),
