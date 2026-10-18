@@ -51,6 +51,7 @@ describe("HttpPlatformEvidenceAdapter", () => {
 
   it.each([
     [401, "rejected"],
+    [410, "rejected"],
     [422, "rejected"],
     [429, "retryable"],
     [503, "retryable"],

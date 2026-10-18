@@ -71,6 +71,10 @@ export interface AcceptTelegramEvidenceCommand {
   readonly source: MembershipEvidenceSource;
 }
 
+export type TelegramEvidenceAcceptance =
+  | MembershipEvidenceAcceptance
+  | Readonly<{ ok: false; error: { readonly code: "link_expired" } }>;
+
 export interface TelegramMembership {
   readAccountPresentation(query: {
     readonly accountId: AccountId;
@@ -84,7 +88,7 @@ export interface TelegramMembership {
   }): Promise<TelegramLinkResult>;
   acceptEvidence(
     command: AcceptTelegramEvidenceCommand,
-  ): Promise<MembershipEvidenceAcceptance>;
+  ): Promise<TelegramEvidenceAcceptance>;
   /**
    * Фоновый проход: завершает привязки, которые человек начал в боте, без его возврата на сайт.
    * Бросает исключение при сбое базы; сбой Telegram остаётся состоянием привязки.

@@ -7,7 +7,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -327,6 +327,121 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     }),
   ).toMatchObject({ status: "recovery_required" });
 });
+
+test.each(["complete", "resume"] as const)(
+  "an abandoned registration stops evidence retries but %s still finalizes after personal terms acceptance",
+  async (completion) => {
+    const accounts = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: fingerprintKey,
+    });
+    const accountRights = assembleAccountRights({ prisma: database.prisma });
+    const telegramIdentityRef = randomUUID();
+    const signIn = new TelegramAccountSignIn({
+      accounts,
+      prisma: database.prisma,
+      accountRights,
+      terms,
+      provider: {
+        bindAccount: () =>
+          Promise.resolve({ status: "linked", telegramIdentityRef }),
+      },
+    });
+    const identity = proof(`abandoned-evidence-${completion}`).identity;
+    const first = await signIn.complete(identity);
+    if (!first.ok) throw new Error(first.error.code);
+    const receipt =
+      await database.prisma.telegramLinkTransaction.findFirstOrThrow({
+        where: { accountId: first.account.accountId },
+      });
+    const membership = assembleTelegramMembership({
+      prisma: database.prisma,
+      accountRights,
+      botStartUrl: "https://t.me/inside_test_bot",
+      linkLifetimeMs: 300000,
+      provider: {
+        register: () => {
+          throw new Error("Must retain the principal");
+        },
+        confirm: () => {
+          throw new Error("Must use sign-in completion");
+        },
+      },
+    });
+    const observation = (checkedAt: Date, evidenceVersion: number) => ({
+      contractVersion: "inside.membership-evidence.v1",
+      principalRef: receipt.principalRef,
+      telegramIdentityRef,
+      decision: "member",
+      reasonCode: "chat_member",
+      checkedAt: checkedAt.toISOString(),
+      validUntil: new Date(checkedAt.getTime() + 300000).toISOString(),
+      evidenceRef: `abandoned-evidence-${completion}-${evidenceVersion}`,
+      evidenceVersion,
+    });
+    vi.setSystemTime(receipt.expiresAt);
+    const delivery = {
+      deliveryId: `abandoned-delivery-${completion}`,
+      evidence: observation(receipt.expiresAt, 1),
+      source: "reconciliation" as const,
+    };
+    await expect(membership.acceptEvidence(delivery)).resolves.toEqual({
+      ok: false,
+      error: { code: "link_expired" },
+    });
+    await expect(signIn.resume(first.account)).resolves.toEqual({
+      ok: false,
+      error: { code: "unavailable" },
+    });
+    await expect(
+      accountRights.resolveForAccess(accountId(first.account.accountId)),
+    ).resolves.toEqual({ kind: "required" });
+    await expect(
+      terms.checkTerms(first.account.accountId),
+    ).resolves.toMatchObject({ ok: true, accepted: false });
+    await acceptTerms(terms, first.account.accountId);
+    const finalize = () =>
+      completion === "resume"
+        ? signIn.resume(first.account)
+        : signIn.complete(identity);
+    // Expiry and repeated finalization contend for the same Account; a linked receipt must survive.
+    const results = await Promise.all([
+      finalize(),
+      membership.acceptEvidence(delivery),
+      finalize(),
+    ]);
+    expect(results[0]).toEqual(first);
+    expect(results[2]).toEqual(first);
+    await expect(
+      membership.readAccountPresentation({
+        accountId: accountId(first.account.accountId),
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      presentation: { link: { kind: "linked" } },
+    });
+    const freshDelivery = {
+      ...delivery,
+      deliveryId: `resumed-delivery-${completion}`,
+      evidence: observation(receipt.expiresAt, 2),
+    };
+    const accepted = await membership.acceptEvidence(freshDelivery);
+    // Modern paid/manual rights remain independent of the legacy evidence bridge.
+    expect(accepted.ok).toBe(true);
+    await expect(
+      membership.acceptEvidence(freshDelivery),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      database.prisma.telegramLinkTransaction.findUnique({
+        where: { linkRef: receipt.linkRef },
+      }),
+    ).resolves.toMatchObject({
+      status: "linked",
+      principalRef: receipt.principalRef,
+      providerIdentityRef: telegramIdentityRef,
+    });
+  },
+);
 
 test.each(["identity", "correlation"] as const)(
   "a deferred %s mismatch never publishes another provider identity or principal",
