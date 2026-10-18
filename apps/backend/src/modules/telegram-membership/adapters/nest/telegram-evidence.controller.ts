@@ -87,6 +87,12 @@ export class TelegramEvidenceController {
     content: problemDetailsContent(telegramMembershipProblemSchema),
   })
   @ApiResponse({
+    status: 410,
+    description:
+      "Unfinished Telegram link expired; stop this evidence delivery",
+    content: problemDetailsContent(telegramMembershipProblemSchema),
+  })
+  @ApiResponse({
     status: 422,
     description: "Evidence is expired",
     content: problemDetailsContent(telegramMembershipProblemSchema),

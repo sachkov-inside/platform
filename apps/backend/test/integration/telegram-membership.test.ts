@@ -55,6 +55,59 @@ describe("TelegramMembership", () => {
     await database.dispose();
   });
 
+  test.each(["registering", "pending", "unavailable"])(
+    "expires %s evidence delivery without binding an Account or losing the provider receipt",
+    async (status) => {
+      ({ clock, entitlements, membership } = fixture(database));
+      const begun = await membership.beginLink({ accountId: firstAccountId });
+      if (!begun.ok) throw new Error("Expected a Telegram link");
+      const receipt = await database.prisma.telegramLinkTransaction.update({
+        where: { linkRef: begun.state.linkRef },
+        data: { status, providerIdentityRef: "telegram-identity-ref-a" },
+      });
+      const command = {
+        deliveryId: "abandoned-registration-delivery",
+        source: "reconciliation" as const,
+        evidence: evidence(receipt.principalRef, "member", 1, clock.now()),
+      };
+      await expect(membership.acceptEvidence(command)).resolves.toEqual({
+        ok: false,
+        error: { code: "unavailable" },
+      });
+      clock.set(new Date("2030-01-01T00:05:00.000Z"));
+      // The same delivery must stop retrying even at the exact expiry boundary.
+      await expect(membership.acceptEvidence(command)).resolves.toEqual({
+        ok: false,
+        error: { code: "link_expired" },
+      });
+      const repeats = await Promise.all([
+        membership.acceptEvidence(command),
+        membership.acceptEvidence({
+          ...command,
+          deliveryId: "fresh-observation-of-abandoned-registration",
+          evidence: evidence(receipt.principalRef, "member", 2, clock.now()),
+        }),
+      ]);
+      expect(repeats).toEqual([
+        { ok: false, error: { code: "link_expired" } },
+        { ok: false, error: { code: "link_expired" } },
+      ]);
+      await expect(
+        entitlements.resolveForAccess(firstAccountId),
+      ).resolves.toEqual({ kind: "required" });
+      await expect(
+        database.prisma.telegramLinkTransaction.findUnique({
+          where: { linkRef: receipt.linkRef },
+        }),
+      ).resolves.toMatchObject({
+        status: "expired",
+        principalRef: receipt.principalRef,
+        providerIdentityRef: receipt.providerIdentityRef,
+        providerTransactionRef: receipt.providerTransactionRef,
+      });
+    },
+  );
+
   test("binds begin and final confirmation to one authenticated Account without granting access", async () => {
     ({ clock, entitlements, membership, provider } = fixture(database));
 

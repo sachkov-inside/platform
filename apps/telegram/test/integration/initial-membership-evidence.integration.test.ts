@@ -1,3 +1,4 @@
+import { HttpPlatformEvidenceAdapter } from "../../src/adapters/platform/http-platform-evidence.adapter.js";
 import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { linkEffects } from "../../src/application/link-effects.js";
 import { contactEffects } from "../../src/application/contact-effects.js";
@@ -461,6 +462,69 @@ describe("initial Membership Evidence", () => {
     });
     expect(recovered.evidence).toMatchObject({ evidenceVersion: 2 });
   }, 10_000);
+
+  it("stops an expired registration delivery after HTTP 410 while retaining its evidence and attempt count", async () => {
+    const confirmation = await confirmLink("42");
+    const provider = new MembershipEvidenceProvider(
+      database,
+      config,
+      clock,
+      new ControlledTelegramMembership(
+        { kind: "observed", value: { status: "administrator" } },
+        { kind: "observed", value: { status: "member" } },
+      ),
+    );
+    await provider.observe({
+      checkRef: "expired-registration",
+      telegramIdentityRef: confirmation.telegramIdentityRef,
+    });
+    const requests: RequestInit[] = [];
+    const statuses = [503, 410];
+    const platform = new HttpPlatformEvidenceAdapter(
+      "https://platform.example.test/evidence",
+      "synthetic_secret",
+      (_input, init) => {
+        requests.push(init ?? {});
+        return Promise.resolve(
+          new Response(undefined, { status: statuses.shift() ?? 500 }),
+        );
+      },
+    );
+    const deliveries = new MembershipEvidenceDeliveryProcessor(
+      new MembershipEvidenceOutbox(database),
+      platform,
+    );
+    await expect(deliveries.processNext(now)).resolves.toBe("retryable");
+    await expect(
+      deliveries.processNext(new Date(now.getTime() + 300000)),
+    ).resolves.toBe("rejected");
+    await expect(
+      deliveries.processNext(new Date(now.getTime() + 600000)),
+    ).resolves.toBeUndefined();
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.body).toBe(requests[1]?.body);
+    expect(requests[0]?.headers).toEqual(requests[1]?.headers);
+    const stored = await database
+      .selectFrom("membership_evidence_outbox")
+      .selectAll()
+      .executeTakeFirstOrThrow();
+    expect(stored).toMatchObject({
+      state: "rejected",
+      diagnostic_code: "platform_http_410",
+      attempt_count: 2,
+    });
+    const deliveredBody = requests[0]?.body;
+    if (typeof deliveredBody !== "string")
+      throw new Error("Expected a JSON body");
+    const deliveredEnvelope: unknown = JSON.parse(deliveredBody);
+    expect(stored.envelope).toEqual(deliveredEnvelope);
+    await expect(
+      database
+        .selectFrom("membership_check_results")
+        .select("result_ref")
+        .execute(),
+    ).resolves.toHaveLength(1);
+  });
 
   it("retries the exact evidence delivery with one idempotency key", async () => {
     const confirmation = await confirmLink("42");
