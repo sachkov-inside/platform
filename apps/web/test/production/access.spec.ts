@@ -101,7 +101,7 @@ test("production access observes every live cell in one isolated scenario", asyn
     assetPath?: string | undefined;
   } = {};
 
-  async function observeCell(id: string, browser: Browser) {
+  async function observeCell(id: string, browser: Browser): Promise<Observation> {
     const { identity, action, surface, transport } = passCellParts(id);
     // deterministic-test-allow wall-clock: This live production adapter validates its seeded expired-role input against the real UTC grant owned by the remote backend.
     if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
