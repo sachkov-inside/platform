@@ -88,6 +88,24 @@ export async function runAgent(input: {
       ],
       { signal: input.signal },
     );
+    const hostAddress = z
+      .ipv4()
+      .parse(
+        (
+          await docker([
+            "run",
+            "--rm",
+            "--label",
+            `inside.chapter-lab=${input.runId}`,
+            "--network",
+            network,
+            input.image,
+            "node",
+            "-e",
+            "require('node:dns').lookup('host.docker.internal',{family:4},(e,a)=>{if(e)process.exit(1);console.log(a)})",
+          ])
+        ).stdout.trim(),
+      );
     await docker(
       [
         "run",
@@ -100,6 +118,8 @@ export async function runAgent(input: {
         `inside.chapter-lab=${input.runId}`,
         "--network",
         network,
+        "--add-host",
+        `host.docker.internal:${hostAddress}`,
         "--read-only",
         "--cap-drop",
         "ALL",
@@ -130,31 +150,6 @@ export async function runAgent(input: {
       { signal: input.signal },
     );
     const base = `http://host.docker.internal:${String(relay.port)}`;
-    const hostAddress = z
-      .ipv4()
-      .parse(
-        (
-          await docker([
-            "exec",
-            container,
-            "node",
-            "-e",
-            "require('node:dns').lookup('host.docker.internal',{family:4},(e,a)=>{if(e)process.exit(1);console.log(a)})",
-          ])
-        ).stdout.trim(),
-      );
-    await docker(
-      [
-        "exec",
-        "--user",
-        "root",
-        container,
-        "sh",
-        "-c",
-        `printf '%s\n' '${hostAddress} host.docker.internal' >> /etc/hosts`,
-      ],
-      { signal: input.signal },
-    );
     await docker(
       [
         "run",
