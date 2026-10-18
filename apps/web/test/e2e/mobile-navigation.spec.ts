@@ -301,8 +301,6 @@ test("a newer tab selection wins over an unfinished route request", async ({
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
-  await page.goto("/");
-  await expect(formatChip(page, "Все")).toBeVisible();
   let started = false;
   let release: () => void = () => undefined;
   const held = new Promise<void>((resolve) => {
@@ -314,6 +312,9 @@ test("a newer tab selection wins over an unfinished route request", async ({
     await route.continue().catch(() => undefined);
   });
   try {
+    // Register before entry: Next.js may prefetch both RSC segments immediately.
+    await page.goto("/");
+    await expect(formatChip(page, "Все")).toBeVisible();
     await navigation(page).getByRole("link", { name: "Закладки" }).click();
     await expect.poll(() => started).toBe(true);
     await expect(page).toHaveURL(/\/$/u);
