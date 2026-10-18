@@ -513,7 +513,10 @@ describe("initial Membership Evidence", () => {
       diagnostic_code: "platform_http_410",
       attempt_count: 2,
     });
-    const deliveredEnvelope: unknown = JSON.parse(String(requests[0]?.body));
+    const deliveredBody = requests[0]?.body;
+    if (typeof deliveredBody !== "string")
+      throw new Error("Expected a JSON body");
+    const deliveredEnvelope: unknown = JSON.parse(deliveredBody);
     expect(stored.envelope).toEqual(deliveredEnvelope);
     await expect(
       database
